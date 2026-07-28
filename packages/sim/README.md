@@ -378,67 +378,89 @@ is what it does to the opponent rather than to a card in play.
 ### Does it win?
 
 ```sh
-npm run headtohead -w @meccg/sim -- --games 8 --max-decisions 4000
+npm run headtohead -w @meccg/sim -- --games 12 --max-decisions 4000
 ```
 
 ```text
-  h2 9 — 7 heuristic over 16 games (56.3% of the points available)
+  h2 14 — 9 heuristic (1 drawn) over 24 games — 60.4% of the points available
 ```
 
-Sixteen games separate nothing but a landslide, and this is not one — read it as
-evidence that H2 plays whole games to completion, not as a result. `gate` is the
-tool for a verdict; `headtohead` exists because it prints each game as it
-finishes, and a run you can watch is worth more than a run you wait on.
+Twenty-four games separate nothing but a landslide, and this is not one. Two
+earlier samples ran 13-6-1 and 9-7 on other seeds; read the three together as
+"H2 is not worse than Heuristics 1 and plays every game to completion", which
+is the claim the evidence supports. `gate` is the tool for a verdict;
+`headtohead` exists because it prints each game as it finishes.
 
-That "to completion" was earned. Two self-play games ran to the decision limit
-without finishing, both cycling `split-company → plan-movement →
-merge-companies` inside a single organization phase, because `characters` valued
-a shape change and its undo both positively. Company-shape utility has to be a
-difference of one potential, `Σ harm(company)` over the whole board — then an
-accepted change strictly lowers it and the finitely many shapes cannot be
-cycled. Two separate things were breaking that, and `services/defence.ts`
-carries both, with tests:
+That "to completion" was earned. Two self-play games once ran to the decision
+limit cycling `split-company → plan-movement → merge-companies` inside one
+organization phase, because `characters` valued a shape change and its undo both
+positively. Company-shape utility has to be a difference of one potential,
+`Σ harm(company)` over the whole board. Three separate things were breaking
+that, and `services/defence.ts` carries the first two with tests:
 
 - **Order.** Strike targets are picked by lowest need with ties falling back to
   array position, so a company scored differently depending on how it had been
-  assembled: merging A into B came out at +2.61%, B into A at +2.30%, for the
-  identical result.
-- **Shape-dependent prices.** Harm was priced through `character-value`, so a
-  tap cost what `combat` pays for it — including the influence attempt the tap
-  forfeits, which depends on *which company the character is in*. Splitting
-  scored +1.28 tsd and merging the pair straight back +0.48, because the prices
-  had moved underneath the comparison.
-
-The second cost a refinement worth having: a tap that forfeits a faction attempt
-really does cost more than one that does not, and `defence` can no longer say
-so. It was the right trade. The refinement was not making the comparison more
-accurate, it was making it incoherent.
+  assembled: merging A into B came out at +2.61%, B into A at +2.30%.
+- **Shape-dependent prices.** Harm was priced through `character-value`, whose
+  tap cost includes the influence attempt the tap forfeits — which depends on
+  *which company the character is in*. Splitting scored +1.28 tsd and merging
+  the pair straight back +0.48.
+- **The engine had already said so.** `reverse-actions.ts` marks every candidate
+  that undoes this phase's progress, and Heuristics 1 had filtered on that flag
+  since before H2 existed. H2 and the Monte-Carlo searcher did not. That is now
+  `ai/regress.ts`, used by all three and by the CLIs that report what the agent
+  sees.
 
 ### Does any of it predict anything?
 
-The horizon test (§6.4) correlates what a module predicted against what the
-score actually did 1, 3 and 5 turns later. Two things had to be fixed before it
-said anything at all:
-
-- It correlated single *decisions*. Sixteen games put every module's
-  correlation indistinguishable from zero out to n=2689 — which is what that
-  measurement deserves, because one action among the hundreds taken in a turn
-  cannot explain what the score did three turns later. It now aggregates a
-  module's predictions **by turn**.
-- It failed a module on the sign of a point estimate. Two six-game samples put
-  the same module at +0.10 and -0.18. It now prints a 95% interval and fails a
-  module only when the whole interval is negative.
-
-With both fixed, over 16 games, exactly one module's interval clears zero:
+The horizon test (§6.4) correlates what a module predicted over a turn against
+what the score actually did 1, 3 and 5 turns later. Over 16 games:
 
 ```text
-  hand    h1 +0.01 [-0.07, 0.09]   h3 +0.09 [0.02, 0.17]   h5 +0.13 [0.05, 0.20]
+  (all)        h1 +0.09 [0.01, 0.17]   h3 +0.13 [0.05, 0.21]   h5 +0.11 [0.04, 0.19]
+  characters   h1 +0.25 [0.04, 0.43]   h3 +0.28 [0.08, 0.46]   h5 +0.11 [-0.10, 0.31]
+  grants       h1 +0.37 [0.19, 0.53]   h3 +0.21 [0.02, 0.39]   h5 +0.08 [-0.12, 0.27]
+  travel       h1 +0.03 [-0.09, 0.15]  h3 +0.15 [0.04, 0.27]   h5 +0.13 [0.02, 0.25]
+  hand         h1 -0.08 [-0.16, -0.00] h3 -0.10 [-0.18, -0.02] h5 -0.06 [-0.14, 0.02]
 ```
 
-That is the module whose card price stopped being flat one commit earlier, and
-it is the first evidence in this project that a module's predictions track
-anything. Every other module spans zero in both directions — not a verdict
-against them, but not support either. Treat their valuations as unverified.
+**The aggregate is positive and its interval clears zero** — the first time that
+has been true in this project. `characters`, `grants` and `travel` clear it
+individually; `combat`, `corruption`, `hazards` and `fetching` span zero, which
+is neither support nor a verdict.
+
+**`hand` now fails the gate**, and it is the module that used to be the only one
+passing it. Two explanations are open and the run cannot separate them: the card
+price now rests on `hazard-plan`'s marginal contribution rather than a solo
+valuation and may have got worse, or a module whose predictions are *shadow
+prices* — what a card is worth to keep — is being scored against realized
+marshalling points, which shadow prices never become. The second would predict a
+correlation near zero rather than reliably negative, so it does not obviously
+explain the sign. It is the top open question.
+
+Two things had to be fixed before the test said anything at all: it correlated
+single *decisions* (16 games put every module indistinguishable from zero out to
+n=2689 — one action among hundreds in a turn cannot explain a score change), and
+it failed a module on the sign of a point estimate (two six-game samples put the
+same module at +0.10 and -0.18).
+
+### Falsifiable, where it can be
+
+```sh
+npm run calibrate -w @meccg/sim -- --module grants --rollouts 4000
+```
+
+`combat` (36 claims), `resources` (3), `corruption` (2), `factions` (1) and now
+`grants` (4) are checked against the reducer: the harness replays the action
+thousands of times and asserts the observed frequency lies inside a 99% binomial
+interval of the claim.
+
+`grants` found a bug on its first run. Two claims of 83.3% in one position, one
+measuring 84.0% and the other 40.4% — the second action carried `noTap: true`,
+and the engine applies **-3 to the roll** for not tapping while publishing the
+*unmodified* threshold on both variants. `pAtLeast(5 + 3)` is 41.7%. The module
+was also charging a tap the no-tap variant does not pay, so it preferred the
+tapping variant, which is exactly backwards.
 
 ## Replay format
 
