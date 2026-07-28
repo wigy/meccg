@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 991 | 988 | 3 | 99.7% |
+| 1008 | 1005 | 3 | 99.7% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 88 | 88 | 100.0% |
-| BA | 95 | 95 | 100.0% |
+| AS | 93 | 93 | 100.0% |
+| BA | 96 | 96 | 100.0% |
 | DM | 86 | 86 | 100.0% |
-| LE | 280 | 278 | 99.3% |
-| TD | 71 | 71 | 100.0% |
-| TW | 289 | 288 | 99.7% |
+| LE | 285 | 283 | 99.3% |
+| TD | 72 | 72 | 100.0% |
+| TW | 294 | 293 | 99.7% |
 | WH | 82 | 82 | 100.0% |
 
 ## Detailed Test Matrix
@@ -30,7 +30,9 @@
 | as-4 | Perchen | — | 3 | ☑ |
 | as-5 | Tûma | — | 12 | ☑ |
 | as-6 | Wûluag | — | 12 | ☑ |
+| as-7 | Alatar the Hunter | — | 19 | ☑ |
 | as-8 | Durin’s Folk | — | 6 | ☑ |
+| as-9 | Dwarven Travelers | — | 15 | ☑ |
 | as-11 | Gandalf the White Rider | — | 18 | ☑ |
 | as-13 | Lady of the Golden Wood | — | 14 | ☑ |
 | as-14 | Lord of the Carrock | — | 19 | ☑ |
@@ -57,8 +59,11 @@
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-77 | Above the Abyss | — | 7 | ☑ |
+| as-79 | The Dark Power | — | 7 | ☑ |
 | as-80 | Dark Tryst | — | 4 | ☑ |
+| as-82 | Eye Never Sleeping | — | 6 | ☑ |
 | as-83 | Faithless Steward | — | 14 | ☑ |
+| as-85 | The Great Eye | — | 13 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
@@ -147,6 +152,7 @@
 | ba-38 | Great Army of the North | — | 10 | ☑ |
 | ba-40 | Long Grievous Siege | — | 12 | ☑ |
 | ba-42 | Prone to Violence | — | 8 | ☑ |
+| ba-43 | Sauron | — | 14 | ☑ |
 | ba-45 | Evil Things Lingering | — | 7 | ☑ |
 | ba-46 | Great Troll | — | 12 | ☑ |
 | ba-47 | Nasty Slimy Thing | — | 10 | ☑ |
@@ -293,8 +299,10 @@
 | dm-180 | Folco Boffin | — | 9 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
+| le-pending-effects-parity | — | — | 3 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
+| le-3 | Bróin | — | 7 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 3 | ☑ |
@@ -314,6 +322,7 @@
 | le-23 | Luitprand | — | 3 | ☑ |
 | le-24 | The Mouth | — | 7 | ☑ |
 | le-25 | Muzgash | — | 2 | ☑ |
+| le-26 | Náin | — | 12 | ☑ |
 | le-27 | Nevido Smôd | — | 2 | ☑ |
 | le-28 | Odoacer | — | 3 | ☑ |
 | le-29 | Old Troll | — | 8 | ☑ |
@@ -325,6 +334,7 @@
 | le-37 | Pon Opar | — | 3 | ☑ |
 | le-38 | Radbug | — | 3 | ☑ |
 | le-39 | Shagrat | — | 5 | ☑ |
+| le-43 | Threlin | — | 7 | ☑ |
 | le-44 | Troll Lout | — | 3 | ☑ |
 | le-45 | Troll-chief | — | 10 | ☑ |
 | le-46 | Tros Hesnef | — | 3 | ☑ |
@@ -424,6 +434,7 @@
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
 | le-196 | I’ll Report You | — | 15 | ☑ |
+| le-203 | The Lidless Eye | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 12 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
 | le-212 | Not Slay Needlessly | — | 13 | ☑ |
@@ -626,6 +637,7 @@
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
 | td-134 | Marvels Told | — | 25 | ☑ |
+| td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
@@ -646,6 +658,7 @@
 | td-181 | Zarak Dûm | — | 10 | ☑ |
 | tw-1 | Abductor | — | 7 | ☑ |
 | tw-2 | Adûnaphel | — | 10 | ☑ |
+| tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
 | tw-008 | — | — | 10 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
@@ -804,6 +817,7 @@
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-253 | Halfling Strength | — | 12 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
+| tw-256 | Hiding | — | 9 | ☑ |
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
@@ -842,6 +856,7 @@
 | tw-335 | Sun | — | 6 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
+| tw-338 | Test of Form | — | 15 | ☑ |
 | tw-342 | The Cock Crows | — | 9 | ☑ |
 | tw-344 | The Great Eagles | — | 5 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
@@ -857,6 +872,8 @@
 | tw-357 | Variags of Khand | — | 5 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
+| tw-364 | Wizard’s River-horses | — | 9 | ☑ |
+| tw-365 | Wizard’s Test | — | 19 | ☑ |
 | tw-367 | Wood-elves | — | 4 | ☑ |
 | tw-371 | Amon Hen | — | 8 | ☑ |
 | tw-372 | Bag End | — | 4 | ☑ |

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.59.0 — 2026-07-28
+
+Scoreboard
+
+### Lobby & Web Client
+
+- New **Scores** page in the lobby: per-player tallies over every completed game — games played, wins, losses, draws, last played, with AI opponents badged. Ordered by games played until ratings arrive (`GET /api/scoreboard`)
+- Every finished game now writes a complete statistics record to `~/.meccg/games/<gameId>.json` the moment the game ends — both players' raw and tournament-adjusted marshalling-point breakdowns, stage points, deck identity, human/AI flag, win reason, turns and RNG seed — so closing the tab on the result screen no longer loses the result
+- Join messages carry an explicit AI marker, persisted through saved games; older AI clients are recognised by their `AI-` names
+- MC-AI is promoted from a trial button to a permanent lobby opponent, and a `Play vs Modular AI` button exposes the new Heuristics 2 agent
+- Fixed the missing card image when a single-card attack (e.g. Eärcaraxë Ahunt) reached the combat board
+
+### AI & Training
+
+- The Monte-Carlo opponent searches in parallel: `mc:jobs=N` distributes rollout rounds across worker threads with bit-identical results at a fixed rollout budget, and the lobby opponent now uses all cores but two — about 7× more rollouts inside the same 2-second think time on a 24-core host
+- Heuristics 2, a modular explainable agent, built out across shared services (hazard budget, exposure, character value, corruption pricing, an opponent belief model) and decision modules (combat, travel, resources, factions, corruption, health, characters, hand, kill, endgame) — every module prices real actions in a common currency and can explain its choice
+- New sim CLIs to hold it accountable: `coverage`, `compare`, `explain`, `sweep`, `horizon`, `calibrate` and a watchable `headtohead`, with calibration measured against the reducer rather than assumed
+
+### Game Engine
+
+- Fixed The Moon Is Dead's automatic-attack duplication persisting after the card left play: any card leaving play now sheds the lingering effects it granted, however it left
+- Fixed a skipped movement/hazard phase after a company dissolved mid-phase
+- Play-option short events that set character status are routed through the chain like the rest, and a company split can no longer be offered that would empty its source
+
+### Card Certification
+
+- 12 further cards certified: Alatar the Hunter, Akhôrahil, Bróin, Náin, Threlin, Dwarven Travelers, Hiding, Master of Esgaroth, Cracks of Doom, Test of Form, Wizard's River-horses and Wizard's Test
+
 ## 0.58.0 — 2026-07-28
 
 Introducing more AI
