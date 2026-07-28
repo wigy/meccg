@@ -38,6 +38,7 @@ import { isDeterminizableView } from '../search/determinize.js';
 import { rollout } from '../search/rollout.js';
 import { createRandomStream } from '../random-stream.js';
 import { createHeuristicAgent } from './heuristic-agent.js';
+import { McPool } from './mc-pool.js';
 
 /** Tuning for {@link createMcAgent}. */
 export interface McAgentOptions {
@@ -72,9 +73,26 @@ export interface McAgentOptions {
   readonly fallback?: Agent;
   /** Hidden-site policy passed through to the determinizer (default sample). */
   readonly unknownSites?: 'sample' | 'inert';
+  /**
+   * Worker threads searching in parallel (default 1 = serial, so no
+   * existing benchmark changes its own timing). Rounds are distributed
+   * whole (`round % jobs`), and for a fixed `rollouts` budget the decisions
+   * are bit-identical to the serial agent's — see
+   * specs/2026-07-28-parallel-monte-carlo.md. With a `timeMs` budget and no
+   * explicit `rollouts`, the round cap rises to {@link TIME_MODE_ROUND_CAP}
+   * so extra workers buy more rounds inside the same wall-clock.
+   */
+  readonly jobs?: number;
   /** Name reported in replays and statistics. */
   readonly name?: string;
 }
+
+/**
+ * Round ceiling in time-budget mode when `rollouts` is not explicitly set:
+ * high enough that the budget, not the cap, ends the search (the serial
+ * agent completes its 8-round default long before a 2 s budget expires).
+ */
+export const TIME_MODE_ROUND_CAP = 4096;
 
 /** Per-candidate playout statistics. */
 interface Tally {
@@ -143,9 +161,19 @@ export function createMcAgent(options: McAgentOptions = {}): Agent {
   const maxDecisions = Math.max(1, options.maxDecisions ?? horizonTurns * 120);
   const fallback = options.fallback ?? createHeuristicAgent();
   const timeMs = options.timeMs;
+  const jobs = Math.max(1, options.jobs ?? 1);
+  // In time-budget mode with no explicit rollouts, let the budget end the
+  // search rather than the serial-tuned 8-round default — this is where
+  // extra workers turn into extra rounds (§6 of the plan).
+  const roundCap = timeMs !== undefined && options.rollouts === undefined && jobs > 1
+    ? TIME_MODE_ROUND_CAP
+    : rounds;
+  // One pool per agent instance, lazily spawned inside McPool on the first
+  // searched decision and reused for the whole game.
+  const pool = jobs > 1 ? new McPool(jobs) : null;
 
   return {
-    name: options.name ?? `mc:${rounds}@${horizonTurns}t`,
+    name: options.name ?? `mc:${rounds}@${horizonTurns}t${jobs > 1 ? `x${jobs}` : ''}`,
 
     chooseAction(context: AgentContext): AgentDecision {
       if (context.legalActions.length === 1) return { action: context.legalActions[0], note: 'forced' };
@@ -166,36 +194,64 @@ export function createMcAgent(options: McAgentOptions = {}): Agent {
       const startedAt = timeMs === undefined ? 0 : Date.now();
       let played = 0;
 
-      for (let round = 0; round < rounds; round++) {
-        if (timeMs !== undefined && round > 0 && Date.now() - startedAt >= timeMs) break;
-
-        // Common random numbers: one world and one playout seed shared by
-        // every candidate this round.
-        const roundSeed = (baseSeed + round * 0x9e3779b9) | 0;
-        const world = determinizeNull({
+      if (pool !== null) {
+        // Parallel path: workers fill a round-major matrix; accumulating it
+        // in ascending (round, candidate) order reproduces the serial
+        // loop's float-addition order exactly, so a fixed `rollouts` budget
+        // yields bit-identical decisions to jobs=1.
+        const matrix = pool.runRounds({
           view,
-          seed: roundSeed,
-          cardPool,
+          actions,
+          baseSeed,
+          roundCap,
+          horizonTurns,
+          maxDecisions,
           unknownSites: options.unknownSites,
+          playerIds,
+          searcher,
+          timeMs,
         });
+        for (let round = 0; round < roundCap; round++) {
+          for (let i = 0; i < actions.length; i++) {
+            const value = matrix[round * actions.length + i];
+            if (Number.isNaN(value)) continue;
+            tallies[i].sum += value;
+            tallies[i].count += 1;
+            played++;
+          }
+        }
+      } else {
+        for (let round = 0; round < rounds; round++) {
+          if (timeMs !== undefined && round > 0 && Date.now() - startedAt >= timeMs) break;
 
-        for (let i = 0; i < actions.length; i++) {
-          // A hypothetical world can differ from the true one in ways that
-          // make a legal action inapplicable; that candidate loses this
-          // round's sample rather than the whole decision.
-          const applied = reduce(world.state, actions[i]);
-          if (applied.error) continue;
-          const result = rollout(applied.state, {
-            playerIds,
-            searcher,
-            unknownInstances: world.unknownInstances,
-            horizonTurns,
-            maxDecisions,
-            random: createRandomStream(roundSeed ^ 0x2545f491),
+          // Common random numbers: one world and one playout seed shared by
+          // every candidate this round.
+          const roundSeed = (baseSeed + round * 0x9e3779b9) | 0;
+          const world = determinizeNull({
+            view,
+            seed: roundSeed,
+            cardPool,
+            unknownSites: options.unknownSites,
           });
-          tallies[i].sum += result.tsd;
-          tallies[i].count += 1;
-          played++;
+
+          for (let i = 0; i < actions.length; i++) {
+            // A hypothetical world can differ from the true one in ways that
+            // make a legal action inapplicable; that candidate loses this
+            // round's sample rather than the whole decision.
+            const applied = reduce(world.state, actions[i]);
+            if (applied.error) continue;
+            const result = rollout(applied.state, {
+              playerIds,
+              searcher,
+              unknownInstances: world.unknownInstances,
+              horizonTurns,
+              maxDecisions,
+              random: createRandomStream(roundSeed ^ 0x2545f491),
+            });
+            tallies[i].sum += result.tsd;
+            tallies[i].count += 1;
+            played++;
+          }
         }
       }
 
