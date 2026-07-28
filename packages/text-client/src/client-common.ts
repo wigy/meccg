@@ -96,7 +96,9 @@ export function spawnedJoinPayload(clientArgs: SpawnedClientArgs, logPrefix: str
     console.log(`${logPrefix} connected, sending minimal join (rejoin)...`);
     joinMsg = rejoinMessage(clientArgs.playerName);
   }
-  const msg: ClientMessage = { ...joinMsg, token: clientArgs.token } as ClientMessage;
+  // Both spawned clients (headless AI, pseudo-AI relay) are AI-controlled
+  // seats; the interactive console client builds its join elsewhere.
+  const msg: ClientMessage = { ...joinMsg, ai: true, token: clientArgs.token } as ClientMessage;
   return JSON.stringify(msg);
 }
 

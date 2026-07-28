@@ -74,6 +74,13 @@ export interface JoinMessage {
    * lists still drive gameplay deck construction.
    */
   readonly deckList?: DeckList;
+  /**
+   * True when this seat is played by an AI (headless AI client, pseudo-AI
+   * relay), false/absent for a human. Recorded in the completed-game
+   * statistics; servers fall back to the `AI-` name-prefix convention for
+   * clients that predate the field.
+   */
+  readonly ai?: boolean;
   /** Optional JWT token for authenticated game server connections (lobby mode). */
   readonly token?: string;
 }

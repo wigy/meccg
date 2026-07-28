@@ -14,6 +14,7 @@
  * - GET /api/mail/inbox/:id — read a message (marks as read)
  * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
+ * - GET /api/scoreboard — per-player completed-game tallies, most games first
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
@@ -41,6 +42,7 @@ import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
+import { loadScoreboard } from '../games/scoreboard.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -356,6 +358,15 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
       setDisplayName(playerName, body.displayName);
       sendJson(res, 200, { ok: true, displayName: body.displayName });
+    });
+    return;
+  }
+
+  // ---- Scoreboard ----
+
+  if (urlPath === '/api/scoreboard' && method === 'GET') {
+    await authedRoute(req, res, 'scoreboard', 'Failed to load scoreboard', () => {
+      sendJson(res, 200, { rows: loadScoreboard() });
     });
     return;
   }
