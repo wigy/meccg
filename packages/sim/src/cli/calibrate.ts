@@ -22,7 +22,9 @@ import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
 import { ALL_MODULES, evaluateDecision, resolveModules } from '../ai/h2/core/registry.js';
 import { listScenarioIds, loadScenario, scenarioView } from '../ai/h2/scenario-store.js';
-import { binomialTolerance, rolloutCorruptionCheck, rolloutInfluenceAttempt, rolloutStrike } from '../ai/h2/calibrate.js';
+import {
+  binomialTolerance, rolloutCorruptionCheck, rolloutDeterministicPlay, rolloutInfluenceAttempt, rolloutStrike,
+} from '../ai/h2/calibrate.js';
 import { claimedStrikeOutcomes } from '../ai/h2/modules/combat/combat.js';
 import type { StrikeOutcome } from '../ai/h2/modules/combat/strike-model.js';
 
@@ -57,12 +59,12 @@ const seed = numberFlag(args, 'seed', 20260727);
 const moduleFilter = stringFlag(args, 'module') ?? 'combat';
 const only = stringFlag(args, 'scenario');
 
-if (!['combat', 'corruption', 'factions'].includes(moduleFilter)) {
+if (!['combat', 'corruption', 'factions', 'resources'].includes(moduleFilter)) {
   // Each module claims a different shape of outcome, so each needs its own
   // classifier in the harness. Claiming to check one without a classifier
   // would report a vacuous pass.
   console.error(`calibrate: no outcome classifier for module "${moduleFilter}" — `
-    + 'combat, corruption and factions are supported');
+    + 'combat, corruption, factions and resources are supported');
   process.exit(2);
 }
 
@@ -92,6 +94,26 @@ for (const id of ids) {
   console.log(`\n${id}  (${scenario.description})`);
 
   for (const action of legalActions) {
+    if (action.type === 'play-hero-resource' || action.type === 'play-minor-item') {
+      // A deterministic claim: no interval, just whether the arithmetic
+      // matches what the engine's own totals do. One rollout is enough.
+      const evaluation = evaluateDecision(modules, context).evaluations.find(e => e.action === action);
+      const claimedGain = evaluation
+        ? Number(findGain(evaluation.rationale))
+        : Number.NaN;
+      if (!Number.isFinite(claimedGain)) { skipped++; continue; }
+      const measured = rolloutDeterministicPlay(scenario.state, action, createRng(seed));
+      if (measured.tsdChange === null) { skipped++; continue; }
+      const within = Math.abs(measured.tsdChange - claimedGain) < 1e-9;
+      checked++;
+      if (!within) failures++;
+      console.log(`  ${action.type}`);
+      console.log(`    ${within ? 'ok  ' : 'FAIL'} ${'marshalling-point gain'.padEnd(22)} `
+        + `claimed ${claimedGain.toFixed(2).padStart(6)}  `
+        + `engine ${measured.tsdChange.toFixed(2).padStart(6)}  (tsd, exact)`);
+      continue;
+    }
+
     if (action.type === 'influence-attempt') {
       const evaluation = evaluateDecision(modules, context).evaluations.find(e => e.action === action);
       const success = evaluation?.outcomes.find(o => o.label.includes('influenced'));
@@ -194,6 +216,16 @@ for (const id of ids) {
   }
 }
 
+/** The `gain` line a deterministic module reports, in TSD. */
+function findGain(rationale: { label: string; value: number | string; children?: readonly unknown[] }): number | undefined {
+  if (rationale.label === 'gain' && typeof rationale.value === 'number') return rationale.value;
+  for (const child of (rationale.children ?? []) as typeof rationale[]) {
+    const found = findGain(child);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
 /** Compact one-line label for an action, without needing the describer. */
 function describeAction(action: GameAction): string {
   const need = (action as unknown as { need?: number }).need;
@@ -213,6 +245,8 @@ if (checked === 0) {
   console.log('unresolved and the classifier cannot tell what happened.');
   process.exit(2);
 }
-console.log(`${checked - failures}/${checked} claims within the 99% interval at ${rollouts} rollouts`
-  + `${skipped > 0 ? `, ${skipped} action(s) not dice-modelled` : ''}`);
+// Deterministic claims are exact rather than sampled, so the summary must not
+// describe them as interval checks.
+console.log(`${checked - failures}/${checked} claim(s) matched at ${rollouts} rollout(s)`
+  + `${skipped > 0 ? `, ${skipped} action(s) not modelled` : ''}`);
 if (failures > 0) process.exit(1);

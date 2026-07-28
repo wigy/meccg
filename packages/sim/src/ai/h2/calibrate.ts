@@ -18,7 +18,7 @@
  * cannot agree with the module by sharing its mistakes.
  */
 
-import { CardStatus, reduce } from '@meccg/shared';
+import { CardStatus, computeTournamentScore, reduce } from '@meccg/shared';
 import type { CardInstanceId, GameAction, GameState, PlayerId, RngState } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
 import type { CharacterFate, StrikeFate } from './modules/combat/strike-model.js';
@@ -197,6 +197,59 @@ export function rolloutInfluenceAttempt(
   // reports "unknown" rather than guessing, and the CLI refuses to call a run
   // with nothing measured a pass.
   return { succeeded: null, rng: current.rng };
+}
+
+/**
+ * Replay a deterministic play and report the tournament-score differential it
+ * actually produced, from the engine's own marshalling-point totals.
+ *
+ * This checks a different kind of claim from the dice classifiers. `resources`
+ * says "playing this card gains 5.0 tsd" — no probability, just arithmetic
+ * through the tournament scorer on a projected total. Measuring it against the
+ * real totals afterwards is what catches a module that has the doubling rule
+ * or the diversity cap subtly wrong, which no amount of unit testing against
+ * my own fixtures would.
+ */
+export function rolloutDeterministicPlay(
+  state: GameState,
+  action: GameAction,
+  rng: RngState,
+): { tsdChange: number | null; rng: RngState } {
+  const playerId = (action as unknown as { player?: PlayerId }).player;
+  if (!playerId) return { tsdChange: null, rng };
+  const differential = (s: GameState): number | null => {
+    const index = s.players.findIndex(p => p.id === playerId);
+    if (index < 0) return null;
+    const self = s.players[index].marshallingPoints;
+    const opponent = s.players[1 - index].marshallingPoints;
+    return computeTournamentScore(self, opponent) - computeTournamentScore(opponent, self);
+  };
+  const before = differential(state);
+  if (before === null) return { tsdChange: null, rng };
+
+  const applied = reduce({ ...state, rng }, action);
+  if (applied.error) return { tsdChange: null, rng };
+  let current = applied.state;
+
+  // A resource play can open a chain, exactly as a faction does; the opponent
+  // is passed for, which is the module's assumption that nothing is played
+  // into it.
+  for (let step = 0; step < MAX_FOLLOW_THROUGH_STEPS; step++) {
+    let acted = false;
+    for (const id of current.players.map(p => p.id)) {
+      const actions = viableFor(current, id).filter(a => a.type.startsWith('pass'));
+      if (actions.length === 0) continue;
+      const next = reduce(current, actions[0]);
+      if (next.error) return { tsdChange: null, rng: current.rng };
+      current = next.state;
+      acted = true;
+      break;
+    }
+    if (!acted) break;
+  }
+
+  const after = differential(current);
+  return { tsdChange: after === null ? null : after - before, rng: current.rng };
 }
 
 /** The creature card whose fate says whether the attack was defeated. */
