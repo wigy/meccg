@@ -7,6 +7,7 @@
  * game launches when both players agree.
  */
 
+import * as os from 'os';
 import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
@@ -30,8 +31,15 @@ import { getDisplayName, getCredits } from '../players/store.js';
  * [+39, +301]. It is the strongest opponent available and, unlike the
  * determinizing tree search, converts extra budget into strength — see
  * `specs/2026-07-28-parallel-monte-carlo.md` for scaling it across cores.
+ *
+ * Interactive play is latency-bound: the 2 s budget stays fixed and
+ * `jobs=<cores−2>` buys more rollout rounds inside it, i.e. a stronger
+ * opponent at unchanged pacing. Two cores are left for the game-server
+ * process itself and the rest of the box. Batch harnesses must keep the
+ * default `jobs=1` and parallelize across games via SIM_JOBS instead —
+ * per-decision fan-out under SIM_JOBS would oversubscribe the machine.
  */
-const MC_AGENT_SPEC = 'mc:ms=2000/turns=3/candidates=6';
+const MC_AGENT_SPEC = `mc:jobs=${Math.max(1, os.cpus().length - 2)}/ms=2000/turns=3/candidates=6`;
 
 /** Connection info for an active game that a player can rejoin. */
 interface ActiveGameInfo {
