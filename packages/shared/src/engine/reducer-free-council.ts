@@ -22,6 +22,7 @@ import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
+import { handlePlayShortEvent } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
 
 
@@ -90,6 +91,17 @@ export function handleFreeCouncil(state: GameState, action: GameAction): Reducer
         },
       },
     };
+  }
+
+  // A pending corruption-check resolution offers reactive short events
+  // (Halfling Strength and friends) from the actor's hand, and the Free
+  // Council phase runs corruption checks too (CoE 7.1.1) — so the offer is
+  // legal here, but this reducer used to have nowhere to route it and
+  // rejected its own offer with "Unexpected action". Delegate to the same
+  // handler every other phase uses.
+  if (action.type === 'play-short-event') {
+    logDetail('Free Council: routing reactive short-event play to the shared handler');
+    return handlePlayShortEvent(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in Free Council phase` };
