@@ -21,6 +21,15 @@ import { isDeterminizableView } from './search/determinize.js';
 import { rollout, filterUnknownCardActions, stateTsd } from './search/rollout.js';
 import type { Agent, AgentContext } from './types.js';
 
+/**
+ * Budget for a test that plays a whole game.
+ *
+ * Vitest's 5s default is not enough for one when the suite runs files in
+ * parallel: these pass in isolation and fail together, which reads as a
+ * flaky suite rather than as a slow test.
+ */
+const GAME_TIMEOUT = 30000;
+
 const DECK_A = loadDeck('challenge-deck-a');
 const DECK_B = loadDeck('challenge-deck-b');
 const CARD_POOL = loadCardPool();
@@ -58,7 +67,7 @@ describe('null determinizer', () => {
         expect(world.unknownInstances.has(card.instanceId)).toBe(true);
       }
     }
-  });
+  }, GAME_TIMEOUT);
 
   test('root candidates from the view remain applicable in the widened world', () => {
     // This is the property the agent actually rests on: it picks among the

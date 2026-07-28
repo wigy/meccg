@@ -19,6 +19,15 @@ import { loadDeck } from './decks.js';
 import { determinize, isDeterminizableView } from './search/determinize.js';
 import type { Agent } from './types.js';
 
+/**
+ * Budget for a test that plays a whole game.
+ *
+ * Vitest's 5s default is not enough for one when the suite runs files in
+ * parallel: these pass in isolation and fail together, which reads as a
+ * flaky suite rather than as a slow test.
+ */
+const GAME_TIMEOUT = 30000;
+
 const DECK_A = loadDeck('challenge-deck-a');
 const DECK_B = loadDeck('challenge-deck-b');
 const CARD_POOL = loadCardPool();
@@ -73,5 +82,5 @@ describe('determinizer', () => {
     if (view.opponent.hand.length > 1) {
       expect(handOf(worldC)).not.toBe(handOf(worldA));
     }
-  });
+  }, GAME_TIMEOUT);
 });
