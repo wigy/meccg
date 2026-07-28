@@ -1588,6 +1588,13 @@ function playResourcesActions(
               skills: getEffectiveSkills(state, ch, charDef),
               status: ch.status,
               name: charDef.name,
+              // Effective prowess (printed + modifiers from items already
+              // borne), so "may only be borne by a character with a prowess
+              // of 6 or more" (Thong of Fire as-132) reads the character's
+              // current prowess. The item being played is not attached yet,
+              // so its own bonus never feeds back into its own gate.
+              prowess: ch.effectiveStats.prowess,
+              baseProwess: charDef.prowess,
             },
           };
           if (!matchesCondition(bearerPlayTarget.filter, bearerCtx)) {

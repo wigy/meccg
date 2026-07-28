@@ -69,7 +69,7 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
   "when": { "reason": "combat", "enemy.race": "orc" } }
 ```
 
-Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`.
+Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`, `untap-penalty`.
 
 During strike resolution the combat context also exposes `combat.strikeMode` —
 the way the character is facing the current strike (`"tap"`, `"untap"`,
@@ -84,6 +84,22 @@ stats. Example — Stabbing Tongue of Fire (ba-81) / Whip of Many Thongs (ba-82)
 ```json
 { "type": "stat-modifier", "stat": "prowess", "value": 1,
   "when": { "combat.strikeMode": "tap" } }
+```
+
+The `untap-penalty` stat is not a printed attribute but the prowess penalty the
+bearer suffers when he chooses **not** to tap to face a strike (CoE rule
+3.iv.3: base 3, base 1 for The Balrog avatar via his own card text). It is
+resolved only by `computeStayUntappedPenalty` (`recompute-derived.ts`) — which
+feeds both the reducer's strike resolution (`combat-strike.ts`, creature and
+CvCC paths) and the tap/untap "need" shown by the legal-action computer
+(`legal-actions/combat.ts`) — and is never folded into `effectiveStats`. The
+resolved penalty is floored at 0, so cancelling it yields full prowess while
+staying untapped, never a bonus. Example — Thong of Fire (as-132), "if bearer
+chooses not to tap against a strike, he receives no prowess penalty":
+
+```json
+{ "type": "stat-modifier", "stat": "untap-penalty", "op": "set", "value": 0,
+  "when": { "bearer.skills": { "$includes": "warrior" } } }
 ```
 
 The `mind` stat modifies a character's effective mind — the influence cost
@@ -4927,7 +4943,14 @@ Supported targets:
   **items** to gate which characters may bear them (e.g. Wizard's Staff
   filters to `target.race: "wizard"`): the site-phase item legal-action
   emitter evaluates the filter per-candidate bearer and only offers
-  `play-hero-resource` actions for matching characters.
+  `play-hero-resource` actions for matching characters. The item bearer
+  context is `{ target: { race, skills, status, name, prowess, baseProwess } }`,
+  where `skills` are the candidate's *effective* skills (including skills
+  granted by items already borne), `prowess` his *effective* prowess (printed
+  plus the modifiers of items already borne — the item being played is not
+  attached yet, so its own bonus never feeds its own gate) and `baseProwess`
+  the printed value. Thong of Fire (as-132), "May only be borne by a character
+  with a prowess of 6 or more": `filter: { "target.prowess": { "$gte": 6 } }`.
 - `company` — the active company (hazard permanent events that target the whole company rather than individual characters). The filter is evaluated against a context `{ company: { alignment: string, destinationSiteType: string } }` where `alignment` is the resource player's alignment (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) and `destinationSiteType` is the site type of the company's current (or destination) site. Used by *Nothing to Eat or Drink* (le-128) to restrict play to minion companies at free-hold/border-hold or hero companies at shadow-hold/dark-hold.
 - `site` — the company's destination/current site (e.g. River). The `filter`
   matches against the site definition's own fields (`siteType`, `region`,

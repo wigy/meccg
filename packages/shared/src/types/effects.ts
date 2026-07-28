@@ -143,8 +143,19 @@ export interface EffectBase {
  */
 export interface StatModifierEffect extends EffectBase {
   readonly type: 'stat-modifier';
-  /** Which stat to modify. */
-  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence' | 'mind';
+  /**
+   * Which stat to modify.
+   *
+   * `'untap-penalty'` is not a printed character attribute but the prowess
+   * penalty the bearer suffers when he chooses **not** to tap to face a strike
+   * (CoE rule 3.iv.3: normally 3, 1 for The Balrog avatar). It is resolved
+   * only by {@link computeStayUntappedPenalty} and never folded into
+   * `effectiveStats`. Used by Thong of Fire (as-132): "if bearer chooses not
+   * to tap against a strike, he receives no prowess penalty" —
+   * `{ stat: "untap-penalty", op: "set", value: 0, when: { "bearer.skills":
+   * { "$includes": "warrior" } } }`.
+   */
+  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence' | 'mind' | 'untap-penalty';
   /** The bonus (or penalty if negative) to apply. Can be a MathJS expression. */
   readonly value: ValueExpr;
   /**

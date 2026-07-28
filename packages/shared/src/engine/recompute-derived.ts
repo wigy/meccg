@@ -35,7 +35,7 @@ import { isCharacterCard, isItemCard, isFactionCard, isSiteCard } from '../types
 import { Alignment, MarshallingCategory, Race } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
-import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
+import { getPlayerIndex, isBalrogAvatarDef, stayUntappedPenalty } from '../state-utils.js';
 import {
   buildBearerContext,
   collectCharacterEffects,
@@ -2112,4 +2112,54 @@ export function computeCombatProwess(
     return resolveStatModifiers(collected, 'prowess', charDef.prowess, context);
   }
   return charDef.prowess;
+}
+
+/**
+ * The prowess penalty this character suffers when he chooses **not** to tap to
+ * face a strike (CoE rule 3.iv.3).
+ *
+ * The base value comes from {@link stayUntappedPenalty}: 3 for everyone, 1 for
+ * The Balrog avatar (his own card text). On top of that, cards borne by the
+ * character may carry `stat-modifier` effects with `stat: "untap-penalty"`,
+ * which are resolved here through the ordinary stat-modifier machinery (so
+ * `op`, `max`/`min` and `when` all behave as elsewhere). Thong of Fire
+ * (as-132) uses `op: "set", value: 0` gated on the bearer being a warrior:
+ * "if bearer chooses not to tap against a strike, he receives no prowess
+ * penalty."
+ *
+ * The penalty is never allowed to go negative — cancelling it yields a
+ * character at full prowess while staying untapped, not a bonus.
+ *
+ * `char` is optional because the strike target may be an ally (allies bear no
+ * items); in that case the printed base penalty applies unchanged.
+ *
+ * @param state - The current game state.
+ * @param char - The character in play facing the strike, if it is a character.
+ * @param charDef - The card definition of the strike target.
+ * @returns The prowess penalty to subtract in stay-untapped mode.
+ */
+export function computeStayUntappedPenalty(
+  state: GameState,
+  char: CharacterInPlay | undefined,
+  charDef: CardDefinition | undefined,
+): number {
+  const base = stayUntappedPenalty(charDef);
+  if (!char || !charDef || !isCharacterCard(charDef)) return base;
+
+  const charInfo = buildBearerContext(charDef);
+  const context: ResolverContext = {
+    reason: 'combat',
+    bearer: charInfo,
+    target: charInfo,
+    inPlay: buildInPlayNames(state),
+    combat: { strikeMode: 'untap' },
+  };
+  const collected = collectCharacterEffects(state, char, context);
+  if (collected.length === 0) return base;
+
+  const resolved = Math.max(0, resolveStatModifiers(collected, 'untap-penalty', base, context));
+  if (resolved !== base) {
+    logDetail(`Stay-untapped penalty for ${charDef.name}: ${base} → ${resolved} (card effect)`);
+  }
+  return resolved;
 }

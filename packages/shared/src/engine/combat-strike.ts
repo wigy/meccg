@@ -22,7 +22,7 @@ import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { AbsorbWoundEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { getPlayerIndex, stayUntappedPenalty } from '../state-utils.js';
+import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
 import { matchesContext } from '../effects/condition-matcher.js';
@@ -32,7 +32,7 @@ import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
-import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
+import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
 import { enemyRaceContext } from './effects/index.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
@@ -212,7 +212,8 @@ export function resolveStrikeCore(
   } else {
     prowess = charData.effectiveStats.prowess;
   }
-  if (mode === 'untap') prowess -= stayUntappedPenalty(charDef); // Stay untapped penalty (MEBA: -1 for The Balrog)
+  // Stay untapped penalty (MEBA: -1 for The Balrog; 0 with Thong of Fire as-132)
+  if (mode === 'untap') prowess -= computeStayUntappedPenalty(state, charData, charDef);
   if (targetStatus === CardStatus.Tapped) prowess -= 1;
   if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
   if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
@@ -759,13 +760,13 @@ export function resolveStrikeCvCC(
 
   // Compute attacker prowess
   let atkProwess = atkCharData.effectiveStats.prowess;
-  if (!strike.attackerTapToFight) atkProwess -= stayUntappedPenalty(atkCharDef);
+  if (!strike.attackerTapToFight) atkProwess -= computeStayUntappedPenalty(state, atkCharData, atkCharDef);
   if (atkCharData.status === CardStatus.Tapped) atkProwess -= 1;
   if (atkCharData.status === CardStatus.Inverted) atkProwess -= 2;
 
   // Compute defender prowess
   let defProwess = defCharData.effectiveStats.prowess;
-  if (!defenderTapToFight) defProwess -= stayUntappedPenalty(defCharDef);
+  if (!defenderTapToFight) defProwess -= computeStayUntappedPenalty(state, defCharData, defCharDef);
   if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
   if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
   defProwess += (strike.supportCount ?? 0);
