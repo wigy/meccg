@@ -1596,6 +1596,48 @@ function applyForceDiscardTargetItem(state: GameState, entry: ChainEntry): GameS
 }
 
 /**
+ * Resolves an `attack-race-boost` effect (Dwar of Waw tw-31's on-tap
+ * short-event conversion: "gives +1 prowess to all Wolf, Spider, and Animal
+ * attacks until the end of the turn").
+ *
+ * Installs one turn-scoped `creature-attack-boost` active constraint — the
+ * kind Chill Douser (dm-106) already places — carrying the effect's race list
+ * and bonuses. Unlike Chill Douser's company-bound constraint this one targets
+ * the **opponent of the declaring player**: the side whose companies face
+ * hazards this turn. A player target reaches every company that player
+ * controls, so the boost lands on hazard-creature attacks and site
+ * automatic-attacks alike, which is what "all X attacks" means.
+ *
+ * No-op if the card carries no such effect.
+ */
+function applyAttackRaceBoost(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').AttackRaceBoostEffect => e.type === 'attack-race-boost',
+  );
+  if (!effect) return state;
+  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+
+  const opponent = state.players.find(p => p.id !== entry.declaredBy);
+  if (!opponent) {
+    logDetail(`${cardLabel}: attack-race-boost — no opposing player found, fizzle`);
+    return state;
+  }
+  const prowess = effect.prowess ?? 0;
+  const strikes = effect.strikes ?? 0;
+  logDetail(`${cardLabel}: attack-race-boost — all ${effect.races.join('/')} attacks against ${opponent.name} receive +${prowess} prowess / +${strikes} strikes until the end of the turn`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: opponent.id },
+    kind: { type: 'creature-attack-boost', race: effect.races, strikes, prowess },
+  });
+}
+
+/**
  * Resolves a `cycle-hand` effect (Revealed to all Watchers, dm-85).
  *
  * The playing player (`entry.declaredBy` — the hazard player for a hazard
@@ -3528,6 +3570,12 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // was chosen at tap time and rides on the chain entry's payload.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyForceDiscardTargetItem(current, entry);
+  }
+
+  // Short events that boost every attack of a set of races for the rest of the
+  // turn (Dwar of Waw tw-31's on-tap short-event conversion).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyAttackRaceBoost(current, entry);
   }
 
   // Short events that retype a whole class of sites (Witch-king of Angmar

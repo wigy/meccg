@@ -1176,10 +1176,19 @@ export interface ActiveConstraint {
          * The constraint source is the Chill Douser instance; when resolving
          * a creature's attack, if the creature's instance ID matches the
          * source the boost is skipped (so the card never boosts itself).
+         *
+         * The `target` decides how wide the boost reaches: a `company` target
+         * boosts attacks against that one company (Chill Douser), a `player`
+         * target boosts attacks against **every** company that player controls
+         * — "all Wolf, Spider, and Animal attacks" (Dwar of Waw tw-31, via the
+         * `attack-race-boost` effect).
          */
         readonly type: 'creature-attack-boost';
-        /** Creature race that receives the boost (e.g. `"undead"`). */
-        readonly race: Race;
+        /**
+         * Creature race — or races — that receive the boost (e.g. `"undead"`,
+         * or `["wolf", "spider", "animal"]`).
+         */
+        readonly race: Race | readonly Race[];
         /** Strike bonus applied to matching creature attacks. */
         readonly strikes: number;
         /** Prowess bonus applied to matching creature attacks. */

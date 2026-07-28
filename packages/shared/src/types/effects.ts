@@ -5500,6 +5500,33 @@ export interface ForceDiscardTargetItemEffect extends EffectBase {
 }
 
 /**
+ * When this short-event resolves, every attack made by a creature of one of
+ * the named races receives the given prowess/strike bonus **for the rest of
+ * the turn** — an untargeted, standing buff rather than a modifier on one
+ * named attack ({@link ModifyAttackEffect}).
+ *
+ * Resolution installs a turn-scoped `creature-attack-boost` active constraint
+ * — the same constraint kind Chill Douser (dm-106) places when its attack
+ * survives — targeting the **opponent of the declaring player**, i.e. the
+ * player whose companies face hazards this turn. A player-targeted constraint
+ * covers every one of that player's companies, so the boost reaches hazard
+ * creature attacks and site automatic-attacks alike, matching "all X attacks".
+ *
+ * Used by Dwar of Waw (tw-31) as the on-tap short-event conversion of its
+ * permanent-event mode: "gives +1 prowess to all Wolf, Spider, and Animal
+ * attacks until the end of the turn."
+ */
+export interface AttackRaceBoostEffect extends EffectBase {
+  readonly type: 'attack-race-boost';
+  /** Creature races whose attacks receive the boost. */
+  readonly races: readonly Race[];
+  /** Prowess added to every matching attack (default 0). */
+  readonly prowess?: number;
+  /** Strikes added to every matching attack (default 0). */
+  readonly strikes?: number;
+}
+
+/**
  * Hazard short-event that makes **each character** in the target company face
  * one strike (not part of a creature attack — "not an attack"). The strike has
  * a fixed prowess, carries no creature race, and resolves through the normal
@@ -6946,6 +6973,7 @@ export type CardEffect =
   | ForceCheckAllCompanyTopEffect
   | ForceCheckAllInPlayEffect
   | ForceDiscardTargetItemEffect
+  | AttackRaceBoostEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect
