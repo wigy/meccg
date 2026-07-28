@@ -42,6 +42,7 @@ import { combatModule } from '../modules/combat/combat.js';
 import { charactersModule } from '../modules/characters/characters.js';
 import { corruptionModule } from '../modules/corruption/corruption.js';
 import { handModule } from '../modules/hand/hand.js';
+import { hazardsModule } from '../modules/hazards/hazards.js';
 import { killModule } from '../modules/kill/kill.js';
 import { healthModule } from '../modules/health/health.js';
 import { endgameModule } from '../modules/endgame/endgame.js';
@@ -57,7 +58,7 @@ import { travelModule } from '../modules/travel/travel.js';
  * corpus and a calibration harness already waiting for it, rather than being
  * validated by eye.
  */
-export const ALL_MODULES: readonly H2Module[] = [charactersModule, killModule, combatModule, corruptionModule, endgameModule, factionsModule, handModule, healthModule, resourcesModule, travelModule];
+export const ALL_MODULES: readonly H2Module[] = [charactersModule, killModule, combatModule, corruptionModule, endgameModule, factionsModule, handModule, hazardsModule, healthModule, resourcesModule, travelModule];
 
 /** Look up modules by name, throwing on an unknown one. */
 export function resolveModules(spec: string | undefined, available: readonly H2Module[] = ALL_MODULES): H2Module[] {

@@ -133,6 +133,52 @@ export interface Tunables {
    * criterion can be compared against everything else in the same currency.
    */
   readonly resourceDrawValue: number;
+  /**
+   * How many bundles `hazards` keeps alive while planning (§3.4).
+   *
+   * Bundle value is supermodular, so the subset space cannot be searched
+   * greedily without losing exactly the combinations worth finding — and it
+   * cannot be searched exhaustively either, because this runs in mass
+   * self-play. The beam is the explicit compromise the plan asks for, and its
+   * width is reported alongside the ranked bundles so a reader can see how
+   * much of the space was actually looked at.
+   */
+  readonly hazardBeamWidth: number;
+  /**
+   * Marshalling points one denied resource play would have scored.
+   *
+   * §3.4 puts the hazard player's objective as the negative of the opponent's
+   * expected MP gain, and this is the conversion rate: what a character who
+   * arrives tapped, and therefore cannot be tapped to play a resource, costs
+   * them. It is a *quantity of MP*, not a price, so it goes through `standing`
+   * and picks up the doubling and the diversity cap — denying a play in a
+   * source they have already capped is correctly worth nothing.
+   *
+   * The value it is not: `tapTempoCost`. That is what a tap costs the defender
+   * in the middle of a combat they are already in, and using it here priced a
+   * whole site phase at a third of a point, which made every hazard in the game
+   * look like a mistake.
+   */
+  readonly deniedPlayMp: number;
+  /**
+   * The most hazards `hazards` will plan into one company at once.
+   *
+   * A hard cap on top of the hazard limit, because the enumeration is over
+   * *sequences* of attacks and each one multiplies the state space. Bundles
+   * this long are rare in play; when the cap binds it is reported.
+   */
+  readonly hazardMaxBundle: number;
+  /**
+   * What an on-guard card is worth relative to playing the same card outright,
+   * in [0, 1].
+   *
+   * On-guard placement buys a card that does not count against the hazard
+   * limit and lands at the site instead of on the path. It is discounted
+   * because the company may never arrive, the defender may answer it with
+   * foreknowledge that something is there, and the placement is spent whether
+   * or not it ever fires.
+   */
+  readonly onGuardDiscount: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -151,6 +197,10 @@ export const DEFAULT_TUNABLES: Tunables = {
   revertedMindCost: 0.15,
   partialCoverageMargin: 0.005,
   resourceDrawValue: 0.35,
+  hazardBeamWidth: 4,
+  deniedPlayMp: 1,
+  hazardMaxBundle: 3,
+  onGuardDiscount: 0.5,
 };
 
 /**

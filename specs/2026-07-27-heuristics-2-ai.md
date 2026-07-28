@@ -387,6 +387,34 @@ Bundle planning also gives the CLI something worth printing: `explain --module
 hazards` shows the ranked bundles with the defender's degradation curve, not a
 list of single cards.
 
+**As built, three things came out differently.**
+
+*No committed plan.* Step 3 above asks for a plan cached on the module context
+and recomputed on deviation. The module re-plans on every action instead,
+because it turned out not to need the cache: attacks resolve one at a time
+against the company, so the roster read from the view already carries the
+damage the earlier hazards did. The dribbling failure the plan worried about is
+prevented by the other half of the design — an action is scored by the best
+bundle that *starts* with it, so a first creature that looks weak alone is
+still played when the pair is worth it, and supermodularity then makes the
+second one look better rather than worse.
+
+*The denial rate was the hard part, and the plan understated it.* "Convert
+through `standing`" is right, but the first implementation converted a denied
+tap at `tapTempoCost` — the combat tempo constant — which valued an entire
+denied site phase at a third of a point against a kill-MP gift of two. The
+module concluded that no hazard in the game was ever worth playing. What a tap
+denies is a *resource play*, so the quantity is marshalling points
+(`deniedPlayMp`) and `standing` prices them. The denial is also **marginal**
+rather than average: tapping two characters of five denies nothing if the
+opponent holds two cards, which is where the belief model of §3.6 earns its
+place.
+
+*Events are out of scope for now.* Only hazard creatures are modelled; events
+are declined and the decision is reported as partly covered. Modelling Doors of
+Night means modelling its effect, which is the DSL's work rather than the
+module's.
+
 ### 3.5 `hand`: yes, allocation deserves its own module
 
 Yes — and it should be one module that also exposes a *service*, because its

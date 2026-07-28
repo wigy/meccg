@@ -117,6 +117,55 @@ lookup, tuned by hand and invisible to anyone reading a destination score.
 Here the regions crossed are reported; what crossing them is worth belongs to
 `travel`, in TSD, in a rationale you can read.
 
+### Hazard bundles
+
+`hazards` is the one module that does not evaluate an action on its own terms,
+because hazard play is not an action problem (plan §3.4). Value is
+**supermodular**: the second creature meets a company the first one already
+tapped, wounded or shortened, so scoring each card alone is how a hazard player
+ends up dribbling one attack per turn into a company that shrugs each one off.
+So a bundle is resolved as one *sequence* of attacks against a degrading roster
+— `services/strike/sequence.ts`, the same enumeration `combat` uses from the
+other side — and an action is scored by the best bundle that starts with it:
+
+```text
+RANKED (module hazards, partial — place-on-guard, play-hazard unscored)
+  1. Play hazard Orc-warband against a company (keyed by region-type: wilderness)
+     U = +4.60% win   E[Δtsd] +4.2  σ 0.3  (integrated)
+  4. Pass (end your actions this phase)
+     U = +0.00% win   E[Δtsd] +0.0  σ 0.0  (integrated)
+
+  play Orc-lieutenant: 3.9%
+  ├─ bundle: Orc-lieutenant + Orc-warband
+  │  ├─ hazard limit: 5  [5 at reveal, 0 spent]
+  │  ├─ resource plays they are believed to hold: 2.824  [29% confidence, 5 cards seen]
+  │  ├─ worth denying one resource play: +2.0  {deniedPlayMp}
+  │  │    [only the last 2.8 taps deny one — they hold fewer plays than the 5 standing]
+  │  └─ planned to follow with: Orc-warband
+  │       [scored as one sequence against a company that degrades between attacks]
+```
+
+Three things in that tree are the whole design. The objective is **denial, not
+damage**: what a tap is worth is the resource play it forfeits, converted
+through `standing`, so denying a source they have already capped is correctly
+worth nothing. The denial is **marginal**: tapping two characters of five denies
+nothing when they hold only two cards to play, and the belief model is what
+supplies "two". And the kill marshalling points the defender collects for
+beating the creature are **subtracted**, banked by the enumeration on exactly
+the branch where every strike was defeated — which is what makes the module
+refuse to attack a strong company, as it does at
+`movement/hazard-bundle-choice` until the hazard limit and the company size
+make it worth it.
+
+Pricing a tap as `tapTempoCost` was the first attempt and it was badly wrong:
+it valued a whole denied site phase at a third of a point against a kill-MP
+gift of two, so the module concluded that no hazard in the game was ever worth
+playing. `deniedPlayMp` is the number that fixed it, and it is a *quantity of
+MP* rather than a price, so `standing` still decides what it is worth here.
+
+Hazard **events** are declined — modelling Doors of Night means modelling its
+effect — so the decision is reported as partly covered rather than guessed at.
+
 That budget line about influence is the one to watch: `reducer-site.ts` requires the influencing
 character to be **untapped**, so a company with none cannot attempt a faction
 at all however much influence it holds — and free direct influence subtracts
@@ -179,7 +228,7 @@ Status by phase:
 | P2 services | `standing`, `budget`, `exposure` shipped and printed by `explain`; `travel` written |
 | P3 acquisition | `factions` and `resources` written; `character-value` service shipped and consumed by `combat` |
 | P4 | `corruption` written; `health` not started |
-| P5–P7 | not started — `allies`/`characters`/`misc`, `hazards`/`hand`, `endgame` |
+| P5–P7 | `characters`, `health`, `hand`, `endgame` and `hazards` written; `allies`/`misc` not started |
 
 ### Coverage, measured
 
@@ -196,8 +245,8 @@ appearing in contested decisions are led by:
 `activate-granted-action` is in 10.9% of contested decisions — real, but not
 the blocker it first looked like from a single scenario. The long tail is:
 `split-company`, `merge-companies`, `cancel-movement`, `discard-card`,
-`draw-cards`, `discard-character`, `play-short-event`, `play-hazard` all have
-no owner. Full coverage is a longer road than eight modules suggests, and
+`draw-cards`, `discard-character` and `play-short-event` all have no owner
+(`play-hazard` has one now — see below, though only for creatures). Full coverage is a longer road than eight modules suggests, and
 chasing it action type by action type is not obviously the right route —
 whether dispatch should stay all-or-nothing is worth re-arguing on this
 evidence rather than on the one scenario that prompted the rule.

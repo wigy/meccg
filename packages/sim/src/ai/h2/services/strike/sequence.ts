@@ -64,8 +64,25 @@ interface SequenceState {
   readonly label: string;
 }
 
+/** The company's condition when a strike lands, for pricers that need it. */
+export interface StrikeContext {
+  /**
+   * Characters (not allies) still untapped in the company, this strike
+   * included.
+   *
+   * The attacking seat needs it and the defending seat does not: what tapping
+   * a character *denies* depends on how many are left to tap, which is a
+   * question about the roster rather than about the character struck.
+   */
+  readonly untappedBefore: number;
+}
+
 /** Prices one strike outcome for one target in its current condition. */
-export type SequencePricer = (outcome: StrikeOutcome, target: StrikeTarget) => number;
+export type SequencePricer = (
+  outcome: StrikeOutcome,
+  target: StrikeTarget,
+  context: StrikeContext,
+) => number;
 
 /** Knobs of the enumeration itself. */
 export interface SequenceOptions {
@@ -271,6 +288,9 @@ export function resolveAttacks(
           continue;
         }
         const need = needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: entry.struck });
+        const untappedBefore = state.roster.filter(
+          e => !e.target.isAlly && e.target.status === CardStatus.Untapped,
+        ).length;
         if (first && state === states[0] && opening.length === i) opening.push({ target: entry.target, need });
 
         for (const outcome of strikeOutcomes(
@@ -280,7 +300,7 @@ export function resolveAttacks(
           next.push({
             roster: applyOutcome(state.roster, entry, outcome),
             p: state.p * outcome.p,
-            dtsd: state.dtsd + price(outcome, entry.target),
+            dtsd: state.dtsd + price(outcome, entry.target, { untappedBefore }),
             allDefeated: state.allDefeated && outcome.strike === 'defeated',
             label: state.label === '' ? describe(entry, outcome) : `${state.label}; ${describe(entry, outcome)}`,
           });

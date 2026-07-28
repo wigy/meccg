@@ -27,7 +27,7 @@
  */
 
 import { CardStatus, stayUntappedPenalty } from '@meccg/shared';
-import type { CardDefinition, CardInstanceId, CombatState, Company, PlayerView } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
 
 /** A character or ally that could face a strike. */
 export interface StrikeTarget {
@@ -73,6 +73,17 @@ export function strikeTargets(
 }
 
 /**
+ * The only part of a company this needs: who is in it.
+ *
+ * Typed structurally so the opponent's `OpponentCompanyView` — which carries a
+ * character list and little else, because that is all the projection makes
+ * public — satisfies it just as the player's own `Company` does.
+ */
+export interface CompanyRoster {
+  readonly characters: readonly CardInstanceId[];
+}
+
+/**
  * A company's characters and allies as strike targets, from either seat.
  *
  * The defending seat reaches this through {@link strikeTargets}; the attacking
@@ -81,7 +92,7 @@ export function strikeTargets(
  * information the projection hides.
  */
 export function rosterOf(
-  company: Company,
+  company: CompanyRoster,
   characters: PlayerView['self']['characters'],
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): StrikeTarget[] {
