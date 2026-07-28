@@ -39,7 +39,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LORIEN,
   CardStatus,
-  handCardId, charIdAt, dispatch,
+  handCardId, charIdAt, dispatch, resolveChain,
   expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
   pool,
 } from '../test-helpers.js';
@@ -111,13 +111,13 @@ describe('Above the Abyss (as-77)', () => {
     const luitprandId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
     const cardInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
       targetCharacterId: luitprandId,
       optionId: 'untap',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, LUITPRAND, CardStatus.Untapped);
     expect(state.players[0].hand).toHaveLength(0);
