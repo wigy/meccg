@@ -112,20 +112,36 @@ EXPOSURE
 ```
 
 ```text
+HAZARD PLAN
+    4.20  Orc-warband              → their 5-character company
+    0.00  Orc-lieutenant           nothing left it improves
+  total denied if carried out: 4.20 tsd
+
 HAND
-    2.60  Orc-warband         would deny 5.2 against their largest company
+    2.10  Orc-warband         adds 4.2 to the plan against their 5-character company
     1.00  Doors of Night      no points and no attack to model — the flat price
     0.00  Anborn              mind 2 does not fit the 1 influence free
-    0.00  Orc-lieutenant      their companies can beat it — worth nothing as an attack
+    0.00  Orc-lieutenant      nothing left it improves — worth nothing as an attack
 ```
 
-That last section is §3.5's shadow price (`card-price`), which was blocked on
-`hazards` until `denial` existed. It is what makes a discard a decision rather
-than a coin flip, and the reason `hand` is the only module the horizon test can
-see any signal from. Note the tension it prints rather than hides: the
-Orc-lieutenant is worth nothing *alone*, while `hazards` ranks playing it at
-+3.9% as the opener of a bundle the warband finishes. Both answer different
-questions; the gap is real and declared.
+Those two are §3.5's shadow price (`card-price`) and the plan it now rests on.
+The price is what makes a discard a decision rather than a coin flip, and the
+reason `hand` is the only module the horizon test can see any signal from.
+
+It used to price a creature **alone**, and printed a tension it could not
+resolve: the Orc-lieutenant was worth nothing by itself while `hazards` ranked
+*playing* it at +3.9% as the opener of a bundle the warband finished.
+`hazard-plan` resolves it by answering both questions at once — a standing
+assignment of every hazard in hand to a company it would be played against,
+greedy and supermodular, so a follow-up is credited as one. Each card is then
+worth its **marginal** contribution, which is why the marginals sum to the
+total and no pair is credited twice. The lieutenant still comes out at zero, but
+now for a reason that agrees with `hazards`: behind the warband there is nothing
+left it improves, because it hands over more kill MP than it denies.
+
+It is the most expensive thing in the project — an attack sequence resolved per
+(card, company) pair per round — so it is memoised per position, and an
+instrumented self-play game runs in about 15 seconds rather than 10.
 
 `exposure` reports facts and stops there. H1 carries a `REGION_DANGER` table —
 wilderness 2, shadow-land 4, dark-domain 5 — which is a valuation dressed as a

@@ -23,17 +23,19 @@
  * - **A character** is worth its points too, but only if it can be brought into
  *   play at all: a mind that does not fit the free general influence is a card
  *   that cannot be used, whatever it is printed with.
- * - **A hazard creature** is worth what it would deny — the same `denial`
- *   service `hazards` spends, resolved against the opponent's largest company.
- *   That is the estimate `hand` was waiting on and the reason §3.5 listed
- *   `hazards` as its dependency.
+ * - **A hazard creature** is worth what it contributes to `hazard-plan`: the
+ *   standing assignment of every hazard in hand to a company it would be played
+ *   against. That is the estimate `hand` was waiting on and the reason §3.5
+ *   listed `hazards` as its dependency.
  *
- * A creature is priced **alone**, which is a real understatement and visible in
- * the output: the Orc-lieutenant below is priced at zero because the company
- * can beat it, while `hazards` ranks *playing* it at +3.9% as the opener of a
- * bundle the warband finishes. Both are right about different questions, but
- * the value of keeping a card is closer to its bundle contribution than to its
- * solo one, and closing that gap means running the bundle planner from here.
+ * The creature price used to be its worth **alone**, against the largest
+ * opposing company, and the understatement was visible in the output: the
+ * Orc-lieutenant came out at zero because the company could beat it, while
+ * `hazards` ranked *playing* it at +3.9% as the opener of a bundle the warband
+ * finished. Both answered different questions, and the value of keeping a card
+ * is the contribution one, so the plan answers it now — a creature that only
+ * works as a follow-up is credited for being one, and one the plan cannot use
+ * is worth nothing to hold, which is a real statement about the hand.
  *
  * Everything else — hazard events, corruption cards, resources that carry no
  * points — falls back to the flat price, and says so. A price with a stated
@@ -51,11 +53,8 @@ import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
 import type { MpSource } from '../core/tsd.js';
 import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
-import { computeBeliefs } from './beliefs.js';
 import { computeBudget } from './budget.js';
-import { denialContext, denialPricer } from './denial.js';
-import { rosterOf } from './strike/prowess.js';
-import { resolveAttacks } from './strike/sequence.js';
+import { computeHazardPlan } from './hazard-plan.js';
 
 /** What one card in hand is worth keeping. */
 export interface CardWorth {
@@ -77,6 +76,11 @@ export interface CardPrices {
   ranked(): readonly CardWorth[];
   /** What a card whose use cannot be modelled is assumed to be worth. */
   readonly floor: number;
+}
+
+/** The suffix that turns 2 into "nd", for a readable play order. */
+function ordinal(order: number): string {
+  return order === 2 ? 'nd' : order === 3 ? 'rd' : 'th';
 }
 
 /** Card types whose points count as characters. */
@@ -139,41 +143,7 @@ function buildComputeCardPrices(
   const floor = tunables.provisionalCardPrice;
   const budget = computeBudget(view, cardPool);
 
-  // The company a hazard would be aimed at: the biggest one they have, which is
-  // the one most worth denying and the one most creatures can be keyed to.
-  const target = [...view.opponent.companies]
-    .sort((a, b) => b.characters.length - a.characters.length)[0] ?? null;
-  const roster = target ? rosterOf(target, view.opponent.characters, cardPool) : [];
-  const denial = target
-    ? denialContext(view, target, computeBeliefs(view, cardPool), standing, tunables)
-    : null;
-  const price = denial ? denialPricer(cardPool, standing, tunables, denial) : null;
-
-  const creatureCache = new Map<string, number>();
-
-  /** What a creature would deny if played into the biggest opposing company. */
-  const creatureWorth = (definitionId: string, card: Printed): number => {
-    if (!price || roster.length === 0) return floor;
-    const cached = creatureCache.get(definitionId);
-    if (cached !== undefined) return cached;
-    const killTsd = card.killMarshallingPoints > 0
-      ? standing.tsdAfter({}, { kill: card.killMarshallingPoints }) - standing.tsd
-      : 0;
-    const result = resolveAttacks(roster, cardPool, [{
-      strikeProwess: card.prowess,
-      strikes: card.strikes,
-      creatureBody: card.body,
-      detainment: false,
-      bodyCheckModifier: 0,
-      killTsd,
-    }], price, { maxStates: tunables.attackStateCap });
-    const expected = result.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
-    // A card is never worth *less* than nothing to hold: the choice not to play
-    // it is always available, so a bad creature is worth zero, not negative.
-    const worth = Math.max(0, expected);
-    creatureCache.set(definitionId, worth);
-    return worth;
-  };
+  const plan = computeHazardPlan(view, cardPool, standing, tunables);
 
   const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
     const card = view.self.hand.find(c => c.instanceId === instanceId);
@@ -185,14 +155,18 @@ function buildComputeCardPrices(
     }
 
     if (def.cardType === 'hazard-creature') {
-      const raw = creatureWorth(definitionId, def);
+      const assignment = plan.worth(instanceId);
+      // A card is never worth *less* than nothing to hold: the choice not to
+      // play it is always available, so a bad creature is worth zero.
+      const raw = Math.max(0, assignment?.marginal ?? 0);
       return {
         instanceId,
         name: def.name,
         tsd: raw * tunables.potentialDiscount,
-        reason: raw > 0
-          ? `would deny ${raw.toFixed(1)} against their largest company`
-          : 'their companies can beat it — worth nothing as an attack',
+        reason: assignment && assignment.targetCompanyId !== null
+          ? `adds ${raw.toFixed(1)} to the plan against their ${assignment.targetLabel}`
+            + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
+          : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
     }
 
