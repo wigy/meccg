@@ -30,6 +30,7 @@ import type { TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { isSiteCard, isCharacterCard, isHalfOrc } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -1412,7 +1413,11 @@ function discardWoundedCharacters(
       continue;
     }
 
-    logDetail(`${sourceName}: discarding wounded character ${charId as string} to discard pile`);
+    // Pallando the Soul-keeper (as-17): a matching character discarded from play
+    // is instead eliminated to its owner's out-of-play pile.
+    const elimHost = findEliminateInsteadOfDiscardHost(stateOut, charDef);
+
+    logDetail(`${sourceName}: ${elimHost ? 'eliminating' : 'discarding'} wounded character ${charId as string}`);
     const cloned = clonePlayers(stateOut);
     const newPlayerData = { ...cloned[defIdx] };
 
@@ -1420,10 +1425,12 @@ function discardWoundedCharacters(
       ...c,
       characters: c.characters.filter(ch => ch !== charId),
     }));
-    newPlayerData.discardPile = [
-      ...newPlayerData.discardPile,
-      { instanceId: charId, definitionId: charDefId! },
-    ];
+    const removedCharCard = { instanceId: charId, definitionId: charDefId! };
+    if (elimHost) {
+      newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, removedCharCard];
+    } else {
+      newPlayerData.discardPile = [...newPlayerData.discardPile, removedCharCard];
+    }
     {
       const { toHand, toDiscard } = partitionLeavingAllies(stateOut, charData.allies);
       if (toHand.length > 0) logDetail(`${sourceName}: ${toHand.length} ally(ies) return to hand from discarded character`);
@@ -1451,6 +1458,7 @@ function discardWoundedCharacters(
 
     cloned[defIdx] = newPlayerData;
     stateOut = { ...stateOut, players: cloned };
+    if (elimHost) stateOut = consumeEliminateInsteadOfDiscardHost(stateOut, elimHost);
   }
 
   return stateOut;

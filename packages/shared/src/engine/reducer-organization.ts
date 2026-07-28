@@ -19,6 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1865,13 +1866,26 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
     return { state: capturePressGang(state, playerIndex, charInstId, pressHost) };
   }
 
-  logDetail(`Discard character (rule 3.22): ${charDef.name} at ${company.currentSite?.definitionId as string ?? '?'} — discarding with ${char.items.length} item(s), ${char.allies.length} ally/allies, ${char.hazards.length} hazard(s); ${char.followers.length} follower(s) revert to GI`);
+  // Pallando the Soul-keeper (as-17): a matching character discarded from play
+  // is instead eliminated — the character card goes to its owner's out-of-play
+  // pile; its possessions still go to the discard piles.
+  const elimHost = findEliminateInsteadOfDiscardHost(state, charDef);
+
+  logDetail(`Discard character (rule 3.22): ${charDef.name} at ${company.currentSite?.definitionId as string ?? '?'} — ${elimHost ? 'eliminating' : 'discarding'} with ${char.items.length} item(s), ${char.allies.length} ally/allies, ${char.hazards.length} hazard(s); ${char.followers.length} follower(s) revert to GI`);
 
   const newPlayers = clonePlayers(state);
   const opponentIndex = 1 - playerIndex;
 
-  // Character + possessions to the player's own discard pile.
-  let ownDiscard = [...newPlayers[playerIndex].discardPile, { instanceId: charInstId, definitionId: char.definitionId }];
+  // Character + possessions to the player's own discard pile — but an eliminated
+  // character card goes to the out-of-play pile instead.
+  const removedCharCard = { instanceId: charInstId, definitionId: char.definitionId };
+  let ownOutOfPlay = newPlayers[playerIndex].outOfPlayPile;
+  let ownDiscard = [...newPlayers[playerIndex].discardPile];
+  if (elimHost) {
+    ownOutOfPlay = [...ownOutOfPlay, removedCharCard];
+  } else {
+    ownDiscard = [...ownDiscard, removedCharCard];
+  }
   for (const item of char.items) ownDiscard = [...ownDiscard, toCardInstance(item)];
   for (const ally of char.allies) ownDiscard = [...ownDiscard, toCardInstance(ally)];
 
@@ -1908,11 +1922,14 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
     .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c)
     .filter(c => c.characters.length > 0);
 
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard };
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
   newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
 
+  let afterRemoval: GameState = { ...state, players: newPlayers };
+  if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
+
   let result = sweepCompanyMembershipChangedEvents(
-    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers })),
+    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(afterRemoval)),
     [company.id],
   );
   if (isLeaderCharacter(charDef)) {

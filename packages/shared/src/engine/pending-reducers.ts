@@ -43,6 +43,8 @@ import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import type { EliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
+import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
@@ -598,6 +600,8 @@ export function applyCorruptionCheckResolution(
 
   // Failed — discard or eliminate the character
   const newCharacters = { ...player.characters };
+  /** Set when an `eliminate-instead-of-discard` host turned this discard into an elimination. */
+  let elimHost: EliminateInsteadOfDiscardHost | null = null;
 
   // For transfer checks, remove the transferred item from its new bearer
   // (the transfer didn't stick — the item is included in the discard via
@@ -627,9 +631,17 @@ export function applyCorruptionCheckResolution(
       };
     }
 
-    // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
-    logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
-    removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'discard');
+    // Pallando the Soul-keeper (as-17): a matching character that would be
+    // discarded from play is instead eliminated to its owner's out-of-play pile.
+    elimHost = findEliminateInsteadOfDiscardHost(stateAfterRoll, charDef);
+    if (elimHost) {
+      logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — ${charName} is eliminated instead of discarded, and ${action.possessions.length} possession(s) discarded`);
+      removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'out-of-play');
+    } else {
+      // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
+      logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
+      removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'discard');
+    }
   } else {
     // outcome === 'eliminate': hard fail (≥2 below CP) or a Wizard avatar on any
     // failure — character eliminated, possessions discarded.
@@ -652,10 +664,11 @@ export function applyCorruptionCheckResolution(
     }
   }
 
-  const cleanedState = cleanupEmptyCompanies({
+  let cleanedState = cleanupEmptyCompanies({
     ...postRollState,
     players: playersAfterRoll,
   });
+  if (elimHost) cleanedState = consumeEliminateInsteadOfDiscardHost(cleanedState, elimHost);
 
   const failedState = dequeueResolution(cleanedState, top.id);
   return {
@@ -1766,6 +1779,15 @@ function discardCharacter(
     if (host) return capturePressGang(state, playerIndex, characterId, host);
   }
 
+  // Pallando the Soul-keeper (as-17): a character that would be discarded from
+  // play is instead *eliminated* — only the character card's destination
+  // changes; its possessions and followers are dispersed exactly as before.
+  let destination = characterDestination;
+  const elimHost = destination === 'discard'
+    ? findEliminateInsteadOfDiscardHost(state, defById(state, charInPlay.definitionId))
+    : null;
+  if (elimHost) destination = 'out-of-play';
+
   const newPlayers = clonePlayers(state);
   const player = newPlayers[playerIndex];
   const opponentIndex = playerIndex === 0 ? 1 : 0;
@@ -1824,10 +1846,10 @@ function discardCharacter(
 
   // The character card itself: discarded (default) or eliminated to the owner's
   // out-of-play pile. Its possessions were already pushed to newDiscard above.
-  const newOutOfPlay = characterDestination === 'out-of-play'
+  const newOutOfPlay = destination === 'out-of-play'
     ? [...player.outOfPlayPile, toCardInstance(charInPlay)]
     : player.outOfPlayPile;
-  if (characterDestination === 'discard') {
+  if (destination === 'discard') {
     newDiscard.push(toCardInstance(charInPlay));
   }
 
@@ -1845,6 +1867,7 @@ function discardCharacter(
   const removedIsLeader = !!(removedDef && isCharacterCard(removedDef) && (removedDef.keywords ?? []).includes('leader'));
 
   let result: GameState = { ...state, players: newPlayers };
+  if (elimHost) result = consumeEliminateInsteadOfDiscardHost(result, elimHost);
   result = cleanupEmptyCompanies(result);
   result = sweepCompanyMembershipChangedEvents(result, affectedCompanies);
   if (removedIsLeader) {
