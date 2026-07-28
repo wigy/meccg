@@ -72,23 +72,26 @@ describe('module boundaries', () => {
     const names = ALL_MODULES.map(m => m.name);
     expect(new Set(names).size).toBe(names.length);
 
-    // `pass` means something different in every context — decline to cancel an
-    // attack, decline to move — so more than one module legitimately lists it.
-    // What must not overlap is the *claim*, and `claims()` is what separates
-    // them; the registry resolves any residual tie by module order, which is a
-    // silent priority and the reason this exemption is narrow and explicit
-    // rather than a blanket relaxation.
-    const contextFree = new Set(['pass']);
-    const owner = new Map<string, string>();
-    const contested: string[] = [];
+    // Two modules may own the same action type — `pass` means something
+    // different everywhere, and `cancel-attack` is a tactical question for
+    // `combat` and a portfolio one for `kill`. What they may not do is rely on
+    // registry order to tell them apart: every owner of a shared type must
+    // define a `claims()` gate, so the separation is stated in the module
+    // rather than implied by an array's ordering.
+    const owners = new Map<string, string[]>();
     for (const module of ALL_MODULES) {
       for (const type of module.ownedActionTypes) {
-        if (contextFree.has(type)) continue;
-        const existing = owner.get(type);
-        if (existing) contested.push(`${type}: ${existing} and ${module.name}`);
-        else owner.set(type, module.name);
+        owners.set(type, [...(owners.get(type) ?? []), module.name]);
       }
     }
-    expect(contested).toEqual([]);
+    const ungated: string[] = [];
+    for (const [type, names] of owners) {
+      if (names.length < 2) continue;
+      for (const name of names) {
+        const module = ALL_MODULES.find(m => m.name === name)!;
+        if (!module.claims) ungated.push(`${type}: ${name} shares it but has no claims() gate`);
+      }
+    }
+    expect(ungated).toEqual([]);
   });
 });

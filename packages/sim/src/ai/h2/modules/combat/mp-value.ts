@@ -24,9 +24,11 @@
  * evaluation's assumptions and is what the calibration harness measures.
  */
 
-import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
 import { CardStatus } from '@meccg/shared';
+import type { CombatState } from '@meccg/shared';
 import type { MpDelta, MpSource } from '../../core/tsd.js';
+export { killMpOnOffer } from '../../services/attack-value.js';
 
 /** MP a card is worth, with the source it counts against. */
 interface CardMp {
@@ -110,47 +112,6 @@ export function eliminationCost(
     salvageableItems: Math.min(rescuers, items.length),
     carriedItems: items.length,
   };
-}
-
-/**
- * Kill MP on offer for defeating this attack, or 0 when there is none.
- *
- * Automatic attacks have no card to claim, detainment creatures are discarded
- * rather than banked (CoE 3.II.3), and a played auto-attack is treated as the
- * site's own attack. Each of those is a case where a naive "defeat the
- * creature, score the points" model would invent income that never arrives.
- */
-export function killMpOnOffer(
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  combat: CombatState,
-  view: PlayerView,
-): number {
-  if (combat.detainment) return 0;
-  const source = combat.attackSource;
-  const instanceId = source.type === 'creature' ? source.instanceId
-    : source.type === 'on-guard-creature' ? source.cardInstanceId
-      : null;
-  if (instanceId === null) return 0;
-
-  const definitionId = findDefinitionId(view, instanceId);
-  const def = definitionId ? cardPool[definitionId] : undefined;
-  const kill = (def as unknown as { killMarshallingPoints?: number } | undefined)?.killMarshallingPoints;
-  return typeof kill === 'number' ? kill : 0;
-}
-
-/** Definition ID of an instance visible anywhere in the view, if any. */
-function findDefinitionId(view: PlayerView, instanceId: CardInstanceId): string | undefined {
-  for (const side of [view.self, view.opponent]) {
-    for (const card of side.cardsInPlay) {
-      if (card.instanceId === instanceId) return card.definitionId;
-    }
-    for (const character of Object.values(side.characters)) {
-      for (const attached of [...character.items, ...character.hazards, ...character.allies]) {
-        if (attached.instanceId === instanceId) return attached.definitionId;
-      }
-    }
-  }
-  return undefined;
 }
 
 /**
