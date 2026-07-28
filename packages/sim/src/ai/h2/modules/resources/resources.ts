@@ -59,8 +59,11 @@ function cardOf(
 /** Assumptions every resource evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
   'the play is assumed to tap the bearer; a card that does not tap is over-charged by one tap',
-  'corruption the card brings is reported but not priced — a corruption check is its own '
-  + 'decision and belongs to the `corruption` module',
+  'corruption the card brings is reported but NOT priced, and this is currently wrong in a '
+  + 'visible way: on the first real position the module ran, a 2-MP item carrying 2 corruption '
+  + 'points and a 2-MP item carrying fewer tied exactly. Carrying corruption raises the odds of '
+  + 'failing a later check, and until that is priced the module is indifferent between a safe '
+  + 'item and a dangerous one of equal points',
   'only what the card is worth now is counted; whether this source is worth chasing across the '
   + 'game is the acquisition layer\'s strategic half, which does not exist yet',
 ];
