@@ -16,6 +16,9 @@ FIXES
 FEATS
 -----
 
+Try MC-AI with 24 core threads.
+Add button for Heuristics 2.
+
 EPICS
 -----
 
