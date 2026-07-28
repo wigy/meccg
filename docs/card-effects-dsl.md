@@ -7012,6 +7012,44 @@ resolved copy) enforces "Cannot be duplicated on a given turn".
 ]
 ```
 
+### Wizard's River-horses
+
+A dual-mode spell short-event (the shape *The Cock Crows* tw-342 established:
+two independent effects on one card, each offered in its own window).
+
+Mode 1, "All Nazgûl events are discarded", is a `move` sweep — `select:
+'filter-all'`, `from: 'in-play'`, `to: 'discard'` — filtered on the `Nazgûl`
+keyword. The Nine are dual creature/permanent-event cards, so a Nazgûl reaches
+`cardsInPlay` only in its permanent-event mode; each swept card goes to its own
+owner's discard pile. The mode is offered only while at least one matching card
+is in play (`heroResourceShortEventActions`, `legal-actions/long-event.ts`), and
+it rides the chain of effects like the single-target `discard-in-play` shape —
+the declaration carries `discardAllInPlay: true` on the chain payload and
+`chain-reducer` runs the sweep plus the `corruptionCheck` on the `play-target`
+Wizard once both players pass priority (`applyShortEventDiscardAllInPlay`,
+`engine/short-event-discard.ts`). The payload flag is what keeps the sweep from
+also firing when the card is played in its *other* mode.
+
+Mode 2 is a plain `cancel-attack` gated on `bearer.companySize` — "if he is the
+only character in the company". Allies do not count: they are not characters.
+
+```json
+"effects": [
+  { "type": "play-target", "target": "character",
+    "filter": { "target.race": "wizard" } },
+  { "type": "move",
+    "select": "filter-all",
+    "from": "in-play",
+    "to": "discard",
+    "filter": { "keywords": { "$includes": "Nazgûl" } },
+    "corruptionCheck": { "modifier": -2 } },
+  { "type": "cancel-attack",
+    "requiredRace": "wizard",
+    "cost": { "check": "corruption", "modifier": -2 },
+    "when": { "bearer.companySize": 1 } }
+]
+```
+
 ### Orc-lieutenant
 
 ```json

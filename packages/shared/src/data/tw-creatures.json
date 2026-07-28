@@ -1233,6 +1233,9 @@
     "body": 9,
     "killMarshallingPoints": 5,
     "race": "ringwraith",
+    "keywords": [
+      "Nazgûl"
+    ],
     "keyedTo": [
       {
         "regionTypes": [
@@ -1576,6 +1579,9 @@
     "body": 10,
     "killMarshallingPoints": 5,
     "race": "ringwraith",
+    "keywords": [
+      "Nazgûl"
+    ],
     "keyedTo": [
       {
         "regionTypes": [
@@ -1767,6 +1773,9 @@
     "body": 9,
     "killMarshallingPoints": 5,
     "race": "ringwraith",
+    "keywords": [
+      "Nazgûl"
+    ],
     "keyedTo": [
       {
         "regionTypes": [

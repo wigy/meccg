@@ -804,6 +804,16 @@ export type ChainEntryPayload =
        */
       readonly discardTargetInstanceId?: CardInstanceId;
       /**
+       * True for a short-event played in its "discard **every** matching card
+       * in play" mode (Wizard's River-horses tw-364: "All Nazgûl events are
+       * discarded"), i.e. a `move { select: 'filter-all', from: 'in-play',
+       * to: 'discard' }`. There is no per-target choice to carry, so the flag
+       * alone tells the chain resolver to run the sweep — and, crucially,
+       * keeps the sweep from firing when the very same card is played in its
+       * other (cancel-attack) mode, which pushes a bare `short-event` payload.
+       */
+      readonly discardAllInPlay?: true;
+      /**
        * The character tapped as the short-event's `play-target` cost. Kept
        * separate from {@link targetCharacterId} (which selects other,
        * character-targeting resolution branches) because this one only

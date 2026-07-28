@@ -46,7 +46,7 @@ import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestatio
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
-import { applyShortEventDiscardInPlay } from './short-event-discard.js';
+import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
 
@@ -3703,6 +3703,39 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       );
       if (result.error) {
         logDetail(`${def.name}: discard-in-play did not resolve — ${result.error}`);
+      } else {
+        current = result.state;
+      }
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      logDetail(`${def.name}: spent event card → discard`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+      }));
+    }
+  }
+
+  // The sweep sibling of the branch above (Wizard's River-horses tw-364, "All
+  // Nazgûl events are discarded"): the mode was flagged on the payload at
+  // declaration time — there was no single target to carry — so on un-negated
+  // resolution every in-play card matching the effect's filter goes to its
+  // owner's discard pile, the `play-target` Wizard makes the follow-up
+  // corruption check, and the spent event card is disposed of.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.discardAllInPlay) {
+    const def = defById(current, entry.card.definitionId);
+    if (def) {
+      const result = applyShortEventDiscardAllInPlay(
+        current,
+        def,
+        entry.card.instanceId,
+        entry.declaredBy,
+        entry.payload.targetCharacterId,
+      );
+      if (result.error) {
+        logDetail(`${def.name}: discard-all-in-play did not resolve — ${result.error}`);
       } else {
         current = result.state;
       }
