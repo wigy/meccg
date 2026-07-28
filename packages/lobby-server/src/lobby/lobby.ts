@@ -15,16 +15,21 @@ import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName, getCredits } from '../players/store.js';
 
 /**
- * TEMPORARY — sim agent spec for the "Play vs MC-AI" button.
+ * Sim agent spec for the "Play vs MC-AI" button.
  *
  * A server-side constant rather than a protocol field on purpose: the spec
  * becomes argv of a spawned process, and a client-supplied one could name an
  * arbitrary weights file via `bc:<path>`. The `ms` budget bounds wall-clock
  * per decision so a search cannot stall a human's game; `turns=3` is the
  * shortest horizon measured to separate candidates at all (a 1-turn horizon
- * leaves almost every decision tied at 0). Remove with the button once the
- * agent is promoted or dropped — see
- * `specs/2026-07-27-monte-carlo-rollout-agent.md`.
+ * leaves almost every decision tied at 0).
+ *
+ * Promoted from its trial run 2026-07-28: measured on challenge decks a/b,
+ * this agent beats the heuristic by +152 Elo [+59, +273] at 8 rollouts and
+ * +352 [+228, +672] at 16, and beats the strongest trained policy by +149
+ * [+39, +301]. It is the strongest opponent available and, unlike the
+ * determinizing tree search, converts extra budget into strength — see
+ * `specs/2026-07-28-parallel-monte-carlo.md` for scaling it across cores.
  */
 const MC_AGENT_SPEC = 'mc:ms=2000/turns=3/candidates=6';
 
@@ -187,7 +192,6 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
-    // TEMPORARY — see MC_AGENT_SPEC.
     case 'play-mc-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
