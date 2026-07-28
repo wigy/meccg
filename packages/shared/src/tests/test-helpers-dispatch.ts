@@ -146,9 +146,26 @@ export function testGoldRingViaWizard(
   expect(grants.length).toBe(1);
   const afterActivate = dispatch(state, grants[0].action);
 
-  const rolls = viableActions(afterActivate, playerId, 'gold-ring-test-roll');
+  return rollGoldRingTest(afterActivate, playerId, total);
+}
+
+/**
+ * Roll the `gold-ring-test` pending resolution already queued for the player,
+ * with `total` cheated in as the 2d6 result. Returns the state after the roll —
+ * by then the gold ring is discarded and a `ring-play-offer` is queued.
+ *
+ * Complements {@link testGoldRingViaWizard}: use this when the test was queued
+ * by something other than a Wizard's granted action (e.g. a Test of Fire /
+ * Test of Form short event, or a Darkhaven auto-test).
+ */
+export function rollGoldRingTest(
+  state: GameState,
+  playerId: PlayerId,
+  total: number,
+): GameState {
+  const rolls = viableActions(state, playerId, 'gold-ring-test-roll');
   expect(rolls.length).toBe(1);
-  return dispatch({ ...afterActivate, cheatRollTotal: total }, rolls[0].action);
+  return dispatch({ ...state, cheatRollTotal: total }, rolls[0].action);
 }
 
 /**
