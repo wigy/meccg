@@ -225,40 +225,78 @@ Status by phase:
 |---|---|
 | P0 core | shipped — TSD, dice, rationale, tunables, risk oracle, registry, fitted `W`, scenario store, CLIs |
 | P1 `combat` | shipped and calibrated 36/36 against the reducer — strike window, attack window, sequential resolution |
-| P2 services | `standing`, `budget`, `exposure` shipped and printed by `explain`; `travel` written |
-| P3 acquisition | `factions` and `resources` written; `character-value` service shipped and consumed by `combat` |
-| P4 | `corruption` written; `health` not started |
-| P5–P7 | `characters`, `health`, `hand`, `endgame` and `hazards` written; `allies`/`misc` not started |
+| P2 services | `standing`, `budget`, `exposure`, `beliefs`, `character-value`, `card-price`, `denial`, `defence`, `strike/*` — printed by `explain` where they are spent |
+| P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
+| P4 | `corruption` and `health` written |
+| P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame` and `hazards` written; `allies`/`misc` not started |
 
 ### Coverage, measured
 
-Over four self-play games (3524 decisions, 1626 contested), the action types
-appearing in contested decisions are led by:
+There is a CLI for this now, because it is the number that decides which module
+to write next and guessing at it was how the table below went stale twice:
 
-```text
- 1154  pass                314  discard-card         190  cancel-movement
-  189  play-hazard         178  split-company        178  activate-granted-action
-  171  play-short-event    159  move-to-influence    157  draw-cards
-  154  plan-movement       142  discard-character    142  transfer-item
+```sh
+npm run coverage -w @meccg/sim -- --games 3
 ```
 
-`activate-granted-action` is in 10.9% of contested decisions — real, but not
-the blocker it first looked like from a single scenario. The long tail is:
-`split-company`, `merge-companies`, `cancel-movement`, `discard-card`,
-`draw-cards`, `discard-character` and `play-short-event` all have no owner
-(`play-hazard` has one now — see below, though only for creatures). Full coverage is a longer road than eight modules suggests, and
-chasing it action type by action type is not obviously the right route —
-whether dispatch should stay all-or-nothing is worth re-arguing on this
-evidence rather than on the one scenario that prompted the rule.
+Over 1321 contested decisions:
 
-**Only `combat` has been observed running.** Dispatch requires the module set
-to cover every candidate on a decision (see `core/registry.ts`), and the
-organization and site phases each still offer action types with no owner —
-`transfer-item`, `move-to-influence`, `activate-granted-action`, the sideboard
-actions. Until those have owners, `travel`, `factions`, `resources` and
-`corruption` are unit-tested against synthetic inputs but never fire in a real
-game, and no scenario in the corpus exercises them. Treat their valuations as
-unverified.
+```text
+  covered and decisive        505  38.2%
+  covered but flat            103   7.8%   → H1
+  partial, acted anyway       155  11.7%
+  partial, handed over        447  33.8%   → H1
+  no owner at all             111   8.4%   → H1
+
+  H2 decides 50.0% of contested decisions.
+```
+
+That is up from 33.1% at the start of the coverage work, and the three commits
+that moved it were all found by running this rather than by reasoning about it:
+
+- **`pass` was the largest single blocker by a factor of three** — 476
+  decisions. Three modules own it inside their own windows and nobody owned it
+  anywhere else, so a site phase offering four scored resource plays and one
+  unscored `pass` went to Heuristics 1 entire. It is not a module: a utility is
+  a change relative to doing nothing, and passing *is* doing nothing, so the
+  zero is a definition and lives in `core/baseline.ts`.
+- **`cancel-movement` and `declare-path`** (262 decisions) were already inside
+  `travel`'s model — cancelling is the destination value with the sign flipped.
+- **`split-company` and `merge-companies`** (191) turned out to have an exact
+  half: the hazard limit *is* the company size, so shape decides how
+  concentrated the harm can be. `services/defence.ts` computes it.
+
+What is left, by decisions blocked: `activate-granted-action` 145,
+`discard-character` 138, `place-on-guard` 129, `play-short-event` 128,
+`play-hazard` 127, `assign-strike` 64. The last two are `hazards`'s own
+declared gaps — events and non-creature on-guard cards — and closing them means
+pricing card effects, which is the DSL's work rather than a module's.
+
+### Does any of it predict anything?
+
+The horizon test (§6.4) correlates what a module predicted against what the
+score actually did 1, 3 and 5 turns later. Two things had to be fixed before it
+said anything at all:
+
+- It correlated single *decisions*. Sixteen games put every module's
+  correlation indistinguishable from zero out to n=2689 — which is what that
+  measurement deserves, because one action among the hundreds taken in a turn
+  cannot explain what the score did three turns later. It now aggregates a
+  module's predictions **by turn**.
+- It failed a module on the sign of a point estimate. Two six-game samples put
+  the same module at +0.10 and -0.18. It now prints a 95% interval and fails a
+  module only when the whole interval is negative.
+
+With both fixed, over 16 games, exactly one module's interval clears zero:
+
+```text
+  hand    h1 +0.01 [-0.07, 0.09]   h3 +0.09 [0.02, 0.17]   h5 +0.13 [0.05, 0.20]
+```
+
+That is the module whose card price stopped being flat one commit earlier, and
+it is the first evidence in this project that a module's predictions track
+anything. Every other module spans zero in both directions — not a verdict
+against them, but not support either. Treat their valuations as unverified.
 
 ## Replay format
 
