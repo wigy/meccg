@@ -615,10 +615,23 @@
     "killMarshallingPoints": 6,
     "starredKillMarshallingPoints": true,
     "race": "maia",
+    "manifestId": "tw-181",
+    "certified": "2026-07-28",
     "keyedTo": [
       {
         "regionTypes": [
           "free"
+        ],
+        "siteTypes": [
+          "free-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Gap of Isen",
+          "Rohan",
+          "Enedhwaith",
+          "Old Pûkel-land"
         ]
       }
     ],
@@ -626,6 +639,64 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      },
+      {
+        "type": "discard-self-when",
+        "condition": {
+          "charactersInPlayAnywhere": "Saruman"
+        }
+      },
+      {
+        "type": "in-play-item-modifier",
+        "itemFilter": {
+          "item.keywords": {
+            "$includes": "ring"
+          }
+        },
+        "corruptionPoints": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
