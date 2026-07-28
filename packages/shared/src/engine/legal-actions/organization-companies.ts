@@ -1198,6 +1198,19 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
 
+      // The reducer removes the splitter *and its followers*, and refuses a
+      // split that empties the source company. Mirror that exactly rather
+      // than relying on the "two general-influence characters" proxy above:
+      // a character whose control has reverted to general influence can still
+      // be listed in its former controller's followers, and then both leave
+      // together. Offering a split the reducer then rejects aborted two of
+      // 400 games in a gate run (seeds 4255 and 4418).
+      const leaving = new Set<string>([charInstId as string, ...char.followers.map(f => f as string)]);
+      if (company.characters.every(c => leaving.has(c as string))) {
+        logDetail(`  → skip: splitting ${charDef.name} with ${char.followers.length} follower(s) would empty ${company.id as string}`);
+        continue;
+      }
+
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
       const candidate: GameAction = {
         type: 'split-company',
