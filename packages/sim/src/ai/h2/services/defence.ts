@@ -36,7 +36,6 @@ import type { CardDefinition, PlayerView } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
-import { computeCharacterValue } from './character-value.js';
 import type { StrikeTarget } from './strike/prowess.js';
 import type { AttackProfile } from './strike/sequence.js';
 import { resolveAttacks } from './strike/sequence.js';
@@ -172,7 +171,16 @@ function buildComputeDefence(
     fromPool,
   };
 
-  const characterValue = computeCharacterValue(view, cardPool, standing, tunables);
+  /** What the marshalling points a character carries are worth, in TSD. */
+  const ownMpLoss = (target: { readonly definitionId: string; readonly isAlly: boolean }): number => {
+    const def = cardPool[target.definitionId] as unknown as {
+      marshallingPoints?: number; marshallingCategory?: string;
+    } | undefined;
+    const points = def?.marshallingPoints ?? 0;
+    if (points <= 0) return 0;
+    const source = target.isAlly ? 'ally' : (def?.marshallingCategory ?? 'character');
+    return standing.tsd - standing.tsdAfter({ [source]: -points });
+  };
 
   return {
     typical,
@@ -199,17 +207,18 @@ function buildComputeDefence(
       const result = resolveAttacks(
         canonical, cardPool, new Array(slots).fill(profile),
         (outcome, target) => {
-          // Priced through the shared service, so what tapping this particular
-          // character costs is the same number `combat` pays for it — including
-          // the influence attempt a tap forfeits, which is why a flat tempo
-          // cost was wrong everywhere it was used.
+          // Shape-independent by construction: the tempo constants and the
+          // character's own printed points. Anything that varies with which
+          // company he is in — the influence attempt a tap forfeits, the
+          // followers a loss reverts — would make this a function of the shape
+          // it is being used to compare, which is how the loop happened.
           switch (outcome.character) {
             case 'tapped':
-              return -characterValue.tapCost(target.instanceId).tsd;
+              return -tunables.tapTempoCost;
             case 'wounded':
-              return -(characterValue.tapCost(target.instanceId).tsd + tunables.woundTempoCost);
+              return -tunables.woundTempoCost;
             case 'eliminated':
-              return -characterValue.lossCost(target.instanceId).tsd;
+              return -(tunables.eliminationTempoCost + ownMpLoss(target));
             default:
               return 0;
           }

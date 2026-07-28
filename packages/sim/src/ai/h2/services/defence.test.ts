@@ -27,6 +27,10 @@ function position() {
   const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
   const company = [...view.self.companies].sort((a, b) => b.characters.length - a.characters.length)[0];
   return {
+    view,
+    cardPool,
+    standing,
+    company,
     defence: computeDefence(view, cardPool, standing, DEFAULT_TUNABLES),
     roster: rosterOf(company, view.self.characters, cardPool),
   };
@@ -59,6 +63,29 @@ describe('what a shape invites', () => {
     const { defence, roster } = position();
     const shuffled = [...roster].reverse();
     expect(defence.expectedHarm(shuffled, 3)).toBeCloseTo(defence.expectedHarm(roster, 3), 9);
+  });
+
+  test('the answer does not depend on how the rest of the board is arranged', () => {
+    // The second half of the potential property, and the one that cost a second
+    // self-play game. Harm used to be priced through `character-value`, whose
+    // tap cost includes the influence attempt the tap forfeits — and *that*
+    // depends on which company the character is in. Splitting scored +1.28 tsd
+    // and merging the pair straight back scored +0.48, because the prices had
+    // moved underneath the comparison.
+    const { view, cardPool, standing, company, roster, defence } = position();
+    const resplit = {
+      ...view,
+      self: {
+        ...view.self,
+        companies: [
+          ...view.self.companies.filter(c => c.id !== company.id),
+          { ...company, id: 'company-a', characters: company.characters.slice(0, 1) },
+          { ...company, id: 'company-b', characters: company.characters.slice(1) },
+        ],
+      },
+    } as unknown as typeof view;
+    const other = computeDefence(resplit, cardPool, standing, DEFAULT_TUNABLES);
+    expect(other.expectedHarm(roster, 3)).toBeCloseTo(defence.expectedHarm(roster, 3), 9);
   });
 
   test('a bigger roster answers the same attack better, per slot', () => {

@@ -34,6 +34,12 @@
  * the creatures this opponent has actually shown — and the difference is the
  * whole evaluation.
  *
+ * That difference has to be a difference *of one potential*, `Σ harm(company)`
+ * over the whole board, or the module will value a change and its undo both
+ * positively and do them forever. It did, twice, and both times the game ran to
+ * the decision limit inside a single organization phase. `defence` carries the
+ * two conditions that make it a potential and the tests that pin them.
+ *
  * What that leaves out is stated: splitting also lets two companies reach two
  * sites, which is usually the reason anyone does it, and pricing that needs
  * destinations the organization phase has not chosen yet.
