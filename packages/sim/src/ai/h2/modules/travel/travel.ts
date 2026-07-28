@@ -32,6 +32,7 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
+import { computeBeliefs } from '../../services/beliefs.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
@@ -190,8 +191,9 @@ function siteDefinitionOf(context: ModuleContext, companyId: string): string | u
 
 /** Assumptions every travel evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
-  'hazards en route are not modelled — that needs the belief half of `exposure` (§3.6), '
-  + 'so a long site path is charged for its length but not for what is likely to be waiting on it',
+  'hazards en route are priced only as a likelihood that the opponent holds *a* creature, not by '
+  + 'which creature or whether it is playable on this path — the belief model estimates kinds, '
+  + 'not cards',
   'only cards already in hand count toward a destination\'s worth; the acquisition modules\' '
   + 'strategic view (which sources are worth chasing at all) does not exist yet',
   'a resource play is assumed to need one tap, and no card is assumed to be playable twice',
@@ -210,7 +212,14 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
   const beyondTaps = playable.length - playableNow.length;
   // Cards that fit the site but not this turn's taps are unlocked, not banked.
   const potential = playable.slice(playableNow.length).reduce((sum, c) => sum + c.tsd, 0);
-  const tempo = site.pathLength * tunables.regionCrossingCost;
+  // Distance is charged by what is likely to be waiting on it rather than by
+  // its length alone: each region crossed is an opportunity for the opponent
+  // to answer, and `beliefs` estimates how likely they are to have something
+  // to answer with. With nothing shown this falls back to the prior and the
+  // charge is close to the old flat one.
+  const beliefs = computeBeliefs(context.view, context.cardPool);
+  const threat = beliefs.holdsAtLeastOne('creature');
+  const tempo = site.pathLength * tunables.regionCrossingCost * (1 + threat);
 
   const dtsd = netTsdDelta({ realized, potential, tempo }, tunables);
   const outcomes: Outcome[] = [{
@@ -227,7 +236,13 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
     leaf('regions crossed', site.pathLength, {
       note: site.pathLength > 0 ? site.sitePath.join(' → ') : 'already here',
     }),
-    leaf('travel tempo', tempo, { unit: 'tsd', tunable: 'regionCrossingCost' }),
+    leaf('travel cost', tempo, {
+      unit: 'tsd',
+      tunable: 'regionCrossingCost',
+      note: `${site.pathLength} region(s), scaled by a ${(threat * 100).toFixed(0)}% chance the `
+        + `opponent holds a creature (${(beliefs.confidence * 100).toFixed(0)}% confidence, `
+        + `${beliefs.observed} cards seen)`,
+    }),
     leaf('taps available', destination.tapsAvailable),
   ];
   for (const card of playableNow) {
