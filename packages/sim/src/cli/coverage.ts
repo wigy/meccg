@@ -36,6 +36,7 @@ import type { Agent, AgentContext } from '../types.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
+import { MP_SOURCES } from '../ai/h2/core/tsd.js';
 import { ALL_MODULES, evaluateDecision, ownerOf } from '../ai/h2/core/registry.js';
 import { forwardActions } from '../ai/regress.js';
 
@@ -82,6 +83,17 @@ const tally = {
   partialHandedOver: 0,
   flat: 0,
   uncoveredEntirely: 0,
+  /**
+   * Decisions where *every* marshalling-point source is worth zero.
+   *
+   * Not a coverage failure but a valuation one, and it explains much of the
+   * flat column: CoE 10.3 step 4 reduces any source contributing more than half
+   * a player's total "until it is no more than half", which iterates — so a
+   * score made of one source cancels itself, and at 0-0 every hypothetical gain
+   * prices at nothing. Three character MP alone scores 0; three character and
+   * two item together score 8.
+   */
+  degenerateStanding: 0,
 };
 
 /** Contested appearances per action type, and how many had an owner. */
@@ -129,6 +141,7 @@ for (let g = 0; g < games; g++) {
           standing,
         });
         tally.contested++;
+        if (MP_SOURCES.every(source => standing.marginal[source] === 0)) tally.degenerateStanding++;
 
         const scored = new Set(evaluations.map(e => e.action));
         for (const action of legalActions) {
@@ -197,6 +210,10 @@ console.log(`  covered but flat         ${String(tally.flat).padStart(6)}  ${sha
 console.log(`  partial, acted anyway    ${String(tally.partialActed).padStart(6)}  ${share(tally.partialActed)}`);
 console.log(`  partial, handed over     ${String(tally.partialHandedOver).padStart(6)}  ${share(tally.partialHandedOver)}   → H1`);
 console.log(`  no owner at all          ${String(tally.uncoveredEntirely).padStart(6)}  ${share(tally.uncoveredEntirely)}   → H1`);
+console.log('');
+console.log(`  every MP source worth 0  ${String(tally.degenerateStanding).padStart(6)}  `
+  + `${share(tally.degenerateStanding)}   — CoE 10.3 step 4: a score made of one source`);
+console.log('                                          cancels itself, so nothing can be priced yet');
 const h2Decides = tally.covered + tally.partialActed;
 console.log('');
 console.log(`  H2 decides ${share(h2Decides)} of contested decisions.`);
