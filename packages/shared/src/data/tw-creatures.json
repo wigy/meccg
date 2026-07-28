@@ -1057,6 +1057,9 @@
     "body": 10,
     "killMarshallingPoints": 5,
     "race": "ringwraith",
+    "keywords": [
+      "Nazgûl"
+    ],
     "keyedTo": [
       {
         "regionTypes": [
@@ -1065,14 +1068,50 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Harondor",
+          "Imlad Morgul",
+          "Gorgoroth",
+          "Ithilien"
+        ]
       }
     ],
     "effects": [
       {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [
+          "dm-36"
+        ],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 15,
+          "body": 10
+        },
+        "discardAfterUse": true
+      },
+      {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "attack-race-boost",
+        "races": [
+          "wolf",
+          "spider",
+          "animal"
+        ],
+        "prowess": 1,
+        "strikes": 0
       }
     ],
+    "certified": "2026-07-28",
     "text": "Unique.Nazgûl (3rd). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Ithilien; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Dwar of Waw becomes a short-event and gives +1 prowess to all Wolf, Spider, and Animal attacks until the end of the turn."
   },
   {

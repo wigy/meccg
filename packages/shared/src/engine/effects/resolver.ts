@@ -932,8 +932,13 @@ export interface CreatureAttackBoostContext {
 
 /**
  * Synthesises {@link StatModifierEffect}s from active `creature-attack-boost`
- * constraints targeting the given company. Filters by race, and skips the
+ * constraints that reach the given company. Filters by race, and skips the
  * constraint whose source is `creatureInstanceId` (prevents self-boost).
+ *
+ * A constraint reaches the company either directly (`company` target — Chill
+ * Douser dm-106) or through its owner (`player` target — Dwar of Waw tw-31's
+ * "all Wolf, Spider, and Animal attacks", which is bound to the attacked
+ * player rather than to one of their companies).
  */
 function collectCreatureAttackBoostEffects(
   state: GameState,
@@ -943,12 +948,23 @@ function collectCreatureAttackBoostEffects(
 ): CollectedEffect[] {
   if (state.activeConstraints.length === 0) return [];
   const results: CollectedEffect[] = [];
+  const defenderPlayerId = state.players.find(
+    p => p.companies.some(c => c.id === ctx.companyId),
+  )?.id;
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'creature-attack-boost') continue;
-    if (constraint.target.kind !== 'company') continue;
-    if (constraint.target.companyId !== ctx.companyId) continue;
+    if (constraint.target.kind === 'company') {
+      if (constraint.target.companyId !== ctx.companyId) continue;
+    } else if (constraint.target.kind === 'player') {
+      if (!defenderPlayerId || constraint.target.playerId !== defenderPlayerId) continue;
+    } else {
+      continue;
+    }
     if (ctx.creatureInstanceId && constraint.source === ctx.creatureInstanceId) continue;
-    if (creatureRace && constraint.kind.race !== creatureRace) continue;
+    const boostedRaces = Array.isArray(constraint.kind.race)
+      ? constraint.kind.race
+      : [constraint.kind.race as Race];
+    if (creatureRace && !boostedRaces.includes(creatureRace)) continue;
     const value = stat === 'prowess' ? constraint.kind.prowess : constraint.kind.strikes;
     if (value === 0) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];

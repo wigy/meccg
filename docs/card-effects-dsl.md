@@ -11357,6 +11357,47 @@ controller, narrowed by two optional fields on that pending kind:
 Routing through that resolution also inherits the Leaf Brooch (dm-171)
 `discard-substitute` interposition for free.
 
+### 56h. `attack-race-boost`
+
+When this short-event resolves — including a dual-mode creature's
+tap-to-short-event conversion (§56c) — **every attack made by a creature of
+one of the named races** gains the given prowess/strike bonus for the rest of
+the turn. Unlike `modify-attack`, which raises one named attack, this is an
+untargeted standing buff: no attack need exist when the card resolves. Used by
+Dwar of Waw (tw-31)'s on-tap conversion: "gives +1 prowess to all Wolf,
+Spider, and Animal attacks until the end of the turn."
+
+```json
+{
+  "type": "attack-race-boost",
+  "races": ["wolf", "spider", "animal"],
+  "prowess": 1,
+  "strikes": 0
+}
+```
+
+- `races` — creature races whose attacks receive the boost. Matched against
+  the attack's normalised race, so printed plurals on site automatic-attacks
+  ("Wolves", "Spiders", "Animals") count too.
+- `prowess` (optional, default 0) — prowess added to every matching attack.
+- `strikes` (optional, default 0) — strikes added to every matching attack.
+
+Resolution (`applyAttackRaceBoost`, `chain-reducer.ts`) installs a
+turn-scoped **`creature-attack-boost`** active constraint — the same kind
+Chill Douser (dm-106) places when its attack survives — carrying the race list
+and the bonuses. Two small generalisations of that kind make it fit:
+
+- its `race` field now accepts a **list** of races as well as a single one; and
+- the constraint may target a **player** as well as a company. A player target
+  reaches every company that player controls, which is what "all X attacks"
+  means; a company target keeps Chill Douser's narrower "against the company".
+
+The target is the **opponent of the declaring player** — the side whose
+companies face hazards this turn. `collectCreatureAttackBoostEffects`
+(`effects/resolver.ts`) resolves either target shape when computing attack
+prowess/strikes, so the boost lands on hazard-creature attacks and site
+automatic-attacks alike, and the `turn` scope sweeps it at end of turn.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The
