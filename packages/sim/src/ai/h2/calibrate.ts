@@ -110,6 +110,27 @@ function viableFor(state: GameState, playerId: PlayerId): GameAction[] {
   return projectPlayerView(state, playerId).legalActions.filter(e => e.viable).map(e => e.action);
 }
 
+/**
+ * Replay a corruption check and report whether the character survived it.
+ *
+ * The engine removes a character that fails (`removeFailedCorruptionCharacter`
+ * routes it to the discard pile or out of play), so presence afterwards is the
+ * verdict — read from the state rather than re-derived from the roll.
+ */
+export function rolloutCorruptionCheck(
+  state: GameState,
+  action: GameAction,
+  rng: RngState,
+): { survived: boolean | null; rng: RngState } {
+  const characterId = (action as unknown as { characterId?: CardInstanceId }).characterId;
+  const playerId = (action as unknown as { player?: PlayerId }).player;
+  if (!characterId || !playerId) return { survived: null, rng };
+  const applied = reduce({ ...state, rng }, action);
+  if (applied.error) return { survived: null, rng };
+  const player = applied.state.players.find(p => p.id === playerId);
+  return { survived: player?.characters[characterId] !== undefined, rng: applied.state.rng };
+}
+
 /** The creature card whose fate says whether the attack was defeated. */
 function attackingCreatureId(state: GameState): CardInstanceId | null {
   const source = state.combat?.attackSource;
