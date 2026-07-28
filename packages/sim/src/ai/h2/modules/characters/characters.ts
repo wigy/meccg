@@ -45,12 +45,15 @@ import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
+import { computeCharacterValue } from '../../services/character-value.js';
 import { computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['play-character', 'move-to-influence', 'split-company', 'merge-companies'] as const;
+const OWNED_ACTION_TYPES = [
+  'play-character', 'move-to-influence', 'discard-character', 'split-company', 'merge-companies',
+] as const;
 
 /** A character definition named by an action, from hand or from play. */
 function characterOf(
@@ -82,6 +85,77 @@ const ASSUMPTIONS: readonly string[] = [
   + 'and `factions` price those where they are actually used',
   'a change of controller is scored as marshalling-point neutral, which it is',
 ];
+
+/**
+ * Score discarding one of our own characters in play (CoE 3.22).
+ *
+ * The cost is not the character's marshalling points alone. Its items and
+ * allies go with it and its followers revert to general influence, and
+ * `character-value.lossCost` already prices exactly that — it is the number
+ * `combat` pays when a strike eliminates the same character, which is the point
+ * of it being a service. What comes back is the mind he was occupying, and this
+ * module has said since it was written that it reports general influence rather
+ * than pricing it; discarding is not the place to start inventing a rate.
+ */
+function evaluateDiscardCharacter(context: ModuleContext, action: GameAction): Evaluation | null {
+  const record = action as unknown as { characterInstanceId?: CardInstanceId };
+  const instanceId = record.characterInstanceId;
+  if (!instanceId || !context.view.self.characters[instanceId]) return null;
+  const { standing, cardPool, tunables, view } = context;
+
+  const character = characterOf(context, instanceId);
+  const loss = computeCharacterValue(view, cardPool, standing, tunables).lossCost(instanceId);
+  const budget = computeBudget(view, cardPool);
+  const mind = character?.mind ?? 0;
+
+  // `lossCost` is deliberately "beyond its own marshalling points" — `combat`
+  // adds those separately, and so must this. A character in play is scoring for
+  // the character source right now, and discarding him stops it.
+  const points = character?.marshallingPoints ?? 0;
+  const mpLoss = points > 0
+    ? standing.tsdAfter({ [character!.source]: -points }) - standing.tsd
+    : 0;
+  const dtsd = mpLoss - loss.tsd;
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: points > 0
+      ? `discard ${character?.name ?? (instanceId as string)} — ${points} ${character!.source} MP gone, ${loss.reason}`
+      : `discard ${character?.name ?? (instanceId as string)} — ${loss.reason}`,
+    dtsd,
+  }];
+  const scored = standing.score(outcomes);
+
+  return {
+    action,
+    module: 'characters',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`discard ${character?.name ?? (instanceId as string)}`, scored.utility, [
+      node('what leaves with him', dtsd, [
+        leaf('marshalling points he was scoring', mpLoss, {
+          unit: 'tsd',
+          note: points > 0
+            ? `${points} ${character!.source} MP, priced at the current standing`
+            : 'he carries none',
+        }),
+        leaf('everything else lost with him', loss.tsd, { unit: 'tsd', note: loss.reason }),
+        leaf('mind returned to the pool', mind, {
+          note: `${budget.freeGeneralInfluence} of ${budget.generalInfluence} free before — `
+            + 'reported, not priced',
+        }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'the influence a discard frees is reported but not priced — the same gap as playing him, and '
+      + 'for the same reason: what it would be spent on is the roster plan\'s to say',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
 
 /** The characters of a company, as strike targets from our own seat. */
 function rosterFor(context: ModuleContext, companyId: string): StrikeTarget[] {
@@ -208,6 +282,7 @@ export const charactersModule: H2Module = {
     if (action.type === 'split-company' || action.type === 'merge-companies') {
       return evaluateShape(context, action);
     }
+    if (action.type === 'discard-character') return evaluateDiscardCharacter(context, action);
     // `move-to-influence` names the character in `characterInstanceId`;
     // `play-character` uses `cardInstanceId`. Reading only one of them made
     // the module return null on every real influence move, which the old
