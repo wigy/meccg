@@ -65,7 +65,8 @@
     ],
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hero-resource-event",
