@@ -894,3 +894,38 @@ function, and harm priced through a service whose numbers move with the shape
 being compared. The engine's own `regress` flag is the belt to that braces, and
 Heuristics 1 had been using it since before H2 existed.
 
+### An engine defect the gate surfaced (2026-07-29)
+
+Not an AI finding, but it was found here and it fails the gate's completion
+criterion, so it is recorded where the run that found it is described.
+
+One game in 320 ended with `engine rejected 'pass' (seq 1167, stateSeq 1167):
+Card not found in hand`. Reproduction, deterministic:
+
+```sh
+# heuristic as p1, h2 as p2, decks challenge-deck-a / challenge-deck-b, seed 599
+```
+
+What leads up to it: during a `site/play-resources` chain, the *same* hand card
+is declared as a `play-short-event` **five times in succession**, and the card
+is still in hand each time. Tracked across those decisions:
+
+```text
+  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
+  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
+  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
+  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
+  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
+```
+
+So a short event declared into an open chain is not removed from hand, and the
+chain emitters in `legal-actions/chain.ts` read `player.hand` directly — so the
+card is offered again on the next priority pass, indefinitely. The `pass` that
+eventually fails is downstream of the inconsistency rather than its cause.
+
+Left as a report rather than a fix: this is engine rules code, the correct
+behaviour on a *cancelled* declaration (does the card return to hand, or go to
+the discard?) is a rules question, and the verification loop for a change here
+is a 320-game gate. Worth noting that an AI which plays the same card five times
+is an AI exploiting the bug rather than causing it — Heuristics 1 does not,
+because it declines to repeat a card it has already played this chain.
