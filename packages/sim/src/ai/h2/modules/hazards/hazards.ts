@@ -29,6 +29,13 @@
  * makes the second one look better, not worse, so the plan is not abandoned
  * halfway.
  *
+ * **It also owns one moment inside combat.** Excess strikes are assigned by the
+ * *attacking* player (CoE 3.iv), so the hazard seat is asked which enemy
+ * character eats the extra strike. `combat` cannot answer that — every price it
+ * knows has the wrong sign, because harm to that company is the thing being
+ * aimed for — and this module already has the model: it is a denial choice like
+ * any other, and the answer is whoever it hurts them most to lose.
+ *
  * **What it does not do yet.** Hazard *events* — Doors of Night, the company
  * restrictions, everything that is not a creature attack — are declined, so a
  * decision containing them is only partly covered and the registry says so.
@@ -37,13 +44,16 @@
  */
 
 import { CardStatus, Phase } from '@meccg/shared';
-import type { CardDefinition, GameAction, OpponentCompanyView, PlayerView } from '@meccg/shared';
-import type { Evaluation, H2Module, ModuleContext, Rationale } from '../../core/types.js';
+import type {
+  CardDefinition, CombatState, GameAction, OpponentCompanyView, PlayerView,
+} from '@meccg/shared';
+import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
 import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { computeExposure } from '../../services/exposure.js';
-import { rosterOf } from '../../services/strike/prowess.js';
+import { bodyOf, effectiveStrikeProwess, needAgainst, rosterOf } from '../../services/strike/prowess.js';
+import { strikeOutcomes } from '../../services/strike/strike-model.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
@@ -51,7 +61,7 @@ import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'pass'] as const;
+const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'assign-strike', 'pass'] as const;
 
 /** Assumptions every hazard evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
@@ -67,6 +77,19 @@ const ASSUMPTIONS: readonly string[] = [
   'on-guard placement is priced as a discounted version of playing the same card at the company, '
   + 'not as a distinct decision about the site it guards',
 ];
+
+/**
+ * The combat we are the *attacker* in, if this is one.
+ *
+ * Recognised by the company under attack not being ours: the defender's own
+ * module gates on the opposite test, so the two windows cannot both be claimed.
+ */
+function attackingCombat(view: PlayerView): CombatState | null {
+  const combat = view.combat;
+  if (!combat) return null;
+  if (view.self.companies.some(company => company.id === combat.companyId)) return null;
+  return view.opponent.companies.some(company => company.id === combat.companyId) ? combat : null;
+}
 
 /** Whether the acting player is the hazard player in a live play-hazards step. */
 function inHazardWindow(view: PlayerView): boolean {
@@ -284,32 +307,23 @@ export const hazardsModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   claims(context: ModuleContext): boolean {
+    if (attackingCombat(context.view) !== null) return true;
     if (!inHazardWindow(context.view)) return false;
     return activeCompany(context.view) !== null;
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    const attacking = attackingCombat(context.view);
+    if (attacking !== null) {
+      return action.type === 'assign-strike'
+        ? evaluateAssignStrike(action, context, attacking)
+        : action.type === 'pass'
+          ? passEvaluation(action, context)
+          : null;
+    }
     if (!inHazardWindow(context.view)) return null;
 
-    if (action.type === 'pass') {
-      // The baseline every bundle is measured against: stop, keep the cards,
-      // let the company arrive as it stands.
-      return {
-        action,
-        module: 'hazards',
-        outcomes: [{ p: 1, label: 'play nothing further into this company', dtsd: 0 }],
-        expectedTsd: 0,
-        sigmaTsd: 0,
-        utility: 0,
-        method: 'integrated',
-        rationale: node('stop playing hazards', 0, [
-          leaf('cards kept', context.view.self.hand.length, {
-            note: 'the baseline — a hazard is only worth playing if it beats this',
-          }),
-        ], { unit: 'winprob' }),
-        assumptions: ASSUMPTIONS,
-      };
-    }
+    if (action.type === 'pass') return passEvaluation(action, context);
 
     if (action.type === 'play-hazard') {
       const play = action as unknown as { cardInstanceId: string; targetCompanyId: string };
@@ -347,6 +361,102 @@ export const hazardsModule: H2Module = {
     return null;
   },
 };
+
+/** The do-nothing baseline, shared by both windows this module claims. */
+function passEvaluation(action: GameAction, context: ModuleContext): Evaluation {
+  return {
+    action,
+    module: 'hazards',
+    outcomes: [{ p: 1, label: 'play nothing further into this company', dtsd: 0 }],
+    expectedTsd: 0,
+    sigmaTsd: 0,
+    utility: 0,
+    method: 'integrated',
+    rationale: node('stop playing hazards', 0, [
+      leaf('cards kept', context.view.self.hand.length, {
+        note: 'the baseline — a hazard is only worth playing if it beats this',
+      }),
+    ], { unit: 'winprob' }),
+    assumptions: ASSUMPTIONS,
+  };
+}
+
+/**
+ * Score giving one strike to one of *their* characters.
+ *
+ * The attacking player assigns excess strikes, so this is the hazard seat
+ * choosing where the extra damage lands. It is the same denial question the
+ * bundle planner answers, one strike at a time: the strike is going to happen,
+ * and all that is being chosen is who faces it, so the whole evaluation is what
+ * harming that particular character denies them.
+ */
+function evaluateAssignStrike(
+  action: GameAction,
+  context: ModuleContext,
+  combat: CombatState,
+): Evaluation | null {
+  const { view, cardPool, standing, tunables } = context;
+  const characterId = (action as unknown as { characterId?: string }).characterId;
+  const company = view.opponent.companies.find(c => c.id === combat.companyId);
+  if (!characterId || !company) return null;
+
+  const roster = rosterOf(company, view.opponent.characters, cardPool);
+  const target = roster.find(t => (t.instanceId as string) === characterId);
+  if (!target) return null;
+
+  const beliefs = computeBeliefs(view, cardPool);
+  const denial = denialContext(view, company, beliefs, standing, tunables);
+  const price = denialPricer(cardPool, standing, tunables, denial);
+  const untappedBefore = roster.filter(
+    t => !t.isAlly && t.status === CardStatus.Untapped,
+  ).length;
+
+  const excess = (action as unknown as { excess?: boolean }).excess === true;
+  const need = needAgainst(target, cardPool, effectiveStrikeProwess(combat), {
+    excessStrikes: excess ? 1 : 0,
+  });
+  const outcomes: Outcome[] = strikeOutcomes(
+    { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
+    {
+      creatureBody: combat.creatureBody,
+      detainment: combat.detainment,
+      characterBody: bodyOf(target, cardPool),
+      alreadyWounded: target.status === CardStatus.Inverted,
+      bodyCheckModifier: combat.bodyCheckModifier ?? 0,
+    },
+  ).map(outcome => ({
+    p: outcome.p,
+    label: `${target.name}: ${outcome.strike} / ${outcome.character}`,
+    dtsd: price(outcome, target, { untappedBefore }),
+  }));
+  const scored = standing.score(outcomes);
+
+  return {
+    action,
+    module: 'hazards',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`strike ${target.name}`, scored.utility, [
+      node('what harming him denies', scored.expectedTsd, [
+        leaf('facing', target.name, { note: excess ? 'an excess strike, at -1 prowess' : 'an assigned strike' }),
+        leaf('their roll needs', need, { unit: 'p', note: 'predicted, not published — the strike is not reached yet' }),
+        leaf('characters still standing', untappedBefore, {
+          note: `they hold about ${denial.believedPlays.toFixed(1)} resource play(s)`,
+        }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'the strike is going to happen; only who faces it is being chosen, so nothing here prices '
+      + 'the attack as a whole',
+      'the defender is assumed to tap to fight and to spend no cards answering it',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
 
 /** Score a lone card for on-guard when the hazard limit left no slot to plan it. */
 function placeOnly(context: ModuleContext, plan: Plan, instanceId: string): Bundle | null {

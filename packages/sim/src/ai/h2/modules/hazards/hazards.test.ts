@@ -15,7 +15,7 @@ import type { GameAction } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { evaluateDecision } from '../../core/registry.js';
-import { loadScenario, scenarioView } from '../../scenario-store.js';
+import { loadScenario, opposingPlayer, scenarioView } from '../../scenario-store.js';
 import { testWinProbModel } from '../../test-support.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
@@ -202,5 +202,52 @@ describe('the module at a real decision', () => {
     // and creatures in hand: attacking is right, and the module says so rather
     // than hiding behind the card price.
     expect(Math.max(...plays.map(p => p.utility))).toBeGreaterThan(0);
+  });
+});
+
+describe('the attacker assigning an excess strike', () => {
+  /**
+   * The same captured combat, seen from the other side.
+   *
+   * Excess strikes are assigned by the *attacking* player (CoE 3.iv), so a
+   * position captured from the defender is a real instance of a choice the
+   * hazard seat makes — no fixture needed, just the other projection.
+   */
+  function attackerSeat() {
+    const scenario = loadScenario('combat/attacker-assigns-excess');
+    const view = scenarioView(scenario, opposingPlayer(scenario));
+    const cardPool = loadCardPool();
+    return {
+      view,
+      cardPool,
+      context: {
+        view,
+        cardPool,
+        legalActions: [],
+        tunables: DEFAULT_TUNABLES,
+        standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+      },
+    };
+  }
+
+  test('hazards claims the window, because the company under attack is theirs', () => {
+    const { view, context } = attackerSeat();
+    expect(view.self.companies.some(c => c.id === view.combat!.companyId)).toBe(false);
+    expect(hazardsModule.claims!(context)).toBe(true);
+  });
+
+  test('it prefers the character whose harm denies the most', () => {
+    // `combat` cannot answer this one: every price it knows has the wrong sign,
+    // because harm to that company is the thing being aimed for. It used to
+    // claim the window anyway and decline every candidate on it.
+    const { view, context } = attackerSeat();
+    const company = view.opponent.companies.find(c => c.id === view.combat!.companyId)!;
+    const scores = company.characters.map(characterId => hazardsModule.evaluate(
+      { type: 'assign-strike', player: view.self.id, characterId } as unknown as GameAction,
+      context,
+    ));
+    expect(scores.every(s => s !== null)).toBe(true);
+    // Harming them is worth something to us — the sign `combat` could not give.
+    expect(Math.max(...scores.map(s => s!.expectedTsd))).toBeGreaterThan(0);
   });
 });

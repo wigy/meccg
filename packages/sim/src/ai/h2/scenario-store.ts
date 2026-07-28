@@ -169,6 +169,20 @@ export function saveScenario(scenario: Scenario): string {
  * Project the acting player's view of a scenario — the exact input an agent
  * would receive at that decision, hidden information already redacted.
  */
-export function scenarioView(scenario: Scenario): PlayerView {
-  return projectPlayerView(scenario.state, scenario.actingPlayer);
+export function scenarioView(scenario: Scenario, player?: PlayerId): PlayerView {
+  return projectPlayerView(scenario.state, player ?? scenario.actingPlayer);
+}
+
+/**
+ * The seat that is *not* acting.
+ *
+ * Some decisions belong to the other side of the same position — excess strikes
+ * are assigned by the attacking player, so a captured combat is the defender's
+ * view of a choice the hazard seat makes. Projecting the same state from the
+ * other seat gives a real position to test that against, with no fixture.
+ */
+export function opposingPlayer(scenario: Scenario): PlayerId {
+  const other = scenario.state.players.find(player => player.id !== scenario.actingPlayer);
+  if (!other) throw new Error(`scenario ${scenario.id} has no opposing player`);
+  return other.id;
 }

@@ -718,7 +718,14 @@ export const combatModule: H2Module = {
     // every candidate is the registry's question, not this one's.
     const combat = context.view.combat;
     if (!combat || !OWNED_COMBAT_PHASES.has(combat.phase)) return false;
-    return combat.defendingPlayerId === context.view.self.id;
+    if (combat.defendingPlayerId !== context.view.self.id) return false;
+    // And is the company under attack actually ours? Excess strikes are
+    // assigned by the *attacking* player (CoE 3.iv), so this step is offered to
+    // the hazard seat too — where every one of this module's prices has the
+    // wrong sign, because harm to that company is what we are trying to cause.
+    // Claiming it and then declining left the decision looking, in `coverage`,
+    // exactly like an action type nobody owns.
+    return context.view.self.companies.some(company => company.id === combat.companyId);
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {

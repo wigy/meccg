@@ -255,16 +255,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1554 contested decisions:
+Over 1437 contested decisions:
 
 ```text
-  covered and decisive        635  40.9%
-  covered but flat            161  10.4%   → H1
-  partial, acted anyway       206  13.3%
-  partial, handed over        475  30.6%   → H1
-  no owner at all              77   5.0%   → H1
+  covered and decisive        644  44.8%
+  covered but flat            151  10.5%   → H1
+  partial, acted anyway       138   9.6%
+  partial, handed over        459  31.9%   → H1
+  no owner at all              45   3.1%   → H1
 
-  H2 decides 54.1% of contested decisions.
+  H2 decides 54.4% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -291,11 +291,19 @@ reasoning about it:
 The report also separates an action type **nobody owns** from one a module owns
 and then **declines**, because they mean opposite things: the first is a module
 waiting to be written, the second is a module that took responsibility and had
-nothing to say. That column immediately found a bug worth 10 points of coverage
-on its own — `combat` claimed `choose-strike-order` and declined every
-candidate, because ordering was handled only inside the strike-window branch and
-at that step there is deliberately no *current* strike. Picking one is the
-decision.
+nothing to say. That column immediately found two bugs, both `combat` claiming a window it
+could not serve:
+
+- **`choose-strike-order`**, declined 124 times. Ordering was handled only
+  inside the strike-window branch, which is reached when a strike is already
+  current — and at that step there deliberately is not one, because picking it
+  *is* the decision.
+- **`assign-strike` from the attacking seat.** Excess strikes are assigned by
+  the *attacker* (CoE 3.iv), so the hazard player is asked which enemy character
+  eats the extra strike. Every price `combat` knows has the wrong sign there,
+  because harm to that company is the thing being aimed for. It now gates on the
+  company being ours, and `hazards` takes the window — it is a denial choice
+  like any other.
 
 What is left is dominated by `hazards`'s two declared gaps — hazard events and
 non-creature on-guard cards — and closing those means pricing a card's
