@@ -22,7 +22,7 @@ import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '.
 import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard } from '../types/cards.js';
 import { placeCardSetAside } from './set-aside.js';
 import { ownerOf } from '../types/state.js';
-import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
+import { CardStatus, cardStatusFromName, SiteType, Race, RegionType } from '../types/common.js';
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -4897,6 +4897,67 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           });
         } else {
           logDetail(`${cardNm} option "${opt.id}": check-modifier could not resolve value/scope — fizzle`);
+        }
+        const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+        current = updatePlayer(current, declaringIndex, p => ({
+          ...p,
+          discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+        }));
+      } else if (apply.type === 'set-character-status' && apply.status !== undefined) {
+        // set-character-status play-options (And Forth He Hastened td-98,
+        // Halfling Strength's untap/heal tw-253, Above the Abyss as-77,
+        // Angband Revisited ba-49) route through the chain (see
+        // handlePlayResourceShortEvent) so the opponent can respond before
+        // the status change resolves. Apply the status change now that the
+        // entry resolved un-negated, then dispose the spent event card to
+        // the declaring player's discard pile — it rode the chain entry from
+        // their hand.
+        const statusEnum = cardStatusFromName(apply.status);
+        const charPlayerIdx = current.players.findIndex(p => targetCharId as string in p.characters);
+        if (charPlayerIdx >= 0) {
+          const targetChar = current.players[charPlayerIdx].characters[targetCharId];
+          const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
+          logDetail(`${cardNm} option "${opt.id}": set ${targetCharId as string} status → ${apply.status}`);
+          current = updatePlayer(current, charPlayerIdx, p =>
+            updateCharacter(p, targetCharId as string, c => ({ ...c, status: statusEnum })));
+
+          // healing-affects-all — if this was a heal (wounded → well), extend
+          // the healing to all other wounded characters in the same company.
+          // Triggers either from a character in the company carrying the
+          // `healing-affects-all` play-flag (e.g. Ioreth) or from the
+          // company's current site carrying the `site-rule` variant (e.g.
+          // Rhosgobel, Old Forest).
+          if (isHeal) {
+            const company = findCharacterCompany(current.players[charPlayerIdx].companies, targetCharId);
+            if (company) {
+              const hasCompanyFlag = company.characters.some(charId => {
+                const ch = current.players[charPlayerIdx].characters[charId];
+                if (!ch) return false;
+                const charDef = defById(current, ch.definitionId);
+                return hasPlayFlag(charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'healing-affects-all');
+              });
+              let hasSiteRule = false;
+              if (company.currentSite) {
+                const siteDef = defById(current, company.currentSite.definitionId);
+                hasSiteRule = !!(siteDef && 'effects' in siteDef &&
+                  (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
+                    e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
+                  ));
+              }
+              if (hasCompanyFlag || hasSiteRule) {
+                const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
+                for (const charId of company.characters) {
+                  if (charId === targetCharId) continue;
+                  const ch = current.players[charPlayerIdx].characters[charId];
+                  if (ch && ch.status === CardStatus.Inverted) {
+                    logDetail(`${source} healing-affects-all: extending heal to ${charId as string}`);
+                    current = updatePlayer(current, charPlayerIdx, p =>
+                      updateCharacter(p, charId as string, c => ({ ...c, status: statusEnum })));
+                  }
+                }
+              }
+            }
+          }
         }
         const declaringIndex = getPlayerIndex(current, entry.declaredBy);
         current = updatePlayer(current, declaringIndex, p => ({

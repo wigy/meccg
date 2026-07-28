@@ -32,7 +32,7 @@ import {
   buildTestState, resetMint, Phase, Alignment,
   PLAYER_1, PLAYER_2,
   CardStatus,
-  handCardId, findCharInstanceId, dispatch,
+  handCardId, findCharInstanceId, dispatch, resolveChain,
   expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction, CardDefinitionId } from '../../index.js';
@@ -91,7 +91,7 @@ describe('Angband Revisited (ba-49)', () => {
     expect(untapAction).toBeDefined();
     expect(untapAction!.optionId).toBe('untap');
 
-    const state = dispatch(base, untapAction!);
+    const state = resolveChain(dispatch(base, untapAction!));
     expectCharStatus(state, RESOURCE_PLAYER, CROOK_LEGGED_ORC, CardStatus.Untapped);
   });
 
