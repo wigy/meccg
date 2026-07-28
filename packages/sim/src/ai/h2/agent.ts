@@ -28,6 +28,12 @@
  * What that concedes is real and bounded: an unowned candidate might have
  * been better still, and H2 will sometimes take a good action instead of the
  * best one. The margin is what buys that risk down.
+ *
+ * The same margin also guards the opposite case. A decision H2 covers
+ * completely but scores flat — every candidate identical — is a tie, not an
+ * opinion, and acting on it would choose uniformly at random where Heuristics
+ * 1 would at least have a preference. So a flat ranking hands the decision
+ * over too.
  */
 
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
@@ -100,10 +106,16 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       };
       const { modules: contributors, evaluations, complete } = evaluateDecision(modules, moduleContext);
       const best = evaluations[0];
-      // Speak on a complete view, or on a partial one when the covered opinion
-      // is strong enough to stand without seeing the rest.
+      const worst = evaluations[evaluations.length - 1];
+      // A ranking whose candidates all score the same is not an opinion, it is
+      // a tie — and acting on it means choosing uniformly at random where
+      // Heuristics 1 would at least have a preference. Complete coverage is
+      // not enough on its own; there has to be something to discriminate.
+      const discriminates = evaluations.length > 0
+        && best.utility - worst.utility > tunables.partialCoverageMargin;
       const speaks = evaluations.length > 0
-        && (complete || best.utility > tunables.partialCoverageMargin);
+        && (complete ? discriminates || best.utility > tunables.partialCoverageMargin
+          : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {
         // No H2 owner: Heuristics 1 handles the decision in its own units.

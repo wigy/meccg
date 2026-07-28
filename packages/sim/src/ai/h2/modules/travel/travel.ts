@@ -36,7 +36,7 @@ import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['plan-movement', 'pass'] as const;
+const OWNED_ACTION_TYPES = ['plan-movement', 'select-company', 'pass'] as const;
 
 /** What a hand card would be worth if the company stood at a destination. */
 interface PlayableCard {
@@ -106,6 +106,86 @@ function destinationOf(view: PlayerView, action: GameAction): { definitionId: st
     }
   }
   return null;
+}
+
+/**
+ * Score the choice of which company to resolve next.
+ *
+ * The criterion differs by phase, and the difference is domain knowledge
+ * rather than anything the module could derive:
+ *
+ * - **Movement/hazard**: how many resource cards the company will draw. A
+ *   company that is *not* moving can still be the right pick — it may be the
+ *   one that played heavily during organization — so the criterion is the
+ *   draw itself, not whether the company travels.
+ * - **Site phase**: the biggest marshalling-point expectation, so that the
+ *   cards and taps that help a company through its site are spent where the
+ *   points actually are rather than on a weaker chance of them.
+ */
+function evaluateSelectCompany(context: ModuleContext, action: GameAction): Evaluation | null {
+  const companyId = (action as unknown as { companyId?: string }).companyId;
+  if (!companyId) return null;
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  if (!company) return null;
+  const { standing, tunables, cardPool } = context;
+  const exposure = computeExposure(context.view, cardPool);
+  const budget = computeBudget(context.view, cardPool);
+
+  const site = exposure.destination(company.id) ?? exposure.currentSite(company.id);
+  const inMovement = context.view.phaseState.phase === 'movement-hazard';
+
+  let dtsd: number;
+  let label: string;
+  const detail: Rationale[] = [leaf('company', companyId), leaf('site', site?.name ?? 'unknown')];
+
+  if (inMovement) {
+    const draws = site?.resourceDraws ?? 0;
+    dtsd = draws * tunables.resourceDrawValue;
+    label = `resolve this company — ${draws} card(s) drawn`;
+    detail.push(leaf('resource cards drawn', draws, {
+      note: site && exposure.destination(company.id) ? 'on arrival' : 'not moving — drawn where it stands',
+    }));
+    detail.push(leaf('worth per card', tunables.resourceDrawValue, { unit: 'tsd', tunable: 'resourceDrawValue' }));
+  } else {
+    const playable = site ? playableAt(context, siteDefinitionOf(context, company.id) ?? '') : [];
+    const taps = budget.untappedIn(company.id).length;
+    const now = playable.slice(0, Math.max(0, taps));
+    dtsd = now.reduce((sum, c) => sum + c.tsd, 0);
+    label = now.length > 0
+      ? `resolve this company — ${now.map(c => c.name).join(', ')} playable`
+      : 'resolve this company — nothing playable here';
+    detail.push(leaf('taps available', taps));
+    for (const card of now) {
+      detail.push(leaf(card.name, card.tsd, { unit: 'tsd', note: `${card.marshallingPoints} ${card.source} MP` }));
+    }
+  }
+
+  const outcomes: Outcome[] = [{ p: 1, label, dtsd }];
+  const scored = standing.score(outcomes);
+  return {
+    action,
+    module: 'travel',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(label, scored.utility, [node('sequencing', dtsd, detail), scored.rationale], { unit: 'winprob' }),
+    assumptions: [
+      inMovement
+        ? 'companies are ordered by the cards they draw; what the opponent will spend on each is '
+          + 'not modelled, which needs the belief half of `exposure`'
+        : 'companies are ordered by the points they can bank now; a company kept for later is not '
+          + 'credited for what it might do then',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
+/** The definition ID of the site a company stands on or is heading to. */
+function siteDefinitionOf(context: ModuleContext, companyId: string): string | undefined {
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  return (company?.destinationSite ?? company?.currentSite)?.definitionId;
 }
 
 /** Assumptions every travel evaluation rests on. */
@@ -202,10 +282,11 @@ export const travelModule: H2Module = {
     //
     // What it does gate on: a `pass` here means "decline to move", which is
     // only an opinion worth having when there is somewhere to go.
-    return context.legalActions.some(a => a.type === 'plan-movement');
+    return context.legalActions.some(a => a.type === 'plan-movement' || a.type === 'select-company');
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    if (action.type === 'select-company') return evaluateSelectCompany(context, action);
     const budget = computeBudget(context.view, context.cardPool);
     const exposure = computeExposure(context.view, context.cardPool);
 

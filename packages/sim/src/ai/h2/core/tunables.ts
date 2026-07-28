@@ -124,6 +124,15 @@ export interface Tunables {
    * of that is bounded by only speaking when the covered opinion is strong.
    */
   readonly partialCoverageMargin: number;
+  /**
+   * What one resource card drawn is worth, in TSD.
+   *
+   * Cards drawn are not marshalling points, but they are what the points are
+   * made of, and during movement/hazard the draw is the whole reason to
+   * resolve one company before another. A price rather than a tally, so the
+   * criterion can be compared against everything else in the same currency.
+   */
+  readonly resourceDrawValue: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -141,6 +150,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   influenceTapCost: 0.6,
   revertedMindCost: 0.15,
   partialCoverageMargin: 0.005,
+  resourceDrawValue: 0.35,
 };
 
 /**

@@ -149,3 +149,28 @@ describe('agent identity', () => {
       .toBe('h2:stub');
   });
 });
+
+describe('a ranking that does not discriminate', () => {
+  test('is handed to Heuristics 1 rather than resolved at random', () => {
+    // Every candidate identical: `select-company` where nothing is playable at
+    // any site. Coverage is complete, so the old rule would have acted — by
+    // sampling uniformly, which is worse than the preference H1 still has.
+    const flat: H2Module = {
+      name: 'flat',
+      ownedActionTypes: ['pass'],
+      evaluate: action => ({
+        action, module: 'flat',
+        outcomes: [{ p: 1, label: 'nothing to choose between', dtsd: 0 }],
+        expectedTsd: 0, sigmaTsd: 0, utility: 0,
+        method: 'integrated', rationale: leaf('flat', 0), assumptions: [],
+      }),
+    };
+    const agent = createHeuristic2Agent({ available: [flat], model: testWinProbModel() });
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).note).toContain('h1 fallback');
+  });
+
+  test('still acts when one candidate is clearly better', () => {
+    const agent = createHeuristic2Agent({ available: [REWARDS], model: testWinProbModel(), temperature: 0.0001 });
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
+  });
+});
