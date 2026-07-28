@@ -4289,6 +4289,60 @@ export function selectCompanyActions(
 }
 
 /**
+ * True when an in-play card (either player's `cardsInPlay`) carries a
+ * `combat-attacker-chooses-defenders` effect with `scope: "all-attacks"` whose
+ * `when` gate matches the attacking creature's race — i.e. a permanent-event
+ * that hands strike assignment to the attacker for a whole class of attacks.
+ *
+ * Backs the permanent-event half of Alatar the Hunter (as-7): "all Maia
+ * attacks: … attacker chooses defending characters". The gate is evaluated
+ * against `{ attack: { creatureRace } }`, matching the vocabulary of the
+ * global `body-check-modifier` (`scope: "all-attacks"`), so the same race
+ * condition reads identically on both effects. Unscoped
+ * `combat-attacker-chooses-defenders` effects are the printed *creature* rule
+ * and are deliberately ignored here — otherwise a dual creature/permanent-event
+ * card sitting in `cardsInPlay` would export its own creature rule to every
+ * attack in the game.
+ */
+export function globalAttackerChoosesDefenders(
+  state: GameState,
+  creatureRace: Race | undefined,
+): boolean {
+  const ctx = { attack: { creatureRace } };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'combat-attacker-chooses-defenders') continue;
+        if (effect.scope !== 'all-attacks') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`Attacker-chooses-defenders granted globally by "${(def as { name?: string }).name ?? (card.definitionId as string)}" (attack race ${creatureRace ?? '?'})`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolves whether the attacker assigns strikes for an attack about to begin:
+ * the attack's own printed rule (a creature's `combat-attacker-chooses-defenders`
+ * effect, or a site automatic-attack's `attacker-chooses-defenders` combat rule)
+ * OR'd with any global grant from {@link globalAttackerChoosesDefenders}.
+ *
+ * Every combat-creation site funnels through this so a global grant reaches
+ * hazard creatures and site automatic-attacks alike.
+ */
+export function resolveAttackerChoosesDefenders(
+  state: GameState,
+  printedRule: boolean,
+  creatureRace: Race | undefined,
+): boolean {
+  return printedRule || globalAttackerChoosesDefenders(state, creatureRace);
+}
+
+/**
  * Build a fresh {@link CombatState} for a newly-initiated attack, filling the
  * four fields every fresh combat starts with: empty strike assignments, strike
  * index 0, the `assign-strikes` phase, and no body-check target. Callers pass

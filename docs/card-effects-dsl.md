@@ -4119,7 +4119,19 @@ one-line union extension plus the matching branch — no opaque rule
 strings to chase through the engine.
 
 - `combat-attacker-chooses-defenders` — the attacking player assigns
-  strikes instead of the defender (implemented in `chain-reducer.ts`)
+  strikes instead of the defender (implemented in `chain-reducer.ts`).
+  Without `scope` the rule is **self-bound**: it belongs to the creature
+  card carrying it and applies only when that creature attacks. With
+  `scope: "all-attacks"` it becomes **global** while the carrying card
+  sits in either player's `cardsInPlay` — every attack (hazard creature
+  *and* site automatic-attack) whose race satisfies `when` hands strike
+  assignment to the attacker. The `when` context exposes
+  `attack.creatureRace` (the attacking creature's normalized race), the
+  same vocabulary as the global `body-check-modifier`. Collected by
+  `globalAttackerChoosesDefenders` / `resolveAttackerChoosesDefenders`
+  (`reducer-utils.ts`), which every combat-creation site consults.
+  Used by the permanent-event half of Alatar the Hunter (as-7): "all
+  Maia attacks: … attacker chooses defending characters."
 - `combat-multi-attack` — the creature makes multiple separate attacks,
   all against the same target character. The `count` field specifies how
   many attacks. Total strikes = count × effective strikes per attack.
@@ -4195,6 +4207,11 @@ strings to chase through the engine.
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
+{
+  "type": "combat-attacker-chooses-defenders",
+  "scope": "all-attacks",
+  "when": { "attack.creatureRace": "maia" }
+}
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
 { "type": "combat-one-strike-per-character" }

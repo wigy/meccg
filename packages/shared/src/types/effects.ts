@@ -3032,9 +3032,27 @@ export interface ReturnToHandEffect extends EffectBase {
 /**
  * The attacking player assigns strikes to defending characters, instead
  * of the defender assigning them. Example: Cave-drake.
+ *
+ * Without {@link scope} the rule is **self-bound**: it belongs to the creature
+ * card carrying it and applies only when that creature attacks.
+ *
+ * With `scope: "all-attacks"` the rule instead becomes **global** while the
+ * carrying card sits in either player's `cardsInPlay`: every attack — hazard
+ * creature *and* site automatic-attack — whose race satisfies {@link when}
+ * hands strike assignment to the attacker. Backs the permanent-event half of
+ * Alatar the Hunter (as-7): "As a permanent-event, all Maia attacks: … and
+ * attacker chooses defending characters." The `when` condition is matched
+ * against a context exposing `attack.creatureRace` (the attacking creature's
+ * normalized {@link Race}), the same vocabulary used by the global
+ * `body-check-modifier` (`scope: "all-attacks"`).
  */
 export interface CombatAttackerChoosesDefendersEffect extends EffectBase {
   readonly type: 'combat-attacker-chooses-defenders';
+  /**
+   * `"all-attacks"` turns the self-bound creature rule into a game-wide one
+   * carried by an in-play permanent-event. Absent → the printed creature rule.
+   */
+  readonly scope?: 'all-attacks';
 }
 
 /**

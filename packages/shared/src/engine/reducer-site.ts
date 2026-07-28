@@ -24,7 +24,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1072,6 +1072,9 @@ function handleSiteAutomaticAttacks(
           isAutomaticAttack: true,
           defenderForcesNormalAttacks: forcesNormalAttacks,
         });
+        const dupAttackerChoosesR = resolveAttackerChoosesDefenders(
+          state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, dupRace,
+        );
         const dupCombatR: CombatState = makeCombatState({
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
           companyId: company.id,
@@ -1081,9 +1084,9 @@ function handleSiteAutomaticAttacks(
           strikeProwess: dupProwessR,
           creatureBody: dupBodyR,
           creatureRace: dupRace,
-          assignmentPhase: 'defender',
+          assignmentPhase: dupAttackerChoosesR ? 'cancel-window' : 'defender',
           detainment: dupDetainmentR,
-          ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
+          ...(dupAttackerChoosesR ? { attackerChoosesDefenders: true } : {}),
         });
         return {
           state: {
@@ -1122,6 +1125,9 @@ function handleSiteAutomaticAttacks(
         isAutomaticAttack: true,
         defenderForcesNormalAttacks: forcesNormalAttacks,
       });
+      const dupAttackerChooses = resolveAttackerChoosesDefenders(
+        state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace2,
+      );
       const dupCombat: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
         companyId: company.id,
@@ -1131,9 +1137,9 @@ function handleSiteAutomaticAttacks(
         strikeProwess: dupProwess,
         creatureBody: dupBody,
         creatureRace: creatureRace2,
-        assignmentPhase: 'defender',
+        assignmentPhase: dupAttackerChooses ? 'cancel-window' : 'defender',
         detainment: dupDetainment,
-        ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
+        ...(dupAttackerChooses ? { attackerChoosesDefenders: true } : {}),
       });
       return {
         state: {
@@ -1174,6 +1180,9 @@ function handleSiteAutomaticAttacks(
         isAutomaticAttack: true,
         defenderForcesNormalAttacks: forcesNormalAttacks,
       });
+      const dupAttackerChoosesM = resolveAttackerChoosesDefenders(
+        state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRaceM,
+      );
       const dupCombatM: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
         companyId: company.id,
@@ -1183,9 +1192,9 @@ function handleSiteAutomaticAttacks(
         strikeProwess: dupProwessM,
         creatureBody: dupBodyM,
         creatureRace: creatureRaceM,
-        assignmentPhase: 'defender',
+        assignmentPhase: dupAttackerChoosesM ? 'cancel-window' : 'defender',
         detainment: dupDetainmentM,
-        ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
+        ...(dupAttackerChoosesM ? { attackerChoosesDefenders: true } : {}),
         ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
@@ -1269,7 +1278,9 @@ function handleSiteAutomaticAttacks(
 
   logDetail(`Site: initiating automatic attack ${resolvedAttackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
 
-  const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
+  const aaAttackerChooses = resolveAttackerChoosesDefenders(
+    state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
+  );
 
   // Build a temporary combat state to compute the initial phase via nextStrikePhase.
   const baseCombat: CombatState = {
@@ -1373,7 +1384,9 @@ function buildSiteRepeatedAttackCombat(
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
-  const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
+  const aaAttackerChooses = resolveAttackerChoosesDefenders(
+    state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
+  );
   const protectedSet = new Set((opts.protectedFromStrikeAssignment ?? []).map(id => id as string));
   // For each-character, only non-protected characters face a strike.
   const facingChars = company.characters.filter(id => !protectedSet.has(id as string));
@@ -1921,6 +1934,11 @@ function handleSitePlaySiteAutoAttack(
 
   logDetail(`Site: hazard plays "${creatureDef.name}" as dynamic auto-attack (${effectiveStrikes} strikes, ${effectiveProwess} prowess) vs company ${company.id as string}`);
 
+  // A permanent-event may grant attacker-chooses-defenders to a whole race of
+  // attacks (Alatar the Hunter as-7 — "all Maia attacks"); this path has no
+  // printed rule of its own to combine with.
+  const dynAttackerChooses = resolveAttackerChoosesDefenders(state, false, creatureRace);
+
   const combat: CombatState = makeCombatState({
     attackSource: {
       type: 'played-auto-attack',
@@ -1934,7 +1952,8 @@ function handleSitePlaySiteAutoAttack(
     strikeProwess: effectiveProwess,
     creatureBody: effectiveSiteDynBody,
     creatureRace,
-    assignmentPhase: 'defender',
+    assignmentPhase: dynAttackerChooses ? 'cancel-window' : 'defender',
+    ...(dynAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     detainment: (() => {
       const dynSiteType = company.currentSite && siteDef && isSiteCard(siteDef)
         ? getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId)
