@@ -27,6 +27,12 @@
  *   happened; the independent model had to convolve the kill term separately
  *   and assume it uncorrelated with the harm outcomes.
  *
+ * `resolveAttacks` extends the same walk over a *sequence of attacks* against
+ * one roster, which is what a hazard bundle is. Excess-strike penalties reset
+ * between attacks — they are a within-attack rule — while the roster's
+ * condition carries, so the supermodularity above is produced rather than
+ * asserted.
+ *
  * The state space is bounded by merging states that agree on the roster and
  * fall in the same TSD bucket, then — only if that is still too many — by
  * merging across rosters. Probability mass is always conserved; a truncated
@@ -39,7 +45,7 @@ import type { Outcome } from '../../core/types.js';
 import type { StrikeOutcome, StrikeSituation } from './strike-model.js';
 import { strikeOutcomes } from './strike-model.js';
 import type { StrikeTarget } from './prowess.js';
-import { availableDefenders, bodyOf, predictedNeed, strikeTargets } from './prowess.js';
+import { availableDefenders, bodyOf, effectiveStrikeProwess, needAgainst, strikeTargets } from './prowess.js';
 
 /** A strike target together with how many strikes it has already faced. */
 interface RosterEntry {
@@ -73,6 +79,33 @@ export interface SequenceOptions {
   readonly killLabel?: string;
 }
 
+/**
+ * One attack the roster has to answer, described without a `CombatState`.
+ *
+ * The attacking seat has no combat to read: `hazards` is choosing which
+ * creatures to *play*, so everything here comes off the card. The defending
+ * seat builds the same profile from the live combat, which is what keeps one
+ * enumeration serving both.
+ */
+export interface AttackProfile {
+  /** Prowess the defenders must beat. */
+  readonly strikeProwess: number;
+  /** How many strikes this attack makes. */
+  readonly strikes: number;
+  /** The attack's body, or null when a parry defeats it outright. */
+  readonly creatureBody: number | null;
+  /** Detainment attacks tap instead of wounding, and award no kill MP. */
+  readonly detainment: boolean;
+  /** Attack-level body-check modifier. */
+  readonly bodyCheckModifier: number;
+  /** TSD gained if *this* attack is wholly defeated, or 0. */
+  readonly killTsd?: number;
+  /** Description of that payoff, for outcome labels. */
+  readonly killLabel?: string;
+  /** Name of the attacking creature, for labels in a bundle. */
+  readonly name?: string;
+}
+
 /** What the enumeration produced. */
 export interface SequenceResult {
   /** The distribution over the whole attack. */
@@ -95,14 +128,14 @@ function signatureOf(roster: readonly RosterEntry[]): string {
 function pickTarget(
   roster: readonly RosterEntry[],
   cardPool: Readonly<Record<string, CardDefinition>>,
-  combat: CombatState,
+  strikeProwess: number,
 ): RosterEntry | undefined {
   if (roster.length === 0) return undefined;
   const untapped = roster.filter(e => e.target.status === CardStatus.Untapped);
   const pool = untapped.length > 0 ? untapped : roster;
   return [...pool].sort((a, b) =>
-    predictedNeed(a.target, cardPool, combat, { excessStrikes: a.struck })
-    - predictedNeed(b.target, cardPool, combat, { excessStrikes: b.struck }))[0];
+    needAgainst(a.target, cardPool, strikeProwess, { excessStrikes: a.struck })
+    - needAgainst(b.target, cardPool, strikeProwess, { excessStrikes: b.struck }))[0];
 }
 
 /** The roster after a strike outcome has been applied to one of its members. */
@@ -168,72 +201,122 @@ export function resolveSequentially(
 ): SequenceResult {
   const untapped = availableDefenders(view, cardPool, combat);
   const all = untapped.length > 0 ? untapped : strikeTargets(view, cardPool, combat);
-  const forced = options.forcedFirst;
-  const start: RosterEntry[] = (forced ? [forced, ...all.filter(t => t.instanceId !== forced.instanceId)] : all)
-    .map(target => ({ target, struck: 0 }));
-
-  const situationFor = (target: StrikeTarget): StrikeSituation => ({
+  const profile: AttackProfile = {
+    strikeProwess: effectiveStrikeProwess(combat),
+    strikes: strikeCount,
     creatureBody: combat.creatureBody,
     detainment: combat.detainment,
+    bodyCheckModifier: combat.bodyCheckModifier ?? 0,
+    killTsd: options.killTsd,
+    killLabel: options.killLabel,
+  };
+  return resolveAttacks(all, cardPool, [profile], price, options);
+}
+
+/**
+ * Enumerate a whole *bundle* of attacks against one roster, in order.
+ *
+ * This is the form §3.4 needs and the reason the enumeration was written as a
+ * forward walk over roster states rather than a convolution. Between attacks
+ * the excess-strike counter resets — piling strikes on one character is a
+ * within-attack penalty — but the *condition* carries: a character tapped by
+ * the first creature meets the second at −1, a wounded one at −2, and an
+ * eliminated one is not there at all.
+ *
+ * That carry-over is the entire supermodularity. Two creatures played into the
+ * same company are worth more than the same two played a turn apart, and the
+ * difference is not a bonus term invented here — it falls out of resolving them
+ * against a roster that degrades.
+ */
+export function resolveAttacks(
+  roster: readonly StrikeTarget[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  profiles: readonly AttackProfile[],
+  price: SequencePricer,
+  options: SequenceOptions,
+): SequenceResult {
+  const forced = options.forcedFirst;
+  const start: RosterEntry[] = (forced
+    ? [forced, ...roster.filter(t => t.instanceId !== forced.instanceId)]
+    : roster
+  ).map(target => ({ target, struck: 0 }));
+
+  const situationFor = (target: StrikeTarget, profile: AttackProfile): StrikeSituation => ({
+    creatureBody: profile.creatureBody,
+    detainment: profile.detainment,
     characterBody: bodyOf(target, cardPool),
     alreadyWounded: target.status === CardStatus.Inverted,
-    bodyCheckModifier: combat.bodyCheckModifier ?? 0,
+    bodyCheckModifier: profile.bodyCheckModifier,
   });
 
   const opening: { target: StrikeTarget; need: number }[] = [];
   let states: SequenceState[] = [{ roster: start, p: 1, dtsd: 0, allDefeated: true, label: '' }];
   let merged = false;
+  let first = true;
 
-  for (let i = 0; i < strikeCount; i++) {
-    const next: SequenceState[] = [];
-    for (const state of states) {
-      // The first strike may be forced onto a named character; after that the
-      // company answers with whoever is best placed *now*.
-      const entry = i === 0 && forced
-        ? state.roster.find(e => e.target.instanceId === forced.instanceId) ?? pickTarget(state.roster, cardPool, combat)
-        : pickTarget(state.roster, cardPool, combat);
-      if (!entry) {
-        // Nobody left to face it. The strike cannot be resolved against this
-        // company, so the sequence stops here rather than inventing a victim.
-        next.push(state);
-        continue;
-      }
-      const need = predictedNeed(entry.target, cardPool, combat, { excessStrikes: entry.struck });
-      if (state === states[0] && opening.length === i) opening.push({ target: entry.target, need });
+  for (const profile of profiles) {
+    for (let i = 0; i < profile.strikes; i++) {
+      const next: SequenceState[] = [];
+      for (const state of states) {
+        // The first strike may be forced onto a named character; after that the
+        // company answers with whoever is best placed *now*.
+        const entry = first && i === 0 && forced
+          ? state.roster.find(e => e.target.instanceId === forced.instanceId)
+            ?? pickTarget(state.roster, cardPool, profile.strikeProwess)
+          : pickTarget(state.roster, cardPool, profile.strikeProwess);
+        if (!entry) {
+          // Nobody left to face it. The strike cannot be resolved against this
+          // company, so the sequence stops here rather than inventing a victim.
+          next.push(state);
+          continue;
+        }
+        const need = needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: entry.struck });
+        if (first && state === states[0] && opening.length === i) opening.push({ target: entry.target, need });
 
-      for (const outcome of strikeOutcomes(
-        { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
-        situationFor(entry.target),
-      )) {
-        next.push({
-          roster: applyOutcome(state.roster, entry, outcome),
-          p: state.p * outcome.p,
-          dtsd: state.dtsd + price(outcome, entry.target),
-          allDefeated: state.allDefeated && outcome.strike === 'defeated',
-          label: state.label === '' ? describe(entry, outcome) : `${state.label}; ${describe(entry, outcome)}`,
-        });
+        for (const outcome of strikeOutcomes(
+          { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
+          situationFor(entry.target, profile),
+        )) {
+          next.push({
+            roster: applyOutcome(state.roster, entry, outcome),
+            p: state.p * outcome.p,
+            dtsd: state.dtsd + price(outcome, entry.target),
+            allDefeated: state.allDefeated && outcome.strike === 'defeated',
+            label: state.label === '' ? describe(entry, outcome) : `${state.label}; ${describe(entry, outcome)}`,
+          });
+        }
       }
+
+      states = mergeStates(next, false);
+      if (states.length > options.maxStates) {
+        states = mergeStates(states, true);
+        merged = true;
+      }
+      if (states.length > options.maxStates) merged = true;
     }
 
-    states = mergeStates(next, false);
-    if (states.length > options.maxStates) {
-      states = mergeStates(states, true);
-      merged = true;
-    }
-    if (states.length > options.maxStates) merged = true;
+    // The attack is over: bank its kill MP on the branches that beat every one
+    // of *its* strikes, and reset for the next creature. Excess strikes do not
+    // carry between attacks; the roster's condition does.
+    const killTsd = profile.killTsd ?? 0;
+    states = states.map(state => ({
+      roster: state.roster.map(e => ({ target: e.target, struck: 0 })),
+      p: state.p,
+      dtsd: state.dtsd + (state.allDefeated ? killTsd : 0),
+      allDefeated: true,
+      label: state.allDefeated && killTsd > 0
+        ? `${state.label || 'no strikes'} — ${profile.killLabel ?? 'attack beaten'}`
+        : state.label,
+    }));
+    first = false;
   }
 
-  const killTsd = options.killTsd ?? 0;
   const outcomes: Outcome[] = states
     .filter(state => state.p > 0)
     .map(state => ({
       p: state.p,
-      label: state.allDefeated && killTsd > 0
-        ? `${state.label || 'no strikes'} — ${options.killLabel ?? 'attack beaten'}`
-        : state.label || 'no strikes remain',
-      // Exact, not convolved: this branch defeated every strike, so the points
-      // are banked on it and nowhere else.
-      dtsd: state.dtsd + (state.allDefeated ? killTsd : 0),
+      label: state.label || 'no strikes remain',
+      dtsd: state.dtsd,
     }));
 
   return { outcomes, merged, opening };
