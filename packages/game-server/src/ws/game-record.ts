@@ -33,6 +33,8 @@ export interface PlayerDeckInfo {
 export interface CompletedGamePlayer {
   readonly playerId: PlayerId;
   readonly name: string;
+  /** False when the seat was played by an AI client. */
+  readonly human: boolean;
   readonly alignment: Alignment;
   readonly wizard: WizardName | null;
   readonly deck: PlayerDeckInfo;
@@ -70,12 +72,14 @@ const NO_DECK: PlayerDeckInfo = { id: null, name: null, gameLength: null };
 
 /**
  * Build the record from a game-over state. Pure; throws if the game is not
- * over. `deckInfo` is keyed by lowercase player name (deck identity only
- * exists in the join messages, not on `GameState`).
+ * over. `deckInfo` is keyed by lowercase player name and `aiPlayers` holds
+ * lowercase names of AI-controlled seats (both facts only exist in the
+ * join messages, not on `GameState`).
  */
 export function buildCompletedGameRecord(
   state: GameState,
   deckInfo: Readonly<Record<string, PlayerDeckInfo>>,
+  aiPlayers: ReadonlySet<string>,
   endedAt: Date,
 ): CompletedGameRecord {
   const phaseState = state.phaseState;
@@ -92,6 +96,7 @@ export function buildCompletedGameRecord(
     return {
       playerId: player.id,
       name: player.name,
+      human: !aiPlayers.has(player.name.toLowerCase()),
       alignment: player.alignment,
       wizard: player.wizard,
       deck: deckInfo[player.name.toLowerCase()] ?? NO_DECK,

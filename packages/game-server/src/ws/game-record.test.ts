@@ -68,7 +68,7 @@ describe('buildCompletedGameRecord', () => {
       winReason: { kind: 'marshalling-points' },
     });
     const endedAt = new Date(START_MS + 90 * 60 * 1000);
-    const record = buildCompletedGameRecord(state, DECKS, endedAt);
+    const record = buildCompletedGameRecord(state, DECKS, new Set(['bob']), endedAt);
 
     expect(record.gameId).toBe(state.gameId);
     expect(record.startedAt).toBe(new Date(START_MS).toISOString());
@@ -85,6 +85,8 @@ describe('buildCompletedGameRecord', () => {
 
     const [alice, bob] = record.players;
     expect(alice.name).toBe('Alice');
+    expect(alice.human).toBe(true);
+    expect(bob.human).toBe(false);
     expect(alice.playerId).toBe(ALICE);
     expect(alice.alignment).toBe(Alignment.Wizard);
     expect(alice.deck).toEqual(DECKS.alice);
@@ -112,7 +114,7 @@ describe('buildCompletedGameRecord', () => {
       finishedPlayers: [],
       winReason: { kind: 'one-ring', alignment: Alignment.Ringwraith, card: THE_ONE_RING },
     });
-    const record = buildCompletedGameRecord(state, {}, new Date(START_MS + 1000));
+    const record = buildCompletedGameRecord(state, {}, new Set(), new Date(START_MS + 1000));
 
     expect(record.winner).toBe('Bob');
     expect(record.winReason).toBe('one-ring');
@@ -126,7 +128,7 @@ describe('buildCompletedGameRecord', () => {
       winReason: { kind: 'marshalling-points' },
     });
     const running = { ...state, phaseState: { phase: Phase.Setup } } as unknown as GameState;
-    expect(() => buildCompletedGameRecord(running, {}, new Date())).toThrow('not over');
+    expect(() => buildCompletedGameRecord(running, {}, new Set(), new Date())).toThrow('not over');
   });
 });
 
@@ -143,7 +145,7 @@ describe('writeCompletedGameRecord', () => {
       finishedPlayers: [],
       winReason: { kind: 'marshalling-points' },
     });
-    const record = fresh.buildCompletedGameRecord(state, {}, new Date());
+    const record = fresh.buildCompletedGameRecord(state, {}, new Set(), new Date());
     const filePath = fresh.writeCompletedGameRecord(record);
 
     expect(filePath).toBe(path.join(process.env.GAME_RECORDS_DIR, `${state.gameId}.json`));

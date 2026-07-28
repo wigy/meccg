@@ -598,6 +598,77 @@ h2 {
   content: '\1FA99';
 }
 
+/* ---- Scoreboard page ---- */
+
+.scoreboard-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 2rem;
+}
+
+.scoreboard-page-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  margin: 0 0 0.75rem;
+}
+
+.scoreboard-page-note {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.scoreboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  font-size: 0.9rem;
+}
+
+.scoreboard-table th,
+.scoreboard-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #2a2a40;
+}
+
+.scoreboard-table th {
+  background: rgba(196, 163, 90, 0.12);
+  color: #c4a35a;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.scoreboard-table tbody tr:hover {
+  background: rgba(196, 163, 90, 0.06);
+}
+
+.scoreboard-col-rank {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 2.5rem;
+  color: #a0a8b0;
+}
+
+.scoreboard-col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 5rem;
+}
+
+.scoreboard-ai-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border: 1px solid #556;
+  border-radius: 3px;
+  color: #a0a8b0;
+  font-size: 0.7rem;
+  vertical-align: middle;
+}
+
 /* ---- Credit Usage page ---- */
 
 .credits-page {

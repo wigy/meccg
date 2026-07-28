@@ -101,6 +101,8 @@ interface GameSave {
   nameToPlayerId: Record<string, string>;
   /** Deck identity per lowercase player name; absent in saves from old code. */
   deckInfo?: Record<string, PlayerDeckInfo>;
+  /** Lowercase names of AI-controlled seats; absent in saves from old code. */
+  aiPlayers?: string[];
 }
 
 export interface GameSessionOptions {
@@ -123,6 +125,8 @@ export class GameSession {
   private nameToPlayerId: Record<string, string> = {};
   /** Deck identity per lowercase player name, captured from join messages. */
   private deckInfo: Record<string, PlayerDeckInfo> = {};
+  /** Lowercase names of AI-controlled seats, captured from join messages. */
+  private aiPlayers: Set<string> = new Set();
   private playerCounter = 0;
   /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
   private dev: boolean;
@@ -403,6 +407,18 @@ export class GameSession {
       name: deckList?.name ?? null,
       gameLength: deckList?.gameLength ?? null,
     };
+    this.captureAiFlag(p, name);
+  }
+
+  /**
+   * Remember whether this seat is AI-controlled. Clients that predate the
+   * join-message `ai` field fall back to the lobby's `AI-` naming
+   * convention (AI-MC, AI-Real, AI-Heuristic, AI-Pseudo).
+   */
+  private captureAiFlag(p: PendingPlayer, name: string): void {
+    if (p.join.ai ?? /^ai-/i.test(name)) {
+      this.aiPlayers.add(name.toLowerCase());
+    }
   }
 
   /**
@@ -443,9 +459,12 @@ export class GameSession {
     }
     this.nameToPlayerId = normalizedMap;
     this.deckInfo = { ...(save.deckInfo ?? {}) };
+    this.aiPlayers = new Set(save.aiPlayers ?? []);
     // Saves from before deckInfo existed have no deck identity; a reconnect
     // join that still carries the structured deck list can fill the gap.
+    // The AI flag rides every join (even minimal rejoins), so recapture it.
     for (const [pending, name] of [[p1, name1], [p2, name2]] as const) {
+      this.captureAiFlag(pending, name);
       if (this.deckInfo[name.toLowerCase()]?.id == null && pending.join.deckList) {
         this.captureDeckInfo(pending, name);
       }
@@ -844,7 +863,7 @@ export class GameSession {
   private recordCompletedGame(): void {
     if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
     try {
-      const record = buildCompletedGameRecord(this.state, this.deckInfo, new Date());
+      const record = buildCompletedGameRecord(this.state, this.deckInfo, this.aiPlayers, new Date());
       const filePath = writeCompletedGameRecord(record);
       this.serverLog.log('game-completed', { gameId: record.gameId, path: filePath, winner: record.winner });
     } catch (err) {
@@ -959,6 +978,7 @@ export class GameSession {
       state: this.state,
       nameToPlayerId: this.nameToPlayerId,
       deckInfo: this.deckInfo,
+      aiPlayers: [...this.aiPlayers],
     };
 
     fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
