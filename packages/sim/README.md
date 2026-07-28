@@ -291,25 +291,41 @@ pricing card effects, which is the DSL's work rather than a module's.
 ### Does it win?
 
 ```sh
-npm run headtohead -w @meccg/sim -- --games 4 --max-decisions 4000
+npm run headtohead -w @meccg/sim -- --games 8 --max-decisions 4000
 ```
 
 ```text
-  game 1a: h2 -5 — 23 heuristic     game 1b: h2 16 — -5 heuristic
-  game 2a: h2  5 — 10 heuristic     game 2b: h2 16 — -5 heuristic
-  game 3a: h2 12 — -3 heuristic     game 3b: h2 17 —  8 heuristic
-  game 4a: decision-limit after 4000 decisions — not counted
-                                    game 4b: h2  6 — -5 heuristic
-
-  h2 5 — 2 heuristic over 7 games (71.4% of the points available)
+  h2 9 — 7 heuristic over 16 games (56.3% of the points available)
 ```
 
-Seven games separate nothing but a landslide, and this is not one — treat it as
-evidence that H2 plays a whole game without falling over, not as a verdict.
-`gate` is the tool for a verdict; `headtohead` exists because it prints each
-game as it finishes, and a run you can watch is worth more than a run you wait
-on. One game in eight hit the decision limit, which is a pass-loop between the
-two agents and worth chasing separately.
+Sixteen games separate nothing but a landslide, and this is not one — read it as
+evidence that H2 plays whole games to completion, not as a result. `gate` is the
+tool for a verdict; `headtohead` exists because it prints each game as it
+finishes, and a run you can watch is worth more than a run you wait on.
+
+That "to completion" was earned. Two self-play games ran to the decision limit
+without finishing, both cycling `split-company → plan-movement →
+merge-companies` inside a single organization phase, because `characters` valued
+a shape change and its undo both positively. Company-shape utility has to be a
+difference of one potential, `Σ harm(company)` over the whole board — then an
+accepted change strictly lowers it and the finitely many shapes cannot be
+cycled. Two separate things were breaking that, and `services/defence.ts`
+carries both, with tests:
+
+- **Order.** Strike targets are picked by lowest need with ties falling back to
+  array position, so a company scored differently depending on how it had been
+  assembled: merging A into B came out at +2.61%, B into A at +2.30%, for the
+  identical result.
+- **Shape-dependent prices.** Harm was priced through `character-value`, so a
+  tap cost what `combat` pays for it — including the influence attempt the tap
+  forfeits, which depends on *which company the character is in*. Splitting
+  scored +1.28 tsd and merging the pair straight back +0.48, because the prices
+  had moved underneath the comparison.
+
+The second cost a refinement worth having: a tap that forfeits a faction attempt
+really does cost more than one that does not, and `defence` can no longer say
+so. It was the right trade. The refinement was not making the comparison more
+accurate, it was making it incoherent.
 
 ### Does any of it predict anything?
 
