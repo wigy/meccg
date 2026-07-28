@@ -146,8 +146,26 @@ export function tsdAtWinProbability(model: WinProbModel, probability: number, tu
   return Math.log(w / (1 - w)) / slope;
 }
 
-/** Location of the shipped coefficient file, checked in beside this module. */
+/**
+ * Location of the shipped coefficient file, checked in beside this module.
+ *
+ * Beside *this module* means beside the compiled one when the package is
+ * consumed through its build output, and `tsc` does not copy JSON. So the
+ * source copy is the fallback: the lobby's AI client resolves `@meccg/sim` to
+ * `dist/`, and without this an H2 game died on construction with "model not
+ * found" before a single card was played.
+ */
 export const MODEL_PATH = path.join(__dirname, 'winprob-model.json');
+
+/**
+ * The same file under `src/`, for a `dist/` build that has no copy of it.
+ *
+ * Derived by swapping the one path segment rather than walking up a counted
+ * number of directories, so it does not silently break if the layout moves.
+ */
+export const MODEL_SOURCE_PATH = MODEL_PATH.includes(`${path.sep}dist${path.sep}`)
+  ? MODEL_PATH.replace(`${path.sep}dist${path.sep}`, `${path.sep}src${path.sep}`)
+  : MODEL_PATH;
 
 /** Cached model, so every decision does not re-read the file. */
 let cached: WinProbModel | null = null;
@@ -160,14 +178,18 @@ let cached: WinProbModel | null = null;
  * exactly the untraceable constants this design exists to remove. Regenerate
  * with `npm run fit-winprob -w @meccg/sim`.
  */
-export function loadWinProbModel(path: string = MODEL_PATH): WinProbModel {
-  if (cached && path === MODEL_PATH) return cached;
-  if (!fs.existsSync(path)) {
+export function loadWinProbModel(file: string = MODEL_PATH): WinProbModel {
+  const isDefault = file === MODEL_PATH;
+  if (cached && isDefault) return cached;
+  const found = fs.existsSync(file) ? file
+    : isDefault && fs.existsSync(MODEL_SOURCE_PATH) ? MODEL_SOURCE_PATH
+      : null;
+  if (found === null) {
     throw new Error(
-      `Win-probability model not found at ${path} — run \`npm run fit-winprob -w @meccg/sim\` to fit one.`,
+      `Win-probability model not found at ${file} — run \`npm run fit-winprob -w @meccg/sim\` to fit one.`,
     );
   }
-  const model = JSON.parse(fs.readFileSync(path, 'utf-8')) as WinProbModel;
-  if (path === MODEL_PATH) cached = model;
+  const model = JSON.parse(fs.readFileSync(found, 'utf-8')) as WinProbModel;
+  if (isDefault) cached = model;
   return model;
 }

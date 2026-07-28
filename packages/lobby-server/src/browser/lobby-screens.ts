@@ -83,6 +83,8 @@ export function showScreen(id: ScreenId): void {
     if (realBtn) { realBtn.textContent = 'Play vs Real-AI'; realBtn.disabled = false; }
     const mcBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
     if (mcBtn) { mcBtn.textContent = 'Play vs MC-AI (experimental)'; mcBtn.disabled = false; }
+    const modularBtn = document.getElementById('play-modular-ai-btn') as HTMLButtonElement | null;
+    if (modularBtn) { modularBtn.textContent = 'Play vs Modular AI (experimental)'; modularBtn.disabled = false; }
     const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
     if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
     void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());

@@ -59,6 +59,20 @@ export interface PlayRealAiMessage {
   readonly model: string;
 }
 
+/**
+ * Start a game against the Modular AI — Heuristics 2
+ * (`specs/2026-07-27-heuristics-2-ai.md`).
+ *
+ * Like {@link PlayMcAiMessage} this carries no agent spec: the spec becomes
+ * argv of a spawned process, and a client-supplied one could name an arbitrary
+ * weights file.
+ */
+export interface PlayModularAiMessage {
+  readonly type: 'play-modular-ai';
+  /** Catalog deck ID for the AI opponent to use. */
+  readonly deckId: string;
+}
+
 /** Start a game against the pseudo-AI (human controls both sides). */
 export interface PlayPseudoAiMessage {
   readonly type: 'play-pseudo-ai';
@@ -87,6 +101,7 @@ export type LobbyClientMessage =
   | DeclineChallengeMessage
   | PlayHeuristicAiMessage
   | PlayMcAiMessage
+  | PlayModularAiMessage
   | PlayRealAiMessage
   | PlayPseudoAiMessage
   | PseudoAiPickMessage

@@ -215,6 +215,33 @@ document.addEventListener('DOMContentLoaded', () => {
       launchMcAiGame();
     })(); });
 
+    // ---- Modular AI (Heuristics 2) ----
+    const playModularAiBtn = document.getElementById('play-modular-ai-btn') as HTMLButtonElement | null;
+
+    /** Send the play-modular-ai message and disable the UI. */
+    function launchModularAiGame(): void {
+      if (playModularAiBtn && appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-modular-ai', deckId: aiDeckSelect.value }));
+        playModularAiBtn.textContent = 'Starting...';
+        setLobbyPlayButtonsDisabled(true);
+      }
+    }
+
+    playModularAiBtn?.addEventListener('click', () => { void (async () => {
+      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Modular');
+      if (r.ok && r.data?.hasSave) {
+        const cont = await showConfirm(
+          'A saved game exists against Modular AI. Continue the saved game or start a new one?',
+          { okLabel: 'Continue', cancelLabel: 'Start New' },
+        );
+        if (!cont) {
+          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-Modular' });
+        }
+      }
+      launchModularAiGame();
+    })(); });
+
     // ---- Real-AI (trained model) ----
     const playRealAiBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement;
     const aiModelSelect = document.getElementById('ai-model-select') as HTMLSelectElement;

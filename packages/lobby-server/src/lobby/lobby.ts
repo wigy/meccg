@@ -33,6 +33,27 @@ import { getDisplayName, getCredits } from '../players/store.js';
  */
 const MC_AGENT_SPEC = 'mc:ms=2000/turns=3/candidates=6';
 
+/**
+ * Sim agent spec for the "Play vs Modular AI" button — Heuristics 2
+ * (`specs/2026-07-27-heuristics-2-ai.md`).
+ *
+ * A server-side constant for the same reason as {@link MC_AGENT_SPEC}: the spec
+ * becomes argv, and `h2:<modules>` would let a client select an arbitrary
+ * module subset — which is a debugging seam, not something a lobby should
+ * expose. The bare `h2` is every shipped module.
+ *
+ * Unlike the Monte-Carlo agent this one does not search, so it answers in
+ * milliseconds rather than seconds. What it does instead is explain itself:
+ * every decision it makes is reproducible through `npm run explain -w
+ * @meccg/sim`, which no other opponent here can offer.
+ *
+ * Its strength is unproven. It decides about half of all contested decisions
+ * and hands the rest to the heuristic, and a seven-game head-to-head put it
+ * ahead 5-2 — a sample that separates nothing. Offered as an opponent worth
+ * playing and reporting on, not as the strongest one available.
+ */
+const MODULAR_AGENT_SPEC = 'h2';
+
 /** Connection info for an active game that a player can rejoin. */
 interface ActiveGameInfo {
   readonly port: number;
@@ -201,6 +222,15 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
+    case 'play-modular-ai': {
+      if (from.inGame) {
+        send(from.ws, { type: 'error', message: 'You are already in a game' });
+        return;
+      }
+      void startAiGame(from, msg.deckId, undefined, MODULAR_AGENT_SPEC);
+      break;
+    }
+
     case 'play-real-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
@@ -244,7 +274,10 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         // Preserve which AI it was: relaunching 'AI-MC' without the spec
         // would silently seat the heuristic instead, so a reconnect would
         // change opponents mid-match.
-        void startAiGame(from, storedAiDeckId, undefined, opponentName === 'AI-MC' ? MC_AGENT_SPEC : undefined);
+        const rejoinSpec = opponentName === 'AI-MC' ? MC_AGENT_SPEC
+          : opponentName === 'AI-Modular' ? MODULAR_AGENT_SPEC
+            : undefined;
+        void startAiGame(from, storedAiDeckId, undefined, rejoinSpec);
       } else {
         const opponent = onlinePlayers.get(opponentName);
         if (!opponent) {
@@ -337,9 +370,13 @@ async function startAiGame(
     aiModelPath = resolved;
   }
   player.inGame = true;
-  const aiName = agentSpec !== undefined ? 'AI-MC'
-    : modelFile !== undefined ? 'AI-Real'
-      : 'AI-Heuristic';
+  // The name is the save key and the rejoin key, so each agent spec needs its
+  // own. Deriving it from "an agent spec was supplied" was fine while there was
+  // one such agent; a second would have made both share MC's saves.
+  const aiName = agentSpec === MC_AGENT_SPEC ? 'AI-MC'
+    : agentSpec === MODULAR_AGENT_SPEC ? 'AI-Modular'
+      : modelFile !== undefined ? 'AI-Real'
+        : 'AI-Heuristic';
 
   try {
     const result = await launchGame(player.name, aiName, {
