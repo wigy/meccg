@@ -36,7 +36,7 @@ import type { Agent, AgentContext } from '../types.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
-import { ALL_MODULES, evaluateDecision } from '../ai/h2/core/registry.js';
+import { ALL_MODULES, evaluateDecision, ownerOf } from '../ai/h2/core/registry.js';
 
 /** Flag reference, printed by `--help`. */
 const USAGE = `coverage — how much of the game does H2 speak to, and what is stopping it?
@@ -87,6 +87,16 @@ const tally = {
 const byType = new Map<string, { seen: number; owned: number }>();
 /** Contested decisions blocked by each unowned action type. */
 const blockedBy = new Map<string, number>();
+/**
+ * Action types a module *owns* but declined, by module.
+ *
+ * Worth separating from "nobody owns it": an unowned type is a module waiting
+ * to be written, while a declined one is a module that took responsibility and
+ * then had nothing to say — either a declared gap, like `hazards` on events, or
+ * a bug, like the two modules that once restated the all-or-nothing rule inside
+ * their own `claims()` and silenced themselves.
+ */
+const declinedBy = new Map<string, number>();
 
 for (let g = 0; g < games; g++) {
   const inner = resolveAgent(selfSpec);
@@ -106,11 +116,25 @@ for (let g = 0; g < games; g++) {
         });
         tally.contested++;
 
-        const ownedTypes = new Set(evaluations.map(e => e.action.type));
+        const scored = new Set(evaluations.map(e => e.action));
         for (const action of context.legalActions) {
           const entry = byType.get(action.type) ?? { seen: 0, owned: 0 };
           entry.seen++;
-          if (ownedTypes.has(action.type)) entry.owned++;
+          if (scored.has(action)) {
+            entry.owned++;
+          } else {
+            const owner = ownerOf(ALL_MODULES, action, {
+              view: context.view,
+              cardPool,
+              legalActions: context.legalActions,
+              tunables: DEFAULT_TUNABLES,
+              standing,
+            });
+            if (owner) {
+              const key = `${action.type} (${owner.name})`;
+              declinedBy.set(key, (declinedBy.get(key) ?? 0) + 1);
+            }
+          }
           byType.set(action.type, entry);
         }
 
@@ -181,3 +205,15 @@ console.log('');
 console.log('"Blocks" counts contested decisions where the type went unscored — the same');
 console.log('decision is counted once per unowned type it contains, so the column sums to');
 console.log('more than the number of decisions.');
+
+console.log('');
+console.log('Candidates a module owns but declined — a declared gap, or a module that has');
+console.log('silently stopped answering:');
+const declined = [...declinedBy.entries()].sort((a, b) => b[1] - a[1]).slice(0, top);
+if (declined.length === 0) {
+  console.log('  (none — every owned candidate was scored)');
+} else {
+  for (const [key, count] of declined) {
+    console.log(`  ${key.padEnd(44)} ${String(count).padStart(6)} declined`);
+  }
+}
