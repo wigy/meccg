@@ -17,6 +17,11 @@
  * ranking a covered candidate against an uncovered one is impossible: the two
  * numbers are a win-probability delta and a unitless H1 weight.
  *
+ * Falling back is a cost, not a safety net. Heuristics 1 is the weight soup
+ * this design exists to replace, so every decision handed to it is one played
+ * by the worse of the two agents — the fallback is there because a wrong
+ * ranking is worse still, not because H1 is an acceptable answer.
+ *
  * The way out is that a utility is a change in win probability *relative to
  * doing nothing*. So "this action improves the position by 2%" is a claim
  * that stands on its own, without reference to the candidates H2 could not

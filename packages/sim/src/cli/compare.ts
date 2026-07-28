@@ -4,7 +4,13 @@
  * Side-by-side comparison of two agents: how often do they actually choose
  * differently, and where?
  *
- * This exists because a strength gate is an expensive way to learn that two
+ * It measures *difference*, not quality. Agreement with Heuristics 1 is not
+ * evidence that a choice is right — H1 is the weight soup Heuristics 2 exists
+ * to replace, and converging on it is as likely to mean H2 has picked up its
+ * faults. The only thing this number decides is whether a gate has anything to
+ * measure.
+ *
+ * It exists because a strength gate is an expensive way to learn that two
  * agents mostly agree. The `search-h2` gate cost 90 minutes to return an
  * interval ±126 Elo wide, and the first question afterwards was whether the
  * two agents had ever diverged enough for a gate to resolve anything. That
@@ -40,7 +46,8 @@ Usage:
   npm run compare -w @meccg/sim -- --scenarios [--agents heuristic,h2]
 
 Options:
-  --agents <a,b>      the two agent specs (default heuristic,h2). The first
+  --agents <a,b>      the two agent specs (default mc,h2 — the Monte-Carlo
+                      agent is the strongest reference available). The first
                       drives the game; the second is polled in its shadow.
   --games <n>         self-play games to poll over (default 4)
   --seed <n>          base seed (default 1)
@@ -56,7 +63,10 @@ if (args.flags['help'] === true || args.flags['h'] === true) {
 }
 setEngineConsoleLog(false);
 
-const [driverSpec, shadowSpec] = resolvePair(args, 'agents', ['heuristic', 'h2']);
+// Default to the Monte-Carlo agent rather than Heuristics 1: it is the
+// strongest opponent available, so a difference against it is worth something,
+// where a difference against H1 only says the two disagree.
+const [driverSpec, shadowSpec] = resolvePair(args, 'agents', ['mc', 'h2']);
 
 /** The action an agent prefers, ignoring the harness's sampling. */
 function preferred(decision: AgentDecision): GameAction {
@@ -96,6 +106,9 @@ function report(tally: Tally): void {
   console.log(`decisions:          ${tally.decisions}`);
   console.log(`  forced (1 option) ${tally.forced} — agreement there is free`);
   console.log(`  contested         ${contested}`);
+  console.log('');
+  console.log('Agreement is a sizing number, not a verdict: matching the other agent is');
+  console.log('evidence of nothing on its own.');
   console.log('');
   console.log(`agreement, all:       ${share(tally.agreed, tally.decisions)}`);
   console.log(`agreement, contested: ${share(contestedAgreed, contested)}`);

@@ -39,12 +39,15 @@ combat's most common choice — tap to fight or stay untapped — is unvalidated
 and marginal, while the module's valuation does not track the score at all.
 That may be benign, since combat is largely about avoiding loss and its tempo
 terms never enter the score; or the tempo constants may be doing work the
-marshalling points should. It also weakens the encouraging reading of
-`compare`, where combat agreement with Heuristics 1 rose from 87.2% to 94.4%
-after `character-value` raised tap prices: that convergence could be insight,
-or it could be an artifact of a boundary-sitting constant. Resolving it needs
-either a horizon test with more combat-heavy samples or a gate that isolates
-the tap price.*
+marshalling points should. Note also that agreement with Heuristics 1 is **not** evidence either way.
+H1 is the weight soup this design exists to replace; converging on its choices
+is as likely to mean H2 has acquired its faults as that both found the same
+truth. `compare` measures how much behaviour differs so a gate can be sized —
+it is not a quality signal, and combat agreement rising from 87.2% to 94.4%
+should be read as "there is less for a gate to measure here", nothing more.
+Resolving the concern needs a horizon test with more combat-heavy samples, or
+a gate that isolates the tap price by running `h2` against itself at two
+settings.*
 
 *Two corrections to this document, found by reading the engine:*
 
