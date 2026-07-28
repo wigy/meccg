@@ -2611,6 +2611,47 @@ export function parseHomesiteNames(homesite: string): string[] {
 }
 
 /**
+ * The name of the site an agent currently stands at: the top of its site-stack
+ * if it has moved out of hiding, otherwise its first printed home site (a
+ * face-down agent sitting at home). Returns null when neither resolves.
+ *
+ * Shared by the agent legal-action computers and the agent reducers so "the
+ * agent's site" means the same thing on both sides of an action.
+ */
+export function agentCurrentSiteName(
+  state: GameState,
+  agent: { readonly siteStack: readonly CardInstance[] },
+  agentDef: { readonly homesite?: string },
+): string | null {
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = defById(state, topSite.definitionId);
+    return siteDef && isSiteCard(siteDef) ? siteDef.name : null;
+  }
+  return parseHomesiteNames(agentDef.homesite ?? '')[0] ?? null;
+}
+
+/**
+ * Evaluate a card's `agentFilter` condition (Twisted Tales dm-96: "an untapped
+ * *diplomat* agent") against an agent's card definition. Follows the usual
+ * play-target convention of exposing the candidate under `target.*`, so cards
+ * express their restriction as a DSL condition rather than a hardcoded keyword.
+ * An absent filter matches every agent.
+ */
+export function agentMatchesFilter(agentDef: CardDefinition, filter?: Condition): boolean {
+  if (!filter) return true;
+  if (!isCharacterCard(agentDef)) return false;
+  return matchesCondition(filter, {
+    target: {
+      name: agentDef.name,
+      race: agentDef.race,
+      skills: agentDef.skills ?? [],
+      keywords: agentDef.keywords ?? [],
+    },
+  });
+}
+
+/**
  * True if a character definition is an agent whose *printed* home site is a
  * site of one of the given {@link SiteType}s.
  *

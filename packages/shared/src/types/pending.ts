@@ -140,12 +140,22 @@ export interface OpponentInfluenceAttempt {
    */
   readonly regionPenalty?: number;
   /**
-   * Sum of one-shot influence `check-modifier` constraint values that matched
-   * this opponent-influence attempt (e.g. Mine or No One's ba-68: +10 against
-   * an item/ally/Orc-or-Troll faction), added to the attacker's side of the
-   * final comparison. 0 (or absent) when no booster was in effect.
+   * Flat modifier added to the attacker's side of the final comparison: the sum
+   * of one-shot influence `check-modifier` constraint values that matched this
+   * opponent-influence attempt (e.g. Mine or No One's ba-68: +10 against an
+   * item/ally/Orc-or-Troll faction) and of any bonus granted by the card that
+   * declared the attempt (Twisted Tales dm-96: "+6 to influence attempt").
+   * 0 (or absent) when no booster was in effect.
    */
   readonly boostModifier?: number;
+  /**
+   * When true the attempt succeeds without a defence roll — the defending
+   * player still gets the window to cancel it outright (e.g. Wizard's
+   * Laughter), but cannot roll it down. Used by Twisted Tales (dm-96):
+   * "Attempt is automatically successful if target faction is playable at the
+   * agent's home site."
+   */
+  readonly autoSuccess?: boolean;
   /**
    * The card instance revealed from hand for a comparison value of 0.
    * Null if no card was revealed.

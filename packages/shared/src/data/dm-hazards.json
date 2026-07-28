@@ -1253,8 +1253,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TwistedTales.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on an untapped diplomat agent. Tap the agent who may then make an influence attempt against a faction playable at the agent’s site. +6 to influence attempt. Attempt is automatically successful if target faction is playable at the agent’s home site. Cannot be played if your opponent is a minion player."
+    "effects": [
+      {
+        "type": "agent-tap-faction-influence",
+        "agentFilter": { "target.skills": { "$includes": "diplomat" } },
+        "attemptBonus": 6,
+        "autoSuccessAtHomeSite": true
+      }
+    ],
+    "text": "Playable on an untapped diplomat agent. Tap the agent who may then make an influence attempt against a faction playable at the agent’s site. +6 to influence attempt. Attempt is automatically successful if target faction is playable at the agent’s home site. Cannot be played if your opponent is a minion player.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hazard-event",

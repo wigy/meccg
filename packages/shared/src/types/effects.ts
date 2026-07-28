@@ -7192,6 +7192,7 @@ export type CardEffect =
   | DisplaceStoredItemEffect
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
+  | AgentTapFactionInfluenceEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | DiscardSelfWhenCompanyEffect
@@ -8910,6 +8911,41 @@ export interface AgentTapReturnCharacterEffect extends EffectBase {
   readonly atHomeSiteBonus: number;
   /** Amount added to the target's mind to form the roll threshold. */
   readonly mindBonus: number;
+}
+
+/**
+ * Hazard short-event effect for Twisted Tales (dm-96).
+ *
+ * "Playable on an untapped diplomat agent. Tap the agent who may then make an
+ * influence attempt against a faction playable at the agent's site. +6 to
+ * influence attempt. Attempt is automatically successful if target faction is
+ * playable at the agent's home site. Cannot be played if your opponent is a
+ * minion player."
+ *
+ * The card *grants* a rule-10.14 agent influence attempt against an opponent's
+ * in-play faction — the agent needs no `agent-tap-influence` effect of its own
+ * ("if an effect allows an agent hazard to make an influence attempt"). Playing
+ * the card taps and reveals the agent and enqueues the standard
+ * `opponent-influence-defend` resolution, carrying the rule-10.14 bonuses (+2
+ * direct influence at a home site; faction playable at a home site → value 0
+ * and +2 to the roll) plus this card's own {@link attemptBonus}.
+ */
+export interface AgentTapFactionInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-faction-influence';
+  /**
+   * Condition the acting agent's card definition must satisfy, evaluated
+   * against `{ target: { name, race, skills, keywords } }` — e.g.
+   * `{ "target.skills": { "$includes": "diplomat" } }` for "diplomat agent".
+   * Omit to allow any untapped agent.
+   */
+  readonly agentFilter?: Condition;
+  /** Modifier added to the attacker's side of the influence attempt (+6). */
+  readonly attemptBonus: number;
+  /**
+   * When true, the attempt succeeds automatically (no defence roll) if the
+   * target faction is playable at one of the agent's home sites.
+   */
+  readonly autoSuccessAtHomeSite?: boolean;
 }
 
 /**

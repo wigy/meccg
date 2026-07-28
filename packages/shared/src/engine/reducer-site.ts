@@ -3912,20 +3912,34 @@ function handleOpponentInfluenceAttempt(
  * this function directly.
  *
  * CoE rules 10.12 steps 2–6.
+ *
+ * The defending side is read from `attempt.targetPlayer`, not from
+ * `state.activePlayer`: an agent's rule-10.14 influence attempt (Twisted Tales
+ * dm-96, `mh-agents.ts`) is declared by the *hazard* player during the resource
+ * player's movement/hazard phase, so the attacker is the non-active player
+ * there. For a site-phase attempt the two derivations coincide.
+ *
+ * An attempt flagged `autoSuccess` skips the defence roll entirely and resolves
+ * as a success (dm-96's "automatically successful" clause).
  */
 export function resolveOpponentInfluenceDefend(
   state: GameState,
   attempt: import('../types/pending.js').OpponentInfluenceAttempt,
 ): ReducerResult {
-  // Roll defender 2d6
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const defenderRoll = roll.die1 + roll.die2;
-
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const opponentIndex = 1 - playerIndex;
+  // The target's owner defends; the other player is the influencer's side.
+  const opponentIndex = getPlayerIndex(state, attempt.targetPlayer);
+  const playerIndex = 1 - opponentIndex;
   const opponent = state.players[opponentIndex];
 
-  const rollEffect = diceRollEffect(opponent.name, roll, `Opponent influence: defense`);
+  // Roll defender 2d6 — skipped for an automatically successful attempt.
+  const rolled = attempt.autoSuccess ? null : roll2d6(state);
+  const defenderRoll = rolled ? rolled.roll.die1 + rolled.roll.die2 : 0;
+  const rng = rolled ? rolled.rng : state.rng;
+  const cheatRollTotal = rolled ? rolled.cheatRollTotal : state.cheatRollTotal;
+
+  const rollEffects = rolled
+    ? [diceRollEffect(opponent.name, rolled.roll, `Opponent influence: defense`)]
+    : [];
 
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll
@@ -3935,13 +3949,19 @@ export function resolveOpponentInfluenceDefend(
   const boostModifier = attempt.boostModifier ?? 0;
   const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty + boostModifier;
 
-  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
+  if (attempt.autoSuccess) {
+    logDetail(`Opponent influence resolution: automatically successful (no defence roll)`);
+  } else {
+    logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
+  }
 
   const newPlayers = clonePlayers(state);
 
-  if (finalResult > attempt.targetMind) {
+  if (attempt.autoSuccess || finalResult > attempt.targetMind) {
     // Success — discard target and controlled non-follower cards
-    logDetail(`Opponent influence succeeded (${finalResult} > ${attempt.targetMind})`);
+    logDetail(attempt.autoSuccess
+      ? `Opponent influence succeeded (automatic)`
+      : `Opponent influence succeeded (${finalResult} > ${attempt.targetMind})`);
     // Find the company of the influenced target (for membership-change sweep)
     const opponent2 = state.players[opponentIndex];
     let influencedCompanyId: import('../index.js').CompanyId | undefined;
@@ -3999,10 +4019,10 @@ export function resolveOpponentInfluenceDefend(
     // Lure of Power (tw-59): a successful opponent-influence attempt is a
     // "successful influence attempt" — fire the in-play triggers on the
     // influencing character (corruption check, then self-discard).
-    afterSweep = fireSuccessfulInfluenceTriggers(afterSweep, attempt.influencerId, state.activePlayer!);
+    afterSweep = fireSuccessfulInfluenceTriggers(afterSweep, attempt.influencerId, state.players[playerIndex].id);
     return {
       state: afterSweep,
-      effects: [rollEffect],
+      effects: rollEffects,
     };
   }
 
@@ -4011,9 +4031,8 @@ export function resolveOpponentInfluenceDefend(
 
   // If an identical card was revealed, discard it
   if (attempt.revealedCard) {
-    const attackerIndex = getPlayerIndex(state, state.activePlayer!);
-    const attacker = newPlayers[attackerIndex];
-    newPlayers[attackerIndex] = {
+    const attacker = newPlayers[playerIndex];
+    newPlayers[playerIndex] = {
       ...attacker,
       discardPile: [...attacker.discardPile, toCardInstance(attempt.revealedCard)],
     };
@@ -4026,7 +4045,7 @@ export function resolveOpponentInfluenceDefend(
       players: newPlayers,
       rng, cheatRollTotal,
     },
-    effects: [rollEffect],
+    effects: rollEffects,
   };
 }
 

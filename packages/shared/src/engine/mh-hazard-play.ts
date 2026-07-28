@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, PlayDiscardCostEffect, Condition } from '../types/effects.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition } from '../types/effects.js';
 import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -51,7 +51,7 @@ import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organiza
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
 import { siteConstraintFilterMatches } from './effective.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -824,6 +824,15 @@ export function handlePlayHazardCard(
     );
     if (pilferEff && action.type === 'play-hazard' && action.agentInstanceId && action.targetCharacterId) {
       return handleAgentTapReturnCharacter(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, pilferEff);
+    }
+
+    // Twisted Tales (dm-96): tap an untapped diplomat agent to make a rule-10.14
+    // influence attempt against an opponent faction playable at the agent's site.
+    const agentFactionInfluenceEff = def.effects?.find(
+      (e): e is AgentTapFactionInfluenceEffect => e.type === 'agent-tap-faction-influence',
+    );
+    if (agentFactionInfluenceEff && action.type === 'play-hazard' && action.agentInstanceId && action.targetFactionInstanceId) {
+      return handleAgentTapFactionInfluence(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, agentFactionInfluenceEff);
     }
 
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');

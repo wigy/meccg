@@ -12793,3 +12793,58 @@ no replacement machinery: the substitute is itself an item in the company, so
 naming it already fulfils the requirement.
 
 Used by: *Leaf Brooch* (dm-171).
+
+### 71. `agent-tap-faction-influence` (Twisted Tales)
+
+Hazard short-event that *grants* one of the hazard player's own agents a rule
+10.14 influence attempt against an **opponent faction in play** that is playable
+at the agent's current site. The agent needs no `agent-tap-influence` effect of
+its own — rule 10.14 opens with "if an effect allows an agent hazard to make an
+influence attempt", and this card is such an effect.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `agentFilter` | no | Condition the acting agent's definition must satisfy, evaluated against `{ target: { name, race, skills, keywords } }` (e.g. `{ "target.skills": { "$includes": "diplomat" } }`). Omit to allow any untapped agent. |
+| `attemptBonus` | yes | Flat modifier added to the attacker's side of the influence attempt (rides as the attempt's `boostModifier`). |
+| `autoSuccessAtHomeSite` | no | When true, the attempt succeeds without any roll if the target faction is playable at one of the agent's **home** sites. |
+
+```json
+{ "type": "agent-tap-faction-influence",
+  "agentFilter": { "target.skills": { "$includes": "diplomat" } },
+  "attemptBonus": 6, "autoSuccessAtHomeSite": true }
+```
+
+- **Legal actions** (short-event branch of `movementHazardActions`,
+  `legal-actions/movement-hazard.ts`): one `play-hazard` action per (untapped
+  agent passing `agentFilter`, opponent in-play faction whose `playableAt` names
+  the agent's current site), carrying `agentInstanceId` +
+  `targetFactionInstanceId`. Independent of the active company — a faction sits
+  in `cardsInPlay`. Blocked when the opponent is a minion/Balrog player
+  (`isMinionOrBalrog`), matching "Cannot be played if your opponent is a minion
+  player". The agent's current site and the filter test use the shared
+  `agentCurrentSiteName` / `agentMatchesFilter` helpers (`reducer-utils.ts`) so
+  the emitter and the reducer agree on "the agent's site".
+- **Reducer** (`handleAgentTapFactionInfluence`, `mh-agents.ts`, dispatched from
+  `mh-hazard-play.ts`): taps **and reveals** the agent (declaring an influence
+  attempt reveals it), discards the event, counts it against the hazard limit,
+  and enqueues the standard `opponent-influence-defend` resolution. The attempt
+  is not an agent action, so `remainingActions` is untouched. Rule-10.14 bonuses
+  are applied as usual (+2 direct influence at a home site, plus the agent's own
+  conditional DI modifiers; a faction playable at a home site counts as value 0
+  with +2 to the roll), and `attemptBonus` is passed as `boostModifier`.
+- **Automatic success**: with `autoSuccessAtHomeSite` and a faction playable at
+  one of the agent's home sites the attempt is flagged `autoSuccess` — no
+  attacker roll is made at declaration and `resolveOpponentInfluenceDefend`
+  skips the defence roll and resolves as a success. The defender still gets the
+  window to cancel the attempt outright (`cancel-influence`).
+- **Defending side**: `resolveOpponentInfluenceDefend` reads the defending
+  player from `attempt.targetPlayer` rather than from `state.activePlayer`, so
+  an attempt declared by the (non-active) hazard player during the resource
+  player's movement/hazard phase discards the *resource* player's faction. For a
+  site-phase attempt the two derivations coincide.
+
+Used by Twisted Tales (dm-96): "Playable on an untapped diplomat agent. Tap the
+agent who may then make an influence attempt against a faction playable at the
+agent's site. +6 to influence attempt. Attempt is automatically successful if
+target faction is playable at the agent's home site. Cannot be played if your
+opponent is a minion player."
