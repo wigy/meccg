@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsInPlay } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsInPlay } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -3204,10 +3204,18 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }));
   }
 
-  // Check for attacker-chooses-defenders combat rule (e.g. Cave-drake)
-  const attackerChooses = creatureDef.effects?.some(
-    e => e.type === 'combat-attacker-chooses-defenders',
-  ) ?? false;
+  // Check for attacker-chooses-defenders combat rule (e.g. Cave-drake). A
+  // `scope: "all-attacks"` copy is a permanent-event's *global* grant, not the
+  // creature's own printed rule, so it is excluded here and picked up by
+  // `resolveAttackerChoosesDefenders` from `cardsInPlay` instead (Alatar the
+  // Hunter as-7 carries both).
+  const attackerChooses = resolveAttackerChoosesDefenders(
+    state,
+    creatureDef.effects?.some(
+      e => e.type === 'combat-attacker-chooses-defenders' && e.scope !== 'all-attacks',
+    ) ?? false,
+    creatureDef.race,
+  );
   if (attackerChooses) {
     logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
   }
@@ -4360,7 +4368,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const prowess0 = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, tidings0BoostCtx);
           const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, true, tidings0BoostCtx);
           const body0 = resolveAttackBody(current, aa0.body ?? null, inPlayNames, race0, tidings0BoostCtx);
-          const aaAttackerChooses0 = aa0.combatRules?.includes('attacker-chooses-defenders') ?? false;
+          const aaAttackerChooses0 = resolveAttackerChoosesDefenders(
+            current, aa0.combatRules?.includes('attacker-chooses-defenders') ?? false, race0,
+          );
           logDetail(`Tidings of Bold Spies: initiating attack 1/${autoAttacks.length}: ${aa0.creatureType} (${strikes0} strikes, ${prowess0} prowess) — NOT an auto-attack`);
           const combat0: import('../types/state-combat.js').CombatState = makeCombatState({
             attackSource: { type: 'tidings-attack', eventInstanceId: entry.card.instanceId, attackIndex: 0 },
