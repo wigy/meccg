@@ -892,7 +892,8 @@
         "onDefeat": "remove-from-play"
       }
     ],
-    "text": "Unique. Spawn. The Balrog appears in Moria. The Moria site gains a second automatic-attack of 1 strike with 18 prowess and no body (i.e., 18/-). If this 2nd automatic-attack is defeated, this permanent-event is removed from play (i.e., the Balrog is defeated). If your opponent defeats this 2nd automatic-attack, he receives the marshalling points. Cannot be included in a Balrog’s deck and cannot be played if your opponent is a Balrog player."
+    "text": "Unique. Spawn. The Balrog appears in Moria. The Moria site gains a second automatic-attack of 1 strike with 18 prowess and no body (i.e., 18/-). If this 2nd automatic-attack is defeated, this permanent-event is removed from play (i.e., the Balrog is defeated). If your opponent defeats this 2nd automatic-attack, he receives the marshalling points. Cannot be included in a Balrog’s deck and cannot be played if your opponent is a Balrog player.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hazard-creature",
