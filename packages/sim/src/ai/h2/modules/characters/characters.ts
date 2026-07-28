@@ -163,6 +163,30 @@ function rosterFor(context: ModuleContext, companyId: string): StrikeTarget[] {
   return company ? rosterOf(company, context.view.self.characters, context.cardPool) : [];
 }
 
+/**
+ * Who actually leaves when a character is split out: him and his followers.
+ *
+ * The reducer moves the splitter *plus everyone he holds with direct
+ * influence*, transitively — a follower of a follower goes too. Modelling only
+ * the named character made split and merge stop being inverses of each other,
+ * and an agent that values a change and its undo both positively will do them
+ * forever. It did: a self-play game spent 4000 decisions cycling
+ * split → plan-movement → merge → split in a single organization phase.
+ */
+function departingWith(context: ModuleContext, characterId: CardInstanceId): Set<string> {
+  const leaving = new Set<string>([characterId as string]);
+  const queue: CardInstanceId[] = [characterId];
+  while (queue.length > 0) {
+    const next = queue.shift()!;
+    for (const follower of context.view.self.characters[next]?.followers ?? []) {
+      if (leaving.has(follower as string)) continue;
+      leaving.add(follower as string);
+      queue.push(follower);
+    }
+  }
+  return leaving;
+}
+
 /** A roster's names, for the rationale. */
 function names(roster: readonly StrikeTarget[]): string {
   return roster.length > 0 ? roster.map(t => t.name).join(', ') : '(nobody)';
@@ -196,15 +220,19 @@ function evaluateShape(context: ModuleContext, action: GameAction): Evaluation |
     headline = `merge ${names(source)} into ${names(target)}`;
   } else {
     const record = action as unknown as { sourceCompanyId: string; characterId: CardInstanceId };
-    const source = rosterFor(context, record.sourceCompanyId);
-    if (source.length < 2) return null;
-    // Followers move with the character they are held by. The view does not
-    // publish that grouping on the roster, so the split is modelled as the one
-    // named character leaving — which understates a split that takes followers
-    // along, and is declared.
-    const leaving = source.filter(t => t.instanceId === record.characterId);
-    const staying = source.filter(t => t.instanceId !== record.characterId);
-    if (leaving.length === 0 || staying.length === 0) return null;
+    const company = view.self.companies.find(c => (c.id as string) === record.sourceCompanyId);
+    if (!company || company.characters.length < 2) return null;
+    // Followers travel with the character holding them, so the two sides are
+    // built from the company's character list and not by filtering a flat
+    // roster — an ally on a departing character has to leave with him, and the
+    // roster has already forgotten whose ally it is.
+    const departing = departingWith(context, record.characterId);
+    const goes = company.characters.filter(id => departing.has(id as string));
+    const stays = company.characters.filter(id => !departing.has(id as string));
+    if (goes.length === 0 || stays.length === 0) return null;
+    const source = rosterOf(company, view.self.characters, cardPool);
+    const leaving = rosterOf({ characters: goes }, view.self.characters, cardPool);
+    const staying = rosterOf({ characters: stays }, view.self.characters, cardPool);
     before = [source];
     after = [staying, leaving];
     headline = `split ${names(leaving)} out of ${names(staying)}`;
@@ -266,8 +294,6 @@ function evaluateShape(context: ModuleContext, action: GameAction): Evaluation |
       + 'organization phase has not chosen yet',
       'the hazards are assumed to be the average creature the opponent has shown, played into '
       + 'every slot; a hand with nothing keyable to the path spends none of them',
-      'followers move with the character they are held by, and the roster does not publish that '
-      + 'grouping — a split that takes followers along is understated',
       ...ASSUMPTIONS,
     ],
   };

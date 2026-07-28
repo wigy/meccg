@@ -12,7 +12,11 @@
  * rather than assumed.
  *
  * So this service answers one question: what does a roster expect to lose when
- * `slots` hazards are spent against it? It is the mirror image of `denial` —
+ * `slots` hazards are spent against it? The answer is a function of the *set* of
+ * characters and nothing else — see the canonical ordering in `expectedHarm`,
+ * which is what makes `Σ harm(company)` a potential that shape changes can be
+ * measured against. Without it a shape change and its undo could both look like
+ * an improvement, which is not a rounding error but an infinite loop. It is the mirror image of `denial` —
  * same enumeration, same degradation between attacks, opposite seat — and it
  * prices harm through `character-value`, so the cost of tapping a particular
  * character is the same number `combat` pays when it taps him in a strike.
@@ -175,6 +179,16 @@ function buildComputeDefence(
 
     expectedHarm(roster: readonly StrikeTarget[], slots: number): number {
       if (roster.length === 0 || slots <= 0) return 0;
+      // Canonical order, so the answer is a function of *who is in the company*
+      // and not of the order they happen to appear in a list. Strike targets are
+      // picked by lowest need and ties fall back to array order, so without this
+      // the same company scored differently depending on how it was assembled —
+      // merging A into B came out at +2.61% and B into A at +2.30% for the
+      // identical result. A shape and its undo could then both look like an
+      // improvement, and a self-play game spent 4000 decisions proving it,
+      // cycling split → plan-movement → merge inside one organization phase.
+      const canonical = [...roster].sort((a, b) =>
+        (a.instanceId as string) < (b.instanceId as string) ? -1 : 1);
       const profile: AttackProfile = {
         strikeProwess: typical.prowess,
         strikes: typical.strikes,
@@ -183,7 +197,7 @@ function buildComputeDefence(
         bodyCheckModifier: 0,
       };
       const result = resolveAttacks(
-        roster, cardPool, new Array(slots).fill(profile),
+        canonical, cardPool, new Array(slots).fill(profile),
         (outcome, target) => {
           // Priced through the shared service, so what tapping this particular
           // character costs is the same number `combat` pays for it — including

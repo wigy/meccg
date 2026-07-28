@@ -49,6 +49,18 @@ describe('what a shape invites', () => {
     expect(defence.expectedHarm(roster, 2)).toBeGreaterThan(0);
   });
 
+  test('the answer depends on who is in the company, not on the order of the list', () => {
+    // The invariant that makes `Σ harm(company)` a potential. Strike targets are
+    // picked by lowest need with ties falling back to array order, so without a
+    // canonical ordering the same company scores differently depending on how it
+    // was assembled — and a shape change and its undo can then both look like an
+    // improvement. One self-play game spent 4000 decisions on exactly that,
+    // cycling split → plan-movement → merge in a single organization phase.
+    const { defence, roster } = position();
+    const shuffled = [...roster].reverse();
+    expect(defence.expectedHarm(shuffled, 3)).toBeCloseTo(defence.expectedHarm(roster, 3), 9);
+  });
+
   test('a bigger roster answers the same attack better, per slot', () => {
     // Not per company: a bigger company also invites more slots, which is the
     // whole tension the shape decision sits in. Held at one slot, the extra

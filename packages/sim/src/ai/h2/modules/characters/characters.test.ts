@@ -160,6 +160,79 @@ describe('company shape', () => {
     expect(JSON.stringify(merged!.rationale)).toContain('hazard slot');
   });
 
+  test('merging A into B is worth exactly what merging B into A is', () => {
+    // Same resulting company, so the same number. It was not: +2.61% one way
+    // and +2.30% the other, because the harm model read the roster in list
+    // order. That asymmetry is what let the agent loop.
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    if (view.self.companies.length < 2) return;
+    const [a, b] = view.self.companies;
+    const forward = charactersModule.evaluate({
+      type: 'merge-companies', sourceCompanyId: a.id, targetCompanyId: b.id,
+    } as unknown as GameAction, context)!;
+    const backward = charactersModule.evaluate({
+      type: 'merge-companies', sourceCompanyId: b.id, targetCompanyId: a.id,
+    } as unknown as GameAction, context)!;
+    expect(forward.expectedTsd).toBeCloseTo(backward.expectedTsd, 9);
+  });
+
+  test('splitting and merging the same pair are exact opposites', () => {
+    // The property that stops the agent doing a thing and its undo forever:
+    // shape utility has to be a difference of one potential over the whole
+    // company set, so any accepted change strictly lowers it and the finitely
+    // many shapes cannot be cycled.
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const company = [...view.self.companies].sort((a, b) => b.characters.length - a.characters.length)[0];
+    expect(company.characters.length).toBeGreaterThan(1);
+    const characterId = company.characters[0];
+
+    const split = charactersModule.evaluate({
+      type: 'split-company', sourceCompanyId: company.id, characterId,
+    } as unknown as GameAction, context)!;
+
+    // The merge that undoes it, evaluated against a view where the split has
+    // happened: the two halves as separate companies.
+    const departing = new Set<string>([characterId as string]);
+    for (const follower of view.self.characters[characterId]?.followers ?? []) {
+      departing.add(follower as string);
+    }
+    const stays = company.characters.filter(id => !departing.has(id as string));
+    const goes = company.characters.filter(id => departing.has(id as string));
+    const afterSplit = {
+      ...view,
+      self: {
+        ...view.self,
+        companies: [
+          ...view.self.companies.filter(c => c.id !== company.id),
+          { ...company, id: 'company-stay', characters: stays },
+          { ...company, id: 'company-go', characters: goes },
+        ],
+      },
+    } as unknown as typeof view;
+    const mergeBack = charactersModule.evaluate({
+      type: 'merge-companies', sourceCompanyId: 'company-go', targetCompanyId: 'company-stay',
+    } as unknown as GameAction, { ...context, view: afterSplit })!;
+
+    expect(mergeBack.expectedTsd).toBeCloseTo(-split.expectedTsd, 6);
+  });
+
   test('declines a shape change it cannot resolve', () => {
     const scenario = loadScenario('organization/replanned-movement');
     const view = scenarioView(scenario);

@@ -23,8 +23,10 @@ import { resolve } from 'node:path';
  * layout, so a rendered-geometry assertion is not possible here.
  */
 describe('combat-arena spreads attacker and defender rows apart', () => {
-  // `vitest run` executes with the package directory as cwd.
-  const cssPath = resolve(process.cwd(), 'public/style.css');
+  // Resolved from this file, not from the working directory: `vitest run` from
+  // the repository root looks for `<root>/public/style.css` and the suite dies
+  // on ENOENT before a single assertion runs.
+  const cssPath = resolve(__dirname, '../../public/style.css');
   const css = readFileSync(cssPath, 'utf8');
 
   /** Extract the declaration block (between braces) for a single CSS selector. */
