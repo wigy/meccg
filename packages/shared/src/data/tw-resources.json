@@ -3459,9 +3459,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsVoice.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 6,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-28",
     "text": "Spell. Wizard only. +6 to direct influence for the Wizard for the rest of the turn. Wizard makes a corruption check modified by -3. Cannot be duplicated on a given turn."
   },
   {
