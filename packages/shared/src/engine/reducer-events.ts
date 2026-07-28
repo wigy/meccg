@@ -19,7 +19,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -2195,6 +2195,18 @@ function applyShortEventOnEntersPlay(
           break;
         }
         case 'company-cannot-move':
+          // "The company may not move to another site this turn" (Hiding
+          // tw-256). End-of-org cards are played *alongside* the other
+          // organization actions, so the company may already have declared a
+          // destination — locking it stationary has to strip that declaration
+          // (returning the site card to the location deck) as well as barring a
+          // fresh one, exactly as Siege's `lock-company-movement` does. A no-op
+          // for a company that never planned a move (Hide in Dark Places
+          // le-192, which may only target a non-moving company).
+          if (company.destinationSite) {
+            logDetail(`"${def.name}": company ${company.id as string} may not move this turn — dropping its declared destination`);
+            state = clearPlannedMovement(state, playerIndex, company.id);
+          }
           kind = { type: 'company-cannot-move' };
           break;
         case 'site-phase-do-nothing':

@@ -6,7 +6,7 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -2158,50 +2158,6 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
 
   const cleared = clearPlannedMovement(state, playerIndex, action.companyId);
   return { state: { ...cleared, reverseActions: [...state.reverseActions, reverseAction] } };
-}
-
-/**
- * Clear a company's planned destination, returning the destination site card
- * to its owner's location deck. Shared by the player-driven `cancel-movement`
- * action and by effects that strip a declared movement (Siege tw-87: a failed
- * end-of-organization-phase roll means "the company may not move this turn").
- *
- * Rules 3.37 / 3.39: if the destination instance is still in play at another
- * sibling company (as its `currentSite` or its own `destinationSite`), the card
- * must stay in play — only this company's claim on it is dropped. The physical
- * card was drawn from the location deck exactly once, by whichever company took
- * it. A no-op when the company has no planned movement.
- */
-export function clearPlannedMovement(
-  state: GameState,
-  playerIndex: number,
-  companyId: CompanyId,
-): GameState {
-  const player = state.players[playerIndex];
-  const companyIdx = player.companies.findIndex(c => c.id === companyId);
-  if (companyIdx === -1) return state;
-  const company = player.companies[companyIdx];
-  const destination = company.destinationSite;
-  if (!destination) return state;
-
-  const siblingStillHasIt = player.companies.some(
-    c => c.id !== company.id
-      && (c.currentSite?.instanceId === destination.instanceId
-        || c.destinationSite?.instanceId === destination.instanceId),
-  );
-
-  const companies = [...player.companies];
-  companies[companyIdx] = { ...company, destinationSite: null, movementPath: [] };
-
-  let siteDeck = player.siteDeck;
-  if (siblingStillHasIt) {
-    logDetail(`Cancel movement: company ${company.id as string}, destination ${destination.instanceId as string} still in play at a sibling — not returning to site deck`);
-  } else {
-    logDetail(`Cancel movement: company ${company.id as string}, returning site ${destination.instanceId as string} to site deck`);
-    siteDeck = [...player.siteDeck, toCardInstance(destination)];
-  }
-
-  return updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck }));
 }
 
 /**

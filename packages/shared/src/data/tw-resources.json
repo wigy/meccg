@@ -2492,8 +2492,45 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Playable at the end of the organization phase. Scout’s company may not move to another site this turn. Cancels all hazard creature attacks against the scout’s company this turn."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "scout"
+          }
+        },
+        "requiredSkill": "scout"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-cannot-move",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "text": "Scout only. Playable at the end of the organization phase. Scout’s company may not move to another site this turn. Cancels all hazard creature attacks against the scout’s company this turn.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hero-resource-faction",
