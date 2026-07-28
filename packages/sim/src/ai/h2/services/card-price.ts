@@ -72,6 +72,15 @@ export interface CardWorth {
 export interface CardPrices {
   /** What one card is worth, or null when it is not in hand. */
   worth(instanceId: CardInstanceId): CardWorth | null;
+  /**
+   * What a card would be worth if it arrived — priced from its definition.
+   *
+   * The question every fetch and every draft pick asks. It is the same
+   * valuation, with the one part that needs an instance replaced: a creature
+   * already in hand is worth its contribution to the plan, and one on offer is
+   * worth what it *would* add to it.
+   */
+  quote(definitionId: string): CardWorth;
   /** Every card in hand, most valuable first. */
   ranked(): readonly CardWorth[];
   /** What a card whose use cannot be modelled is assumed to be worth. */
@@ -145,30 +154,24 @@ function buildComputeCardPrices(
 
   const plan = computeHazardPlan(view, cardPool, standing, tunables);
 
-  const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
-    const card = view.self.hand.find(c => c.instanceId === instanceId);
-    if (!card) return null;
-    const definitionId = card.definitionId as string;
+  /**
+   * The part of the valuation that needs only the definition.
+   *
+   * `creatureWorth` is passed in because it is the one branch that differs
+   * between a card held and a card offered: held, a creature is worth its
+   * contribution to the plan; offered, what it would add to it.
+   */
+  const priceDefinition = (
+    instanceId: CardInstanceId,
+    definitionId: string,
+    creatureWorth: () => CardWorth,
+  ): CardWorth => {
     const def = printed(cardPool[definitionId], definitionId);
     if (!def) {
       return { instanceId, name: definitionId, tsd: floor, reason: 'unknown card — the flat price' };
     }
 
-    if (def.cardType === 'hazard-creature') {
-      const assignment = plan.worth(instanceId);
-      // A card is never worth *less* than nothing to hold: the choice not to
-      // play it is always available, so a bad creature is worth zero.
-      const raw = Math.max(0, assignment?.marginal ?? 0);
-      return {
-        instanceId,
-        name: def.name,
-        tsd: raw * tunables.potentialDiscount,
-        reason: assignment && assignment.targetCompanyId !== null
-          ? `adds ${raw.toFixed(1)} to the plan against their ${assignment.targetLabel}`
-            + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
-          : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
-      };
-    }
+    if (def.cardType === 'hazard-creature') return creatureWorth();
 
     if (CHARACTER_TYPES.test(def.cardType)) {
       if (def.mind > budget.freeGeneralInfluence) {
@@ -210,9 +213,47 @@ function buildComputeCardPrices(
     };
   };
 
+  const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
+    const card = view.self.hand.find(c => c.instanceId === instanceId);
+    if (!card) return null;
+    const definitionId = card.definitionId as string;
+    return priceDefinition(instanceId, definitionId, () => {
+      const def = printed(cardPool[definitionId], definitionId)!;
+      const assignment = plan.worth(instanceId);
+      // A card is never worth *less* than nothing to hold: the choice not to
+      // play it is always available, so a bad creature is worth zero.
+      const raw = Math.max(0, assignment?.marginal ?? 0);
+      return {
+        instanceId,
+        name: def.name,
+        tsd: raw * tunables.potentialDiscount,
+        reason: assignment && assignment.targetCompanyId !== null
+          ? `adds ${raw.toFixed(1)} to the plan against their ${assignment.targetLabel}`
+            + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
+          : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
+      };
+    });
+  };
+
   return {
     floor,
     worth: worthOf,
+
+    quote(definitionId: string): CardWorth {
+      const offered = 'offered' as CardInstanceId;
+      return priceDefinition(offered, definitionId, () => {
+        const def = printed(cardPool[definitionId], definitionId)!;
+        const raw = plan.marginalFor(definitionId);
+        return {
+          instanceId: offered,
+          name: def.name,
+          tsd: raw * tunables.potentialDiscount,
+          reason: raw > 0
+            ? `would add ${raw.toFixed(1)} to the hazard plan`
+            : 'the plan has no company left it would improve',
+        };
+      });
+    },
     ranked(): readonly CardWorth[] {
       return view.self.hand
         .map(card => worthOf(card.instanceId))

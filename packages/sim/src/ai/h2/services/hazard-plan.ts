@@ -68,6 +68,16 @@ export interface HazardPlan {
   readonly assignments: readonly HazardAssignment[];
   /** What keeping one card is worth, or null when it is not a hazard in hand. */
   worth(instanceId: CardInstanceId): HazardAssignment | null;
+  /**
+   * What a creature *not yet held* would add, if it arrived.
+   *
+   * The question a fetch asks: this card is on offer, is it worth taking? It is
+   * the same marginal the plan pays its own cards, computed for a definition
+   * against the best target with a slot left — so a creature that duplicates
+   * what the plan already does is correctly worth less than one that opens a
+   * company nothing is aimed at.
+   */
+  marginalFor(definitionId: string): number;
   /** Total TSD the plan expects to deny if it is carried out. */
   readonly totalHarm: number;
 }
@@ -232,6 +242,20 @@ function buildHazardPlan(
     assignments: ordered,
     totalHarm: targets.reduce((sum, target) => sum + target.harm, 0),
     worth: (instanceId: CardInstanceId) => assignments.get(instanceId as string) ?? null,
+
+    marginalFor(definitionId: string): number {
+      const candidate = hazardOf(
+        cardPool, 'hypothetical' as CardInstanceId, definitionId, killTsdOf,
+      );
+      if (!candidate) return 0;
+      let best = 0;
+      for (const target of targets) {
+        if (target.slots <= 0 || target.roster.length === 0) continue;
+        const marginal = harmOf(target, cardPool, [...target.assigned, candidate], tunables) - target.harm;
+        if (marginal > best) best = marginal;
+      }
+      return best;
+    },
   };
 }
 
