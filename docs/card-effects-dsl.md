@@ -8312,6 +8312,28 @@ Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
 }
 ```
 
+The optional `source` field says what makes the grant active. It defaults to
+`"in-play"` (the carrying card must sit in either player's `cardsInPlay`, as
+above). `"faced-this-turn"` moves the grant onto a **hazard creature**: it
+applies only against a company that has already faced that creature this turn
+— its name appears in the company's `MovementHazardPhaseState.hazardsEncountered`
+(rule 8.03: an attack counts as faced even when canceled). The carrier is gone
+from play by then, so `collectCreatureKeyingGrants` resolves it from the card
+pool by name instead of from `cardsInPlay`.
+
+Used by Dwarven Travelers (as-9): "Maia hazard creatures may be keyed to
+Border-holds [{B}] or Ruins & Lairs [{R}] against any company that has faced
+Dwarven Travelers this turn."
+
+```json
+{
+  "type": "grant-creature-keying",
+  "source": "faced-this-turn",
+  "creatureFilter": { "race": "maia" },
+  "siteFilter": { "siteTypes": ["border-hold", "ruins-and-lairs"] }
+}
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected
