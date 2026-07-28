@@ -27,6 +27,7 @@ import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestat
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
+import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
@@ -60,23 +61,6 @@ function countUnresolvedChainHazards(state: GameState): number {
     if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
   }
   return n;
-}
-
-/**
- * True if a card named {@link name} is prohibited from being played by any
- * card currently in play carrying a `prohibit-card-play` effect that lists it.
- * Implements "prohibits the subsequent play of X" (The Under-roads, as-106).
- */
-function isCardPlayProhibited(state: GameState, name: string): boolean {
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      for (const eff of getCardEffects(def)) {
-        if (eff.type === 'prohibit-card-play' && eff.cardNames.includes(name)) return true;
-      }
-    }
-  }
-  return false;
 }
 
 /**
@@ -1956,7 +1940,7 @@ function playHazardsActions(
       // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
       // a card named by any in-play `prohibit-card-play` effect may not be
       // played while that source remains in play.
-      if (isCardPlayProhibited(state, def.name)) {
+      if (isCardPlayProhibited(state, def)) {
         logDetail(`Hazard "${def.name}" is prohibited from play by a card in play`);
         actions.push({ action, viable: false, reason: `${def.name} may not be played (prohibited by a card in play)` });
         continue;
