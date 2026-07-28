@@ -59,6 +59,21 @@ const seed = numberFlag(args, 'seed', 20260727);
 const moduleFilter = stringFlag(args, 'module') ?? 'combat';
 const only = stringFlag(args, 'scenario');
 
+if (moduleFilter === 'travel') {
+  // Not an omission. `travel` claims what a destination will be *worth* — the
+  // cards that become playable once the company arrives — and none of that
+  // moves marshalling points at the moment `plan-movement` is applied. The
+  // deterministic classifier would measure a change of zero against a claim of
+  // several tsd and report a failure that is really a category error.
+  //
+  // Checking `travel` needs a horizon test (plan §6.4): does the predicted
+  // delta correlate with the realized score change some turns later, across
+  // replayed games? That is a different harness from this one.
+  console.error('calibrate: `travel` cannot be checked here — its claim is about future value, not '
+    + 'points that move now. It needs the horizon test of plan §6.4, which does not exist yet.');
+  process.exit(2);
+}
+
 if (!['combat', 'corruption', 'factions', 'resources'].includes(moduleFilter)) {
   // Each module claims a different shape of outcome, so each needs its own
   // classifier in the harness. Claiming to check one without a classifier
