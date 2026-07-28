@@ -250,7 +250,10 @@
         "value": 1,
         "target": "all-attacks",
         "when": {
-          "enemy.race": "man"
+          "enemy.race": "man",
+          "attack.isAgentAttack": {
+            "$ne": true
+          }
         }
       },
       {
@@ -259,7 +262,10 @@
         "value": 1,
         "target": "all-attacks",
         "when": {
-          "enemy.race": "man"
+          "enemy.race": "man",
+          "attack.isAgentAttack": {
+            "$ne": true
+          }
         }
       },
       {

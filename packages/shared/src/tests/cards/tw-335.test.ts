@@ -22,10 +22,17 @@ import {
   baseProwess,
   buildTestState, resetMint, buildSitePhaseState,
   playLongEventAndResolve, viableActions,
+  makeSitePhase, makeAgent, withAgentInPlay,
   handCardId, dispatch, getCharacter, pushCardInPlay, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CharacterCard, GameState, SitePhaseState } from '../../index.js';
+import type {
+  CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, GameState, SitePhaseState,
+  DeclareAgentAttackAction,
+} from '../../index.js';
 import { ISENGARD } from '../../index.js';
+
+const ELERINA = 'dm-7' as CardDefinitionId;   // Man agent, prowess 5
+const AGENT_SITE_ID = 'test-tw335-agent-site' as CardInstanceId;
 
 describe('Sun (tw-335)', () => {
   beforeEach(() => resetMint());
@@ -194,5 +201,46 @@ describe('Sun (tw-335)', () => {
     expect(nextState.combat).toBeDefined();
     expect(nextState.combat!.strikesTotal).toBe(3);
     expect(nextState.combat!.strikeProwess).toBe(expectedProwess);
+  });
+
+  test('an agent attack keeps its prowess — the -1 hits automatic-attacks and hazard creatures only', () => {
+    // Agent hazard attacks run through the same global all-attacks modifiers as
+    // creature attacks (Chill Them with Fear le-106), so Sun's clause — "the
+    // prowess of each automatic-attack and hazard creature" — gates on
+    // `attack.isAgentAttack $ne true`. Elerína (dm-7) has prowess 5 and, revealed
+    // away from home, takes no rule-3.iv.6.1 modifier: the attack stays at 5.
+    const sunInPlay: CardInPlay = {
+      instanceId: 'sun-agent' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-agent' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [], cardsInPlay: [sunInPlay, gomInPlay] },
+        { id: PLAYER_2, companies: [], hand: [], siteDeck: [] },
+      ],
+    });
+    const agent = makeAgent(ELERINA, { revealed: true });
+    const state = withAgentInPlay(
+      { ...base, phaseState: makeSitePhase({ step: 'declare-agent-attack', siteEntered: false }) },
+      HAZARD_PLAYER,
+      { ...agent, siteStack: [{ instanceId: AGENT_SITE_ID, definitionId: MORIA, status: CardStatus.Untapped }] },
+    );
+
+    const declare = viableActions(state, PLAYER_2, 'declare-agent-attack')
+      .find(ea => (ea.action as DeclareAgentAttackAction).tapForExtraStrike !== true);
+    expect(declare).toBeDefined();
+
+    const after = dispatch(state, declare!.action);
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.strikeProwess).toBe(5);
   });
 });
