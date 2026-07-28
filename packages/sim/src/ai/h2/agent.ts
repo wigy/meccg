@@ -34,11 +34,15 @@
  * been better still, and H2 will sometimes take a good action instead of the
  * best one. The margin is what buys that risk down.
  *
- * The same margin also guards the opposite case. A decision H2 covers
- * completely but scores flat — every candidate identical — is a tie, not an
- * opinion, and acting on it would choose uniformly at random where Heuristics
- * 1 would at least have a preference. So a flat ranking hands the decision
- * over too.
+ * The opposite case is guarded separately, and by a much smaller number. A
+ * decision H2 covers completely but scores flat — every candidate identical —
+ * is a tie, not an opinion, and acting on it would choose uniformly at random
+ * where Heuristics 1 would at least have a preference. So a flat ranking hands
+ * the decision over too. But *flat* means tied, not "below the margin": with
+ * nothing unscored there is nothing to be blind to, so any strict preference is
+ * actionable however small. Requiring the margin there cost real decisions —
+ * drawing a card is worth about +0.3% against passing at 0, a correct and
+ * confident preference that went to Heuristics 1 every turn of every game.
  */
 
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
@@ -69,6 +73,17 @@ export interface Heuristic2Options {
   /** Module set override, for tests that register a stub module. */
   readonly available?: readonly H2Module[];
 }
+
+/**
+ * Below this spread, a complete ranking is a tie rather than an opinion.
+ *
+ * Deliberately far smaller than `partialCoverageMargin`, which answers a
+ * different question — how sure H2 must be before acting *blind* to candidates
+ * it could not score. With nothing unscored there is nothing to be blind to, so
+ * the only reason left to hand a decision over is that the module genuinely
+ * cannot separate the candidates.
+ */
+const TIE_EPSILON = 1e-9;
 
 /**
  * Softmax over utilities. Utilities are win-probability deltas — small numbers
@@ -122,10 +137,21 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // a tie — and acting on it means choosing uniformly at random where
       // Heuristics 1 would at least have a preference. Complete coverage is
       // not enough on its own; there has to be something to discriminate.
+      // On a *complete* view the margin has no work to do. It exists because an
+      // unscored candidate might have been better, and there are none here — so
+      // any strict preference is actionable, however small. What still hands
+      // over is a genuine tie, which is what "flat" was always meant to mean:
+      // acting on identical scores samples uniformly where Heuristics 1 would
+      // at least have a preference.
+      //
+      // Requiring the *margin* instead cost real decisions. Drawing a card is
+      // worth `resourceDrawValue`, which comes out around +0.3% against passing
+      // at 0 — a correct and confident preference that fell below the 0.5%
+      // margin and went to H1 every turn of every game.
       const discriminates = evaluations.length > 0
-        && best.utility - worst.utility > tunables.partialCoverageMargin;
+        && best.utility - worst.utility > TIE_EPSILON;
       const speaks = evaluations.length > 0
-        && (complete ? discriminates || best.utility > tunables.partialCoverageMargin
+        && (complete ? discriminates || best.utility > TIE_EPSILON
           : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {

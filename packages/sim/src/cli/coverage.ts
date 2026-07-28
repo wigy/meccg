@@ -110,6 +110,8 @@ const blockedBy = new Map<string, number>();
  * their own `claims()` and silenced themselves.
  */
 const declinedBy = new Map<string, number>();
+/** The agent's tie threshold on a complete view — see `ai/h2/agent`. */
+const TIE_EPSILON = 1e-9;
 /**
  * Action types present in decisions H2 covers completely but scores flat.
  *
@@ -168,9 +170,11 @@ for (let g = 0; g < games; g++) {
         if (complete) {
           const best = evaluations[0];
           const worst = evaluations[evaluations.length - 1];
+          // Mirrors the agent: on a complete view any strict preference is
+          // actionable, and only a genuine tie hands the decision over.
           const discriminates = evaluations.length > 0
-            && best.utility - worst.utility > DEFAULT_TUNABLES.partialCoverageMargin;
-          if (discriminates || (evaluations.length > 0 && best.utility > DEFAULT_TUNABLES.partialCoverageMargin)) {
+            && best.utility - worst.utility > TIE_EPSILON;
+          if (discriminates || (evaluations.length > 0 && best.utility > TIE_EPSILON)) {
             tally.covered++;
           } else {
             tally.flat++;
