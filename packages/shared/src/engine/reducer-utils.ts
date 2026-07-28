@@ -4363,6 +4363,51 @@ export function companyHasNoAllyRestriction(
 }
 
 /**
+ * Clear a company's planned destination, returning the destination site card
+ * to its owner's location deck. Shared by the player-driven `cancel-movement`
+ * action and by effects that strip a declared movement (Siege tw-87: a failed
+ * end-of-organization-phase roll means "the company may not move this turn";
+ * Hiding tw-256: "Scout's company may not move to another site this turn").
+ *
+ * Rules 3.37 / 3.39: if the destination instance is still in play at another
+ * sibling company (as its `currentSite` or its own `destinationSite`), the card
+ * must stay in play — only this company's claim on it is dropped. The physical
+ * card was drawn from the location deck exactly once, by whichever company took
+ * it. A no-op when the company has no planned movement.
+ */
+export function clearPlannedMovement(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+): GameState {
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === companyId);
+  if (companyIdx === -1) return state;
+  const company = player.companies[companyIdx];
+  const destination = company.destinationSite;
+  if (!destination) return state;
+
+  const siblingStillHasIt = player.companies.some(
+    c => c.id !== company.id
+      && (c.currentSite?.instanceId === destination.instanceId
+        || c.destinationSite?.instanceId === destination.instanceId),
+  );
+
+  const companies = [...player.companies];
+  companies[companyIdx] = { ...company, destinationSite: null, movementPath: [] };
+
+  let siteDeck = player.siteDeck;
+  if (siblingStillHasIt) {
+    logDetail(`Cancel movement: company ${company.id as string}, destination ${destination.instanceId as string} still in play at a sibling — not returning to site deck`);
+  } else {
+    logDetail(`Cancel movement: company ${company.id as string}, returning site ${destination.instanceId as string} to site deck`);
+    siteDeck = [...player.siteDeck, toCardInstance(destination)];
+  }
+
+  return updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck }));
+}
+
+/**
  * True when any character in the given company bears a card carrying the
  * `bearer-cannot-move` play-flag — "Radagast may not move" (Shifter of Hues
  * wh-115).
