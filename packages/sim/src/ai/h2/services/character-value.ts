@@ -24,6 +24,8 @@
  */
 
 import type { CardDefinition, CardInstanceId, CompanyId, PlayerView } from '@meccg/shared';
+import { pAtMost } from '../core/dice.js';
+import type { MpDelta, MpSource } from '../core/tsd.js';
 import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
 import type { Budget, CharacterBudget } from './budget.js';
@@ -43,6 +45,11 @@ export interface CharacterValue {
   tapCost(instanceId: CardInstanceId): CharacterPrice;
   /** What losing it forgoes beyond its own marshalling points. */
   lossCost(instanceId: CardInstanceId): CharacterPrice;
+  /**
+   * What handing this character `added` more corruption points is worth, in
+   * TSD — the rise in the odds of failing a check, times what failing costs.
+   */
+  corruptionRisk(instanceId: CardInstanceId, added: number): CharacterPrice;
 }
 
 /** The company a character belongs to, if any. */
@@ -87,7 +94,65 @@ export function computeCharacterValue(
     return standing.marginal.faction * tunables.influenceTapCost;
   };
 
+  /** Everything that leaves play with a character: its points and its items'. */
+  const lossDelta = (instanceId: CardInstanceId): MpDelta => {
+    const delta: Record<string, number> = {};
+    const character = view.self.characters[instanceId];
+    if (!character) return delta;
+    const add = (definitionId: string): void => {
+      const fields = cardPool[definitionId] as unknown as
+        { marshallingPoints?: number; marshallingCategory?: string } | undefined;
+      const points = fields?.marshallingPoints ?? 0;
+      if (points === 0) return;
+      const source = (fields?.marshallingCategory ?? 'misc') as MpSource;
+      delta[source] = (delta[source] ?? 0) - points;
+    };
+    add(character.definitionId);
+    for (const item of character.items) add(item.definitionId);
+    for (const ally of character.allies) add(ally.definitionId);
+    return delta;
+  };
+
+  /** The flat cost of losing a character, shared by both consumers below. */
+  const lossCostOf = (instanceId: CardInstanceId): CharacterPrice => {
+    const character = budget.characters[instanceId as string];
+    if (!character) return { tsd: tunables.eliminationTempoCost, reason: 'flat cost — character not in play' };
+    const inPlay = view.self.characters[instanceId];
+    const followerMind = (inPlay?.followers ?? []).reduce((sum, id) => {
+      const follower = budget.characters[id as string];
+      return sum + (follower ? follower.mind : 0);
+    }, 0);
+    if (followerMind === 0) {
+      return { tsd: tunables.eliminationTempoCost, reason: 'flat cost — no followers revert' };
+    }
+    return {
+      tsd: tunables.eliminationTempoCost + followerMind * tunables.revertedMindCost,
+      reason: `flat cost plus ${followerMind} mind of followers reverting to the general influence pool`,
+    };
+  };
+
   return {
+    corruptionRisk(instanceId: CardInstanceId, added: number): CharacterPrice {
+      const character = view.self.characters[instanceId];
+      if (!character || added <= 0) return { tsd: 0, reason: 'no corruption added' };
+      // A corruption check succeeds on a roll *above* the character's
+      // corruption points (`corruption-check`, CoE 7.1), so more points means
+      // a wider failing band. The rise is what carrying this card costs.
+      const before = character.effectiveStats.corruptionPoints;
+      const deltaFail = pAtMost(before + added) - pAtMost(before);
+      if (deltaFail <= 0) return { tsd: 0, reason: 'the failing band is already as wide as it gets' };
+      // A positive magnitude, like every other price this service returns:
+      // the marshalling points that would leave play plus what losing the
+      // character costs beyond them.
+      const onFailure = (standing.tsd - standing.tsdAfter(lossDelta(instanceId)))
+        + lossCostOf(instanceId).tsd;
+      return {
+        tsd: deltaFail * onFailure,
+        reason: `corruption ${before} → ${before + added} widens the failing band by `
+          + `${(deltaFail * 100).toFixed(1)}%, against ${onFailure.toFixed(1)} tsd lost if it fails`,
+      };
+    },
+
     tapCost(instanceId: CardInstanceId): CharacterPrice {
       const character = budget.characters[instanceId as string];
       if (!character) return { tsd: tunables.tapTempoCost, reason: 'flat tempo — character not in play' };
@@ -103,21 +168,6 @@ export function computeCharacterValue(
       };
     },
 
-    lossCost(instanceId: CardInstanceId): CharacterPrice {
-      const character = budget.characters[instanceId as string];
-      if (!character) return { tsd: tunables.eliminationTempoCost, reason: 'flat cost — character not in play' };
-      const inPlay = view.self.characters[instanceId];
-      const followerMind = (inPlay?.followers ?? []).reduce((sum, id) => {
-        const follower = budget.characters[id as string];
-        return sum + (follower ? follower.mind : 0);
-      }, 0);
-      if (followerMind === 0) {
-        return { tsd: tunables.eliminationTempoCost, reason: 'flat cost — no followers revert' };
-      }
-      return {
-        tsd: tunables.eliminationTempoCost + followerMind * tunables.revertedMindCost,
-        reason: `flat cost plus ${followerMind} mind of followers reverting to the general influence pool`,
-      };
-    },
+    lossCost: lossCostOf,
   };
 }

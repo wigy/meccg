@@ -27,6 +27,7 @@ import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '..
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { computeCharacterValue } from '../../services/character-value.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-hero-resource', 'play-minor-item'] as const;
@@ -59,11 +60,9 @@ function cardOf(
 /** Assumptions every resource evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
   'the play is assumed to tap the bearer; a card that does not tap is over-charged by one tap',
-  'corruption the card brings is reported but NOT priced, and this is currently wrong in a '
-  + 'visible way: on the first real position the module ran, a 2-MP item carrying 2 corruption '
-  + 'points and a 2-MP item carrying fewer tied exactly. Carrying corruption raises the odds of '
-  + 'failing a later check, and until that is priced the module is indifferent between a safe '
-  + 'item and a dangerous one of equal points',
+  'the corruption a card brings is priced as one future check: the rise in the failing band '
+  + 'times what failing costs. A character who faces several checks is under-charged, and one '
+  + 'who never faces any is over-charged',
   'only what the card is worth now is counted; whether this source is worth chasing across the '
   + 'game is the acquisition layer\'s strategic half, which does not exist yet',
 ];
@@ -86,7 +85,20 @@ export const resourcesModule: H2Module = {
     const gain = card.marshallingPoints > 0
       ? standing.tsdAfter({ [card.source]: card.marshallingPoints }) - standing.tsd
       : 0;
-    const dtsd = netTsdDelta({ realized: gain, tempo: tunables.tapTempoCost }, tunables);
+    // Carrying corruption widens the band on every later check, and that is a
+    // cost of playing the card whether or not a check ever comes. Priced
+    // through the shared service so `corruption` and this module cannot
+    // disagree about what a failure is worth.
+    const bearerId = (action as unknown as { attachToCharacterId?: CardInstanceId; characterId?: CardInstanceId })
+      .attachToCharacterId ?? (action as unknown as { characterId?: CardInstanceId }).characterId;
+    const risk = card.corruption === 0
+      ? { tsd: 0, reason: 'the card carries no corruption' }
+      : bearerId
+        ? computeCharacterValue(context.view, context.cardPool, standing, tunables)
+          .corruptionRisk(bearerId, card.corruption)
+        : { tsd: 0, reason: `carries ${card.corruption} corruption, but the action names no bearer to charge it to` };
+
+    const dtsd = netTsdDelta({ realized: gain, tempo: tunables.tapTempoCost + risk.tsd }, tunables);
 
     const outcomes: Outcome[] = [{
       p: 1,
@@ -111,9 +123,7 @@ export const resourcesModule: H2Module = {
       leaf('tap tempo', tunables.tapTempoCost, { unit: 'tsd', tunable: 'tapTempoCost' }),
     ];
     if (card.corruption > 0) {
-      detail.push(leaf('corruption carried', card.corruption, {
-        note: 'reported, not priced — the check belongs to the `corruption` module',
-      }));
+      detail.push(leaf('corruption risk', risk.tsd, { unit: 'tsd', note: risk.reason }));
     }
 
     return {
