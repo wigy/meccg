@@ -90,6 +90,14 @@ export function buildConstraintKind(
       return { type: 'only-creatures-keyed-to-site' };
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
+    case 'extra-mh-phase': {
+      // Master of Esgaroth (td-135). The destination gate is stored on the
+      // constraint and evaluated when the company's M/H phase ends, since the
+      // card is played before the move resolves.
+      const required = (onEvent.apply as { requiresDestinationSiteType?: import('../types/common.js').SiteType })
+        .requiresDestinationSiteType;
+      return { type: 'extra-mh-phase', ...(required ? { requiresDestinationSiteType: required } : {}) };
+    }
     case 'no-creatures-keyed-to-site': {
       const unless = (onEvent.apply as { unlessSiteRegionType?: import('../types/common.js').RegionType }).unlessSiteRegionType;
       return { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };

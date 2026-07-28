@@ -2272,6 +2272,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * the Wall (le-177): "Unless the site is in a Free-domain [{f}]" → `"free"`.
    */
   readonly unlessSiteRegionType?: string;
+  /**
+   * For an `extra-mh-phase` constraint (Master of Esgaroth td-135): the
+   * {@link import('./common.js').SiteType} the target company must actually
+   * move to for the extra movement/hazard phase to be granted. The check runs
+   * when the company's M/H phase ends (`advanceAfterCompanyMH`), not when the
+   * card is played — td-135 is playable on *any* moving company at the end of
+   * the organization phase and is simply inert if that company ends up
+   * somewhere other than a Border-hold. Omit for an unconditional grant.
+   */
+  readonly requiresDestinationSiteType?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**
