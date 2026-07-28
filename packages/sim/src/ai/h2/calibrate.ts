@@ -153,12 +153,37 @@ export function rolloutInfluenceAttempt(
   if (applied.error) return { succeeded: null, rng };
   let current = applied.state;
 
-  for (let step = 0; step < MAX_FOLLOW_THROUGH_STEPS; step++) {
-    const forced = viableFor(current, playerId).filter(a => a.type === 'faction-influence-roll');
-    if (forced.length !== 1) break;
-    const next = reduce(current, forced[0]);
-    if (next.error) return { succeeded: null, rng: current.rng };
-    current = next.state;
+  // Playing a faction opens a chain, and nothing resolves until the opponent
+  // releases priority — so the harness passes for them, which is the module's
+  // stated assumption that the opponent plays nothing into the attempt. Then
+  // the queued `faction-influence-roll` is taken, and the card lands.
+  const landed = (s: GameState): boolean | null => {
+    const p = s.players.find(x => x.id === playerId);
+    if (!p) return null;
+    if (p.cardsInPlay.some(c => c.instanceId === factionId)) return true;
+    if (p.discardPile.some(c => c.instanceId === factionId)) return false;
+    return null;
+  };
+
+  for (let step = 0; step < MAX_FOLLOW_THROUGH_STEPS * 2; step++) {
+    if (landed(current) !== null) break;
+    let acted = false;
+    for (const id of [playerId, ...current.players.map(x => x.id).filter(x => x !== playerId)]) {
+      const actions = viableFor(current, id);
+      if (actions.length === 0) continue;
+      // Prefer the roll, then any way of declining to respond, then a lone
+      // forced action. Anything else is a real choice and stops the rollout.
+      const chosen = actions.find(a => a.type === 'faction-influence-roll')
+        ?? actions.find(a => a.type.startsWith('pass'))
+        ?? (actions.length === 1 ? actions[0] : undefined);
+      if (!chosen) continue;
+      const next = reduce(current, chosen);
+      if (next.error) return { succeeded: null, rng: current.rng };
+      current = next.state;
+      acted = true;
+      break;
+    }
+    if (!acted) break;
   }
 
   const player = current.players.find(p => p.id === playerId);

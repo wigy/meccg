@@ -125,7 +125,8 @@ follower brings 2, not 5.
 outside combat, which is the check that the Heuristics-1 fallback makes
 `h2:<module>` a clean ablation rather than a rewrite.
 
-`calibrate` is what makes an H2 module falsifiable. A module claims
+Three modules are calibrated: `combat` (36 claims), `corruption` (2) and
+`factions` (1). `calibrate` is what makes an H2 module falsifiable. A module claims
 `P(wounded) = 2.31%`; the harness replays the same action thousands of times
 through the engine, classifies the outcome from the engine's own record, and
 fails if the observed frequency falls outside a 99% binomial interval. It
