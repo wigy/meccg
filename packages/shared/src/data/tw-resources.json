@@ -339,7 +339,10 @@
         "value": -1,
         "target": "all-attacks",
         "when": {
-          "inPlay": "Gates of Morning"
+          "inPlay": "Gates of Morning",
+          "attack.isAgentAttack": {
+            "$ne": true
+          }
         }
       },
       {
@@ -2068,7 +2071,8 @@
           "via": "one-ring"
         }
       }
-    ]
+    ],
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hero-resource-event",

@@ -1312,6 +1312,13 @@ export interface CreatureSelfContext {
  *   resolved, exposed as `site.siteType`. Populated only for site automatic-attacks,
  *   so global effects can gate on the site type (e.g. Awaken Minions tw-10 doubles
  *   automatic-attack strikes at Shadow-hold / Dark-hold sites).
+ * @param isAgentAttack - True for an agent hazard attack (rule 2.V.iii), exposed as
+ *   `attack.isAgentAttack`. An agent attacks as a member of its own race, so global
+ *   "all <race> attacks" modifiers reach it (Chill Them with Fear le-106); cards whose
+ *   text excludes agents gate on `{ "attack.isAgentAttack": { "$ne": true } }`
+ *   (Rank upon Rank dm-80's "non-agent Man attacks", Sun tw-335's "each
+ *   automatic-attack and hazard creature"). Absent — not `false` — for every other
+ *   attack, so `$ne: true` matches them without every context growing the key.
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
@@ -1319,6 +1326,7 @@ function buildAttackContext(
   companyFacedRaces?: readonly Race[],
   defenderAlignment?: string,
   siteType?: string,
+  isAgentAttack = false,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -1338,10 +1346,16 @@ function buildAttackContext(
   const withSite = siteType
     ? { ...withDefender, site: { siteType } }
     : withDefender;
+  // Agent hazard attacks are attacks of the agent's race, but a few cards say
+  // so explicitly ("non-agent Man attacks") or name only creature attacks
+  // ("each automatic-attack and hazard creature") — they gate on this flag.
+  const withAttack = isAgentAttack
+    ? { ...withSite, attack: { isAgentAttack: true } }
+    : withSite;
   if (creatureRace) {
-    return { ...withSite, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
+    return { ...withAttack, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
   }
-  return withSite;
+  return withAttack;
 }
 
 /**
@@ -1362,6 +1376,9 @@ function buildAttackContext(
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
  * @param creatureSelf - Creature self-effects and company context for self-modifiers.
+ * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
+ * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
+ *   `attack.isAgentAttack`; see {@link buildAttackContext}).
  * @returns The modified prowess value after applying attack effects.
  */
 export function resolveAttackProwess(
@@ -1372,8 +1389,9 @@ export function resolveAttackProwess(
   isAutomaticAttack = false,
   creatureSelf?: CreatureSelfContext,
   attackBoostCtx?: CreatureAttackBoostContext,
+  isAgentAttack = false,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, undefined, isAgentAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
@@ -1416,6 +1434,8 @@ export function resolveAttackProwess(
  *   resolved (only for site automatic-attacks), exposed as `site.siteType` so global
  *   effects can gate on it (e.g. Awaken Minions tw-10 doubles strikes at Shadow-hold /
  *   Dark-hold sites).
+ * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
+ *   `attack.isAgentAttack`; see {@link buildAttackContext}).
  * @returns The modified strikes value after applying all-attacks effects.
  */
 export function resolveAttackStrikes(
@@ -1426,8 +1446,9 @@ export function resolveAttackStrikes(
   isAutomaticAttack = false,
   attackBoostCtx?: CreatureAttackBoostContext,
   siteType?: string,
+  isAgentAttack = false,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, siteType);
+  const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, siteType, isAgentAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
@@ -1449,6 +1470,8 @@ export function resolveAttackStrikes(
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature.
  * @param attackBoostCtx - Optional company context for company-scoped modifiers.
+ * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
+ *   `attack.isAgentAttack`; see {@link buildAttackContext}).
  * @returns The modified body value (minimum 0), or null if baseBody was null.
  */
 export function resolveAttackBody(
@@ -1457,9 +1480,10 @@ export function resolveAttackBody(
   inPlayNames: readonly string[],
   creatureRace?: Race,
   attackBoostCtx?: CreatureAttackBoostContext,
+  isAgentAttack = false,
 ): number | null {
   if (baseBody === null) return null;
-  const context = buildAttackContext(inPlayNames, creatureRace);
+  const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, undefined, isAgentAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   const modified = resolveStatModifiers(globalEffects, 'body', baseBody, context);
   return Math.max(0, modified);

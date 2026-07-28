@@ -141,6 +141,16 @@ of strikes on creature and automatic attacks (e.g. Wake of War), or with
 only — not hazard creatures (e.g. Redoubled Force's +3 strikes to Orc/Troll
 automatic-attacks). Both `prowess` and `strikes` honour `all-automatic-attacks`.
 
+`"all-attacks"` also covers **agent hazard attacks** (rule 2.V.iii): an agent
+attacks as a member of its own race, so a race-keyed modifier reaches it exactly
+as it reaches a hazard creature — e.g. *Chill Them with Fear* (le-106) boosts a
+Dwarf agent's attack. The attack-stat context exposes `attack.isAgentAttack`
+(`true` only for an agent attack, absent otherwise) so a card whose text covers
+only creature attacks can opt out with
+`when: { "attack.isAgentAttack": { "$ne": true } }` — used by *Rank upon Rank*
+(dm-80, "All **non-agent** Man attacks…") and *Sun* (tw-335, "the prowess of each
+automatic-attack and hazard creature…").
+
 For automatic-attacks the resolution context also exposes `site.siteType` — the
 defending company's effective current-site type — so a global modifier can gate
 on the site type it applies at, e.g. `when: { "site.siteType": { "$in": ["free-hold",
@@ -10077,6 +10087,45 @@ Behaviour (engine mechanics in `engine/press-gang.ts`):
 
 "Cannot be duplicated" is the standard `duplication-limit` scope `game` max 1.
 
+### 49b. `eliminate-instead-of-discard` — a discard from play becomes an elimination
+
+Carried by an in-play card (Pallando the Soul-keeper, as-17, in its
+permanent-event mode). While the card is in play, a character that would be
+**discarded from play** and matches `filter` is instead **eliminated**: its card
+goes to its owner's out-of-play pile rather than the discard pile, so it can
+never be recycled.
+
+```json
+{
+  "type": "eliminate-instead-of-discard",
+  "filter": { "cardType": "minion-character", "race": { "$ne": "ringwraith" } },
+  "discardSelf": true
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | no | Card-definition condition (`matchesDefinition`) the discarded character must match. Absent = every character discard is replaced. |
+| `discardSelf` | no | When `true`, the host card is discarded the moment the replacement fires — which is also what makes the effect one-shot ("the **next** … is instead eliminated"). |
+
+Behaviour (engine mechanics in `engine/eliminate-instead-of-discard.ts`):
+
+- **Which removals.** The same five "discard from play" seams Press-gang covers:
+  `discardCharacter` (dice-check discards, `pending-reducers.ts`), the
+  corruption-check `discard` outcome, the rule-3.22 voluntary organization
+  discard, the combat body-check discard band, and the Abductor "discard wounded
+  character" effect. A removal that is *already* an elimination is untouched.
+- **What changes.** Only the destination of the character card itself. Items,
+  allies and hazards still go to the discard piles and followers still revert to
+  general influence, exactly as for a normal discard (CoE 7.1: discard and
+  eliminate share the whole shape). No kill marshalling points change hands — the
+  effect redirects a removal that was already happening.
+- **Scope.** Both players' `cardsInPlay` are scanned (the wording is "the next …
+  minion", not "your opponent's"); set-aside copies never fire.
+- **Against Press-gang.** The `press-gang-capture` check runs first and wins: a
+  captured character is held off to the side and never discarded at all, so there
+  is nothing left to replace.
+
 ### 50. `recruitment-vehicle`
 
 Marks a permanent resource-event as a "recruitment vehicle" — Thrall of the
@@ -12745,9 +12794,64 @@ naming it already fulfils the requirement.
 
 Used by: *Leaf Brooch* (dm-171).
 
+### 71. `agent-tap-faction-influence` (Twisted Tales)
+
+Hazard short-event that *grants* one of the hazard player's own agents a rule
+10.14 influence attempt against an **opponent faction in play** that is playable
+at the agent's current site. The agent needs no `agent-tap-influence` effect of
+its own — rule 10.14 opens with "if an effect allows an agent hazard to make an
+influence attempt", and this card is such an effect.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `agentFilter` | no | Condition the acting agent's definition must satisfy, evaluated against `{ target: { name, race, skills, keywords } }` (e.g. `{ "target.skills": { "$includes": "diplomat" } }`). Omit to allow any untapped agent. |
+| `attemptBonus` | yes | Flat modifier added to the attacker's side of the influence attempt (rides as the attempt's `boostModifier`). |
+| `autoSuccessAtHomeSite` | no | When true, the attempt succeeds without any roll if the target faction is playable at one of the agent's **home** sites. |
+
+```json
+{ "type": "agent-tap-faction-influence",
+  "agentFilter": { "target.skills": { "$includes": "diplomat" } },
+  "attemptBonus": 6, "autoSuccessAtHomeSite": true }
+```
+
+- **Legal actions** (short-event branch of `movementHazardActions`,
+  `legal-actions/movement-hazard.ts`): one `play-hazard` action per (untapped
+  agent passing `agentFilter`, opponent in-play faction whose `playableAt` names
+  the agent's current site), carrying `agentInstanceId` +
+  `targetFactionInstanceId`. Independent of the active company — a faction sits
+  in `cardsInPlay`. Blocked when the opponent is a minion/Balrog player
+  (`isMinionOrBalrog`), matching "Cannot be played if your opponent is a minion
+  player". The agent's current site and the filter test use the shared
+  `agentCurrentSiteName` / `agentMatchesFilter` helpers (`reducer-utils.ts`) so
+  the emitter and the reducer agree on "the agent's site".
+- **Reducer** (`handleAgentTapFactionInfluence`, `mh-agents.ts`, dispatched from
+  `mh-hazard-play.ts`): taps **and reveals** the agent (declaring an influence
+  attempt reveals it), discards the event, counts it against the hazard limit,
+  and enqueues the standard `opponent-influence-defend` resolution. The attempt
+  is not an agent action, so `remainingActions` is untouched. Rule-10.14 bonuses
+  are applied as usual (+2 direct influence at a home site, plus the agent's own
+  conditional DI modifiers; a faction playable at a home site counts as value 0
+  with +2 to the roll), and `attemptBonus` is passed as `boostModifier`.
+- **Automatic success**: with `autoSuccessAtHomeSite` and a faction playable at
+  one of the agent's home sites the attempt is flagged `autoSuccess` — no
+  attacker roll is made at declaration and `resolveOpponentInfluenceDefend`
+  skips the defence roll and resolves as a success. The defender still gets the
+  window to cancel the attempt outright (`cancel-influence`).
+- **Defending side**: `resolveOpponentInfluenceDefend` reads the defending
+  player from `attempt.targetPlayer` rather than from `state.activePlayer`, so
+  an attempt declared by the (non-active) hazard player during the resource
+  player's movement/hazard phase discards the *resource* player's faction. For a
+  site-phase attempt the two derivations coincide.
+
+Used by Twisted Tales (dm-96): "Playable on an untapped diplomat agent. Tap the
+agent who may then make an influence attempt against a faction playable at the
+agent's site. +6 to influence attempt. Attempt is automatically successful if
+target faction is playable at the agent's home site. Cannot be played if your
+opponent is a minion player."
+
 ---
 
-### 71. `un-eliminate-creature` + instance-targeted untargeted `play-option` modes
+### 72. `un-eliminate-creature` + instance-targeted untargeted `play-option` modes
 
 Returned Beyond All Hope (as-35) is a hazard short-event with **three**
 mutually-exclusive modes, none of which targets a character, each acting on one

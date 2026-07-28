@@ -7216,6 +7216,7 @@ export type CardEffect =
   | SummonsFromLongSleepEffect
   | SetAsideEffect
   | PressGangCaptureEffect
+  | EliminateInsteadOfDiscardEffect
   | PlayCreatureFromDiscardEffect
   | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
@@ -7248,6 +7249,7 @@ export type CardEffect =
   | DisplaceStoredItemEffect
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
+  | AgentTapFactionInfluenceEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | DiscardSelfWhenCompanyEffect
@@ -8811,6 +8813,44 @@ export interface PressGangCaptureEffect extends EffectBase {
   readonly type: 'press-gang-capture';
 }
 
+/**
+ * Pallando the Soul-keeper (as-17). Marks an in-play card as a *replacement*
+ * for character discards: while it is in play, the next character matching
+ * {@link filter} that would be **discarded from play** is instead **eliminated**
+ * — its card goes to its owner's out-of-play pile rather than the discard pile,
+ * so it can never be recycled. Possessions and followers are dispersed exactly
+ * as for a normal discard.
+ *
+ * The filter is a plain card-definition condition (`matchesDefinition`), so the
+ * "which characters" clause stays data-driven: as-17's "non-Ringwraith minion"
+ * is `{ "cardType": "minion-character", "race": { "$ne": "ringwraith" } }`.
+ *
+ * With {@link discardSelf} the host is discarded the moment the replacement
+ * fires ("Discard when a minion is so eliminated"), which is also what makes
+ * the effect one-shot — "the *next* … minion".
+ *
+ * Interacts with `press-gang-capture`, which intercepts the same discards: a
+ * Press-gang capture wins (the character is never discarded at all, so there is
+ * nothing left for this effect to replace).
+ *
+ * See {@link module:engine/eliminate-instead-of-discard} for the wiring.
+ */
+export interface EliminateInsteadOfDiscardEffect extends EffectBase {
+  /** Discriminator. */
+  readonly type: 'eliminate-instead-of-discard';
+  /**
+   * Card-definition condition the discarded character must match. When absent,
+   * every character discard is replaced.
+   */
+  readonly filter?: Condition;
+  /**
+   * When true, the host card is discarded as soon as the replacement fires,
+   * making it a one-shot ("the next … is instead eliminated. Discard when a
+   * minion is so eliminated.").
+   */
+  readonly discardSelf?: boolean;
+}
+
 export interface SetAsideEffect extends EffectBase {
   readonly type: 'set-aside';
   /**
@@ -8928,6 +8968,41 @@ export interface AgentTapReturnCharacterEffect extends EffectBase {
   readonly atHomeSiteBonus: number;
   /** Amount added to the target's mind to form the roll threshold. */
   readonly mindBonus: number;
+}
+
+/**
+ * Hazard short-event effect for Twisted Tales (dm-96).
+ *
+ * "Playable on an untapped diplomat agent. Tap the agent who may then make an
+ * influence attempt against a faction playable at the agent's site. +6 to
+ * influence attempt. Attempt is automatically successful if target faction is
+ * playable at the agent's home site. Cannot be played if your opponent is a
+ * minion player."
+ *
+ * The card *grants* a rule-10.14 agent influence attempt against an opponent's
+ * in-play faction — the agent needs no `agent-tap-influence` effect of its own
+ * ("if an effect allows an agent hazard to make an influence attempt"). Playing
+ * the card taps and reveals the agent and enqueues the standard
+ * `opponent-influence-defend` resolution, carrying the rule-10.14 bonuses (+2
+ * direct influence at a home site; faction playable at a home site → value 0
+ * and +2 to the roll) plus this card's own {@link attemptBonus}.
+ */
+export interface AgentTapFactionInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-faction-influence';
+  /**
+   * Condition the acting agent's card definition must satisfy, evaluated
+   * against `{ target: { name, race, skills, keywords } }` — e.g.
+   * `{ "target.skills": { "$includes": "diplomat" } }` for "diplomat agent".
+   * Omit to allow any untapped agent.
+   */
+  readonly agentFilter?: Condition;
+  /** Modifier added to the attacker's side of the influence attempt (+6). */
+  readonly attemptBonus: number;
+  /**
+   * When true, the attempt succeeds automatically (no defence roll) if the
+   * target faction is playable at one of the agent's home sites.
+   */
+  readonly autoSuccessAtHomeSite?: boolean;
 }
 
 /**

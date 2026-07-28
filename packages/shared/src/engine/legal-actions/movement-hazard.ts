@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay, agentCurrentSiteName, agentMatchesFilter } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -959,21 +959,6 @@ function agentTurnActions(
  * - Cannot reveal identical card → no item targets.
  * - Bonuses applied in the reducer: +2 DI if at home; shared-home mind=0 +2 roll.
  */
-/**
- * The name of the site an agent is currently at: the top of its site-stack if
- * it has moved out, otherwise its (first) home site for a face-down agent at
- * home. Returns null when the site can't be resolved. Shared by the agent
- * tap-influence and tap-attack legal-action computers.
- */
-function agentCurrentSiteName(state: GameState, agent: AgentInPlay, agentDef: CharacterCard): string | null {
-  if (agent.siteStack.length > 0) {
-    const topSite = agent.siteStack[agent.siteStack.length - 1];
-    const siteDef = defById(state, topSite.definitionId);
-    return siteDef && isSiteCard(siteDef) ? siteDef.name : null;
-  }
-  return parseHomesiteNames(agentDef.homesite)[0] ?? null;
-}
-
 /**
  * The name of the site a company is (or is moving) to: its pending destination
  * this turn if it has one, otherwise its current site. Returns null when
@@ -2580,6 +2565,54 @@ function playHazardsActions(
           if (!offeredAny) {
             logDetail(`Hazard short-event "${def.name}" not playable — no untapped agent with a matching-home-site opponent character`);
             actions.push({ action, viable: false, reason: 'No untapped agent with a matching-home-site target character' });
+          }
+          continue;
+        }
+
+        // Twisted Tales (dm-96): played on one of the hazard player's untapped
+        // agents matching the card's `agentFilter` (a diplomat), targeting an
+        // opponent faction in play that is playable at the agent's current site.
+        // Independent of the active company — a faction sits in `cardsInPlay`.
+        const agentFactionInfluenceEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentTapFactionInfluenceEffect => e.type === 'agent-tap-faction-influence',
+        );
+        if (agentFactionInfluenceEffect) {
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+          let offeredAny = false;
+          for (const agent of player.agents) {
+            if (agent.character.status !== CardStatus.Untapped) continue;
+            const agentDef = defById(state, agent.character.definitionId);
+            if (!agentDef || !isCharacterCard(agentDef)) continue;
+            if (!agentMatchesFilter(agentDef, agentFactionInfluenceEffect.agentFilter)) {
+              logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" does not match the card's agent restriction`);
+              continue;
+            }
+            const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+            if (agentSiteName === null) continue;
+
+            for (const cip of resourcePlayer.cardsInPlay) {
+              const factionDef = defById(state, cip.definitionId);
+              if (!factionDef || !isFactionCard(factionDef)) continue;
+              if (!(factionDef.playableAt ?? []).some(e => 'site' in e && e.site === agentSiteName)) continue;
+              logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" (at ${agentSiteName}) may influence faction "${factionDef.name}"`);
+              actions.push({
+                action: {
+                  ...action,
+                  agentInstanceId: agent.character.instanceId,
+                  targetFactionInstanceId: cip.instanceId,
+                },
+                viable: true,
+              });
+              offeredAny = true;
+            }
+          }
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no eligible untapped agent with an opponent faction playable at its site`);
+            actions.push({ action, viable: false, reason: 'No eligible untapped agent with an opponent faction playable at its site' });
           }
           continue;
         }
