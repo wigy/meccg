@@ -487,7 +487,29 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-07-28",
+    "effects": [
+      {
+        "type": "prohibit-card-play",
+        "filter": { "keywords": { "$includes": "environment" } }
+      },
+      {
+        "type": "event-maintenance",
+        "trigger": "controller-organization-phase-start",
+        "handCardFilter": { "keywords": { "$includes": "environment" } },
+        "counterChain": { "challengeCount": 1, "counterCount": 2 }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Environment. No environment cards can be played. At the start of your organization phase, discard this card or keep it in play by discarding an environment card from your hand. Your opponent can then discard an environment card from his hand to discard this card, which you can counter by discarding two environment cards from your hand, which he can counter by discarding one, which you can counter with two, he with one, etc. Discard when any play deck is exhausted."
   },
   {

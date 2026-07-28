@@ -105,7 +105,7 @@ export const ACTION_TYPES: readonly string[] = [
   'pair-resource-with-cof',
   'pass',
   'pass-chain-priority',
-  'pay-hazard-event-maintenance',
+  'pay-event-maintenance',
   'pay-hazard-limit-to-untap-card',
   'pay-movement-tax',
   'pay-site-tax',

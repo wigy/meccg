@@ -628,23 +628,44 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Hazard permanent-event maintenance cost: fired at the end of the
-         * resource player's long-event phase for each in-play hazard permanent
-         * event that carries a `hazard-maintenance` effect.
+         * Upkeep decision for an in-play event carrying an `event-maintenance`
+         * effect, fired at the moment named by that effect's `trigger`.
          *
-         * The hazard player must choose one of:
-         * - `discard-self` — discard the permanent event from cardsInPlay.
-         * - `discard-from-hand` — discard a matching hand card (see
-         *   {@link HazardMaintenanceEffect.handCardFilter}).
+         * One resolution covers a single *stage* of the payment. The
+         * controller's `upkeep` stage always comes first; when the effect also
+         * declares a `counterChain`, the outcome is then contested by
+         * alternating `challenge` (opponent) and `counter` (controller)
+         * stages until a side declines or can no longer pay.
          *
-         * Resolved by a `pay-hazard-event-maintenance` action.
+         * The actor pays with one action per card, so `remainingToPay` counts
+         * down within a stage; the opt-out (`discard-self` at `upkeep`,
+         * `decline` at `challenge`/`counter`) is only offered while nothing
+         * has been paid yet — i.e. `remainingToPay === stageCount`. A stage is
+         * only ever enqueued when its actor holds enough matching cards to
+         * finish it, so a part-paid stage can always be completed.
          *
-         * Used by *Thrice Outnumbered* (le-142).
+         * Resolved by a `pay-event-maintenance` action.
+         *
+         * Used by *Thrice Outnumbered* (le-142, upkeep only) and *Balance
+         * Between Powers* (dm-118, upkeep + counter chain).
          */
-        readonly type: 'hazard-event-maintenance';
-        /** The permanent event card requiring maintenance payment. */
+        readonly type: 'event-maintenance';
+        /** The in-play event card requiring maintenance payment. */
         readonly sourceInstanceId: CardInstanceId;
         readonly sourceDefinitionId: CardDefinitionId;
+        /**
+         * Which side of the bidding war this resolution belongs to:
+         * - `upkeep` — the controller keeps the card or discards it.
+         * - `challenge` — the opponent pays to discard the card.
+         * - `counter` — the controller pays to save it.
+         */
+        readonly stage: 'upkeep' | 'challenge' | 'counter';
+        /** Matching hand cards the actor must still discard to finish this stage. */
+        readonly remainingToPay: number;
+        /** Full cost of this stage, so the opt-out can be offered only up front. */
+        readonly stageCount: number;
+        /** The player who controls the source card (holds it in `cardsInPlay`). */
+        readonly controllerId: PlayerId;
       }
     | {
         /**

@@ -24,6 +24,7 @@ import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, 
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
+import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { shuffle } from '../rng.js';
@@ -232,26 +233,22 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       turnNumber: state.turnNumber,
     });
 
-    // Check for hazard-maintenance effects in remaining cardsInPlay.
-    // Fire once per permanent hazard event that has a hazard-maintenance effect
+    // Check for event-maintenance effects in remaining cardsInPlay.
+    // Fire once per permanent hazard event that has an event-maintenance effect
     // with trigger: 'opponent-long-event-end'. The hazard player (non-active)
     // must pay the maintenance cost (discard self or matching hand card).
     for (const card of afterPass.players[hazardPlayerIndex].cardsInPlay) {
       const def = defById(afterPass, card.definitionId);
       if (!def) continue;
       for (const effect of getCardEffects(def)) {
-        if (effect.type !== 'hazard-maintenance') continue;
+        if (effect.type !== 'event-maintenance') continue;
         if (effect.trigger !== 'opponent-long-event-end') continue;
-        logDetail(`Long-event exit: queuing hazard-event-maintenance for "${def.name}" (${card.instanceId as string})`);
-        afterPass = enqueueResolution(afterPass, {
-          source: card.instanceId,
-          actor: afterPass.players[hazardPlayerIndex].id,
+        logDetail(`Long-event exit: queuing event-maintenance for "${def.name}" (${card.instanceId as string})`);
+        afterPass = enqueueMaintenanceUpkeep(afterPass, {
+          controllerId: afterPass.players[hazardPlayerIndex].id,
+          sourceInstanceId: card.instanceId,
+          sourceDefinitionId: card.definitionId,
           scope: { kind: 'phase', phase: Phase.LongEvent },
-          kind: {
-            type: 'hazard-event-maintenance',
-            sourceInstanceId: card.instanceId,
-            sourceDefinitionId: card.definitionId,
-          },
         });
       }
     }

@@ -8459,35 +8459,67 @@ Used by Glamour of Surpassing Excellance (as-49). The `removalNumber`
 field on hazard permanent-event card data sets each hazard's threshold;
 cards without this field default to 8.
 
-### 48. `hazard-maintenance`
+### 48. `event-maintenance`
 
-A hazard permanent-event that requires the hazard player to pay an upkeep
-cost at the end of the resource player's long-event phase. When the
-resource player passes the long-event phase, the engine scans all
-`cardsInPlay` for `hazard-maintenance` effects and enqueues one
-`hazard-event-maintenance` pending resolution per card found.
-
-The hazard player resolves each pending resolution by choosing one of:
-
-- **`discard-self`** — discard the permanent event from `cardsInPlay`.
-- **`discard-from-hand`** — discard a hand card that matches `handCardFilter`.
-
-If no matching hand card is available, only the `discard-self` option is offered.
+An in-play event whose controller must pay an upkeep cost every turn to keep it
+on the table — and, optionally, a bidding war in which the opponent may pay to
+remove it. Lives in `engine/event-maintenance.ts`; the whole exchange runs as a
+sequence of `event-maintenance` pending resolutions, one per *stage*.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `trigger` | yes | When this maintenance fires. Currently only `"opponent-long-event-end"`. |
-| `handCardFilter` | yes | DSL condition evaluated against hand card definitions. Matching cards may be discarded as payment alternatives. |
+| `trigger` | yes | When the upkeep fires: `"opponent-long-event-end"` (as the controller's opponent leaves their long-event phase) or `"controller-organization-phase-start"` (as the controller's own organization phase begins). |
+| `handCardFilter` | yes | DSL condition evaluated against hand-card definitions. Matching cards may be discarded as payment. |
+| `counterChain` | no | `{ challengeCount, counterCount }` — the bidding war after the controller keeps the card. Absent, the upkeep payment ends the matter. |
+
+Stages, alternating actors:
+
+```text
+upkeep (controller, 1 card)
+  ├─ discard-self ─────────────────────────► source discarded, done
+  └─ pays ──► challenge (opponent, challengeCount)
+                ├─ decline ────────────────► source stays, done
+                └─ pays ──► counter (controller, counterCount)
+                              ├─ decline ──► source discarded, done
+                              └─ pays ──► challenge (opponent) …
+```
+
+Each stage is resolved by one or more `pay-event-maintenance` actions:
+**`discard-self`** (upkeep only) gives the card up; **`discard-from-hand`**
+pays one matching card towards the stage's cost; **`decline`** bids nothing.
+A stage costing more than one card is paid one action at a time, and the opt-out
+is offered only while nothing has been paid yet — once a player starts paying
+they are committed.
+
+A stage is only enqueued when its actor actually holds enough matching hand
+cards to finish it. Otherwise the stage is skipped and its "declined" outcome
+applied at once: an unaffordable *challenge* leaves the card in play, an
+unaffordable *counter* discards it. So a controller with no matching card at
+`upkeep` has exactly one legal action (`discard-self`), and neither player is
+ever prompted for a decision they cannot make.
 
 ```json
 {
-  "type": "hazard-maintenance",
+  "type": "event-maintenance",
   "trigger": "opponent-long-event-end",
   "handCardFilter": { "cardType": "hazard-creature", "race": "man" }
 }
 ```
 
-Used by Thrice Outnumbered (le-142).
+```json
+{
+  "type": "event-maintenance",
+  "trigger": "controller-organization-phase-start",
+  "handCardFilter": { "keywords": { "$includes": "environment" } },
+  "counterChain": { "challengeCount": 1, "counterCount": 2 }
+}
+```
+
+Used by Thrice Outnumbered (le-142, upkeep only) and Balance Between Powers
+(dm-118, upkeep + counter chain: "At the start of your organization phase,
+discard this card **or** keep it in play by discarding an environment card from
+your hand. Your opponent can then discard an environment card from his hand to
+discard this card, which you can counter by discarding two … he with one, etc.").
 
 ### `on-event` — `actor` field
 
@@ -10365,28 +10397,50 @@ Under-deeps sites is decreased by 3" (`value: 3`).
 
 ### 52a-1. `prohibit-card-play`
 
-While the carrying card is in play, the named cards may not be played, and any
-copy already in play is discarded the moment this card enters play. The generic
-"discards and prohibits the subsequent play of X" primitive — a hard play-lock
-keyed by card name, distinct from `cancel-card-effects` (which only suppresses
-an in-play card's *constraints* while leaving it in play and re-playable).
+While the carrying card is in play, the cards it selects may not be played by
+**either** player. The generic "prohibits the subsequent play of X" primitive —
+a hard play-lock, distinct from `cancel-card-effects` (which only suppresses an
+in-play card's *constraints* while leaving it in play and re-playable).
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `cardNames` | yes | Names of the cards discarded on entry and barred from play. |
+| `cardNames` | no | Names of the cards discarded on entry and barred from play. |
+| `filter` | no | Condition matched against card **definitions**, for class-wide locks. Forward-looking only — nothing already in play is touched. |
+
+At least one of the two must be present; they may be combined.
 
 ```json
 { "type": "prohibit-card-play", "cardNames": ["The Way is Shut"] }
 ```
 
-Behaviour: on enter-play the resolving long-event discards every matching card
-from either player's `cardsInPlay` to its owner's discard pile
-(`resolveLongEvent` → `applyProhibitCardPlayOnResolve`, `chain-reducer.ts`). The
-ongoing play-lock is enforced in the hazard legal-action layer
-(`playHazardsActions` → `isCardPlayProhibited`, `legal-actions/movement-hazard.ts`),
-which refuses to offer any prohibited card while the source remains in play.
-Used by The Under-roads (as-106): "Discards and prohibits the subsequent play of
-The Way is Shut."
+```json
+{ "type": "prohibit-card-play",
+  "filter": { "keywords": { "$includes": "environment" } } }
+```
+
+Behaviour, `cardNames`: on enter-play the resolving long-event discards every
+matching card from either player's `cardsInPlay` to its owner's discard pile
+(`resolveLongEvent` → `applyProhibitCardPlayOnResolve`, `chain-reducer.ts`).
+This one-time table sweep is what "**Discards** and prohibits …" means, so it is
+tied to `cardNames` and never runs for a bare `filter` lock.
+
+Behaviour, ongoing lock: enforced centrally in `computeLegalActions`
+(`applyCardPlayProhibitions`, `engine/card-play-prohibition.ts`), which turns
+every viable `play-short-event` / `play-long-event` / `play-permanent-event` /
+`play-hazard` action for a locked card into a single `not-playable` entry. Being
+central, the lock holds in every phase menu and in the chain and combat response
+windows alike. Entries a phase module already marked non-viable are left as they
+are, so a module with a more specific reason keeps it — the hazard generator
+(`playHazardsActions`, `legal-actions/movement-hazard.ts`) checks the same lock
+itself and explains it per target company.
+
+Used by:
+
+- The Under-roads (as-106): "Discards and prohibits the subsequent play of The
+  Way is Shut." (`cardNames`)
+- Balance Between Powers (dm-118): "No environment cards can be played."
+  (`filter` on the `environment` keyword — both players, both alignments of
+  environment, and the environments already on the table stay put)
 
 ### 52b. `extra-under-deeps-mh-phase`
 

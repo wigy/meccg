@@ -67,8 +67,17 @@ describe('action-type vocabulary', () => {
     // to 0-18. Sortedness was the old assertion here and is exactly what
     // caused it, so lock the prefix instead: appending is free, inserting
     // fails. Extend LOCKED_PREFIX by hand only when models are retrained.
+    //
+    // Renaming an entry *in place* is the one other safe edit, and it does
+    // move the hash. Checkpoints key on the index, not the string, so a
+    // rename that leaves every position untouched still points each trained
+    // embedding at the same action — re-baseline LOCKED_HASH, but only after
+    // confirming no index moved. Last re-baselined for certifying dm-118,
+    // which renamed `pay-hazard-event-maintenance` (index 87) to
+    // `pay-event-maintenance` when the hazard-only upkeep primitive was
+    // generalised to resource events; nothing was inserted or reordered.
     const LOCKED_PREFIX = 159;
-    const LOCKED_HASH = 0x8913f47c;
+    const LOCKED_HASH = 0xb0db02d1;
     let hash = 0x811c9dc5;
     for (const byte of Buffer.from(ACTION_TYPES.slice(0, LOCKED_PREFIX).join(','))) {
       hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;

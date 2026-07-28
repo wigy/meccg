@@ -2913,9 +2913,14 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
 
 /**
  * Apply a resolving card's {@link ProhibitCardPlayEffect} clauses: discard
- * every named card already in play (from either player's `cardsInPlay`) to its
- * owner's discard pile. One-time effect applied at resolution; the ongoing
- * play-lock is enforced in `playHazardsActions`.
+ * every **named** card already in play (from either player's `cardsInPlay`) to
+ * its owner's discard pile. One-time effect applied at resolution; the ongoing
+ * play-lock is enforced centrally in `computeLegalActions`.
+ *
+ * Only `cardNames` sweeps the table — that is the "discards *and* prohibits"
+ * wording of The Under-roads (as-106). A class-wide `filter` lock is purely
+ * forward-looking ("No environment cards can be played", Balance Between Powers
+ * dm-118) and never touches what is already in play.
  */
 function applyProhibitCardPlayOnResolve(
   state: GameState,
@@ -2926,7 +2931,8 @@ function applyProhibitCardPlayOnResolve(
   );
   if (prohibitEffects.length === 0) return state;
   const prohibited = new Set<string>();
-  for (const eff of prohibitEffects) for (const name of eff.cardNames) prohibited.add(name);
+  for (const eff of prohibitEffects) for (const name of eff.cardNames ?? []) prohibited.add(name);
+  if (prohibited.size === 0) return state;
 
   return discardCardsInPlayWhere(
     state,

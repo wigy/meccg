@@ -45,7 +45,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
@@ -2242,42 +2242,56 @@ export function forceDiscardCardActions(
 }
 
 /**
- * Legal actions for a `hazard-event-maintenance` pending resolution.
+ * Legal actions for an `event-maintenance` pending resolution — one stage of
+ * the upkeep exchange over an in-play event (Thrice Outnumbered le-142,
+ * Balance Between Powers dm-118).
  *
- * The hazard player must choose one of:
- * 1. Discard the permanent event itself from cardsInPlay (`discard-self`).
- * 2. Discard any matching card from hand (`discard-from-hand`), if available.
+ * Every stage offers each hand card matching the effect's `handCardFilter` as a
+ * `discard-from-hand` payment; a stage costing more than one card is paid one
+ * action at a time, counting `remainingToPay` down.
  *
- * At minimum, option 1 is always offered. Options 2 are offered for each
- * qualifying hand card that matches the effect's `handCardFilter`.
+ * The opt-out is only offered while nothing has been paid yet — once a player
+ * starts paying a multi-card stage they are committed (the stage is only ever
+ * enqueued when they can afford to finish it). Which opt-out depends on the
+ * stage:
+ *
+ * - `upkeep` — `discard-self`: give the card up rather than pay to keep it.
+ *   Always available, so a controller with no matching card in hand still has
+ *   exactly one legal action.
+ * - `challenge` / `counter` — `decline`: bid nothing. Declining a challenge
+ *   leaves the card in play; declining to counter one loses it.
  */
-export function hazardEventMaintenanceActions(
+export function eventMaintenanceActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
 ): EvaluatedAction[] {
-  if (top.kind.type !== 'hazard-event-maintenance') return [];
-  const { sourceInstanceId, sourceDefinitionId } = top.kind;
+  if (top.kind.type !== 'event-maintenance') return [];
+  const { sourceInstanceId, sourceDefinitionId, stage, remainingToPay, stageCount } = top.kind;
 
   // Look up the source effect's handCardFilter
   const sourceDef = defById(state, sourceDefinitionId);
-  const handCardFilter = findHazardMaintenanceEffect(sourceDef)?.handCardFilter;
+  const handCardFilter = findEventMaintenanceEffect(sourceDef)?.handCardFilter;
 
   const actions: EvaluatedAction[] = [];
 
-  // Option 1: always offer discard-self
-  actions.push({
-    action: {
-      type: 'pay-hazard-event-maintenance' as const,
-      player: actor,
-      paymentType: 'discard-self' as const,
-      cardInstanceId: sourceInstanceId,
-      sourceInstanceId,
-    },
-    viable: true,
-  });
+  // The opt-out, offered only before any card of this stage has been paid.
+  if (remainingToPay === stageCount) {
+    const paymentType = stage === 'upkeep' ? 'discard-self' as const : 'decline' as const;
+    logDetail(`event-maintenance (${stage}): offering ${paymentType} to ${actor as string}`);
+    actions.push({
+      action: {
+        type: 'pay-event-maintenance' as const,
+        player: actor,
+        paymentType,
+        cardInstanceId: sourceInstanceId,
+        sourceInstanceId,
+      },
+      viable: true,
+    });
+  }
 
-  // Option 2: offer each matching hand card as a payment alternative
+  // Offer each matching hand card as a payment towards this stage.
   if (handCardFilter !== undefined) {
     const actorPlayer = playerById(state, actor);
     if (actorPlayer) {
@@ -2285,10 +2299,13 @@ export function hazardEventMaintenanceActions(
         const handDef = defById(state, handCard.definitionId);
         if (!handDef) continue;
         if (!matchesDefinition(handDef, handCardFilter)) continue;
-        logDetail(`hazard-event-maintenance: offering hand card ${handCard.definitionId as string} as payment`);
+        logDetail(
+          `event-maintenance (${stage}): offering hand card ${handCard.definitionId as string} as payment `
+          + `(${remainingToPay} of ${stageCount} still due)`,
+        );
         actions.push({
           action: {
-            type: 'pay-hazard-event-maintenance' as const,
+            type: 'pay-event-maintenance' as const,
             player: actor,
             paymentType: 'discard-from-hand' as const,
             cardInstanceId: handCard.instanceId,
