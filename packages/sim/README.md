@@ -168,6 +168,27 @@ Status by phase:
 | P4 | `corruption` written; `health` not started |
 | P5–P7 | not started — `allies`/`characters`/`misc`, `hazards`/`hand`, `endgame` |
 
+### Coverage, measured
+
+Over four self-play games (3524 decisions, 1626 contested), the action types
+appearing in contested decisions are led by:
+
+```text
+ 1154  pass                314  discard-card         190  cancel-movement
+  189  play-hazard         178  split-company        178  activate-granted-action
+  171  play-short-event    159  move-to-influence    157  draw-cards
+  154  plan-movement       142  discard-character    142  transfer-item
+```
+
+`activate-granted-action` is in 10.9% of contested decisions — real, but not
+the blocker it first looked like from a single scenario. The long tail is:
+`split-company`, `merge-companies`, `cancel-movement`, `discard-card`,
+`draw-cards`, `discard-character`, `play-short-event`, `play-hazard` all have
+no owner. Full coverage is a longer road than eight modules suggests, and
+chasing it action type by action type is not obviously the right route —
+whether dispatch should stay all-or-nothing is worth re-arguing on this
+evidence rather than on the one scenario that prompted the rule.
+
 **Only `combat` has been observed running.** Dispatch requires the module set
 to cover every candidate on a decision (see `core/registry.ts`), and the
 organization and site phases each still offer action types with no owner —
