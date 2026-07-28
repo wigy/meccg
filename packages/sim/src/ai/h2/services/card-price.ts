@@ -28,6 +28,13 @@
  *   That is the estimate `hand` was waiting on and the reason §3.5 listed
  *   `hazards` as its dependency.
  *
+ * A creature is priced **alone**, which is a real understatement and visible in
+ * the output: the Orc-lieutenant below is priced at zero because the company
+ * can beat it, while `hazards` ranks *playing* it at +3.9% as the opener of a
+ * bundle the warband finishes. Both are right about different questions, but
+ * the value of keeping a card is closer to its bundle contribution than to its
+ * solo one, and closing that gap means running the bundle planner from here.
+ *
  * Everything else — hazard events, corruption cards, resources that carry no
  * points — falls back to the flat price, and says so. A price with a stated
  * floor is honest; a price that pretends to know is not.

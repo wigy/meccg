@@ -111,6 +111,22 @@ EXPOSURE
       hazard limit 0 (snapshot taken at movement reveal)
 ```
 
+```text
+HAND
+    2.60  Orc-warband         would deny 5.2 against their largest company
+    1.00  Doors of Night      no points and no attack to model — the flat price
+    0.00  Anborn              mind 2 does not fit the 1 influence free
+    0.00  Orc-lieutenant      their companies can beat it — worth nothing as an attack
+```
+
+That last section is §3.5's shadow price (`card-price`), which was blocked on
+`hazards` until `denial` existed. It is what makes a discard a decision rather
+than a coin flip, and the reason `hand` is the only module the horizon test can
+see any signal from. Note the tension it prints rather than hides: the
+Orc-lieutenant is worth nothing *alone*, while `hazards` ranks playing it at
++3.9% as the opener of a bundle the warband finishes. Both answer different
+questions; the gap is real and declared.
+
 `exposure` reports facts and stops there. H1 carries a `REGION_DANGER` table —
 wilderness 2, shadow-land 4, dark-domain 5 — which is a valuation dressed as a
 lookup, tuned by hand and invisible to anyone reading a destination score.

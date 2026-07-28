@@ -17,6 +17,7 @@ import { evaluateDecision, resolveModules } from '../ai/h2/core/registry.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
 import { computeBudget } from '../ai/h2/services/budget.js';
 import { computeExposure } from '../ai/h2/services/exposure.js';
+import { computeCardPrices } from '../ai/h2/services/card-price.js';
 import { renderExplanation } from '../ai/h2/explain.js';
 import { hashState, loadScenario, withStandardCardPool } from '../ai/h2/scenario-store.js';
 import { findGameLogRecord } from '../ai/h2/game-log.js';
@@ -210,5 +211,6 @@ if (asJson) {
     topN,
     budget: computeBudget(view, cardPool),
     exposure: computeExposure(view, cardPool),
+    prices: computeCardPrices(view, cardPool, standing, tunables),
   }).join('\n'));
 }

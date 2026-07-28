@@ -17,6 +17,7 @@ import { renderRationale } from './core/rationale.js';
 import type { Standing } from './services/standing.js';
 import type { Budget } from './services/budget.js';
 import type { Exposure } from './services/exposure.js';
+import type { CardPrices } from './services/card-price.js';
 
 /** Everything the renderer needs about one decision. */
 export interface ExplanationInput {
@@ -42,6 +43,8 @@ export interface ExplanationInput {
   readonly budget?: Budget;
   /** How much hazard the companies are opening themselves to. */
   readonly exposure?: Exposure;
+  /** What each card in hand is worth keeping — §3.5's shadow price. */
+  readonly prices?: CardPrices;
 }
 
 /** Build a describer for the acting player's view. */
@@ -140,6 +143,23 @@ export function renderExplanation(input: ExplanationInput): string[] {
       }
     }
     lines.push('');
+  }
+
+  if (input.prices) {
+    // The shadow price is spent all over the place — a discard, a cancel, a
+    // hazard bundle — and until it was printed the only way to see it was to
+    // find a decision that happened to offer a discard. A price nobody can look
+    // at is a price nobody can argue with.
+    const ranked = input.prices.ranked();
+    if (ranked.length > 0) {
+      lines.push('HAND');
+      for (const card of ranked) {
+        lines.push(`  ${card.tsd.toFixed(2).padStart(6)}  ${card.name.padEnd(28)} ${card.reason}`);
+      }
+      lines.push(`  (a card whose use cannot be modelled is priced at the flat `
+        + `${input.prices.floor.toFixed(2)})`);
+      lines.push('');
+    }
   }
 
   if (input.modules.length === 0) {
