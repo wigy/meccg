@@ -110,6 +110,32 @@ function interval(r: number, n: number): { lower: number; upper: number } | null
   return { lower: Math.tanh(z - 1.96 * se), upper: Math.tanh(z + 1.96 * se) };
 }
 
+/**
+ * How strongly a module's per-turn prediction is just its decision count.
+ *
+ * The trap the aggregated horizon test walks into. A module whose predictions
+ * all carry the same sign — `hand` charges a shadow price for every discard —
+ * has a per-turn total that is mostly *how many times it was asked*, and how
+ * busy a module is tracks the state of the game for reasons that have nothing
+ * to do with whether its judgement was any good. A correlation near ±1 here
+ * means the horizon number above is measuring activity.
+ */
+function activityCorrelation(subset: readonly Prediction[]): number | null {
+  const totals = new Map<string, { sum: number; count: number }>();
+  for (const p of subset) {
+    const key = `${(p as { game?: number }).game ?? 0}#${p.turn}`;
+    const entry = totals.get(key) ?? { sum: 0, count: 0 };
+    entry.sum += p.predicted;
+    entry.count++;
+    totals.set(key, entry);
+  }
+  const values = [...totals.values()];
+  return correlation(values.map(v => v.sum), values.map(v => v.count));
+}
+
+/** Above this, the per-turn total is reported as an activity measure. */
+const ACTIVITY_WARNING = 0.8;
+
 /** Pearson correlation, or null when a series does not vary. */
 function correlation(xs: readonly number[], ys: readonly number[]): number | null {
   const n = xs.length;
@@ -244,6 +270,12 @@ for (const moduleName of ['(all)', ...modules]) {
   const turns = new Set(subset.map(p => `${(p as { game?: number }).game ?? 0}#${p.turn}`)).size;
   const thin = turns < MIN_PREDICTIONS && moduleName !== '(all)';
   console.log(`  ${moduleName.padEnd(12)} ${parts.join('   ')}${thin ? '   — too few to judge' : ''}`);
+  const activity = activityCorrelation(subset);
+  if (activity !== null && Math.abs(activity) > ACTIVITY_WARNING) {
+    console.log(`  ${' '.repeat(12)} ⚠ its per-turn total is ${(activity >= 0 ? '+' : '') + activity.toFixed(2)} `
+      + 'correlated with how many decisions it made that turn — the number above is');
+    console.log(`  ${' '.repeat(12)}   partly about how busy the module was, not about its judgement`);
+  }
 }
 
 console.log('');
