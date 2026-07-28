@@ -33,6 +33,12 @@ import { leaf, node } from '../../core/rationale.js';
 const OWNED_ACTION_TYPES = [
   'start-sideboard-to-deck',
   'start-sideboard-to-discard',
+  // §3.5 names these as the module's own: the end-of-turn discard and the
+  // draw that refills the hand. They are also the most common candidates in
+  // the game with no owner — `discard-card` alone appears in more contested
+  // decisions than any action but `pass`.
+  'discard-card',
+  'draw-cards',
 ] as const;
 
 /** Assumptions every hand evaluation rests on. */
@@ -56,6 +62,48 @@ export const handModule: H2Module = {
     const owned = new Set<string>(OWNED_ACTION_TYPES);
     if (!owned.has(action.type)) return null;
     const { standing, view, tunables } = context;
+
+    if (action.type === 'discard-card' || action.type === 'draw-cards') {
+      // A card leaving the hand costs what holding it was worth; a card drawn
+      // gains it. Both use the same price, which is the point of §3.5 — one
+      // number, one owner — even while that number is still the flat
+      // placeholder rather than a real reservation value.
+      const discarding = action.type === 'discard-card';
+      const dtsd = discarding ? -tunables.provisionalCardPrice : tunables.resourceDrawValue;
+      const outcomes: Outcome[] = [{
+        p: 1,
+        label: discarding ? 'discard a card from hand' : 'draw to refill the hand',
+        dtsd,
+      }];
+      const scored = standing.score(outcomes);
+      return {
+        action,
+        module: 'hand',
+        outcomes,
+        expectedTsd: scored.expectedTsd,
+        sigmaTsd: scored.sigmaTsd,
+        utility: scored.utility,
+        method: scored.method,
+        rationale: node(discarding ? 'discard' : 'draw', scored.utility, [
+          node('hand economy', dtsd, [
+            leaf(discarding ? 'card given up' : 'card gained', Math.abs(dtsd), {
+              unit: 'tsd',
+              tunable: discarding ? 'provisionalCardPrice' : 'resourceDrawValue',
+            }),
+            leaf('hand size', view.self.hand.length),
+            leaf('deck remaining', view.self.playDeck.length),
+          ]),
+          scored.rationale,
+        ], { unit: 'winprob' }),
+        assumptions: [
+          discarding
+            ? 'every card in hand is priced the same, so the module cannot yet prefer discarding '
+              + 'the least useful one — that needs the per-card shadow price of §3.5'
+            : 'a drawn card is priced at the average worth of a draw, not at what is actually drawn',
+          ...ASSUMPTIONS,
+        ],
+      };
+    }
 
     const toDeck = action.type === 'start-sideboard-to-deck';
     const outcomes: Outcome[] = [{

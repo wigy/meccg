@@ -83,3 +83,28 @@ describe('the price it cannot compute', () => {
     expect(handModule.evaluate(other, contextWith(40, 12))).toBeNull();
   });
 });
+
+describe('the end-of-turn hand', () => {
+  const context = contextWith(40, 12);
+  const discard = { type: 'discard-card' } as unknown as GameAction;
+  const draw = { type: 'draw-cards' } as unknown as GameAction;
+
+  test('discarding costs the card price and drawing gains the draw value', () => {
+    expect(handModule.evaluate(discard, context)!.expectedTsd)
+      .toBeCloseTo(-DEFAULT_TUNABLES.provisionalCardPrice, 9);
+    expect(handModule.evaluate(draw, context)!.expectedTsd)
+      .toBeCloseTo(DEFAULT_TUNABLES.resourceDrawValue, 9);
+  });
+
+  test('admits it cannot yet choose *which* card to discard', () => {
+    // Every card is priced the same until §3.5's per-card shadow price exists,
+    // so the module must not look as though it is choosing wisely.
+    const evaluation = handModule.evaluate(discard, context)!;
+    expect(evaluation.assumptions.some(a => a.includes('least useful'))).toBe(true);
+  });
+
+  test('reports the hand and deck a real price would be computed from', () => {
+    const text = JSON.stringify(handModule.evaluate(discard, contextWith(31, 4))!.rationale);
+    expect(text).toContain('31');
+  });
+});
