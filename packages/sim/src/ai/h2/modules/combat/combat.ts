@@ -689,12 +689,12 @@ export const combatModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   claims(context: ModuleContext): boolean {
+    // A context gate, not a coverage check: is this a combat we are
+    // defending, in a sub-phase this module models? Whether the module covers
+    // every candidate is the registry's question, not this one's.
     const combat = context.view.combat;
     if (!combat || !OWNED_COMBAT_PHASES.has(combat.phase)) return false;
-    if (combat.defendingPlayerId !== context.view.self.id) return false;
-    if (context.legalActions.length === 0) return false;
-    const owned = new Set<string>(OWNED_ACTION_TYPES);
-    return context.legalActions.every(a => owned.has(a.type));
+    return combat.defendingPlayerId === context.view.self.id;
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {

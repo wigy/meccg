@@ -25,7 +25,7 @@
  * only cards already in hand count toward a destination's worth.
  */
 
-import type { CardDefinition, CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
+import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
@@ -33,7 +33,7 @@ import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import type { SiteExposure } from '../../services/exposure.js';
-import { findSiteDef, resourcePlayableAt } from '../../../evaluators/common.js';
+import { resourcePlayableAt } from '../../../evaluators/common.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['plan-movement', 'pass'] as const;
@@ -86,20 +86,26 @@ function playableAt(
   return cards;
 }
 
-/** The site a `plan-movement` action would send the company to. */
-function destinationOf(
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  action: GameAction,
-): { definitionId: string } | null {
+/**
+ * The site a `plan-movement` action would send the company to.
+ *
+ * The instance is looked up directly for its definition ID rather than
+ * resolving a definition object and scanning the card pool for its identity —
+ * that scan was O(pool) per candidate and, worse, silently returned null
+ * whenever the definition did not come from the same pool object, which made
+ * the whole module decline every movement it was offered.
+ */
+function destinationOf(view: PlayerView, action: GameAction): { definitionId: string } | null {
   const siteInstanceId = (action as unknown as { destinationSite?: CardInstanceId }).destinationSite;
   if (!siteInstanceId) return null;
-  const def = findSiteDef(view, cardPool, siteInstanceId);
-  if (!def) return null;
-  // `findSiteDef` returns the definition; recover its ID for the exposure
-  // service, which is keyed by definition.
-  const entry = Object.entries(cardPool).find(([, d]) => d === def);
-  return entry ? { definitionId: entry[0] } : null;
+  const fromDeck = view.self.siteDeck.find(c => c.instanceId === siteInstanceId);
+  if (fromDeck) return { definitionId: fromDeck.definitionId };
+  for (const company of view.self.companies) {
+    for (const site of [company.currentSite, company.destinationSite]) {
+      if (site && site.instanceId === siteInstanceId) return { definitionId: site.definitionId };
+    }
+  }
+  return null;
 }
 
 /** Assumptions every travel evaluation rests on. */
@@ -189,12 +195,14 @@ export const travelModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   claims(context: ModuleContext): boolean {
-    if (context.legalActions.length === 0) return false;
-    // A `pass` on its own is not a travel decision; there must be somewhere to
-    // go for the module to have an opinion worth comparing against staying.
-    if (!context.legalActions.some(a => a.type === 'plan-movement')) return false;
-    const owned = new Set<string>(OWNED_ACTION_TYPES);
-    return context.legalActions.every(a => owned.has(a.type));
+    // A context gate, not a coverage check. Requiring the module to own every
+    // candidate was the all-or-nothing rule restated inside the module, and it
+    // silenced `travel` on every real organization phase — where movement is
+    // always offered alongside transfers and influence changes.
+    //
+    // What it does gate on: a `pass` here means "decline to move", which is
+    // only an opinion worth having when there is somewhere to go.
+    return context.legalActions.some(a => a.type === 'plan-movement');
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
@@ -222,7 +230,7 @@ export const travelModule: H2Module = {
       };
     }
 
-    const destination = destinationOf(context.view, context.cardPool, action);
+    const destination = destinationOf(context.view, action);
     if (!destination) return null;
     const site = exposure.siteExposure(destination.definitionId);
     if (!site) return null;

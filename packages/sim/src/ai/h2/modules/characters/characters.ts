@@ -73,14 +73,21 @@ export const charactersModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
-    const record = action as unknown as { characterId?: CardInstanceId; cardInstanceId?: CardInstanceId };
-    const character = characterOf(context, record.cardInstanceId ?? record.characterId);
+    // `move-to-influence` names the character in `characterInstanceId`;
+    // `play-character` uses `cardInstanceId`. Reading only one of them made
+    // the module return null on every real influence move, which the old
+    // all-or-nothing dispatch hid behind a blanket fallback.
+    const record = action as unknown as {
+      characterInstanceId?: CardInstanceId; characterId?: CardInstanceId; cardInstanceId?: CardInstanceId;
+    };
+    const named = record.cardInstanceId ?? record.characterInstanceId ?? record.characterId;
+    const character = characterOf(context, named);
     if (!character) return null;
     const { standing, tunables } = context;
     const budget = computeBudget(context.view, context.cardPool);
 
     if (action.type === 'move-to-influence') {
-      const held = budget.characters[(record.characterId ?? record.cardInstanceId) as string];
+      const held = budget.characters[named as string];
       const outcomes: Outcome[] = [{
         p: 1,
         label: `${character.name} changes controller — no marshalling points move`,
