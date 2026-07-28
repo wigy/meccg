@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsInPlay } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsInPlay } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -2042,6 +2042,126 @@ function resolveStoredComboEvent(state: GameState, entry: ChainEntry): GameState
   }
 
   return undefined;
+}
+
+/**
+ * Locate an *eliminated* creature instance: one sitting in either player's
+ * marshalling-point pile (`killPile` — a defeated creature kept as a trophy) or
+ * out-of-play pile. Returns the instance together with the index of the player
+ * holding the pile, or `null` when the instance is in neither.
+ */
+function locateEliminatedCard(
+  state: GameState,
+  instanceId: CardInstanceId,
+): { instance: CardInstance; holderIndex: number; pile: 'killPile' | 'outOfPlayPile' } | null {
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const p = state.players[pi];
+    const inKill = p.killPile.find(c => c.instanceId === instanceId);
+    if (inKill) return { instance: inKill, holderIndex: pi, pile: 'killPile' };
+    const inOut = p.outOfPlayPile.find(c => c.instanceId === instanceId);
+    if (inOut) return { instance: inOut, holderIndex: pi, pile: 'outOfPlayPile' };
+  }
+  return null;
+}
+
+/**
+ * Resolve an `un-eliminate-creature` permanent-event option (Returned Beyond All
+ * Hope as-35 mode 3): "make a roll—if the result is greater than 8, bring an
+ * eliminated Elf or Maia hazard creature to its owner's discard pile **and**
+ * place this card in your opponent's marshalling point pile, otherwise, discard
+ * this card."
+ *
+ * The 2d6 total is compared against `apply.threshold` (9 = "greater than 8").
+ *
+ * On success the declared creature leaves the terminal pile it was in (a
+ * trophy in someone's marshalling-point pile, or an out-of-play card) for its
+ * **owner's** discard pile — owner derived from the instance-id prefix, falling
+ * back to the opponent of the pile holder, since a creature only ever reaches
+ * another player's kill/out-of-play pile by attacking them. Because the creature
+ * is no longer in a terminal pile, {@link isManifestationDefeated} stops
+ * reporting its chain as defeated, which is exactly the CRF 22 ruling that this
+ * card "«un-eliminates» a hazard creature, allowing any manifestation of that
+ * character to be played". The resolving card itself is then placed into the
+ * opponent's marshalling-point pile, where its `mp-in-pile` effect scores it.
+ *
+ * On failure — or when the declared creature can no longer be located — the
+ * resolving card goes to its own player's discard pile. Either way the card
+ * rode the chain and lands in exactly one pile: no instance is lost, and it
+ * never enters `cardsInPlay`.
+ */
+function resolveUnEliminateCreature(
+  state: GameState,
+  entry: ChainEntry,
+  apply: import('../types/effects.js').UnEliminateCreatureAction,
+): { state: GameState; effect: import('../index.js').GameEffect } {
+  const card = entry.card!;
+  const def = defById(state, card.definitionId);
+  const cardNm = def?.name ?? (card.definitionId as string);
+  const declarerIdx = getPlayerIndex(state, entry.declaredBy);
+  const opponentIdx = 1 - declarerIdx;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const success = total >= apply.threshold;
+  let current: GameState = { ...state, rng, cheatRollTotal };
+  const rollEffect = diceRollEffect(
+    current.players[declarerIdx].name,
+    roll,
+    `${cardNm}: un-eliminate a creature`,
+  );
+  logDetail(`${cardNm}: ${current.players[declarerIdx].name} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${apply.threshold} — ${success ? 'success' : 'failure'}`);
+
+  const targetId = entry.payload.type === 'permanent-event'
+    ? entry.payload.optionTargetInstanceId
+    : undefined;
+  const located = targetId ? locateEliminatedCard(current, targetId) : null;
+  const targetDef = located ? defById(current, located.instance.definitionId) : undefined;
+  const matches = !!located && !!targetDef && matchesDefinition(targetDef, apply.filter);
+
+  if (!success || !located || !matches) {
+    if (success && !located) {
+      logDetail(`${cardNm}: declared creature ${String(targetId)} is no longer eliminated — nothing to recover`);
+    } else if (success && !matches) {
+      logDetail(`${cardNm}: declared card ${String(targetId)} does not match the recovery filter`);
+    }
+    logDetail(`${cardNm}: → ${current.players[declarerIdx].name}'s discard pile`);
+    return {
+      state: updatePlayer(current, declarerIdx, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(card)],
+      })),
+      effect: rollEffect,
+    };
+  }
+
+  // Owner of the recovered creature: the instance-id prefix is authoritative
+  // (deck ownership never transfers). Fall back to the opponent of the pile
+  // holder — a creature reaches another player's kill/out-of-play pile only by
+  // having attacked them.
+  const ownerId = ownerOf(located.instance.instanceId);
+  const prefixIdx = current.players.findIndex(p => p.id === ownerId);
+  const creatureOwnerIdx = prefixIdx >= 0 ? prefixIdx : 1 - located.holderIndex;
+  const creatureName = targetDef && 'name' in targetDef ? targetDef.name : (located.instance.definitionId as string);
+
+  logDetail(`${cardNm}: un-eliminating ${creatureName} from ${current.players[located.holderIndex].name}'s ${located.pile} → ${current.players[creatureOwnerIdx].name}'s discard pile`);
+  const holderIdx = located.holderIndex;
+  const pile = located.pile;
+  current = updatePlayer(current, holderIdx, p => ({
+    ...p,
+    [pile]: p[pile].filter(c => c.instanceId !== located.instance.instanceId),
+  }));
+  current = updatePlayer(current, creatureOwnerIdx, p => ({
+    ...p,
+    discardPile: [...p.discardPile, located.instance],
+  }));
+
+  logDetail(`${cardNm}: → ${current.players[opponentIdx].name}'s marshalling-point pile`);
+  current = updatePlayer(current, opponentIdx, p => ({
+    ...p,
+    killPile: [...p.killPile, toCardInstance(card)],
+  }));
+
+  return { state: current, effect: rollEffect };
 }
 
 /**
@@ -5017,6 +5137,30 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           },
         });
       }
+    } else if (opt?.apply.type === 'move') {
+      // An untargeted option whose apply is a plain `move` on one declared card
+      // instance (Returned Beyond All Hope as-35 modes 1 and 2: a creature from
+      // the player's own discard pile, or a Maia permanent-event from their own
+      // cards in play, back to their hand). The instance was named at play time
+      // and rides the chain payload; the move primitive does the rest, routing
+      // the card to its owner's hand (`toOwner: 'source-owner'`).
+      const optTargetId = entry.payload.optionTargetInstanceId;
+      if (!optTargetId) {
+        logDetail(`${cardNm} option "${opt.id}": no target instance declared — fizzle`);
+      } else {
+        const declaringIdx = getPlayerIndex(current, entry.declaredBy);
+        const moved = applyMove(current, opt.apply, {
+          sourceCardId: entry.card.instanceId,
+          sourcePlayerIndex: declaringIdx,
+          targetCardId: optTargetId,
+        });
+        if ('error' in moved) {
+          logDetail(`${cardNm} option "${opt.id}": move failed (${moved.error}) — fizzle`);
+        } else {
+          logDetail(`${cardNm} option "${opt.id}": moved ${optTargetId as string} → ${opt.apply.to}`);
+          current = moved.state;
+        }
+      }
     }
   }
 
@@ -5089,8 +5233,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   }
 
   if (entry.payload.type === 'permanent-event' && !entry.negated && entry.card) {
-    current = resolvePermanentEvent(current, entry);
-    current = sweepAutoDiscardResourceEvents(current);
+    // A card played in a permanent-event `play-option` mode whose apply is
+    // `un-eliminate-creature` (Returned Beyond All Hope as-35 mode 3) resolves
+    // entirely here — like dm-73 it never enters `cardsInPlay`, so the normal
+    // permanent-event placement must be skipped.
+    const permOptionId = entry.payload.optionId;
+    const permOption = permOptionId
+      ? getCardEffects(defById(current, entry.card.definitionId)).find(
+          (e): e is import('../types/effects.js').PlayOptionEffect =>
+            e.type === 'play-option' && e.id === permOptionId,
+        )
+      : undefined;
+    if (permOption?.apply.type === 'un-eliminate-creature') {
+      const result = resolveUnEliminateCreature(current, entry, permOption.apply);
+      current = result.state;
+      resolveEffects.push(result.effect);
+    } else {
+      current = resolvePermanentEvent(current, entry);
+      current = sweepAutoDiscardResourceEvents(current);
+    }
   }
 
   if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {

@@ -160,6 +160,15 @@ export interface PlayHazardAction {
    */
   readonly optionId?: string;
   /**
+   * For an untargeted `play-option` mode whose apply acts on one specific card
+   * instance (Returned Beyond All Hope as-35: the creature in the discard pile,
+   * the Maia permanent-event in play, or the eliminated creature to recover),
+   * the instance the player declared when playing. Drawn from the option's
+   * `candidates` pool; threaded onto the chain payload and consumed by the
+   * chain resolver.
+   */
+  readonly optionTargetInstanceId?: CardInstanceId;
+  /**
    * For dual-mode hazard-creature cards (`creature-alt-event`, e.g. Mouth of
    * Sauron tw-65), selects the alternative event mode instead of normal
    * keyed-creature combat. When set, the card is played as an event of this
