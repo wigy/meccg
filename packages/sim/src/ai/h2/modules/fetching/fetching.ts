@@ -95,7 +95,7 @@ function chosenCard(action: GameAction, context: ModuleContext): { definitionId:
   ];
   for (const zone of zones) {
     const card = zone.cards.find(c => c.instanceId === instanceId);
-    if (card) return { definitionId: card.definitionId as string, where: record.source ?? zone.where };
+    if (card) return { definitionId: card.definitionId, where: record.source ?? zone.where };
   }
   return null;
 }

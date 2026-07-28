@@ -472,7 +472,7 @@ function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation
   const card = context.view.self.hand.find(c => (c.instanceId as string) === place.cardInstanceId);
   if (!card) return null;
 
-  const { standing, tunables } = context;
+  const { tunables } = context;
   const creature = creatureProfile(context.cardPool, card.definitionId as string);
 
   if (creature) {
