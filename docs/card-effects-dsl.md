@@ -4905,6 +4905,16 @@ is evaluated against the per-candidate context
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 
+`target.isRevealedAvatar` is `true` only for the player's **own revealed
+avatar** — the generally-controlled avatar character returned by
+`findPlayerAvatar` — and never for a Ringwraith *follower* controlled by that
+avatar. It is what distinguishes "playable on **your Ringwraith**" from
+"playable on a Ringwraith". Populated for organization-phase permanent-event
+play-target evaluation (`legal-actions/organization-events.ts`) and for
+short-event play options (`buildPlayOptionContext`). Used by *While the Yellow
+Face Sleeps* (le-255): `filter: { "$and": [ { "target.race": "ringwraith" },
+{ "target.isRevealedAvatar": true } ] }`.
+
 `company.hasShadowMagicUser` is `true` when any character in the company is a
 Ringwraith (race `"ringwraith"`) or has the `"shadow-magic"` skill (naturally
 or via an item). Populated only for organization-phase permanent event

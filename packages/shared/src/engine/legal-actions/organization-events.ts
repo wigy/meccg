@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -482,6 +482,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // `playedUniqueHeroFactionAtFreeHold` flag is always false here — only the
       // "in the same company as <named card>" alternative can be satisfied.
       const companyContextCondition = findPlayConditionEffect(def, 'company-context');
+      // The player's revealed avatar, so a `play-target` filter can express
+      // "on your Ringwraith"/"on your Wizard" (While the Yellow Face Sleeps
+      // le-255) as `target.isRevealedAvatar`. Ringwraith *followers* are
+      // avatar-race characters too, but they are controlled by the revealed
+      // avatar rather than being it — `findPlayerAvatar` returns only the
+      // generally-controlled one, so followers never match.
+      const revealedAvatarId = findPlayerAvatar(state, player)?.instanceId;
       let anyTarget = false;
       for (const company of player.companies) {
         if (companyContextCondition?.condition
@@ -559,6 +566,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 itemKeywords,
                 itemNames,
                 isAvatar: isAvatarCharacter(charDef),
+                isRevealedAvatar: revealedAvatarId === charId,
                 // Printed site types of the character's home sites, so a filter
                 // can gate on "who has a Border-hold or Free-hold as a home
                 // site" (Faithless Steward as-83).
