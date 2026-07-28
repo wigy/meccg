@@ -214,6 +214,11 @@ const PILE_NAMES = [
  * @returns The definition ID, or undefined if the instance ID is not found.
  */
 export function resolveInstanceId(state: GameState, instanceId: CardInstanceId): CardDefinitionId | undefined {
+  // Callers legitimately pass an optional field that is absent. Without this
+  // guard `company.currentSite?.instanceId === instanceId` is `undefined ===
+  // undefined` for a company with no site — the lookup "matches" a null site
+  // and the next expression dereferences it.
+  if (instanceId === undefined || instanceId === null) return undefined;
   for (const player of state.players) {
     // Characters (Record keyed by instanceId — O(1))
     const char = player.characters[instanceId];

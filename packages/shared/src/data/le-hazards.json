@@ -841,7 +841,7 @@
         }
       },
       {
-        "type": "hazard-maintenance",
+        "type": "event-maintenance",
         "trigger": "opponent-long-event-end",
         "handCardFilter": {
           "cardType": "hazard-creature",

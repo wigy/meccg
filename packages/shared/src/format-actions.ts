@@ -510,10 +510,15 @@ export function describeAction(
       return `${playerName(action.player)} returns company to origin haven`;
     case 'run-home':
       return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move company ${action.companyId} to its nearest haven (Bill the Pony)`;
-    case 'pay-hazard-event-maintenance':
-      return action.paymentType === 'discard-self'
-        ? `Discard ${instName(action.sourceInstanceId)} (hazard event maintenance)`
-        : `Discard ${instName(action.cardInstanceId)} from hand to maintain ${instName(action.sourceInstanceId)}`;
+    case 'pay-event-maintenance':
+      switch (action.paymentType) {
+        case 'discard-self':
+          return `Discard ${instName(action.sourceInstanceId)} (event maintenance)`;
+        case 'decline':
+          return `Bid nothing over ${instName(action.sourceInstanceId)} (event maintenance)`;
+        default:
+          return `Discard ${instName(action.cardInstanceId)} from hand to maintain ${instName(action.sourceInstanceId)}`;
+      }
     case 'tap-hazard-card-for-limit':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':
@@ -548,6 +553,10 @@ export function describeAction(
       return action.itemInstanceId && action.targetCharacterId
         ? `${playerName(action.player)} transfers returned item ${instName(action.itemInstanceId)} to ${instName(action.targetCharacterId)}`
         : `${playerName(action.player)} declines to transfer a returned item`;
+    case 'use-discard-substitute':
+      return action.itemInstanceId
+        ? `${playerName(action.player)} discards a substitute item to save ${instName(action.itemInstanceId)} from discard`
+        : `${playerName(action.player)} declines to substitute an item for the required discard`;
     case 'tap-ally-combat-boost':
       return `${playerName(action.player)} taps ally ${instName(action.cardInstanceId)} to boost its company in combat`;
     case 'tap-ally-body-check-boost':
@@ -584,6 +593,8 @@ export function describeAction(
       return action.penalty === 'remove-from-game'
         ? `${playerName(action.player)} removes the shown card from the game (Desire All for Thy Belly)`
         : `${playerName(action.player)} reduces his hand size by one for the rest of the game (Desire All for Thy Belly)`;
+    case 'choose-peek-deck':
+      return `${playerName(action.player)} looks at the top cards of ${action.deckOwner === 'self' ? 'their own' : "the opponent's"} play deck and shuffles them back on top (Mirror of Galadriel)`;
     case 'choose-great-hunt-source':
       return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
     case 'great-hunt-attack-with-creature':
@@ -612,6 +623,8 @@ export function describeAction(
       return `${playerName(action.player)} taps Ringwraith ${instName(action.ringwraithInstanceId)} to bring ${instName(action.characterInstanceId)} from the discard pile into play as a new company (Urlurtsu Nurn)`;
     case 'company-tap-roll':
       return `${playerName(action.player)} rolls for ${instName(action.targetCharacterId)}: ${action.explanation}`;
+    case 'opposed-roll':
+      return `${playerName(action.player)} rolls for ${instName(action.characterId)}: ${action.explanation}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

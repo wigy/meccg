@@ -4,10 +4,17 @@
  * The canonical, ordered list of every `GameAction.type` discriminant. The
  * action featurizer maps a candidate's type string to `index + 1` in this
  * list (0 is reserved for unknown types, so a future engine action degrades
- * gracefully instead of crashing training). The list is sorted and must
- * only ever be appended to in sorted order on engine changes — reordering
- * would silently re-label every existing training example. A coverage test
- * asserts that actions seen in real games all resolve to a known index.
+ * gracefully instead of crashing training).
+ *
+ * **Indices are permanent. A new type goes at the END of this list, never
+ * in alphabetical position.** The order below is historical rather than
+ * sorted: it is a serialization format shared with every trained
+ * checkpoint, so inserting a type mid-list shifts every index after it and
+ * silently re-labels that many action types for every existing model.
+ * Measured: certifying tw-282 inserted `choose-peek-deck` at index 31,
+ * shifting 127 of 158 types, and the champion went from 10-9 against the
+ * heuristic to 0-18. A coverage test asserts that actions seen in real
+ * games all resolve to a known index.
  */
 
 /** Every `GameAction.type` string, sorted, extracted from `@meccg/shared` `types/actions-*.ts`. */
@@ -98,7 +105,7 @@ export const ACTION_TYPES: readonly string[] = [
   'pair-resource-with-cof',
   'pass',
   'pass-chain-priority',
-  'pay-hazard-event-maintenance',
+  'pay-event-maintenance',
   'pay-hazard-limit-to-untap-card',
   'pay-movement-tax',
   'pay-site-tax',
@@ -170,6 +177,9 @@ export const ACTION_TYPES: readonly string[] = [
   'under-deeps-roll',
   'untap',
   'voluntary-discard-in-play',
+  // Appended out of alphabetical order deliberately — see the note above.
+  // Added by certifying tw-282 (Mirror of Galadriel).
+  'choose-peek-deck',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

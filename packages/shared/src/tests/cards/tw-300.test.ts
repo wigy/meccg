@@ -3,7 +3,7 @@
  *
  * Card test: Palantír of Orthanc (tw-300)
  * Type: hero-resource-item (special, palantír)
- * Effects: 2 (item-play-site, grant-action palantir-fetch-discard)
+ * Effects: 3 (item-play-site, grant-action palantir-fetch-discard, fw-mp-none)
  *
  * "Unique. Palantír. Playable only at Isengard. With its bearer able to
  *  use a Palantír and with at least 5 cards in your play deck, tap
@@ -11,6 +11,11 @@
  *  place in your play deck (reshuffle the play deck). Bearer makes a
  *  corruption check. This item does not give MPs to a Fallen-wizard
  *  regardless of other cards in play."
+ *
+ * The final clause is the `fw-mp-none` marker (added with the minion
+ * Palantír of Elostirion le-332, which prints the same clause and carries its
+ * coverage): a Fallen-wizard scores 0 MP for the item, ahead of the MEWH §4
+ * clamp, Saruman's `fw-item-mp-full` exemption and every MP override.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

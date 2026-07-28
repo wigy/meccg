@@ -383,6 +383,13 @@ export interface CancelAttackAction {
    * immediately.
    */
   readonly mode?: 'cancel' | 'reduce-prowess' | 'free-later-cancel';
+  /**
+   * The replacement site chosen from the canceling player's location deck, set
+   * only for a `cancel-attack` effect carrying a `siteSwap` payload (Farmer
+   * Maggot as-48). Resolving the action swaps the defending company's current
+   * site card for this one before the attack is canceled.
+   */
+  readonly replacementSiteInstanceId?: CardInstanceId;
 }
 
 /**
@@ -1390,4 +1397,19 @@ export interface TransferReturnedItemAction {
   readonly itemInstanceId?: CardInstanceId;
   /** The company-mate that receives the item; omitted to decline. */
   readonly targetCharacterId?: CardInstanceId;
+}
+
+/**
+ * Resolve a queued `discard-substitute-offer` pending resolution (Leaf Brooch
+ * dm-171). The owner of the doomed cards either names one card to save — the
+ * substitute item is discarded in its place — or declines by omitting
+ * `itemInstanceId`, letting the forced discard go through unchanged.
+ */
+export interface UseDiscardSubstituteAction {
+  /** Action discriminant. */
+  readonly type: 'use-discard-substitute';
+  /** Owner of both the substitute and the doomed cards. */
+  readonly player: PlayerId;
+  /** The card saved from discard; omitted to decline the substitution. */
+  readonly itemInstanceId?: CardInstanceId;
 }

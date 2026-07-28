@@ -562,18 +562,30 @@ export function buildSitePhaseState(opts: {
  * by hold-targeting hazard short-event card tests (FEAR! FIRE! FOES! as-29,
  * Arouse Defenders le-101) that must be offered against a moving company whose
  * destination site type matches the card's gate.
+ *
+ * `opts` covers the cases where the moving side is not a plain Wizard company:
+ * `resourceAlignment` sets PLAYER_1's alignment and `origin` its starting site
+ * (e.g. a Fallen-wizard company moving out of Isengard, for hazards that target
+ * a Wizardhaven — Nature's Revenge wh-27).
  */
 export function buildHazardMovingState(
   destination: CardDefinitionId,
   destinationSiteName: string,
   hazardHand: CardDefinitionId[],
   characters: CharacterEntry[] = [ARAGORN],
+  opts?: { resourceAlignment?: Alignment; origin?: CardDefinitionId },
 ): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
     players: [
-      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters, destinationSite: destination }], hand: [], siteDeck: [MORIA] },
+      {
+        id: PLAYER_1,
+        ...(opts?.resourceAlignment ? { alignment: opts.resourceAlignment } : {}),
+        companies: [{ site: opts?.origin ?? RIVENDELL, characters, destinationSite: destination }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: hazardHand, siteDeck: [MINAS_TIRITH] },
     ],
   });
@@ -1746,12 +1758,53 @@ export function playPermanentEventAndResolve(
     companionCardInstanceId?: CardInstanceId;
     storeItemInstanceId?: CardInstanceId;
     storeCharacterId?: CardInstanceId;
+    opposedCharacterId?: CardInstanceId;
   },
 ): GameState {
   return playAndResolve(state, {
     type: 'play-permanent-event', player, cardInstanceId, targetCharacterId,
     ...opts,
   });
+}
+
+/**
+ * Play a dual-mode hazard creature (`creature-alt-event`, mode
+ * `permanent-event` — the Nine: Witch-king tw-113, Khamûl tw-47, Adûnaphel
+ * tw-2, Ûvatha tw-107, Ren tw-83) from the hazard player's hand in its
+ * permanent-event mode against the target company, and resolve the chain. The
+ * card ends up untapped in the hazard player's `cardsInPlay`.
+ */
+export function playAltPermanentEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetCompanyId: CompanyId,
+): GameState {
+  return playAndResolve(state, {
+    type: 'play-hazard', player, cardInstanceId, targetCompanyId, altEventMode: 'permanent-event',
+  });
+}
+
+/**
+ * Tap an in-play dual-mode creature-permanent-event during the opponent's
+ * movement/hazard phase ("becomes a short-event") and resolve the resulting
+ * chain. Picks the offered `tap-alt-permanent-event` action for the given card,
+ * optionally the one naming `targetCharacterId` (Adûnaphel tw-2's on-tap
+ * character tap). Asserts the tap is actually offered.
+ */
+export function tapAltPermanentEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetCharacterId?: CardInstanceId,
+): GameState {
+  const tap = viableActions(state, player, 'tap-alt-permanent-event').find(a => {
+    const action = a.action as { cardInstanceId?: CardInstanceId; targetCharacterId?: CardInstanceId };
+    if (action.cardInstanceId !== cardInstanceId) return false;
+    return targetCharacterId === undefined || action.targetCharacterId === targetCharacterId;
+  });
+  expect(tap).toBeDefined();
+  return playAndResolve(state, tap!.action);
 }
 
 /** Play a long event and resolve the chain (both players pass). */

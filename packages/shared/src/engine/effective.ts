@@ -12,12 +12,13 @@
  * routes through `resolveEffective`, and the constraint kind is one.
  */
 
-import type { GameState } from '../index.js';
+import type { CardDefinition, GameState } from '../index.js';
 import type { ActiveConstraint, AttributePath, ConstraintId } from '../types/pending.js';
 import type { CardDefinitionId, CardInstanceId, RegionType, SiteType } from '../types/common.js';
 import type { SiteInstanceTransformEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { hasSiteFlag, getCardEffects, defById } from './reducer-utils.js';
+import { isSiteCard } from '../types/cards.js';
+import { hasSiteFlag, getCardEffects, defById, siteRegionTypeOf, isSiteProtectedForPlayer, isWizardhavenConversionFor } from './reducer-utils.js';
 
 /**
  * The transform decision for a specific in-play site instance produced by a
@@ -113,16 +114,71 @@ export function resolveEffective<T extends number | string>(
 }
 
 /**
+ * True when a site-scoped constraint filter selects the given site.
+ *
+ * Two filter shapes are supported, and every reader of a site-scoped
+ * `attribute-modifier` constraint routes through this helper so they can never
+ * disagree:
+ *
+ * - `{ 'site.definitionId': … }` — the single site *definition* the card was
+ *   played on (Hold Rebuilt and Repaired as-88, Hidden Haven wh-75, …). This
+ *   still covers every in-play copy of that definition.
+ * - `{ 'site.name': … }` — **all versions** of the site, i.e. the hero, minion,
+ *   Fallen-wizard and Balrog printings of the same named location, which are
+ *   distinct definitions sharing one name. Emitted by an `allVersions`
+ *   add-constraint (Nature's Revenge wh-27: "All versions of the site become
+ *   Ruins & Lairs"), mirroring the name matching Long Grievous Siege (ba-40)
+ *   already uses for its site-bound automatic-attack.
+ * - `{ 'site.printedType': … }` — **every site of one printed type**, bound to
+ *   no definition at all. Emitted by a `printedSiteType` add-constraint
+ *   (Witch-king of Angmar tw-113: "causes all Shadow-holds [{S}] to become
+ *   Dark-holds [{D}]"). Callers that hold only a definition id must pass the
+ *   site's printed type for this shape to match; those that cannot (they never
+ *   see a class-wide retype) simply omit it.
+ */
+export function siteConstraintFilterMatches(
+  filter: unknown,
+  siteDefinitionId: CardDefinitionId | undefined,
+  siteName: string | undefined,
+  printedType?: SiteType,
+): boolean {
+  const f = filter as { 'site.definitionId'?: string; 'site.name'?: string; 'site.printedType'?: string } | undefined;
+  if (!f) return false;
+  if (f['site.definitionId'] !== undefined) {
+    return f['site.definitionId'] === (siteDefinitionId as string | undefined);
+  }
+  if (f['site.name'] !== undefined) {
+    return siteName !== undefined && f['site.name'] === siteName;
+  }
+  if (f['site.printedType'] !== undefined) {
+    return printedType !== undefined && f['site.printedType'] === (printedType as string);
+  }
+  return false;
+}
+
+/**
+ * The printed name of a site definition, for {@link siteConstraintFilterMatches}
+ * callers that only hold a definition id.
+ */
+export function siteNameOf(state: GameState, siteDefinitionId: CardDefinitionId | undefined): string | undefined {
+  if (siteDefinitionId === undefined) return undefined;
+  return (state.cardPool[siteDefinitionId] as { name?: string } | undefined)?.name;
+}
+
+/**
  * Returns the effective {@link SiteType} of a site definition after folding
  * in any active `site.type` `override` `attribute-modifier` constraint whose
- * `filter.site.definitionId` matches. Returns `printedType` when none applies.
+ * filter matches ({@link siteConstraintFilterMatches}). Returns `printedType`
+ * when none applies.
  *
- * Site-type overrides are matched purely by their `site.definitionId` filter
- * (not by the constraint's entity target), mirroring the existing consumers in
+ * Site-type overrides are matched purely by their filter (not by the
+ * constraint's entity target), mirroring the existing consumers in
  * `legal-actions/movement-hazard.ts` and `reducer-untap.ts`. This lets a
  * site-transforming card (e.g. Hold Rebuilt and Repaired, as-88) change the
- * type of every in-play copy of the bound site. The last matching override
- * wins.
+ * type of every in-play copy of the bound site — or, for a name-scoped
+ * override, of every printed version of it, or, for a printed-type-scoped
+ * override, every site of one printed type at once (Witch-king of Angmar
+ * tw-113). The last matching override wins.
  */
 export function getEffectiveSiteType(
   state: GameState,
@@ -159,8 +215,7 @@ export function getEffectiveSiteType(
     // The general effective type is unchanged, so hazard keying, movement,
     // bring-into-play, and item/faction/ally playability all see the printed type.
     if (c.kind.healingOnly) continue;
-    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-    if (filterSiteDefId !== (siteDefinitionId as string)) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, siteDefinitionId, siteNameOf(state, siteDefinitionId), printedType)) continue;
     value = c.kind.value as SiteType;
   }
   return value;
@@ -229,6 +284,54 @@ export function siteAttacksCanceled(
   siteDefinitionId: CardDefinitionId,
 ): boolean {
   return hasSiteFlag(state.activeConstraints, 'cancel-attacks-at-site', siteDefinitionId);
+}
+
+/**
+ * Build the DSL condition context a `play-target` `target: "site"` filter is
+ * matched against: the site definition itself (so any printed field — `name`,
+ * `siteType`, `playableResources`, `keywords`, `lairOf`, … — is addressable)
+ * plus the four derived facts that do not live on the card:
+ *
+ * - `regionType` — the type of the region the site sits in (it lives on a
+ *   separate region card). "in a Wilderness [{w}]" (Hidden Haven wh-75,
+ *   Nature's Revenge wh-27).
+ * - `effectiveSiteType` — the type after any `site-type-override` /
+ *   wizardhaven-conversion, so "your Wizardhaven [{H}]" matches a dynamically
+ *   converted haven (Guarded Haven wh-74).
+ * - `isWizardhaven` — the site is a Fallen-wizard haven for *some* player,
+ *   either printed (`fallen-wizard` alignment haven) or converted into one by
+ *   a `wizardhaven-conversion` (Hidden Haven wh-75, Mischief in a Mean Way
+ *   wh-77). Distinguishes a Wizardhaven from a METW Haven or MELE Darkhaven.
+ * - `isProtected` — the site is a protected site for some player, whether via
+ *   a `site-protected` constraint (The Fortress of Isen wh-68, Fortress of the
+ *   Towers wh-69, Guarded Haven wh-74) or inherently (Rhosgobel wh-57). Backs
+ *   "on a **non-protected** Wizardhaven" (Nature's Revenge wh-27).
+ *
+ * Shared by every site play-target matcher — the site phase
+ * (`legal-actions/site.ts`), the organization phase
+ * (`legal-actions/organization-events.ts`) and the movement/hazard phase
+ * (`legal-actions/movement-hazard.ts`) — so all three evaluate identical
+ * predicates. Callers may spread extra keys on top for context only they can
+ * compute (e.g. `isUnderDeepsSurface`).
+ */
+export function buildSiteFilterContext(
+  state: GameState,
+  siteDef: CardDefinition,
+  siteInstanceId?: CardInstanceId,
+): Record<string, unknown> {
+  const base = { ...(siteDef as unknown as Record<string, unknown>) };
+  if (!isSiteCard(siteDef)) return base;
+  const siteDefId = siteDef.id;
+  const isWizardhaven = (siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard')
+    || state.players.some(p => isWizardhavenConversionFor(state, siteDefId, p.id));
+  const isProtected = state.players.some(p => isSiteProtectedForPlayer(state, siteDefId, p.id));
+  return {
+    ...base,
+    regionType: siteRegionTypeOf(state, siteDef),
+    effectiveSiteType: getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId),
+    isWizardhaven,
+    isProtected,
+  };
 }
 
 function matchesEntity(a: ConstraintTarget, b: ConstraintTarget): boolean {

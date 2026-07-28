@@ -14,7 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -24,7 +24,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -37,7 +37,7 @@ import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestatio
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
-import type { AgentAttackModifierEffect, MoveEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
+import type { AgentAttackModifierEffect, MoveEffect, SiteEntryAttackSpec, SiteEntryRollAttackEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
 import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 
 
@@ -59,10 +59,12 @@ type SiteHandler = (state: GameState, action: GameAction, siteState: SitePhaseSt
  */
 const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHandler>>> = {
   'select-company': handleSiteSelectCompany,
+  'siege-attacks': handleSiteSiegeAttacks,
   'enter-or-skip': handleSiteEnterOrSkip,
   'reveal-on-guard-attacks': handleRevealOnGuardAttacks,
   'forewarned-select-attack': handleForewarnedSelectAttack,
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
+  'site-entry-attack': handleSiteEntryAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
   'troll-purse-attacks': handleSiteTrollPurseAttacks,
   'rescue-attacks': handleSiteRescueAttacks,
@@ -304,9 +306,18 @@ function handleSiteSelectCompany(
       // item does not tap the site each turn", refresh the free-minor-item
       // allowance for this site phase.
       firstMinorItemNoTapAvailable: siteFirstMinorItemNoTap(state, company.currentSite),
+      // Farmer Maggot (as-48) may have abandoned the previous company's
+      // automatic-attack sequence — each company starts its slot facing its
+      // site's attacks normally.
+      autoAttacksSkipped: undefined,
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,
+      // Every `site-entry-roll-attack` gate (Doubled Vigilance dm-51) fires
+      // once per *company* site phase, so the newly selected company starts
+      // with a clean slate.
+      siteEntryReturnStep: undefined,
+      siteEntryGatesFaced: undefined,
     },
   };
 
@@ -319,7 +330,122 @@ function handleSiteSelectCompany(
   // resolutions when conditions match (e.g. Stench of Mordor).
   nextState = fireSitePhaseCompanyBeginsEvents(nextState, state.activePlayer!, company);
 
-  return { state: nextState };
+  // Siege (tw-87): a besieging card bound to the company's current site makes
+  // it face an attack "at the beginning of its site phase" — before the
+  // enter-or-skip decision, so doing nothing at the site does not avoid it.
+  // The first attack is initiated here; the rest are sequenced by
+  // handleSiteSiegeAttacks. Any pending resolutions enqueued just above
+  // (gold-ring tests, Stench of Mordor taps) still resolve first — the legal
+  // action dispatcher gives queued resolutions priority over combat.
+  return { state: maybeInitiateSiegeAttacks(nextState, company) ?? nextState };
+}
+
+/**
+ * Siege (tw-87): if any card besieging `company`'s current site carries a
+ * `site-phase-start-attack` effect, enter the `siege-attacks` sub-step and
+ * initiate the first of those attacks. Returns null when no siege binds the
+ * site (the caller keeps its own `enter-or-skip` transition).
+ */
+function maybeInitiateSiegeAttacks(state: GameState, company: Company): GameState | null {
+  const sieges = siteStartOfPhaseAttacks(state, company.currentSite?.definitionId);
+  if (sieges.length === 0) return null;
+  const siteState = requirePhaseState(state, Phase.Site);
+  logDetail(`Siege: company ${company.id as string} must face ${sieges.length} siege attack(s) before deciding whether to enter ${cardName(state, company.currentSite!.definitionId, '?')}`);
+  return {
+    ...state,
+    combat: buildSiegeAttackCombat(state, company, sieges[0].cardInstanceId, sieges[0].effect),
+    phaseState: {
+      ...siteState,
+      step: 'siege-attacks' as const,
+      siegeAttacks: { sourceInstanceIds: sieges.map(s => s.cardInstanceId), resolved: 1 },
+    },
+  };
+}
+
+/**
+ * Build the combat state for one siege attack (Siege tw-87). Unlike a site
+ * automatic-attack this is a plain creature-race attack contributed by a card
+ * in play: it carries a `siege-attack` attack source, is never detainment (the
+ * card prints no detainment clause and the attack is not keyed to the site
+ * type), and no auto-attack modifier or duplicate constraint applies to it.
+ * Global attack modifiers keyed on the creature's race (e.g. environments that
+ * boost Orc attacks) still resolve through `resolveAttack*`.
+ */
+function buildSiegeAttackCombat(
+  state: GameState,
+  company: Company,
+  cardInstanceId: CardInstanceId,
+  effect: import('../types/effects.js').SitePhaseStartAttackEffect,
+): CombatState {
+  const inPlayNames = buildInPlayNames(state);
+  const creatureRace = normalizeCreatureRace(effect.attack.creatureType);
+  const boostCtx = { companyId: company.id };
+  const prowess = resolveAttackProwess(state, effect.attack.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
+  const strikes = resolveAttackStrikes(state, effect.attack.strikes, inPlayNames, creatureRace, true, boostCtx);
+  const body = resolveAttackBody(state, effect.attack.body ?? null, inPlayNames, creatureRace, boostCtx);
+  logDetail(`Siege: initiating ${effect.attack.creatureType} attack (${strikes} strikes, ${prowess} prowess) from "${cardName(state, resolveInstanceId(state, cardInstanceId) as import('../index.js').CardDefinitionId, '?')}" against company ${company.id as string}`);
+  return makeCombatState({
+    attackSource: { type: 'siege-attack', cardInstanceId, siteInstanceId: company.currentSite!.instanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer(state).id,
+    strikesTotal: strikes,
+    strikeProwess: prowess,
+    creatureBody: body,
+    creatureRace,
+    assignmentPhase: 'defender',
+    detainment: false,
+  });
+}
+
+/**
+ * Handle the 'siege-attacks' step (Siege tw-87): sequence the attacks every
+ * card besieging the company's site contributes. Each `pass` initiates the next
+ * siege attack; once all are faced the company proceeds to its normal
+ * 'enter-or-skip' decision (it may still do nothing at the site — but it has
+ * already faced the siege).
+ */
+function handleSiteSiegeAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during siege-attacks step` };
+  }
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+
+  // The company may have been wiped out by an earlier siege attack.
+  if (!company) {
+    logDetail('Siege: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+
+  const siege = siteState.siegeAttacks;
+  const sieges = siteStartOfPhaseAttacks(state, company.currentSite?.definitionId);
+  const remaining = siege
+    ? sieges.filter(s => siege.sourceInstanceIds.includes(s.cardInstanceId)).slice(siege.resolved)
+    : [];
+
+  if (remaining.length === 0) {
+    logDetail(`Siege: all siege attacks faced by company ${company.id as string} → enter-or-skip`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'enter-or-skip' as const, siegeAttacks: undefined },
+      },
+    };
+  }
+
+  const next = remaining[0];
+  return {
+    state: {
+      ...state,
+      combat: buildSiegeAttackCombat(state, company, next.cardInstanceId, next.effect),
+      phaseState: { ...siteState, siegeAttacks: { ...siege!, resolved: siege!.resolved + 1 } },
+    },
+  };
 }
 
 /**
@@ -398,44 +524,196 @@ function handleSiteEnterOrSkip(
   const hasDynamicAutoAttack = !skipAutoAttacks && siteDef && isSiteCard(siteDef)
     && (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false);
 
+  // Entry gates (`site-entry-roll-attack`, Doubled Vigilance dm-51) fire the
+  // moment the company commits to entering, before anything else at the site.
+  let entryStep: SitePhaseState['step'];
   if (autoAttackCount > 0 && !skipAutoAttacks) {
     logDetail(`Site: company ${company.id} enters site with ${autoAttackCount} automatic-attack(s) → advancing to reveal-on-guard-attacks`);
-    return {
-      state: {
-        ...state,
-        phaseState: {
-          ...siteState,
-          step: 'reveal-on-guard-attacks' as const,
-        },
-      },
-    };
-  }
-
-  if (hasDynamicAutoAttack) {
+    entryStep = 'reveal-on-guard-attacks';
+  } else if (hasDynamicAutoAttack) {
     logDetail(`Site: company ${company.id} enters site with dynamic auto-attack effect → advancing to play-site-auto-attack`);
+    entryStep = 'play-site-auto-attack';
+  } else {
+    // No automatic-attacks — skip straight to declare-agent-attack
+    logDetail(`Site: company ${company.id} enters site with no automatic-attacks → advancing to declare-agent-attack`);
+    entryStep = 'declare-agent-attack';
+  }
+  return advanceThroughSiteEntryGates(state, siteState, entryStep);
+}
+
+/**
+ * Locate the first `site-entry-roll-attack` host (Doubled Vigilance dm-51)
+ * bound to the active company's current site whose entry roll this company has
+ * not yet made this site phase. Either player's `cardsInPlay` is scanned — the
+ * card text gates "the company", not "your opponent's company" — and hosts are
+ * consumed in `cardsInPlay` order so multiple copies each fire exactly once.
+ */
+function findUnfiredSiteEntryGate(
+  state: GameState,
+  siteState: SitePhaseState,
+): { readonly instanceId: CardInstanceId; readonly name: string; readonly effect: SiteEntryRollAttackEffect } | null {
+  const player = playerById(state, state.activePlayer);
+  const company = player?.companies[siteState.activeCompanyIndex];
+  if (!company?.currentSite) return null;
+  const siteDefId = company.currentSite.definitionId;
+  const faced = new Set((siteState.siteEntryGatesFaced ?? []).map(id => id as string));
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      if (card.attachedToSite !== siteDefId) continue;
+      if (faced.has(card.instanceId as string)) continue;
+      const effect = getCardEffects(defById(state, card.definitionId)).find(
+        (e): e is SiteEntryRollAttackEffect => e.type === 'site-entry-roll-attack',
+      );
+      if (effect) return { instanceId: card.instanceId, name: cardName(state, card.definitionId), effect };
+    }
+  }
+  return null;
+}
+
+/**
+ * Advance the active company to `nextStep`, first running any pending
+ * `site-entry-roll-attack` gate bound to its site (Doubled Vigilance dm-51).
+ *
+ * When a gate is found, the company's controller is handed a `dice-check`
+ * pending resolution — 2d6 minus the company's effective size (CoE 3.24)
+ * against the effect's threshold — and the site step parks at
+ * `site-entry-attack` with `nextStep` recorded as the return step. A failed
+ * roll's `onFail` verb initiates the effect's attack there, so it resolves
+ * before any automatic-attack. With no gate left, the company simply advances.
+ *
+ * Called both when the company commits to entering (`enter-or-skip`) and after
+ * the on-guard reveal window, so a copy revealed on-guard still fires ahead of
+ * the automatic-attacks (CRF: "Can be revealed on-guard").
+ */
+function advanceThroughSiteEntryGates(
+  state: GameState,
+  siteState: SitePhaseState,
+  nextStep: SitePhaseState['step'],
+): ReducerResult {
+  const gate = findUnfiredSiteEntryGate(state, siteState);
+  if (!gate) {
     return {
       state: {
         ...state,
         phaseState: {
           ...siteState,
-          step: 'play-site-auto-attack' as const,
+          step: nextStep,
+          siteEntryReturnStep: undefined,
+          ...(nextStep === 'declare-agent-attack' ? { siteEntered: true } : {}),
         },
       },
     };
   }
 
-  // No automatic-attacks — skip straight to declare-agent-attack
-  logDetail(`Site: company ${company.id} enters site with no automatic-attacks → advancing to declare-agent-attack`);
+  const player = playerById(state, state.activePlayer)!;
+  const company = player.companies[siteState.activeCompanyIndex];
+  const hostName = gate.name;
+  const size = gate.effect.subtractCompanySize ? companyEffectiveSize(state, company) : 0;
+  const comparison = gate.effect.comparison ?? 'gt';
+  const label = `${hostName}: entry roll${size ? ` − company size ${size}` : ''} ${comparison === 'gt' ? '>' : '≥'} ${gate.effect.threshold}`;
+  logDetail(`Site entry gate "${hostName}": company ${company.id} must roll ${label}`);
+
+  const withRoll = enqueueResolution(state, {
+    source: gate.instanceId,
+    actor: player.id,
+    scope: { kind: 'company-site-subphase', companyId: company.id },
+    kind: {
+      type: 'dice-check',
+      label,
+      roller: player.id,
+      modifiers: size ? [{ kind: 'constant', value: -size }] : [],
+      threshold: gate.effect.threshold,
+      comparison,
+      onFail: { type: 'site-entry-attack', attack: gate.effect.attack },
+      continuation: { kind: 'dequeue-only' },
+    },
+  });
+
   return {
     state: {
-      ...state,
+      ...withRoll,
       phaseState: {
         ...siteState,
-        step: 'declare-agent-attack' as const,
-        siteEntered: true,
+        step: 'site-entry-attack' as const,
+        siteEntryReturnStep: nextStep,
+        siteEntryGatesFaced: [...(siteState.siteEntryGatesFaced ?? []), gate.instanceId],
       },
     },
   };
+}
+
+/**
+ * Build the combat for a failed `site-entry-roll-attack` entry roll (Doubled
+ * Vigilance dm-51). The attack belongs to the hazard event, not to the site:
+ * it carries no keying, so the §3.II site-type detainment branch cannot fire
+ * for it and automatic-attack modifiers are not applied. Detainment is still
+ * derived from the attacking race, the defender's alignment/covert status and
+ * the site's own `combat-detainment` rules.
+ *
+ * Returns `null` when the company has dissolved (nothing left to attack).
+ */
+export function buildSiteEntryAttackCombat(
+  state: GameState,
+  defenderIndex: number,
+  siteState: SitePhaseState,
+  attack: SiteEntryAttackSpec,
+  eventInstanceId: CardInstanceId,
+): CombatState | null {
+  const defender = state.players[defenderIndex];
+  const company = defender?.companies[siteState.activeCompanyIndex];
+  if (!company || company.characters.length === 0) return null;
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteEffects = siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined;
+  const creatureRace = normalizeCreatureRace(attack.creatureType);
+  const detainment = isDetainmentAttack({
+    attackRace: creatureRace as Race | null,
+    defendingAlignment: defender.alignment,
+    defendingCovert: isCovertCompany(company, defender, state),
+    defendingSiteEffects: siteEffects,
+    isAutomaticAttack: false,
+    defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, defender),
+  });
+  logDetail(`Site entry attack: ${attack.creatureType} — ${attack.strikes} strike(s) at ${attack.prowess} prowess against company ${company.id}${detainment ? ' (detainment)' : ''}`);
+  return makeCombatState({
+    attackSource: { type: 'site-entry-attack', eventInstanceId },
+    companyId: company.id,
+    defendingPlayerId: defender.id,
+    attackingPlayerId: hazardPlayer(state, defender.id).id,
+    strikesTotal: attack.strikes,
+    strikeProwess: attack.prowess,
+    creatureBody: attack.body ?? null,
+    creatureRace,
+    assignmentPhase: 'defender',
+    detainment,
+  });
+}
+
+/**
+ * Handle the `site-entry-attack` step: the window in which a
+ * `site-entry-roll-attack` gate's roll (and, when it fails, its attack) is
+ * resolved. The entry roll itself arrives as a `dice-check` pending
+ * resolution, which the unified dispatcher handles before this step is
+ * reached; likewise the attack runs through the combat sub-state. Once neither
+ * is outstanding, the active player passes: any further unfired gate at the
+ * site opens next, otherwise the company continues to the step it was heading
+ * for when the gate intervened.
+ */
+function handleSiteEntryAttack(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during site-entry-attack step, got '${action.type}'` };
+  }
+  const player = playerById(state, state.activePlayer)!;
+  if (!player.companies[siteState.activeCompanyIndex]) {
+    logDetail('Site entry attack: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+  const returnStep = siteState.siteEntryReturnStep ?? 'declare-agent-attack';
+  logDetail(`Site entry attack resolved → continuing to ${returnStep}`);
+  return advanceThroughSiteEntryGates(state, siteState, returnStep);
 }
 
 /**
@@ -477,12 +755,10 @@ function handleRevealOnGuardAttacks(
       nextStep = 'automatic-attacks';
     }
     logDetail(`Site: reveal-on-guard-attacks → advancing to ${nextStep}`);
-    return {
-      state: {
-        ...state,
-        phaseState: { ...siteState, step: nextStep },
-      },
-    };
+    // A `site-entry-roll-attack` host revealed from an on-guard slot during
+    // this very step has not made its entry roll yet; run it (and any attack
+    // it causes) before the automatic-attacks the reveal window precedes.
+    return advanceThroughSiteEntryGates(state, siteState, nextStep);
   }
 
   // Reveal on-guard card (creature or event affecting automatic-attacks)
@@ -509,6 +785,18 @@ function handleRevealOnGuardAttacks(
       const newCompanies = [...resourcePlayer.companies];
       newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
+      // A permanent event whose `play-target` is a site is "played on" the
+      // site the company is standing at, exactly as if it had been played from
+      // hand during the M/H phase — record the binding so its site-scoped
+      // effects fire and the generic orphan sweep discards it when the site
+      // leaves play.
+      const siteBinding = getCardEffects(def).some(e => e.type === 'play-target' && e.target === 'site')
+        ? company.currentSite?.definitionId
+        : undefined;
+      if (siteBinding) {
+        logDetail(`"${def.name}" revealed on-guard → attached to site ${siteBinding as string}`);
+      }
+
       const hazardIndex = getPlayerIndex(state, action.player);
       const newPlayers = clonePlayers(state);
       newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
@@ -518,6 +806,7 @@ function handleRevealOnGuardAttacks(
           instanceId: revealedCard.instanceId,
           definitionId: revealedCard.definitionId,
           status: CardStatus.Untapped,
+          ...(siteBinding ? { attachedToSite: siteBinding } : {}),
         }],
       };
 
@@ -724,9 +1013,17 @@ function handleSiteAutomaticAttacks(
 
   // When Forewarned Is Forearmed selected a single attack, only that attack
   // is resolved; consider done after 1 attack (not after all autoAttacks.length).
-  const allAttacksDone = forewarnedIdx !== undefined
-    ? attackIndex >= 1
-    : resolveIdx >= autoAttacks.length;
+  // Farmer Maggot (as-48) swapped the site card out from under the company
+  // mid-sequence: the company was placed at the replacement rather than
+  // entering it, so no further automatic-attack is faced at all.
+  const allAttacksDone = siteState.autoAttacksSkipped === true
+    ? true
+    : forewarnedIdx !== undefined
+      ? attackIndex >= 1
+      : resolveIdx >= autoAttacks.length;
+  if (siteState.autoAttacksSkipped === true) {
+    logDetail(`Site: automatic-attack sequence abandoned (site card replaced mid-attack) — no further attacks at ${siteDef.name}`);
+  }
 
   // In the done-branch, treat skipped trailing attacks as resolved so the
   // duplicate-counting math (`effectiveResolved - autoAttacks.length`) holds.
@@ -743,13 +1040,21 @@ function handleSiteAutomaticAttacks(
         raceDupRaces.add(c.kind.race);
       }
     }
-    if (raceDupRaces.size > 0) {
+    // An abandoned sequence (Farmer Maggot as-48) faces nothing further at all —
+    // not even a duplicated attack at the replacement site.
+    if (raceDupRaces.size > 0 && siteState.autoAttacksSkipped !== true) {
       const duplicatableAttacks = autoAttacks.filter(aa => {
         const aaRace = normalizeCreatureRace(aa.creatureType);
         return aaRace !== undefined && raceDupRaces.has(aaRace);
       });
       const duplicatesRun = effectiveResolved - autoAttacks.length;
-      if (duplicatesRun < duplicatableAttacks.length) {
+      // Lower bound matters as much as the upper one: while the site's base
+      // attacks are still being worked through, `effectiveResolved` is below
+      // `autoAttacks.length` and this count is negative. A negative array
+      // index is not out of bounds in JS — it reads back `undefined` — so the
+      // upper-bound check alone let it through and the next line crashed on
+      // `undefined.creatureType`.
+      if (duplicatesRun >= 0 && duplicatesRun < duplicatableAttacks.length) {
         const aa = duplicatableAttacks[duplicatesRun];
         const dupRace = normalizeCreatureRace(aa.creatureType);
         const inPlayNamesR = buildInPlayNames(state);
@@ -2791,7 +3096,24 @@ export function resolveInfluenceAttemptRoll(
   // The influencer may be a character or an ally that "influences factions as
   // if a character" (Radagast's Black Bird wh-114).
   const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', charId);
-  if (!charInPlay && !influencerAlly) return { state, effects: [] };
+  if (!charInPlay && !influencerAlly) {
+    // The influencer left play between declaring the attempt and the roll
+    // (eliminated by an attack, discarded, returned to hand). Nobody is left
+    // to make the check, so the attempt simply fails and the faction is
+    // discarded. Returning the state untouched instead would strand the
+    // chain: the entry stays unresolved, the chain stays in `resolving` mode
+    // where no actions are offered, and the game deadlocks with neither
+    // player able to act (seed 90260).
+    logDetail(`Influence attempt fails: influencer ${charId as string} is no longer in play — discarding ${def.name}`);
+    const failedState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, entry.card!],
+    }));
+    return {
+      state: { ...failedState, phaseState: { ...siteState, resourcePlayed: true } },
+      effects: [],
+    };
+  }
 
   const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
   const charName = charDef?.name ?? charId;
@@ -2826,7 +3148,8 @@ export function resolveInfluenceAttemptRoll(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
     // Player-scoped ongoing influence bonuses from bare in-play permanent-events
     // (Great Army of the North ba-38: +1 vs Orc/Troll factions while in play).
@@ -2840,23 +3163,31 @@ export function resolveInfluenceAttemptRoll(
     }
 
     // Under nullification only the influencer's OWN card text contributes.
-    const ownEffects = charEffects.filter(e => e.sourceInstance === charId);
+    const ownCardEffects = charEffects.filter(e => e.sourceInstance === charId);
 
     // Use free DI (total DI minus mind cost of followers), not the raw card
     // stat — or, under nullification, his *normal* unused DI (printed value
     // plus his own card-text modifications, without rings and other grants).
     const freeDI = nullifyMods
-      ? normalUnusedDI(state, charId, player, ownEffects, resolverCtx)
+      ? normalUnusedDI(state, charId, player, ownCardEffects, resolverCtx)
       : availableDI(state, charId, player);
     modifier += freeDI;
 
-    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       logDetail(`DSL influence check-modifiers: ${formatSignedNumber(dslModifier)}`);
     }
     modifier += dslModifier;
 
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries every DI modifier baked into the influencer's
+    // effective stats, so only the faction-conditional ones borne by the
+    // character are folded in here (see `checkConditionalEffects`). Under a
+    // le-150 nullification all card-sourced modifications are stripped.
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
@@ -2978,9 +3309,22 @@ export function resolveInfluenceAttemptRoll(
   // Game-wide ongoing influence modifier from a bare in-play event owned by
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
+  // The context carries the faction being influenced so a game-wide modifier
+  // can be race-gated (Lord of the Carrock as-14: "all influence attempts
+  // against Man factions are modified by -2"). Webs of Fear & Treachery
+  // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+    : collectGlobalCheckModifier(state, 'influence', {
+      reason: 'faction-influence-check',
+      faction: {
+        name: def.name,
+        race: def.race,
+        playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
+      },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
+    });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     logDetail(`Game-wide influence check-modifier: ${formatSignedNumber(globalInfluenceMod)}`);
@@ -3431,19 +3775,36 @@ function handleOpponentInfluenceAttempt(
     logDetail(`Opponent influence: ongoing influence check-modifiers ${formatSignedNumber(ongoingCheckModifier)}`);
   }
 
+  // Game-wide ongoing influence modifier from a bare in-play event owned by
+  // either player (`check-modifier` `target: "all-in-play"`). The glossary
+  // defines an influence attempt as "trying to influence a faction **or** an
+  // opponent's card", so a card whose text modifies "all influence attempts"
+  // reaches this path too — Lord of the Carrock (as-14): "all influence
+  // attempts against Man factions are modified by -2" applies both to playing
+  // a Man faction and to influencing an opponent's Man faction away. The
+  // effect's `when` (evaluated against `oppInfluenceCtx`, which exposes
+  // `target.kind` / `target.race`) is what keeps faction-play-only modifiers out.
+  const globalOppInfluenceMod = collectGlobalCheckModifier(state, 'influence', oppInfluenceCtx);
+  if (globalOppInfluenceMod !== 0) {
+    boostModifier += globalOppInfluenceMod;
+    logDetail(`Opponent influence: game-wide influence check-modifier ${formatSignedNumber(globalOppInfluenceMod)}`);
+  }
+
   // Fold in conditional direct-influence stat-modifiers borne by the influencer
   // that gate on the opponent-influence target context — e.g. Trifling Ring
   // (le-346): "+3 to direct influence against characters" applies only when the
-  // target is a character, not a faction/ally/item. Only `when`-gated modifiers
-  // are considered here: unconditional DI is already baked into effective stats
-  // and folded into `influencerContribution` via availableDI above, so including
-  // it again would double-count. Conditional modifiers are excluded from
-  // effective DI (no target context at effective-stats time) and applied here.
-  // Under a le-150 nullification the influencer's own conditional DI is already
-  // inside `influencerDI` (normal unused DI) and no other card's counts.
+  // target is a character, not a faction/ally/item. Only target-conditional
+  // modifiers are considered here: DI that is unconditional, or gated on the
+  // bearer alone (Power Relinquished to Artifice wh-28), is already baked into
+  // effective stats and folded into `influencerContribution` via availableDI
+  // above, so including it again would double-count. See
+  // `checkConditionalEffects`, which supersedes the older `when !== undefined`
+  // heuristic. Under a le-150 nullification the influencer's own conditional DI
+  // is already inside `influencerDI` (normal unused DI) and no other card's
+  // counts.
   const conditionalInfluencerEffects = nullifyMods
     ? []
-    : influencerEffects.filter(e => e.effect.when !== undefined);
+    : checkConditionalEffects(collectCharacterEffects(state, charInPlay, oppInfluenceCtx));
   const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
   if (conditionalInfluencerDI !== 0) {
     influencerContribution += conditionalInfluencerDI;
@@ -4297,6 +4658,7 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
         ...siteState,
         step: 'select-company' as const,
         automaticAttacksResolved: 0,
+        autoAttacksSkipped: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -4360,6 +4722,7 @@ function advanceSiteToNextCompany(
         step: 'select-company' as const,
         handledCompanyIds: updatedHandled,
         automaticAttacksResolved: 0,
+        autoAttacksSkipped: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -4370,6 +4733,8 @@ function advanceSiteToNextCompany(
         pendingResourceAction: null,
         opponentInteractionThisTurn: null,
         pendingOpponentInfluence: null,
+        siteEntryReturnStep: undefined,
+        siteEntryGatesFaced: undefined,
       },
     },
   };

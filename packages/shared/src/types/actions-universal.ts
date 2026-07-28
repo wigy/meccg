@@ -477,6 +477,20 @@ export interface DesireChoosePenaltyAction {
 }
 
 /**
+ * Choose which play deck to look at and shuffle the top of (Mirror of
+ * Galadriel, tw-282: "choose to look at the top five cards of any one play
+ * deck"). Resolves a `choose-peek-deck` pending resolution; declining the
+ * optional look is a `pass`.
+ */
+export interface ChoosePeekDeckAction {
+  readonly type: 'choose-peek-deck';
+  /** The player who played the peek effect. */
+  readonly player: PlayerId;
+  /** Whose play deck to look at and shuffle the top of. */
+  readonly deckOwner: 'self' | 'opponent';
+}
+
+/**
  * Choose which of the opponent's piles is revealed by The Great Hunt (wh-91).
  * Resolves a `great-hunt-source` pending resolution and kicks off the
  * reveal-and-attack sequence against the controller's Alatar company.
@@ -503,28 +517,35 @@ export interface GreatHuntAttackWithCreatureAction {
 }
 
 /**
- * Pay the maintenance cost for a hazard permanent event that requires upkeep
- * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
+ * Pay (or refuse to pay) one card of the upkeep cost on an in-play event that
+ * carries an `event-maintenance` effect — Thrice Outnumbered (le-142) at the
+ * end of the opponent's long-event phase, Balance Between Powers (dm-118) at
+ * the start of its controller's organization phase.
  *
- * The hazard player must either discard the event itself or discard a qualifying
- * card from their hand. Resolves the `hazard-event-maintenance` pending resolution.
+ * Resolves one step of the `event-maintenance` pending resolution: the actor
+ * either discards a qualifying hand card (repeated until the stage's cost is
+ * met), discards the source event outright, or declines to bid further.
  */
-export interface PayHazardEventMaintenanceAction {
-  readonly type: 'pay-hazard-event-maintenance';
-  /** The hazard player paying the maintenance cost. */
+export interface PayEventMaintenanceAction {
+  readonly type: 'pay-event-maintenance';
+  /** The player paying (or declining) this stage of the maintenance cost. */
   readonly player: PlayerId;
   /**
    * How to pay:
-   * - `'discard-self'` — discard the permanent event from cardsInPlay.
-   * - `'discard-from-hand'` — discard a qualifying card from hand.
+   * - `'discard-self'` — discard the source event from cardsInPlay (the
+   *   controller's `upkeep` stage only).
+   * - `'discard-from-hand'` — discard one qualifying card from hand.
+   * - `'decline'` — bid nothing: at `challenge` the source survives, at
+   *   `counter` it is discarded.
    */
-  readonly paymentType: 'discard-self' | 'discard-from-hand';
+  readonly paymentType: 'discard-self' | 'discard-from-hand' | 'decline';
   /**
    * The card instance to discard.
-   * For `discard-self`: the permanent event's instance ID.
+   * For `discard-self`: the source event's instance ID.
    * For `discard-from-hand`: the hand card's instance ID.
+   * For `decline`: the source event's instance ID (nothing is discarded).
    */
   readonly cardInstanceId: CardInstanceId;
-  /** The pending resolution's source (the permanent event instance ID). */
+  /** The pending resolution's source (the in-play event instance ID). */
   readonly sourceInstanceId: CardInstanceId;
 }

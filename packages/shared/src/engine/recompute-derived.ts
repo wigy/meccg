@@ -50,10 +50,12 @@ import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
+import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
+import { logDetail } from './legal-actions/log.js';
 
 /**
  * Returns the MP multiplier for a cross-alignment item (MELE Part IV).
@@ -305,6 +307,22 @@ function addPinnedCardMp(
 }
 
 /**
+ * True when this card gives **no** marshalling points at all to the player
+ * holding it because that player is a Fallen-wizard (`fw-mp-none`, e.g. the
+ * minion Palantír of Elostirion le-332: "This item does not give MPs to a
+ * Fallen-wizard regardless of other cards in play"). Checked ahead of every
+ * other MP rule — pins, overrides, the MEWH §4 clamp and its exemptions — so
+ * no other card in play can restore the points.
+ */
+function deniesFallenWizardMp(
+  def: CardDefinition | undefined,
+  playerAlignment: Alignment,
+): boolean {
+  if (playerAlignment !== 'fallen-wizard') return false;
+  return getCardEffects(def).some(e => e.type === 'fw-mp-none');
+}
+
+/**
  * Adds an item card's marshalling points to the running totals. For a
  * Fallen-wizard the item is worth a flat 1 MP (MEWH §4); otherwise the
  * cross-alignment half-MP rule applies (MELE Part IV) when the player's
@@ -320,6 +338,7 @@ function addItemMP(
   playerAlignment: Alignment,
   fwItemMpExempt = false,
 ): MarshallingPointTotals {
+  if (deniesFallenWizardMp(def, playerAlignment)) return totals;
   if (!hasMarshallingPoints(def)) return totals;
   const baseMp = def.marshallingPoints;
   if (baseMp === 0) return totals;
@@ -463,6 +482,26 @@ function inPlayNamesOf(state: GameState, player: PlayerState): string[] {
 export function buildInPlayNames(state: GameState): readonly string[] {
   const names = state.players.flatMap(player => inPlayNamesOf(state, player));
   return applyEnvironmentOverrides(state, names);
+}
+
+/**
+ * Build the condition context for a `play-target` `target: "site"` filter.
+ *
+ * The site's own definition fields are exposed at the top level (so existing
+ * filters like `{ "siteType": { "$in": [...] } }` keep working verbatim), plus
+ * an `environment.doorsOfNightInPlay` flag for the very common "…or on X if
+ * Doors of Night is in play" alternative (Doubled Vigilance dm-51). Shared by
+ * the M/H hazard-play emitter and the site-phase on-guard reveal check so both
+ * judge playability on a site identically.
+ */
+export function sitePlayTargetContext(
+  state: GameState,
+  siteDef: CardDefinition,
+): Record<string, unknown> {
+  return {
+    ...(siteDef as unknown as Record<string, unknown>),
+    environment: { doorsOfNightInPlay: buildInPlayNames(state).includes('Doors of Night') },
+  };
 }
 
 /**
@@ -1447,7 +1486,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Await the Advent of Allies (dm-117): a character bearing this attached
     // event "does not count against general influence" — its mind is not
     // subtracted from the pool while the card is attached.
-    const giExempt = characterBearsAttachedEffect(state, char, 'general-influence-exempt');
+    // An Unexpected Party (dm-114): a company-bound `company-influence-exempt`
+    // waives influence for the characters in that company matching its filter
+    // ("Dwarves with a mind of 2 or less … do not require influence to be
+    // controlled"). Judged on the character's effective mind, the same value
+    // the pool would otherwise be charged.
+    const giExempt = characterBearsAttachedEffect(state, char, 'general-influence-exempt')
+      || companyExemptsCharacterFromInfluence(state, charCompany?.id, charDef, newStats.mind);
     if (!isPrisoner && char.controlledBy === 'general' && !char.influenceUnsubtracted && charDef.mind !== null && !giExempt) {
       // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the GI cost
       // to keep the character; otherwise the effective/printed mind is used.
@@ -1517,6 +1562,14 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
+      // "Does not give MPs to a Fallen-wizard regardless of other cards in
+      // play" (minion Palantír of Elostirion le-332 and its siblings): score
+      // nothing, ahead of the Await-the-Onset pin, the wh-99 override, the §4
+      // clamp/exemption and the global item-MP bonus below.
+      if (deniesFallenWizardMp(itemDef, player.alignment)) {
+        logDetail(`Item ${(itemDef as { name?: string }).name ?? item.definitionId as string}: gives no marshalling points to a Fallen-wizard (card text)`);
+        continue;
+      }
       // agent-home-site-faction-lock (Faithless Steward as-83): the attached
       // card's own printed MP is conditional — "you receive this card's
       // marshalling points" only while the bearer is unwounded at one of his
@@ -2027,9 +2080,21 @@ export function computeCombatProwess(
 ): number {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
+  // The player whose `characters` dict holds this character. Needed twice: to
+  // scope `own-characters` effects (e.g. Descent through Fire ba-56: "+1
+  // prowess to all your characters") to that player's company members, and for
+  // their running stage-point total.
+  const ownerPlayer = state.players.find(
+    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
+  );
   const context: ResolverContext = {
     reason: 'combat',
-    bearer: charInfo,
+    // `stagePoints` is exposed exactly as in the effective-stats context: a
+    // prowess penalty that scales with a Fallen-wizard's progress (Power
+    // Relinquished to Artifice wh-28) must still apply when the character faces
+    // a strike, and this function re-resolves prowess from the printed value
+    // rather than adjusting the effective stat.
+    bearer: { ...charInfo, stagePoints: ownerPlayer?.stagePoints ?? 0 },
     target: charInfo,
     inPlay: inPlayNames,
     enemy: { race: creatureRace, name: '', prowess: 0, body: null },
@@ -2038,13 +2103,6 @@ export function computeCombatProwess(
 
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
-  // `own-characters`-scoped effects (e.g. Descent through Fire ba-56: "+1
-  // prowess to all your characters") apply only to characters controlled by
-  // the source card's owner. Find the player whose `characters` dict holds this
-  // character so the bonus is scoped to that player's own company members.
-  const ownerPlayer = state.players.find(
-    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
-  );
   const ownEffects = ownerPlayer
     ? collectGlobalEffects(state, 'own-characters', context, undefined, ownerPlayer.id)
     : [];

@@ -34,6 +34,19 @@ export interface PlayHeuristicAiMessage {
 }
 
 /**
+ * Start a game against the flat Monte-Carlo search agent
+ * (`specs/2026-07-27-monte-carlo-rollout-agent.md`), the strongest
+ * opponent available. Carries no agent spec: the spec is a server-side
+ * constant, because it becomes argv of a spawned process and a
+ * client-supplied one could name an arbitrary weights file.
+ */
+export interface PlayMcAiMessage {
+  readonly type: 'play-mc-ai';
+  /** Catalog deck ID for the AI opponent to use. */
+  readonly deckId: string;
+}
+
+/**
  * Start a game against a Real-AI: a trained model from the server's
  * `~/.meccg/models` directory (see GET /api/models). The `model` field is
  * the bare file name from that listing — never a path.
@@ -73,6 +86,7 @@ export type LobbyClientMessage =
   | AcceptChallengeMessage
   | DeclineChallengeMessage
   | PlayHeuristicAiMessage
+  | PlayMcAiMessage
   | PlayRealAiMessage
   | PlayPseudoAiMessage
   | PseudoAiPickMessage

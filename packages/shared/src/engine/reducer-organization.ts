@@ -6,7 +6,7 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, matchesDefinition } from './reducer-utils.js';
+import { gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -29,6 +29,7 @@ import { matchesCondition } from '../effects/condition-matcher.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
+import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -129,16 +130,72 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     turnNumber: state.turnNumber,
   });
 
-  return {
-    state: {
-      ...updatePlayer(swept, activeIndex, p => ({
-        ...p,
-        cardsInPlay: remainingCards,
-        discardPile: [...p.discardPile, ...discardedEvents],
-      })),
-      phaseState: { phase: Phase.LongEvent },
-    },
+  const afterDiscards = {
+    ...updatePlayer(swept, activeIndex, p => ({
+      ...p,
+      cardsInPlay: remainingCards,
+      discardPile: [...p.discardPile, ...discardedEvents],
+    })),
+    phaseState: { phase: Phase.LongEvent },
   };
+
+  // Siege (tw-87): "At the end of its organization phase, a company at a site
+  // with Siege on it must make a roll …" Enqueued after the phase transition so
+  // the rolls are the first thing resolved in the following long-event phase —
+  // pending resolutions take priority over phase actions, so no other decision
+  // can slip in between the organization phase ending and the roll.
+  return { state: enqueueCompanyMovementRolls(afterDiscards as GameState, activePlayer, activeIndex) };
+}
+
+/**
+ * Siege (tw-87): enqueue one end-of-organization-phase `dice-check` per company
+ * of the active player standing at a site besieged by a `company-movement-roll`
+ * card. The roll is 2d6 less {@link CompanyMovementRollEffect.penalty} for every
+ * character in the company lacking the named skill; failing it fires the
+ * `lock-company-movement` verb, which strips the company's declared destination
+ * and locks it stationary for the turn.
+ *
+ * The penalty is a `constant` modifier computed here: the company's membership
+ * cannot change between the organization phase ending and the roll resolving
+ * (the roll is the first thing the following phase does).
+ */
+function enqueueCompanyMovementRolls(
+  state: GameState,
+  activePlayer: import('../index.js').PlayerId,
+  activeIndex: number,
+): GameState {
+  let working = state;
+  for (const company of state.players[activeIndex].companies) {
+    const rolls = siteMovementRolls(working, company.currentSite?.definitionId);
+    for (const { cardInstanceId, sourceDefinitionId, effect } of rolls) {
+      const penalty = effect.penalty ?? 1;
+      const lacking = company.characters.filter(charId => {
+        const ch = working.players[activeIndex].characters[charId];
+        if (!ch) return false;
+        const charDef = defById(working, ch.definitionId);
+        const skills = getEffectiveSkills(working, ch, isCharacterCard(charDef) ? charDef : undefined);
+        return !skills.includes(effect.penaltyPerCharacterWithoutSkill);
+      }).length;
+      const sourceName = defById(working, sourceDefinitionId)?.name ?? (sourceDefinitionId as string);
+      logDetail(`${sourceName}: company ${company.id as string} must roll ≥ ${effect.threshold} to move (-${penalty * lacking} for ${lacking} non-${effect.penaltyPerCharacterWithoutSkill} character(s))`);
+      working = enqueueResolution(working, {
+        source: cardInstanceId,
+        actor: activePlayer,
+        scope: { kind: 'phase', phase: Phase.LongEvent },
+        kind: {
+          type: 'dice-check',
+          label: `${sourceName}: may company ${company.id as string} move this turn?`,
+          modifiers: [{ kind: 'constant', value: lacking > 0 ? -penalty * lacking : 0 }],
+          threshold: effect.threshold,
+          comparison: 'gte',
+          onFail: { type: 'lock-company-movement' },
+          continuation: { kind: 'dequeue-only' },
+          targetCompanyId: company.id,
+        },
+      });
+    }
+  }
+  return working;
 }
 
 /**
@@ -529,9 +586,13 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
     if (!controller) {
       return { state, error: 'Controlling character not found' };
     }
+    // A followers list is a set: the same character must never appear twice.
+    // Filtering first keeps this idempotent if the character is already listed
+    // (seen when a character in play is played again under the same
+    // controller), which otherwise corrupts every company built from the list.
     newCharacters[controllerId] = {
       ...controller,
-      followers: [...controller.followers, charInstId],
+      followers: [...controller.followers.filter(id => id !== charInstId), charInstId],
     };
   }
 
@@ -569,7 +630,16 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
     const effects = (eventDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
     return effects.some(e => e.type === 'recruit-character' && e.bypassOneCharacterLimit === true);
   })();
-  const updateOrgState = isOrgPhase && !bypassOneCharLimit;
+  // An Unexpected Party (dm-114): a character brought into a company carrying a
+  // matching `company-character-play-exempt` does not consume the turn's single
+  // character slot, so "any number of Dwarves" may still be followed by one
+  // ordinary character play (CRF 22).
+  const companyPlayExempt = joinedCompany !== undefined
+    && companyExemptsCharacterFromPlayLimit(state, joinedCompany.id, charDef);
+  if (companyPlayExempt) {
+    logDetail(`  ${charDef.name} joins ${joinedCompany.id as string} under a company-character-play-exempt card — one-character-per-turn slot not consumed`);
+  }
+  const updateOrgState = isOrgPhase && !bypassOneCharLimit && !companyPlayExempt;
 
   const stateAfterPlace = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
     ...updatePlayer(state, playerIndex, p => ({
@@ -1082,10 +1152,15 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
       }
     }
 
-    // Add to new controller's followers
+    // Add to new controller's followers. Re-read the controller rather than
+    // reusing the copy captured above: when a character is re-assigned to the
+    // controller it already follows, the removal step just rewrote this same
+    // entry, and appending to the stale copy would both undo that removal and
+    // list the follower twice. Filtering keeps the append idempotent.
+    const updatedController = newCharacters[controllerId];
     newCharacters[controllerId] = {
-      ...controller,
-      followers: [...controller.followers, charInstId],
+      ...updatedController,
+      followers: [...updatedController.followers.filter(id => id !== charInstId), charInstId],
     };
 
     // Set character's controlledBy
@@ -2073,33 +2148,6 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   const company = player.companies[companyIdx];
   if (!company.destinationSite) return { state, error: 'Company has no planned movement' };
 
-  // Rules 3.37 / 3.39: if the destination is still in play at another
-  // sibling company (as its currentSite or as its pending destinationSite),
-  // the card instance must stay in play — don't push it back to the site
-  // deck. Note this cancels only the sibling relationship for *this*
-  // company; the physical card was drawn exactly once, by whichever
-  // company actually took it from the deck.
-  const siblingStillHasIt = player.companies.some(
-    c => c.id !== company.id
-      && (c.currentSite?.instanceId === company.destinationSite!.instanceId
-        || c.destinationSite?.instanceId === company.destinationSite!.instanceId),
-  );
-
-  const companies = [...player.companies];
-  companies[companyIdx] = {
-    ...company,
-    destinationSite: null,
-    movementPath: [],
-  };
-
-  let siteDeck = player.siteDeck;
-  if (siblingStillHasIt) {
-    logDetail(`Cancel movement: company ${company.id as string}, destination ${company.destinationSite.instanceId as string} still in play at a sibling — not returning to site deck`);
-  } else {
-    logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite.instanceId as string} to site deck`);
-    siteDeck = [...player.siteDeck, toCardInstance(company.destinationSite)];
-  }
-
   // Reverse: re-plan movement to the destination we just cancelled
   const reverseAction: GameAction = {
     type: 'plan-movement',
@@ -2108,7 +2156,52 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     destinationSite: company.destinationSite.instanceId,
   };
 
-  return { state: { ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })), reverseActions: [...state.reverseActions, reverseAction] } };
+  const cleared = clearPlannedMovement(state, playerIndex, action.companyId);
+  return { state: { ...cleared, reverseActions: [...state.reverseActions, reverseAction] } };
+}
+
+/**
+ * Clear a company's planned destination, returning the destination site card
+ * to its owner's location deck. Shared by the player-driven `cancel-movement`
+ * action and by effects that strip a declared movement (Siege tw-87: a failed
+ * end-of-organization-phase roll means "the company may not move this turn").
+ *
+ * Rules 3.37 / 3.39: if the destination instance is still in play at another
+ * sibling company (as its `currentSite` or its own `destinationSite`), the card
+ * must stay in play — only this company's claim on it is dropped. The physical
+ * card was drawn from the location deck exactly once, by whichever company took
+ * it. A no-op when the company has no planned movement.
+ */
+export function clearPlannedMovement(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+): GameState {
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === companyId);
+  if (companyIdx === -1) return state;
+  const company = player.companies[companyIdx];
+  const destination = company.destinationSite;
+  if (!destination) return state;
+
+  const siblingStillHasIt = player.companies.some(
+    c => c.id !== company.id
+      && (c.currentSite?.instanceId === destination.instanceId
+        || c.destinationSite?.instanceId === destination.instanceId),
+  );
+
+  const companies = [...player.companies];
+  companies[companyIdx] = { ...company, destinationSite: null, movementPath: [] };
+
+  let siteDeck = player.siteDeck;
+  if (siblingStillHasIt) {
+    logDetail(`Cancel movement: company ${company.id as string}, destination ${destination.instanceId as string} still in play at a sibling — not returning to site deck`);
+  } else {
+    logDetail(`Cancel movement: company ${company.id as string}, returning site ${destination.instanceId as string} to site deck`);
+    siteDeck = [...player.siteDeck, toCardInstance(destination)];
+  }
+
+  return updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck }));
 }
 
 /**

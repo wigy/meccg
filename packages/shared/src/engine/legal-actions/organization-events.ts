@@ -23,10 +23,10 @@ import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '.
 import { Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { getEffectiveSkills } from '../effects/index.js';
-import { getEffectiveSiteType } from '../effective.js';
+import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -140,6 +140,16 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // never here — even during the organization phase.
     if (findPlayConditionEffect(def, 'active-company')) {
       logDetail(`Permanent event ${def.name}: site-phase timing (active-company play-condition) — not offered in this phase`);
+      continue;
+    }
+
+    // play-condition: phase — the card's text names the phase(s) it may be
+    // played in ("Playable on a leader during the organization phase" — No More
+    // Nonsense le-210). Without this gate a permanent event is offered in the
+    // organization phase, the M/H phase (rule 2.1.1) and the site phase alike.
+    const phaseCondition = findPlayConditionEffect(def, 'phase');
+    if (phaseCondition?.phases && !phaseCondition.phases.includes(state.phaseState.phase)) {
+      logDetail(`Permanent event ${def.name}: playable only during [${phaseCondition.phases.join(', ')}] (current phase ${state.phaseState.phase})`);
       continue;
     }
 
@@ -260,9 +270,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const siteDef = defById(state, siteDefId);
         if (!siteDef || !isSiteCard(siteDef)) return false;
         if (!filter) return true;
-        const regionType = siteRegionTypeOf(state, siteDef);
-        const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId);
-        return matchesCondition(filter, { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType });
+        return matchesCondition(filter, buildSiteFilterContext(state, siteDef, siteInstanceId));
       };
 
       // Mode 1 — play-with-stored-card: the companion (e.g. The White Tree)
@@ -385,14 +393,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const siteDef = defById(state, siteDefId);
         if (!siteDef || !isSiteCard(siteDef)) continue;
         if (sitePlayTarget.filter) {
-          // Mirror the site-phase matcher context: expose the site's region
-          // type (lives on a separate region card) and its *effective* type
-          // after any wizardhaven-conversion / site-type-override, so filters
-          // like Hidden Haven's region gate or Guarded Haven's "your
+          // The shared site play-target context — the site definition plus its
+          // region type, its *effective* type after any wizardhaven-conversion
+          // / site-type-override, and the Wizardhaven / protected flags — so
+          // filters like Hidden Haven's region gate or Guarded Haven's "your
           // Wizardhaven [{H}]" match dynamically converted sites.
-          const regionType = siteRegionTypeOf(state, siteDef);
-          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite.instanceId);
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
+          const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
             continue;
@@ -461,6 +467,9 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       (e): e is PlayTargetEffect => e.type === 'play-target',
     );
     if (playTarget?.target === 'character') {
+      const opposedRollEffect = def.effects?.find(
+        (e): e is import('../../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
+      );
       const charDupLimit = findDuplicationLimitEffect(def, 'character');
       const companyDupLimit = findDuplicationLimitEffect(def, 'company');
       // play-condition: site-type — the character's company must be at one of the required site types
@@ -568,6 +577,29 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
               logDetail(`Permanent event ${def.name}: duplication limit on ${charDef.name}`);
               continue;
             }
+          }
+          // opposed-roll (No More Nonsense le-210): "Choose another character
+          // in the company and do the same." The second roller is picked at
+          // play time, so cross this target with every *other* character in its
+          // company; a company with no other character offers no play at all.
+          if (opposedRollEffect?.opponent === 'chosen-company-member') {
+            const others = company.characters.filter(otherId => otherId !== charId && player.characters[otherId]);
+            if (others.length === 0) {
+              logDetail(`Permanent event ${def.name}: ${charDef.name} has no other character in his company to roll against`);
+              continue;
+            }
+            for (const otherId of others) {
+              anyTarget = true;
+              logDetail(`Permanent event ${def.name}: playable on ${charDef.name} opposed by ${cardName(state, player.characters[otherId].definitionId)}`);
+              actions.push({
+                action: {
+                  type: 'play-permanent-event', player: playerId, cardInstanceId,
+                  targetCharacterId: charId, opposedCharacterId: otherId,
+                },
+                viable: true,
+              });
+            }
+            continue;
           }
           anyTarget = true;
           logDetail(`Permanent event ${def.name}: playable on ${charDef.name}`);

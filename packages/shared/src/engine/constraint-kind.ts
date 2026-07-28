@@ -90,6 +90,14 @@ export function buildConstraintKind(
       return { type: 'only-creatures-keyed-to-site' };
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
+    case 'extra-mh-phase': {
+      // Master of Esgaroth (td-135). The destination gate is stored on the
+      // constraint and evaluated when the company's M/H phase ends, since the
+      // card is played before the move resolves.
+      const required = (onEvent.apply as { requiresDestinationSiteType?: import('../types/common.js').SiteType })
+        .requiresDestinationSiteType;
+      return { type: 'extra-mh-phase', ...(required ? { requiresDestinationSiteType: required } : {}) };
+    }
     case 'no-creatures-keyed-to-site': {
       const unless = (onEvent.apply as { unlessSiteRegionType?: import('../types/common.js').RegionType }).unlessSiteRegionType;
       return { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
@@ -143,12 +151,22 @@ export function buildConstraintKind(
       // healing-only override — `getEffectiveSiteType` skips it, so only the
       // untap-phase haven-healing sweep honours it.
       const purpose = (onEvent.apply as { purpose?: string }).purpose;
+      // Nature's Revenge (wh-27): "All versions of the site become Ruins &
+      // Lairs" — scope the override by printed *name* so the hero, minion,
+      // Fallen-wizard and Balrog printings of the location (distinct
+      // definitions sharing a name) are all retyped, not just the one the
+      // card was played on.
+      const allVersions = (onEvent.apply as { allVersions?: boolean }).allVersions === true;
+      const siteName = (state.cardPool[siteDefinitionId] as { name?: string } | undefined)?.name;
+      if (allVersions && siteName === undefined) return null;
       return {
         type: 'attribute-modifier',
         attribute: 'site.type',
         op: 'override',
         value: overrideType,
-        filter: { 'site.definitionId': siteDefinitionId as string },
+        filter: allVersions
+          ? { 'site.name': siteName! }
+          : { 'site.definitionId': siteDefinitionId as string },
         ...(purpose === 'healing' ? { healingOnly: true } : {}),
       };
     }

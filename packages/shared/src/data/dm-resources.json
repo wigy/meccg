@@ -335,8 +335,74 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Only playable during the organization phase on a company. There is no limit to the size of this company. Dwarves with a mind of 2 or less in this company do not require influence to be controlled; and there is no limit to how many Dwarves may be brought into play on a given turn with the company. Discard this card if the company has more than one non-Wizard character with a mind greater than 5 or more than two non-Dwarf characters or no Dwarf with a mind greater than 5. Cannot be duplicated on a given company."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "company-size-unlimited"
+      },
+      {
+        "type": "company-influence-exempt",
+        "filter": {
+          "$and": [
+            { "character.race": "dwarf" },
+            { "character.mind": { "$lte": 2 } }
+          ]
+        }
+      },
+      {
+        "type": "company-character-play-exempt",
+        "filter": { "character.race": "dwarf" }
+      },
+      {
+        "type": "discard-self-when-company",
+        "counts": [
+          {
+            "as": "bigNonWizards",
+            "filter": {
+              "$and": [
+                { "character.race": { "$ne": "wizard" } },
+                { "character.mind": { "$gt": 5 } }
+              ]
+            }
+          },
+          {
+            "as": "nonDwarves",
+            "filter": { "character.race": { "$ne": "dwarf" } }
+          },
+          {
+            "as": "bigDwarves",
+            "filter": {
+              "$and": [
+                { "character.race": "dwarf" },
+                { "character.mind": { "$gt": 5 } }
+              ]
+            }
+          }
+        ],
+        "condition": {
+          "$or": [
+            { "count.bigNonWizards": { "$gt": 1 } },
+            { "count.nonDwarves": { "$gt": 2 } },
+            { "count.bigDwarves": { "$lt": 1 } }
+          ]
+        }
+      }
+    ],
+    "text": "Only playable during the organization phase on a company. There is no limit to the size of this company. Dwarves with a mind of 2 or less in this company do not require influence to be controlled; and there is no limit to how many Dwarves may be brought into play on a given turn with the company. Discard this card if the company has more than one non-Wizard character with a mind greater than 5 or more than two non-Dwarf characters or no Dwarf with a mind greater than 5. Cannot be duplicated on a given company.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-resource-event",
@@ -421,7 +487,29 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-07-28",
+    "effects": [
+      {
+        "type": "prohibit-card-play",
+        "filter": { "keywords": { "$includes": "environment" } }
+      },
+      {
+        "type": "event-maintenance",
+        "trigger": "controller-organization-phase-start",
+        "handCardFilter": { "keywords": { "$includes": "environment" } },
+        "counterChain": { "challengeCount": 1, "counterCount": 2 }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Environment. No environment cards can be played. At the start of your organization phase, discard this card or keep it in play by discarding an environment card from your hand. Your opponent can then discard an environment card from his hand to discard this card, which you can counter by discarding two environment cards from your hand, which he can counter by discarding one, which you can counter with two, he with one, etc. Discard when any play deck is exhausted."
   },
   {

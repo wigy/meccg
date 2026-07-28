@@ -89,8 +89,21 @@ export { loadAiStrategy, sampleWeighted } from './ai/index.js';
 export type { AiStrategy, AiContext, WeightedAction } from './ai/index.js';
 export { heuristicStrategy } from './ai/heuristic.js';
 
+// The agent registry, so hosts outside the sim CLIs (the lobby's headless
+// AI client) can spawn any agent from the same `name:params` spec string.
+export { resolveAgent, AGENT_NAMES } from './cli/common.js';
+
+export { createMcAgent } from './agents/mc-agent.js';
+export type { McAgentOptions } from './agents/mc-agent.js';
+
 export { determinize, isDeterminizableView } from './search/determinize.js';
 export type { DeterminizeOptions } from './search/determinize.js';
+
+export { determinizeNull, UNKNOWN_CARD_DEFINITION } from './search/determinize-null.js';
+export type { DetermizeNullOptions, NullWorld } from './search/determinize-null.js';
+
+export { rollout, stateTsd, filterUnknownCardActions, WIN_TSD } from './search/rollout.js';
+export type { RolloutOptions, RolloutResult, RolloutEnd } from './search/rollout.js';
 
 export { searchBestAction } from './search/puct.js';
 export type { SearchOptions, SearchResult } from './search/puct.js';

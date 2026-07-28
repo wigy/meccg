@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -149,11 +149,21 @@ export function hasStartingCompanyPlacementInDeck(
     readonly sideboard: readonly { readonly definitionId: CardDefinitionId }[];
   },
 ): boolean {
-  const hasPlacement = (card: { readonly definitionId: CardDefinitionId }): boolean => {
-    const effects = (defById(state, card.definitionId) as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
-    return effects.some(e => e.type === 'starting-company-placement');
-  };
+  const hasPlacement = (card: { readonly definitionId: CardDefinitionId }): boolean =>
+    hasStartingCompanyPlacementEffect(defById(state, card.definitionId));
   return player.playDeck.some(hasPlacement) || player.sideboard.some(hasPlacement);
+}
+
+/**
+ * True if `def` carries a `starting-company-placement` effect — a card "played
+ * with a starting company in lieu of a minor item" (Thrall of the Voice wh-82,
+ * Open to the Summons wh-46, Orders from Lugbúrz as-94…). Such a card is placed
+ * during the item-draft step rather than entering play on its own at draft
+ * finalize, so {@link applyDraftResults} keeps it in hand until then.
+ */
+export function hasStartingCompanyPlacementEffect(def: CardDefinition | undefined): boolean {
+  const effects = (def as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
+  return effects.some(e => e.type === 'starting-company-placement');
 }
 
 /**
@@ -760,6 +770,28 @@ export function getCardEffects(
 ): readonly CardEffect[] {
   if (!def || !('effects' in def)) return [];
   return (def as { readonly effects?: readonly CardEffect[] }).effects ?? [];
+}
+
+/**
+ * True when the given definition, sitting in a player's `cardsInPlay`, is a
+ * **Nazgûl permanent-event** for rule 5.24 (Sideboarding with a Nazgûl).
+ *
+ * The Nine are printed as dual creature/permanent-event cards (Witch-king of
+ * Angmar tw-113, Khamûl tw-47, Adûnaphel tw-2, …): modelled as
+ * `hazard-creature` definitions carrying a `creature-alt-event` of mode
+ * `permanent-event`. A creature can only be in `cardsInPlay` at all by having
+ * been played in that mode, so the effect is the whole test. A plain
+ * `hazard-event` with the keyword also qualifies, covering any Nazgûl printed
+ * as a pure permanent-event.
+ */
+export function isNazgulPermanentEvent(def: CardDefinition | null | undefined): boolean {
+  if (!def) return false;
+  const keywords = (def as { keywords?: readonly string[] }).keywords ?? [];
+  if (!keywords.includes('Nazgûl')) return false;
+  if (def.cardType === 'hazard-event') return true;
+  return getCardEffects(def).some(
+    e => e.type === 'creature-alt-event' && e.mode === 'permanent-event',
+  );
 }
 
 /**
@@ -1566,6 +1598,57 @@ export function siteDeniesCompanyMove(
 }
 
 /**
+ * Whether an in-play `fw-site-alignment-restriction` bars the Fallen-wizard
+ * `player` from using `siteDef` — i.e. forces him to use the *other* alignment's
+ * version of that location.
+ *
+ * A Fallen-wizard's location deck may hold both the hero and the minion card for
+ * the same place (CoE rule 1.28), and the two play differently (hero Lórien is a
+ * Haven, minion Lórien is a Free-hold). Heart Grown Cold (wh-21) takes the choice
+ * away: while it is in play the Fallen-wizard must use the minion card for hero
+ * Havens, and — as his stage points grow — for Free-holds and Border-holds too.
+ *
+ * The restriction is game-wide (either player may have the card in play) and is
+ * evaluated per Fallen-wizard player: each effect's optional `when` is matched
+ * against `{ player: { alignment, stagePoints } }`, so stage-point clauses key
+ * off the restricted player, not the card's controller.
+ *
+ * A `fallen-wizard-site` (any Wizardhaven) counts as *both* a hero and a minion
+ * site (MEWH §10) and is therefore never barred; only `hero-site` and
+ * `minion-site` cards can be.
+ */
+export function fwSiteVersionForbidden(
+  state: GameState,
+  player: PlayerState,
+  siteDef: SiteCard,
+): boolean {
+  if (player.alignment !== 'fallen-wizard') return false;
+  if (siteDef.cardType !== 'hero-site' && siteDef.cardType !== 'minion-site') return false;
+
+  const ctx = { player: { alignment: player.alignment, stagePoints: player.stagePoints } };
+  for (const other of state.players) {
+    for (const card of other.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'fw-site-alignment-restriction') continue;
+        // The barred version is the opposite of the one the card demands.
+        const barredCardType = eff.require === 'minion' ? 'hero-site' : 'minion-site';
+        if (siteDef.cardType !== barredCardType) continue;
+        if (!eff.siteTypes.includes(siteDef.siteType)) continue;
+        if (eff.when && !matchesCondition(eff.when, ctx)) {
+          logDetail(`${def.name}: ${siteDef.name} (${siteDef.siteType}) not locked for ${player.id as string} — condition not met (${player.stagePoints} stage points)`);
+          continue;
+        }
+        logDetail(`${def.name}: Fallen-wizard ${player.id as string} must use the ${eff.require} version of ${siteDef.name} — the ${siteDef.cardType} card (${siteDef.siteType}) is unusable`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * The result of a corruption check on a character, before any cards are moved.
  *
  * - `success` — the roll exceeded the corruption point total; nothing happens.
@@ -1664,16 +1747,16 @@ export function leaderControlEligibility(
 }
 
 /**
- * Returns the first `hazard-maintenance` effect on the card, or `undefined` if
+ * Returns the first `event-maintenance` effect on the card, or `undefined` if
  * none exists. Centralizes the recurring pattern of iterating a card's effects
  * to find the maintenance trigger, used both when computing available legal
  * actions and when validating the chosen payment.
  */
-export function findHazardMaintenanceEffect(
+export function findEventMaintenanceEffect(
   def: CardDefinition | null | undefined,
-): HazardMaintenanceEffect | undefined {
+): EventMaintenanceEffect | undefined {
   return getCardEffects(def).find(
-    (e): e is HazardMaintenanceEffect => e.type === 'hazard-maintenance',
+    (e): e is EventMaintenanceEffect => e.type === 'event-maintenance',
   );
 }
 
@@ -1691,6 +1774,25 @@ export function findDuplicationLimitEffect(
   return getCardEffects(def).find(
     (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === scope,
   );
+}
+
+/**
+ * True if the player has already drafted as many copies of Stage resource
+ * `defId` as its player-scoped `duplication-limit` allows ("Cannot be duplicated
+ * by a given player" — Bad Company wh-63, Open to the Summons wh-46). Every
+ * drafted Stage resource ends up in that player's play area (CoE 1.9.F4), so the
+ * in-play duplication cap must already hold at draft time. Cards with no
+ * player-scoped limit are never blocked.
+ */
+export function stageResourceDuplicationLimitReached(
+  state: GameState,
+  draft: { readonly draftedStageResources: readonly { readonly definitionId: CardDefinitionId }[] },
+  defId: CardDefinitionId,
+): boolean {
+  const limit = findDuplicationLimitEffect(defById(state, defId), 'player');
+  if (!limit) return false;
+  const drafted = draft.draftedStageResources.filter(c => c.definitionId === defId).length;
+  return drafted >= limit.max;
 }
 
 /**
@@ -3651,6 +3753,63 @@ export function siteFactionInfluenceModifier(
 }
 
 /**
+ * Every in-play card of either player besieging `siteDefId` (bound via
+ * `CardInPlay.attachedToSite`, not still `pendingTriggerAttack`) that carries a
+ * `site-phase-start-attack` effect — the attacks a company at that site must
+ * face at the beginning of its site phase, before deciding whether to enter
+ * (Siege tw-87). Returned in `cardsInPlay` order so the sequence a company
+ * faces is stable across recomputations.
+ */
+export function siteStartOfPhaseAttacks(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): readonly { readonly cardInstanceId: CardInstanceId; readonly effect: import('../types/effects.js').SitePhaseStartAttackEffect }[] {
+  if (!siteDefId) return [];
+  const out: { cardInstanceId: CardInstanceId; effect: import('../types/effects.js').SitePhaseStartAttackEffect }[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'site-phase-start-attack') out.push({ cardInstanceId: c.instanceId, effect: e });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Every in-play card of either player besieging `siteDefId` that carries a
+ * `company-movement-roll` effect — the end-of-organization-phase rolls a
+ * company at that site must make to keep its movement (Siege tw-87).
+ */
+export function siteMovementRolls(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): readonly {
+  readonly cardInstanceId: CardInstanceId;
+  readonly sourceDefinitionId: CardDefinitionId;
+  readonly effect: import('../types/effects.js').CompanyMovementRollEffect;
+}[] {
+  if (!siteDefId) return [];
+  const out: {
+    cardInstanceId: CardInstanceId;
+    sourceDefinitionId: CardDefinitionId;
+    effect: import('../types/effects.js').CompanyMovementRollEffect;
+  }[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'company-movement-roll') {
+          out.push({ cardInstanceId: c.instanceId, sourceDefinitionId: c.definitionId, effect: e });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Aggregated anti-minion flags of every in-play `site-lock` card (of either
  * player) bound to the given site *definition* (and not still
  * `pendingTriggerAttack`). No Strangers at this Time (as-51) sets both flags:
@@ -3715,11 +3874,16 @@ export function siteEddyLock(
  * `attachedToSite` set models a permanent event that transforms a specific
  * site (Hold Rebuilt and Repaired, as-88 — "Discard this card when the site
  * is discarded or returned to its location deck"). The site is considered
- * gone once no company on either side has a `currentSite` of that definition
- * id (M/H step 8 returns an untapped non-haven origin to the location deck or
- * discards a tapped one). When a bound card is discarded, every active
- * constraint it sourced (the site-type override and the auto-attacks-detainment
- * flag) is cleared so the transformation does not outlive the card.
+ * gone once no company on either side has that definition id as its
+ * `currentSite` **or** its declared `destinationSite` (M/H step 8 returns an
+ * untapped non-haven origin to the location deck or discards a tapped one).
+ * The destination counts because a revealed destination site card is already
+ * on the table during the movement/hazard phase — that is exactly when a
+ * site-targeting *hazard* binds to it (Nature's Revenge wh-27), well before
+ * the company arrives and it becomes the current site. When a bound card is
+ * discarded, every active constraint it sourced (the site-type override and
+ * the auto-attacks-detainment flag) is cleared so the transformation does not
+ * outlive the card.
  *
  * Runs as a post-action sweep alongside {@link discardOrphanedControlledFactions}.
  */
@@ -3758,6 +3922,15 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   for (const p of state.players) {
     for (const co of p.companies) {
       if (co.currentSite) occupied.add(co.currentSite.definitionId as string);
+      // A site-targeting hazard permanent-event (Troll-purse dm-95, Siege
+      // tw-87) is played during the M/H phase on the company's *destination*
+      // site, which only becomes its `currentSite` when the company arrives at
+      // M/H step 8. Without counting declared destinations the card would be
+      // swept as an orphan on the very action that played it. If the company is
+      // later returned to its site of origin the destination is cleared and the
+      // attached card is swept then, as its text requires ("Discard … when the
+      // site card is returned to the location deck").
+      if (co.destinationSite) occupied.add(co.destinationSite.definitionId as string);
     }
   }
 

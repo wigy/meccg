@@ -21,10 +21,11 @@
  * | 4 | reshuffle the play deck                               | enqueue-pending-fetch fetchShuffle:true                         |
  * | 5 | Bearer then makes a corruption check                 | enqueue-pending-fetch postCorruptionCheck:true                  |
  *
- * The "does not give MPs to a Fallen-wizard" line is a no-op in the current
- * engine: marshalling points are awarded by the card's marshallingPoints to
- * the controlling player and there is no fallen-wizard item-MP mechanism for
- * this clause to override (same basis as the certified hero twin, tw-300).
+ * The "does not give MPs to a Fallen-wizard" line is the `fw-mp-none` marker
+ * (added with Palantír of Elostirion le-332, which prints the same clause and
+ * carries its coverage): a Fallen-wizard scores 0 MP for the item, ahead of the
+ * MEWH §4 clamp, Saruman's `fw-item-mp-full` exemption and every MP override.
+ * The hero twin tw-300 carries the same marker.
  *
  * This is the minion (Ringwraith) twin of Palantír of Orthanc (tw-300); the
  * rules and engine wiring are identical, only alignment/MP/CP differ.

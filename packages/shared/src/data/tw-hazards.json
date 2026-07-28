@@ -895,17 +895,37 @@
     "text": "Unique. Spawn. The Balrog appears in Moria. The Moria site gains a second automatic-attack of 1 strike with 18 prowess and no body (i.e., 18/-). If this 2nd automatic-attack is defeated, this permanent-event is removed from play (i.e., the Balrog is defeated). If your opponent defeats this 2nd automatic-attack, he receives the marshalling points. Cannot be included in a Balrog’s deck and cannot be played if your opponent is a Balrog player."
   },
   {
-    "cardType": "hazard-event",
+    "cardType": "hazard-creature",
     "id": "tw-113",
     "name": "Witch-king of Angmar",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WitchkingofAngmar.jpg",
     "unique": true,
-    "eventType": "permanent",
+    "strikes": 1,
+    "prowess": 17,
+    "body": 12,
+    "killMarshallingPoints": 6,
+    "race": "ringwraith",
     "keywords": [
       "Nazgûl"
     ],
-    "marshallingPoints": 6,
-    "marshallingPointsType": "kill",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Angmar",
+          "Gundabad",
+          "Gorgoroth",
+          "Imlad Morgul"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -925,9 +945,20 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "site-type-remap",
+        "from": "shadow-hold",
+        "to": "dark-hold",
+        "duration": "long-event"
       }
     ],
-    "text": "Unique. Nazgûl (1st). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Angmar, Gundabad, Gorgoroth, and Imlad Morgul; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Witch-king becomes a short-event: one character must make a corruption check."
+    "certified": "2026-07-27",
+    "text": "Unique. Nazgûl (1st). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Angmar, Gundabad, Gorgoroth, and Imlad Morgul; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Witch-king of Angmar becomes a long-event and causes all Shadow-holds [{S}] to become Dark-holds [{D}]. When resolved, the long-event effect will remain and this card is discarded."
   },
   {
     "cardType": "hazard-creature",
@@ -1626,7 +1657,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Siege.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-27",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": [
+              "border-hold",
+              "free-hold"
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "site-phase-start-attack",
+        "attack": {
+          "creatureType": "Orcs",
+          "strikes": 3,
+          "prowess": 7
+        }
+      },
+      {
+        "type": "company-movement-roll",
+        "threshold": 5,
+        "penaltyPerCharacterWithoutSkill": "scout",
+        "penalty": 1
+      }
+    ],
     "text": "Playable on a Border-hold [{B}] or Free-hold [{F}] site. A company at this site must face an Orc attack of three strikes at 7 prowess at the beginning of its site phase.At the end of its organization phase, a company at a site with Siege on it must make a roll and subtract one from the result for every non-scout character it contains. If this result is less than 5, the company may not move this turn.Discard when the site card is discarded or when the site card is returned to the location deck.Cannot be duplicated on a given site."
   },
   {

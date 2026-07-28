@@ -15,11 +15,12 @@ import { CardStatus, SiteType } from '../types/common.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { ownerOf } from '../types/state.js';
-import { getEffectiveSiteType, resolveSiteInstanceTransform } from './effective.js';
+import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
 
@@ -175,14 +176,13 @@ function performUntap(state: GameState): GameState {
       playerId: player.id,
     });
     if (!isHaven) {
-      const siteDefId = company.currentSite.definitionId as string;
+      const siteDefId = company.currentSite.definitionId;
       isHaven = state.activeConstraints.some(c => {
         if (c.kind.type !== 'attribute-modifier'
           || c.kind.attribute !== 'site.type'
           || c.kind.op !== 'override'
           || c.kind.value !== SiteType.Haven) return false;
-        const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-        return filterSiteDefId === siteDefId;
+        return siteConstraintFilterMatches(c.kind.filter, siteDefId, siteDef.name, siteDef.siteType);
       });
     }
     if (!isHaven && siteDef.effects) {
@@ -697,6 +697,24 @@ function advanceToOrganization(state: GameState): ReducerResult {
       }
       advanced = updatePlayer(advanced, activeIndex, p => ({ ...p, characters: clearedChars }));
     }
+  }
+
+  // `event-maintenance` with trigger `controller-organization-phase-start`
+  // (Balance Between Powers dm-118): "At the start of your organization phase,
+  // discard this card or keep it in play by discarding an environment card from
+  // your hand." Only the active player's own in-play cards fire — "your"
+  // organization phase is the controller's.
+  for (const card of advanced.players[activeIndex].cardsInPlay) {
+    const def = defById(advanced, card.definitionId);
+    const maintenance = findEventMaintenanceEffect(def);
+    if (maintenance?.trigger !== 'controller-organization-phase-start') continue;
+    logDetail(`Organization phase begins: queuing event-maintenance for "${def?.name ?? card.definitionId}"`);
+    advanced = enqueueMaintenanceUpkeep(advanced, {
+      controllerId: advanced.players[activeIndex].id,
+      sourceInstanceId: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope: { kind: 'phase', phase: Phase.Organization },
+    });
   }
 
   return { state: advanced };

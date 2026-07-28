@@ -1970,6 +1970,7 @@
     "cardType": "hero-resource-event",
     "id": "tw-205",
     "name": "Cracks of Doom",
+    "certified": "2026-07-28",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CracksofDoom.jpg",
     "text": "Only playable if The One Ring is at Mount Doom during the site phase. Its bearer must make a corruption check modified by -4. If successful, The One Ring is destroyed and its bearer's player wins. Cannot be included in a Fallen-wizard's deck.",
     "alignment": "wizard",
@@ -2015,7 +2016,8 @@
           "modifier": -4,
           "onSuccess": {
             "type": "win-game",
-            "via": "one-ring"
+            "via": "one-ring",
+            "destroysOneRing": true
           }
         }
       }
@@ -2650,8 +2652,25 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Only playable if any of your characters are at Lórien. You may look at your opponent’s hand and then choose to look at the top five cards of any one play deck. Shuffle those 5 cards and return them to the top of their play deck."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.characterSiteNames": {
+            "$includes": "Lórien"
+          }
+        }
+      },
+      {
+        "type": "peek-shuffle-deck-top",
+        "count": 5,
+        "revealOpponentHand": true,
+        "deckChoice": "any"
+      }
+    ],
+    "text": "Only playable if any of your characters are at Lórien. You may look at your opponent’s hand and then choose to look at the top five cards of any one play deck. Shuffle those 5 cards and return them to the top of their play deck.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-resource-event",

@@ -111,12 +111,37 @@ export type AttackSource =
    */
   | { readonly type: 'tidings-attack'; readonly eventInstanceId: CardInstanceId; readonly attackIndex: number }
   /**
+   * Triggered by a `site-phase-start-attack` effect on a card besieging the
+   * company's current site (Siege tw-87): the company faces the attack at the
+   * beginning of its site phase, before it decides whether to enter the site.
+   * These are NOT automatic-attacks — auto-attack modifiers, the home-site
+   * tap-to-cancel option and the auto-attack duplicate constraints do not apply.
+   * The besieging card stays in play after the attack (it is discarded only when
+   * its bound site leaves play), so finalization disposes of nothing.
+   */
+  | {
+      readonly type: 'siege-attack';
+      /** The besieging card in play whose effect created this attack. */
+      readonly cardInstanceId: CardInstanceId;
+      /** The site instance the besieged company occupies. */
+      readonly siteInstanceId: CardInstanceId;
+    }
+  /**
    * Triggered by Cruel Caradhras (td-9) via the `company-strike` DSL effect: a
    * hazard short-event that makes each character in the active company face one
    * strike (not a creature attack — no race, uncancelable). `eventInstanceId`
    * is the played short-event card.
    */
   | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId }
+  /**
+   * Triggered by Doubled Vigilance (dm-51) via the `site-entry-roll-attack`
+   * DSL effect: the company failed the entry roll for the site the hazard
+   * permanent-event is attached to, so it faces the effect's attack before any
+   * of the site's automatic-attacks. `eventInstanceId` is the in-play hazard
+   * card; it stays in play after the combat (it is discarded only when the
+   * bound site leaves play), so finalization disposes of nothing.
+   */
+  | { readonly type: 'site-entry-attack'; readonly eventInstanceId: CardInstanceId }
   /**
    * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
    * revealed / discarded hazard-creature attacks the controller's Alatar
@@ -900,6 +925,13 @@ export type ChainEntryPayload =
       readonly storeItemInstanceId?: CardInstanceId;
       /** For a `storage-site-transfer` event: the character bearing `storeItemInstanceId`. */
       readonly storeCharacterId?: CardInstanceId;
+      /**
+       * For an `opposed-roll` permanent-event (No More Nonsense le-210), the
+       * second character — "another character in the company" — chosen at play
+       * time to roll against {@link targetCharacterId}. On resolution the chain
+       * reducer enqueues the `opposed-roll` pending resolution for the pair.
+       */
+      readonly opposedCharacterId?: CardInstanceId;
       /**
        * True when this event entered the chain by being revealed from an
        * on-guard slot rather than played from hand. See the `short-event`

@@ -46,7 +46,9 @@
  * carries no dedicated assertion. "Unique" is deck-construction data.
  *
  * Fixture alignment: minion-character (ringwraith), so tests use minion sites (LE)
- * and minion candidate characters (LE).
+ * and minion candidate characters (LE). The players are declared Ringwraith too:
+ * rule 9.20 lets only a minion player's characters *use* a minion item, so a
+ * default (Wizard) player would silently drop High Helm's +2 direct influence.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -106,8 +108,8 @@ describe('Ulkaur the Tongueless (le-49)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [ULKAUR] }], hand: [ORC_BRAWLER], siteDeck: [MORIA_MINION] },
-        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [DUNLENDING_SPY] }], hand: [], siteDeck: [BARAD_DUR] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [ULKAUR] }], hand: [ORC_BRAWLER], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DUNLENDING_SPY] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
 
@@ -124,8 +126,8 @@ describe('Ulkaur the Tongueless (le-49)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [ULKAUR] }], hand: [DUNLENDING_SPY], siteDeck: [MORIA_MINION] },
-        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [ULKAUR] }], hand: [DUNLENDING_SPY], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
 
@@ -139,6 +141,8 @@ describe('Ulkaur the Tongueless (le-49)', () => {
   test('+2 DI vs Trolls lets a High-Helmed Ulkaur (DI 2) control Troll Lout (mind 3)', () => {
     // High Helm grants +2 DI unconditionally → base DI 2. The troll bonus adds
     // another +2 against a troll target: 4 >= mind 3 → controllable.
+    // The bearer's player must be Ringwraith-aligned: rule 9.20 nulls a minion
+    // item's effects on a Wizard player's character (the fixture default).
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -146,11 +150,12 @@ describe('Ulkaur the Tongueless (le-49)', () => {
       players: [
         {
           id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
           companies: [{ site: MINAS_MORGUL, characters: [{ defId: ULKAUR, items: [HIGH_HELM] }] }],
           hand: [TROLL_LOUT],
           siteDeck: [MORIA_MINION],
         },
-        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
 
@@ -169,11 +174,12 @@ describe('Ulkaur the Tongueless (le-49)', () => {
       players: [
         {
           id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
           companies: [{ site: MINAS_MORGUL, characters: [{ defId: ULKAUR, items: [HIGH_HELM] }] }],
           hand: [DORELAS],
           siteDeck: [MORIA_MINION],
         },
-        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
 

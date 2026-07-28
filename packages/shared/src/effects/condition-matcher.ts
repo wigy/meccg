@@ -189,3 +189,22 @@ export function matchesCondition(
 export function matchesContext(condition: Condition, context: object): boolean {
   return matchesCondition(condition, context as unknown as Record<string, unknown>);
 }
+
+/**
+ * Collects every context path a condition tree reads, walking through
+ * `$and`/`$or`/`$not` nodes.
+ *
+ * Comparison operands that are themselves paths (Whip le-348:
+ * `{ "target.prowess": { "$lt": "bearer.prowess" } }`) are *not* included —
+ * only the keys being tested. Callers use this to reason about *what a
+ * condition depends on* rather than whether it currently matches; see
+ * `conditionReadsAnyPath` in `engine/effects/resolver.ts`, which decides
+ * whether an influence modifier is conditional on the check context or only on
+ * its bearer.
+ */
+export function conditionPaths(condition: Condition): string[] {
+  if (isAnd(condition)) return condition.$and.flatMap(conditionPaths);
+  if (isOr(condition)) return condition.$or.flatMap(conditionPaths);
+  if (isNot(condition)) return conditionPaths(condition.$not);
+  return Object.keys(condition);
+}

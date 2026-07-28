@@ -35,13 +35,13 @@ import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { isUniqueCharacterInPlay } from '../reducer-utils.js';
-import { manifestationOfEntityInPlay } from '../manifestations.js';
+import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -238,7 +238,10 @@ export function availableDI(
           prowess: targetDef.prowess,
         },
       };
-      const charEffects = collectCharacterEffects(state, controller, resolverCtx);
+      // Only target-conditional modifiers: anything gated on the bearer alone
+      // (or ungated) is already inside `effectiveStats.directInfluence` above,
+      // so folding it in again would double it (see `checkConditionalEffects`).
+      const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
       const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
       if (conditionalDI !== 0) {
         logDetail(`  DI bonus from influence-check effects: ${formatSignedNumber(conditionalDI)} against ${targetDef.name} (${targetDef.race})`);
@@ -972,7 +975,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           const charDefForCtx = defById(state, char.definitionId);
           const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
           const company = findCharacterCompany(player.companies, charId);
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, hazard.instanceId);
           whenSatisfied = matchesCondition(effect.when, ctx);
           if (!whenSatisfied) {
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
@@ -1049,7 +1052,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           if (effect.when) {
             const charDefCard = isCharacterCard(charDef) ? charDef : undefined;
             const company = findCharacterCompany(player.companies, charId);
-            const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+            const ctx = buildGrantActionContext(state, char, charDefCard, company, player, char.instanceId);
             if (!matchesCondition(effect.when, ctx)) {
               logDetail(`Grant-action ${effect.action} on ${charDef.name}: when condition failed`);
               continue;
@@ -1186,7 +1189,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, ally.instanceId);
           if (!matchesCondition(effect.when, ctx)) {
             const def = defById(state, ally.definitionId);
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
@@ -1229,7 +1232,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, item.instanceId);
           if (!matchesCondition(effect.when, ctx)) {
             const def = defById(state, item.definitionId);
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
@@ -1744,6 +1747,13 @@ export function sauronOrgGrantActions(state: GameState, playerId: PlayerId): Eva
  * New grant-action preconditions should be expressed as DSL `when`
  * clauses against this context instead of hardcoded action-ID branches
  * in {@link grantedActionActivations}.
+ *
+ * `sourceInstanceId` is the card whose ability is being gated (the item /
+ * ally / hazard carrying the grant-action, or the character himself). It
+ * only matters for abilities a *specific* card grants to its own bearer —
+ * currently the `can-use-palantir` constraint, which Palantír of Elostirion
+ * (le-332) places on its bearer for that one Palantír ("the bearer is able
+ * to use **this** Palantír this turn if he taps").
  */
 export function buildGrantActionContext(
   state: GameState,
@@ -1751,10 +1761,22 @@ export function buildGrantActionContext(
   charDef: import('../../index.js').CharacterCard | undefined,
   company: import('../../index.js').Company | undefined,
   player?: import('../../index.js').PlayerState,
+  sourceInstanceId?: import('../../index.js').CardInstanceId,
 ): Record<string, unknown> {
   const statusStr = cardStatusToName(char.status);
 
+  // A turn-scoped `can-use-palantir` constraint grants the ability for the one
+  // Palantír that placed it (constraint `source` === the card being gated), so
+  // it never leaks to another Palantír the same character happens to bear.
+  const palantirConstraint = sourceInstanceId !== undefined
+    && state.activeConstraints.some(c =>
+      c.kind.type === 'can-use-palantir'
+      && c.target.kind === 'character'
+      && c.target.characterId === char.instanceId
+      && c.source === sourceInstanceId);
+
   const canUsePalantir = hasPlayFlag(charDef, 'can-use-palantir') ||
+    palantirConstraint ||
     char.items.some(item => {
       const itemDef = defById(state, item.definitionId)!;
       return 'effects' in itemDef && hasPlayFlag(itemDef, 'can-use-palantir');
@@ -2475,6 +2497,12 @@ export function buildActiveCompanyContext(
  *   that key off a card being on the table regardless of who put it there —
  *   e.g. The Will of Sauron (tw-100) "Discard this card if Doors of Night is
  *   not in play": `{ "$not": { "inPlayAnywhere": "Doors of Night" } }`.
+ * - `charactersInPlayAnywhere` — the names of every **character** either player
+ *   has in play. `inPlay`/`inPlayAnywhere` cover `cardsInPlay` only, so this is
+ *   the list a rule about a person entering play must consult. Matched by name,
+ *   so every printing of a character counts (Gandalf is tw-156 and wh-4). Used
+ *   by Gandalf the White Rider (as-11): "Discard this card if Gandalf comes
+ *   into play" → `{ "charactersInPlayAnywhere": "Gandalf" }`.
  */
 export function buildPlayerStateContext(
   state: GameState,
@@ -2513,9 +2541,21 @@ export function buildPlayerStateContext(
   // Deeper dm-156): `findPlayerAvatar` returns the in-play avatar character or
   // undefined, so `false` means no avatar has been brought into play yet.
   const avatarInPlay = findPlayerAvatar(state, player) !== undefined;
+  // Names of every site the player currently has characters at — a company's
+  // characters are all at its `currentSite`. Backs "playable if any of your
+  // characters are at <site>" (Mirror of Galadriel tw-282, "at Lórien"), which
+  // is about *any* company, not the phase's active one. Matched by name so all
+  // versions of a site (hero / minion / Under-deeps reprints) count.
+  const characterSiteNames = Array.from(new Set(
+    player.companies
+      .filter(c => c.characters.length > 0)
+      .map(c => (c.currentSite ? defById(state, c.currentSite.definitionId)?.name : undefined))
+      .filter((n): n is string => n !== undefined),
+  ));
   return {
     player: {
       alignment: player.alignment,
+      characterSiteNames,
       avatar: avatarName,
       avatarInPlay,
       hasRingwraithInPlay,
@@ -2532,6 +2572,7 @@ export function buildPlayerStateContext(
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
     inPlayAnywhere: buildInPlayNames(state),
+    charactersInPlayAnywhere: charactersInPlayNames(state),
   };
 }
 

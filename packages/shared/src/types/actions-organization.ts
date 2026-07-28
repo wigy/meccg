@@ -340,6 +340,32 @@ export interface PlayPermanentEventAction {
   readonly storeItemInstanceId?: CardInstanceId;
   /** For a `storage-site-transfer` event: the character currently bearing `storeItemInstanceId`. */
   readonly storeCharacterId?: CardInstanceId;
+  /**
+   * For an `opposed-roll` event (No More Nonsense le-210), the second character
+   * — "another character in the company" — that rolls against
+   * `targetCharacterId`. One action is emitted per (target, opponent) pair.
+   */
+  readonly opposedCharacterId?: CardInstanceId;
+}
+
+/**
+ * Execute one of the two dice rolls of a pending `opposed-roll` resolution
+ * (No More Nonsense le-210).
+ *
+ * The challenger (the card's play-target) rolls first; the chosen opposing
+ * character rolls second. After the second roll the engine adds each side's
+ * `addStat` to its total, compares them, and applies the source card's
+ * `onWin` / `onLose` outcomes.
+ */
+export interface OpposedRollAction {
+  /** Action discriminant. */
+  readonly type: 'opposed-roll';
+  /** The player who controls both characters (and therefore rolls). */
+  readonly player: PlayerId;
+  /** The character this roll is for — the challenger first, then the opponent. */
+  readonly characterId: CardInstanceId;
+  /** Human-readable breakdown of the contest so far. */
+  readonly explanation: string;
 }
 
 /**

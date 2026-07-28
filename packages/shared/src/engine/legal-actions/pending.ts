@@ -39,15 +39,16 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
+import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 
 
@@ -469,7 +470,26 @@ export function factionInfluenceRollActions(
   // The influencer may be a character or an ally that "influences factions as
   // if a character" (Radagast's Black Bird wh-114).
   const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', influencingCharacterId);
-  if (!charInPlay && !influencerAlly) return [];
+  if (!charInPlay && !influencerAlly) {
+    // The influencer left play before the roll. Offer the resolution anyway —
+    // the resolver fails the attempt and discards the faction. Returning no
+    // actions would deadlock the game outright: this resolution's chain entry
+    // is still unresolved, and a chain in `resolving` mode offers no actions
+    // of its own, so nothing would ever call `reduce` to advance it.
+    logDetail(`Pending faction-influence-roll for ${def.name}: influencer no longer in play — attempt fails automatically`);
+    return [{
+      action: {
+        type: 'faction-influence-roll' as const,
+        player: playerId,
+        factionInstanceId,
+        influencingCharacterId,
+        // No 2d6 total can reach this: the check cannot be made at all.
+        need: 13,
+        explanation: `${def.name}: the influencing character is no longer in play — the attempt fails and the faction is discarded`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
   const charName = (isCharacterCard(charDef) || isAllyCard(charDef)) ? charDef.name : '?';
@@ -500,7 +520,8 @@ export function factionInfluenceRollActions(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
 
     if (def.effects) {
@@ -510,23 +531,32 @@ export function factionInfluenceRollActions(
       }
     }
 
-    // Under nullification only the influencer's own card text counts.
-    const ownEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
+    // Under nullification only the influencer's own card text counts
+    // (distinct from `ownEffects`, which is every effect collected for him).
+    const ownCardEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
 
     const freeDI = nullifyMods
-      ? normalUnusedDI(state, influencingCharacterId, player, ownEffects, resolverCtx)
+      ? normalUnusedDI(state, influencingCharacterId, player, ownCardEffects, resolverCtx)
       : availableDI(state, influencingCharacterId, player);
     modifier += freeDI;
     parts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
 
-    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       modifier += dslModifier;
       parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
-    // Own-card DI modifications are already inside `freeDI` under nullification.
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries the influencer's effective DI, so only the
+    // faction-conditional modifiers borne by the character are added here
+    // (see `checkConditionalEffects`). Under a le-150 nullification every
+    // card-sourced modification is stripped — the influencer's own ones are
+    // already inside `freeDI`.
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
@@ -569,9 +599,21 @@ export function factionInfluenceRollActions(
   // Game-wide ongoing influence modifier from a bare in-play event owned by
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
+  // The context carries the faction being influenced so a game-wide modifier
+  // can be race-gated (Lord of the Carrock as-14). Webs of Fear & Treachery
+  // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+    : collectGlobalCheckModifier(state, 'influence', {
+      reason: 'faction-influence-check',
+      faction: {
+        name: def.name,
+        race: def.race,
+        playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
+      },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
+    });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
@@ -766,6 +808,67 @@ export function companyTapRollActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Compute the single `opposed-roll` action that resolves the next roll of a
+ * queued `opposed-roll` resolution (No More Nonsense le-210). The challenger
+ * (the card's play-target) rolls first; once their total is recorded on the
+ * resolution the opposing character rolls. Both characters belong to the same
+ * company, so the same player rolls twice.
+ */
+export function opposedRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'opposed-roll') return [];
+  const kind = top.kind;
+  const rolling = kind.challengerRoll === undefined ? kind.challengerId : kind.opponentId;
+
+  const player = playerById(state, playerId);
+  const charInPlay = player?.characters[rolling];
+  if (!player || !charInPlay) {
+    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — no action`);
+    return [];
+  }
+
+  const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
+  const rollerName = resolveDef(state, rolling)?.name ?? (rolling as string);
+  const stat = opposedRollStat(state, player, rolling, kind.addStat);
+  const explanation = kind.challengerRoll === undefined
+    ? `${sourceName}: roll for ${rollerName} (roll + ${kind.addStat} ${stat})`
+    : `${sourceName}: roll for ${rollerName} (roll + ${kind.addStat} ${stat}) vs `
+      + `${resolveDef(state, kind.challengerId)?.name ?? '?'}'s ${kind.challengerRoll} + `
+      + `${opposedRollStat(state, player, kind.challengerId, kind.addStat)}`;
+
+  logDetail(`Pending opposed-roll (${sourceName}): ${rollerName} rolls 2d6 + ${kind.addStat} ${stat}`);
+
+  return [{
+    action: { type: 'opposed-roll' as const, player: playerId, characterId: rolling, explanation },
+    viable: true,
+  }];
+}
+
+/**
+ * The stat an `opposed-roll` adds to a roller's 2d6 total. Reads the
+ * character's *effective* stats (so items, attached hazards, and constraints
+ * all count), falling back to the printed value when a derived stat is absent.
+ */
+export function opposedRollStat(
+  state: GameState,
+  player: PlayerState,
+  characterId: CardInstanceId,
+  stat: 'prowess' | 'body' | 'mind',
+): number {
+  const char = player.characters[characterId];
+  if (!char) return 0;
+  const def = defById(state, char.definitionId);
+  if (stat === 'mind') {
+    const printed = def && isCharacterCard(def) && def.mind !== null ? def.mind : 0;
+    return char.effectiveStats.mind ?? printed;
+  }
+  return char.effectiveStats[stat];
 }
 
 /**
@@ -1250,6 +1353,11 @@ function applyOneConstraint(
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
+    case 'extra-mh-phase':
+      // Master of Esgaroth (td-135): consumed directly by
+      // `advanceAfterCompanyMH` (mh-hazard-play.ts) once the company's
+      // movement/hazard phase ends — no broad legal-action filtering here.
+      return base;
     case 'no-creatures-keyed-to-site':
       return applyNoCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'company-cannot-move':
@@ -1343,6 +1451,11 @@ function applyOneConstraint(
       return base;
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
+      return base;
+    case 'can-use-palantir':
+      // Consumed directly by `buildGrantActionContext` (Palantír of Elostirion
+      // le-332) when gating the source Palantír's own granted ability — no
+      // broad legal-action filtering needed here.
       return base;
     case 'creature-attack-boost':
       // Consumed directly by `resolveAttackProwess`/`resolveAttackStrikes` —
@@ -1976,6 +2089,11 @@ export function selectCardBearerActions(
  * The defending player must choose one item from any character in their
  * company to discard. One `discard-item-from-company` action is emitted
  * per available item.
+ *
+ * Two optional narrowings on the resolution kind restrict the candidate set
+ * (Indûr Dawndeath tw-46): `characterId` limits the choice to one character's
+ * items, and `itemFilter` is matched against each item's card definition
+ * ("but not a ring").
  */
 export function discardOneCompanyItemActions(
   state: GameState,
@@ -1983,7 +2101,7 @@ export function discardOneCompanyItemActions(
   top: PendingResolution,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'discard-one-company-item') return [];
-  const { companyId } = top.kind;
+  const { companyId, characterId, itemFilter } = top.kind;
 
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
   if (!defPlayer) return [];
@@ -1992,6 +2110,7 @@ export function discardOneCompanyItemActions(
 
   const actions: EvaluatedAction[] = [];
   for (const charId of company.characters) {
+    if (characterId && charId !== characterId) continue;
     const ch = defPlayer.characters[charId];
     if (!ch) continue;
     for (const item of ch.items) {
@@ -2003,6 +2122,11 @@ export function discardOneCompanyItemActions(
       // valid discard targets — skip anything that is not an item.
       if (!isItemCard(itemDef)) {
         logDetail(`discard-one-company-item: skipping ${itemName} (not an item)`);
+        continue;
+      }
+      // Card-supplied item filter (tw-46: "but not a ring").
+      if (itemFilter && !matchesDefinition(itemDef, itemFilter)) {
+        logDetail(`discard-one-company-item: skipping ${itemName} (excluded by the source card's item filter)`);
         continue;
       }
       logDetail(`discard-one-company-item: offering ${itemName}`);
@@ -2017,6 +2141,52 @@ export function discardOneCompanyItemActions(
     }
   }
 
+  return actions;
+}
+
+/**
+ * Legal actions while a `discard-substitute-offer` resolution is pending
+ * (Leaf Brooch dm-171).
+ *
+ * The owner of the doomed cards may name **one** of them to save — the
+ * substitute item is discarded in its place — or decline, letting the forced
+ * discard go through. One `use-discard-substitute` action is emitted per
+ * doomed card the substitute's filter actually covers, plus the decline.
+ */
+export function discardSubstituteOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'discard-substitute-offer') return [];
+  if (actor !== top.actor) return [];
+  const kind = top.kind;
+
+  const ownerIndex = state.players.findIndex(p => p.id === actor);
+  if (ownerIndex < 0) return [];
+  const owner = state.players[ownerIndex];
+
+  const substitute = findDiscardSubstitutes(state, ownerIndex, kind.companyId)
+    .find(s => s.instanceId === kind.substituteInstanceId);
+
+  const actions: EvaluatedAction[] = [];
+  if (substitute) {
+    for (const ch of Object.values(owner.characters)) {
+      for (const item of ch.items) {
+        if (!kind.requiredInstanceIds.includes(item.instanceId)) continue;
+        const doomedDef = defById(state, item.definitionId);
+        if (!substituteCovers(substitute, doomedDef)) continue;
+        logDetail(`discard-substitute-offer: ${substitute.name} may be discarded instead of ${doomedDef?.name ?? (item.definitionId as string)}`);
+        actions.push({
+          action: { type: 'use-discard-substitute' as const, player: actor, itemInstanceId: item.instanceId },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  // Declining is always available — the substitution is a "may".
+  actions.push({ action: { type: 'use-discard-substitute' as const, player: actor }, viable: true });
   return actions;
 }
 
@@ -2077,42 +2247,56 @@ export function forceDiscardCardActions(
 }
 
 /**
- * Legal actions for a `hazard-event-maintenance` pending resolution.
+ * Legal actions for an `event-maintenance` pending resolution — one stage of
+ * the upkeep exchange over an in-play event (Thrice Outnumbered le-142,
+ * Balance Between Powers dm-118).
  *
- * The hazard player must choose one of:
- * 1. Discard the permanent event itself from cardsInPlay (`discard-self`).
- * 2. Discard any matching card from hand (`discard-from-hand`), if available.
+ * Every stage offers each hand card matching the effect's `handCardFilter` as a
+ * `discard-from-hand` payment; a stage costing more than one card is paid one
+ * action at a time, counting `remainingToPay` down.
  *
- * At minimum, option 1 is always offered. Options 2 are offered for each
- * qualifying hand card that matches the effect's `handCardFilter`.
+ * The opt-out is only offered while nothing has been paid yet — once a player
+ * starts paying a multi-card stage they are committed (the stage is only ever
+ * enqueued when they can afford to finish it). Which opt-out depends on the
+ * stage:
+ *
+ * - `upkeep` — `discard-self`: give the card up rather than pay to keep it.
+ *   Always available, so a controller with no matching card in hand still has
+ *   exactly one legal action.
+ * - `challenge` / `counter` — `decline`: bid nothing. Declining a challenge
+ *   leaves the card in play; declining to counter one loses it.
  */
-export function hazardEventMaintenanceActions(
+export function eventMaintenanceActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
 ): EvaluatedAction[] {
-  if (top.kind.type !== 'hazard-event-maintenance') return [];
-  const { sourceInstanceId, sourceDefinitionId } = top.kind;
+  if (top.kind.type !== 'event-maintenance') return [];
+  const { sourceInstanceId, sourceDefinitionId, stage, remainingToPay, stageCount } = top.kind;
 
   // Look up the source effect's handCardFilter
   const sourceDef = defById(state, sourceDefinitionId);
-  const handCardFilter = findHazardMaintenanceEffect(sourceDef)?.handCardFilter;
+  const handCardFilter = findEventMaintenanceEffect(sourceDef)?.handCardFilter;
 
   const actions: EvaluatedAction[] = [];
 
-  // Option 1: always offer discard-self
-  actions.push({
-    action: {
-      type: 'pay-hazard-event-maintenance' as const,
-      player: actor,
-      paymentType: 'discard-self' as const,
-      cardInstanceId: sourceInstanceId,
-      sourceInstanceId,
-    },
-    viable: true,
-  });
+  // The opt-out, offered only before any card of this stage has been paid.
+  if (remainingToPay === stageCount) {
+    const paymentType = stage === 'upkeep' ? 'discard-self' as const : 'decline' as const;
+    logDetail(`event-maintenance (${stage}): offering ${paymentType} to ${actor as string}`);
+    actions.push({
+      action: {
+        type: 'pay-event-maintenance' as const,
+        player: actor,
+        paymentType,
+        cardInstanceId: sourceInstanceId,
+        sourceInstanceId,
+      },
+      viable: true,
+    });
+  }
 
-  // Option 2: offer each matching hand card as a payment alternative
+  // Offer each matching hand card as a payment towards this stage.
   if (handCardFilter !== undefined) {
     const actorPlayer = playerById(state, actor);
     if (actorPlayer) {
@@ -2120,10 +2304,13 @@ export function hazardEventMaintenanceActions(
         const handDef = defById(state, handCard.definitionId);
         if (!handDef) continue;
         if (!matchesDefinition(handDef, handCardFilter)) continue;
-        logDetail(`hazard-event-maintenance: offering hand card ${handCard.definitionId as string} as payment`);
+        logDetail(
+          `event-maintenance (${stage}): offering hand card ${handCard.definitionId as string} as payment `
+          + `(${remainingToPay} of ${stageCount} still due)`,
+        );
         actions.push({
           action: {
-            type: 'pay-hazard-event-maintenance' as const,
+            type: 'pay-event-maintenance' as const,
             player: actor,
             paymentType: 'discard-from-hand' as const,
             cardInstanceId: handCard.instanceId,
@@ -2136,6 +2323,24 @@ export function hazardEventMaintenanceActions(
   }
 
   return actions;
+}
+
+/**
+ * True when `def` is a unique ring and a card of the same name is already in
+ * play (borne by any character of either player, or in either player's
+ * `cardsInPlay`).
+ *
+ * A ring entering play through a gold-ring test bypasses the site item-play
+ * path, so the uniqueness rule that path enforces has to be repeated here.
+ * Matters for "Unique." rings such as The One Ring (tw-347 / le-326) and the
+ * Dwarven Rings of the tribes: both players may hold a copy, but only one may
+ * ever be in play.
+ */
+function isUniqueRingAlreadyInPlay(state: GameState, def: { readonly name?: string; readonly unique?: boolean }): boolean {
+  if (def.unique !== true || def.name === undefined) return false;
+  if (countCopiesInPlay(state, def.name) === 0) return false;
+  logDetail(`ring-play-offer: ${def.name} is unique and already in play — not offered`);
+  return true;
 }
 
 /**
@@ -2172,6 +2377,10 @@ export function ringPlayOfferActions(
     // Find the ring's category from its keywords
     const category = (eligibleCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
     if (!category) continue;
+    // "Unique." (The One Ring tw-347/le-326, the Dwarven rings): a unique ring
+    // cannot enter play while a card of the same name is already in play — the
+    // same rule the site item-play path enforces, applied to the ring-test route.
+    if (isUniqueRingAlreadyInPlay(state, def)) continue;
     // Duplication-limit scope "character": skip if the target character already
     // holds the maximum number of copies of this ring (Rule text "Cannot be
     // duplicated on a given character").
@@ -2218,6 +2427,7 @@ export function ringPlayOfferActions(
         if (!keywords.includes('ring')) continue;
         const category = (searchCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
         if (!category) continue;
+        if (isUniqueRingAlreadyInPlay(state, def)) continue;
         const charDupLimit = findDuplicationLimitEffect(def, 'character');
         if (charDupLimit) {
           const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
@@ -2586,6 +2796,48 @@ export function agentPlayManifestationActions(
       }
     }
   }
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `choose-peek-deck` resolution is pending (Mirror of
+ * Galadriel tw-282): the card-player chooses which play deck's top cards they
+ * look at and shuffle back on top, or passes ("You may … choose to look at the
+ * top five cards of any one play deck"). Only decks that are allowed by the
+ * effect's `deckChoice` **and** actually hold cards are offered.
+ *
+ * An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 against a
+ * non-minion, Lady of the Golden Wood as-13 against a minion) withholds the
+ * actor's **own** deck — "any effect that causes a player to … look at any
+ * portion of *his* play deck … outside the normal sequence of play". It never
+ * touches the opponent's deck, which those cards do not cover.
+ */
+export function choosePeekDeckActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'choose-peek-deck') return [];
+  const { deckChoice } = top.kind;
+  const player = playerById(state, actor);
+  const opponent = state.players.find(p => p.id !== actor);
+  if (!player || !opponent) return [];
+  const actions: EvaluatedAction[] = [];
+  const ownDeckCanceller = deckSearchCancellerFor(state, actor);
+  if (ownDeckCanceller && deckChoice !== 'opponent') {
+    logDetail(`choose-peek-deck: "${ownDeckCanceller}" cancels ${actor as string}'s look at his own play deck`);
+  }
+  if (deckChoice !== 'opponent' && !ownDeckCanceller && player.playDeck.length > 0) {
+    logDetail(`choose-peek-deck: offering ${actor as string}'s own play deck (${player.playDeck.length} card(s))`);
+    actions.push({ action: { type: 'choose-peek-deck' as const, player: actor, deckOwner: 'self' }, viable: true });
+  }
+  if (deckChoice !== 'self' && opponent.playDeck.length > 0) {
+    logDetail(`choose-peek-deck: offering ${opponent.id as string}'s play deck (${opponent.playDeck.length} card(s))`);
+    actions.push({ action: { type: 'choose-peek-deck' as const, player: actor, deckOwner: 'opponent' }, viable: true });
+  }
+  // The look is optional ("You may …"), and passing is also the escape hatch
+  // if both decks emptied between the play and the choice.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
 }

@@ -19,7 +19,7 @@ import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceC
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard } from '../types/cards.js';
 import { placeCardSetAside } from './set-aside.js';
 import { ownerOf } from '../types/state.js';
 import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
@@ -1394,6 +1394,51 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
 }
 
 /**
+ * Applies a `site-type-remap` short-event effect on chain resolution: installs
+ * the class-wide `site.type` override ("all Shadow-holds [{S}] become
+ * Dark-holds [{D}]" — Witch-king of Angmar tw-113's on-tap long-event).
+ *
+ * The constraint is filtered by the sites' *printed* type rather than by any
+ * definition id, so it retypes every matching site in the game at once, and it
+ * is targeted at the declaring player (the effect is global; it must outlive
+ * every company). With `duration: "long-event"` its scope is
+ * `next-long-event-phase`, which expires it exactly when a hazard long-event
+ * owned by the declarer would be discarded ([2.III.3]) — the card itself goes
+ * to the discard pile immediately, so the constraint carries the whole
+ * duration.
+ */
+function applySiteTypeRemap(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').SiteTypeRemapEffect => e.type === 'site-type-remap',
+  );
+  if (!effect) return state;
+
+  const scope: import('../types/pending.js').ConstraintScope = effect.duration === 'long-event'
+    ? { kind: 'next-long-event-phase', playerId: entry.declaredBy, afterTurn: state.turnNumber }
+    : { kind: 'turn' };
+  logDetail(
+    `${def?.name ?? (card.definitionId as string)}: all ${effect.from} sites become ${effect.to} `
+    + `(scope ${scope.kind}, owner ${entry.declaredBy as string})`,
+  );
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope,
+    target: { kind: 'player', playerId: entry.declaredBy },
+    kind: {
+      type: 'attribute-modifier',
+      attribute: 'site.type',
+      op: 'override',
+      value: effect.to,
+      filter: { 'site.printedType': effect.from } as unknown as import('../types/effects.js').Condition,
+    },
+  });
+}
+
+/**
  * Applies a `tap-character` short-event effect on chain resolution: taps the
  * character chosen when the card was played/tapped (the chain entry payload's
  * `targetCharacterId`). Used by Adûnaphel tw-2's permanent-event on-tap ("causes
@@ -1483,6 +1528,158 @@ function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameStat
   const total = current.pendingResolutions.length - state.pendingResolutions.length;
   logDetail(`${cardName}: force-check-all-in-play — ${total} corruption check(s) enqueued, moving player ${movingPlayerId as string} first`);
   return current;
+}
+
+/**
+ * Resolves a `force-discard-target-item` effect (Indûr Dawndeath tw-46's on-tap
+ * short-event conversion): "makes any wounded character discard an item of his
+ * choice (but not a ring)".
+ *
+ * The card-player already chose *which* character when the permanent-event was
+ * tapped (the target rides on the chain entry payload, and the emitter only
+ * offered characters matching the effect's `targetFilter` that bear a
+ * `itemFilter`-eligible item). The *item* is the target's own choice, so this
+ * enqueues the shared `discard-one-company-item` pending resolution — narrowed
+ * to that one character and carrying the item filter — for the target's
+ * controller. Routing through that resolution also inherits the Leaf Brooch
+ * (dm-171) `discard-substitute` interposition for free.
+ *
+ * No-op if the card carries no such effect, no target rode along, the target is
+ * gone (eliminated before the chain resolved), or nothing eligible remains on it.
+ */
+function applyForceDiscardTargetItem(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ForceDiscardTargetItemEffect => e.type === 'force-discard-target-item',
+  );
+  if (!effect) return state;
+  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+
+  const owner = state.players.find(p => p.characters[targetCharId]);
+  if (!owner) {
+    logDetail(`${cardLabel}: force-discard-target-item — target character ${targetCharId as string} is no longer in play`);
+    return state;
+  }
+  const char = owner.characters[targetCharId];
+  const charLabel = (defById(state, char.definitionId) as { name?: string } | undefined)?.name ?? (targetCharId as string);
+  const eligible = char.items.filter(item => {
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef || !isItemCard(itemDef)) return false;
+    return !effect.itemFilter || matchesDefinition(itemDef, effect.itemFilter);
+  });
+  if (eligible.length === 0) {
+    logDetail(`${cardLabel}: force-discard-target-item — ${charLabel} bears no eligible item, nothing to discard`);
+    return state;
+  }
+  const company = findCharacterCompany(owner.companies, targetCharId);
+  if (!company) {
+    logDetail(`${cardLabel}: force-discard-target-item — target character ${targetCharId as string} is in no company`);
+    return state;
+  }
+
+  logDetail(`${cardLabel}: force-discard-target-item — ${charLabel} must discard one of ${eligible.length} eligible item(s), owner's choice`);
+  return enqueueResolution(state, {
+    source: card.instanceId,
+    actor: owner.id,
+    scope: companySubphaseScope(state.phaseState.phase, company.id),
+    kind: {
+      type: 'discard-one-company-item',
+      companyId: company.id,
+      characterId: targetCharId,
+      ...(effect.itemFilter ? { itemFilter: effect.itemFilter } : {}),
+    },
+  });
+}
+
+/**
+ * Resolves an `attack-race-boost` effect (Dwar of Waw tw-31's on-tap
+ * short-event conversion: "gives +1 prowess to all Wolf, Spider, and Animal
+ * attacks until the end of the turn").
+ *
+ * Installs one turn-scoped `creature-attack-boost` active constraint — the
+ * kind Chill Douser (dm-106) already places — carrying the effect's race list
+ * and bonuses. Unlike Chill Douser's company-bound constraint this one targets
+ * the **opponent of the declaring player**: the side whose companies face
+ * hazards this turn. A player target reaches every company that player
+ * controls, so the boost lands on hazard-creature attacks and site
+ * automatic-attacks alike, which is what "all X attacks" means.
+ *
+ * No-op if the card carries no such effect.
+ */
+function applyAttackRaceBoost(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').AttackRaceBoostEffect => e.type === 'attack-race-boost',
+  );
+  if (!effect) return state;
+  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+
+  const opponent = state.players.find(p => p.id !== entry.declaredBy);
+  if (!opponent) {
+    logDetail(`${cardLabel}: attack-race-boost — no opposing player found, fizzle`);
+    return state;
+  }
+  const prowess = effect.prowess ?? 0;
+  const strikes = effect.strikes ?? 0;
+  logDetail(`${cardLabel}: attack-race-boost — all ${effect.races.join('/')} attacks against ${opponent.name} receive +${prowess} prowess / +${strikes} strikes until the end of the turn`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: opponent.id },
+    kind: { type: 'creature-attack-boost', race: effect.races, strikes, prowess },
+  });
+}
+
+/**
+ * Resolves a `target-character-stat-modifier` effect (Akhôrahil tw-4's on-tap
+ * short-event conversion: "modifies any one character's body by -1 for the rest
+ * of this turn").
+ *
+ * The character was named when the permanent-event was tapped and rides on the
+ * chain entry payload. Resolution installs a turn-scoped
+ * `character-stat-modifier` constraint bound to that instance — the same kind
+ * Vilya / Glance of Arien (ba-19) place — so the modifier is picked up by
+ * `collectCharacterStatModifierEffects` when the character's `effectiveStats`
+ * are recomputed, and is swept by the existing end-of-turn sweep.
+ *
+ * No-op if the card carries no such effect, no target rode along, or the target
+ * left play before the chain resolved.
+ */
+function applyTargetCharacterStatModifier(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').TargetCharacterStatModifierEffect =>
+      e.type === 'target-character-stat-modifier',
+  );
+  if (!effect) return state;
+  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+
+  const owner = state.players.find(p => p.characters[targetCharId]);
+  if (!owner) {
+    logDetail(`${cardLabel}: target-character-stat-modifier — target character ${targetCharId as string} is no longer in play`);
+    return state;
+  }
+  const charLabel = (defById(state, owner.characters[targetCharId].definitionId) as { name?: string } | undefined)?.name
+    ?? (targetCharId as string);
+  logDetail(`${cardLabel}: target-character-stat-modifier — ${charLabel} ${effect.stat} ${effect.value > 0 ? '+' : ''}${effect.value} until the end of the turn`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'character', characterId: targetCharId },
+    kind: { type: 'character-stat-modifier', stat: effect.stat, value: effect.value, characterId: targetCharId },
+  });
 }
 
 /**
@@ -2250,6 +2447,37 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
+  // opposed-roll (No More Nonsense le-210): "Make a roll for the leader. Choose
+  // another character in the company and do the same." Enqueue the two-roll
+  // contest between the play-target (challenger) and the second character
+  // chosen at play time; the resolution surfaces one `opposed-roll` action per
+  // roll and applies the effect's onWin/onLose outcomes after the second.
+  const opposedEffect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
+  );
+  const opposedCharId = entry.payload.type === 'permanent-event' ? entry.payload.opposedCharacterId : undefined;
+  if (opposedEffect) {
+    if (targetCharId && opposedCharId && opposedCharId !== targetCharId) {
+      logDetail(`"${def?.name ?? '?'}" opposed-roll: enqueuing 2d6 + ${opposedEffect.addStat} contest — ${targetCharId as string} vs ${opposedCharId as string}`);
+      newState = enqueueResolution(newState, {
+        source: card.instanceId,
+        actor: entry.declaredBy,
+        scope: { kind: 'phase', phase: newState.phaseState.phase },
+        kind: {
+          type: 'opposed-roll',
+          sourceInstanceId: card.instanceId,
+          sourceDefinitionId: card.definitionId,
+          challengerId: targetCharId,
+          opponentId: opposedCharId,
+          addStat: opposedEffect.addStat,
+          comparison: opposedEffect.comparison ?? 'gt',
+        },
+      });
+    } else {
+      logDetail(`"${def?.name ?? '?'}" opposed-roll: no distinct opposing character chosen — contest fizzles`);
+    }
+  }
+
   // skip-next-untap-on-play (Fireworks dm-130): "The next time the sage would
   // otherwise become untapped make him tapped instead and discard this card."
   // Install the one-shot skip-next-untap constraint on the target character;
@@ -2685,9 +2913,14 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
 
 /**
  * Apply a resolving card's {@link ProhibitCardPlayEffect} clauses: discard
- * every named card already in play (from either player's `cardsInPlay`) to its
- * owner's discard pile. One-time effect applied at resolution; the ongoing
- * play-lock is enforced in `playHazardsActions`.
+ * every **named** card already in play (from either player's `cardsInPlay`) to
+ * its owner's discard pile. One-time effect applied at resolution; the ongoing
+ * play-lock is enforced centrally in `computeLegalActions`.
+ *
+ * Only `cardNames` sweeps the table — that is the "discards *and* prohibits"
+ * wording of The Under-roads (as-106). A class-wide `filter` lock is purely
+ * forward-looking ("No environment cards can be played", Balance Between Powers
+ * dm-118) and never touches what is already in play.
  */
 function applyProhibitCardPlayOnResolve(
   state: GameState,
@@ -2698,7 +2931,8 @@ function applyProhibitCardPlayOnResolve(
   );
   if (prohibitEffects.length === 0) return state;
   const prohibited = new Set<string>();
-  for (const eff of prohibitEffects) for (const name of eff.cardNames) prohibited.add(name);
+  for (const eff of prohibitEffects) for (const name of eff.cardNames ?? []) prohibited.add(name);
+  if (prohibited.size === 0) return state;
 
   return discardCardsInPlayWhere(
     state,
@@ -3380,6 +3614,32 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // a corruption check (Ren the Unclean tw-83's on-tap short-event conversion).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyForceCheckAllInPlay(current, entry);
+  }
+
+  // Short events that make one chosen character give up an item of the owner's
+  // choice (Indûr Dawndeath tw-46's on-tap short-event conversion). The victim
+  // was chosen at tap time and rides on the chain entry's payload.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyForceDiscardTargetItem(current, entry);
+  }
+
+  // Short events that boost every attack of a set of races for the rest of the
+  // turn (Dwar of Waw tw-31's on-tap short-event conversion).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyAttackRaceBoost(current, entry);
+  }
+
+  // Short events that modify one named character's stat for the rest of the
+  // turn (Akhôrahil tw-4's on-tap short-event conversion: body -1). The target
+  // was chosen at tap time and rides on the chain entry's payload.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyTargetCharacterStatModifier(current, entry);
+  }
+
+  // Short events that retype a whole class of sites (Witch-king of Angmar
+  // tw-113's on-tap long-event: "all Shadow-holds become Dark-holds").
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applySiteTypeRemap(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards

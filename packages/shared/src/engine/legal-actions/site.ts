@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
-import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform } from '../effective.js';
+import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -19,8 +19,8 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
-import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified } from '../reducer-utils.js';
+import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -33,7 +33,7 @@ import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 
 /**
@@ -244,9 +244,13 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
 
   if (siteState.step === 'automatic-attacks'
     || siteState.step === 'troll-purse-attacks'
-    || siteState.step === 'rescue-attacks') {
-    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue): the
-    // active player passes to initiate the next attack (or to finish).
+    || siteState.step === 'rescue-attacks'
+    || siteState.step === 'site-entry-attack'
+    || siteState.step === 'siege-attacks') {
+    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue, Siege
+    // tw-87) and the `site-entry-roll-attack` gate window (Doubled Vigilance
+    // dm-51): the active player passes to initiate the next attack (or to
+    // finish).
     return viable(automaticAttacksActions(state, playerId, siteState));
   }
 
@@ -408,10 +412,26 @@ function revealOnGuardAttacksActions(
         cardInstanceId: ogCard.instanceId,
       });
     } else if (def.cardType === 'hazard-event' && hasAutoAttacks) {
-      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed here
+      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed
+      // here. Rule 2.V.i.1 extends that to adding an attack, which is what a
+      // `site-entry-roll-attack` gate (Doubled Vigilance dm-51) can do — CRF
+      // confirms it "can be revealed on-guard".
       const affectsAutoAttacks = 'effects' in def && def.effects?.some(
-        e => e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'),
+        e => (e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'))
+          || e.type === 'site-entry-roll-attack',
       );
+      // A site-targeting event is played on the company's site as it is
+      // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,
+      // or a Ruins & Lairs / Border-hold while Doors of Night is in play).
+      const siteTarget = 'effects' in def
+        ? def.effects?.find(e => e.type === 'play-target' && e.target === 'site')
+        : undefined;
+      if (siteTarget && siteTarget.type === 'play-target' && siteTarget.filter
+        && !(siteDef && isSiteCard(siteDef)
+          && matchesContext(siteTarget.filter, sitePlayTargetContext(state, siteDef)))) {
+        logDetail(`On-guard event "${def.name}" cannot be played on ${siteDef && isSiteCard(siteDef) ? siteDef.name : '?'} — not revealable`);
+        continue;
+      }
       if (affectsAutoAttacks) {
         logDetail(`On-guard event "${def.name}" affects automatic-attacks — eligible for reveal`);
         actions.push({
@@ -939,6 +959,15 @@ function playResourcesActions(
             continue;
           }
         }
+        // play-condition: phase — a permanent event whose text names the phase
+        // it may be played in ("during the organization phase" — No More
+        // Nonsense le-210) is not offered here. Left unevaluated so it falls
+        // through to the shared "not playable" tail rather than being listed.
+        const phaseCond = findPlayConditionEffect(eventDef, 'phase');
+        if (phaseCond?.phases && !phaseCond.phases.includes(Phase.Site)) {
+          logDetail(`Permanent event ${eventDef.name}: playable only during [${phaseCond.phases.join(', ')}] — not in the site phase`);
+          continue;
+        }
         evaluatedInstances.add(cardInstanceId as string);
 
         // Check uniqueness
@@ -994,24 +1023,17 @@ function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
         );
         if (sitePlayTarget?.filter && siteDef) {
-          // Augment the matched object with the site's own region type so a
-          // filter can gate on it (e.g. Hidden Haven's "in a Wilderness,
-          // Border-land, or Shadow-land"). The region type lives on a separate
-          // region card, so it is not a field on the site definition itself.
-          const regionType = siteRegionTypeOf(state, siteDef);
-          // Expose the site's *effective* type (after any wizardhaven-conversion
-          // / site-type-override) as `effectiveSiteType` so a filter can gate on
-          // "your Wizardhaven [{H}]" and still match a haven the player converted
-          // dynamically (Guarded Haven wh-74 on a Hidden Haven site). The raw
-          // `siteType` field remains the printed type for filters that need it.
-          const effectiveSiteType = siteDefId && isSiteCard(siteDef)
-            ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
-            : undefined;
-          // Expose whether this site is the surface entrance of an Under-deeps
-          // site so a filter can exclude it (Tempest of Fire ba-77: "the site
-          // cannot be an Under-deeps site or surface site thereof").
+          // The shared site play-target context (`regionType`,
+          // `effectiveSiteType`, `isWizardhaven`, `isProtected` on top of the
+          // site definition), plus the one fact only this layer needs: whether
+          // the site is the surface entrance of an Under-deeps site, so a
+          // filter can exclude it (Tempest of Fire ba-77: "the site cannot be
+          // an Under-deeps site or surface site thereof").
           const isUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDef);
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType, isUnderDeepsSurface };
+          const matchTarget = {
+            ...buildSiteFilterContext(state, siteDef, siteInstanceId ?? undefined),
+            isUnderDeepsSurface,
+          };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));
@@ -1237,6 +1259,11 @@ function playResourcesActions(
                 status: ch.status,
                 name: charDef.name,
                 itemNames,
+                // Structural keywords ("leader", "uruk-hai", "agent", …) —
+                // exposed here as well as in the organization-phase emitter so
+                // a `target.keywords` filter behaves the same in both play
+                // windows.
+                keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 isAvatar: isAvatarCharacter(charDef),
               },
               company: { covert: isCovertCompany(company, player, state) },
@@ -1965,7 +1992,8 @@ function playResourcesActions(
               wizard: playerWizardName(state, player),
             },
           };
-          const charEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          const ownEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          const charEffects = [...ownEffects];
           charEffects.push(...collectCompanyAllyEffects(state, fullCharacter, resolverCtx));
           // Player-scoped ongoing influence bonuses from bare in-play
           // permanent-events (Great Army of the North ba-38).
@@ -1979,29 +2007,38 @@ function playResourcesActions(
           // Under nullification only the influencer's OWN card text survives;
           // items, attached hazards, allies, other in-play events and the
           // faction's own printed modifications all contribute zero.
-          const ownEffects = charEffects.filter(e => e.sourceInstance === ch.instanceId);
+          const ownCardEffects = charEffects.filter(e => e.sourceInstance === ch.instanceId);
 
           // Unused direct influence. Normally the effective value (DI granted
           // by rings and other cards included); under nullification the
           // *normal* one — printed DI plus his own card-text modifications.
           const freeDI = nullifyMods
-            ? normalUnusedDI(state, ch.instanceId, player, ownEffects, resolverCtx)
+            ? normalUnusedDI(state, ch.instanceId, player, ownCardEffects, resolverCtx)
             : availableDI(state, ch.instanceId, player);
           infModifier += freeDI;
           infParts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
 
-          const dslMod = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+          const dslMod = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
           if (dslMod !== 0) {
             infModifier += dslMod;
             infParts.push(`check bonus ${formatSignedNumber(dslMod)}`);
           }
 
           // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel
-          // +1 DI vs elf factions). Under nullification the influencer's own
-          // ones are already inside `freeDI` and everyone else's are zeroed.
+          // +1 DI vs elf factions). `freeDI` above already carries every
+          // modifier baked into the influencer's effective DI, so only the
+          // faction-conditional ones borne by the character are folded in here
+          // (see `checkConditionalEffects`); ally / player-scoped / faction-card
+          // effects are never in effective DI and pass through unfiltered.
+          // Under nullification the influencer's own ones are already inside
+          // `freeDI` and everyone else's are zeroed.
+          const diEffects = [
+            ...checkConditionalEffects(ownEffects),
+            ...charEffects.slice(ownEffects.length),
+          ];
           const dslDI = nullifyMods
             ? 0
-            : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+            : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
           if (dslDI !== 0) {
             infModifier += dslDI;
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
@@ -2119,9 +2156,21 @@ function playResourcesActions(
         // Game-wide ongoing influence modifier from a bare in-play event owned
         // by either player (Times Are Evil td-76: "All … influence attempts are
         // modified by -3"). Applies to every influence attempt.
+        // The context carries the faction being influenced so a game-wide
+        // modifier can be race-gated (Lord of the Carrock as-14). Webs of Fear
+        // & Treachery (le-150) nullifies card-sourced modifications entirely.
         const globalInfMod = nullifyMods
           ? 0
-          : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+          : collectGlobalCheckModifier(state, 'influence', {
+            reason: 'faction-influence-check',
+            faction: {
+              name: factionDef.name,
+              race: factionDef.race,
+              playableAt: buildFactionPlayableAt(factionDef),
+              playableRegions: buildFactionPlayableRegions(state, factionDef),
+            },
+            influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
+          });
         if (globalInfMod !== 0) {
           infModifier += globalInfMod;
           infParts.push(`game-wide ${formatSignedNumber(globalInfMod)}`);

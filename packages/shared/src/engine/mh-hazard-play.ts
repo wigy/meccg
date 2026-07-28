@@ -41,15 +41,16 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
+import { siteConstraintFilterMatches } from './effective.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
@@ -266,14 +267,14 @@ function handleSideboardWithNazgul(
   if (!card) return { state, error: 'Nazgûl permanent-event not found in play' };
   if (card.status === CardStatus.Tapped) return { state, error: 'Nazgûl is already tapped' };
   const def = defById(state, card.definitionId);
-  if (!def || def.cardType !== 'hazard-event' || !(def.keywords ?? []).includes('Nazgûl')) {
+  if (!isNazgulPermanentEvent(def)) {
     return { state, error: 'Target is not a Nazgûl permanent-event' };
   }
   if (action.destination === 'deck' && player.playDeck.length < MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK) {
     return { state, error: 'Play deck must have at least 5 cards to fetch a hazard to it' };
   }
 
-  logDetail(`Rule 5.24: ${player.name} taps and discards Nazgûl "${def.name}" to access sideboard (${action.destination})`);
+  logDetail(`Rule 5.24: ${player.name} taps and discards Nazgûl "${def?.name ?? (card.definitionId as string)}" to access sideboard (${action.destination})`);
   const afterDiscard = updatePlayer(state, playerIndex, p => ({
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
@@ -2055,6 +2056,38 @@ function enqueueLeftBehindRejoins(state: GameState, activeIndex: number): GameSt
   return s;
 }
 
+/**
+ * Find an `extra-mh-phase` constraint (Master of Esgaroth td-135) that the
+ * given company has just satisfied, or null.
+ *
+ * The card is played at the end of the organization phase on a *moving*
+ * company, long before the destination is committed, so its "if the company
+ * moves to a Border-hold" clause is a promise checked at the end of the
+ * company's movement/hazard phase. A match therefore requires both that the
+ * company actually moved this phase and that the site it now occupies has the
+ * constraint's {@link requiresDestinationSiteType} (a constraint with no
+ * required type matches any completed move).
+ */
+function extraMHPhaseConstraint(
+  state: GameState,
+  company: Company,
+): import('../types/pending.js').ActiveConstraint | null {
+  if (!company.moved) return null;
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!siteDef || !isSiteCard(siteDef)) return null;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'extra-mh-phase') continue;
+    if (c.target.kind !== 'company' || c.target.companyId !== company.id) continue;
+    const required = c.kind.requiresDestinationSiteType;
+    if (required && siteDef.siteType !== required) {
+      logDetail(`Extra M/H phase: company ${company.id as string} moved to ${siteDef.name} (${siteDef.siteType}), constraint requires ${required} — no extra phase`);
+      continue;
+    }
+    return c;
+  }
+  return null;
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
@@ -2094,6 +2127,23 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
         idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
     }));
     return { state: { ...clearedState, phaseState: { ...mhState, step: 'extra-mh-move-offer' as const } } };
+  }
+
+  // extra-mh-phase constraint (Master of Esgaroth td-135): played at the end of
+  // the organization phase on a moving company, before its destination is
+  // final, so the "if the company moves to a Border-hold" gate is evaluated
+  // here instead of at play time. When the company really did move and its new
+  // site matches, consume the constraint (exactly one extra phase, however the
+  // second move ends) and route it through the shared extra-move offer step.
+  const extraPhase = extraMHPhaseConstraint(state, currentCompany);
+  if (extraPhase) {
+    logDetail(`Extra M/H phase: "${extraPhase.sourceDefinitionId as string}" grants company ${currentCompany.id as string} a second movement/hazard phase → extra-mh-move-offer`);
+    return {
+      state: {
+        ...removeConstraint(state, extraPhase.id),
+        phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
+      },
+    };
   }
 
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
@@ -2525,8 +2575,8 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
-    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-    if (!destSiteCard || filterSiteDefId !== (destSiteCard.id as string)) continue;
+    if (!destSiteCard) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, destSiteCard.id, destSiteCard.name, destSiteCard.siteType)) continue;
     const overrideType = c.kind.value as import('../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) effectiveSiteTypes.push(overrideType);
   }
@@ -2641,6 +2691,12 @@ function handleTapAltPermanentEvent(
   }
   if (altEvent.persistent) {
     return { state, error: 'tap-alt-permanent-event: this permanent-event has no tap conversion — it stays in play' };
+  }
+  // Hoarmûrath of Dír (tw-44): its on-tap short-event modifies "any one attack",
+  // so the conversion happens in the combat pre-assignment window via
+  // `modify-attack` (`fromAltPermanentEvent`), not here.
+  if (getCardEffects(def).some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) {
+    return { state, error: 'tap-alt-permanent-event: this permanent-event converts during an attack — tap it in the combat window' };
   }
 
   // CoE 2.1.2: a tap-character on-tap effect is a hazard directed at the opponent,

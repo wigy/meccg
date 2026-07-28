@@ -266,6 +266,9 @@ describe('Stabbing Tongue of Fire (ba-81)', () => {
       let state = buildTestState({
         activePlayer: PLAYER_1,
         phase: Phase.MovementHazard,
+        // The character body check reads `effectiveStats.body`, which only a
+        // recomputed state carries.
+        recompute: true,
         players: [
           { id: PLAYER_1, alignment: Alignment.Balrog, companies: [{ site: BARAD_DUR_BA, characters: [THE_BALROG] }], hand: [], siteDeck: [] },
           { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: BARAD_DUR_BA, characters: [GIMLI] }], hand: [], siteDeck: [] },
