@@ -13,50 +13,23 @@
  *
  * The service also owns the conversion from the standing to the risk posture,
  * so every module shares one answer instead of forming private opinions.
+ *
+ * The {@link Standing} *interface* lives in `core/types` and only its
+ * construction lives here. That is the layering the architecture test enforces:
+ * `core` is the vocabulary every module speaks, and a vocabulary that imports
+ * from a service depends on one of the things that speaks it.
  */
 
 import type { MarshallingPointTotals, PlayerView } from '@meccg/shared';
 import { computeTournamentBreakdown, computeTournamentScore } from '@meccg/shared';
-import type { Outcome, Rationale } from '../core/types.js';
+import type { Outcome, Rationale, Standing } from '../core/types.js';
 import type { Tunables } from '../core/tunables.js';
 import type { WinProbModel } from '../core/winprob.js';
 import type { MpDelta, MpSource } from '../core/tsd.js';
 import { MP_SOURCES, marginalMpValue, tsd, tsdAfter } from '../core/tsd.js';
-import type { RiskPosture, ScoredOutcomes } from '../core/risk.js';
+import type { ScoredOutcomes } from '../core/risk.js';
 import { riskPosture, scoreOutcomes } from '../core/risk.js';
 import { leaf, node } from '../core/rationale.js';
-
-/** Where the score stands and what a marginal point is worth. */
-export interface Standing {
-  /** The player's own raw MP totals. */
-  readonly selfMp: MarshallingPointTotals;
-  /** The opponent's raw MP totals (public information). */
-  readonly opponentMp: MarshallingPointTotals;
-  /** The player's tournament-adjusted per-source values. */
-  readonly selfBreakdown: MarshallingPointTotals;
-  /** The opponent's tournament-adjusted per-source values. */
-  readonly opponentBreakdown: MarshallingPointTotals;
-  /** The player's tournament score. */
-  readonly selfScore: number;
-  /** The opponent's tournament score. */
-  readonly opponentScore: number;
-  /** Tournament-score differential from the player's perspective. */
-  readonly tsd: number;
-  /** TSD value of +1 raw MP in each source — often 2, 1, or 0. */
-  readonly marginal: Readonly<Record<MpSource, number>>;
-  /** Current turn number. */
-  readonly turnNumber: number;
-  /** Risk posture derived from the curvature of `W` at this standing. */
-  readonly risk: RiskPosture;
-  /** The win-probability model in use. */
-  readonly model: WinProbModel;
-  /** TSD after hypothetical MP changes on either side. */
-  tsdAfter(selfDelta: MpDelta, opponentDelta?: MpDelta): number;
-  /** Convert an outcome distribution to a win-probability delta. */
-  score(outcomes: readonly Outcome[]): ScoredOutcomes;
-  /** The standing as an explanation tree, for `explain` and module rationales. */
-  rationale(): Rationale;
-}
 
 /**
  * Build the standing from a player view.
@@ -129,3 +102,5 @@ export function computeStanding(
     },
   };
 }
+
+export type { Standing } from '../core/types.js';

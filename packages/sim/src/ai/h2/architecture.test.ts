@@ -17,6 +17,8 @@ import { ALL_MODULES } from './core/registry.js';
 
 const H2_ROOT = __dirname;
 const MODULES_DIR = path.join(H2_ROOT, 'modules');
+const SERVICES_DIR = path.join(H2_ROOT, 'services');
+const CORE_DIR = path.join(H2_ROOT, 'core');
 
 /** Every `.ts` source file under a directory, tests excluded. */
 function sourceFiles(dir: string): string[] {
@@ -61,6 +63,48 @@ describe('module boundaries', () => {
         if (!specifier.startsWith('.')) continue;
         const target = moduleOwning(path.resolve(path.dirname(file), specifier));
         if (target !== null && target !== own) {
+          offenders.push(`${path.relative(H2_ROOT, file)} → ${specifier}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test('a service never reaches into a module', () => {
+    // The direction of the dependency is the whole design: a service is a
+    // number more than one module needs, so a service that imported a module
+    // would make that module's opinion everyone's. It is also the rule that
+    // decides where new code goes — `denial` started inside `hazards` and had
+    // to move the moment `card-price` needed it, and this test is what says so
+    // rather than a reviewer noticing.
+    const offenders: string[] = [];
+    for (const file of sourceFiles(SERVICES_DIR)) {
+      for (const specifier of importsOf(file)) {
+        if (!specifier.startsWith('.')) continue;
+        const target = path.resolve(path.dirname(file), specifier);
+        if (moduleOwning(target) !== null) {
+          offenders.push(`${path.relative(H2_ROOT, file)} → ${specifier}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test('core depends on nothing above it', () => {
+    // `core` is the vocabulary — TSD, dice, the risk oracle, the rationale
+    // tree. A service or module leaking into it would make the vocabulary
+    // depend on one of the things that speaks it.
+    const offenders: string[] = [];
+    for (const file of sourceFiles(CORE_DIR)) {
+      // The registry is the one place that names every module — that is what a
+      // registry is. Exempting it by name rather than by pattern keeps the
+      // exception to exactly one file.
+      if (path.basename(file) === 'registry.ts') continue;
+      for (const specifier of importsOf(file)) {
+        if (!specifier.startsWith('.')) continue;
+        const target = path.resolve(path.dirname(file), specifier);
+        const inServices = !path.relative(SERVICES_DIR, target).startsWith('..');
+        if (moduleOwning(target) !== null || inServices) {
           offenders.push(`${path.relative(H2_ROOT, file)} → ${specifier}`);
         }
       }

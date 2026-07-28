@@ -16,8 +16,10 @@
  * See `specs/2026-07-27-heuristics-2-ai.md` §2 for the design rationale.
  */
 
-import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
-import type { Standing } from '../services/standing.js';
+import type { CardDefinition, GameAction, MarshallingPointTotals, PlayerView } from '@meccg/shared';
+import type { RiskPosture, ScoredOutcomes } from './risk.js';
+import type { MpDelta, MpSource } from './tsd.js';
+import type { WinProbModel } from './winprob.js';
 import type { Tunables } from './tunables.js';
 
 /** Unit of a {@link Rationale} value, so renderers can format it correctly. */
@@ -111,6 +113,38 @@ export interface Evaluation {
    * never hide the assumption that made it cheap to compute.
    */
   readonly assumptions: readonly string[];
+}
+
+/** Where the score stands and what a marginal point is worth. */
+export interface Standing {
+  /** The player's own raw MP totals. */
+  readonly selfMp: MarshallingPointTotals;
+  /** The opponent's raw MP totals (public information). */
+  readonly opponentMp: MarshallingPointTotals;
+  /** The player's tournament-adjusted per-source values. */
+  readonly selfBreakdown: MarshallingPointTotals;
+  /** The opponent's tournament-adjusted per-source values. */
+  readonly opponentBreakdown: MarshallingPointTotals;
+  /** The player's tournament score. */
+  readonly selfScore: number;
+  /** The opponent's tournament score. */
+  readonly opponentScore: number;
+  /** Tournament-score differential from the player's perspective. */
+  readonly tsd: number;
+  /** TSD value of +1 raw MP in each source — often 2, 1, or 0. */
+  readonly marginal: Readonly<Record<MpSource, number>>;
+  /** Current turn number. */
+  readonly turnNumber: number;
+  /** Risk posture derived from the curvature of `W` at this standing. */
+  readonly risk: RiskPosture;
+  /** The win-probability model in use. */
+  readonly model: WinProbModel;
+  /** TSD after hypothetical MP changes on either side. */
+  tsdAfter(selfDelta: MpDelta, opponentDelta?: MpDelta): number;
+  /** Convert an outcome distribution to a win-probability delta. */
+  score(outcomes: readonly Outcome[]): ScoredOutcomes;
+  /** The standing as an explanation tree, for `explain` and module rationales. */
+  rationale(): Rationale;
 }
 
 /**
