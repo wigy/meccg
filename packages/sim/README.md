@@ -380,10 +380,16 @@ is worth.
 ### Does it win?
 
 ```sh
+# The verdict: paired seeds, side-swapped, with an Elo interval
+npm run gate -w @meccg/sim -- --challenger h2 --champion heuristic --pairs 20 --jobs 4
+
+# The watchable version: prints each game as it finishes
 npm run headtohead -w @meccg/sim -- --games 16 --max-decisions 4000
 ```
 
-Three paired samples on different seeds, most recent last:
+`gate` is the tool that answers this properly, and `headtohead` exists because a
+run you can watch beats a run you wait on. Three `headtohead` samples on
+different seeds, most recent last:
 
 ```text
   seed  60   h2 13 —  6  heuristic (1 drawn)   20 games   67.5%
