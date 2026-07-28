@@ -972,6 +972,9 @@
     "body": 9,
     "killMarshallingPoints": 5,
     "race": "ringwraith",
+    "keywords": [
+      "Nazgûl"
+    ],
     "keyedTo": [
       {
         "regionTypes": [
@@ -980,14 +983,45 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Harondor",
+          "Horse Plains",
+          "Gorgoroth",
+          "Khand"
+        ]
       }
     ],
     "effects": [
       {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [
+          "dm-36"
+        ],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 16,
+          "body": 9
+        },
+        "discardAfterUse": true
+      },
+      {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "target-character-stat-modifier",
+        "stat": "body",
+        "value": -1
       }
     ],
+    "certified": "2026-07-28",
     "text": "Unique.Nazgûl (5th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Akhôrahil becomes a short-event and modifies any one character’s body by -1 for the rest of this turn."
   },
   {

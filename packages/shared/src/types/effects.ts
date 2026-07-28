@@ -2149,11 +2149,23 @@ export interface WinConditionRollAction extends TriggeredActionBase {
   readonly rollModifiers?: readonly RollModifier[];
 }
 
-/** `win-game` — immediate One Ring win (CoE 10.39); carries no payload. */
+/** `win-game` — immediate One Ring win (CoE 10.39). */
 export interface WinGameAction extends TriggeredActionBase {
   readonly type: 'win-game';
   /** @deprecated Documented historically but never read in the engine. */
   readonly via?: 'one-ring';
+  /**
+   * When true, The One Ring is *destroyed* as part of the win: every in-play
+   * item the winner's characters bear that carries the `the-one-ring` keyword
+   * is removed from the game (to the owner's out-of-play pile) before final
+   * scores are computed, so the destroyed Ring scores no marshalling points.
+   *
+   * Only the two cards that print "The One Ring is destroyed" set this —
+   * Cracks of Doom (tw-205) and Gollum's Fate (tw-247). A New Ringlord
+   * (wh-60) and Challenge the Power (ba-52) win *with* the Ring, not by
+   * destroying it, so they leave it unset.
+   */
+  readonly destroysOneRing?: boolean;
 }
 
 /**
@@ -5537,6 +5549,38 @@ export interface AttackRaceBoostEffect extends EffectBase {
 }
 
 /**
+ * When this short-event resolves, the **one character named when it was played
+ * (or tapped)** has the given stat modified for the rest of the turn.
+ *
+ * Resolution installs a turn-scoped `character-stat-modifier` active constraint
+ * bound to that character instance — the same kind Vilya and Glance of Arien
+ * (ba-19) place — so the modifier flows through `collectCharacterStatModifier
+ * Effects` into the character's `effectiveStats` and is swept at end of turn.
+ * The difference from ba-19's `on-event: self-enters-play → add-constraint`
+ * shape is *when* it fires: this effect resolves only on the **short-event**
+ * chain path, so a dual-mode creature sitting in play as a permanent-event
+ * grants nothing until it is tapped and converts (§56c).
+ *
+ * `targetFilter` (optional) narrows which characters the card-player may aim
+ * at, evaluated against the shared play-option context exactly as
+ * {@link ForceDiscardTargetItemEffect.targetFilter}. Omit it for "any one
+ * character".
+ *
+ * Used by Akhôrahil (tw-4) as the on-tap short-event conversion of its
+ * permanent-event mode: "modifies any one character's body by -1 for the rest
+ * of this turn."
+ */
+export interface TargetCharacterStatModifierEffect extends EffectBase {
+  readonly type: 'target-character-stat-modifier';
+  /** The stat modified on the named character. */
+  readonly stat: 'prowess' | 'body' | 'direct-influence';
+  /** Signed modifier applied for the rest of the turn (negative to reduce). */
+  readonly value: number;
+  /** Condition on a candidate target character (play-option context). */
+  readonly targetFilter?: Condition;
+}
+
+/**
  * Hazard short-event that makes **each character** in the target company face
  * one strike (not part of a creature attack — "not an attack"). The strike has
  * a fixed prowess, carries no creature race, and resolves through the normal
@@ -6984,6 +7028,7 @@ export type CardEffect =
   | ForceCheckAllInPlayEffect
   | ForceDiscardTargetItemEffect
   | AttackRaceBoostEffect
+  | TargetCharacterStatModifierEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect

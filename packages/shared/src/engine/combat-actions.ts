@@ -762,7 +762,15 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Allies with an instance stat override (e.g. a creature converted by
     // Ready to His Will) use that body; otherwise fall back to the definition.
     const allyOverrideBody = allyMatch ? allyEffectiveBody(stateWithRoll, allyMatch.ally) : undefined;
-    const printedBody = allyOverrideBody ?? charDef2?.body ?? 9;
+    // A character checks against its *effective* body, not the printed value:
+    // body modifiers from items and from `character-stat-modifier` constraints
+    // (Akhôrahil tw-4's on-tap "-1 to any one character's body", Glance of Arien
+    // ba-19, Vilya) are folded into `effectiveStats.body` by recomputeDerived,
+    // which the reducer runs after every action. Allies bear no items and have
+    // no effectiveStats, so they keep the printed/override value.
+    const printedBody = allyOverrideBody
+      ?? (charData && !allyMatch ? charData.effectiveStats.body : undefined)
+      ?? charDef2?.body ?? 9;
     let body = printedBody; // Default body if not specified
     // CvCC weapon effects: the attacking character's `enemy-modifier` (body,
     // subtract/halve) effects reduce the defending character's body-check
