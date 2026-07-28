@@ -2421,13 +2421,26 @@ export interface SingleCharCombatOpts {
   creatureBody: number | null;
   /** If true, the test skips strike assignment (phase starts at `resolve-strike`). */
   preAssigned?: boolean;
+  /**
+   * Alignment of the defending player. Defaults to the hero side; pass
+   * `Alignment.Ringwraith` (with a minion `site`) so a minion card's test
+   * exercises the minion code paths rather than hero ones.
+   */
+  alignment?: Alignment;
+  /** Site the defending company occupies. Defaults to Moria (hero copy). */
+  site?: CardDefinitionId;
+  /** Site deck for the defending player. Defaults to Minas Tirith (hero copy). */
+  siteDeck?: readonly CardDefinitionId[];
 }
 
 /**
- * Build a state with a single hero character in combat against a fabricated
+ * Build a state with a single character in combat against a fabricated
  * creature with the given race/prowess/body. Phase is M/H in Shadow; when
  * `preAssigned` is true the state is ready to resolve a strike, otherwise it
  * awaits assignment. Used by e.g. Éowyn's anti-nazgûl tests.
+ *
+ * The defending side defaults to hero fixtures; minion card tests pass
+ * `alignment`/`site`/`siteDeck` to keep the fixture on their own alignment.
  */
 export function makeSingleCharCombatState(opts: SingleCharCombatOpts): GameState {
   const state = buildTestState({
@@ -2435,7 +2448,13 @@ export function makeSingleCharCombatState(opts: SingleCharCombatOpts): GameState
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
-      { id: PLAYER_1, companies: [{ site: MORIA, characters: [opts.heroDefId] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      {
+        id: PLAYER_1,
+        ...(opts.alignment ? { alignment: opts.alignment } : {}),
+        companies: [{ site: opts.site ?? MORIA, characters: [opts.heroDefId] }],
+        hand: [],
+        siteDeck: [...(opts.siteDeck ?? [MINAS_TIRITH])],
+      },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
     ],
   });
