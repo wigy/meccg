@@ -621,7 +621,26 @@
       {
         "site": "Dol Guldur"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Moria"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Orcs of the Red Eye"
+        }
+      }
+    ],
+    "certified": "2026-07-28"
   },
   {
     "cardType": "minion-resource-ally",
