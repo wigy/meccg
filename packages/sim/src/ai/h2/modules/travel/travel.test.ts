@@ -24,6 +24,9 @@ const SCENARIO = 'organization/turn14-company-planning';
 /** An organization phase where a company has already declared a destination. */
 const REPLAN = 'organization/replanned-movement';
 
+/** A site phase where a company must decide whether to enter its site. */
+const ENTER = 'site/enter-or-pass';
+
 /** The scenario as a module context. */
 function position(id: string = SCENARIO): { context: ModuleContext; actions: GameAction[] } {
   const scenario = loadScenario(id);
@@ -121,5 +124,32 @@ describe('declaring a path', () => {
     const { context } = position();
     const text = JSON.stringify(travelModule.evaluate(path(['a', 'b']), context)!.rationale);
     expect(text).toContain('holds a creature');
+  });
+});
+
+describe('entering a site', () => {
+  test('prices the attacks the site prints, against this company', () => {
+    // The one decision where both halves are published: the site card carries
+    // its automatic attacks, so this is `defence` run against the real thing
+    // rather than against a median creature.
+    const { context, actions } = position(ENTER);
+    const enter = actions.find(a => a.type === 'enter-site');
+    expect(enter).toBeDefined();
+    const evaluation = travelModule.evaluate(enter!, context)!;
+    expect(evaluation).not.toBeNull();
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('automatic attacks');
+    expect(text).toContain('on-guard cards');
+  });
+
+  test('will not enter for nothing — a company with no taps left has nothing to gain', () => {
+    // Entering commits the company to the site's attacks before a single
+    // resource can be played (CoE 341-343). With every character tapped there
+    // is no resource play to be had, so the attacks buy nothing at all.
+    const { context, actions } = position(ENTER);
+    const enter = actions.find(a => a.type === 'enter-site')!;
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
+    const entering = travelModule.evaluate(enter, context)!;
+    expect(entering.expectedTsd).toBeLessThan(stay.expectedTsd);
   });
 });

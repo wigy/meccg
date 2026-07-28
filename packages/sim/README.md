@@ -255,16 +255,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1437 contested decisions:
+Over 1442 contested decisions:
 
 ```text
-  covered and decisive        644  44.8%
-  covered but flat            151  10.5%   → H1
-  partial, acted anyway       138   9.6%
-  partial, handed over        459  31.9%   → H1
-  no owner at all              45   3.1%   → H1
+  covered and decisive        705  48.9%
+  covered but flat            184  12.8%   → H1
+  partial, acted anyway       150  10.4%
+  partial, handed over        356  24.7%   → H1
+  no owner at all              47   3.3%   → H1
 
-  H2 decides 54.4% of contested decisions.
+  H2 decides 59.3% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -287,6 +287,23 @@ reasoning about it:
 - **`split-company` and `merge-companies`** (191) turned out to have an exact
   half: the hazard limit *is* the company size, so shape decides how
   concentrated the harm can be. `services/defence.ts` computes it.
+- **`enter-site`** (89) is the one decision in the game where *both* halves are
+  published. Entering commits the company to the site's automatic attacks before
+  a single resource can be played (CoE 341–343), and the site card prints those
+  attacks with their strikes, prowess and body — so the cost is `defence` run
+  against the real thing rather than a median creature, and the gain is the
+  hand cards that become playable, capped by the characters left to tap:
+
+  ```text
+  enter Goblin-gate: -1.0%
+  ├─ automatic attacks: 1  [3 strike(s) at prowess 6]
+  ├─ what they would cost: +0.9  [priced against this company]
+  ├─ on-guard cards: 0  [nothing was placed]
+  └─ taps available: 0
+  ```
+
+  Every character is tapped, so nothing is playable and the attacks buy nothing
+  at all. Passing wins, and the tree says why.
 
 The report also separates an action type **nobody owns** from one a module owns
 and then **declines**, because they mean opposite things: the first is a module
