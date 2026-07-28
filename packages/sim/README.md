@@ -66,6 +66,10 @@ npm run fit-winprob -w @meccg/sim -- --games 400 [--holdout 0.25] [--out path]
 # Check a module's claimed probabilities against the real reducer
 npm run calibrate -w @meccg/sim -- [--module combat] [--rollouts 5000] [--scenario <id>]
 
+# Vary one number and watch a real decision change, or not
+npm run sweep -w @meccg/sim -- --scenario <id> --over tunable:regionCrossingCost --from 0 --to 3
+npm run sweep -w @meccg/sim -- --scenario <id> --over risk --steps 5
+
 # How often do two agents actually choose differently, and where?
 npm run compare -w @meccg/sim -- --agents heuristic,h2 [--games 6]
 npm run compare -w @meccg/sim -- --scenarios --agents heuristic,h2
