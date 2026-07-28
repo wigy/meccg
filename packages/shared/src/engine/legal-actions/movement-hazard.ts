@@ -1861,6 +1861,53 @@ function tapDiscardAttachedHazardActions(
   return actions;
 }
 
+/**
+ * Enumerate the card instances an untargeted {@link PlayOptionEffect} mode may
+ * act on, per its `candidates` pool, filtered by the apply's own `filter`.
+ *
+ * Backs Returned Beyond All Hope (as-35), whose three modes each act on one
+ * declared card instance: a creature in the player's own discard pile, a Maia
+ * permanent-event in the player's own `cardsInPlay`, or an *eliminated* creature
+ * — one sitting in either player's marshalling-point pile (a trophy, per the
+ * CRF 22 ruling) or out-of-play pile. The source card itself is never a
+ * candidate (a hazard short-event is already in its own discard pile when the
+ * emitter runs).
+ */
+function untargetedOptionCandidates(
+  state: GameState,
+  player: PlayerState,
+  opt: import('../../types/effects.js').PlayOptionEffect,
+  sourceInstanceId: CardInstanceId,
+): readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] {
+  const apply = opt.apply;
+  const filter: import('../../types/effects.js').Condition | undefined =
+    apply.type === 'move' ? apply.filter
+      : apply.type === 'un-eliminate-creature' ? apply.filter
+        : undefined;
+  const matches = (c: { instanceId: CardInstanceId; definitionId: CardDefinitionId }): boolean => {
+    if (c.instanceId === sourceInstanceId) return false;
+    const cDef = defById(state, c.definitionId);
+    if (!cDef) return false;
+    return filter === undefined || matchesDefinition(cDef, filter);
+  };
+  switch (opt.candidates) {
+    case 'own-discard':
+      return player.discardPile.filter(matches);
+    case 'own-in-play':
+      return player.cardsInPlay.filter(matches)
+        .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+    case 'eliminated': {
+      const found: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
+      for (const p of state.players) {
+        found.push(...p.killPile.filter(matches), ...p.outOfPlayPile.filter(matches));
+      }
+      return found;
+    }
+    default:
+      return [];
+  }
+}
+
 function playHazardsActions(
   state: GameState,
   playerId: PlayerId,
@@ -2207,6 +2254,47 @@ function playHazardsActions(
             }
           }
           if (blocked) continue;
+        }
+
+        // --- Untargeted play-option modes acting on a declared card instance ---
+        // Returned Beyond All Hope (as-35): three mutually-exclusive modes, none
+        // of which targets a character, each acting on one card instance the
+        // player names when playing (MECCG declares targets at play time, so the
+        // opponent can respond knowing what is at stake). Emit one action per
+        // (mode × candidate); a mode with no candidate is reported non-viable so
+        // the UI can say why. A mode declared `eventMode: "permanent-event"`
+        // carries `altEventMode` so the reducer routes it down the
+        // permanent-event chain path instead of the short-event one.
+        const instanceOptions = getCardEffects(def).filter(
+          (e): e is import('../../types/effects.js').PlayOptionEffect =>
+            e.type === 'play-option' && !!e.untargeted && !!e.candidates,
+        );
+        if (instanceOptions.length > 0 && !getCardEffects(def).some(e => e.type === 'play-target')) {
+          for (const opt of instanceOptions) {
+            const candidates = untargetedOptionCandidates(state, player, opt, cardInstId);
+            if (candidates.length === 0) {
+              logDetail(`Hazard short-event "${def.name}": option "${opt.id}" has no candidate card (pool ${opt.candidates})`);
+              actions.push({
+                action: { ...action, optionId: opt.id },
+                viable: false,
+                reason: `${def.name}: no card available for this mode`,
+              });
+              continue;
+            }
+            for (const candidate of candidates) {
+              logDetail(`Hazard short-event "${def.name}": option "${opt.id}" can act on ${cardName(state, candidate.definitionId)}`);
+              actions.push({
+                action: {
+                  ...action,
+                  optionId: opt.id,
+                  optionTargetInstanceId: candidate.instanceId,
+                  ...(opt.eventMode === 'permanent-event' ? { altEventMode: 'permanent-event' as const } : {}),
+                },
+                viable: true,
+              });
+            }
+          }
+          continue;
         }
 
         // Environment-cancelers (e.g. Twilight) need an environment target in

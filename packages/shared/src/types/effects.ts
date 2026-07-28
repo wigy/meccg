@@ -1967,6 +1967,7 @@ export type TriggeredActionType =
   | 'peek-opponent-hand'
   | 'roll-check'
   | 'roll-then-apply'
+  | 'un-eliminate-creature'
   | 'transform-site'
   | 'untap-site'
   | 'lock-company-movement'
@@ -2138,6 +2139,36 @@ export interface RollThenApplyAction extends TriggeredActionBase {
   readonly onSuccess?: TriggeredAction;
   /** Apply run when the roll is below `threshold`. */
   readonly onFailure?: TriggeredAction;
+}
+
+/**
+ * `un-eliminate-creature` — "make a roll—if the result is greater than 8, bring
+ * an eliminated hazard creature to its owner's discard pile **and** place this
+ * card in your opponent's marshalling point pile, otherwise, discard this card."
+ * (Returned Beyond All Hope, as-35, mode 3.)
+ *
+ * An *eliminated* creature is one sitting in a terminal off-board pile: the
+ * opponent's marshalling-point pile (`killPile` — a defeated creature kept as a
+ * trophy, explicitly allowed by the CRF 22 ruling "This card may target
+ * creatures still in play as trophies") or either player's `outOfPlayPile` (a
+ * creature routed out of the game, e.g. by the CoE 8.22 starred/non-starred
+ * rule). Recovering it to its owner's discard pile un-eliminates it, so
+ * {@link isManifestationDefeated} stops reporting the chain as defeated and any
+ * manifestation of that character becomes playable again.
+ *
+ * The card carrying this apply rides the chain as a permanent-event and never
+ * enters `cardsInPlay`: on a successful roll it is placed into the opponent's
+ * marshalling-point pile (where an accompanying `mp-in-pile` effect scores it),
+ * on a failed roll into its own player's discard pile.
+ */
+export interface UnEliminateCreatureAction extends TriggeredActionBase {
+  readonly type: 'un-eliminate-creature';
+  /** The 2d6 total at or above which the recovery succeeds (9 = "greater than 8"). */
+  readonly threshold: number;
+  /** DSL condition every candidate creature definition must match. */
+  readonly filter: Condition;
+  /** Where the resolving card goes on success. */
+  readonly selfTo: 'opponent-mp-pile';
 }
 
 /** `win-condition-roll` — CoE 10.39 dice-roll win cards (A New Ringlord, Challenge the Power). */
@@ -2803,6 +2834,7 @@ export type TriggeredAction =
   | MaladyWithoutHealingAction
   | RollCheckAction
   | RollThenApplyAction
+  | UnEliminateCreatureAction
   | WinConditionRollAction
   | WinGameAction
   | AddConstraintAction
@@ -2902,6 +2934,31 @@ export interface PlayOptionEffect extends EffectBase {
    * make a corruption check" mode is played on a character.
    */
   readonly untargeted?: boolean;
+  /**
+   * For an {@link untargeted} option whose `apply` acts on one specific card
+   * instance (rather than on a character or on nothing), the pool the candidate
+   * instance is drawn from. The hazard short-event emitter enumerates that pool,
+   * filters it by the apply's own `filter`, and emits one `play-hazard` action
+   * per candidate carrying `optionTargetInstanceId` — so the target is declared
+   * when the card is played, as MECCG requires, not after it resolves.
+   *
+   * - `own-discard` — the playing player's discard pile.
+   * - `own-in-play` — the playing player's `cardsInPlay` (e.g. a hazard creature
+   *   currently in play in its permanent-event mode).
+   * - `eliminated` — every terminal off-board pile of both players: each
+   *   player's marshalling-point pile (`killPile`, i.e. trophies) and
+   *   `outOfPlayPile`.
+   */
+  readonly candidates?: 'own-discard' | 'own-in-play' | 'eliminated';
+  /**
+   * The event mode this option is played as, when it differs from the card's
+   * printed `eventType`. Returned Beyond All Hope (as-35) is a short-event whose
+   * third mode is played "as a permanent-event"; setting this to
+   * `permanent-event` makes the emitter stamp `altEventMode` on the action so
+   * the reducer routes the play down the permanent-event chain path (the card
+   * rides the chain instead of being pre-discarded).
+   */
+  readonly eventMode?: 'short-event' | 'permanent-event';
 }
 
 /**

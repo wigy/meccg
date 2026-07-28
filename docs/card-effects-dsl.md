@@ -12744,3 +12744,99 @@ no replacement machinery: the substitute is itself an item in the company, so
 naming it already fulfils the requirement.
 
 Used by: *Leaf Brooch* (dm-171).
+
+---
+
+### 71. `un-eliminate-creature` + instance-targeted untargeted `play-option` modes
+
+Returned Beyond All Hope (as-35) is a hazard short-event with **three**
+mutually-exclusive modes, none of which targets a character, each acting on one
+card instance the player names when playing:
+
+1. as a short-event, a hazard creature of race Maia / Elf / Dwarf / Dúnedain
+   from the player's own **discard pile** → their hand;
+2. as a short-event, a **Maia permanent-event in play** (a Maia hazard creature
+   sitting in that player's `cardsInPlay` in its permanent-event mode) → their
+   hand;
+3. as a **permanent-event**, a roll: on "greater than 8" an *eliminated* Elf or
+   Maia hazard creature returns to its owner's discard pile and this card is
+   placed in the opponent's marshalling-point pile; otherwise the card is
+   discarded.
+
+Two generic additions to `play-option` cover the first two modes and the mode
+selection; only the roll-and-recover verb is new.
+
+#### `play-option` — `candidates` and `eventMode`
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `candidates` | no | Pool the option's declared card instance is drawn from: `own-discard`, `own-in-play`, or `eliminated` (both players' `killPile` **and** `outOfPlayPile`). |
+| `eventMode` | no | `short-event` \| `permanent-event` — the event mode this option is played as, when it differs from the card's printed `eventType`. |
+
+An **untargeted** option carrying `candidates` is enumerated by the hazard
+short-event emitter (`legal-actions/movement-hazard.ts`,
+`untargetedOptionCandidates`): each instance in the pool is filtered by the
+apply's own `filter` (the source card itself is always excluded — a hazard short
+event already sits in its own discard pile at that point), and one `play-hazard`
+action is emitted per (mode × candidate) carrying `optionId` +
+`optionTargetInstanceId`. Targets are therefore declared at *play* time, so the
+opponent's response window sees what is at stake. A mode with no candidate is
+emitted non-viable with a reason; a card whose every mode is empty is simply not
+playable. This branch runs only for a short event that carries **no**
+`play-target`.
+
+`eventMode: "permanent-event"` makes the emitter stamp `altEventMode` on the
+action. `handlePlayHazardCard` (`mh-hazard-play.ts`) then routes a short-event
+card down the permanent-event chain path: the card rides the chain instead of
+being pre-discarded, and its option's apply decides where it lands.
+
+Mode 1 and mode 2 apply a plain `move` (`select: 'target'`, `from: 'discard'` /
+`'in-play'`, `to: 'hand'`); `chain-reducer.ts` feeds
+`optionTargetInstanceId` to `applyMove` as `ctx.targetCardId`, so the card
+returns to its owner's hand through the ordinary move primitive. "to your hand"
+is read as the playing player's own cards, which is why the two pools are
+`own-discard` / `own-in-play`.
+
+#### `un-eliminate-creature`
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | 2d6 total at or above which the recovery succeeds (`9` = "greater than 8"). |
+| `filter` | yes | Card-definition condition every candidate creature must match. |
+| `selfTo` | yes | Where the resolving card goes on success. Only `"opponent-mp-pile"` today. |
+
+```json
+{ "type": "play-option", "id": "un-eliminate-creature", "untargeted": true,
+  "candidates": "eliminated", "eventMode": "permanent-event",
+  "apply": { "type": "un-eliminate-creature", "threshold": 9,
+             "selfTo": "opponent-mp-pile",
+             "filter": { "$and": [ { "cardType": "hazard-creature" },
+                                   { "race": { "$in": ["elf", "maia"] } } ] } } }
+```
+
+Resolved by `resolveUnEliminateCreature` (`chain-reducer.ts`), reached from the
+permanent-event branch of `resolveEntry` — which, like dm-73's
+`displace-stored-item`, skips `resolvePermanentEvent` entirely so the card never
+enters `cardsInPlay`. It rolls 2d6 (honouring `cheatRollTotal`, emitting the
+dice `GameEffect` through `ResolveResult.effects`) and then:
+
+- **success** — the declared creature leaves the terminal pile holding it for
+  its **owner's** discard pile (owner from the instance-id prefix, falling back
+  to the opponent of the pile holder, since a creature only reaches another
+  player's kill/out-of-play pile by attacking them), and the resolving card is
+  placed into the opponent's marshalling-point pile, where an accompanying
+  `mp-in-pile` effect scores it (as-35: 2 kill MP, its printed value);
+- **failure**, or a declared creature that can no longer be located or no longer
+  matches `filter` — the resolving card goes to its own player's discard pile.
+
+Either way the card lands in exactly one pile: no instance is lost.
+
+An *eliminated* creature is one in a terminal off-board pile — either player's
+`outOfPlayPile` **or** `killPile`. Including the kill pile is deliberate: CRF 22
+rules that this card "may target creatures still in play as trophies". Because
+the recovered creature leaves the terminal piles, `isManifestationDefeated`
+stops reporting its chain as defeated — which is the other CRF 22 ruling, that
+the card "«un-eliminates» a hazard creature, allowing any manifestation of that
+character to be played".
+
+Used by: *Returned Beyond All Hope* (as-35).

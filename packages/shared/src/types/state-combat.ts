@@ -834,6 +834,12 @@ export type ChainEntryPayload =
        */
       readonly optionId?: string;
       /**
+       * For an untargeted `play-option` mode acting on one specific card
+       * instance (Returned Beyond All Hope as-35), the instance declared at
+       * play time. Consumed by the chain resolver as the `move` target.
+       */
+      readonly optionTargetInstanceId?: CardInstanceId;
+      /**
        * For a `force-opponent-discard` effect with a dynamic `count` (Khamûl the
        * Easterling tw-47), the number of cards the opponent must discard,
        * computed at declaration time (when the permanent-event mode was tapped,
@@ -888,6 +894,18 @@ export type ChainEntryPayload =
        * marshalling-point pile.
        */
       readonly targetStoredItemInstanceId?: CardInstanceId;
+      /**
+       * For a card played in a `play-option` mode declared as a permanent-event
+       * (Returned Beyond All Hope as-35 mode 3), the id of the chosen option.
+       * The chain resolver dispatches that option's `apply` instead of placing
+       * the card into `cardsInPlay`.
+       */
+      readonly optionId?: string;
+      /**
+       * The card instance the permanent-event option acts on (as-35 mode 3: the
+       * eliminated creature to bring back to its owner's discard pile).
+       */
+      readonly optionTargetInstanceId?: CardInstanceId;
       /**
        * For a hazard permanent-event played on one of the hazard player's own
        * face-down agents (Inner Cunning dm-68, mode 1), the agent's

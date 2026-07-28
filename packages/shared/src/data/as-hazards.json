@@ -317,7 +317,66 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ReturnedBeyondAllHope.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-option",
+        "id": "recover-creature-from-discard",
+        "untargeted": true,
+        "candidates": "own-discard",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "$and": [
+              { "cardType": "hazard-creature" },
+              { "race": { "$in": ["maia", "elf", "dwarf", "dunadan"] } }
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "return-maia-permanent-event",
+        "untargeted": true,
+        "candidates": "own-in-play",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "in-play",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "$and": [
+              { "cardType": "hazard-creature" },
+              { "race": "maia" }
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "un-eliminate-creature",
+        "untargeted": true,
+        "candidates": "eliminated",
+        "eventMode": "permanent-event",
+        "apply": {
+          "type": "un-eliminate-creature",
+          "threshold": 9,
+          "selfTo": "opponent-mp-pile",
+          "filter": {
+            "$and": [
+              { "cardType": "hazard-creature" },
+              { "race": { "$in": ["elf", "maia"] } }
+            ]
+          }
+        }
+      },
+      { "type": "mp-in-pile", "category": "kill", "value": 2 }
+    ],
+    "certified": "2026-07-28",
     "text": "As a short-event, bring one hazard creature of the following type from your discard pile to your hand: Maia, Elf, Dwarf, or Dúnedain. Alternatively, as a short-event, bring a Maia permanent-event from active play to your hand. Alternatively, as a permanent-event, make a roll—if the result is greater than 8, bring an eliminated Elf or Maia hazard creature to its owner’s discard pile and place this card in your opponent’s marshalling point pile, otherwise, discard this card."
   },
   {

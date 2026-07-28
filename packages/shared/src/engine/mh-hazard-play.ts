@@ -767,6 +767,45 @@ export function handlePlayHazardCard(
     return { state: newState };
   }
 
+  // --- Short-event card played in a permanent-event `play-option` mode ---
+  // Returned Beyond All Hope (as-35) mode 3: "Alternatively, as a
+  // permanent-event, make a roll…". The card's printed eventType is `short`, but
+  // this mode is declared as a permanent event, so the card rides the chain
+  // (it is NOT pre-discarded like a short event) and its option's apply decides
+  // where it finally lands — the opponent's marshalling-point pile on a
+  // successful roll, its own player's discard pile otherwise. Like dm-73 it
+  // never enters `cardsInPlay`. Counts one against the hazard limit.
+  if (def.cardType === 'hazard-event'
+      && def.eventType === 'short'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'permanent-event'
+      && action.optionId) {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays "${def.name}" as a permanent-event (option "${action.optionId}") (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+    const payload: import('../index.js').ChainEntryPayload = {
+      type: 'permanent-event',
+      optionId: action.optionId,
+      ...(action.optionTargetInstanceId
+        ? { optionTargetInstanceId: action.optionTargetInstanceId }
+        : {}),
+    };
+    newState = initiateOrPushChain(newState, action.player, handCard, payload);
+    return { state: newState };
+  }
+
   // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {
     const viaKeyingBypass = action.type === 'play-hazard' && action.keyedBy?.method === 'keying-bypass';
@@ -955,6 +994,9 @@ export function handlePlayHazardCard(
         : {}),
       ...(action.type === 'play-hazard' && action.optionId
         ? { optionId: action.optionId }
+        : {}),
+      ...(action.type === 'play-hazard' && action.optionTargetInstanceId
+        ? { optionTargetInstanceId: action.optionTargetInstanceId }
         : {}),
       ...(action.type === 'play-hazard' && action.targetSiteDefinitionId
         ? { targetSiteDefinitionId: action.targetSiteDefinitionId }
