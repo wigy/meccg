@@ -23,7 +23,8 @@
     "compare": "npx tsx src/cli/compare.ts",
     "sweep": "npx tsx src/cli/sweep.ts",
     "horizon": "npx tsx src/cli/horizon.ts",
-    "coverage": "npx tsx src/cli/coverage.ts"
+    "coverage": "npx tsx src/cli/coverage.ts",
+    "headtohead": "npx tsx src/cli/headtohead.ts"
   },
   "dependencies": {
     "@meccg/shared": "*",

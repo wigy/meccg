@@ -20,7 +20,7 @@
  * from a service depends on one of the things that speaks it.
  */
 
-import type { MarshallingPointTotals, PlayerView } from '@meccg/shared';
+import type { PlayerView } from '@meccg/shared';
 import { computeTournamentBreakdown, computeTournamentScore } from '@meccg/shared';
 import type { Outcome, Rationale, Standing } from '../core/types.js';
 import type { Tunables } from '../core/tunables.js';

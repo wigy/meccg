@@ -29,6 +29,7 @@
  */
 
 import type { CardDefinition, PlayerView } from '@meccg/shared';
+import { memoizeOnFirst } from '../core/memo.js';
 import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
 import { computeCharacterValue } from './character-value.js';
@@ -127,15 +128,20 @@ function shownCreatures(
   return samples;
 }
 
-/** Every hazard creature in the card pool — the prior, when nothing is shown. */
-function poolCreatures(cardPool: Readonly<Record<string, CardDefinition>>): CreatureStats[] {
+/**
+ * Every hazard creature in the card pool — the prior, when nothing is shown.
+ *
+ * Memoised on the pool: it is a scan of several thousand definitions for an
+ * answer that is the same all game, and it was being run once per candidate.
+ */
+const poolCreatures = memoizeOnFirst((cardPool: Readonly<Record<string, CardDefinition>>): CreatureStats[] => {
   const samples: CreatureStats[] = [];
   for (const def of Object.values(cardPool)) {
     const stats = creatureStats(def);
     if (stats) samples.push(stats);
   }
   return samples;
-}
+});
 
 /**
  * Build the defence service.
@@ -145,7 +151,7 @@ function poolCreatures(cardPool: Readonly<Record<string, CardDefinition>>): Crea
  * them against the same threat, which is the only way the comparison means
  * anything.
  */
-export function computeDefence(
+function buildComputeDefence(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   standing: Standing,
@@ -201,3 +207,12 @@ export function computeDefence(
     },
   };
 }
+
+/**
+ * Build the service, once per position.
+ *
+ * The registry asks every module about every candidate on a decision and hands
+ * them all the same view, so this would otherwise be rebuilt once per
+ * candidate for an answer that cannot differ. See `core/memo`.
+ */
+export const computeDefence = memoizeOnFirst(buildComputeDefence);

@@ -40,6 +40,7 @@ import { CardStatus, Phase } from '@meccg/shared';
 import type { CardDefinition, GameAction, OpponentCompanyView, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
+import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { computeExposure } from '../../services/exposure.js';
 import { rosterOf } from '../../services/strike/prowess.js';
@@ -153,8 +154,8 @@ interface Plan {
   readonly detail: readonly Rationale[];
 }
 
-/** Build the plan once per evaluation: roster, denial context, ranked bundles. */
-function buildPlan(context: ModuleContext, company: OpponentCompanyView): Plan {
+/** Build the plan: roster, denial context, ranked bundles. */
+function planFor(context: ModuleContext, company: OpponentCompanyView): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
@@ -201,6 +202,19 @@ function buildPlan(context: ModuleContext, company: OpponentCompanyView): Plan {
   ];
   return { company, roster, search, detail };
 }
+
+/**
+ * The plan for a company, built once per position rather than per candidate.
+ *
+ * The beam search does not depend on which card the caller is asking about —
+ * `bestBundleStartingWith` reads the answer out of it — so planning inside
+ * every `evaluate` meant one beam search per candidate for an identical result.
+ * Keyed on the view, so the next decision replans; see `core/memo`.
+ */
+const buildPlan = memoizeOnFirst(
+  (_view: PlayerView, context: ModuleContext, company: OpponentCompanyView): Plan =>
+    planFor(context, company),
+);
 
 /** Turn a scored bundle into an evaluation of the action that opens it. */
 function evaluateBundle(
@@ -301,7 +315,7 @@ export const hazardsModule: H2Module = {
       const play = action as unknown as { cardInstanceId: string; targetCompanyId: string };
       const company = context.view.opponent.companies.find(c => (c.id as string) === play.targetCompanyId);
       if (!company) return null;
-      const plan = buildPlan(context, company);
+      const plan = buildPlan(context.view, context, company);
       const bundle = bestBundleStartingWith(plan.search, play.cardInstanceId);
       // Not a creature, or no slot left for it: this module has nothing to say,
       // and saying nothing is what leaves the decision honestly uncovered.
@@ -316,7 +330,7 @@ export const hazardsModule: H2Module = {
       const card = context.view.self.hand.find(c => (c.instanceId as string) === place.cardInstanceId);
       if (!card) return null;
       if (!creatureProfile(context.cardPool, card.definitionId as string)) return null;
-      const plan = buildPlan(context, company);
+      const plan = buildPlan(context.view, context, company);
       // On-guard placement is outside the hazard limit, so a card with no slot
       // left can still be placed — the single-card bundle is scored even when
       // `slots` is zero.

@@ -24,6 +24,7 @@
  */
 
 import type { CardDefinition, CardInstanceId, CompanyId, PlayerView } from '@meccg/shared';
+import { memoizeOnFirst } from '../core/memo.js';
 import { pAtMost } from '../core/dice.js';
 import type { MpDelta, MpSource } from '../core/tsd.js';
 import type { Tunables } from '../core/tunables.js';
@@ -74,7 +75,7 @@ function companyOf(view: PlayerView, instanceId: CardInstanceId): CompanyId | nu
  *   influence pool, and the mind that reverts is a hard number the budget
  *   already knows.
  */
-export function computeCharacterValue(
+function buildComputeCharacterValue(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   standing: Standing,
@@ -171,3 +172,12 @@ export function computeCharacterValue(
     lossCost: lossCostOf,
   };
 }
+
+/**
+ * Build the service, once per position.
+ *
+ * The registry asks every module about every candidate on a decision and hands
+ * them all the same view, so this would otherwise be rebuilt once per
+ * candidate for an answer that cannot differ. See `core/memo`.
+ */
+export const computeCharacterValue = memoizeOnFirst(buildComputeCharacterValue);

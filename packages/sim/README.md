@@ -288,6 +288,29 @@ What is left, by decisions blocked: `activate-granted-action` 145,
 declared gaps — events and non-creature on-guard cards — and closing them means
 pricing card effects, which is the DSL's work rather than a module's.
 
+### Does it win?
+
+```sh
+npm run headtohead -w @meccg/sim -- --games 4 --max-decisions 4000
+```
+
+```text
+  game 1a: h2 -5 — 23 heuristic     game 1b: h2 16 — -5 heuristic
+  game 2a: h2  5 — 10 heuristic     game 2b: h2 16 — -5 heuristic
+  game 3a: h2 12 — -3 heuristic     game 3b: h2 17 —  8 heuristic
+  game 4a: decision-limit after 4000 decisions — not counted
+                                    game 4b: h2  6 — -5 heuristic
+
+  h2 5 — 2 heuristic over 7 games (71.4% of the points available)
+```
+
+Seven games separate nothing but a landslide, and this is not one — treat it as
+evidence that H2 plays a whole game without falling over, not as a verdict.
+`gate` is the tool for a verdict; `headtohead` exists because it prints each
+game as it finishes, and a run you can watch is worth more than a run you wait
+on. One game in eight hit the decision limit, which is a pass-loop between the
+two agents and worth chasing separately.
+
 ### Does any of it predict anything?
 
 The horizon test (§6.4) correlates what a module predicted against what the

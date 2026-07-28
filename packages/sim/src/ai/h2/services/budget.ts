@@ -22,6 +22,7 @@
  */
 
 import { GENERAL_INFLUENCE } from '@meccg/shared';
+import { memoizeOnFirst } from '../core/memo.js';
 import { CardStatus, isCharacterCard } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CompanyId, PlayerView } from '@meccg/shared';
 
@@ -87,7 +88,7 @@ function mindOf(def: CardDefinition | undefined): number {
  * mind-2 follower brings 1 to an influence attempt, not 3, and an acquisition
  * module that read the printed number would chase factions it cannot reach.
  */
-export function computeBudget(
+function buildComputeBudget(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): Budget {
@@ -140,3 +141,12 @@ export function computeBudget(
     },
   };
 }
+
+/**
+ * Build the service, once per position.
+ *
+ * The registry asks every module about every candidate on a decision and hands
+ * them all the same view, so this would otherwise be rebuilt once per
+ * candidate for an answer that cannot differ. See `core/memo`.
+ */
+export const computeBudget = memoizeOnFirst(buildComputeBudget);

@@ -46,6 +46,7 @@
  */
 
 import { CardStatus } from '@meccg/shared';
+import { memoizeOnFirst } from '../core/memo.js';
 import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
 import type { MpSource } from '../core/tsd.js';
 import type { Tunables } from '../core/tunables.js';
@@ -129,7 +130,7 @@ function printed(def: CardDefinition | undefined, definitionId: string): Printed
  * the same to keep, and a hand of ten cards would otherwise pay for ten
  * enumerations at every discard.
  */
-export function computeCardPrices(
+function buildComputeCardPrices(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   standing: Standing,
@@ -257,3 +258,12 @@ export function opposingUntapped(view: PlayerView): number {
   }
   return count;
 }
+
+/**
+ * Build the service, once per position.
+ *
+ * The registry asks every module about every candidate on a decision and hands
+ * them all the same view, so this would otherwise be rebuilt once per
+ * candidate for an answer that cannot differ. See `core/memo`.
+ */
+export const computeCardPrices = memoizeOnFirst(buildComputeCardPrices);
