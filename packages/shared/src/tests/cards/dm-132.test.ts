@@ -400,6 +400,27 @@ describe('Forewarned Is Forearmed (dm-132)', () => {
     expectInDiscardPile(afterStrike, RESOURCE_PLAYER, FOREWARNED_IS_FOREARMED);
   });
 
+  test('stale selected attack index (list shrank after selection) faces nothing instead of crashing', () => {
+    // The auto-attack list is recomputed from in-play state every step, so
+    // the Forewarned-selected index can dangle if the list shrank between
+    // selection and resolution. Found by Monte-Carlo rollout self-play
+    // (gate seed 7100010): indexing with the stale value crashed on
+    // `undefined.creatureType`.
+    const base = buildSitePhaseState({ site: ETTENMOORS_LE, characters: [ARAGORN] });
+    const withFia = withForewarnedInPlay(base);
+    const autoAttackBase = setupAutoAttackStep(withFia);
+    const siteState = autoAttackBase.phaseState as SitePhaseState;
+    const staleState = {
+      ...autoAttackBase,
+      phaseState: { ...siteState, selectedAutoAttackIndex: 5 } as SitePhaseState,
+    };
+
+    const after = dispatch(staleState, { type: 'pass', player: PLAYER_1 });
+    // No combat is initiated and the site phase advances past the attacks.
+    expect(after.combat).toBeNull();
+    expect(phaseStateAs<SitePhaseState>(after).step).toBe('declare-agent-attack');
+  });
+
   // ── Rule 6: Card stays when non-isolated attack is defeated ───────────────
 
   test('Forewarned stays in play when a non-isolated attack is defeated', () => {

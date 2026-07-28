@@ -1016,10 +1016,20 @@ function handleSiteAutomaticAttacks(
   // Farmer Maggot (as-48) swapped the site card out from under the company
   // mid-sequence: the company was placed at the replacement rather than
   // entering it, so no further automatic-attack is faced at all.
+  // The automatic-attack list is recomputed from in-play state on every
+  // step, so the Forewarned-selected index can dangle if the list shrank
+  // between selection and resolution (environment change, site transform,
+  // a duplicating card leaving play). The selected attack no longer
+  // exists, so the company faces nothing — indexing with the stale value
+  // would read `undefined.creatureType` and crash.
+  const forewarnedStale = forewarnedIdx !== undefined && forewarnedIdx >= autoAttacks.length;
+  if (forewarnedStale) {
+    logDetail(`Site: Forewarned-selected attack index ${forewarnedIdx} out of range — list shrank to ${autoAttacks.length} attack(s) since selection; company faces nothing`);
+  }
   const allAttacksDone = siteState.autoAttacksSkipped === true
     ? true
     : forewarnedIdx !== undefined
-      ? attackIndex >= 1
+      ? attackIndex >= 1 || forewarnedStale
       : resolveIdx >= autoAttacks.length;
   if (siteState.autoAttacksSkipped === true) {
     logDetail(`Site: automatic-attack sequence abandoned (site card replaced mid-attack) — no further attacks at ${siteDef.name}`);
