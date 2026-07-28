@@ -287,3 +287,58 @@ describe('placing a card on guard', () => {
     expect(JSON.stringify(floors[0].rationale)).toContain('returns to hand');
   });
 });
+
+describe('hazard events', () => {
+  test('removing something from their play is worth the points it takes with it', () => {
+    // Muster Disperses declares nothing but `play-target: faction` — the
+    // dispersal is the card's own semantics, so there is no effect to read.
+    // What can be read is the *action's* target, and a faction in play has
+    // printed marshalling points.
+    const { view, cardPool, standing } = position();
+    const faction = view.opponent.cardsInPlay.find(c => {
+      const def = cardPool[c.definitionId] as unknown as {
+        marshallingCategory?: string; marshallingPoints?: number;
+      };
+      return def?.marshallingCategory === 'faction' && (def?.marshallingPoints ?? 0) > 0;
+    });
+    if (!faction) return; // no faction in play in this position
+
+    const hazardCard = view.self.hand.find(c =>
+      (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
+    if (!hazardCard) return;
+
+    const evaluation = hazardsModule.evaluate({
+      type: 'play-hazard',
+      player: view.self.id,
+      cardInstanceId: hazardCard.instanceId,
+      targetCompanyId: view.opponent.companies[0].id,
+      targetFactionInstanceId: faction.instanceId,
+    } as unknown as GameAction, {
+      view, cardPool, legalActions: [], tunables: DEFAULT_TUNABLES, standing,
+    });
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation!.rationale)).toContain('out of play');
+  });
+
+  test('an event whose family it cannot read is declined, not charged', () => {
+    // The property that keeps H2 able to play events at all. An effect this
+    // module cannot price leaves the decision uncovered rather than scored at
+    // "costs a card, achieves nothing".
+    const { view, cardPool, standing } = position();
+    const event = view.self.hand.find(c =>
+      (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
+    if (!event) return;
+    const evaluation = hazardsModule.evaluate({
+      type: 'play-hazard',
+      player: view.self.id,
+      cardInstanceId: event.instanceId,
+      targetCompanyId: view.opponent.companies[0].id,
+    } as unknown as GameAction, {
+      view, cardPool, legalActions: [], tunables: DEFAULT_TUNABLES, standing,
+    });
+    // Doors of Night and the like declare no family this module reads.
+    if (evaluation !== null) {
+      expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    }
+  });
+});

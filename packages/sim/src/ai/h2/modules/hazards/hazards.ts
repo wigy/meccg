@@ -50,6 +50,7 @@ import type {
   CardDefinition, CombatState, GameAction, OpponentCompanyView, PlayerView,
 } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
+import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
@@ -333,9 +334,10 @@ export const hazardsModule: H2Module = {
       if (!company) return null;
       const plan = buildPlan(context.view, context, company);
       const bundle = bestBundleStartingWith(plan.search, play.cardInstanceId);
-      // Not a creature, or no slot left for it: this module has nothing to say,
-      // and saying nothing is what leaves the decision honestly uncovered.
-      if (!bundle) return null;
+      // Not a creature: it may still be an event this module can price, and if
+      // it is not, saying nothing is what leaves the decision honestly
+      // uncovered.
+      if (!bundle) return evaluateHazardEvent(action, context);
       return evaluateBundle(action, plan, bundle, context, 1, `play ${bundle.cards[0].name}`);
     }
 
@@ -438,6 +440,124 @@ function evaluateAssignStrike(
       'the defender is assumed to tap to fight and to spend no cards answering it',
       ...ASSUMPTIONS,
     ],
+  };
+}
+
+
+/**
+ * Score a hazard *event* — the half of hazard play that is not an attack.
+ *
+ * Two families can be priced, and they come from different places.
+ *
+ * **What the action targets.** Muster Disperses declares nothing but
+ * `play-target: faction`; the dispersal is the card's own semantics, so there
+ * is no effect to read. But the *action* names the faction, and a faction in
+ * play has printed marshalling points — so what the play is worth is exactly
+ * what those points are worth to the opponent, through `standing`, which
+ * correctly says zero when their faction source is already capped.
+ *
+ * **What the effects declare.** An Unexpected Outpost moves cards from the
+ * sideboard or discard back into the deck, which is the recovery family
+ * `events` and `grants` both price, discounted again because a card put back in
+ * the deck is further away than one put in hand.
+ *
+ * Everything else is declined. The largest family by appearances is
+ * `stat-modifier` — Minions Stir giving every Orc attack +1 prowess — and its
+ * value is entirely "it makes my other hazards better", which is computable
+ * from the plan but is a bigger piece of work than tonight: the plan would have
+ * to be re-run with the modifier applied and the difference taken.
+ */
+function evaluateHazardEvent(action: GameAction, context: ModuleContext): Evaluation | null {
+  const record = action as unknown as {
+    cardInstanceId: string;
+    targetFactionInstanceId?: string;
+    targetStoredItemInstanceId?: string;
+  };
+  const { view, cardPool, standing, tunables } = context;
+  const card = view.self.hand.find(c => (c.instanceId as string) === record.cardInstanceId);
+  if (!card) return null;
+  const def = cardPool[card.definitionId] as unknown as {
+    name?: string; effects?: readonly { type?: string; to?: string; count?: number }[];
+  } | undefined;
+  const name = def?.name ?? (card.definitionId as string);
+
+  const gain = removalGain(record, context) ?? recoveryGain(def?.effects ?? [], tunables);
+  if (!gain) return null;
+
+  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.provisionalCardPrice }, tunables);
+  const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
+  const scored = standing.score(outcomes);
+
+  return {
+    action,
+    module: 'hazards',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`play ${name}`, scored.utility, [
+      node('the event', gain.tsd, [
+        leaf('event', name),
+        leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
+        leaf('the card it spends', tunables.provisionalCardPrice, {
+          unit: 'tsd',
+          tunable: 'provisionalCardPrice',
+        }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'a hazard event is priced by what the action targets or by the family its effects declare, '
+      + 'never by its text: an event that also restricts or enables something is under-valued',
+      'the hazard-limit slot it consumes is not charged — what else could have gone in that slot '
+      + 'is the bundle planner\'s question, and it does not plan events',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
+/** What taking a named card out of the opponent's play is worth. */
+function removalGain(
+  record: { targetFactionInstanceId?: string; targetStoredItemInstanceId?: string },
+  context: ModuleContext,
+): { tsd: number; reason: string } | null {
+  const targetId = record.targetFactionInstanceId ?? record.targetStoredItemInstanceId;
+  if (!targetId) return null;
+  const { view, cardPool, standing } = context;
+  const target = view.opponent.cardsInPlay.find(c => (c.instanceId as string) === targetId);
+  if (!target) return null;
+  const printed = cardPool[target.definitionId] as unknown as {
+    name?: string; marshallingPoints?: number; marshallingCategory?: string;
+  } | undefined;
+  const points = printed?.marshallingPoints ?? 0;
+  if (points <= 0) return null;
+  const source = printed?.marshallingCategory ?? 'misc';
+  const tsd = standing.tsd - standing.tsdAfter({}, { [source]: -points });
+  return {
+    tsd,
+    reason: tsd > 0
+      ? `takes ${printed?.name ?? 'a card'} out of play — ${points} ${source} MP they lose`
+      : `takes ${printed?.name ?? 'a card'} out of play, but that source is already capped for them`,
+  };
+}
+
+/** What an event that recycles cards into our own deck or hand is worth. */
+function recoveryGain(
+  effects: readonly { type?: string; to?: string; count?: number }[],
+  tunables: ModuleContext['tunables'],
+): { tsd: number; reason: string } | null {
+  const moves = effects.filter(e => e.type === 'move' && (e.to === 'deck' || e.to === 'hand'));
+  if (moves.length === 0) return null;
+  const cards = moves.reduce((sum, move) => sum + (move.count ?? 1), 0);
+  const toHand = moves.every(move => move.to === 'hand');
+  // A card put back in the deck is further away than one put in hand, so it is
+  // discounted again by the same factor every "might never happen" is.
+  const each = toHand ? tunables.resourceDrawValue : tunables.resourceDrawValue * tunables.potentialDiscount;
+  return {
+    tsd: cards * each,
+    reason: `${cards} card(s) back into the ${toHand ? 'hand' : 'deck'}, at `
+      + `${each.toFixed(2)} each${toHand ? '' : ' — discounted for being a draw away'}`,
   };
 }
 
