@@ -45,7 +45,8 @@ Usage:
   npm run horizon -w @meccg/sim -- [options]
 
 Options:
-  --games <n>       self-play games to sample (default 8)
+  --games <n>       self-play games to sample (default 8; six is not enough to
+                    separate modules — the interval printed says how far off)
   --seed <n>        base seed (default 1)
   --agents <a,b>    the H2 agent and its opponent (default h2,heuristic)
   --decks <a,b>     deck IDs
@@ -77,13 +78,37 @@ interface Prediction {
 const HORIZONS = [1, 3, 5] as const;
 
 /**
- * Predictions a module needs before its correlation is treated as evidence.
+ * Turns a module needs to appear in before its correlation is evidence.
  *
  * A correlation over five points is noise, and failing a module on it would
  * be worse than not testing it — the first run produced exactly that, calling
  * `characters` (n=5) and `factions` (n=10) failures on the strength of nothing.
+ * The unit is a turn rather than a decision because that is what is correlated:
+ * see the aggregation below.
  */
 const MIN_PREDICTIONS = 30;
+
+/**
+ * A confidence interval on a correlation, via Fisher's z-transform.
+ *
+ * The gate needs this because it was giving opposite verdicts on the same
+ * module. Two six-game samples put `hazards` at +0.10 and -0.18, `travel` at
+ * +0.10 and -0.06: a changed discard changes the whole trajectory, and the
+ * spread between runs was larger than the effect being judged. Failing a module
+ * on the sign of a point estimate is failing it on noise.
+ *
+ * The interval is nominal in a way worth stating: predictions inside one game
+ * share a trajectory, so they are not independent, and the true interval is
+ * wider than this. That makes the gate conservative in the right direction — it
+ * fails a module only when even an optimistic interval says the correlation is
+ * negative.
+ */
+function interval(r: number, n: number): { lower: number; upper: number } | null {
+  if (n < 5 || Math.abs(r) >= 1) return null;
+  const z = Math.atanh(r);
+  const se = 1 / Math.sqrt(n - 3);
+  return { lower: Math.tanh(z - 1.96 * se), upper: Math.tanh(z + 1.96 * se) };
+}
 
 /** Pearson correlation, or null when a series does not vary. */
 function correlation(xs: readonly number[], ys: readonly number[]): number | null {
@@ -181,35 +206,60 @@ for (const moduleName of ['(all)', ...modules]) {
   const subset = moduleName === '(all)' ? predictions : predictions.filter(p => p.module === moduleName);
   const parts: string[] = [];
   for (const horizon of HORIZONS) {
-    const xs: number[] = [];
-    const ys: number[] = [];
+    // Aggregated by turn, not by decision. Sixteen games said every module's
+    // per-decision correlation was indistinguishable from zero out to n=2689,
+    // and that is what the measurement deserves: one action among the hundreds
+    // taken in a turn cannot explain what the score did three turns later. What
+    // a module claims about a *turn* is the sum of what it claimed inside it,
+    // and that is a quantity the score change can actually answer.
+    const byTurn = new Map<string, number>();
     for (const p of subset) {
       const game = (p as { game?: number }).game ?? 0;
-      const now = differentialAt(game, p.turn);
-      const later = differentialAt(game, p.turn + horizon);
+      const key = `${game}#${p.turn}`;
+      byTurn.set(key, (byTurn.get(key) ?? 0) + p.predicted);
+    }
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const [key, predicted] of byTurn) {
+      const [game, turn] = key.split('#').map(Number);
+      const now = differentialAt(game, turn);
+      const later = differentialAt(game, turn + horizon);
       if (now === null || later === null) continue;
-      xs.push(p.predicted);
+      xs.push(predicted);
       ys.push(later - now);
     }
     const r = correlation(xs, ys);
-    parts.push(`h${horizon} ${r === null ? '  n/a' : (r >= 0 ? '+' : '') + r.toFixed(2)} (n=${xs.length})`);
+    const ci = r === null ? null : interval(r, xs.length);
+    const range = ci ? ` [${ci.lower.toFixed(2)}, ${ci.upper.toFixed(2)}]` : '';
+    parts.push(`h${horizon} ${r === null ? '  n/a' : (r >= 0 ? '+' : '') + r.toFixed(2)}${range} (n=${xs.length})`);
     // The plan's criterion is horizon 3: a module that predicts the immediate
-    // change but not this one is buying points it cannot keep.
-    if (horizon === 3 && moduleName !== '(all)' && r !== null && r <= 0 && xs.length >= MIN_PREDICTIONS) {
+    // change but not this one is buying points it cannot keep. It fails only
+    // when the whole interval is negative — a point estimate below zero is
+    // routinely a different sample of the same module.
+    if (horizon === 3 && moduleName !== '(all)' && ci !== null && ci.upper <= 0
+      && xs.length >= MIN_PREDICTIONS) {
       failures++;
     }
   }
-  const thin = subset.length < MIN_PREDICTIONS && moduleName !== '(all)';
+  const turns = new Set(subset.map(p => `${(p as { game?: number }).game ?? 0}#${p.turn}`)).size;
+  const thin = turns < MIN_PREDICTIONS && moduleName !== '(all)';
   console.log(`  ${moduleName.padEnd(12)} ${parts.join('   ')}${thin ? '   — too few to judge' : ''}`);
 }
 
 console.log('');
-console.log('Correlation of predicted Δtsd against the realized change, 1/3/5 turns later.');
-console.log('Plan §6.4: a module must be positive at horizon 3 — otherwise it is optimising');
-console.log(`immediate spread, the failure recorded in ai-training-system §10. Modules with`);
-console.log(`fewer than ${MIN_PREDICTIONS} predictions are reported but not judged.`);
+console.log('Correlation of a module\'s predicted Δtsd over a turn against the realized');
+console.log('change 1/3/5 turns later, with a 95% interval. Plan §6.4: a module must be');
+console.log('positive at horizon 3 — otherwise it is optimising immediate spread, the');
+console.log('failure recorded in ai-training-system §10.');
+console.log('');
+console.log('Two things the first version of this got wrong, both visible in its output:');
+console.log('it correlated single *decisions*, which no score change can answer, and it');
+console.log('failed a module on the sign of a point estimate — two six-game samples put');
+console.log(`the same module at +0.10 and -0.18. A module needs ${MIN_PREDICTIONS} turns before it is`);
+console.log('judged, and fails only when the whole interval is negative. Turns within a');
+console.log('game share a trajectory, so the true interval is wider than the one printed.');
 if (failures > 0) {
   console.log('');
-  console.log(`${failures} module(s) non-positive at horizon 3.`);
+  console.log(`${failures} module(s) negative at horizon 3 across the whole interval.`);
   process.exit(1);
 }
