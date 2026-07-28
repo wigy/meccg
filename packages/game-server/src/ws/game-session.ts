@@ -31,6 +31,8 @@ import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCap
 import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
+import { buildCompletedGameRecord, writeCompletedGameRecord, GAME_RECORDS_DIR } from './game-record.js';
+import type { PlayerDeckInfo } from './game-record.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
@@ -97,6 +99,8 @@ interface PendingPlayer {
 interface GameSave {
   state: GameState;
   nameToPlayerId: Record<string, string>;
+  /** Deck identity per lowercase player name; absent in saves from old code. */
+  deckInfo?: Record<string, PlayerDeckInfo>;
 }
 
 export interface GameSessionOptions {
@@ -117,6 +121,8 @@ export class GameSession {
   private pending: Map<string, PendingPlayer> = new Map();
   private cardPool: Readonly<Record<string, CardDefinition>>;
   private nameToPlayerId: Record<string, string> = {};
+  /** Deck identity per lowercase player name, captured from join messages. */
+  private deckInfo: Record<string, PlayerDeckInfo> = {};
   private playerCounter = 0;
   /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
   private dev: boolean;
@@ -366,6 +372,8 @@ export class GameSession {
     };
 
     this.state = createGame(config, this.cardPool);
+    this.captureDeckInfo(p1, name1);
+    this.captureDeckInfo(p2, name2);
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     this.serverLog.log('new-game', { gameId: this.state.gameId, player1: name1, player2: name2 });
@@ -380,6 +388,21 @@ export class GameSession {
 
     this.announceDeckLegality(p1.join, name1);
     this.announceDeckLegality(p2.join, name2);
+  }
+
+  /**
+   * Remember a player's deck identity for the completed-game record. Only
+   * the structured deck list carries it — reconstructed decks (pseudo-AI,
+   * minimal reconnect joins) have no catalog identity, so absent fields
+   * stay null rather than guessing.
+   */
+  private captureDeckInfo(p: PendingPlayer, name: string): void {
+    const deckList = p.join.deckList;
+    this.deckInfo[name.toLowerCase()] = {
+      id: deckList?.id ?? null,
+      name: deckList?.name ?? null,
+      gameLength: deckList?.gameLength ?? null,
+    };
   }
 
   /**
@@ -419,6 +442,14 @@ export class GameSession {
       normalizedMap[k.toLowerCase()] = v;
     }
     this.nameToPlayerId = normalizedMap;
+    this.deckInfo = { ...(save.deckInfo ?? {}) };
+    // Saves from before deckInfo existed have no deck identity; a reconnect
+    // join that still carries the structured deck list can fill the gap.
+    for (const [pending, name] of [[p1, name1], [p2, name2]] as const) {
+      if (this.deckInfo[name.toLowerCase()]?.id == null && pending.join.deckList) {
+        this.captureDeckInfo(pending, name);
+      }
+    }
 
     const p1Id = normalizedMap[name1.toLowerCase()] as PlayerId;
     const p2Id = normalizedMap[name2.toLowerCase()] as PlayerId;
@@ -426,6 +457,13 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     this.serverLog.log('restore', { gameId: this.state.gameId, stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
+
+    // A crash between reaching game over and clients finishing can leave a
+    // finished game behind as a save; catch up on the missing record.
+    if (this.state.phaseState.phase === Phase.GameOver
+        && !fs.existsSync(path.join(GAME_RECORDS_DIR, `${this.state.gameId}.json`))) {
+      this.recordCompletedGame();
+    }
     this.gameLog.open(this.state.gameId);
     this.gameLog.writeStaticData(
       this.state.cardPool as unknown as Record<string, unknown>,
@@ -545,10 +583,17 @@ export class GameSession {
     }
 
     // Save previous state for undo before applying
+    const wasGameOver = this.state.phaseState.phase === Phase.GameOver;
     this.stateHistory.push(this.state);
     this.state = result.state;
     this.serverLog.log('action', { action: actionWithPlayer });
     this.logState(actionWithPlayer.type, actionWithPlayer as unknown as Record<string, unknown>);
+
+    // The game just ended: persist the completed-game record now, while both
+    // clients may still walk away without ever sending 'finished'.
+    if (!wasGameOver && this.state.phaseState.phase === Phase.GameOver) {
+      this.recordCompletedGame();
+    }
 
     // When a player sends 'finished', record the game result to their history file
     if (actionWithPlayer.type === 'finished') {
@@ -792,6 +837,22 @@ export class GameSession {
   }
 
   /**
+   * Write the single per-game statistics record to
+   * `~/.meccg/games/<gameId>.json`. Failures are logged, never thrown —
+   * losing a stats record must not take the session down with it.
+   */
+  private recordCompletedGame(): void {
+    if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
+    try {
+      const record = buildCompletedGameRecord(this.state, this.deckInfo, new Date());
+      const filePath = writeCompletedGameRecord(record);
+      this.serverLog.log('game-completed', { gameId: record.gameId, path: filePath, winner: record.winner });
+    } catch (err) {
+      this.serverLog.log('game-record-error', { gameId: this.state.gameId, error: String(err) });
+    }
+  }
+
+  /**
    * Record the game result to the player's history file at
    * `~/.meccg/players/<name>/games.json`.
    */
@@ -897,6 +958,7 @@ export class GameSession {
     const save: GameSave = {
       state: this.state,
       nameToPlayerId: this.nameToPlayerId,
+      deckInfo: this.deckInfo,
     };
 
     fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
