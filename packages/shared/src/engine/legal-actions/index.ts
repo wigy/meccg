@@ -33,6 +33,7 @@ import { logDetail, logEvaluated, logHeading, logResult } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
+import { applyCardPlayProhibitions } from '../card-play-prohibition.js';
 import { applyConstraints } from './pending.js';
 import { resolutionLegalActions } from '../pending-handlers.js';
 
@@ -253,8 +254,21 @@ function applyOpponentBans(
  * Returns every candidate action the given player could take in the current
  * game state, annotated with viability. Non-viable actions include a
  * human-readable reason explaining why they cannot be taken.
+ *
+ * The `prohibit-card-play` lock is applied here rather than inside each phase
+ * module: a card that bars other cards from play (The Under-roads as-106 by
+ * name, Balance Between Powers dm-118 by class) must do so in every window a
+ * card can be played from — phase menus, the chain, and combat responses alike.
  */
 export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  return applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId));
+}
+
+/**
+ * The phase/chain/combat dispatch behind {@link computeLegalActions}, before
+ * the game-wide play-lock filter is applied.
+ */
+function computePhaseLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const phase = state.phaseState.phase;
   logHeading(`Computing legal actions for player ${playerId as string} in phase '${phase}'`);
 

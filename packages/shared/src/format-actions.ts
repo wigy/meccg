@@ -510,10 +510,15 @@ export function describeAction(
       return `${playerName(action.player)} returns company to origin haven`;
     case 'run-home':
       return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move company ${action.companyId} to its nearest haven (Bill the Pony)`;
-    case 'pay-hazard-event-maintenance':
-      return action.paymentType === 'discard-self'
-        ? `Discard ${instName(action.sourceInstanceId)} (hazard event maintenance)`
-        : `Discard ${instName(action.cardInstanceId)} from hand to maintain ${instName(action.sourceInstanceId)}`;
+    case 'pay-event-maintenance':
+      switch (action.paymentType) {
+        case 'discard-self':
+          return `Discard ${instName(action.sourceInstanceId)} (event maintenance)`;
+        case 'decline':
+          return `Bid nothing over ${instName(action.sourceInstanceId)} (event maintenance)`;
+        default:
+          return `Discard ${instName(action.cardInstanceId)} from hand to maintain ${instName(action.sourceInstanceId)}`;
+      }
     case 'tap-hazard-card-for-limit':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':

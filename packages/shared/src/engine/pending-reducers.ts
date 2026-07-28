@@ -28,6 +28,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
+import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -39,7 +40,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
@@ -3229,86 +3230,112 @@ export function applyForceDiscardCardResolution(
 }
 
 /**
- * Resolve a `hazard-event-maintenance` pending resolution.
+ * Resolve one step of an `event-maintenance` pending resolution — the upkeep
+ * exchange over an in-play event carrying an `event-maintenance` effect
+ * (*Thrice Outnumbered* le-142, *Balance Between Powers* dm-118).
  *
- * The hazard player pays the maintenance cost for a permanent event with a
- * `hazard-maintenance` effect by dispatching a `pay-hazard-event-maintenance`
- * action. Two payment options are possible:
+ * Three payment types, dispatched as `pay-event-maintenance`:
  *
- * - `discard-self`: the permanent event is removed from cardsInPlay and moved
- *   to the hazard player's discard pile.
- * - `discard-from-hand`: the chosen hand card is moved to the hazard player's
- *   discard pile; the permanent event remains in play.
- *
- * Used by *Thrice Outnumbered* (le-142).
+ * - `discard-self` (`upkeep` stage only) — the controller gives the event up:
+ *   it leaves `cardsInPlay` for their discard pile and the exchange ends.
+ * - `discard-from-hand` — one qualifying hand card is discarded towards the
+ *   current stage's cost. While cards are still due the resolution stays
+ *   queued with `remainingToPay` decremented; when the last one is paid, the
+ *   bidding war passes to the other side (see `advanceMaintenanceChain`).
+ * - `decline` (`challenge` / `counter` stages) — bid nothing. Declining a
+ *   challenge leaves the event in play; declining to counter one discards it.
  */
-export function applyHazardEventMaintenanceResolution(
+export function applyEventMaintenanceResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'hazard-event-maintenance') return null;
-  if (action.type !== 'pay-hazard-event-maintenance') {
-    return { state, error: `Pending hazard-event-maintenance requires pay-hazard-event-maintenance, got '${action.type}'` };
+  if (top.kind.type !== 'event-maintenance') return null;
+  if (action.type !== 'pay-event-maintenance') {
+    return { state, error: `Pending event-maintenance requires pay-event-maintenance, got '${action.type}'` };
   }
   if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for hazard-event-maintenance' };
+    return { state, error: 'Wrong player for event-maintenance' };
   }
   if (action.sourceInstanceId !== top.kind.sourceInstanceId) {
-    return { state, error: 'Wrong source instance for hazard-event-maintenance' };
+    return { state, error: 'Wrong source instance for event-maintenance' };
   }
+  const { stage, remainingToPay, stageCount, controllerId, sourceInstanceId } = top.kind;
 
   const actorIdx = state.players.findIndex(p => p.id === action.player);
-  if (actorIdx < 0) return { state, error: 'Player not found for hazard-event-maintenance' };
+  if (actorIdx < 0) return { state, error: 'Player not found for event-maintenance' };
   const actorPlayer = state.players[actorIdx];
 
-  const newPlayers = clonePlayers(state);
+  // The opt-out is only on the table before any card of this stage is paid.
+  if (action.paymentType !== 'discard-from-hand' && remainingToPay !== stageCount) {
+    return { state, error: `event-maintenance: ${action.paymentType} unavailable after paying part of the ${stage} cost` };
+  }
 
   if (action.paymentType === 'discard-self') {
-    // Remove permanent event from cardsInPlay, add to discard pile
-    const cardIdx = actorPlayer.cardsInPlay.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (cardIdx < 0) {
+    if (stage !== 'upkeep') {
+      return { state, error: `event-maintenance: discard-self is only available at the upkeep stage (got '${stage}')` };
+    }
+    if (!actorPlayer.cardsInPlay.some(c => c.instanceId === action.cardInstanceId)) {
       return { state, error: `Permanent event ${action.cardInstanceId as string} not found in cardsInPlay` };
     }
-    const card = actorPlayer.cardsInPlay[cardIdx];
-    const cardLabel = cardName(state, card.definitionId);
-    logDetail(`hazard-event-maintenance: hazard player discards "${cardLabel}" (discard-self)`);
+    logDetail(`event-maintenance (upkeep): ${actorPlayer.name} declines to pay`);
+    const discarded = discardMaintainedEvent(state, controllerId, sourceInstanceId);
+    return { state: dequeueResolution(discarded, top.id) };
+  }
 
-    const newCardsInPlay = actorPlayer.cardsInPlay.filter((_, i) => i !== cardIdx);
-    newPlayers[actorIdx] = {
-      ...actorPlayer,
-      cardsInPlay: newCardsInPlay,
-      discardPile: [...actorPlayer.discardPile, toCardInstance(card)],
-    };
-  } else {
-    // discard-from-hand: validate and verify the hand card matches the filter
-    const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (handIdx < 0) {
-      return { state, error: `Hand card ${action.cardInstanceId as string} not found in hand` };
+  if (action.paymentType === 'decline') {
+    if (stage === 'counter') {
+      logDetail(`event-maintenance (counter): ${actorPlayer.name} declines to counter — the card is discarded`);
+      const discarded = discardMaintainedEvent(state, controllerId, sourceInstanceId);
+      return { state: dequeueResolution(discarded, top.id) };
     }
-    const handCard = actorPlayer.hand[handIdx];
+    logDetail(`event-maintenance (challenge): ${actorPlayer.name} declines to bid — the card stays in play`);
+    return { state: dequeueResolution(state, top.id) };
+  }
 
-    // Verify the card matches the handCardFilter from the source effect
-    const maintenanceEff = findHazardMaintenanceEffect(defById(state, top.kind.sourceDefinitionId));
-    if (maintenanceEff) {
-      const handDef = defById(state, handCard.definitionId);
-      if (!handDef || !matchesDefinition(handDef, maintenanceEff.handCardFilter)) {
-        return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
-      }
+  // discard-from-hand: validate and verify the hand card matches the filter
+  const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (handIdx < 0) {
+    return { state, error: `Hand card ${action.cardInstanceId as string} not found in hand` };
+  }
+  const handCard = actorPlayer.hand[handIdx];
+
+  // Verify the card matches the handCardFilter from the source effect
+  const maintenanceEff = findEventMaintenanceEffect(defById(state, top.kind.sourceDefinitionId));
+  if (maintenanceEff) {
+    const handDef = defById(state, handCard.definitionId);
+    if (!handDef || !matchesDefinition(handDef, maintenanceEff.handCardFilter)) {
+      return { state, error: `Hand card ${handCard.definitionId as string} does not match event-maintenance filter` };
     }
+  }
 
-    const cardLabel = cardName(state, handCard.definitionId);
-    logDetail(`hazard-event-maintenance: hazard player discards "${cardLabel}" from hand (discard-from-hand)`);
+  const stillDue = remainingToPay - 1;
+  logDetail(
+    `event-maintenance (${stage}): ${actorPlayer.name} discards "${cardName(state, handCard.definitionId)}" `
+    + `from hand (${stillDue} of ${stageCount} still due)`,
+  );
 
-    const newHand = actorPlayer.hand.filter((_, i) => i !== handIdx);
-    newPlayers[actorIdx] = {
-      ...actorPlayer,
-      hand: newHand,
-      discardPile: [...actorPlayer.discardPile, toCardInstance(handCard)],
+  const newPlayers = clonePlayers(state);
+  newPlayers[actorIdx] = {
+    ...actorPlayer,
+    hand: actorPlayer.hand.filter((_, i) => i !== handIdx),
+    discardPile: [...actorPlayer.discardPile, toCardInstance(handCard)],
+  };
+  const paid: GameState = { ...state, players: newPlayers };
+
+  // Part-paid: keep the same resolution queued for the rest of the cost.
+  if (stillDue > 0) {
+    return {
+      state: {
+        ...paid,
+        pendingResolutions: paid.pendingResolutions.map(r =>
+          r.id === top.id ? { ...r, kind: { ...top.kind, remainingToPay: stillDue } } : r,
+        ),
+      },
     };
   }
 
-  return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+  return { state: advanceMaintenanceChain(dequeueResolution(paid, top.id), top, stage) };
 }
 
 /**

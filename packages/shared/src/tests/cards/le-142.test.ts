@@ -15,14 +15,14 @@
  *   1. duplication-limit scope:game max:1 — cannot be duplicated
  *   2. on-event: play-deck-exhausted — discard self when any deck exhausts
  *   3. on-event: end-of-turn, actor:both — each player may fetch Man creature
- *   4. hazard-maintenance: opponent-long-event-end — discard self or Man from hand
+ *   4. event-maintenance: opponent-long-event-end — discard self or Man from hand
  *
  * | # | Effect                                          | Status | Notes                                      |
  * |---|-------------------------------------------------|--------|--------------------------------------------|
  * | 1 | duplication-limit (game, max 1)                 | OK     | movement-hazard.ts duplication check        |
  * | 2 | on-event: play-deck-exhausted, discard-self     | OK     | completeDeckExhaust in reducer-utils        |
  * | 3 | end-of-turn: each player fetches Man creature   | OK     | fireEndOfTurnFetchEffects in reducer-site   |
- * | 4 | maintenance: discard self or Man from hand      | OK     | hazard-event-maintenance pending resolution |
+ * | 4 | maintenance: discard self or Man from hand      | OK     | event-maintenance pending resolution |
  *
  * Playable: YES
  * CERTIFIED
@@ -365,7 +365,7 @@ describe('Thrice Outnumbered (le-142)', () => {
     expect(afterPass1.pendingEffects[0].actor).toBe(PLAYER_2);
   });
 
-  // ---- Rule 4: hazard-maintenance ----
+  // ---- Rule 4: event-maintenance ----
 
   test('at end of long-event phase, hazard player gets maintenance resolution', () => {
     const base = buildTestState({
@@ -393,7 +393,7 @@ describe('Thrice Outnumbered (le-142)', () => {
 
     // Hazard player should have a pending maintenance resolution
     const maintenanceRes = afterPass.pendingResolutions.find(
-      r => r.kind.type === 'hazard-event-maintenance' && r.actor === PLAYER_2,
+      r => r.kind.type === 'event-maintenance' && r.actor === PLAYER_2,
     );
     expect(maintenanceRes).toBeDefined();
   });
@@ -423,13 +423,13 @@ describe('Thrice Outnumbered (le-142)', () => {
     const afterPass = dispatch(withEvent, { type: 'pass', player: PLAYER_1 });
 
     const maintenanceRes = afterPass.pendingResolutions.find(
-      r => r.kind.type === 'hazard-event-maintenance',
+      r => r.kind.type === 'event-maintenance',
     );
     expect(maintenanceRes).toBeDefined();
 
     // Pay by discarding the card itself
     const afterMaint = dispatch(afterPass, {
-      type: 'pay-hazard-event-maintenance',
+      type: 'pay-event-maintenance',
       player: PLAYER_2,
       paymentType: 'discard-self',
       cardInstanceId: thriceInstanceId,
@@ -444,7 +444,7 @@ describe('Thrice Outnumbered (le-142)', () => {
 
     // Maintenance resolution should be gone
     expect(afterMaint.pendingResolutions.filter(
-      r => r.kind.type === 'hazard-event-maintenance',
+      r => r.kind.type === 'event-maintenance',
     )).toHaveLength(0);
   });
 
@@ -482,7 +482,7 @@ describe('Thrice Outnumbered (le-142)', () => {
 
     // Pay by discarding the Man creature from hand
     const afterMaint = dispatch(afterPass, {
-      type: 'pay-hazard-event-maintenance',
+      type: 'pay-event-maintenance',
       player: PLAYER_2,
       paymentType: 'discard-from-hand',
       cardInstanceId: manInHand!.instanceId,
@@ -499,7 +499,7 @@ describe('Thrice Outnumbered (le-142)', () => {
 
     // Maintenance resolution should be gone
     expect(afterMaint.pendingResolutions.filter(
-      r => r.kind.type === 'hazard-event-maintenance',
+      r => r.kind.type === 'event-maintenance',
     )).toHaveLength(0);
   });
 

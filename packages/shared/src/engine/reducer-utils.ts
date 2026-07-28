@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -1747,16 +1747,16 @@ export function leaderControlEligibility(
 }
 
 /**
- * Returns the first `hazard-maintenance` effect on the card, or `undefined` if
+ * Returns the first `event-maintenance` effect on the card, or `undefined` if
  * none exists. Centralizes the recurring pattern of iterating a card's effects
  * to find the maintenance trigger, used both when computing available legal
  * actions and when validating the chosen payment.
  */
-export function findHazardMaintenanceEffect(
+export function findEventMaintenanceEffect(
   def: CardDefinition | null | undefined,
-): HazardMaintenanceEffect | undefined {
+): EventMaintenanceEffect | undefined {
   return getCardEffects(def).find(
-    (e): e is HazardMaintenanceEffect => e.type === 'hazard-maintenance',
+    (e): e is EventMaintenanceEffect => e.type === 'event-maintenance',
   );
 }
 

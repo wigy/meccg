@@ -7026,7 +7026,7 @@ export type CardEffect =
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
-  | HazardMaintenanceEffect
+  | EventMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
   | CreateSiteAutoAttackEffect
   | AutoAttackBoostEffect
@@ -7531,25 +7531,41 @@ export interface UnderDeepsRollModifierEffect extends EffectBase {
 }
 
 /**
- * While the carrying card is in play, the named cards may not be played, and
- * any copy already in play is discarded the moment this card enters play.
- * This is the generic "discards and prohibits the subsequent play of X"
- * primitive — a hard play-lock keyed by card name, distinct from
- * {@link CancelCardEffectsEffect} (which only suppresses an in-play card's
- * *constraints* while leaving it in play and re-playable).
+ * While the carrying card is in play, the cards it names (or matches with
+ * {@link ProhibitCardPlayEffect.filter}) may not be played by **either**
+ * player. This is the generic "prohibits the subsequent play of X" primitive —
+ * a hard play-lock, distinct from {@link CancelCardEffectsEffect} (which only
+ * suppresses an in-play card's *constraints* while leaving it in play and
+ * re-playable).
  *
- * On enter-play the engine discards every matching card from either player's
- * `cardsInPlay` to its owner's discard pile (`resolveLongEvent`); the ongoing
- * play-lock is enforced in the hazard legal-action layer
- * (`playHazardsActions`), which refuses to offer a prohibited card.
+ * Two ways to select the locked cards, which may be combined:
  *
- * Used by The Under-roads (as-106): "Discards and prohibits the subsequent
- * play of The Way is Shut."
+ * - `cardNames` — by card name. Additionally a **one-time discard on entry**:
+ *   when the carrying card resolves, every named card already in either
+ *   player's `cardsInPlay` is discarded to its owner's discard pile
+ *   (`resolveLongEvent`). This is the "discards *and* prohibits" wording of
+ *   The Under-roads (as-106): "Discards and prohibits the subsequent play of
+ *   The Way is Shut."
+ * - `filter` — a DSL condition matched against card **definitions**, for
+ *   class-wide locks. Purely forward-looking: copies already in play are left
+ *   alone, matching Balance Between Powers (dm-118), "No environment cards can
+ *   be played", which never touches the environments already on the table.
+ *
+ * The ongoing play-lock is enforced centrally in `computeLegalActions`
+ * (`legal-actions/index.ts`), which turns every `play-short-event` /
+ * `play-long-event` / `play-permanent-event` / `play-hazard` action for a
+ * locked card into a `not-playable` entry, in every phase and in the chain and
+ * combat windows alike.
  */
 export interface ProhibitCardPlayEffect extends EffectBase {
   readonly type: 'prohibit-card-play';
   /** Names of the cards that are discarded on entry and may not be played. */
-  readonly cardNames: readonly string[];
+  readonly cardNames?: readonly string[];
+  /**
+   * Condition matched against card definitions. Every matching card is barred
+   * from play while this card is in play; nothing already in play is touched.
+   */
+  readonly filter?: Condition;
 }
 
 /**
@@ -7876,27 +7892,55 @@ export interface CancelPrisonerTakingEffect extends EffectBase {
 }
 
 /**
- * Hazard permanent-event maintenance cost paid at the end of the resource
- * player's long-event phase.
+ * Recurring upkeep cost on an in-play event: every turn its controller must
+ * either discard the card or keep it in play by discarding matching cards
+ * from hand.
  *
- * The hazard player (who played the event) must pay the cost every turn:
- * either discard this card from cardsInPlay, or discard a matching card
- * from their hand. If no matching card is in hand, they must discard this
- * card.
+ * The controller pays at the moment named by `trigger`. If no matching card
+ * is in hand, the only option is to discard the source card.
  *
- * Used by *Thrice Outnumbered* (le-142): "Discard this card or a Man
- * hazard creature from your hand at the end of opponent's long-event phase."
+ * Used by:
+ * - *Thrice Outnumbered* (le-142), a hazard permanent-event: "Discard this
+ *   card or a Man hazard creature from your hand at the end of opponent's
+ *   long-event phase."
+ * - *Balance Between Powers* (dm-118), a hero resource permanent-event: "At
+ *   the start of your organization phase, discard this card **or** keep it in
+ *   play by discarding an environment card from your hand." — plus the
+ *   {@link EventMaintenanceEffect.counterChain} bidding war that follows.
  */
-export interface HazardMaintenanceEffect extends EffectBase {
-  readonly type: 'hazard-maintenance';
-  /** When this maintenance fires. */
-  readonly trigger: 'opponent-long-event-end';
+export interface EventMaintenanceEffect extends EffectBase {
+  readonly type: 'event-maintenance';
   /**
-   * Filter condition evaluated against card definitions in the hazard
+   * When this maintenance fires.
+   *
+   * - `opponent-long-event-end` — as the controller's opponent leaves their
+   *   long-event phase (le-142, a hazard event: "at the end of opponent's
+   *   long-event phase").
+   * - `controller-organization-phase-start` — as the controller's own
+   *   organization phase begins (dm-118: "at the start of your organization
+   *   phase").
+   */
+  readonly trigger: 'opponent-long-event-end' | 'controller-organization-phase-start';
+  /**
+   * Filter condition evaluated against card definitions in the paying
    * player's hand. Matching cards may be discarded as payment instead
    * of discarding the source card itself.
    */
   readonly handCardFilter: Condition;
+  /**
+   * Optional bidding war after the controller keeps the card: the opponent
+   * may discard `challengeCount` matching hand cards to discard the source,
+   * which the controller may counter with `counterCount`, which the opponent
+   * may counter with `challengeCount` again, and so on until one side declines
+   * or runs out of matching cards. Absent (le-142) the upkeep payment simply
+   * ends the matter.
+   */
+  readonly counterChain?: {
+    /** Cards the opponent discards per attempt to kill the source card. */
+    readonly challengeCount: number;
+    /** Cards the controller discards per attempt to save it. */
+    readonly counterCount: number;
+  };
 }
 
 /**
