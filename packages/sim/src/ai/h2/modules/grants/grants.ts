@@ -44,6 +44,16 @@ import { nameOf } from '../../services/strike/prowess.js';
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['activate-granted-action'] as const;
 
+/**
+ * What declining to tap costs on the roll.
+ *
+ * `grant-action-apply.ts` applies -3 when the action carries `noTap`, and the
+ * engine publishes the *unmodified* threshold on both variants — so unlike a
+ * strike's `need`, this one has to be adjusted here. Mirrored rather than
+ * guessed, and the calibration harness checks it against the reducer.
+ */
+const NO_TAP_PENALTY = 3;
+
 /** The shape of a `grant-action` effect, as the DSL declares it. */
 interface GrantEffect {
   readonly type?: string;
@@ -197,8 +207,16 @@ export const grantsModule: H2Module = {
     // is worth. Declining says so; inventing a number would not.
     if (!gain) return null;
 
-    const cost = costOf(grant, characterId, characterValue, sourceMpLoss);
-    const threshold = record.rollThreshold ?? 0;
+    // Declining to tap costs -3 on the roll (`grant-action-apply.ts`), and the
+    // engine publishes the *unmodified* threshold on both variants — unlike a
+    // strike, where `need` arrives already modified. Calibration is what found
+    // this: the same claim of 83.3% measured 84.0% against the reducer for the
+    // tapping variant and 40.4% for the no-tap one, which is `pAtLeast(5 + 3)`.
+    const noTap = (action as unknown as { noTap?: true }).noTap === true;
+    const cost = noTap
+      ? { tsd: 0, reason: 'declines to tap — at -3 on the roll' }
+      : costOf(grant, characterId, characterValue, sourceMpLoss);
+    const threshold = (record.rollThreshold ?? 0) + (noTap ? NO_TAP_PENALTY : 0);
     const success = pAtLeast(threshold);
     const name = printed?.name ?? sourceCardDefinitionId;
     const bearer = nameOf(context.cardPool, character.definitionId as string, characterId);
@@ -221,7 +239,10 @@ export const grantsModule: H2Module = {
       leaf('granted by', name),
       leaf('activated by', bearer),
       leaf('needs on 2d6', threshold, {
-        note: threshold > 0 ? `${(success * 100).toFixed(1)}% to succeed` : 'no roll — it simply happens',
+        note: threshold > 0
+          ? `${(success * 100).toFixed(1)}% to succeed`
+            + (noTap ? ` — ${record.rollThreshold ?? 0} plus ${NO_TAP_PENALTY} for not tapping` : '')
+          : 'no roll — it simply happens',
       }),
       leaf('what it is worth', gain.tsd, { unit: 'tsd', note: gain.reason }),
       leaf('what it costs', cost.tsd, { unit: 'tsd', note: cost.reason }),
@@ -242,6 +263,8 @@ export const grantsModule: H2Module = {
       assumptions: [
         'the ability is priced by the *family* of effect the card declares, not by what the card '
         + 'does in full: a grant that also restricts or enables something else is under-valued',
+        'a no-tap variant is priced at the published threshold plus 3, mirroring the engine; if that '
+        + 'penalty ever changes there, this has to change with it',
         'a card recovered to hand is priced at what an average draw is worth, which is a floor — '
         + 'choosing the card beats drawing one',
         'shedding a card is priced only for the corruption it was carrying, against one future '

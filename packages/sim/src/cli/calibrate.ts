@@ -23,7 +23,8 @@ import { computeStanding } from '../ai/h2/services/standing.js';
 import { ALL_MODULES, evaluateDecision, resolveModules } from '../ai/h2/core/registry.js';
 import { listScenarioIds, loadScenario, scenarioView } from '../ai/h2/scenario-store.js';
 import {
-  binomialTolerance, rolloutCorruptionCheck, rolloutDeterministicPlay, rolloutInfluenceAttempt, rolloutStrike,
+  binomialTolerance, rolloutCorruptionCheck, rolloutDeterministicPlay, rolloutGrantedAction,
+  rolloutInfluenceAttempt, rolloutStrike,
 } from '../ai/h2/calibrate.js';
 import { claimedStrikeOutcomes } from '../ai/h2/modules/combat/combat.js';
 import type { StrikeOutcome } from '../ai/h2/services/strike/strike-model.js';
@@ -74,12 +75,12 @@ if (moduleFilter === 'travel') {
   process.exit(2);
 }
 
-if (!['combat', 'corruption', 'factions', 'resources'].includes(moduleFilter)) {
+if (!['combat', 'corruption', 'factions', 'resources', 'grants'].includes(moduleFilter)) {
   // Each module claims a different shape of outcome, so each needs its own
   // classifier in the harness. Claiming to check one without a classifier
   // would report a vacuous pass.
   console.error(`calibrate: no outcome classifier for module "${moduleFilter}" — `
-    + 'combat, corruption, factions and resources are supported');
+    + 'combat, corruption, factions, grants and resources are supported');
   process.exit(2);
 }
 
@@ -126,6 +127,37 @@ for (const id of ids) {
       console.log(`    ${within ? 'ok  ' : 'FAIL'} ${'marshalling-point gain'.padEnd(22)} `
         + `claimed ${claimedGain.toFixed(2).padStart(6)}  `
         + `engine ${measured.tsdChange.toFixed(2).padStart(6)}  (tsd, exact)`);
+      continue;
+    }
+
+    if (action.type === 'activate-granted-action') {
+      // The most directly falsifiable claim any module makes: the probability
+      // comes straight off the threshold the engine publishes, with no
+      // modelling assumption between the number and the dice.
+      const evaluation = evaluateDecision(modules, context).evaluations.find(e => e.action === action);
+      const success = evaluation?.outcomes.find(o => !o.label.includes('the roll fails'));
+      if (!success) { skipped++; continue; }
+      let landed = 0;
+      let resolved = 0;
+      let rngG = createRng(seed);
+      for (let i = 0; i < rollouts; i++) {
+        const result = rolloutGrantedAction(scenario.state, action, rngG);
+        rngG = result.rng;
+        if (result.succeeded === null) continue;
+        resolved++;
+        if (result.succeeded) landed++;
+      }
+      if (resolved === 0) { skipped++; continue; }
+      const observed = landed / resolved;
+      const tolerance = binomialTolerance(success.p, resolved);
+      const within = Math.abs(observed - success.p) <= tolerance;
+      checked++;
+      if (!within) failures++;
+      console.log(`  ${action.type}`);
+      console.log(`    ${within ? 'ok  ' : 'FAIL'} ${'the roll succeeds'.padEnd(22)} `
+        + `claimed ${(success.p * 100).toFixed(1).padStart(5)}%  `
+        + `engine ${(observed * 100).toFixed(1).padStart(5)}%  ±${(tolerance * 100).toFixed(1)}%  `
+        + `(${resolved} rollouts)`);
       continue;
     }
 
