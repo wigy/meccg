@@ -872,11 +872,17 @@ export function opposedRollStat(
 }
 
 /**
- * Compute the single gold-ring-test-roll action that resolves a queued
- * `gold-ring-test` resolution (auto-test triggered by the
- * `auto-test-gold-ring` site-rule when a gold ring is stored at a
- * Darkhaven). The ring's owner rolls 2d6 with the site's modifier; the
- * ring is discarded regardless of the result.
+ * Compute the actions that resolve a queued `gold-ring-test` resolution
+ * (auto-test triggered by the `auto-test-gold-ring` site-rule when a gold ring
+ * is stored at a Darkhaven, the Wizard/sage tap-test, or a ring-test event).
+ *
+ * The ring's owner rolls 2d6 with the test's modifier; the ring is discarded
+ * regardless of the result. A test with `rollCount > 1` (Wizard's Test tw-365)
+ * emits one roll action per outstanding roll and, once every roll is in, one
+ * `choose-gold-ring-test-roll` action per **distinct** rolled total — the
+ * player picks which result the test uses. Higher is not automatically better
+ * (a low total can open Magic Rings where a high one opens only a Lesser
+ * Ring), so the choice is offered rather than decided by the engine.
  */
 export function goldRingTestActions(
   state: GameState,
@@ -885,6 +891,8 @@ export function goldRingTestActions(
 ): EvaluatedAction[] {
   if (top.kind.type !== 'gold-ring-test') return [];
   const { goldRingInstanceId, rollModifier } = top.kind;
+  const rollCount = top.kind.rollCount ?? 1;
+  const rolledTotals = top.kind.rolledTotals ?? [];
 
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -902,7 +910,33 @@ export function goldRingTestActions(
   const ringCard = ringCardFound;
   const ringDef = ringCard ? defById(state, ringCard.definitionId) : undefined;
   const ringName = ringDef?.name ?? '?';
-  logDetail(`Pending gold-ring-test for ${ringName}: roll 2d6 ${formatSignedNumber(rollModifier)}`);
+
+  // Every roll is in — the player chooses which total the test uses.
+  if (rolledTotals.length >= rollCount && rollCount > 1) {
+    const table = getCardEffects(ringDef).find(
+      (e): e is RingTestTableEffect => e.type === 'ring-test-table',
+    );
+    const distinct = [...new Set(rolledTotals)];
+    logDetail(`Pending gold-ring-test for ${ringName}: choose one of the rolled totals (${rolledTotals.join(', ')})`);
+    return distinct.map(rollTotal => {
+      const categories = table ? eligibleRingCategories(table.table, rollTotal) : [];
+      const categoryNote = categories.length > 0 ? categories.join(', ') : 'nothing';
+      logDetail(`  total ${rollTotal} → ${categoryNote}`);
+      return {
+        action: {
+          type: 'choose-gold-ring-test-roll' as const,
+          player: playerId,
+          goldRingInstanceId,
+          rollTotal,
+          explanation: `${ringName} tests as ${categoryNote} on a ${rollTotal}`,
+        },
+        viable: true,
+      };
+    });
+  }
+
+  const rollNote = rollCount > 1 ? ` (roll ${rolledTotals.length + 1} of ${rollCount})` : '';
+  logDetail(`Pending gold-ring-test for ${ringName}: roll 2d6 ${formatSignedNumber(rollModifier)}${rollNote}`);
 
   return [{
     action: {
@@ -910,7 +944,7 @@ export function goldRingTestActions(
       player: playerId,
       goldRingInstanceId,
       rollModifier,
-      explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${formatSignedNumber(rollModifier)}`,
+      explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${formatSignedNumber(rollModifier)}${rollNote}`,
     },
     viable: true,
   }];

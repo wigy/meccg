@@ -2609,6 +2609,15 @@ export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
   readonly type: 'enqueue-gold-ring-test';
   /** Modifier applied to the 2d6 ring-test roll (default 0). */
   readonly rollModifier?: number;
+  /**
+   * How many 2d6 rolls the test makes (default 1). With more than one roll the
+   * player rolls each in turn and then *chooses* which total the test uses
+   * (Wizard's Test tw-365: "make two rolls and choose one result to use for the
+   * test"). Higher is not automatically better — a ring-test table maps low
+   * totals to Magic Rings and high totals to Dwarven Rings — so the choice is a
+   * real decision, resolved by a `choose-gold-ring-test-roll` action.
+   */
+  readonly rollCount?: number;
 }
 
 /** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */

@@ -451,6 +451,20 @@ export interface PendingResolution {
         readonly rollModifier: number;
         /** Character who bore the gold ring — receives the replacement ring. */
         readonly characterInstanceId: CardInstanceId;
+        /**
+         * How many 2d6 rolls this test makes (default 1). Wizard's Test
+         * (tw-365) sets 2: the player rolls twice and then chooses which
+         * total the test uses.
+         */
+        readonly rollCount?: number;
+        /**
+         * Modified totals rolled so far (one per completed roll). The
+         * resolution stays queued — in place, so it keeps its queue position
+         * ahead of anything the same card enqueued behind it — until
+         * `rollCount` totals are in; the player then resolves it with a
+         * `choose-gold-ring-test-roll` action naming the total to use.
+         */
+        readonly rolledTotals?: readonly number[];
       }
     | {
         /**

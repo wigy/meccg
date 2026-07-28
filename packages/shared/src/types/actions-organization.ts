@@ -212,6 +212,26 @@ export interface GoldRingTestRollAction {
 }
 
 /**
+ * Choose which of a multi-roll gold-ring test's totals the test uses
+ * (Wizard's Test tw-365: "make two rolls and choose one result to use for the
+ * test"). Emitted once per distinct rolled total after the last roll of a
+ * `gold-ring-test` resolution whose `rollCount` is greater than 1; the chosen
+ * total then drives the ring's `ring-test-table` exactly as a single roll does.
+ */
+export interface ChooseGoldRingTestRollAction {
+  /** Action discriminant. */
+  readonly type: 'choose-gold-ring-test-roll';
+  /** The ring's owner (who chooses). */
+  readonly player: PlayerId;
+  /** The gold-ring item instance being tested. */
+  readonly goldRingInstanceId: CardInstanceId;
+  /** The modified 2d6 total to use for the test — one of the rolled totals. */
+  readonly rollTotal: number;
+  /** Human-readable breakdown (the total and the ring categories it opens). */
+  readonly explanation: string;
+}
+
+/**
  * Play a special ring card from hand as the replacement ring after a gold
  * ring test (Rule 9.21). Resolves a `ring-play-offer` pending resolution.
  *

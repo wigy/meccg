@@ -450,6 +450,8 @@ export function describeAction(
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':
       return `Gold-ring auto-test: ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
+    case 'choose-gold-ring-test-roll':
+      return `Use ${action.rollTotal} for the test of ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
     case 'test-ring-at-site':
       return `${instName(action.characterId)} taps to test ring ${instName(action.targetCardId)} at this site`;
     case 'play-ring-after-test':
