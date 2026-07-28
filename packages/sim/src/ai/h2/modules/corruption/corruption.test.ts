@@ -8,13 +8,12 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { CardStatus, computeLegalActions, loadCardPool } from '@meccg/shared';
+import { CardStatus } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
-import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { corruptionModule } from './corruption.js';
 
 const HERO = 'tw-hero';
@@ -121,56 +120,5 @@ describe('what is at stake', () => {
   test('declines an action without a published target', () => {
     const vague = { type: 'corruption-check', characterId: 'hero-1' } as unknown as GameAction;
     expect(corruptionModule.evaluate(vague, contextWith(BALANCED, BALANCED, vague))).toBeNull();
-  });
-});
-
-describe('shedding an attached corruption card', () => {
-  /** A position where a bearer is offered the roll to shake a Lure off. */
-  function position() {
-    const scenario = loadScenario('organization/shed-corruption');
-    const view = scenarioView(scenario);
-    const cardPool = loadCardPool();
-    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
-      .filter(legal => legal.viable)
-      .map(legal => legal.action);
-    return {
-      legalActions,
-      context: {
-        view,
-        cardPool,
-        legalActions,
-        tunables: DEFAULT_TUNABLES,
-        standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
-      } as ModuleContext,
-    };
-  }
-
-  test('prices the attempt from the published threshold and the card\'s own corruption', () => {
-    const { context, legalActions } = position();
-    const shed = legalActions.find(a => a.type === 'activate-granted-action'
-      && (a as unknown as { actionId?: string }).actionId === 'remove-self-on-roll');
-    expect(shed).toBeDefined();
-    const evaluation = corruptionModule.evaluate(shed!, context)!;
-    expect(evaluation).not.toBeNull();
-    // Two branches: it comes off, or the tap is spent for nothing.
-    expect(evaluation.outcomes).toHaveLength(2);
-    expect(evaluation.outcomes.reduce((sum, o) => sum + o.p, 0)).toBeCloseTo(1, 9);
-    const text = JSON.stringify(evaluation.rationale);
-    // The corruption is declared as a `stat-modifier` effect, not a top-level
-    // number — reading only the number found zero on every hazard in the game.
-    expect(text).toContain('corruption removed');
-    expect(text).not.toMatch(/"value":"?tw-\d+/);
-  });
-
-  test('declines a granted action it has no model for', () => {
-    const { context } = position();
-    const other = {
-      type: 'activate-granted-action',
-      player: 'p1',
-      characterId: 'nobody',
-      actionId: 'saruman-fetch-spell',
-      rollThreshold: 0,
-    } as unknown as GameAction;
-    expect(corruptionModule.evaluate(other, context)).toBeNull();
   });
 });

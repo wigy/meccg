@@ -28,17 +28,13 @@
  * position is risking, and the outcome distribution is one the calibration
  * harness can check against the reducer.
  *
- * **Shedding a corruption card** belongs here too. Several attached hazards —
- * Lure of Expedience, Lure of Nature — grant the bearer an action to try to
- * remove them, and `activate-granted-action` carries the 2d6 threshold the way
- * every other rolled decision in this engine does. It is the same valuation as
- * a check, run backwards: the roll narrows the failing band instead of widening
- * it, and what that is worth is what failing would have cost. Measured over
- * three self-play games, half of all granted actions offered are this one.
- *
- * The other half are card-specific — fetching a spell, an extra region of
- * movement — and are declined, because pricing them means modelling what the
- * card does.
+ * Shedding an attached corruption card is the same valuation run backwards —
+ * the roll narrows the failing band instead of widening it — but it lives in
+ * `grants`, with every other card-granted ability. `claims()` is per decision
+ * rather than per action, so two modules sharing `activate-granted-action`
+ * would fight over a decision offering one grant of each kind and leave the
+ * loser's grant unscored. What this module contributes there is
+ * `character-value.corruptionRelief`, which both sides of the question share.
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
@@ -48,120 +44,10 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeCharacterValue } from '../../services/character-value.js';
-import { nameOf } from '../../services/strike/prowess.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['corruption-check', 'activate-granted-action'] as const;
+const OWNED_ACTION_TYPES = ['corruption-check'] as const;
 
-
-/** The grant that means "try to shake this card off". */
-const REMOVE_SELF = 'remove-self-on-roll';
-
-/**
- * The corruption a card puts on whoever it is attached to.
- *
- * Read from the card's declared effects, not from a top-level field: an
- * attached hazard states its corruption as a standing `stat-modifier` on
- * `corruption-points` — Lure of Nature is `value: 2` — while resource cards
- * that merely carry corruption print it as a number. Looking only at the number
- * found nothing on every hazard in the game, which is the whole family this
- * path exists for.
- *
- * Only *top-level* modifiers count. A `stat-modifier` nested inside an
- * `on-event` is something the card does when that event fires, not corruption
- * the bearer is carrying now.
- */
-function attachedCorruption(def: CardDefinition | undefined): number {
-  const fields = def as unknown as {
-    corruptionPoints?: number;
-    effects?: readonly { type?: string; stat?: string; value?: number }[];
-  } | undefined;
-  if (!fields) return 0;
-  const fromEffects = (fields.effects ?? [])
-    .filter(effect => effect.type === 'stat-modifier' && effect.stat === 'corruption-points')
-    .reduce((sum, effect) => sum + (effect.value ?? 0), 0);
-  return fromEffects > 0 ? fromEffects : (fields.corruptionPoints ?? 0);
-}
-
-/**
- * Score attempting to remove an attached hazard from its bearer.
- *
- * Priced from the two things the engine and the card already publish: the 2d6
- * threshold on the action, and the corruption points printed on the card that
- * is attached. A card carrying no corruption is declined — what removing it is
- * worth is then a question about its text, which is the DSL's to answer.
- */
-function evaluateRemoveAttached(context: ModuleContext, action: GameAction): Evaluation | null {
-  const record = action as unknown as {
-    actionId?: string;
-    characterId?: CardInstanceId;
-    sourceCardId?: CardInstanceId;
-    sourceCardDefinitionId?: string;
-    rollThreshold?: number;
-  };
-  if (record.actionId !== REMOVE_SELF) return null;
-  const { characterId, sourceCardDefinitionId } = record;
-  if (!characterId || !sourceCardDefinitionId) return null;
-  const character = context.view.self.characters[characterId];
-  if (!character) return null;
-
-  const def = context.cardPool[sourceCardDefinitionId];
-  const points = attachedCorruption(def);
-  const name = (def as unknown as { name?: string } | undefined)?.name ?? sourceCardDefinitionId;
-  // Nothing here can say what removing a restriction is worth — only what
-  // removing corruption is worth. Declining leaves the decision honestly
-  // uncovered rather than scored at an invented number.
-  if (points <= 0) return null;
-
-  const { standing, tunables } = context;
-  const characterValue = computeCharacterValue(context.view, context.cardPool, standing, tunables);
-  const relief = characterValue.corruptionRelief(characterId, points);
-  const tap = characterValue.tapCost(characterId);
-  const threshold = record.rollThreshold ?? 0;
-  const success = pAtLeast(threshold);
-
-  const outcomes: Outcome[] = [
-    {
-      p: success,
-      label: `${name} comes off — ${points} corruption gone`,
-      dtsd: netTsdDelta({ realized: relief.tsd, tempo: tap.tsd }, tunables),
-    },
-    {
-      p: 1 - success,
-      label: `the roll fails — ${name} stays, and the tap is spent anyway`,
-      dtsd: netTsdDelta({ realized: 0, tempo: tap.tsd }, tunables),
-    },
-  ].filter(outcome => outcome.p > 0);
-  const scored = standing.score(outcomes);
-
-  return {
-    action,
-    module: 'corruption',
-    outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`try to shed ${name}`, scored.utility, [
-      node('shedding a corruption card', relief.tsd, [
-        leaf('bearer', nameOf(context.cardPool, character.definitionId as string, characterId)),
-        leaf('needs on 2d6', threshold, { note: `${(success * 100).toFixed(1)}% to succeed` }),
-        leaf('corruption removed', points, { unit: 'mp' }),
-        leaf('worth of removing it', relief.tsd, { unit: 'tsd', note: relief.reason }),
-        leaf('cost of the tap', tap.tsd, { unit: 'tsd', note: tap.reason }),
-      ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
-    assumptions: [
-      'the attempt is assumed to cost a tap; a grant whose cost is something else is over-charged '
-      + 'by one tap',
-      'only the corruption the card carries is priced — a card that also restricts the company is '
-      + 'worth more to remove than this says',
-      'the relief is priced against one future check, the same simplification `resources` makes '
-      + 'when it charges for carrying corruption in the first place',
-    ],
-  };
-}
 
 /** The marshalling points a set of possessions would take with them. */
 function possessionLoss(
@@ -207,7 +93,6 @@ export const corruptionModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
-    if (action.type === 'activate-granted-action') return evaluateRemoveAttached(context, action);
     if (action.type !== 'corruption-check') return null;
     const fields = action as unknown as {
       characterId?: CardInstanceId;

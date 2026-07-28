@@ -255,16 +255,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1442 contested decisions:
+Over 1575 contested decisions:
 
 ```text
-  covered and decisive        705  48.9%
-  covered but flat            184  12.8%   → H1
-  partial, acted anyway       150  10.4%
-  partial, handed over        356  24.7%   → H1
-  no owner at all              47   3.3%   → H1
+  covered and decisive        907  57.6%
+  covered but flat            120   7.6%   → H1
+  partial, acted anyway       138   8.8%
+  partial, handed over        367  23.3%   → H1
+  no owner at all              43   2.7%   → H1
 
-  H2 decides 59.3% of contested decisions.
+  H2 decides 66.3% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -322,9 +322,42 @@ could not serve:
   company being ours, and `hazards` takes the window — it is a denial choice
   like any other.
 
+### Pricing a card's ability without knowing the card
+
+`activate-granted-action` was the largest unowned type — 213 blocked decisions —
+and it looks like a card-by-card problem, which is why nobody had taken it. It
+is not, quite. The DSL already declares both halves of every grant:
+
+```json
+{ "type": "grant-action", "action": "saruman-fetch-spell",
+  "cost": { "tap": "self" },
+  "apply": { "type": "move", "from": "discard", "to": "hand" } }
+```
+
+So `grants` prices **families of declared effect**: a `tap` cost is what
+`character-value` says tapping that character forfeits, a `move` into hand is a
+card recovered, an on-success that discards the granting card is that card
+ceasing to do whatever it was doing. Cards this project has never seen are
+priced the moment their effects are written; effects outside the list are
+declined.
+
+```text
+activate Lure of Nature: -0.8%
+├─ needs on 2d6: 5  [83.3% to succeed]
+├─ what it is worth: +1.7
+│    [corruption 5 → 3 narrows the failing band by 19.4%, against 9.0 tsd lost]
+└─ what it costs: +2.1
+     [taps bearer — flat tempo plus the influence attempt forfeited]
+```
+
+It declines to try, for a reason no flat tap cost could reach: shedding two
+corruption is worth 1.7, and tapping Glorfindel forfeits a faction attempt worth
+2.1.
+
 What is left is dominated by `hazards`'s two declared gaps — hazard events and
-non-creature on-guard cards — and closing those means pricing a card's
-*effect*, which is the DSL's work rather than a module's.
+non-creature on-guard cards — and closing those means pricing a card's *effect*
+in a way this family-based approach cannot reach, since a hazard event's value
+is what it does to the opponent rather than to a card in play.
 
 ### Does it win?
 
