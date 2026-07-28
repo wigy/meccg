@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
       launchHeuristicAiGame();
     })(); });
 
-    // ---- MC-AI (flat Monte-Carlo search) — TEMPORARY ----
+    // ---- MC-AI (flat Monte-Carlo search) ----
     const playMcAiBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
 
     /** Send the play-mc-ai message and disable the UI. */
