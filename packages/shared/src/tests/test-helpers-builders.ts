@@ -1076,6 +1076,23 @@ export function makeShadowMHState(
 }
 
 /**
+ * MH state describing arrival at a Shadow-Hold "Moria" via a path of two
+ * shadow-land regions. For creatures keyed `{s}{s}` — i.e. those whose text
+ * requires "two Shadow-lands [{s}] in site path" (Wild Fell Beast td-81).
+ */
+export function makeDoubleShadowMHState(
+  overrides?: Partial<MovementHazardPhaseState>,
+): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Shadow, RegionType.Shadow],
+    resolvedSitePathNames: ['Imlad Morgul', 'Gorgoroth'],
+    destinationSiteType: SiteType.ShadowHold,
+    destinationSiteName: 'Moria',
+    ...overrides,
+  });
+}
+
+/**
  * MH state describing arrival at a Border-hold via a Border region.
  * For creatures keyed to border-land {b} (e.g. Brigands).
  */

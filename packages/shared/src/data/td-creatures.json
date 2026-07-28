@@ -617,12 +617,25 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "shadow",
           "shadow"
         ]
       }
     ],
-    "effects": [],
-    "text": "Drake. Three strikes. Attacker chooses defending characters. Unless this attack is canceled, all untapped characters in defending company are tapped following attack. Two Shadow-lands [{s}] in site path are required."
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      },
+      {
+        "type": "on-event",
+        "event": "attack-not-canceled",
+        "apply": {
+          "type": "company-tap-characters"
+        }
+      }
+    ],
+    "text": "Drake. Three strikes. Attacker chooses defending characters. Unless this attack is canceled, all untapped characters in defending company are tapped following attack. Two Shadow-lands [{s}] in site path are required.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hazard-creature",

@@ -604,6 +604,41 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         });
       }
     }
+    // Wild Fell Beast (td-81): "Unless this attack is canceled, all untapped
+    // characters in defending company are tapped following attack." The
+    // `company-tap-characters` apply verb (also used by Heedless Revelry's
+    // on-guard reveal) taps every still-untapped character in the company that
+    // faced the attack. Characters that tapped to face a strike are already
+    // tapped and wounded ones are Inverted, so only the bystanders are hit.
+    if (nce.apply.type === 'company-tap-characters') {
+      const tapDefIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+      const tapCompany = companyById(stateAfterCombat.players[tapDefIdx].companies, combat.companyId);
+      if (tapCompany) {
+        logDetail(`Attack not canceled — tapping untapped characters in company ${combat.companyId as string}`);
+        for (const charId of tapCompany.characters) {
+          const ch = stateAfterCombat.players[tapDefIdx].characters[charId];
+          if (!ch || ch.status !== CardStatus.Untapped) continue;
+          const charDef = defById(stateAfterCombat, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          if (nce.apply.filter) {
+            const ctx = {
+              target: {
+                race: charDef.race,
+                mind: ch.effectiveStats.mind ?? charDef.mind ?? 0,
+                name: charDef.name,
+                skills: charDef.skills,
+                cardType: charDef.cardType,
+              },
+            };
+            if (!matchesCondition(nce.apply.filter, ctx)) continue;
+          }
+          logDetail(`  tapping "${charDef.name}" following the attack`);
+          stateAfterCombat = updatePlayer(stateAfterCombat, tapDefIdx, p =>
+            updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Tapped })),
+          );
+        }
+      }
+    }
   }
 
   // Check for on-event: attack-defeated effects on permanent events in play.
