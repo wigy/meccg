@@ -10,6 +10,14 @@ Not all cards in the game are fully playable yet. Each card goes through several
 
 You can see how many cards are created and certified in the project status table in the README. If a card you want to play behaves incorrectly, filing a bug report is the fastest way to get it fixed — it will usually be addressed and released in the next release.
 
+## Deck Lifecycle
+
+There are some sample decks marked with a star. Those are more or less considered stable. At least
+they have been played successfully through complete game without any bug reports. If you are
+using sample deck without a star or your own deck, i recommend running it versus any AI until
+you can finish complete game without bug reports. Tell admins to mark it with the star if it is
+a sample deck included.
+
 ## Reporting a Bug
 
 Click the **bug icon** during a game to file a report. Bug reports can only be submitted from within an active game.
