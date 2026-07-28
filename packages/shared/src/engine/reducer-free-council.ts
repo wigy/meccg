@@ -10,7 +10,7 @@
  * `pendingCheck`) → tap supporters → pass to resolve.
  */
 
-import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
+import type { GameState, CardInstance, CardInstanceId, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, computeTournamentScore, requirePhaseState } from '../state-utils.js';
 import { CardStatus, Alignment } from '../types/common.js';
@@ -517,6 +517,51 @@ export function endGame(
 }
 
 /**
+ * Destroys The One Ring borne by one of `owner`'s characters: the item is
+ * removed from its bearer and placed in the owner's out-of-play pile (the
+ * terminal, unrecyclable pile — "destroyed", not merely discarded).
+ *
+ * The Ring is located by the `the-one-ring` card keyword rather than by
+ * definition id, so both the hero and any equivalent printing resolve. The
+ * Ring is unique, so at most one item can match; the loop is written over all
+ * characters anyway so the sweep is total and idempotent.
+ */
+function destroyTheOneRing(state: GameState, owner: PlayerId): GameState {
+  const playerIndex = getPlayerIndex(state, owner);
+  const destroyed: CardInstance[] = [];
+  const players = clonePlayers(state);
+  const player = players[playerIndex];
+  const characters = { ...player.characters };
+
+  for (const charId of Object.keys(characters) as CardInstanceId[]) {
+    const char = characters[charId];
+    const rings = char.items.filter(item => {
+      const def = defById(state, item.definitionId);
+      return !!def && 'keywords' in def
+        && ((def as { keywords?: readonly string[] }).keywords ?? []).includes('the-one-ring');
+    });
+    if (rings.length === 0) continue;
+    destroyed.push(...rings.map(toCardInstance));
+    characters[charId] = { ...char, items: char.items.filter(item => !rings.includes(item)) };
+  }
+
+  if (destroyed.length === 0) {
+    logDetail('The One Ring is destroyed — no Ring found in play, nothing to remove');
+    return state;
+  }
+
+  for (const ring of destroyed) {
+    logDetail(`The One Ring is destroyed — removing ${defById(state, ring.definitionId)?.name ?? (ring.definitionId as string)} from the game`);
+  }
+  players[playerIndex] = {
+    ...player,
+    characters,
+    outOfPlayPile: [...player.outOfPlayPile, ...destroyed],
+  };
+  return { ...state, players };
+}
+
+/**
  * Ends the game as a One Ring win (CoE rule 10.39) for `winner`.
  *
  * Convenience wrapper around {@link endGame} that derives the
@@ -526,15 +571,22 @@ export function endGame(
  * positional (Ringwraith), card-on-play (Gollum's Fate / Challenge the
  * Power), corruption-check success (Cracks of Doom), and end-of-turn scan
  * (A New Ringlord).
+ *
+ * `destroysOneRing` mirrors the `win-game` apply's field: the two cards that
+ * print "The One Ring is destroyed" remove the Ring from the game *before*
+ * {@link endGame} computes final scores, so the destroyed Ring contributes no
+ * marshalling points to the result screen.
  */
 export function oneRingWin(
   state: GameState,
   winner: PlayerId,
   card: CardDefinitionId | null,
+  destroysOneRing = false,
 ): GameState {
   const player = playerById(state, winner);
   const alignment = player?.alignment ?? Alignment.Wizard;
-  return endGame(state, { kind: 'one-ring', alignment, card }, winner);
+  const afterDestroy = destroysOneRing ? destroyTheOneRing(state, winner) : state;
+  return endGame(afterDestroy, { kind: 'one-ring', alignment, card }, winner);
 }
 
 // ---- Combat sub-state handlers ----

@@ -2149,11 +2149,23 @@ export interface WinConditionRollAction extends TriggeredActionBase {
   readonly rollModifiers?: readonly RollModifier[];
 }
 
-/** `win-game` — immediate One Ring win (CoE 10.39); carries no payload. */
+/** `win-game` — immediate One Ring win (CoE 10.39). */
 export interface WinGameAction extends TriggeredActionBase {
   readonly type: 'win-game';
   /** @deprecated Documented historically but never read in the engine. */
   readonly via?: 'one-ring';
+  /**
+   * When true, The One Ring is *destroyed* as part of the win: every in-play
+   * item the winner's characters bear that carries the `the-one-ring` keyword
+   * is removed from the game (to the owner's out-of-play pile) before final
+   * scores are computed, so the destroyed Ring scores no marshalling points.
+   *
+   * Only the two cards that print "The One Ring is destroyed" set this —
+   * Cracks of Doom (tw-205) and Gollum's Fate (tw-247). A New Ringlord
+   * (wh-60) and Challenge the Power (ba-52) win *with* the Ring, not by
+   * destroying it, so they leave it unset.
+   */
+  readonly destroysOneRing?: boolean;
 }
 
 /**

@@ -2775,9 +2775,26 @@ Apply types:
   `pending-reducers.ts` (`applyCorruptionCheckResolution`), and the
   end-of-turn scanner.
 
+  The optional `destroysOneRing` flag implements the "**The One Ring is
+  destroyed**" clause the two Mount Doom cards print (Cracks of Doom tw-205,
+  Gollum's Fate tw-247), which A New Ringlord and Challenge the Power — wins
+  *with* the Ring — do not. When set, `oneRingWin` first sweeps every in-play
+  item borne by the winner's characters whose definition carries the
+  `the-one-ring` keyword into that player's `outOfPlayPile` (removed from the
+  game, the terminal pile — not the recyclable discard pile). The sweep runs
+  *before* `endGame` computes final scores, so the destroyed Ring contributes
+  no item marshalling points to the result screen.
+
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "win-game", "via": "one-ring" } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "enqueue-corruption-check", "modifier": -4,
+               "onSuccess": { "type": "win-game", "via": "one-ring",
+                              "destroysOneRing": true } } }
   ```
 
 - `heal-target-character` -- under `on-event: self-enters-play` on a
