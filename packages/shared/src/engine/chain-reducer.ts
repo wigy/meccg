@@ -1638,6 +1638,51 @@ function applyAttackRaceBoost(state: GameState, entry: ChainEntry): GameState {
 }
 
 /**
+ * Resolves a `target-character-stat-modifier` effect (Akhôrahil tw-4's on-tap
+ * short-event conversion: "modifies any one character's body by -1 for the rest
+ * of this turn").
+ *
+ * The character was named when the permanent-event was tapped and rides on the
+ * chain entry payload. Resolution installs a turn-scoped
+ * `character-stat-modifier` constraint bound to that instance — the same kind
+ * Vilya / Glance of Arien (ba-19) place — so the modifier is picked up by
+ * `collectCharacterStatModifierEffects` when the character's `effectiveStats`
+ * are recomputed, and is swept by the existing end-of-turn sweep.
+ *
+ * No-op if the card carries no such effect, no target rode along, or the target
+ * left play before the chain resolved.
+ */
+function applyTargetCharacterStatModifier(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').TargetCharacterStatModifierEffect =>
+      e.type === 'target-character-stat-modifier',
+  );
+  if (!effect) return state;
+  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+
+  const owner = state.players.find(p => p.characters[targetCharId]);
+  if (!owner) {
+    logDetail(`${cardLabel}: target-character-stat-modifier — target character ${targetCharId as string} is no longer in play`);
+    return state;
+  }
+  const charLabel = (defById(state, owner.characters[targetCharId].definitionId) as { name?: string } | undefined)?.name
+    ?? (targetCharId as string);
+  logDetail(`${cardLabel}: target-character-stat-modifier — ${charLabel} ${effect.stat} ${effect.value > 0 ? '+' : ''}${effect.value} until the end of the turn`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'character', characterId: targetCharId },
+    kind: { type: 'character-stat-modifier', stat: effect.stat, value: effect.value, characterId: targetCharId },
+  });
+}
+
+/**
  * Resolves a `cycle-hand` effect (Revealed to all Watchers, dm-85).
  *
  * The playing player (`entry.declaredBy` — the hazard player for a hazard
@@ -3576,6 +3621,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // turn (Dwar of Waw tw-31's on-tap short-event conversion).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyAttackRaceBoost(current, entry);
+  }
+
+  // Short events that modify one named character's stat for the rest of the
+  // turn (Akhôrahil tw-4's on-tap short-event conversion: body -1). The target
+  // was chosen at tap time and rides on the chain entry's payload.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyTargetCharacterStatModifier(current, entry);
   }
 
   // Short events that retype a whole class of sites (Witch-king of Angmar

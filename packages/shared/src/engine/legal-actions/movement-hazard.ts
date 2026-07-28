@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -3647,6 +3647,33 @@ function tapAltPermanentEventActions(
       }
       if (!offered) {
         actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character with a discardable item' });
+      }
+      continue;
+    }
+
+    // Akhôrahil (tw-4): the on-tap short-event "modifies any one character's
+    // body by -1 for the rest of this turn". As a hazard (CoE 2.1.2) it may
+    // only aim at the resource (active) player's characters; one action is
+    // emitted per character passing the effect's optional `targetFilter`.
+    const statModEffect = getCardEffects(def).find(
+      (e): e is TargetCharacterStatModifierEffect => e.type === 'target-character-stat-modifier',
+    );
+    if (statModEffect) {
+      const resourcePlayer = state.players[activeIdx];
+      let offered = false;
+      for (const [charId, ch] of Object.entries(resourcePlayer.characters)) {
+        const charDef = defById(state, ch.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (statModEffect.targetFilter) {
+          const ctx = buildPlayOptionContext(state, ch, resourcePlayer);
+          if (!matchesCondition(statModEffect.targetFilter, ctx)) continue;
+        }
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+        offered = true;
+      }
+      if (!offered) {
+        logDetail(`${def.name}: no eligible character to modify — tap not offered`);
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to modify' });
       }
       continue;
     }

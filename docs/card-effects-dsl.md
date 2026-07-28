@@ -11398,6 +11398,45 @@ companies face hazards this turn. `collectCreatureAttackBoostEffects`
 prowess/strikes, so the boost lands on hazard-creature attacks and site
 automatic-attacks alike, and the `turn` scope sweeps it at end of turn.
 
+### 56i. `target-character-stat-modifier`
+
+When this short-event resolves — including a dual-mode creature's
+tap-to-short-event conversion (§56c) — the **one character named when the card
+was played or tapped** has the given stat modified for the rest of the turn.
+Used by Akhôrahil (tw-4)'s on-tap conversion: "modifies any one character's body
+by -1 for the rest of this turn."
+
+```json
+{ "type": "target-character-stat-modifier", "stat": "body", "value": -1 }
+```
+
+- `stat` — `"prowess"`, `"body"`, or `"direct-influence"`.
+- `value` — signed modifier (negative to reduce).
+- `targetFilter` *(optional)* — condition on a candidate target character,
+  evaluated against the shared play-option context exactly as
+  `force-discard-target-item`'s `targetFilter` (§56g). Omit for "any one
+  character".
+
+The target is chosen when the permanent-event is tapped: the emitter
+(`tapAltPermanentEventActions`, `legal-actions/movement-hazard.ts`) offers one
+`tap-alt-permanent-event` action per character of the **resource (active)
+player** passing `targetFilter` — a hazard never aims at its own side (CoE
+2.1.2) — and surfaces a non-viable action when nothing qualifies. Resolution
+(`applyTargetCharacterStatModifier`, `chain-reducer.ts`) installs a turn-scoped
+**`character-stat-modifier`** constraint (§6a) bound to that instance, so the
+modifier flows through `collectCharacterStatModifierEffects` into the
+character's `effectiveStats` and is swept at end of turn.
+
+This differs from the `on-event: self-enters-play → add-constraint` shape
+(Glance of Arien ba-19) only in *when* it fires: it resolves on the
+**short-event** chain path alone, so a dual-mode creature sitting in play as a
+permanent-event grants nothing until it is tapped.
+
+A character's body check reads `effectiveStats.body` (`handleBodyCheckRoll`,
+`combat-actions.ts`), not the printed value, so the modifier is what a wounded
+character actually checks against. Allies bear no items and carry no
+`effectiveStats`, so they keep their printed/override body.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The
