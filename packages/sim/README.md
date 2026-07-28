@@ -70,6 +70,9 @@ npm run calibrate -w @meccg/sim -- [--module combat] [--rollouts 5000] [--scenar
 npm run sweep -w @meccg/sim -- --scenario <id> --over tunable:regionCrossingCost --from 0 --to 3
 npm run sweep -w @meccg/sim -- --scenario <id> --over risk --steps 5
 
+# Do a module's predictions survive three turns? (plan §6.4)
+npm run horizon -w @meccg/sim -- --games 8
+
 # How often do two agents actually choose differently, and where?
 npm run compare -w @meccg/sim -- --agents heuristic,h2 [--games 6]
 npm run compare -w @meccg/sim -- --scenarios --agents heuristic,h2

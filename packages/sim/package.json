@@ -21,7 +21,8 @@
     "fit-winprob": "npx tsx src/cli/fit-winprob.ts",
     "calibrate": "npx tsx src/cli/calibrate.ts",
     "compare": "npx tsx src/cli/compare.ts",
-    "sweep": "npx tsx src/cli/sweep.ts"
+    "sweep": "npx tsx src/cli/sweep.ts",
+    "horizon": "npx tsx src/cli/horizon.ts"
   },
   "dependencies": {
     "@meccg/shared": "*",
