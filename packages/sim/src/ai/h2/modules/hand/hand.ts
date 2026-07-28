@@ -41,6 +41,10 @@ import { computeCardPrices } from '../../services/card-price.js';
 const OWNED_ACTION_TYPES = [
   'start-sideboard-to-deck',
   'start-sideboard-to-discard',
+  // The Nazgûl variant (CoE 5.24): the same exchange, moving hazards rather
+  // than resources. It went unowned for 46 decisions in three games purely
+  // because the action type has a different name.
+  'start-hazard-sideboard-to-discard',
   // §3.5 names these as the module's own: the end-of-turn discard and the
   // draw that refills the hand. They are also the most common candidates in
   // the game with no owner — `discard-card` alone appears in more contested

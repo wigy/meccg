@@ -38,6 +38,7 @@ import { computeCardPrices } from '../../services/card-price.js';
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
   'draft-pick',
+  'add-character-to-deck',
   'fetch-from-pile',
   'fetch-from-sideboard',
   'fetch-hazard-from-sideboard',

@@ -58,7 +58,8 @@ import type { StrikeTarget } from '../../services/strike/prowess.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
-  'play-character', 'move-to-influence', 'discard-character', 'split-company', 'merge-companies',
+  'play-character', 'move-to-influence', 'discard-character',
+  'split-company', 'merge-companies', 'move-to-company',
 ] as const;
 
 /** A character definition named by an action, from hand or from play. */
@@ -216,7 +217,31 @@ function evaluateShape(context: ModuleContext, action: GameAction): Evaluation |
   let after: StrikeTarget[][];
   let headline: string;
 
-  if (merging) {
+  if (action.type === 'move-to-company') {
+    // The third shape operation, and the same comparison: a character walks
+    // from one company to another at the same site, so two companies change
+    // size at once and both hazard limits move with them.
+    const record = action as unknown as {
+      characterInstanceId: CardInstanceId; sourceCompanyId: string; targetCompanyId: string;
+    };
+    const source = view.self.companies.find(c => (c.id as string) === record.sourceCompanyId);
+    const target = view.self.companies.find(c => (c.id as string) === record.targetCompanyId);
+    if (!source || !target) return null;
+    const departing = departingWith(context, record.characterInstanceId);
+    const goes = source.characters.filter(id => departing.has(id as string));
+    const stays = source.characters.filter(id => !departing.has(id as string));
+    if (goes.length === 0) return null;
+    const leaving = rosterOf({ characters: goes }, view.self.characters, cardPool);
+    before = [
+      rosterOf(source, view.self.characters, cardPool),
+      rosterOf(target, view.self.characters, cardPool),
+    ];
+    after = [
+      rosterOf({ characters: stays }, view.self.characters, cardPool),
+      rosterOf({ characters: [...target.characters, ...goes] }, view.self.characters, cardPool),
+    ];
+    headline = `move ${names(leaving)} to the other company`;
+  } else if (merging) {
     const record = action as unknown as { sourceCompanyId: string; targetCompanyId: string };
     const source = rosterFor(context, record.sourceCompanyId);
     const target = rosterFor(context, record.targetCompanyId);
@@ -311,7 +336,8 @@ export const charactersModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
-    if (action.type === 'split-company' || action.type === 'merge-companies') {
+    if (action.type === 'split-company' || action.type === 'merge-companies'
+      || action.type === 'move-to-company') {
       return evaluateShape(context, action);
     }
     if (action.type === 'discard-character') return evaluateDiscardCharacter(context, action);
