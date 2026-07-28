@@ -3326,9 +3326,46 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsRiverhorses.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "move",
+        "select": "filter-all",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "keywords": {
+            "$includes": "Nazgûl"
+          }
+        },
+        "corruptionCheck": {
+          "modifier": -2
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "requiredRace": "wizard",
+        "cost": {
+          "check": "corruption",
+          "modifier": -2
+        },
+        "when": {
+          "bearer.companySize": 1
+        }
+      }
+    ],
+    "certified": "2026-07-28",
     "text": "Spell. Wizard only. All Nazgûl events are discarded or cancels an attack against a Wizard if he is the only character in the company. Wizard makes a corruption check modified by -2."
   },
   {

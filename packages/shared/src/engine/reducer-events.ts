@@ -598,6 +598,24 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
 
+  // The sweep sibling of the branch above: a short event that discards *every*
+  // matching card in play (Wizard's River-horses tw-364, "All Nazgûl events are
+  // discarded"). Same chain treatment — the opponent is owed a response window
+  // before the sweep lands — but there is no chosen target to carry, so the
+  // payload flags the mode instead. The flag also keeps the sweep from firing
+  // when this card is played in its *other* mode (cancel-attack), which pushes
+  // a bare `short-event` payload from `handleCancelAttack`.
+  if (findMoveEffectByShape(def, 'filter-all', 'in-play', 'discard')) {
+    logDetail(`${def.name} → chain of effects (discard-all-in-play resolves on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      discardAllInPlay: true,
+      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
+  }
+
   let newCharacters = workingState.players[playerIndex].characters;
 
   // Handle DSL-declared play-option `set-character-status` applies (e.g.

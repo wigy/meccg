@@ -340,6 +340,23 @@ export function heroResourceShortEventActions(
       }
     }
 
+    // "Discard every matching card in play" (Wizard's River-horses tw-364:
+    // "All Nazgûl events are discarded"). Unlike the single-target shape above
+    // there is nothing to choose — the mode is simply not playable while
+    // nothing in play matches the filter, so the Wizard is never asked to make
+    // the corruption check for an empty sweep. A card whose other mode is a
+    // combat cancel stays playable in that mode via the combat path.
+    const discardAllInPlay = findMoveEffectByShape(def, 'filter-all', 'in-play', 'discard');
+    if (discardAllInPlay?.filter) {
+      const sweepTargets = collectDiscardInPlayTargets(state, discardAllInPlay.filter);
+      if (sweepTargets.length === 0) {
+        logDetail(`${def.name}: nothing in play matches the discard-all filter — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has nothing in play to discard`));
+        continue;
+      }
+      logDetail(`${def.name}: discard-all mode would discard ${sweepTargets.length} card(s) in play`);
+    }
+
     // If the card has a play-target with a tap cost (e.g. Marvels Told taps
     // a sage), emit one action per eligible target. Otherwise emit a single
     // action with no target. When a discard-in-play target is also required,
