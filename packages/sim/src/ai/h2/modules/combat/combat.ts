@@ -607,36 +607,46 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
         outcomes, detail, [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
     }
 
-    case 'choose-strike-order': {
-      // Every candidate here is a strike that is going to happen; only the
-      // order differs. So they share the per-strike scope, and note that under
-      // the independence assumption the order genuinely does not matter — the
-      // real value of ordering comes from the degradation that assumption
-      // drops, which is why this is the weakest thing the module says.
-      const target = targetOfAction(context, action);
-      if (!target) return null;
-      const need = predictedNeed(target, context.cardPool, context.combat);
-      const raw = strikeOutcomes(
-        { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
-        situationFor(context, target),
-      );
-      return evaluationFrom(context, action, `resolve ${target.name}'s strike next`,
-        raw.map(outcome => ({
-          p: outcome.p,
-          label: `${target.name}: ${outcome.strike} / ${outcome.character}`,
-          dtsd: priceProjectedOutcome(context, outcome, target),
-        })),
-        [
-          leaf('facing', target.name),
-          leaf('projected need on 2d6', need, { note: 'the engine publishes the exact target once the strike is reached' }),
-        ],
-        [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS,
-          'ordering is scored per strike; with strikes priced independently the order does not change the total']);
-    }
-
     default:
       return null;
   }
+}
+
+/**
+ * Score resolving one particular assigned strike next.
+ *
+ * Reached from `evaluate` *before* the current-strike branch, because at the
+ * `choose-strike-order` step there is deliberately no current strike — picking
+ * one is the decision. Handling it only in the strike-window switch meant the
+ * module claimed the decision and then declined every candidate on it, 124
+ * times in three self-play games, which reads in `coverage` exactly like an
+ * action type nobody owns.
+ *
+ * Every candidate here is a strike that is going to happen; only the order
+ * differs. Under the independence assumption the order genuinely does not
+ * matter — the real value of ordering comes from the degradation that
+ * assumption drops, which is why this is the weakest thing the module says.
+ */
+function evaluateStrikeOrder(action: GameAction, context: StrikeContext): Evaluation | null {
+  const target = targetOfAction(context, action);
+  if (!target) return null;
+  const need = predictedNeed(target, context.cardPool, context.combat);
+  const raw = strikeOutcomes(
+    { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
+    situationFor(context, target),
+  );
+  return evaluationFrom(context, action, `resolve ${target.name}'s strike next`,
+    raw.map(outcome => ({
+      p: outcome.p,
+      label: `${target.name}: ${outcome.strike} / ${outcome.character}`,
+      dtsd: priceProjectedOutcome(context, outcome, target),
+    })),
+    [
+      leaf('facing', target.name),
+      leaf('projected need on 2d6', need, { note: 'the engine publishes the exact target once the strike is reached' }),
+    ],
+    [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS,
+      'ordering is scored per strike; with strikes priced independently the order does not change the total']);
 }
 
 /** The printed name of a character or ally in the defending company. */
@@ -645,9 +655,23 @@ function nameOfInstance(context: StrikeContext, instanceId: CardInstanceId): str
     .find(t => t.instanceId === instanceId)?.name ?? (instanceId as string);
 }
 
-/** The strike target an action names, if it is one of ours. */
+/**
+ * The strike target an action names, if it is one of ours.
+ *
+ * `choose-strike-order` names the strike by its **index into
+ * `strikeAssignments`**; its `characterId` is documented as "informational, for
+ * UI display" and the engine frequently omits it. Reading only that optional
+ * field made the module decline the ordering decision 124 times in three games
+ * — the same shape of bug as `characters` reading `cardInstanceId` where the
+ * action carries `characterInstanceId`, and just as invisible, because a
+ * declining module looks exactly like an unowned action type.
+ */
 function targetOfAction(context: StrikeContext, action: GameAction): StrikeTarget | undefined {
-  const characterId = (action as unknown as { characterId?: CardInstanceId }).characterId;
+  const record = action as unknown as { characterId?: CardInstanceId; strikeIndex?: number };
+  const fromIndex = typeof record.strikeIndex === 'number'
+    ? context.combat.strikeAssignments[record.strikeIndex]?.characterId
+    : undefined;
+  const characterId = fromIndex ?? record.characterId;
   if (!characterId) return undefined;
   return strikeTargets(context.view, context.cardPool, context.combat)
     .find(t => t.instanceId === characterId);
@@ -701,6 +725,9 @@ export const combatModule: H2Module = {
     const ctx = buildContext(context);
     if (!ctx) return null;
 
+    // Ordering is decided when no strike is current yet, so it is dispatched
+    // ahead of that split rather than inside the strike window.
+    if (action.type === 'choose-strike-order') return evaluateStrikeOrder(action, ctx);
     if (!ctx.hasCurrentStrike) return evaluateAttackWindow(action, ctx);
 
     switch (action.type) {

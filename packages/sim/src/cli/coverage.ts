@@ -98,6 +98,15 @@ const blockedBy = new Map<string, number>();
  * their own `claims()` and silenced themselves.
  */
 const declinedBy = new Map<string, number>();
+/**
+ * Action types present in decisions H2 covers completely but scores flat.
+ *
+ * A different failure from an unowned type and worth its own column: the module
+ * took the decision, scored every candidate the same, and the agent handed it to
+ * Heuristics 1 anyway because a tie is not an opinion. Closing these needs no
+ * new module — it needs an existing one to say something.
+ */
+const flatBy = new Map<string, number>();
 
 for (let g = 0; g < games; g++) {
   const inner = resolveAgent(selfSpec);
@@ -152,6 +161,9 @@ for (let g = 0; g < games; g++) {
             tally.covered++;
           } else {
             tally.flat++;
+            for (const type of new Set(legalActions.map(a => a.type))) {
+              flatBy.set(type, (flatBy.get(type) ?? 0) + 1);
+            }
           }
         } else if (evaluations.length === 0) {
           tally.uncoveredEntirely++;
@@ -210,6 +222,18 @@ console.log('');
 console.log('"Blocks" counts contested decisions where the type went unscored — the same');
 console.log('decision is counted once per unowned type it contains, so the column sums to');
 console.log('more than the number of decisions.');
+
+console.log('');
+console.log('Action types present in decisions that were covered but scored flat — no new');
+console.log('module needed, an existing one has to discriminate:');
+const flat = [...flatBy.entries()].sort((a, b) => b[1] - a[1]).slice(0, top);
+if (flat.length === 0) {
+  console.log('  (none — every covered decision had an opinion)');
+} else {
+  for (const [type, count] of flat) {
+    console.log(`  ${type.padEnd(28)} ${String(count).padStart(6)} decision(s)`);
+  }
+}
 
 console.log('');
 console.log('Candidates a module owns but declined — a declared gap, or a module that has');

@@ -255,16 +255,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1364 contested decisions:
+Over 1554 contested decisions:
 
 ```text
-  covered and decisive        461  33.8%
-  covered but flat            188  13.8%   → H1
-  partial, acted anyway       141  10.3%
-  partial, handed over        448  32.8%   → H1
-  no owner at all             126   9.2%   → H1
+  covered and decisive        635  40.9%
+  covered but flat            161  10.4%   → H1
+  partial, acted anyway       206  13.3%
+  partial, handed over        475  30.6%   → H1
+  no owner at all              77   5.0%   → H1
 
-  H2 decides 44.1% of contested decisions.
+  H2 decides 54.1% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -273,8 +273,8 @@ comparison is not like for like: the denominator is now the decision the agent
 actually faces, with the engine's marked undos removed. More of what is left
 scores flat, because dropping a candidate and its undo often leaves a tie.
 
-The three commits that moved the number were all found by running this rather
-than by reasoning about it:
+The commits that moved the number were all found by running this rather than by
+reasoning about it:
 
 - **`pass` was the largest single blocker by a factor of three** — 476
   decisions. Three modules own it inside their own windows and nobody owned it
@@ -288,11 +288,18 @@ than by reasoning about it:
   half: the hazard limit *is* the company size, so shape decides how
   concentrated the harm can be. `services/defence.ts` computes it.
 
-What is left, by decisions blocked: `activate-granted-action` 145,
-`discard-character` 138, `place-on-guard` 129, `play-short-event` 128,
-`play-hazard` 127, `assign-strike` 64. The last two are `hazards`'s own
-declared gaps — events and non-creature on-guard cards — and closing them means
-pricing card effects, which is the DSL's work rather than a module's.
+The report also separates an action type **nobody owns** from one a module owns
+and then **declines**, because they mean opposite things: the first is a module
+waiting to be written, the second is a module that took responsibility and had
+nothing to say. That column immediately found a bug worth 10 points of coverage
+on its own — `combat` claimed `choose-strike-order` and declined every
+candidate, because ordering was handled only inside the strike-window branch and
+at that step there is deliberately no *current* strike. Picking one is the
+decision.
+
+What is left is dominated by `hazards`'s two declared gaps — hazard events and
+non-creature on-guard cards — and closing those means pricing a card's
+*effect*, which is the DSL's work rather than a module's.
 
 ### Does it win?
 
