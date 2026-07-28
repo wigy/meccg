@@ -1,10 +1,10 @@
 /**
  * @module ai/h2/modules/hand/hand.test
  *
- * The module's job today is to be honest about a price it cannot compute. So
- * the tests check that a sideboard exchange is scored as the neutral action it
- * is, that the inputs a real price would need are reported, and that the
- * placeholder every other module charges is named where a reader can see it.
+ * The module's job is to price what leaves and enters the hand. So the tests
+ * check that a sideboard exchange is scored as the neutral action it is, and —
+ * the property that matters most, because its absence is what the horizon test
+ * caught — that two different cards get two different prices.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -19,13 +19,34 @@ import { handModule } from './hand.js';
 const TO_DECK = { type: 'start-sideboard-to-deck' } as unknown as GameAction;
 const TO_DISCARD = { type: 'start-sideboard-to-discard' } as unknown as GameAction;
 
+/** Three cards that a real price has to separate, for the discard tests. */
+const HAND = [
+  { instanceId: 'c-faction', definitionId: 'faction' },
+  { instanceId: 'c-capped', definitionId: 'capped' },
+  { instanceId: 'c-blank', definitionId: 'blank' },
+];
+
+/**
+ * A pool spanning the three cases: points in a source with room, points in a
+ * source already at the diversity cap, and no points at all.
+ */
+const POOL = {
+  faction: {
+    cardType: 'hero-resource-faction', name: 'Faction', marshallingPoints: 2, marshallingCategory: 'faction',
+  },
+  capped: {
+    cardType: 'hero-resource-item', name: 'Capped Item', marshallingPoints: 4, marshallingCategory: 'item',
+  },
+  blank: { cardType: 'hero-resource-item', name: 'Blank', marshallingPoints: 0 },
+} as unknown as ModuleContext['cardPool'];
+
 /** A context with a deck and sideboard of the given sizes. */
 function contextWith(deck: number, sideboard: number): ModuleContext {
   const view = {
     self: {
       id: 'p1',
       marshallingPoints: testMarshallingPoints({ character: 3, item: 3 }),
-      hand: [],
+      hand: HAND,
       playDeck: new Array(deck).fill({ instanceId: 'x', definitionId: 'unknown' }),
       sideboard: new Array(sideboard).fill({ instanceId: 'y', definitionId: 'unknown' }),
       characters: {},
@@ -34,12 +55,21 @@ function contextWith(deck: number, sideboard: number): ModuleContext {
       generalInfluence: 20,
       generalInfluenceUsed: 0,
     },
-    opponent: { marshallingPoints: testMarshallingPoints({ character: 3, item: 3 }), characters: {}, cardsInPlay: [] },
+    opponent: {
+      marshallingPoints: testMarshallingPoints({ character: 3, item: 3 }),
+      characters: {},
+      cardsInPlay: [],
+      companies: [],
+      hand: [],
+      discardPile: [],
+      killPile: [],
+      outOfPlayPile: [],
+    },
     turnNumber: 20,
   } as unknown as PlayerView;
   return {
     view,
-    cardPool: {},
+    cardPool: POOL,
     legalActions: [TO_DECK, TO_DISCARD],
     tunables: DEFAULT_TUNABLES,
     standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
@@ -67,15 +97,10 @@ describe('the sideboard exchange', () => {
   });
 });
 
-describe('the price it cannot compute', () => {
-  test('names the placeholder every other module charges', () => {
+describe('the card price', () => {
+  test('names the price still charged by consumers that have not moved to the service', () => {
     const evaluation = handModule.evaluate(TO_DECK, contextWith(40, 12))!;
     expect(collectTunables(evaluation.rationale).has('provisionalCardPrice')).toBe(true);
-  });
-
-  test('says why there is no real price yet, and what it depends on', () => {
-    const evaluation = handModule.evaluate(TO_DECK, contextWith(40, 12))!;
-    expect(evaluation.assumptions.some(a => a.includes('hazards'))).toBe(true);
   });
 
   test('declines an action that is not its own', () => {
@@ -86,25 +111,42 @@ describe('the price it cannot compute', () => {
 
 describe('the end-of-turn hand', () => {
   const context = contextWith(40, 12);
-  const discard = { type: 'discard-card' } as unknown as GameAction;
+  const discardFaction = { type: 'discard-card', cardInstanceId: 'c-faction' } as unknown as GameAction;
+  const discardCapped = { type: 'discard-card', cardInstanceId: 'c-capped' } as unknown as GameAction;
+  const discardBlank = { type: 'discard-card', cardInstanceId: 'c-blank' } as unknown as GameAction;
   const draw = { type: 'draw-cards' } as unknown as GameAction;
 
-  test('discarding costs the card price and drawing gains the draw value', () => {
-    expect(handModule.evaluate(discard, context)!.expectedTsd)
-      .toBeCloseTo(-DEFAULT_TUNABLES.provisionalCardPrice, 9);
+  test('drawing gains the draw value', () => {
     expect(handModule.evaluate(draw, context)!.expectedTsd)
       .toBeCloseTo(DEFAULT_TUNABLES.resourceDrawValue, 9);
   });
 
-  test('admits it cannot yet choose *which* card to discard', () => {
-    // Every card is priced the same until §3.5's per-card shadow price exists,
-    // so the module must not look as though it is choosing wisely.
-    const evaluation = handModule.evaluate(discard, context)!;
-    expect(evaluation.assumptions.some(a => a.includes('least useful'))).toBe(true);
+  test('two different cards are two different prices', () => {
+    // The property whose absence the horizon test caught: with every discard
+    // scored identically the module had no opinion to be right or wrong about.
+    const faction = handModule.evaluate(discardFaction, context)!;
+    const blank = handModule.evaluate(discardBlank, context)!;
+    expect(faction.expectedTsd).toBeLessThan(blank.expectedTsd);
+    expect(faction.utility).toBeLessThan(blank.utility);
   });
 
-  test('reports the hand and deck a real price would be computed from', () => {
-    const text = JSON.stringify(handModule.evaluate(discard, contextWith(31, 4))!.rationale);
+  test('points in a capped source are worth nothing to keep', () => {
+    // Four marshalling points the diversity cap will never let them score are
+    // worth less than a card whose use is merely unknown — which no flat price
+    // can express, and which is the whole argument of §10.3.
+    const capped = handModule.evaluate(discardCapped, context)!;
+    expect(capped.expectedTsd).toBe(0);
+    expect(handModule.evaluate(discardBlank, context)!.expectedTsd).toBeLessThan(0);
+  });
+
+  test('says which card it is throwing and why', () => {
+    const evaluation = handModule.evaluate(discardFaction, context)!;
+    expect(evaluation.outcomes[0].label).toContain('Faction');
+    expect(evaluation.outcomes[0].label).toContain('faction MP');
+  });
+
+  test('reports the hand and deck the price was computed from', () => {
+    const text = JSON.stringify(handModule.evaluate(discardFaction, contextWith(31, 4))!.rationale);
     expect(text).toContain('31');
   });
 });

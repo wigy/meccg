@@ -47,7 +47,7 @@ import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
-import { denialContext, denialPricer } from './denial.js';
+import { denialContext, denialPricer } from '../../services/denial.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'pass'] as const;

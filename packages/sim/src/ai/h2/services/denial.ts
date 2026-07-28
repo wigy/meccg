@@ -1,7 +1,12 @@
 /**
- * @module ai/h2/modules/hazards/denial
+ * @module ai/h2/services/denial
  *
  * What harming an opposing company is actually worth.
+ *
+ * A service rather than a part of `hazards`, because two callers need the same
+ * answer: the module deciding what to play now, and `card-price` deciding what
+ * a creature still in hand is worth keeping. Two private copies of this would
+ * be two different opinions about the value of the same card.
  *
  * §3.4 is emphatic that the objective is **denial, not damage**, and the
  * distinction has teeth. The opponent's marshalling points this turn come
@@ -55,12 +60,12 @@
 import type { CardDefinition, PlayerView } from '@meccg/shared';
 import { CardStatus } from '@meccg/shared';
 import type { OpponentCompanyView } from '@meccg/shared';
-import type { Tunables } from '../../core/tunables.js';
-import type { Standing } from '../../services/standing.js';
-import type { Beliefs } from '../../services/beliefs.js';
-import type { StrikeOutcome } from '../../services/strike/strike-model.js';
-import type { StrikeTarget } from '../../services/strike/prowess.js';
-import type { SequencePricer, StrikeContext } from '../../services/strike/sequence.js';
+import type { Tunables } from '../core/tunables.js';
+import type { Standing } from './standing.js';
+import type { Beliefs } from './beliefs.js';
+import type { StrikeOutcome } from './strike/strike-model.js';
+import type { StrikeTarget } from './strike/prowess.js';
+import type { SequencePricer, StrikeContext } from './strike/sequence.js';
 
 /** How much of the company's standing roster is worth anything to deny. */
 export interface DenialContext {

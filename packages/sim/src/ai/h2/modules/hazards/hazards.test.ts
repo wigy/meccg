@@ -21,7 +21,7 @@ import { computeBeliefs } from '../../services/beliefs.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { StrikeOutcome } from '../../services/strike/strike-model.js';
 import { hazardsModule } from './hazards.js';
-import { denialContext, denialPricer } from './denial.js';
+import { denialContext, denialPricer } from '../../services/denial.js';
 import { planBundles } from './bundle.js';
 import type { Candidate } from './bundle.js';
 

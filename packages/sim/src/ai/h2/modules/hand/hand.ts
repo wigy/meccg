@@ -12,22 +12,30 @@
  * failure — and if each answers privately they will answer inconsistently.
  * That inconsistency is how the weight soup came about.
  *
- * The price cannot be computed yet. A card's reservation value depends on what
- * the hazard side expects to need next turn, and `hazards` (P6) is what
- * estimates that. Until then every consumer charges the flat
- * `provisionalCardPrice`, named in each rationale that uses it so no
- * explanation can hide which number produced a decision.
+ * That price now exists. It was blocked on `hazards`, exactly as §3.5 said it
+ * would be — a card's reservation value depends on what the hazard side expects
+ * to need, and nothing could estimate that until the denial model did. The
+ * `card-price` service prices a resource by the points it would score in this
+ * standing, a character by whether its mind even fits the influence free, and a
+ * creature by what it would deny against the opponent's largest company.
  *
- * What this module owns today is the sideboard exchange, which is a real
- * decision with a real shape: cards move between the sideboard and the deck or
- * discard, changing what the deck will offer later without moving a single
- * marshalling point now. That is scored as the point-neutral action it is,
- * with the deck's size reported, rather than given an invented preference.
+ * The difference that makes to *this* module is the whole reason to care.
+ * Before it, every `discard-card` action scored identically, so the module had
+ * no opinion about which card to throw — and the horizon test said so, with a
+ * correlation of -0.02 over a thousand predictions. A module whose predictions
+ * do not vary cannot be right about anything.
+ *
+ * This module also owns the sideboard exchange, which is a real decision with a
+ * real shape: cards move between the sideboard and the deck or discard,
+ * changing what the deck will offer later without moving a single marshalling
+ * point now. That is scored as the point-neutral action it is, with the deck's
+ * size reported, rather than given an invented preference.
  */
 
-import type { GameAction } from '@meccg/shared';
+import type { CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
+import { computeCardPrices } from '../../services/card-price.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -44,11 +52,11 @@ const OWNED_ACTION_TYPES = [
 /** Assumptions every hand evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
   'a sideboard exchange is scored as marshalling-point neutral, which it is — what the deck will '
-  + 'be worth holding is the card shadow price of §3.5, and that needs `hazards` (P6) to estimate '
-  + 'what the hazard side will want',
-  'no consumer has a real card price yet: `combat` and `factions` both charge the flat '
-  + '`provisionalCardPrice`, which is one number where there should be a function of the standing, '
-  + 'the deck remaining and the hazard demand',
+  + 'be worth holding is a question about cards not yet drawn, which the card price cannot answer',
+  'the card price values a creature by what it would deny against their *largest* company, which '
+  + 'is a stand-in for the company it would actually be keyed to',
+  'other consumers still charge the flat `provisionalCardPrice` when they spend a card: `combat` '
+  + 'and `factions` have not been moved onto the priced service yet',
 ];
 
 /**
@@ -69,10 +77,24 @@ export const handModule: H2Module = {
       // number, one owner — even while that number is still the flat
       // placeholder rather than a real reservation value.
       const discarding = action.type === 'discard-card';
-      const dtsd = discarding ? -tunables.provisionalCardPrice : tunables.resourceDrawValue;
+      // Priced only when discarding: a draw has nothing in particular to
+      // value, and the creature valuation resolves whole attacks.
+      const discarded = discarding
+        ? computeCardPrices(view, context.cardPool, standing, tunables)
+          .worth((action as unknown as { cardInstanceId: CardInstanceId }).cardInstanceId)
+        : null;
+      // What a discard costs is what *that card* was worth, not what a card is
+      // worth on average. This is the whole point of the shadow price: the
+      // module can now prefer throwing the faction it can never score over the
+      // creature that would tap their company.
+      const dtsd = discarding
+        ? -(discarded?.tsd ?? tunables.provisionalCardPrice)
+        : tunables.resourceDrawValue;
       const outcomes: Outcome[] = [{
         p: 1,
-        label: discarding ? 'discard a card from hand' : 'draw to refill the hand',
+        label: discarding
+          ? `discard ${discarded?.name ?? 'a card'} — ${discarded?.reason ?? 'the flat price'}`
+          : 'draw to refill the hand',
         dtsd,
       }];
       const scored = standing.score(outcomes);
@@ -86,9 +108,10 @@ export const handModule: H2Module = {
         method: scored.method,
         rationale: node(discarding ? 'discard' : 'draw', scored.utility, [
           node('hand economy', dtsd, [
-            leaf(discarding ? 'card given up' : 'card gained', Math.abs(dtsd), {
+            leaf(discarding ? `${discarded?.name ?? 'card'} given up` : 'card gained', Math.abs(dtsd), {
               unit: 'tsd',
-              tunable: discarding ? 'provisionalCardPrice' : 'resourceDrawValue',
+              tunable: discarding ? 'potentialDiscount' : 'resourceDrawValue',
+              note: discarding ? discarded?.reason : undefined,
             }),
             leaf('hand size', view.self.hand.length),
             leaf('deck remaining', view.self.playDeck.length),
@@ -97,8 +120,9 @@ export const handModule: H2Module = {
         ], { unit: 'winprob' }),
         assumptions: [
           discarding
-            ? 'every card in hand is priced the same, so the module cannot yet prefer discarding '
-              + 'the least useful one — that needs the per-card shadow price of §3.5'
+            ? 'a card is priced by what it would be worth if it could be played, discounted by '
+              + '`potentialDiscount`; whether it is *reachable* — the right site, the right '
+              + 'company, the influence to spare — is not modelled'
             : 'a drawn card is priced at the average worth of a draw, not at what is actually drawn',
           ...ASSUMPTIONS,
         ],
