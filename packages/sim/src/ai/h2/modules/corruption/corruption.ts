@@ -16,6 +16,13 @@
  * item lost from a source already at the cap costs nothing; the same item lost
  * from a doubled source costs twice its face value. `standing` supplies both.
  *
+ * A failure removes the character, not merely its possessions
+ * (`removeFailedCorruptionCharacter`): the two grades — discard on a roll
+ * within 1 of the corruption points, out of play on a hard fail — differ only
+ * in where the card lands, so both cost the same marshalling points, and both
+ * promote its followers back to general influence, which `character-value`
+ * already prices.
+ *
  * A corruption check is usually the only action on offer, so the module rarely
  * changes a decision. It is worth having anyway: `explain` can then say what a
  * position is risking, and the outcome distribution is one the calibration
@@ -61,8 +68,9 @@ function possessionLoss(
 
 /** Assumptions every corruption evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
-  'a failed check is assumed to eliminate the character as well as discard the possessions the '
-  + 'action lists; if a card makes the failure milder, this over-states it',
+  'a failed check removes the character as well as the possessions the action lists '
+  + '(`removeFailedCorruptionCharacter`, CoE 7.1) — the two failure grades differ only in whether '
+  + 'the card lands in the discard pile or out of play, which does not change the points lost',
   'nothing is assumed about cards that could still be played to change the target — those are '
   + 'separate actions and are scored on their own',
 ];
