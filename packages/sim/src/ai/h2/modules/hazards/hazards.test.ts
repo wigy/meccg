@@ -251,3 +251,39 @@ describe('the attacker assigning an excess strike', () => {
     expect(Math.max(...scores.map(s => s!.expectedTsd))).toBeGreaterThan(0);
   });
 });
+
+describe('placing a card on guard', () => {
+  test('costs nothing, because an unrevealed on-guard card comes back', () => {
+    // `reducer-site.ts` returns unrevealed on-guard cards to the hazard
+    // player's hand at cleanup, so placement does not spend the card. The
+    // module used to charge half a card price for it — a cost the rules do not
+    // impose, which made placing look worse than passing.
+    const { scenario, view, cardPool, standing } = position();
+    const legalActions = viableActions(scenario);
+    const { evaluations } = evaluateDecision([hazardsModule], {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing,
+    });
+    const placements = evaluations.filter(e => e.action.type === 'place-on-guard');
+    expect(placements.length).toBeGreaterThan(0);
+    // Nothing is worse than doing nothing: a free option cannot cost.
+    for (const placement of placements) expect(placement.expectedTsd).toBeGreaterThanOrEqual(0);
+  });
+
+  test('every card can be placed, and a non-creature is scored at its floor', () => {
+    // The rules allow any card on guard, "even a character or resource".
+    // Declining the non-creatures left 920 candidates unscored in three games;
+    // zero is the honest floor for an option that costs nothing.
+    const { scenario, view, cardPool, standing } = position();
+    const legalActions = viableActions(scenario);
+    const offered = legalActions.filter(a => a.type === 'place-on-guard');
+    const { evaluations } = evaluateDecision([hazardsModule], {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing,
+    });
+    const scored = evaluations.filter(e => e.action.type === 'place-on-guard');
+    expect(scored).toHaveLength(offered.length);
+
+    const floors = scored.filter(e => e.expectedTsd === 0);
+    expect(floors.length).toBeGreaterThan(0);
+    expect(JSON.stringify(floors[0].rationale)).toContain('returns to hand');
+  });
+});

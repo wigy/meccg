@@ -36,11 +36,13 @@
  * aimed for — and this module already has the model: it is a denial choice like
  * any other, and the answer is whoever it hurts them most to lose.
  *
- * **What it does not do yet.** Hazard *events* — Doors of Night, the company
- * restrictions, everything that is not a creature attack — are declined, so a
- * decision containing them is only partly covered and the registry says so.
- * Modelling them means modelling their effects, which is the DSL's job and a
- * separate piece of work.
+ * **What it does not do yet.** Hazard *events* played from hand — Doors of
+ * Night, the company restrictions, everything that is not a creature attack —
+ * are declined, so a decision containing them is only partly covered and the
+ * registry says so. Modelling them means modelling their effects, which is the
+ * DSL's job and a separate piece of work. A non-creature placed *on guard* is a
+ * different case and is scored: placement is free, so zero is its floor rather
+ * than a guess.
  */
 
 import { CardStatus, Phase } from '@meccg/shared';
@@ -74,8 +76,8 @@ const ASSUMPTIONS: readonly string[] = [
   + 'only one: a character who stays untapped at -3 prowess denies this bundle the tap it counts',
   'the bundle is priced against the company as it stands now; a hazard the opponent answers by '
   + 'cancelling the attack outright is not modelled',
-  'on-guard placement is priced as a discounted version of playing the same card at the company, '
-  + 'not as a distinct decision about the site it guards',
+  'on-guard placement is priced as the option it is — the card returns to hand unless revealed — '
+  + 'discounted for the company never arriving, and not as a decision about the site it guards',
 ];
 
 /**
@@ -337,26 +339,7 @@ export const hazardsModule: H2Module = {
       return evaluateBundle(action, plan, bundle, context, 1, `play ${bundle.cards[0].name}`);
     }
 
-    if (action.type === 'place-on-guard') {
-      const place = action as unknown as { cardInstanceId: string };
-      const company = activeCompany(context.view);
-      if (!company) return null;
-      const card = context.view.self.hand.find(c => (c.instanceId as string) === place.cardInstanceId);
-      if (!card) return null;
-      if (!creatureProfile(context.cardPool, card.definitionId as string)) return null;
-      const plan = buildPlan(context.view, context, company);
-      // On-guard placement is outside the hazard limit, so a card with no slot
-      // left can still be placed — the single-card bundle is scored even when
-      // `slots` is zero.
-      const single = plan.search.bundles.find(
-        b => b.cards.length === 1 && b.cards[0].instanceId === place.cardInstanceId,
-      ) ?? placeOnly(context, plan, place.cardInstanceId);
-      if (!single) return null;
-      return evaluateBundle(
-        action, plan, single, context, context.tunables.onGuardDiscount,
-        `place ${single.cards[0].name} on guard`,
-      );
-    }
+    if (action.type === 'place-on-guard') return evaluateOnGuard(action, context);
 
     return null;
   },
@@ -453,6 +436,114 @@ function evaluateAssignStrike(
       'the strike is going to happen; only who faces it is being chosen, so nothing here prices '
       + 'the attack as a whole',
       'the defender is assumed to tap to fight and to spend no cards answering it',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
+/**
+ * Score placing a card face down on the company's site.
+ *
+ * The rule that decides this one is in `reducer-site.ts`: an on-guard card that
+ * is never revealed **goes back to the hazard player's hand** at cleanup. So
+ * placement does not spend the card. It buys an option — the right to reveal it
+ * during the site phase, when hazards otherwise cannot be played — and an option
+ * that costs nothing is worth nothing or better.
+ *
+ * That is a correction rather than a refinement. This module used to charge half
+ * a card for a placement (the bundle's card price times `onGuardDiscount`), a
+ * cost the rules do not impose, which made placing look worse than passing.
+ *
+ * Two consequences:
+ *
+ * - **A creature** is worth what its attack would do if revealed, discounted by
+ *   `onGuardDiscount` for the company never arriving or the reveal conditions
+ *   never being met — and with no card price, because the card comes back.
+ * - **Anything else** — and the rules allow any card, "even a character or
+ *   resource" — is worth *at least* nothing, and this module cannot say more.
+ *   What it does on reveal is its text, which is the DSL's to price. Scored at
+ *   zero rather than declined, because zero is the honest floor for a free
+ *   option and declining left 920 candidates unscored in three self-play games.
+ */
+function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation | null {
+  const place = action as unknown as { cardInstanceId: string };
+  const company = activeCompany(context.view);
+  if (!company) return null;
+  const card = context.view.self.hand.find(c => (c.instanceId as string) === place.cardInstanceId);
+  if (!card) return null;
+
+  const { standing, tunables } = context;
+  const creature = creatureProfile(context.cardPool, card.definitionId as string);
+
+  if (creature) {
+    // Worth the attack it would make, with no card price: the card is only
+    // spent if it is revealed and used.
+    const plan = buildPlan(context.view, context, company);
+    const free = { ...tunables, provisionalCardPrice: 0 };
+    const single = placeOnly({ ...context, tunables: free }, plan, place.cardInstanceId);
+    if (!single) return null;
+    // An option is never exercised at a loss. A creature whose reveal would
+    // hand over more kill MP than it denies simply is not revealed, and the
+    // card comes back — so its placement is worth the floor, not the negative.
+    if (single.expectedTsd > 0) {
+      return evaluateBundle(
+        action, plan, single, context, tunables.onGuardDiscount,
+        `place ${single.cards[0].name} on guard`,
+      );
+    }
+    return freeOption(
+      action, context, single.cards[0].name,
+      `revealing it would cost ${(-single.expectedTsd).toFixed(1)} more than it denies, so it `
+      + 'would not be revealed — the option is simply never exercised',
+    );
+  }
+
+  const name = (context.cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name
+    ?? (card.definitionId as string);
+  return freeOption(
+    action, context, name,
+    'not a creature: what it would do on reveal is the card\'s text, which this module does not '
+    + 'price. Zero is the floor for a free option, not an estimate',
+  );
+}
+
+/** A placement worth exactly its floor: it costs nothing and may pay nothing. */
+function freeOption(
+  action: GameAction,
+  context: ModuleContext,
+  name: string,
+  why: string,
+): Evaluation {
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: `place ${name} face down — it returns to hand unless it is revealed`,
+    dtsd: 0,
+  }];
+  const scored = context.standing.score(outcomes);
+  return {
+    action,
+    module: 'hazards',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`place ${name} on guard`, scored.utility, [
+      node('a free option', 0, [
+        leaf('card', name),
+        leaf('cost of placing it', 0, {
+          unit: 'tsd',
+          note: 'an unrevealed on-guard card returns to hand at cleanup — the card is not spent',
+        }),
+        leaf('worth of revealing it', 0, { unit: 'tsd', note: why }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'a placement is priced as costing nothing, because an unrevealed on-guard card returns to '
+      + 'hand; what placing it gives away by being there at all is not modelled',
+      'an option is assumed never to be exercised at a loss, so a placement is never worth less '
+      + 'than nothing — which is why the floor is zero rather than the reveal\'s value',
       ...ASSUMPTIONS,
     ],
   };
