@@ -839,3 +839,58 @@ raises the ceiling of the entire learned stack.
    and cache on the module context, invalidated by turn number plus a coarse
    view signature; the tactical level runs every decision. Needs measurement
    against the §9 performance budget before it is fixed.
+
+## Findings from implementation (2026-07-29)
+
+Things the plan did not anticipate, recorded where the next reader will look.
+
+**CoE 10.3 step 4 makes a single-source score worth nothing.** The rule reduces
+any source contributing more than half a player's total "until it is no more
+than half", and that iterates: 3 character MP alone scores 0, 2 item MP alone
+scores 0, and 3 character + 2 item together score 8. So at 0–0 no card can be
+valued in isolation, because what a point is worth depends on what *else* will
+be scored. Every module inherits it. Measured cost: 1.0% of contested decisions
+sit in that window, all at the opening. The engine implements the rule as
+literally written and both readings of the sentence are defensible, so this is a
+rules question rather than a bug to fix unilaterally.
+
+**An on-guard card is not spent.** `reducer-site.ts` returns unrevealed
+on-guard cards to the hazard player's hand at cleanup, so placing one costs
+nothing — it buys an option, and an option is never exercised at a loss. The
+first implementation charged half a card price for a placement and made every
+one look worse than passing. Any card may be placed, "even a character or
+resource", so a non-creature is worth *at least* nothing rather than being
+declined.
+
+**Not every engine-published threshold is the effective one.** A strike's `need`
+arrives fully modified, which is why `combat` cannot drift from the rules. A
+granted action's `rollThreshold` does not: `grant-action-apply.ts` applies −3
+when the action carries `noTap`, and publishes the unmodified number on both
+variants. `grants` mirrors the −3 in a named constant and the calibration
+harness checks it. Publishing the effective threshold would remove the mirror.
+
+**§6.4's horizon test, as specified, does not discriminate.** Correlating a
+single decision's predicted Δtsd against the score change 3 turns later put
+every module indistinguishable from zero out to n=2689 — one action among the
+hundreds in a turn cannot explain it. Aggregating a module's predictions *by
+turn* is the fix. Even so, over 32 games every interval spans zero at horizon 3,
+including the aggregate: nothing here has yet been shown to predict the score,
+in either direction. Two smaller samples said otherwise in both directions, so
+the gate needs samples this size to say anything at all.
+
+**A module can claim a decision and answer none of it.** Three times now:
+`travel` and `combat` restating the all-or-nothing rule inside their own
+`claims()`, `combat` handling `choose-strike-order` only in a branch that step
+never reaches, and `combat` claiming the attacker's `assign-strike` where every
+price it knows has the wrong sign. In the coverage report this is indis-
+tinguishable from an unowned action type unless the two are counted separately,
+which they now are.
+
+**Company shape needs a potential, not a comparison.** `split-company`,
+`merge-companies` and `move-to-company` must all be differences of one quantity
+over the whole board, or the module values a change and its undo both positively
+and does them forever. Two separate things broke that — an order-dependent harm
+function, and harm priced through a service whose numbers move with the shape
+being compared. The engine's own `regress` flag is the belt to that braces, and
+Heuristics 1 had been using it since before H2 existed.
+
