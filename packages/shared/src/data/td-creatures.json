@@ -566,6 +566,7 @@
     "id": "td-78",
     "name": "True Fire-drake",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TrueFiredrake.jpg",
+    "certified": "2026-07-28",
     "unique": false,
     "strikes": 2,
     "prowess": 13,
@@ -575,8 +576,19 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
+          "wilderness",
           "wilderness"
         ]
+      },
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [],
