@@ -9,6 +9,7 @@
  */
 
 import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies } from '../engine/reducer-utils.js';
+import { discardNonRingwraithCompaniesAtSharedSite as _discardNonRingwraithCompaniesAtSharedSite } from '../engine/mh-hazard-play.js';
 
 export * from './test-helpers-constants.js';
 export * from './test-helpers-queries.js';
@@ -23,3 +24,12 @@ export * from './test-helpers-builders.js';
  * transition can invoke it without reaching into internal engine modules.
  */
 export const autoMergeNonHavenCompanies = _autoMergeNonHavenCompanies;
+
+/**
+ * Rule 3.07 primitive: at the end of all movement/hazard phases, discard a
+ * non-Ringwraith company that would otherwise be forced to combine with a
+ * Ringwraith's company at a non-Darkhaven site. Re-exported alongside
+ * {@link autoMergeNonHavenCompanies} — it runs immediately before it — so rules
+ * tests for that transition can invoke it directly.
+ */
+export const discardNonRingwraithCompaniesAtSharedSite = _discardNonRingwraithCompaniesAtSharedSite;

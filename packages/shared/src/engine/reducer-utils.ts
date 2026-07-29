@@ -1051,7 +1051,17 @@ export function stagePointsOfCard(
 }
 
 /**
- * Every **Stage card** the player currently has in play, as card instance IDs.
+ * True when a card definition is a **Stage card** — any card carrying
+ * `alignment: "stage"` (MEWH §1). Stage cards are the Fallen-wizard-only
+ * resources that build the player's stage-point total.
+ */
+export function isStageCardDef(state: GameState, definitionId: CardDefinitionId): boolean {
+  const def = defById(state, definitionId);
+  return !!def && (def as { alignment?: string }).alignment === 'stage';
+}
+
+/**
+ * Every **Stage card** the player currently holds, as card instance IDs.
  *
  * A Stage card is any card whose definition carries `alignment: "stage"` (MEWH
  * §1) — that covers stage permanent-events (`cardsInPlay`), stage
@@ -1061,16 +1071,20 @@ export function stagePointsOfCard(
  * wh-55) are deliberately excluded: they are sites, not Stage cards their
  * controller holds, and they cannot be discarded.
  *
+ * CoE 2.II.4.1 (rule 3.33): a Stage resource that has been **stored** — storing
+ * moves it out of `cardsInPlay` into the marshalling-point pile (`killPile`) —
+ * "may be discarded while stored if their player must discard a Stage
+ * resource", so the pile is scanned too. Nothing else in `killPile` carries the
+ * stage alignment (it otherwise holds defeated creatures and ordinary stored
+ * items), so the scan needs no further qualification.
+ *
  * Used by the forced stage-card discard (`force-discard-stage-card`, Echoes of
  * the Song wh-17) both to gate the option ("more than one stage card") and to
  * build the candidate list the opponent chooses from.
  */
-export function stageCardsInPlay(state: GameState, player: PlayerState): CardInstanceId[] {
+export function stageCardsHeld(state: GameState, player: PlayerState): CardInstanceId[] {
   const found: CardInstanceId[] = [];
-  const isStage = (definitionId: CardDefinitionId): boolean => {
-    const def = defById(state, definitionId);
-    return !!def && (def as { alignment?: string }).alignment === 'stage';
-  };
+  const isStage = (definitionId: CardDefinitionId): boolean => isStageCardDef(state, definitionId);
   for (const card of player.cardsInPlay) {
     if (isStage(card.definitionId)) found.push(card.instanceId);
   }
@@ -1081,6 +1095,9 @@ export function stageCardsInPlay(state: GameState, player: PlayerState): CardIns
     for (const ally of char.allies) {
       if (isStage(ally.definitionId)) found.push(ally.instanceId);
     }
+  }
+  for (const card of player.killPile) {
+    if (isStage(card.definitionId)) found.push(card.instanceId);
   }
   return found;
 }
@@ -1476,6 +1493,48 @@ export function companyHasRingwraith(state: GameState, owner: PlayerState, compa
     if (charDef && isCharacterCard(charDef) && charDef.race === Race.Ringwraith) return true;
   }
   return false;
+}
+
+/**
+ * True if the site is a **Darkhaven** [{DH}] — a Haven controlled by a minion
+ * side (Ringwraith: Minas Morgul / Dol Guldur / Carn Dûm / Geann a-Lisch;
+ * Balrog: Moria / The Under-gates), as opposed to a hero Haven or a
+ * Fallen-wizard Wizardhaven. Every minion Haven carries a minion alignment, so
+ * a Darkhaven is a `haven` site whose alignment is `ringwraith` or `balrog`.
+ */
+export function isDarkhavenSiteDef(siteDef: CardDefinition | undefined): boolean {
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  return siteDef.siteType === SiteType.Haven
+    && (siteDef.alignment === 'ringwraith' || siteDef.alignment === 'balrog');
+}
+
+/**
+ * CoE 2.II.3.1.R2 (rule 3.07): "Characters in a Ringwraith's company can only
+ * be other Ringwraiths, unless at a Darkhaven." Returns true when the roster
+ * `charInstIds` would mix at least one Ringwraith-race character with at least
+ * one non-Ringwraith character — the composition the rule forbids anywhere but
+ * a Darkhaven.
+ *
+ * Mirrors the shape of the race-mixing check of rule 3.25
+ * (`wouldViolateRaceMixing` in `legal-actions/organization-companies.ts`):
+ * callers apply it only to the roster a company would *end up with*, and only
+ * away from a Darkhaven, so the two restrictions read the same way at every
+ * call site.
+ */
+export function wouldViolateRingwraithComposition(
+  state: GameState,
+  charInstIds: readonly CardInstanceId[],
+): boolean {
+  let ringwraiths = 0;
+  let others = 0;
+  for (const id of charInstIds) {
+    const defId = resolveInstanceId(state, id);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!def || !isCharacterCard(def)) continue;
+    if (def.race === Race.Ringwraith) ringwraiths++;
+    else others++;
+  }
+  return ringwraiths > 0 && others > 0;
 }
 
 /**

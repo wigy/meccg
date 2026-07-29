@@ -29,7 +29,7 @@ import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
-import { CardStatus, RegionType, Skill, Alignment, Race } from '../types/common.js';
+import { CardStatus, RegionType, Skill, SiteType, Alignment, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
@@ -41,7 +41,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2278,6 +2278,60 @@ function discardStrandedReanimatedCompanies(state: GameState, playerIndex: numbe
 }
 
 /**
+ * Enforce the second half of CoE 2.II.3.1.R2 (rule 3.07) at the end of all
+ * movement/hazard phases: "If a Ringwraith is played as a new company at a
+ * non-Darkhaven site that contains another company with non-Ringwraith
+ * characters, and if both companies are still there at the end of all
+ * movement/hazard phases when they would be forced to combine, immediately
+ * discard the non-Ringwraith company."
+ *
+ * Runs immediately before {@link autoMergeNonHavenCompanies} and keys off the
+ * same grouping: companies of one player sharing a site instance at a non-haven
+ * site — precisely the ones rule 2.IV.6 is about to force together. Where such a
+ * group holds both a Ringwraith's company and companies with non-Ringwraith
+ * characters, the latter are discarded instead of merged, so the Ringwraith is
+ * never forced into an illegal company. Groups at a haven are skipped: a
+ * Darkhaven lifts the composition restriction outright, and no haven forces a
+ * combine in the first place.
+ */
+export function discardNonRingwraithCompaniesAtSharedSite(state: GameState, playerIndex: number): GameState {
+  const player = state.players[playerIndex];
+  if (player.companies.length < 2) return state;
+
+  // Group by site instance, mirroring `autoMergeNonHavenCompanies` (including
+  // its Left Behind exemption — such a company is never forced to combine).
+  const groups = new Map<string, typeof player.companies[number][]>();
+  for (const company of player.companies) {
+    if (!company.currentSite || company.leftBehind) continue;
+    const key = company.currentSite.instanceId as string;
+    const existing = groups.get(key);
+    if (existing) existing.push(company);
+    else groups.set(key, [company]);
+  }
+
+  const doomedCharIds: CardInstanceId[] = [];
+  for (const companies of groups.values()) {
+    if (companies.length < 2) continue;
+    const siteDef = defById(state, companies[0].currentSite!.definitionId);
+    if (isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) continue;
+    if (!companies.some(c => companyHasRingwraith(state, player, c))) continue;
+    for (const company of companies) {
+      if (companyHasRingwraith(state, player, company)) continue;
+      logDetail(`Rule 3.07: company ${company.id as string} has no Ringwraith but shares ${siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : '?'} with a Ringwraith's company at the forced combine — discarding it`);
+      doomedCharIds.push(...company.characters);
+    }
+  }
+
+  let result = state;
+  for (const charId of doomedCharIds) {
+    const char = result.players[playerIndex].characters[charId];
+    if (!char) continue;
+    result = discardCharacterToDiscardPile(result, playerIndex, charId, char);
+  }
+  return result;
+}
+
+/**
  * Finalize the current company's movement/hazard phase: sweep company-scoped
  * constraints, then advance to the next company's M/H sub-phase or to the Site
  * phase once every company is handled.
@@ -2304,6 +2358,10 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
     // reanimated character is discarded rather than silently merged into the
     // Ringwraith's company.
     state = discardStrandedReanimatedCompanies(state, activeIndex);
+    // Rule 3.07: a non-Ringwraith company that would be forced to combine with
+    // a Ringwraith's company at a non-Darkhaven site is discarded instead.
+    // Also before auto-merge, for the same reason.
+    state = discardNonRingwraithCompaniesAtSharedSite(state, activeIndex);
     // Rule 2.IV.6: auto-merge any of the resource player's companies that
     // ended up at the same non-haven site. Run before resetting moved flags
     // so the merge sees the post-movement company layout.
