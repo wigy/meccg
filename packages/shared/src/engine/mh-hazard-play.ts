@@ -698,7 +698,7 @@ export function handlePlayHazardCard(
       type: 'short-event',
       ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
     };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
     return { state: newState };
   }
 
@@ -730,7 +730,7 @@ export function handlePlayHazardCard(
     // General permanent-event (no character/site binding): resolvePermanentEvent
     // places it into the hazard player's cardsInPlay untapped.
     const payload: import('../index.js').ChainEntryPayload = { type: 'permanent-event' };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload);
+    newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
     return { state: newState };
   }
 
@@ -763,7 +763,7 @@ export function handlePlayHazardCard(
       },
     };
     const shortEventPayload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
     return { state: newState };
   }
 
@@ -802,7 +802,7 @@ export function handlePlayHazardCard(
         ? { optionTargetInstanceId: action.optionTargetInstanceId }
         : {}),
     };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload);
+    newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
     return { state: newState };
   }
 
@@ -839,7 +839,7 @@ export function handlePlayHazardCard(
     }
 
     // Initiate chain — when creature entry resolves, combat will start (TODO)
-    newState = initiateChain(newState, action.player, handCard, { type: 'creature' });
+    newState = initiateChain(newState, action.player, handCard, { type: 'creature' }, 'normal', !raceExempt);
 
     return { state: newState };
   }
@@ -1011,7 +1011,7 @@ export function handlePlayHazardCard(
         ? { targetSiteDefinitionId: action.targetSiteDefinitionId }
         : {}),
     };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
 
     return { state: newState };
   }
@@ -1037,7 +1037,7 @@ export function handlePlayHazardCard(
       type: 'permanent-event',
       targetCharacterId: targetCharId,
     };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload);
+    newState = initiateOrPushChain(newState, action.player, handCard, payload, true);
     return { state: newState };
   }
 
@@ -1100,7 +1100,7 @@ export function handlePlayHazardCard(
         targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,
       }
     : { type: 'long-event' };
-  newState = initiateOrPushChain(newState, action.player, handCard, payload);
+  newState = initiateOrPushChain(newState, action.player, handCard, payload, true);
 
   return { state: newState };
 }
@@ -2835,7 +2835,7 @@ function handleTapAltPermanentEvent(
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
     ...(forcedDiscardCount !== undefined ? { forcedDiscardCount } : {}),
   };
-  newState = initiateOrPushChain(newState, action.player, cardInstance, payload);
+  newState = initiateOrPushChain(newState, action.player, cardInstance, payload, !bypassesLimit);
   return { state: newState };
 }
 
@@ -3097,7 +3097,7 @@ export function handlePlayReservedCreature(
     prowessBonus: 2,
     reservingCardInstanceId: action.sourceCardInstanceId,
   };
-  newState = initiateChain(newState, action.player, creatureCard, payload);
+  newState = initiateChain(newState, action.player, creatureCard, payload, 'normal', true);
 
   return { state: newState };
 }
@@ -3282,7 +3282,7 @@ export function handleSpawnReplayCreature(
   };
 
   // Initiate the creature combat. No prowess modifier.
-  newState = initiateChain(newState, action.player, creatureCard, { type: 'creature' });
+  newState = initiateChain(newState, action.player, creatureCard, { type: 'creature' }, 'normal', true);
 
   return { state: newState };
 }
