@@ -64,7 +64,7 @@ export function enterSetHazardLimitAndAutoAdvance(
   // hazards". Reinterpret the effective site's type (and, if declared, its site
   // path) for the keying pass only, before the snapshot/order-effects funnel.
   mhState = applyHazardSiteTypeOverride(state, company, mhState);
-  const snapshot = snapshotHazardLimit(state, company);
+  const snapshot = snapshotHazardLimit(state, company, mhState.resolvedSitePathNames);
   // Left Behind (td-41): a company created (or flagged) by Left Behind faces its
   // separate movement/hazard phase with a hazard limit of exactly one.
   const forcedLeftBehind = company.leftBehind === true;
@@ -648,14 +648,23 @@ export function handleUnderDeepsRoll(state: GameState, action: GameAction, mhSta
  *   *minion* companies", Gandalf the White Rider as-11).
  * - `company.covert` — MELE covert/overt status ({@link isCovertCompany});
  *   an *overt* company is `false`.
+ * - `company.regionNames` — the names of the regions the company is moving
+ *   through this phase (the M/H phase's `resolvedSitePathNames`), so an
+ *   environment can name the regions it covers ("all companies moving in
+ *   Southern Mirkwood, Western Mirkwood, Woodland Realm, and/or Heart of
+ *   Mirkwood", Radagast the Tamer as-18). Empty for a stationary company.
  *
  * The company belongs to the active (moving) player, so its characters are
  * resolved from `state.players[activeIndex].characters`.
+ *
+ * `pathNames` must be supplied by the caller because the hazard-limit snapshot
+ * runs *before* the freshly-resolved M/H state reaches `state.phaseState`.
  */
 export function buildCompanyHazardContext(
   state: GameState,
   company: Company,
   activeIndex: number,
+  pathNames: readonly string[] = [],
 ): {
     company: {
       size: number;
@@ -663,6 +672,7 @@ export function buildCompanyHazardContext(
       maxNonRangerMind: number;
       alignment: Alignment;
       covert: boolean;
+      regionNames: readonly string[];
     };
   } {
   const player = state.players[activeIndex];
@@ -687,14 +697,27 @@ export function buildCompanyHazardContext(
       maxNonRangerMind,
       alignment: player.alignment,
       covert: isCovertCompany(company, player, state),
+      regionNames: pathNames,
     },
   };
 }
 
+/**
+ * Compute the hazard limit locked in at site revelation for `company`.
+ *
+ * `pathNames` are the region names of the company's declared movement path.
+ * They are threaded in from the caller's `MovementHazardPhaseState` (which is
+ * not yet in `state.phaseState` at snapshot time) so region-named
+ * `hazard-limit-environment` effects can see them; when omitted, the current
+ * M/H phase state's `resolvedSitePathNames` are used.
+ */
 export function snapshotHazardLimit(
   state: GameState,
   company: Company,
+  pathNames?: readonly string[],
 ): { limit: number; preRevealConstraintIds: readonly string[] } {
+  const regionNames = pathNames
+    ?? (state.phaseState.phase === Phase.MovementHazard ? state.phaseState.resolvedSitePathNames : []);
   const companySize = companyEffectiveSize(state, company);
   let limit = Math.max(companySize, 2);
   logDetail(`Hazard limit (step 3): company size ${companySize} → base limit ${limit}`);
@@ -740,14 +763,17 @@ export function snapshotHazardLimit(
   // hazard-limit-environment effects: each in-play card whose `when` matches
   // this company adds its value to the company's hazard limit. The condition
   // is evaluated against a per-company context (size, hasWizard,
-  // maxNonRangerMind). By default only moving companies count (Eyes of the
+  // maxNonRangerMind, alignment, covert, regionNames — the last one lets an
+  // environment name the regions it covers, Radagast the Tamer as-18:
+  // "all companies moving in Southern Mirkwood … have their hazard limit
+  // increased by one"). By default only moving companies count (Eyes of the
   // Shadow dm-56: "for each moving company"); an effect with
   // `appliesTo: "all"` also reaches stationary companies (The Great Eye
   // as-85: "against all companies"). A negative value with a `floor` never
   // reduces the limit below the floor — and never raises a limit already at
   // or below it ("decreased by one (to a minimum of two)").
   {
-    const envContext = buildCompanyHazardContext(state, company, activeIndex);
+    const envContext = buildCompanyHazardContext(state, company, activeIndex, regionNames);
     for (const player of state.players) {
       for (const card of player.cardsInPlay) {
         const def = defById(state, card.definitionId);
