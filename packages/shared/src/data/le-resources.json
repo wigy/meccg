@@ -4315,7 +4315,41 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-07-29",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": "ringwraith" },
+            { "target.isRevealedAvatar": true }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["haven"]
+      },
+      { "type": "hand-size-modifier", "value": 1 },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      { "type": "duplication-limit", "scope": "player", "max": 1 }
+    ],
     "text": "Playable during the organization phase on your Ringwraith at a Darkhaven [{DH}]. You may keep one more card than normal in your hand. Discard this card if your Ringwraith moves. Cannot be duplicated by a given player.Cannot be included in a Balrog's deck."
   },
   {
