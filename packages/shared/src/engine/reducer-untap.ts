@@ -696,6 +696,17 @@ function advanceToOrganization(state: GameState): ReducerResult {
         clearedChars[cid as CardInstanceId] = rest;
       }
       advanced = updatePlayer(advanced, activeIndex, p => ({ ...p, characters: clearedChars }));
+      // Remember which characters arrived here that way: any of them still
+      // under general influence when the phase ends is discarded ahead of the
+      // player's own choices if the phase ends over general influence
+      // (CoE 3.47 tier 2 / 2.II.2.2.3's "or else it must be discarded").
+      advanced = {
+        ...advanced,
+        phaseState: {
+          ...requirePhaseState(advanced, Phase.Organization),
+          influenceRevertedCharacterIds: pending.map(([cid]) => cid as CardInstanceId),
+        },
+      };
     }
   }
 

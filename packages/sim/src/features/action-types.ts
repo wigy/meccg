@@ -182,6 +182,8 @@ export const ACTION_TYPES: readonly string[] = [
   'choose-peek-deck',
   // Added with the CoE 9.16 item-switching declaration.
   'use-item',
+  // Added with the CoE 3.47 end-of-organization-phase influence overflow.
+  'influence-overflow-discard',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

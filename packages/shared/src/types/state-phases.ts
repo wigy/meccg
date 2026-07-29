@@ -212,6 +212,25 @@ export interface OrganizationPhaseState {
    */
   readonly charactersBroughtIntoPlayThisTurn?: number;
   /**
+   * Instance IDs of the characters counted by
+   * {@link charactersBroughtIntoPlayThisTurn}. CoE 3.47 removes such a
+   * character *first* when the player ends the phase over their general
+   * influence, and returns it to hand rather than discarding it, so the
+   * overflow resolution needs the identities and not just the count.
+   * Optional — absent on states created before this field was added.
+   */
+  readonly charactersBroughtIntoPlayIds?: readonly CardInstanceId[];
+  /**
+   * Instance IDs of characters that lost direct-influence control *between*
+   * organization phases (CoE 2.II.2.2.3) and had their deferred mind charged
+   * back to general influence when this phase began. They are the second tier
+   * of the CoE 3.47 overflow discard: any of them still sitting under general
+   * influence at the end of the phase — i.e. never reassigned with
+   * `move-to-influence` — must be discarded before the player gets a free
+   * choice. Optional — absent when no character was in that position.
+   */
+  readonly influenceRevertedCharacterIds?: readonly CardInstanceId[];
+  /**
    * Definition IDs of characters belonging to a buddy-play group that has
    * been played this turn. When a character carrying the `buddy-play` flag
    * is played, all definition IDs in its `companions` list (and its own ID)

@@ -32,6 +32,7 @@ import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
 import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
 import { getItemSlot, pickActiveItemsForCharacter } from './item-slots.js';
+import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -142,12 +143,55 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     phaseState: { phase: Phase.LongEvent },
   };
 
+  // CoE 3.47: the phase ends over general influence → force the excess
+  // characters out before anything else happens. Enqueued ahead of the Siege
+  // rolls below (both are scoped to the following long-event phase and pending
+  // resolutions resolve in queue order) so a company that loses its last
+  // character to the overflow never rolls.
+  const afterOverflow = enqueueInfluenceOverflowDiscard(afterDiscards as GameState, activePlayer, orgState);
+
   // Siege (tw-87): "At the end of its organization phase, a company at a site
   // with Siege on it must make a roll …" Enqueued after the phase transition so
   // the rolls are the first thing resolved in the following long-event phase —
   // pending resolutions take priority over phase actions, so no other decision
   // can slip in between the organization phase ending and the roll.
-  return { state: enqueueCompanyMovementRolls(afterDiscards as GameState, activePlayer, activeIndex) };
+  return { state: enqueueCompanyMovementRolls(afterOverflow, activePlayer, activeIndex) };
+}
+
+/**
+ * CoE 3.47: if `activePlayer` is leaving their organization phase with more
+ * general influence spent than they have, enqueue the forced-removal
+ * resolution that walks them back under it.
+ *
+ * The two tier id-lists live on the organization phase state, which is gone by
+ * the time the resolution runs (it is scoped to the following long-event
+ * phase), so they are copied into the resolution here. Nothing is enqueued
+ * when the player is within their influence, or when they hold nothing
+ * removable — an all-avatar overflow has no legal answer and must not block
+ * the game on an empty action list.
+ */
+function enqueueInfluenceOverflowDiscard(
+  state: GameState,
+  activePlayer: import('../index.js').PlayerId,
+  orgState: OrganizationPhaseState,
+): GameState {
+  const playedThisTurnIds = orgState.charactersBroughtIntoPlayIds ?? [];
+  const uncontrolledIds = orgState.influenceRevertedCharacterIds ?? [];
+  const step = influenceOverflowStep(state, activePlayer, playedThisTurnIds, uncontrolledIds);
+  if (!step) {
+    const excess = influenceOverflowAmount(state, activePlayer);
+    if (excess > 0) {
+      logDetail(`Influence overflow: player ${activePlayer as string} is ${excess} over general influence but holds no removable character — nothing to enforce (CoE 3.47)`);
+    }
+    return state;
+  }
+  logDetail(`Influence overflow: player ${activePlayer as string} ends organization ${influenceOverflowAmount(state, activePlayer)} over general influence — must remove characters (CoE 3.47)`);
+  return enqueueResolution(state, {
+    source: null,
+    actor: activePlayer,
+    scope: { kind: 'phase', phase: Phase.LongEvent },
+    kind: { type: 'influence-overflow-discard', playedThisTurnIds, uncontrolledIds },
+  });
 }
 
 /**
@@ -662,6 +706,10 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
           // MEBA: track the running count so a Balrog player's two-character
           // allowance can be enforced (see playCharacterActions).
           charactersBroughtIntoPlayThisTurn: (phaseState.charactersBroughtIntoPlayThisTurn ?? 0) + 1,
+          // CoE 3.47 tier 1: if this play (or a later one) pushes the player
+          // over their general influence, characters brought in this phase are
+          // the first to go, and back to hand rather than to the discard pile.
+          charactersBroughtIntoPlayIds: [...(phaseState.charactersBroughtIntoPlayIds ?? []), charInstId],
           lastPlayedCharacterDefinitionId: handCard.definitionId as string,
           ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
         }

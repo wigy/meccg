@@ -709,3 +709,21 @@ export interface UseItemAction {
   /** When true, this action undoes a previous switch this phase (regressive). */
   readonly regress?: true;
 }
+
+/**
+ * Resolve one step of an `influence-overflow-discard` pending resolution
+ * (CoE 3.47): the active player left their organization phase over their
+ * general influence and removes one non-avatar character from play. The
+ * resolution offers only the highest-priority tier that still has a member,
+ * so the chosen character is whichever the rule mandates next; a character
+ * brought into play this organization phase returns to its owner's hand,
+ * every other one is discarded.
+ */
+export interface InfluenceOverflowDiscardAction {
+  /** Action discriminant. */
+  readonly type: 'influence-overflow-discard';
+  /** The player who exceeded their general influence. */
+  readonly player: PlayerId;
+  /** The character to remove from play. */
+  readonly characterInstanceId: CardInstanceId;
+}

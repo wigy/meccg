@@ -43,6 +43,7 @@ import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
 import type { EliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
@@ -1610,8 +1611,13 @@ export function applyFlateryAttemptResolution(
  * Return a character to the player's hand, discarding all attached cards.
  * Items, allies, and hazards are discarded to their respective owners'
  * discard piles. Followers fall to GI if room, otherwise are discarded.
+ *
+ * Two callers: the `return-character-to-hand` dice-check branch (Call of Home
+ * and friends) and the CoE 3.47 influence overflow, which sends a character
+ * brought into play during the just-ended organization phase back to hand
+ * rather than to the discard pile.
  */
-function returnCharacterToHand(
+export function returnCharacterToHand(
   state: GameState,
   playerIndex: number,
   characterId: import('../index.js').CardInstanceId,
@@ -1636,19 +1642,19 @@ function returnCharacterToHand(
   // Discard items to owning player's discard pile
   for (const item of charInPlay.items) {
     newDiscard.push(toCardInstance(item));
-    logDetail(`Call of Home: discarding item ${item.definitionId as string} from returned character`);
+    logDetail(`return-character-to-hand: discarding item ${item.definitionId as string} from returned character`);
   }
 
   // Discard allies
   for (const ally of charInPlay.allies) {
     newDiscard.push(toCardInstance(ally));
-    logDetail(`Call of Home: discarding ally ${ally.definitionId as string} from returned character`);
+    logDetail(`return-character-to-hand: discarding ally ${ally.definitionId as string} from returned character`);
   }
 
   // Discard hazards (back to hazard player = opponent)
   for (const hazard of charInPlay.hazards) {
     newOpponentDiscard.push(toCardInstance(hazard));
-    logDetail(`Call of Home: discarding hazard ${hazard.definitionId as string} from returned character`);
+    logDetail(`return-character-to-hand: discarding hazard ${hazard.definitionId as string} from returned character`);
   }
 
   // Handle followers — fall to GI if room, otherwise discard
@@ -1668,7 +1674,7 @@ function returnCharacterToHand(
 
     if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
       newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      logDetail(`Call of Home: follower ${followerId as string} falls to GI`);
+      logDetail(`return-character-to-hand: follower ${followerId as string} falls to GI`);
     } else {
       for (const item of follower.items) {
         newDiscard.push(toCardInstance(item));
@@ -1677,7 +1683,7 @@ function returnCharacterToHand(
         newDiscard.push(toCardInstance(ally));
       }
       for (const hazard of follower.hazards) {
-        logDetail(`Call of Home: discarding hazard ${hazard.instanceId as string} from discarded follower`);
+        logDetail(`return-character-to-hand: discarding hazard ${hazard.instanceId as string} from discarded follower`);
         const hazOwner = ownerOf(hazard.instanceId);
         if ((newPlayers[opponentIndex].id as string) === hazOwner) {
           newOpponentDiscard.push(toCardInstance(hazard));
@@ -1687,7 +1693,7 @@ function returnCharacterToHand(
       }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId];
-      logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
+      logDetail(`return-character-to-hand: follower ${followerId as string} discarded (no GI room)`);
     }
   }
 
@@ -1755,6 +1761,8 @@ function returnCharacterToHand(
  * `'discard'` (the default — a plain discard) or `'out-of-play'` (elimination,
  * per CoE: an eliminated character is removed from the game rather than
  * discarded). Its possessions/followers are handled identically either way.
+ * A return to the owner's *hand* is a distinct path — see
+ * {@link returnCharacterToHand}.
  */
 function discardCharacter(
   state: GameState,
@@ -1909,6 +1917,61 @@ export function discardCharacterToDiscardPile(
   charInPlay: import('../index.js').CharacterInPlay,
 ): GameState {
   return discardCharacter(state, playerIndex, characterId, charInPlay, 'discard');
+}
+
+/**
+ * Resolve one step of an `influence-overflow-discard` resolution (CoE 3.47):
+ * the active player, having left their organization phase over their general
+ * influence, removes one non-avatar character from play.
+ *
+ * The chosen character must be in the tier {@link influenceOverflowStep}
+ * currently offers — the rule prescribes the order, so the player's freedom is
+ * limited to picking within the highest-priority tier that still has a member.
+ * A tier-1 character (brought into play during the phase that just ended) goes
+ * back to hand; every other one is discarded.
+ *
+ * The resolution stays queued while an overflow remains and something removable
+ * is left; it clears the moment the player is back within their pool, or when
+ * only avatars and influence-free characters remain (an overflow the rule
+ * cannot resolve must not deadlock the queue).
+ */
+export function applyInfluenceOverflowDiscardResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'influence-overflow-discard') return null;
+  if (action.type !== 'influence-overflow-discard') {
+    return { state, error: `Pending influence-overflow-discard requires influence-overflow-discard, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for influence-overflow-discard' };
+  }
+  const actorIndex = state.players.findIndex(p => p.id === action.player);
+  if (actorIndex < 0) return { state, error: 'Player not found for influence-overflow-discard' };
+
+  const { playedThisTurnIds, uncontrolledIds } = top.kind;
+  const step = influenceOverflowStep(state, action.player, playedThisTurnIds, uncontrolledIds);
+  if (!step) return { state: dequeueResolution(state, top.id) };
+  if (!step.candidateIds.includes(action.characterInstanceId)) {
+    return { state, error: `Character ${action.characterInstanceId as string} is not removable at the '${step.tier}' step of the influence overflow` };
+  }
+  const charInPlay = state.players[actorIndex].characters[action.characterInstanceId];
+  if (!charInPlay) return { state, error: `Character ${action.characterInstanceId as string} is not in play` };
+
+  const charName = cardName(state, charInPlay.definitionId);
+  logDetail(`Influence overflow: ${state.players[actorIndex].name} removes "${charName}" (${step.tier}) → ${step.destination} (CoE 3.47)`);
+  const removed = step.destination === 'hand'
+    ? returnCharacterToHand(state, actorIndex, action.characterInstanceId, charInPlay)
+    : discardCharacterToDiscardPile(state, actorIndex, action.characterInstanceId, charInPlay);
+  const after = recomputeDerived(removed);
+
+  const next = influenceOverflowStep(after, action.player, playedThisTurnIds, uncontrolledIds);
+  if (next) {
+    logDetail(`Influence overflow: still ${influenceOverflowAmount(after, action.player)} over general influence — ${next.candidateIds.length} candidate(s) at the '${next.tier}' step`);
+    return { state: after };
+  }
+  return { state: dequeueResolution(after, top.id) };
 }
 
 /**
