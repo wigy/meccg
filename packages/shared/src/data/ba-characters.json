@@ -84,6 +84,14 @@
     "manifestId": "tw-12",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
         "type": "on-event",
         "event": "self-enters-play",
         "apply": {

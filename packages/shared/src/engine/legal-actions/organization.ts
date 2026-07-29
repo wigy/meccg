@@ -2775,8 +2775,10 @@ export function playResourceShortEventActions(
     // play-condition is a gate on playing the card, never an independent
     // effect — a gated combat-only card (Eye Never Sleeping as-82: "Playable
     // if you are Sauron. Cancel one hazard creature attack.") stays
-    // combat-only.
-    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status', 'play-condition']);
+    // combat-only. deck-restriction is a deck-construction-only marker (e.g.
+    // "excluded-from-deck") with no runtime effect, so it never confers
+    // non-combat playability either.
+    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status', 'play-condition', 'deck-restriction']);
     const hasEffects = def.effects && def.effects.length > 0;
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatSupportTypes.has(e.type)) return true;

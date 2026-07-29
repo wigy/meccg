@@ -34,6 +34,10 @@
     "unique": true,
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "any-location-deck"
+      },
+      {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
@@ -294,6 +298,10 @@
     "certified": "2026-07-09",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "any-location-deck"
+      },
+      {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
@@ -346,6 +354,10 @@
     "text": "Adjacent Sites: Iron Hill Dwarf-hold (13), The Wind-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Dragon creature (except Eärcaraxë) may be keyed to this site.",
     "unique": true,
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "any-location-deck"
+      },
       {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
@@ -750,6 +762,10 @@
     "certified": "2026-07-14",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "any-location-deck"
+      },
+      {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
@@ -810,6 +826,10 @@
     "hazardDraws": 2,
     "text": "Adjacent Sites: no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you when playing this card (8)Playable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Undead — 4 strikes with 7 prowess (2nd) Undead — 3 strikes with 8 prowess (3rd) Undead — 2 strikes with 10 prowess Each character wounded must make a corruption check modified by -2.Special: Any Undead and Spider creatures may be keyed to this site. This site is never discarded or returned to its location deck.",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "any-location-deck"
+      },
       {
         "type": "site-rule",
         "rule": "dynamic-under-deeps-adjacency",

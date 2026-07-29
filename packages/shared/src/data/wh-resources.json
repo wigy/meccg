@@ -623,6 +623,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
@@ -659,7 +667,16 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on your Ringwraith or a Ringwraith follower. Each strike against the Ringwraith receives -1 body (-2 body and -2 prowess against The Witch-king). Discard The Fiery Blade after a strike against the Ringwraith fails or if the Ringwraith has Morgul-blade. Cannot be duplicated. Cannot be included in a Balrog's deck."
   },
   {
@@ -689,6 +706,14 @@
       "starting-item"
     ],
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "recruitment-vehicle",
         "maxMind": 99,

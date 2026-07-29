@@ -4361,6 +4361,51 @@ but plays normally from hand during the game.
 { "type": "play-flag", "flag": "no-starting-company" }
 ```
 
+### 13-bis. `deck-restriction`
+
+The build-time sibling of `play-restriction`: a restriction the *deck
+validator* enforces, not the engine. `validateDeck`
+(`packages/shared/src/deck-validation.ts`) is the only consumer — a card
+carrying one of these rules is rejected (or admitted) while the deck list is
+checked, so the situation never reaches the table.
+
+**`excluded-from-deck`** — the card may not appear in any non-location section
+of a deck whose alignment matches the effect's `when` condition, evaluated
+against `{ deck: { alignment } }` (`"hero"`, `"minion"`, `"fallen-wizard"`,
+`"balrog"`). `reason` names the CoE rule and is quoted in the error message
+(`<alignment> deck: "<name>" is not allowed (<reason>)`).
+
+This carries the rule 1.18 Fallen-wizard ban list (Bade to Rule, The Balrog,
+Cracks of Doom, Favor of the Valar, Gollum's Fate, …) and the rule 1.23 Balrog
+ban list (Above the Abyss, Balrog of Moria, the Ringwraith *Unleashed* cards,
+…). A card banned by **both** rules declares one effect per rule rather than a
+single `$in` condition, so each error still cites the rule that produced it.
+
+```json
+{ "type": "deck-restriction", "rule": "excluded-from-deck",
+  "when": { "deck.alignment": "fallen-wizard" }, "reason": "rule 1.18" }
+```
+
+**`any-location-deck`** — a Balrog site with no hero or minion counterpart
+(Ancient Deep-hold ba-83, The Wind-deeps ba-104, The Drowning-deeps ba-89, The
+Rusted-deeps ba-96, Remains of Thangorodrim ba-95). Rule 1.25 / CoE 1.4.1 lets
+*any* player put one copy in their location deck, so the hero (rule 1.26) and
+minion (rule 1.27) location-deck checks admit it despite its `balrog-site` card
+type. Every other Balrog site still requires a Balrog player's deck.
+
+```json
+{ "type": "deck-restriction", "rule": "any-location-deck" }
+```
+
+**`superseded-by-balrog-site`** — a **minion** site that has a Balrog-specific
+reprint (Moria le-392, Carn Dûm le-359, Dol Guldur le-367, Minas Morgul
+le-390). Rule 1.29: a Balrog player must use the Balrog version, so the minion
+original is rejected from a Balrog location deck.
+
+```json
+{ "type": "deck-restriction", "rule": "superseded-by-balrog-site" }
+```
+
 ### 13a. `site-resource-unlocked` active constraint
 
 Produced by an `add-constraint` apply (see the Records Unread mode-B

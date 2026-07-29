@@ -232,6 +232,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
         "type": "play-target",
         "target": "site",
         "filter": {
@@ -851,7 +859,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      }
+    ],
     "text": "Playable during the organization phase on an untapped non-warrior, non-Wizard diplomat at an untapped non-Under-deeps site, if you have a faction in your hand. Play a faction from your hand. Tap diplomat who then makes an influence attempt on this faction. Count out the number of contiguous regions from the diplomat’s site to the site where the faction is normally playable (including the regions containing both sites)—subtract two plus this number from the diplomat’s attempt. If the attempt is unsuccessful, discard the diplomat and faction. If the attempt is succesful you cannot play a minor item and you must tap the character's site. Cannot be included in a Fallen-wizard's deck."
   },
   {

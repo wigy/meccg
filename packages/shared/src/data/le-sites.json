@@ -31,6 +31,10 @@
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "superseded-by-balrog-site"
+      },
+      {
         "type": "site-rule",
         "rule": "auto-test-gold-ring",
         "rollModifier": -2
@@ -67,6 +71,10 @@
     "hazardDraws": 2,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "superseded-by-balrog-site"
+      },
       {
         "type": "site-rule",
         "rule": "auto-test-gold-ring",
@@ -257,6 +265,10 @@
     "hazardDraws": 3,
     "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess.",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "superseded-by-balrog-site"
+      },
       {
         "type": "site-rule",
         "rule": "attacks-not-detainment",
@@ -467,6 +479,10 @@
     "hazardDraws": 2,
     "text": "Unless this site is a character's home site, a non-Orc, non-Troll character may not be brought into play at this site. Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "superseded-by-balrog-site"
+      },
       {
         "type": "site-rule",
         "rule": "deny-character",

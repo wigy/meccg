@@ -1983,6 +1983,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
         "type": "play-window",
         "phase": "site"
       },
@@ -2038,6 +2046,14 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
       {
         "type": "play-window",
         "phase": "site"
@@ -2441,7 +2457,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      }
+    ],
     "text": "Unique. Playable during your organization phase. Shuffle your hand and your discard pile into your play deck (site cards remain in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar from the game.Cannot be included in a Fallen-wizard's deck."
   },
   {
@@ -2817,7 +2842,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      }
+    ],
     "text": "Tap a character at a untapped Haven [{H}] during the site phase. The character makes an attempt to bring a faction into play (reveal the faction with the card). The length of the site path from this Haven to the site at which the faction can be played must be two or less (this must be verified by an available site card). The influence check for this attempt is modified by -1 and is not modified by the influencing character's direct influence. If the attempt is successful tap the character’s site. May be used to influence an opponent’s faction only when you are attempting to bring your copy of the faction into play.Cannot be included in a Fallen-wizard's deck."
   },
   {

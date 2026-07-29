@@ -5336,6 +5336,49 @@ export interface PlayRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Declarative **deck-construction** restriction, the build-time sibling of
+ * {@link PlayRestrictionEffect}. Read by `validateDeck` (`deck-validation.ts`),
+ * never by the engine at play time — a card carrying one of these rules is
+ * rejected (or admitted) while the deck list is being checked, so the
+ * situation never reaches the table.
+ *
+ * - `excluded-from-deck` — the card may not appear in any non-location section
+ *   of a deck whose alignment matches the inherited `when` condition,
+ *   evaluated against `{ deck: { alignment } }` (`"hero" | "minion" |
+ *   "fallen-wizard" | "balrog"`). `reason` names the CoE rule and is quoted in
+ *   the error message (`<alignment> deck: "<name>" is not allowed (<reason>)`).
+ *   This carries the rule 1.18 Fallen-wizard ban list and the rule 1.23 Balrog
+ *   ban list; a card banned for both sides declares one effect per rule so each
+ *   error still cites the rule that produced it.
+ *
+ * ```json
+ * { "type": "deck-restriction", "rule": "excluded-from-deck",
+ *   "when": { "deck.alignment": "fallen-wizard" }, "reason": "rule 1.18" }
+ * ```
+ *
+ * - `any-location-deck` — a Balrog site with no hero or minion counterpart
+ *   (Ancient Deep-hold, The Wind-deeps, The Drowning-deeps, The Rusted-deeps,
+ *   Remains of Thangorodrim). Rule 1.25 / CoE 1.4.1 lets *any* player put one
+ *   copy in their location deck, so the hero (1.26) and minion (1.27) location
+ *   deck checks admit it despite its `balrog-site` card type. Every other
+ *   Balrog site still requires a Balrog player's deck.
+ *
+ * - `superseded-by-balrog-site` — a **minion** site that has a Balrog-specific
+ *   reprint (Moria, Carn Dûm, Dol Guldur, Minas Morgul). Rule 1.29: a Balrog
+ *   player must use the Balrog version, so the minion original is rejected
+ *   from a Balrog location deck.
+ */
+export interface DeckRestrictionEffect extends EffectBase {
+  readonly type: 'deck-restriction';
+  readonly rule: 'excluded-from-deck' | 'any-location-deck' | 'superseded-by-balrog-site';
+  /**
+   * For `excluded-from-deck`: the CoE rule cited in the validation error
+   * (e.g. `"rule 1.18"`).
+   */
+  readonly reason?: string;
+}
+
+/**
  * Gates playability on a game-state condition evaluated at legal-action
  * time. The `requires` field names the context source:
  *
@@ -7195,6 +7238,7 @@ export type CardEffect =
   | PlayOptionEffect
   | PlayWindowEffect
   | PlayRestrictionEffect
+  | DeckRestrictionEffect
   | PlayConditionEffect
   | CreatureRaceChoiceEffect
   | OnGuardRevealEffect

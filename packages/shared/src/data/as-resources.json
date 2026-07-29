@@ -446,6 +446,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
         "type": "play-condition",
         "requires": "site-type",
         "siteTypes": [
@@ -746,6 +754,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-condition",
         "requires": "player-state",
         "condition": {
@@ -857,6 +873,14 @@
     "marshallingCategory": "misc",
     "certified": "2026-06-08",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "play-target",
         "target": "company"
@@ -1065,6 +1089,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
@@ -1218,6 +1250,22 @@
     "playableAt": [],
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
@@ -1244,7 +1292,16 @@
     "marshallingPoints": 0,
     "marshallingCategory": "ally",
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on a Ringwraith at a Darkhaven [{DH}] (does not tap the site). Each Black Horse in your Ringwraith’s company allows you to play one Ringwraith follower who requires no direct influence to control. If each Ringwraith in a company has a Black Horse, the company is in Black Rider mode and may freely move (using starter movement). You may include up to nine copies of this card in your play deck and sideboard combined. Return its controller to your hand if Black Horse leaves active play.Cannot be included in a Balrog's deck."
   },
   {
@@ -1260,7 +1317,16 @@
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Unique. Playable on your Ringwraith at a tapped or untapped Barad-dûr (does not tap the site). Its controlling character's company is overt. Your Ringwraith receives +2 prowess. If your Ringwraith is the only character in his company and there are not other allies, the company is in Fell Rider mode and may move freely (using starter movement). Tap this ally to: cancel a strike against your Ringwraith or to assign your Ringwraith’s strikes against a hero company as you choose before hero strikes are assigned. Return your Ringwraith to your hand if this ally leaves active play. Cannot be included in a Balrog's deck."
   },
   {
@@ -1554,7 +1620,16 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable during the site phase on a lone scout minion (no other characters or allies in his company) at the same site as an opponent hero company containing a Hobbit. Also playable on a lone minion controlling Stinker (discard this card if Stinker leaves the company). If during a following site phase target character is at the same site as the Hobbit, tap this card (site must be entered). This card never untaps. If then during a following site phase, target character is at the same site as the Hobbit, invert this card (rotate it 180˚) (site must be entered). If inverted, this card may be stored at a Darkhaven [{DH}]—only if stored do you receive its marshalling points. Cannot be included in a Balrog's deck."
   },
   {
@@ -1684,7 +1759,24 @@
     "eventType": "permanent",
     "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on an Orc minion whose company is attacking a hero company with at least one Hobbit. For each successful strike against a Hobbit, the character is not wounded, but rather placed “off to the side” with this card. Discard if no characters are placed with this card. Make a roll during your end-of-turn phase. If the result is less than 7, discard this card. If target Orc is wounded or removed from active play, discard this card. If this card is discarded, the surviving Hobbits immediately form a company at the Orc’s current site or new site. MPs are awarded if stored at Barad-dûr, and the Hobbits are then eliminated. Cannot be included in a Balrog's/Fallen-wizard's deck."
   },
   {

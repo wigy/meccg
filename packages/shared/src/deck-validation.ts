@@ -19,8 +19,10 @@ import {
   isItemCard,
   isFactionCard,
 } from './types/cards.js';
+import type { DeckRestrictionEffect } from './types/effects.js';
 import { SiteType, Race, WIZARD_SPECIFIC_KEYWORD_NAMES } from './types/common.js';
 import { hasPlayFlag } from './effects/play-flags.js';
+import { matchesCondition } from './effects/condition-matcher.js';
 import { stagePointsOfCard } from './engine/reducer-utils.js';
 
 /**
@@ -54,96 +56,9 @@ export interface DeckValidationError {
   readonly card?: CardDefinitionId;
 }
 
-/**
- * Cards that a Fallen-wizard player cannot include in any section of their
- * deck (rule 1.18 / CoE rule 1.5.F6).
- */
-const FALLEN_WIZARD_BANNED_CARD_IDS = new Set([
-  'le-167', // Bade to Rule
-  'as-71',  // The Balrog (ally — AS version)
-  'ba-3',   // The Balrog (ally — BA version)
-  'tw-205', // Cracks of Doom
-  'tw-239', // Favor of the Valar
-  'tw-247', // Gollum's Fate
-  'dm-141', // Hour of Need
-  'le-201', // Kill All But Not the Halflings
-  'le-203', // The Lidless Eye
-  'as-49',  // Glamour of Surpassing Excellence
-  'le-204', // Messenger of Mordor
-  'le-208', // News Must Get Through
-  'le-209', // News of the Shire
-  'tw-294', // Old Road
-  'ba-43',  // Sauron
-  'as-56',  // The Sun Unveiled
-  'as-107', // Use Your Legs
-  'dm-164', // The Windlord Found Me
-  'td-169', // Wizard Uncloaked
-]);
-
-/**
- * Cards that a Balrog player cannot include in any section of their
- * deck (rule 1.23 / CoE rule 1.3.B5).
- */
-const BALROG_BANNED_CARD_IDS = new Set([
-  'as-77',  // Above the Abyss
-  'le-167', // Bade to Rule
-  'as-71',  // The Balrog (ally)
-  'tw-12',  // Balrog of Moria
-  'wh-41',  // The Black Council
-  'as-72',  // Black Horse
-  'le-170', // Black Rider
-  'le-174', // By the Ringwraith's Word
-  'as-73',  // Creature of an Older World
-  'dm-107', // Durin's Bane
-  'le-183', // Fell Rider
-  'wh-44',  // The Fiery Blade
-  'as-126', // Helm of Fear
-  'le-190', // Heralded Lord
-  'le-201', // Kill All But NOT the Halflings
-  'le-203', // The Lidless Eye
-  'le-205', // Morgul-Blade
-  'le-209', // News of the Shire
-  'wh-46',  // Open to the Summons
-  'as-94',  // Orders from Lugburz
-  'as-96',  // Padding Feet
-  'le-223', // The Ring Leaves its Mark
-  // Ringwraith Unleashed cards
-  'le-161', 'le-162', 'le-182', 'le-193', 'le-198',
-  'le-200', 'le-222', 'le-248', 'le-257',
-  'ba-43',  // Sauron
-  'le-242', // They Ride Together
-  'as-107', // Use Your Legs
-  'le-255', // While The Yellow Face Sleeps
-]);
-
 /** Faction races permitted in a Balrog deck (rule 1.22). */
 const BALROG_ALLOWED_FACTION_RACES = new Set<Race>([
   Race.Orc, Race.Troll, Race.Wolf, Race.Animal, Race.Dragon,
-]);
-
-/**
- * Minion sites that a Balrog player cannot include because a Balrog-specific
- * version of that site exists and must be used instead (rule 1.29).
- */
-const BALROG_RESTRICTED_MINION_SITE_IDS = new Set([
-  'le-392', // Moria (minion) → use ba-93
-  'le-359', // Carn Dûm (minion) → use ba-93 equivalent
-  'le-367', // Dol Guldur (minion) → use ba-93 equivalent
-  'le-390', // Minas Morgul (minion) → use ba-93 equivalent
-]);
-
-/**
- * Balrog sites with no corresponding hero or minion site — Ancient Deep-hold,
- * The Wind-deeps, The Drowning-deeps, The Rusted-deeps, and Remains of
- * Thangorodrim (rule 1.25 / CoE 1.4.1). Any player's location deck may include
- * one copy of each; every other Balrog site requires a Balrog player's deck.
- */
-const DESIGNATED_BALROG_SITE_IDS = new Set([
-  'ba-83', // Ancient Deep-hold
-  'ba-104', // The Wind-deeps
-  'ba-89', // The Drowning-deeps
-  'ba-96', // The Rusted-deeps
-  'ba-95', // Remains of Thangorodrim
 ]);
 
 const HERO_RESOURCE_TYPES = new Set([
@@ -194,31 +109,59 @@ function countCopiesPerCard(sections: readonly DeckEntries[]): Map<string, numbe
 }
 
 /**
+ * The card's {@link DeckRestrictionEffect}s carrying the given `rule`, or an
+ * empty array when the definition declares none. `RegionCard` has no `effects`
+ * field at all, hence the structural guard.
+ */
+function deckRestrictions(
+  def: CardDefinition | undefined,
+  rule: DeckRestrictionEffect['rule'],
+): readonly DeckRestrictionEffect[] {
+  if (!def || !('effects' in def) || !def.effects) return [];
+  return def.effects.filter(
+    (e): e is DeckRestrictionEffect => e.type === 'deck-restriction' && e.rule === rule,
+  );
+}
+
+/** True if the card declares a `deck-restriction` with the given rule. */
+function hasDeckRestriction(
+  def: CardDefinition | undefined,
+  rule: DeckRestrictionEffect['rule'],
+): boolean {
+  return deckRestrictions(def, rule).length > 0;
+}
+
+/**
  * Banned-card check shared by the Fallen-wizard (rule 1.18) and Balrog
- * (rule 1.23) restrictions: scan every deck section and flag any card whose id
- * is in `bannedIds`. `label`/`rule` populate the message
- * (`<label> deck: "<name>" is not allowed (rule <rule>)`).
+ * (rule 1.23) restrictions. Rather than an engine-side list of card ids, each
+ * banned card declares its own
+ * `{ "type": "deck-restriction", "rule": "excluded-from-deck" }` effect whose
+ * `when` condition names the deck alignment it is banned from; this scans every
+ * deck section and flags any card whose condition matches the deck being built.
+ * The effect's `reason` (e.g. `"rule 1.18"`) is quoted in the message
+ * (`<alignment> deck: "<name>" is not allowed (<reason>)`), so a card banned by
+ * both rules still reports the rule that actually rejected it.
  */
 function checkBannedCards(
   sections: readonly KeyedSection[],
-  bannedIds: ReadonlySet<string>,
+  alignment: DeckList['alignment'],
   cardPool: Readonly<Record<string, CardDefinition>>,
-  label: string,
-  rule: string,
 ): DeckValidationError[] {
   const errors: DeckValidationError[] = [];
+  const context = { deck: { alignment } };
   for (const [section, sectionKey] of sections) {
     for (const entry of section) {
       if (entry.card === null) continue;
-      const cardId = entry.card as string;
-      if (!bannedIds.has(cardId)) continue;
-      const def = cardPool[cardId];
-      const name = def ? (def as { name: string }).name : cardId;
-      errors.push({
-        section: sectionKey,
-        message: `${label} deck: "${name}" is not allowed (rule ${rule})`,
-        card: entry.card,
-      });
+      const def = cardPool[entry.card as string];
+      for (const restriction of deckRestrictions(def, 'excluded-from-deck')) {
+        if (restriction.when && !matchesCondition(restriction.when, context)) continue;
+        const name = def ? (def as { name: string }).name : (entry.card as string);
+        errors.push({
+          section: sectionKey,
+          message: `${alignment} deck: "${name}" is not allowed (${restriction.reason ?? 'deck restriction'})`,
+          card: entry.card,
+        });
+      }
     }
   }
   return errors;
@@ -753,7 +696,7 @@ export function validateDeck(
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
-      const allowedBalrogSite = def.cardType === 'balrog-site' && DESIGNATED_BALROG_SITE_IDS.has(entry.card as string);
+      const allowedBalrogSite = def.cardType === 'balrog-site' && hasDeckRestriction(def, 'any-location-deck');
       if (def.cardType !== 'hero-site' && !allowedBalrogSite) {
         errors.push({
           section: 'sites',
@@ -771,7 +714,7 @@ export function validateDeck(
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
-      const allowedBalrogSite = def.cardType === 'balrog-site' && DESIGNATED_BALROG_SITE_IDS.has(entry.card as string);
+      const allowedBalrogSite = def.cardType === 'balrog-site' && hasDeckRestriction(def, 'any-location-deck');
       if (def.cardType !== 'minion-site' && !allowedBalrogSite) {
         errors.push({
           section: 'sites',
@@ -910,8 +853,7 @@ export function validateDeck(
           card: entry.card,
         });
       } else if (def.cardType === 'minion-site') {
-        const cardId = entry.card as string;
-        if (BALROG_RESTRICTED_MINION_SITE_IDS.has(cardId)) {
+        if (hasDeckRestriction(def, 'superseded-by-balrog-site')) {
           errors.push({
             section: 'sites',
             message: `balrog deck: site "${def.name}" requires the Balrog-specific version`,
@@ -930,7 +872,7 @@ export function validateDeck(
 
   // Rule 1.18 — fallen-wizard banned cards
   if (deck.alignment === 'fallen-wizard') {
-    errors.push(...checkBannedCards(nonSiteSections, FALLEN_WIZARD_BANNED_CARD_IDS, cardPool, 'fallen-wizard', '1.18'));
+    errors.push(...checkBannedCards(nonSiteSections, deck.alignment, cardPool));
   }
 
   // Rule 1.22 — balrog faction race restriction
@@ -951,7 +893,7 @@ export function validateDeck(
 
   // Rule 1.23 — balrog banned cards
   if (deck.alignment === 'balrog') {
-    errors.push(...checkBannedCards(nonSiteSections, BALROG_BANNED_CARD_IDS, cardPool, 'balrog', '1.23'));
+    errors.push(...checkBannedCards(nonSiteSections, deck.alignment, cardPool));
   }
 
   // Rule 1.32 — pool limits
