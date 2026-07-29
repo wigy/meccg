@@ -5,46 +5,12 @@
  * Includes MP breakdown tooltips and GI (general influence) tooltips.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, CardInPlay, MarshallingPointTotals, CardEffect } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, CardInPlay, CardEffect } from '@meccg/shared';
 import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase, effectiveHazardLimit } from '@meccg/shared';
 import { seedDiceFromState, restoreDice, clearDice } from './dice.js';
 import { hasRealCards } from './render-debug-panels.js';
+import { buildMPTooltip } from './mp-categories.js';
 
-/**
- * Build the HTML for the MP breakdown tooltip table.
- * Shows raw and adjusted values per category for both players.
- */
-function buildMPTooltip(
-  selfName: string,
-  selfRaw: MarshallingPointTotals,
-  selfAdj: MarshallingPointTotals,
-  oppName: string,
-  oppRaw: MarshallingPointTotals,
-  oppAdj: MarshallingPointTotals,
-): string {
-  const cats: { key: keyof MarshallingPointTotals; label: string }[] = [
-    { key: 'character', label: 'Chars' },
-    { key: 'item', label: 'Items' },
-    { key: 'faction', label: 'Factions' },
-    { key: 'ally', label: 'Allies' },
-    { key: 'kill', label: 'Kill' },
-    { key: 'misc', label: 'Misc' },
-  ];
-  const selfTotal = computeTournamentScore(selfRaw, oppRaw);
-  const oppTotal = computeTournamentScore(oppRaw, selfRaw);
-
-  let rows = '';
-  for (const { key, label } of cats) {
-    const s = selfAdj[key] !== selfRaw[key] ? `${selfAdj[key]} (${selfRaw[key]})` : `${selfRaw[key]}`;
-    const o = oppAdj[key] !== oppRaw[key] ? `${oppAdj[key]} (${oppRaw[key]})` : `${oppRaw[key]}`;
-    rows += `<tr><td class="mp-label">${label}</td><td class="mp-value">${s}</td><td class="mp-value">${o}</td></tr>`;
-  }
-  return `<table class="mp-tooltip-table">
-    <thead><tr><th></th><th>${selfName}</th><th>${oppName}</th></tr></thead>
-    <tbody>${rows}</tbody>
-    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${selfTotal}</td><td class="mp-value mp-total">${oppTotal}</td></tr></tfoot>
-  </table>`;
-}
 
 /**
  * Influence-to-control cost override carried by a character via an attached

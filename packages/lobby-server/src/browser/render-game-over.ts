@@ -7,19 +7,10 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay } from '@meccg/shared';
-import type { MarshallingPointTotals } from '@meccg/shared';
 import { cardImageProxyPath, computeTournamentScore, computeTournamentBreakdown, Phase } from '@meccg/shared';
 import { $ } from './render-utils.js';
+import { mpCategories } from './mp-categories.js';
 
-/** MP category labels in display order. */
-const MP_CATEGORIES: { key: keyof MarshallingPointTotals; label: string }[] = [
-  { key: 'character', label: 'Characters' },
-  { key: 'item', label: 'Items' },
-  { key: 'faction', label: 'Factions' },
-  { key: 'ally', label: 'Allies' },
-  { key: 'kill', label: 'Kill' },
-  { key: 'misc', label: 'Misc' },
-];
 
 /**
  * Collect card definition IDs contributing to each MP category for a player.
@@ -137,7 +128,7 @@ export function renderGameOverView(
 
   const tbody = document.createElement('tbody');
 
-  for (const { key, label } of MP_CATEGORIES) {
+  for (const { key, label } of mpCategories('long')) {
     const raw1 = selfRaw[key];
     const adj1 = selfAdj[key];
     const raw2 = oppRaw[key];

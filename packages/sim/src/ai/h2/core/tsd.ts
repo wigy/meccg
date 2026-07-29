@@ -17,7 +17,7 @@
  * it is visible to a linear weight.
  */
 
-import { computeTournamentScore } from '@meccg/shared';
+import { computeTournamentScore, MP_SOURCES } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import type { Outcome } from './types.js';
 import type { Tunables } from './tunables.js';
@@ -25,10 +25,11 @@ import type { Tunables } from './tunables.js';
 /** One of the six marshalling-point sources. */
 export type MpSource = keyof MarshallingPointTotals;
 
-/** All six MP sources, in the order the tournament rules list them. */
-export const MP_SOURCES: readonly MpSource[] = [
-  'character', 'item', 'faction', 'ally', 'kill', 'misc',
-] as const;
+/**
+ * All six MP sources, in the order the tournament rules list them.
+ * Re-exported from `@meccg/shared` so sim consumers need only one import.
+ */
+export { MP_SOURCES };
 
 /** A hypothetical change to raw MP totals, by source. Omitted sources are 0. */
 export type MpDelta = Partial<Record<MpSource, number>>;
