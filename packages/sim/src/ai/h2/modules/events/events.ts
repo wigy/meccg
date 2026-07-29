@@ -40,6 +40,7 @@ import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeDefence } from '../../services/defence.js';
@@ -118,25 +119,16 @@ function flatten(effects: readonly Effect[]): Effect[] {
  * Stealth taps a scout to protect *his* company, so the action names the
  * character and the value is about the company he is in.
  *
- * It names him in `targetScoutInstanceId`, though — not `targetCharacterId`,
- * which is what other character-targeting short events use. Reading one field
- * where the engine keeps the answer in another is the sixth bug of this shape
- * in this project, and the sixth to be invisible: a module that finds nothing
- * declines, and a decline reads as an unowned action type. All the spellings
- * are read here.
+ * It names him in `targetScoutInstanceId`, though — not the `targetCharacterId`
+ * other character-targeting short events use. Reading one field where the
+ * engine keeps the answer in another has now caused six bugs here, so the
+ * spellings live in `core/action-fields` rather than in each module's guess.
  */
 function targetCompanyRoster(
   action: GameAction,
   context: ModuleContext,
 ): { roster: readonly StrikeTarget[]; size: number } | null {
-  const named = action as unknown as {
-    targetCharacterId?: CardInstanceId;
-    targetScoutInstanceId?: CardInstanceId;
-    targetInstanceId?: CardInstanceId;
-    characterId?: CardInstanceId;
-  };
-  const targetId = named.targetCharacterId ?? named.targetScoutInstanceId
-    ?? named.targetInstanceId ?? named.characterId;
+  const targetId = namedCharacter(action);
   if (!targetId) return null;
   const company = context.view.self.companies.find(c => c.characters.includes(targetId));
   if (!company) return null;

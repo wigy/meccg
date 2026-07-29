@@ -33,6 +33,7 @@
 import type { CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
+import { namedCard, namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 
 /** Action types this module scores. */
@@ -106,9 +107,10 @@ function chosenCard(action: GameAction, context: ModuleContext): { definitionId:
   if (record.itemDefId) return { definitionId: record.itemDefId, where: 'starting items' };
 
   // Each action names the card in its own field, and reading only one of them
-  // is the recurring bug in this project — `characters` on `move-to-influence`,
-  // `combat` on `choose-strike-order`. All three are read here.
-  const instanceId = record.cardInstanceId ?? record.sideboardCardInstanceId ?? record.characterInstanceId;
+  // is the recurring bug in this project. The spellings live in
+  // `core/action-fields`; a fetch may name either a card or a character, and
+  // both mean "the thing being chosen" here.
+  const instanceId = namedCard(action) ?? namedCharacter(action);
   if (!instanceId) return null;
 
   const zones: { cards: readonly { instanceId: CardInstanceId; definitionId: string }[]; where: string }[] = [
