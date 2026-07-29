@@ -30,6 +30,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
 import { cardTargetsSetAside } from '../set-aside.js';
+import { grantedAction } from './granted-action-emit.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -184,18 +185,7 @@ function emitAllyCancelChainActions(
           continue;
         }
         logDetail(`Ally cancel-chain available: ${allyDef?.name ?? '?'} may tap to cancel a hazard (destination region ${destinationRegion ?? 'none'})`);
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: charInstId,
-            sourceCardId: ally.instanceId,
-            sourceCardDefinitionId: ally.definitionId,
-            actionId: 'cancel-chain-entry',
-            rollThreshold: 0,
-          },
-          viable: true,
-        });
+        actions.push(grantedAction(playerId, charInstId, ally, 'cancel-chain-entry', 0));
       }
     }
   }
@@ -257,18 +247,7 @@ function emitHazardSelfCancelBySkillActions(
       };
       if (grant.when && !matchesCondition(grant.when, actorCtx)) continue;
       logDetail(`Hazard self-cancel: ${charDef && isCharacterCard(charDef) ? charDef.name : '?'} may tap to cancel "${(def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string)}" before it resolves`);
-      actions.push({
-        action: {
-          type: 'activate-granted-action',
-          player: playerId,
-          characterId: charInstId,
-          sourceCardId: entry.card.instanceId,
-          sourceCardDefinitionId: entry.card.definitionId,
-          actionId: 'cancel-chain-entry',
-          rollThreshold: 0,
-        },
-        viable: true,
-      });
+      actions.push(grantedAction(playerId, charInstId, entry.card, 'cancel-chain-entry', 0));
     }
   }
   return actions;

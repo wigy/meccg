@@ -35,6 +35,7 @@ import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
+import { grantedAction } from './granted-action-emit.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -2482,19 +2483,14 @@ function sitePhaseGrantActions(
         for (const scoutId of scouts) {
           if ((sageId as string) === (scoutId as string)) continue;
           logDetail(`Site grant-action "${effect.action}": sage ${sageId as string} + scout ${scoutId as string} eligible`);
-          actions.push({
-            action: {
-              type: 'activate-granted-action',
-              player: playerId,
-              characterId: sageId,
-              secondCharacterId: scoutId,
-              sourceCardId: siteInstanceId,
-              sourceCardDefinitionId: siteDefId,
-              actionId: effect.action,
-              rollThreshold: 0,
-            },
-            viable: true,
-          });
+          actions.push(grantedAction(
+            playerId,
+            sageId,
+            { instanceId: siteInstanceId, definitionId: siteDefId },
+            effect.action,
+            0,
+            { secondCharacterId: scoutId },
+          ));
         }
       }
       continue;
@@ -2537,20 +2533,14 @@ function sitePhaseGrantActions(
           const first = minorItems[i];
           const second = minorItems[j];
           logDetail(`Site grant-action "${effect.action}": offering discard of items ${first.itemId as string} + ${second.itemId as string}`);
-          actions.push({
-            action: {
-              type: 'activate-granted-action',
-              player: playerId,
-              characterId: first.bearerId,
-              sourceCardId: siteInstanceId,
-              sourceCardDefinitionId: siteDefId,
-              actionId: effect.action,
-              rollThreshold: 0,
-              targetCardId: first.itemId,
-              secondTargetCardId: second.itemId,
-            },
-            viable: true,
-          });
+          actions.push(grantedAction(
+            playerId,
+            first.bearerId,
+            { instanceId: siteInstanceId, definitionId: siteDefId },
+            effect.action,
+            0,
+            { targetCardId: first.itemId, secondTargetCardId: second.itemId },
+          ));
         }
       }
       continue;

@@ -51,6 +51,7 @@ import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
+import { grantedAction } from './granted-action-emit.js';
 
 
 /**
@@ -1668,18 +1669,13 @@ function applyGrantedActionConstraint(
     if (alreadyEmitted) continue;
 
     logDetail(`Constraint ${constraint.id as string} (granted-action ${kind.action}): offering on ${def.name}`);
-    result.push({
-      action: {
-        type: 'activate-granted-action',
-        player: playerId,
-        characterId: char.instanceId,
-        sourceCardId: constraint.source,
-        sourceCardDefinitionId: constraint.sourceDefinitionId,
-        actionId: kind.action,
-        rollThreshold: 0,
-      },
-      viable: true,
-    });
+    result.push(grantedAction(
+      playerId,
+      char.instanceId,
+      { instanceId: constraint.source, definitionId: constraint.sourceDefinitionId },
+      kind.action,
+      0,
+    ));
   }
   return result;
 }

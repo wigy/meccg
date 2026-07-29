@@ -27,6 +27,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { storeItemActions } from './organization-companies.js';
 import { asViable as viable } from './evaluated.js';
+import { grantedAction } from './granted-action-emit.js';
 
 /**
  * Compute legal actions for a player during the end-of-turn phase.
@@ -381,6 +382,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     sourceStatus: CardStatus,
   ): void {
     const sourceDef = defById(state, sourceDefinitionId);
+    const source = { instanceId: sourceCardId, definitionId: sourceDefinitionId };
     for (const effect of getCardEffects(sourceDef)) {
       const fetchApply = findFetchApply(effect);
       if (!fetchApply || effect.type !== 'grant-action') continue;
@@ -435,37 +437,14 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
         // The specific card is chosen afterward via a `fetch-from-pile`
         // pending resolution — a single activation suffices.
         logDetail(`Grant-action ${effect.action} available: ${sourceDef?.name ?? sourceDefinitionId} can fetch from discard to deck (${eligibleCards.length} eligible)`);
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: charId,
-            sourceCardId,
-            sourceCardDefinitionId: sourceDefinitionId,
-            actionId: effect.action,
-            rollThreshold: 0,
-          },
-          viable: true,
-        });
+        actions.push(grantedAction(playerId, charId, source, effect.action, 0));
         continue;
       }
 
       for (const target of eligibleCards) {
         const targetDef = defById(state, target.definitionId);
         logDetail(`Grant-action ${effect.action} available: ${sourceDef?.name ?? sourceDefinitionId} can fetch ${targetDef?.name ?? '?'} from discard`);
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: charId,
-            sourceCardId,
-            sourceCardDefinitionId: sourceDefinitionId,
-            actionId: effect.action,
-            rollThreshold: 0,
-            targetCardId: target.instanceId,
-          },
-          viable: true,
-        });
+        actions.push(grantedAction(playerId, charId, source, effect.action, 0, { targetCardId: target.instanceId }));
       }
     }
   }
