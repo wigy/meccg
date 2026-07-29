@@ -24,24 +24,21 @@
  */
 
 import {
-  createRng,
   loadCardPool,
   Phase,
 } from '@meccg/shared';
 import type {
   CardDefinition,
   CardDefinitionId,
-  CardInstanceId,
   GameState,
   PlayerId,
   PlayerView,
-  PlayerState,
   CardInstance,
   ViewCard,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, UNKNOWN_SITE } from '@meccg/shared';
 import type { LoadedDeck } from '../decks.js';
 import { createRandomStream } from '../random-stream.js';
+import { isHidden, widenView, type WidenedOnGuardCard } from './widen-view.js';
 
 /** Options for {@link determinize}. */
 export interface DeterminizeOptions {
@@ -55,11 +52,6 @@ export interface DeterminizeOptions {
   readonly seed: number;
   /** Card pool override (loaded once by default). */
   readonly cardPool?: Readonly<Record<string, CardDefinition>>;
-}
-
-/** True when a view card's identity is hidden. */
-function isHidden(card: ViewCard): boolean {
-  return card.definitionId === UNKNOWN_CARD || card.definitionId === UNKNOWN_SITE;
 }
 
 /** Multiset remove: deletes one occurrence of `id` from `pool` if present. */
@@ -81,21 +73,16 @@ function shuffle<T>(items: T[], random: () => number): T[] {
  * Assigns sampled definitions to the hidden cards of one zone list,
  * consuming the owner's unseen pool. Visible cards pass through.
  */
-function fillZone(
-  zone: readonly ViewCard[],
-  pool: CardDefinitionId[],
-  fallback: CardDefinitionId | null,
-): CardInstance[] {
+function fillZone(zone: readonly ViewCard[], pool: CardDefinitionId[]): CardInstance[] {
   return zone.map(card => {
     if (!isHidden(card)) return { instanceId: card.instanceId, definitionId: card.definitionId };
-    const definitionId = pool.length > 0 ? pool.pop() as CardDefinitionId : fallback;
-    if (definitionId === null) {
+    if (pool.length === 0) {
       // Unseen pool exhausted (deck-list accounting drift, e.g. drafted
       // characters): keep the sentinel — resolveInstanceId still succeeds
       // and the card stays untargetable, which is the conservative choice.
       return { instanceId: card.instanceId, definitionId: card.definitionId };
     }
-    return { instanceId: card.instanceId, definitionId };
+    return { instanceId: card.instanceId, definitionId: pool.pop() as CardDefinitionId };
   });
 }
 
@@ -160,120 +147,25 @@ export function determinize(options: DeterminizeOptions): GameState {
     o.companies.flatMap(c => (c.currentSite ? [{ instanceId: c.currentSite.instanceId, definitionId: c.currentSite.definitionId }] : [])),
   ], random);
 
-  const toInstances = (zone: readonly ViewCard[]): CardInstance[] =>
-    zone.map(card => ({ instanceId: card.instanceId, definitionId: card.definitionId }));
+  // Unrevealed on-guard cards are sampled from the same opponent pool as
+  // their hand; a revealed one keeps whatever the view already shows.
+  const fillOnGuard = (og: ViewCard): WidenedOnGuardCard => ({
+    instanceId: og.instanceId,
+    definitionId: isHidden(og) ? (oppPool.pop() ?? og.definitionId) : og.definitionId,
+    revealed: (og as { revealed?: boolean }).revealed ?? false,
+  });
 
-  const selfState: PlayerState = {
-    id: s.id,
-    name: s.name,
-    alignment: s.alignment,
-    wizard: s.wizard,
-    hand: toInstances(s.hand),
-    playDeck: fillZone(s.playDeck, ownPool, null),
-    discardPile: toInstances(s.discardPile),
-    siteDeck: toInstances(s.siteDeck),
-    siteDiscardPile: toInstances(s.siteDiscardPile),
-    sideboard: toInstances(s.sideboard),
-    killPile: toInstances(s.killPile),
-    outOfPlayPile: toInstances(s.outOfPlayPile),
-    companies: s.companies,
-    agents: s.agents,
-    characters: s.characters,
-    cardsInPlay: s.cardsInPlay,
-    marshallingPoints: s.marshallingPoints,
-    callableMarshallingPoints: s.marshallingPoints,
-    stagePoints: s.stagePoints,
-    generalInfluenceUsed: s.generalInfluenceUsed,
-    generalInfluenceBonus: 0,
-    generalInfluenceControlPenalty: 0,
-    deckExhaustionCount: s.deckExhaustionCount,
-    freeCouncilCalled: false,
-    lastDiceRoll: s.lastDiceRoll,
-    sideboardAccessedDuringUntap: false,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-    reservedCreatures: [],
-  } as unknown as PlayerState;
-
-  // Opponent companies: the redacted OpponentCompanyView must be widened
-  // back to a full Company. Destination is hidden until revealed — use the
-  // revealed destination when present, else model "has planned movement"
-  // with a null destination (conservative: the searcher cannot know it).
-  const oppCompanies = o.companies.map(c => ({
-    id: c.id,
-    characters: c.characters,
-    currentSite: c.currentSite,
-    siteCardOwned: c.siteCardOwned,
-    destinationSite: c.revealedDestinationSite,
-    movementPath: [] as readonly CardInstanceId[],
-    moved: c.moved,
-    siteOfOrigin: null,
-    onGuardCards: c.onGuardCards.map(og => ({
-      instanceId: og.instanceId,
-      definitionId: isHidden(og)
-        ? (oppPool.pop() ?? og.definitionId)
-        : og.definitionId,
-      revealed: (og as { revealed?: boolean }).revealed ?? false,
-    })),
-    hazards: [],
-  }));
-
-  const oppState: PlayerState = {
-    id: o.id,
-    name: o.name,
-    alignment: o.alignment,
-    wizard: o.wizard,
-    hand: fillZone(o.hand, oppPool, null),
-    playDeck: fillZone(o.playDeck, oppPool, null),
-    discardPile: toInstances(o.discardPile),
-    siteDeck: fillZone(o.siteDeck, oppSitePool, null),
-    siteDiscardPile: toInstances(o.siteDiscardPile),
-    sideboard: fillZone(o.sideboard, oppPool, null),
-    killPile: toInstances(o.killPile),
-    outOfPlayPile: toInstances(o.outOfPlayPile),
-    companies: oppCompanies as PlayerState['companies'],
-    agents: [],
-    characters: o.characters,
-    cardsInPlay: o.cardsInPlay,
-    marshallingPoints: o.marshallingPoints,
-    callableMarshallingPoints: o.marshallingPoints,
-    stagePoints: o.stagePoints,
-    generalInfluenceUsed: o.generalInfluenceUsed,
-    generalInfluenceBonus: 0,
-    generalInfluenceControlPenalty: 0,
-    deckExhaustionCount: o.deckExhaustionCount,
-    freeCouncilCalled: false,
-    lastDiceRoll: o.lastDiceRoll,
-    sideboardAccessedDuringUntap: false,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-    reservedCreatures: [],
-  } as unknown as PlayerState;
-
-  const players: [PlayerState, PlayerState] =
-    view.selfIndex === 0 ? [selfState, oppState] : [oppState, selfState];
-
-  return {
+  return widenView(view, {
     gameId: `determinized-${options.seed}`,
-    players,
-    activePlayer: view.activePlayer,
-    phaseState: view.phaseState,
-    combat: view.combat,
-    chain: view.chain,
-    cardPool: cardPool as GameState['cardPool'],
-    turnNumber: view.turnNumber,
-    startingPlayer: view.startingPlayer,
-    pendingEffects: view.pendingEffects,
-    pendingResolutions: [],
-    activeConstraints: view.activeConstraints,
-    hazardHosts: [],
-    rng: createRng(options.seed),
-    stateSeq: view.stateSeq,
-    reverseActions: [],
-    lastTurnFor: null,
-    cheatRollTotal: null,
-    revealedInstances: {},
-  } as unknown as GameState;
+    cardPool,
+    seed: options.seed,
+    fillers: {
+      selfPlayDeck: zone => fillZone(zone, ownPool),
+      opponentPlayZone: zone => fillZone(zone, oppPool),
+      opponentSiteDeck: zone => fillZone(zone, oppSitePool),
+      opponentOnGuard: fillOnGuard,
+    },
+  });
 }
 
 /**

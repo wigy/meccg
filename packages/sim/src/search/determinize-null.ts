@@ -35,7 +35,7 @@
  * in combat, or with pending effects are out of scope.
  */
 
-import { createRng, loadCardPool, Alignment, RegionType, isSiteCard } from '@meccg/shared';
+import { loadCardPool, Alignment, RegionType, isSiteCard } from '@meccg/shared';
 import type {
   CardDefinition,
   CardDefinitionId,
@@ -43,13 +43,13 @@ import type {
   CardInstanceId,
   GameState,
   PlayerId,
-  PlayerState,
   PlayerView,
   RegionCard,
   ViewCard,
 } from '@meccg/shared';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from '@meccg/shared';
 import { createRandomStream } from '../random-stream.js';
+import { isHidden, widenView, type WidenedOnGuardCard } from './widen-view.js';
 
 /** Options for {@link determinizeNull}. */
 export interface DetermizeNullOptions {
@@ -103,11 +103,6 @@ export const UNKNOWN_CARD_DEFINITION: RegionCard = {
   text: 'A card whose identity is hidden from the searching player.',
 };
 
-/** True when a view card's identity is hidden. */
-function isHidden(card: ViewCard): boolean {
-  return card.definitionId === UNKNOWN_CARD || card.definitionId === UNKNOWN_SITE;
-}
-
 /** Site `cardType` that a player of the given alignment plays. */
 function siteTypeFor(alignment: Alignment): string {
   switch (alignment) {
@@ -153,11 +148,6 @@ function fillZone(
   });
 }
 
-/** Widens a fully visible zone (no hidden slots expected). */
-function toInstances(zone: readonly ViewCard[]): CardInstance[] {
-  return zone.map(card => ({ instanceId: card.instanceId, definitionId: card.definitionId }));
-}
-
 /**
  * Builds a `GameState` from the view without consulting any deck list.
  * Deterministic for a given `(view, seed)`.
@@ -167,7 +157,6 @@ export function determinizeNull(options: DetermizeNullOptions): NullWorld {
   const basePool = options.cardPool ?? loadCardPool();
   const random = createRandomStream(options.seed ^ 0x4e1177);
   const unknown = new Set<CardInstanceId>();
-  const s = view.self;
   const o = view.opponent;
 
   // The sentinel must resolve, or every generator that reads a hand card's
@@ -178,124 +167,29 @@ export function determinizeNull(options: DetermizeNullOptions): NullWorld {
   };
 
   const sampleSites = (options.unknownSites ?? 'sample') === 'sample';
-  const selfSites = sampleSites ? sitePoolFor(basePool, s.alignment) : null;
   const oppSites = sampleSites ? sitePoolFor(basePool, o.alignment) : null;
 
-  const selfState: PlayerState = {
-    id: s.id,
-    name: s.name,
-    alignment: s.alignment,
-    wizard: s.wizard,
-    hand: toInstances(s.hand),
-    playDeck: fillZone(s.playDeck, unknown, null, random),
-    discardPile: toInstances(s.discardPile),
-    siteDeck: toInstances(s.siteDeck),
-    siteDiscardPile: toInstances(s.siteDiscardPile),
-    sideboard: toInstances(s.sideboard),
-    killPile: toInstances(s.killPile),
-    outOfPlayPile: toInstances(s.outOfPlayPile),
-    companies: s.companies,
-    agents: s.agents,
-    characters: s.characters,
-    cardsInPlay: s.cardsInPlay,
-    marshallingPoints: s.marshallingPoints,
-    callableMarshallingPoints: s.marshallingPoints,
-    stagePoints: s.stagePoints,
-    generalInfluenceUsed: s.generalInfluenceUsed,
-    generalInfluenceBonus: 0,
-    generalInfluenceControlPenalty: 0,
-    deckExhaustionCount: s.deckExhaustionCount,
-    freeCouncilCalled: false,
-    lastDiceRoll: s.lastDiceRoll,
-    sideboardAccessedDuringUntap: false,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-    reservedCreatures: [],
-  } as unknown as PlayerState;
+  // A revealed on-guard card keeps its identity; an unrevealed one stays a
+  // sentinel — guessing it would invent information the searcher lacks.
+  const fillOnGuard = (og: ViewCard): WidenedOnGuardCard => {
+    if (!isHidden(og)) {
+      return { instanceId: og.instanceId, definitionId: og.definitionId, revealed: true };
+    }
+    unknown.add(og.instanceId);
+    return { instanceId: og.instanceId, definitionId: UNKNOWN_CARD, revealed: false };
+  };
 
-  // Opponent companies: the redacted view must be widened back to a full
-  // Company. An unrevealed destination stays null — the searcher cannot
-  // know it, and guessing one would invent information.
-  const oppCompanies = o.companies.map(c => ({
-    id: c.id,
-    characters: c.characters,
-    currentSite: c.currentSite,
-    siteCardOwned: c.siteCardOwned,
-    destinationSite: c.revealedDestinationSite,
-    movementPath: [] as readonly CardInstanceId[],
-    moved: c.moved,
-    siteOfOrigin: null,
-    onGuardCards: c.onGuardCards.map(og => {
-      if (!isHidden(og)) {
-        return { instanceId: og.instanceId, definitionId: og.definitionId, revealed: true };
-      }
-      unknown.add(og.instanceId);
-      return { instanceId: og.instanceId, definitionId: UNKNOWN_CARD, revealed: false };
-    }),
-    hazards: [],
-  }));
-
-  const oppState: PlayerState = {
-    id: o.id,
-    name: o.name,
-    alignment: o.alignment,
-    wizard: o.wizard,
-    hand: fillZone(o.hand, unknown, null, random),
-    playDeck: fillZone(o.playDeck, unknown, null, random),
-    discardPile: toInstances(o.discardPile),
-    siteDeck: fillZone(o.siteDeck, unknown, oppSites, random),
-    siteDiscardPile: toInstances(o.siteDiscardPile),
-    sideboard: fillZone(o.sideboard, unknown, null, random),
-    killPile: toInstances(o.killPile),
-    outOfPlayPile: toInstances(o.outOfPlayPile),
-    companies: oppCompanies as PlayerState['companies'],
-    agents: [],
-    characters: o.characters,
-    cardsInPlay: o.cardsInPlay,
-    marshallingPoints: o.marshallingPoints,
-    callableMarshallingPoints: o.marshallingPoints,
-    stagePoints: o.stagePoints,
-    generalInfluenceUsed: o.generalInfluenceUsed,
-    generalInfluenceBonus: 0,
-    generalInfluenceControlPenalty: 0,
-    deckExhaustionCount: o.deckExhaustionCount,
-    freeCouncilCalled: false,
-    lastDiceRoll: o.lastDiceRoll,
-    sideboardAccessedDuringUntap: false,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-    reservedCreatures: [],
-  } as unknown as PlayerState;
-
-  // `selfSites` is unused when the searcher's own site deck is fully
-  // visible, which it always is — referenced here so the sampling policy
-  // stays symmetrical if a future view ever redacts it.
-  void selfSites;
-
-  const players: [PlayerState, PlayerState] =
-    view.selfIndex === 0 ? [selfState, oppState] : [oppState, selfState];
-
-  const state = {
+  const state = widenView(view, {
     gameId: `null-determinized-${options.seed}`,
-    players,
-    activePlayer: view.activePlayer,
-    phaseState: view.phaseState,
-    combat: view.combat,
-    chain: view.chain,
-    cardPool: cardPool as GameState['cardPool'],
-    turnNumber: view.turnNumber,
-    startingPlayer: view.startingPlayer,
-    pendingEffects: view.pendingEffects,
-    pendingResolutions: [],
-    activeConstraints: view.activeConstraints,
-    hazardHosts: [],
-    rng: createRng(options.seed),
-    stateSeq: view.stateSeq,
-    reverseActions: [],
-    lastTurnFor: null,
-    cheatRollTotal: null,
-    revealedInstances: {},
-  } as unknown as GameState;
+    cardPool,
+    seed: options.seed,
+    fillers: {
+      selfPlayDeck: zone => fillZone(zone, unknown, null, random),
+      opponentPlayZone: zone => fillZone(zone, unknown, null, random),
+      opponentSiteDeck: zone => fillZone(zone, unknown, oppSites, random),
+      opponentOnGuard: fillOnGuard,
+    },
+  });
 
   return { state, unknownInstances: unknown };
 }
