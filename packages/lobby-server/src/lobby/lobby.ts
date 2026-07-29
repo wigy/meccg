@@ -70,6 +70,8 @@ interface ActiveGameInfo {
   readonly opponentDisplayName: string;
   /** AI deck ID used for this game (only set for AI games), remembered for rejoin. */
   readonly aiDeckId?: string;
+  /** Model file the Real-AI plays with (only set for Real-AI games), remembered for rejoin. */
+  readonly aiModelFile?: string;
 }
 
 /** A connected player in the lobby. */
@@ -269,8 +271,9 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         break;
       }
 
-      // Capture AI deck before clearing state, so the rejoin can reuse it
+      // Capture AI deck and model before clearing state, so the rejoin can reuse them
       const storedAiDeckId = from.activeGame?.aiDeckId;
+      const storedAiModelFile = from.activeGame?.aiModelFile;
 
       // Clear stale inGame state from the dead game
       from.inGame = false;
@@ -285,7 +288,15 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         const rejoinSpec = opponentName === 'AI-MC' ? MC_AGENT_SPEC
           : opponentName === 'AI-Modular' ? MODULAR_AGENT_SPEC
             : undefined;
-        void startAiGame(from, storedAiDeckId, undefined, rejoinSpec);
+        // The Real-AI is identified by its model rather than by a spec, so it
+        // needs the same treatment. Without a remembered model there is nothing
+        // to relaunch: seating the heuristic would swap the opponent and move
+        // the game onto a different save key, so refuse instead.
+        if (opponentName === 'AI-Real' && storedAiModelFile === undefined) {
+          send(from.ws, { type: 'error', message: 'Cannot rejoin: the Real-AI model for this game is no longer known' });
+          return;
+        }
+        void startAiGame(from, storedAiDeckId, storedAiModelFile, rejoinSpec);
       } else {
         const opponent = onlinePlayers.get(opponentName);
         if (!opponent) {
@@ -398,6 +409,7 @@ async function startAiGame(
       opponent: aiName,
       opponentDisplayName: aiName,
       aiDeckId: deckId,
+      aiModelFile: modelFile,
     };
     send(player.ws, { type: 'game-starting', ...player.activeGame });
 

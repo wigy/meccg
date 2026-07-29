@@ -1546,6 +1546,22 @@ h2 {
   box-shadow: none;
 }
 
+/* Options revealed underneath a play button (Real-AI model picker). */
+.lobby-ai-options {
+  margin-top: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(11,13,18,0.5);
+  border: 1px solid rgba(196,163,90,0.25);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+}
+
+.lobby-ai-options .lobby-play-btn {
+  margin-top: 0.6rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+}
+
 .lobby-section-title {
   font-family: 'Cinzel', serif;
   color: #f5d98a;
