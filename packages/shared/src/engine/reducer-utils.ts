@@ -5101,3 +5101,30 @@ export function isCovertCompany(
 
   return true; // covert
 }
+
+/**
+ * The instance ID of the *creature card* behind an attack, or `null` when the
+ * attack has no creature card to dispose of (an automatic attack built into a
+ * site, an agent, a company-vs-company attack, a card-triggered attack, …).
+ *
+ * Three {@link AttackSource} variants carry a creature card, each under a
+ * different field name:
+ *
+ * - `creature` — a creature hazard played from hand (`instanceId`)
+ * - `on-guard-creature` — a creature revealed from an on-guard slot (`cardInstanceId`)
+ * - `played-auto-attack` — a site auto-attack played as a card (`instanceId`)
+ *
+ * Everything that has to *find the card* after combat — trophy assignment,
+ * rule 8.22 starred-creature disposal, kill-pile placement, cancel cleanup —
+ * needs exactly this derivation, so it lives here rather than being re-spelled
+ * at each site.
+ */
+export function attackSourceCreatureInstanceId(combat: CombatState): CardInstanceId | null {
+  const source = combat.attackSource;
+  switch (source.type) {
+    case 'creature': return source.instanceId;
+    case 'on-guard-creature': return source.cardInstanceId;
+    case 'played-auto-attack': return source.instanceId;
+    default: return null;
+  }
+}

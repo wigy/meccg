@@ -26,7 +26,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -741,11 +741,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   // If this was a creature attack, move creature card from attacker's
   // cardsInPlay to discard.
   const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
-  const creatureInstanceId =
-    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-          : null;
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
   if (creatureInstanceId) {
     const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
     if (creatureInPlay) {
@@ -976,11 +972,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     if (newAssignmentsW.length === 0) {
       logDetail('All wounded-character strikes canceled — combat ends');
       const atkIdxW = getPlayerIndex(state, combat.attackingPlayerId);
-      const creatureInstanceIdW =
-        combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-          : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-            : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-              : null;
+      const creatureInstanceIdW = attackSourceCreatureInstanceId(combat);
       if (creatureInstanceIdW) {
         const creatureInPlayW = findById(newPlayersW[atkIdxW].cardsInPlay, creatureInstanceIdW);
         if (creatureInPlayW) {
@@ -1046,11 +1038,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     logDetail('All strikes canceled — combat ends');
     // Move creature to discard
     const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
-    const creatureInstanceId =
-      combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-        : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-          : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-            : null;
+    const creatureInstanceId = attackSourceCreatureInstanceId(combat);
     if (creatureInstanceId) {
       const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
       if (creatureInPlay) {
