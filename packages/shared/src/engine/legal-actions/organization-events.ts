@@ -31,6 +31,7 @@ import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
+import { findEnvironmentTargets } from '../environment-targets.js';
 
 /**
  * The combined count of a player's supporters for Girdle of Radagast (wh-110):
@@ -832,31 +833,7 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
     // Find environment cards — in a player's cardsInPlay (permanent events
     // like Doors of Night / Gates of Morning), or declared earlier in the
     // same chain of effects.
-    const isEnv = (defId: string): boolean => {
-      const d = state.cardPool[defId as CardDefinitionId];
-      return !!d && 'keywords' in d
-        && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
-    };
-    // MEAS §1: cards placed "off to the side" are untargetable except by cards
-    // that specifically affect set-aside cards.
-    const mayTargetSetAside = cardTargetsSetAside(def);
-    const envTargets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-    for (const p of state.players) {
-      for (const c of p.cardsInPlay) {
-        if (isSetAsideCard(c) && !mayTargetSetAside) continue;
-        if (isEnv(c.definitionId as string)) envTargets.push(c);
-      }
-    }
-    // Chain entries: environments declared earlier in the same chain
-    if (state.chain) {
-      for (const entry of state.chain.entries) {
-        if (entry.resolved || entry.negated) continue;
-        if (!entry.card) continue;
-        if (isEnv(entry.card.definitionId as string)) {
-          envTargets.push({ instanceId: entry.card.instanceId, definitionId: entry.card.definitionId as string });
-        }
-      }
-    }
+    const envTargets = findEnvironmentTargets(state, { mayTargetSetAside: cardTargetsSetAside(def) });
 
     if (envTargets.length === 0) {
       logDetail(`Short event ${def.name}: no environment in play to cancel`);

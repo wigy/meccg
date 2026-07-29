@@ -32,7 +32,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -1151,24 +1151,13 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
   // Apply draw-modifier effects from company characters (e.g. Alatar reduces
   // hazard draws; Radagast adds one resource draw per Wilderness in the path)
   const sitePathCounts = {
-    wildernessCount: 0, shadowCount: 0, darkCount: 0,
-    coastalCount: 0, freeCount: 0, borderCount: 0,
+    ...regionTypeCounts(mhState.resolvedSitePath),
     // Total number of regions in the site path (all types). Exposed so
     // effects can gate/scale on path length, e.g. A Short Rest (td-95):
     // "draw an extra card for each region less than four in its site path"
     // via the expression "4 - sitePath.regionCount".
     regionCount: mhState.resolvedSitePath.length,
   };
-  for (const rt of mhState.resolvedSitePath) {
-    switch (rt) {
-      case RegionType.Wilderness: sitePathCounts.wildernessCount++; break;
-      case RegionType.Shadow: sitePathCounts.shadowCount++; break;
-      case RegionType.Dark: sitePathCounts.darkCount++; break;
-      case RegionType.Coastal: sitePathCounts.coastalCount++; break;
-      case RegionType.Free: sitePathCounts.freeCount++; break;
-      case RegionType.Border: sitePathCounts.borderCount++; break;
-    }
-  }
   // Expose the movement type so a draw-modifier can require an actual region
   // site path. A Short Rest only works for companies with a site path — never
   // under-deeps or special movement (CRF 22 ruling) — both of which resolve to

@@ -74,6 +74,8 @@ function createDefaultAppState() {
   lobbyPlayerCredits: 0,
   /** Name of the player who sent us a challenge (lobby mode). */
   challengeFrom: null as string | null,
+  /** Names of players we have an outstanding (sent, not yet answered) challenge to. */
+  sentChallenges: new Set<string>(),
 
   /** Instance ID to definition ID lookup for the current game state. */
   lastInstanceLookup: (() => undefined) as (instId: CardInstanceId) => CardDefinitionId | undefined,
@@ -100,6 +102,14 @@ function createDefaultAppState() {
   currentStateSeq: 0,
   /** Opponent player name (lobby mode, set on 'game-starting'). */
   opponentName: null as string | null,
+
+  /**
+   * Whether the current game connection is a spectator (watching another
+   * players' game). Spectators receive no legal actions and, when the game
+   * ends or the connection drops, return to the lobby instead of trying to
+   * rejoin as a player.
+   */
+  spectating: false,
 
   /** Whether the current game is a pseudo-AI game (human controls both sides). */
   isPseudoAi: false,
@@ -184,6 +194,12 @@ export type MeccgSharedState = {
   restoreDice: (() => void) | undefined;
   /** Clear all game board elements (hand, actions, companies, dice). */
   clearGameBoard: (() => void) | undefined;
+  /**
+   * Re-apply dev-mode UI visibility (dev menu, debug-view toggle). Called on
+   * every game connect so spectator mode can force the debug controls off
+   * regardless of the viewer's saved dev-mode setting.
+   */
+  refreshDevMode: (() => void) | undefined;
 
   // ---- Registered by the deck-editor bundle ----
   /** Load and render the deck list. */
@@ -225,6 +241,7 @@ const _shared: MeccgSharedState = window.__meccg ?? {
   clearDice: undefined,
   restoreDice: undefined,
   clearGameBoard: undefined,
+  refreshDevMode: undefined,
   loadDecks: undefined,
   openDeckEditor: undefined,
 };

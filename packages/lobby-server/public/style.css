@@ -1654,6 +1654,34 @@ h2 {
   filter: none;
 }
 
+/* An in-progress "p1 vs. p2" game, distinguished from a challengeable player
+   by a cool-toned left border. */
+.lobby-game-item {
+  border-left-color: rgba(90,150,196,0.6);
+}
+
+.lobby-game-item:hover {
+  border-left-color: #5a96c4;
+}
+
+/* Cancel a challenge you already sent: a muted slate button, distinct from the
+   gold Challenge call-to-action, so a pending outgoing challenge reads clearly. */
+.lobby-player-item button.lobby-cancel-btn {
+  background: linear-gradient(180deg, #4a4a5a 0%, #3a3a48 50%, #2a2a36 100%);
+  color: #d8d2c2;
+  border-color: #55555f;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Muted status shown for a player busy in a (non-watchable) AI game. */
+.lobby-player-status {
+  color: #6b6b7a;
+  font-size: 0.78rem;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  padding-right: 0.35rem;
+}
+
 #challenge-incoming {
   margin-top: 1rem;
   padding: 0.85rem 1rem;
@@ -4195,6 +4223,19 @@ h2 {
   z-index: var(--z-hover);
 }
 
+/* Spectators cannot play from the hand, so it must not lift on hover (or peek):
+   it stays tucked at its resting position. Each state keeps its own resting
+   value (-10vh normally, -18vh in combat) so the arc does not move at all. */
+body.spectating #hand-arc:hover,
+body.spectating #hand-arc.kbd-peek {
+  bottom: -10vh;
+}
+
+body.spectating.combat-active #hand-arc:hover,
+body.spectating.combat-active #hand-arc.kbd-peek {
+  bottom: -18vh;
+}
+
 #opponent-arc {
   top: -19vh;
 }
@@ -4254,6 +4295,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
 .hand-card-dimmed {
   filter: brightness(0.4);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
+  cursor: default;
+}
+
+/* Spectator hand: revealed but non-interactive — a plain drop shadow instead
+   of the "playable" glow, default cursor, and no hover response. */
+.hand-card-static {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
   cursor: default;
 }
 

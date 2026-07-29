@@ -27,6 +27,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { defById, getCardEffects, matchesDefinition } from './reducer-utils.js';
 import { notPlayable } from './legal-actions/action-builders.js';
 import { logDetail } from './legal-actions/log.js';
+import { hasPendingPlay } from './pending.js';
 
 /** Action types that put a card from hand into play as an event. */
 const PLAY_FROM_HAND_ACTIONS = new Set([
@@ -107,6 +108,60 @@ export function applyCardPlayProhibitions(
     const name = def?.name ?? (defId as string);
     logDetail(`prohibit-card-play: ${name} may not be played while a card prohibiting it is in play`);
     result.push(notPlayable(playerId, instId as CardInstanceId, `${name}: cannot be played while it is prohibited by a card in play`));
+  }
+  return result;
+}
+
+/**
+ * Drop a card from the offered actions while its own play is already pending.
+ *
+ * Some plays are not applied when declared. A resource played into a company
+ * holding on-guard cards is captured as a pending `on-guard-window` resolution
+ * so the hazard player may reveal first, and the card waits in hand until that
+ * window closes. The emitters read `player.hand` directly, so without this
+ * filter the same card is offered again while its play is still in flight.
+ *
+ * Declaring it again simply queues a second window holding its own copy of the
+ * deferred action. When the windows resolve, the first play removes the card
+ * from hand and the second fails in `handlePlayResourceShortEvent` with 'Card
+ * not found in hand' — which is how seed 599 (heuristic vs h2, decks
+ * challenge-deck-a / challenge-deck-b) ended in an engine error, after one card
+ * had been declared five times running. Both agents did it and neither knew;
+ * nothing in the state said the card was spoken for.
+ *
+ * CoE 5.1 discards a short event after it resolves, and the engine models
+ * "declared but not resolved" by leaving the card in hand behind the window.
+ * That is a reasonable implementation, but a card whose play is already pending
+ * is not a card that can be played again.
+ */
+export function applyPendingPlayFilter(
+  state: GameState,
+  playerId: PlayerId,
+  evaluated: readonly EvaluatedAction[],
+): EvaluatedAction[] {
+  if (state.pendingResolutions.length === 0) return [...evaluated];
+
+  const explained = new Set<string>();
+  const result: EvaluatedAction[] = [];
+  for (const ea of evaluated) {
+    const a = ea.action as unknown as Record<string, unknown>;
+    const type = a['type'];
+    const instId = a['cardInstanceId'];
+    if (!ea.viable
+      || typeof type !== 'string'
+      || !PLAY_FROM_HAND_ACTIONS.has(type)
+      || typeof instId !== 'string'
+      || !hasPendingPlay(state, instId as CardInstanceId)) {
+      result.push(ea);
+      continue;
+    }
+    if (explained.has(instId)) continue;
+    explained.add(instId);
+    const defId = resolveInstanceId(state, instId as CardInstanceId);
+    const def = defId ? defById(state, defId) : undefined;
+    const name = def?.name ?? (defId as string);
+    logDetail(`pending-play: ${name} is already declared and awaiting resolution — not playable again`);
+    result.push(notPlayable(playerId, instId as CardInstanceId, `${name}: already declared and awaiting resolution`));
   }
   return result;
 }

@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -15,7 +15,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
-import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
+import { CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -5127,4 +5127,68 @@ export function attackSourceCreatureInstanceId(combat: CombatState): CardInstanc
     case 'played-auto-attack': return source.instanceId;
     default: return null;
   }
+}
+
+/**
+ * Per-region-type occurrence counts for a site path, keyed as `{type}Count`
+ * so DSL conditions and value expressions can reference them directly
+ * (e.g. `destinationSite.sitePath.wildernessCount >= 2`).
+ */
+export interface RegionTypeCounts {
+  wildernessCount: number;
+  shadowCount: number;
+  darkCount: number;
+  coastalCount: number;
+  freeCount: number;
+  borderCount: number;
+}
+
+/**
+ * Count occurrences of each region type in a site path.
+ *
+ * Callers that expose the path length to the DSL spread the result and add
+ * their own key for it — the name differs by context (`regionCount` for
+ * draw-modifier resolution, `length` for hazard-play conditions).
+ */
+export function regionTypeCounts(path: readonly RegionType[]): RegionTypeCounts {
+  const counts: RegionTypeCounts = {
+    wildernessCount: 0, shadowCount: 0, darkCount: 0,
+    coastalCount: 0, freeCount: 0, borderCount: 0,
+  };
+  for (const rt of path) {
+    switch (rt) {
+      case RegionType.Wilderness: counts.wildernessCount++; break;
+      case RegionType.Shadow: counts.shadowCount++; break;
+      case RegionType.Dark: counts.darkCount++; break;
+      case RegionType.Coastal: counts.coastalCount++; break;
+      case RegionType.Free: counts.freeCount++; break;
+      case RegionType.Border: counts.borderCount++; break;
+    }
+  }
+  return counts;
+}
+
+/**
+ * Check whether any of a creature's region types can be keyed to a site path.
+ *
+ * Each distinct region type is an independent keying option (OR). If the same
+ * type appears N times on the creature card, the path must contain at least N
+ * regions of that type.
+ *
+ * Per CoE: "If multiple of the same region type appear on the creature card,
+ * the company must be moving through at least that many corresponding regions
+ * (but which need not be consecutive)."
+ */
+export function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
+  // Count how many of each type the creature requires
+  const requiredCounts = new Map<RegionType, number>();
+  for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
+  // Count how many of each type are in the path
+  const pathCounts = new Map<RegionType, number>();
+  for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
+  // Any type with enough matches in the path is sufficient (OR)
+  for (const [rt, need] of requiredCounts) {
+    if ((pathCounts.get(rt) ?? 0) >= need) return true;
+  }
+  return false;
 }

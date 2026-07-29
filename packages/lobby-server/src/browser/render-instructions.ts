@@ -9,6 +9,7 @@
 
 import type { PlayerView, GameAction } from '@meccg/shared';
 import { Phase } from '@meccg/shared';
+import { appState } from './app-state.js';
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
 export function renderPassButton(view: PlayerView, onAction: (action: GameAction) => void): void {
@@ -23,6 +24,14 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.getElementById('call-council-btn')?.remove();
   document.getElementById('skip-cvcc-btn')?.remove();
   document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
+
+  // Spectators never act: hide both the pass button and the "Waiting…" box
+  // (which would otherwise show permanently, since they have no legal actions).
+  if (appState.spectating) {
+    btn.classList.add('hidden');
+    document.getElementById('waiting-indicator')?.classList.add('hidden');
+    return;
+  }
 
   // Find a viable pass-like or single-step action (including chain priority pass)
   const passEval = view.legalActions.find(ea =>
