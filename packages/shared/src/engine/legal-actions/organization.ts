@@ -2607,7 +2607,7 @@ export function playResourceShortEventActions(
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'strike-modifier']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack']);
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
@@ -2776,16 +2776,30 @@ export function playResourceShortEventActions(
     // effect — a gated combat-only card (Eye Never Sleeping as-82: "Playable
     // if you are Sauron. Cancel one hazard creature attack.") stays
     // combat-only.
-    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status', 'play-condition']);
-    const hasEffects = def.effects && def.effects.length > 0;
-    const allCombatOnly = hasEffects && def.effects.every(e => {
-      if (combatSupportTypes.has(e.type)) return true;
-      if (e.type === 'duplication-limit' && (e as { scope?: string }).scope === 'attack') return true;
+    // duplication-limit is a companion to company-combat-boost (e.g. The
+    // Dwarves Are upon You!) or attack-modifiers (e.g. Not Slay Needlessly):
+    // it describes per-attack duplication rules and does not represent an
+    // independent non-combat effect. This mirrors the combat-only check in
+    // heroResourceShortEventActions (legal-actions/long-event.ts) — keep the
+    // two in sync.
+    const effects = getCardEffects(def);
+    const hasCancelAttack = effects.some(e => e.type === 'cancel-attack');
+    const hasModifyAttack = effects.some(e => e.type === 'modify-attack');
+    const hasCompanyCombatBoost = effects.some(e => e.type === 'company-combat-boost');
+    const hasCombatEffect = hasCancelAttack || hasModifyAttack || hasCompanyCombatBoost;
+    const allCombatOnly = effects.length > 0 && effects.every(e => {
+      if (combatOnlyTypes.has(e.type)) return true;
+      if (e.type === 'modify-attack') return true;
+      if (e.type === 'company-combat-boost') return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
+      if (hasCancelAttack && (e.type === 'play-target' || (e.type === 'set-character-status' && e.status === 'inverted'))) return true;
+      if (hasCombatEffect && e.type === 'duplication-limit') return true;
+      if (hasCombatEffect && e.type === 'play-condition') return true;
       return false;
     });
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+      actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} can only be played during combat`));
       continue;
     }
 

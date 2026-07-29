@@ -251,6 +251,39 @@ describe('The Dwarves Are upon You! (dm-124)', () => {
     expect(combatActions.length).toBeGreaterThan(0);
   });
 
+  // ── Regression: not offered during the organization phase (no attack) ────
+
+  test('NOT offered during the organization phase when no attack is in progress', () => {
+    // Bug report: the organization-phase resource short-event evaluator
+    // (playResourceShortEventActions) offered this card as playable even
+    // with no active combat, because it did not recognize the
+    // `company-combat-boost` effect as combat-only (unlike the equivalent
+    // check used by every other phase). Playing it there had no effect
+    // (the reducer only applies the boost when `state.combat` is set),
+    // silently wasting the card.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [GIMLI] }],
+          hand: [DWARVES_ARE_UPON_YOU],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(actions).toHaveLength(0);
+  });
+
   // ── Rule 5: Cannot be duplicated against a given attack ──────────────────
 
   test('second copy blocked during the same attack', () => {
