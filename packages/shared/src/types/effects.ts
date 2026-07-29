@@ -1961,6 +1961,7 @@ export type TriggeredActionType =
   | 'force-discard-one-company-item'
   | 'enqueue-corruption-check'
   | 'enqueue-body-check'
+  | 'enqueue-site-wound-rolls'
   | 'malady-without-healing'
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
@@ -2109,6 +2110,41 @@ export interface EnqueueBodyCheckAction extends TriggeredActionBase {
   readonly awardKillMpTo?: PlayerId;
   /** UI/log banner for the enqueued check. */
   readonly reason?: string;
+}
+
+/**
+ * `enqueue-site-wound-rolls` — an `end-of-turn` on-event apply carried by a
+ * permanent hazard **attached to a character**, modelling a plague-style
+ * contagion that afflicts everybody standing at the bearer's site rather than
+ * just the bearer.
+ *
+ * The scan (`fireEndOfTurnSiteWoundRolls`, `reducer-site.ts`) runs when the
+ * bearer's controller is the active player — i.e. at the end of *that* player's
+ * turn, which is "the end of your opponent's turn" from the hazard player's
+ * seat. For every character standing at the same site as the bearer (either
+ * player's companies, the bearer included) whose definition matches the
+ * optional {@link filter}, it enqueues one generic `dice-check`: the
+ * character's own controller rolls 2d6, adds {@link modifier}, and on a total
+ * strictly greater than the character's **effective** body the
+ * `wound-or-eliminate` verb (ba-54) wounds him — or eliminates him if he was
+ * already wounded.
+ *
+ * Used by Plague (le-129): "At the end of your opponent's turn, each
+ * non-Ringwraith, non-Wizard, non-Elf character at the same site as the target
+ * must make a roll modified by -2. If the result is greater than the
+ * character's body, he is wounded or he is eliminated if he is already
+ * wounded."
+ */
+export interface EnqueueSiteWoundRollsAction extends TriggeredActionBase {
+  readonly type: 'enqueue-site-wound-rolls';
+  /** Constant added to each character's 2d6 roll (Plague le-129: `-2`). */
+  readonly modifier: number;
+  /**
+   * DSL condition evaluated against each candidate character's card
+   * definition (bare definition fields such as `race`, `cardType`). Characters
+   * that fail it are skipped. Omit to afflict every character at the site.
+   */
+  readonly filter?: Condition;
 }
 
 /**
@@ -2842,6 +2878,7 @@ export type TriggeredAction =
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
   | EnqueueBodyCheckAction
+  | EnqueueSiteWoundRollsAction
   | MaladyWithoutHealingAction
   | RollCheckAction
   | RollThenApplyAction

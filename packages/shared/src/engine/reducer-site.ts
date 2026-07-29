@@ -24,7 +24,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -97,7 +97,8 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   logDetail(`Site: active player ${action.player as string} passed → advancing to End-of-Turn phase`);
   const withFetch = fireEndOfTurnFetchEffects(state);
   const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
-  const withRingTests = fireEndOfTurnGoldRingTests(withChecks);
+  const withPlague = fireEndOfTurnSiteWoundRolls(withChecks);
+  const withRingTests = fireEndOfTurnGoldRingTests(withPlague);
   return {
     state: {
       ...withRingTests,
@@ -4398,6 +4399,87 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
 }
 
 /**
+ * Scan the active (resource) player's characters for attached hazards with an
+ * `on-event: end-of-turn` + `enqueue-site-wound-rolls` apply, and enqueue one
+ * wound-or-eliminate roll per character standing at the bearer's site.
+ *
+ * The scan deliberately walks the *active* player's characters only: the card
+ * is attached to an opponent's character, so "the end of your opponent's turn"
+ * is exactly the end of the turn in which the bearer's controller is active.
+ *
+ * "At the same site" is matched by site *name*, so the hero and minion versions
+ * of a location count as one place (the `hasCvCCAttackTargets` convention), and
+ * both players' companies are scanned — a company of the hazard player's own
+ * standing at the site catches the plague too. The bearer himself is included:
+ * he is at the same site as himself.
+ *
+ * Each roll is a generic `dice-check` rolled by the afflicted character's own
+ * controller: 2d6 + `modifier` strictly greater than his effective body fires
+ * the `wound-or-eliminate` verb (wound, or eliminate if already wounded).
+ *
+ * Used by *Plague* (le-129).
+ */
+function fireEndOfTurnSiteWoundRolls(state: GameState): GameState {
+  const resourcePlayer = playerById(state, state.activePlayer)!;
+  const owners = state.players;
+
+  let newState = state;
+  for (const company of resourcePlayer.companies) {
+    const siteName = companySiteName(newState, company);
+    if (!siteName) continue;
+    for (const charId of company.characters) {
+      const bearer = resourcePlayer.characters[charId];
+      if (!bearer) continue;
+      for (const hazard of bearer.hazards) {
+        const hDef = defById(newState, hazard.definitionId);
+        for (const effect of getOnEventEffects(hDef, 'end-of-turn')) {
+          if (effect.apply.type !== 'enqueue-site-wound-rolls') continue;
+          const apply = effect.apply;
+          const sourceName = hDef?.name ?? (hazard.definitionId as string);
+          logDetail(`end-of-turn: "${sourceName}" on ${charId as string} — afflicting every matching character at ${siteName} (roll ${formatSignedNumber(apply.modifier)} vs body)`);
+
+          for (const owner of owners) {
+            for (const co of owner.companies) {
+              if (companySiteName(newState, co) !== siteName) continue;
+              for (const victimId of co.characters) {
+                const victim = owner.characters[victimId];
+                if (!victim) continue;
+                const vDef = defById(newState, victim.definitionId);
+                if (!vDef || !isCharacterCard(vDef)) continue;
+                if (apply.filter && !matchesDefinition(vDef, apply.filter)) {
+                  logDetail(`end-of-turn: "${sourceName}" — ${vDef.name} does not match the affliction filter, skipping`);
+                  continue;
+                }
+                const body = victim.effectiveStats?.body ?? vDef.body ?? 0;
+                logDetail(`end-of-turn: "${sourceName}" — enqueuing roll for ${vDef.name} (body ${body}, rolled by ${owner.id as string})`);
+                newState = enqueueResolution(newState, {
+                  source: hazard.instanceId,
+                  actor: owner.id,
+                  scope: { kind: 'phase', phase: Phase.EndOfTurn },
+                  kind: {
+                    type: 'dice-check',
+                    label: `${sourceName}: ${vDef.name} (roll ${formatSignedNumber(apply.modifier)} > body ${body} → wound/eliminate)`,
+                    roller: owner.id,
+                    modifiers: [{ kind: 'constant', value: apply.modifier }],
+                    threshold: body,
+                    comparison: 'gt',
+                    onPass: { type: 'wound-or-eliminate' },
+                    continuation: { kind: 'dequeue-only' },
+                    requireTargetPresent: true,
+                    targetCharacterId: victimId,
+                  },
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return newState;
+}
+
+/**
  * Fire automatic gold-ring tests at the beginning of the end-of-turn phase
  * for Ringwraith and Balrog players (CoE rule 9.23).
  *
@@ -4759,7 +4841,8 @@ function endSitePhase(state: GameState): ReducerResult {
   const cleanedState = returnOnGuardCardsToHand(state);
   const withFetch = fireEndOfTurnFetchEffects(cleanedState);
   const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
-  const withRingTests = fireEndOfTurnGoldRingTests(withChecks);
+  const withPlague = fireEndOfTurnSiteWoundRolls(withChecks);
+  const withRingTests = fireEndOfTurnGoldRingTests(withPlague);
   return {
     state: cleanupEmptyCompanies({
       ...withRingTests,

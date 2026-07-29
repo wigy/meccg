@@ -1590,8 +1590,93 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Plague.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on a non-Ringwraith, non-Wizard, non-Elf character at or moving to a non-Haven, non-Ruins & Lairs site. At the end of your opponent’s turn, each non-Ringwraith, non-Wizard, non-Elf character at the same site as the target must make a roll modified by -2. If the result is greater than the character’s body, he is wounded or he is eliminated if he is already wounded. Discard this card during the target’s organization phase if he is at a Haven/Darkhaven [{H}]."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "fallen-wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "elf"
+              }
+            },
+            {
+              "company.siteType": {
+                "$ne": "haven"
+              }
+            },
+            {
+              "company.siteType": {
+                "$ne": "ruins-and-lairs"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-turn",
+        "apply": {
+          "type": "enqueue-site-wound-rolls",
+          "modifier": -2,
+          "filter": {
+            "$and": [
+              {
+                "race": {
+                  "$ne": "ringwraith"
+                }
+              },
+              {
+                "race": {
+                  "$ne": "wizard"
+                }
+              },
+              {
+                "race": {
+                  "$ne": "fallen-wizard"
+                }
+              },
+              {
+                "race": {
+                  "$ne": "elf"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "bearer.atHaven": true
+        }
+      }
+    ],
+    "text": "Playable on a non-Ringwraith, non-Wizard, non-Elf character at or moving to a non-Haven, non-Ruins & Lairs site. At the end of your opponent’s turn, each non-Ringwraith, non-Wizard, non-Elf character at the same site as the target must make a roll modified by -2. If the result is greater than the character’s body, he is wounded or he is eliminated if he is already wounded. Discard this card during the target’s organization phase if he is at a Haven/Darkhaven [{H}].",
+    "certified": "2026-07-29"
   },
   {
     "cardType": "hazard-event",

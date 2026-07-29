@@ -2778,6 +2778,37 @@ Apply types:
   `recompute-derived.ts`). The `corruption-check` pending kind gains the same
   `awardKillMpTo` field for hero eliminations by the corruption check itself.
 
+- `enqueue-site-wound-rolls` -- an `on-event: end-of-turn` apply carried by a
+  permanent hazard **attached to a character**, for plague-style contagion that
+  afflicts everybody standing at the bearer's site rather than just the bearer.
+  The scan (`fireEndOfTurnSiteWoundRolls`, `reducer-site.ts`) walks the
+  **active** player's characters, so it fires exactly at the end of the turn in
+  which the bearer's controller is active — "the end of your opponent's turn"
+  from the hazard player's seat. For every character standing at the same site
+  as the bearer (matched by site *name*, so hero/minion versions of a location
+  count as one place; both players' companies are scanned; the bearer himself
+  is included) whose definition matches the optional `filter`, it enqueues one
+  generic `dice-check`: the character's **own controller** rolls 2d6, adds
+  `modifier`, and on a total strictly greater than the character's *effective*
+  body the `wound-or-eliminate` verb (ba-54) wounds him — or eliminates him if
+  he was already wounded. `filter` is matched against the bare card definition
+  (`race`, `cardType`, …), not the `target.*` namespace.
+
+  ```json
+  { "type": "on-event", "event": "end-of-turn",
+    "apply": { "type": "enqueue-site-wound-rolls", "modifier": -2,
+               "filter": { "$and": [ { "race": { "$ne": "ringwraith" } },
+                                     { "race": { "$ne": "wizard" } },
+                                     { "race": { "$ne": "fallen-wizard" } },
+                                     { "race": { "$ne": "elf" } } ] } } }
+  ```
+
+  Used by Plague (le-129): "At the end of your opponent's turn, each
+  non-Ringwraith, non-Wizard, non-Elf character at the same site as the target
+  must make a roll modified by -2. If the result is greater than the
+  character's body, he is wounded or he is eliminated if he is already
+  wounded."
+
 - `play-target` gains two fields used by A Malady Without Healing (le-159):
   `targetScope: "any-player"` draws `character` candidates from **both** players
   (so a resource event may target an opponent's character), and
