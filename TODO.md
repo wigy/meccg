@@ -16,10 +16,11 @@ FIXES
 FEATS
 -----
 
+Ability to select AI and auto-play in visual mode.
+
 EPICS
 -----
 
-Watching
 Tournaments
 Super Good AI
 Tutorial
