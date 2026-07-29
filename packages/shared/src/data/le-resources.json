@@ -670,6 +670,22 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
@@ -1290,6 +1306,14 @@
     "certified": "2026-06-03",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
@@ -1355,6 +1379,14 @@
     "marshallingCategory": "misc",
     "certified": "2026-07-15",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "play-target",
         "target": "company",
@@ -1482,6 +1514,14 @@
     "marshallingCategory": "misc",
     "certified": "2026-06-09",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "play-target",
         "target": "company",
@@ -1617,6 +1657,14 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "stat-modifier",
         "stat": "prowess",
@@ -2989,7 +3037,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on any attack against Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in her company. The number of strikes of the attack is reduced to one and the attack’s body is modified by -2. Alternatively, playable on any attack by a lone Adûnaphel the Ringwraith (as your Ringwraith).You choose defending characters. Any resulting body checks for defending characters are modified by +2. Cannot be duplicated on a given attack."
   },
   {
@@ -3003,6 +3060,14 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "play-target",
         "target": "character",
@@ -3290,7 +3355,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable during the organization phase on Dwar the Ringwraith’s company (as your Ringwraith) if in a mode. His own company may use region movement this turn."
   },
   {
@@ -3430,6 +3504,14 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-condition",
         "requires": "player-state",
         "condition": {
@@ -3544,7 +3626,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on any attack against Indûr the Ringwraith’s own company (as your Ringwraith). The attack is canceled. Alternatively, playable when Indûr the Ringwraith’s own company (as your Ringwraith) declares an attack. The attack cannot be canceled."
   },
   {
@@ -3570,7 +3661,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on any attack against Khamûl the Ringwraith’s own company (as your Ringwraith). The prowess of the attack is modified by -3. Alternatively, playable on any attack by Khamûl the Ringwraith’s own company (as your Ringwraith). You choose defending characters."
   },
   {
@@ -3583,7 +3683,24 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable during the site phase on a company at Bag End. It faces a Hobbit attack (4 strikes with 6 prowess). If no characters are untapped after the attack, discard this card. Otherwise, you may tap one character in the company and put this card under his control. No marshalling points are received and that character may not untap until this card is stored at Barad-dûr during his organization phase. Only the first Kill All But NOT the Halflings stored is worth 5 marshalling points, all others are only worth 1 point each. Cannot be included in a Balrog's/Fallen-wizard's deck."
   },
   {
@@ -3611,6 +3728,22 @@
     "marshallingCategory": "misc",
     "certified": "2026-07-20",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "play-condition",
         "requires": "player-state",
@@ -3656,7 +3789,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      }
+    ],
     "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character at a Darkhaven [{DH}], Shadow-hold [{S}], or Dark-hold [{D}]. Any items and resource events with his company that can be stored at a Darkhaven [{DH}] may now be so stored. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be included in a Fallen-wizard's deck."
   },
   {
@@ -3669,7 +3811,16 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on your Ringwraith or a Ringwraith follower. Each strike against the Ringwraith receives -1 body and -1 prowess. Discard Morgul-blade after a strike against the Ringwraith fails.Cannot be duplicated on a given Ringwraith.Cannot be included in a Balrog's deck."
   },
   {
@@ -3708,7 +3859,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      }
+    ],
     "text": "Playable on a company at a Darkhaven [{DH}], Shadow-hold [{S}], or Dark-hold [{D}]. Any resource events with the company that can be stored at a Darkhaven [{DH}] may now be so stored.Cannot be included in a Fallen-wizard's deck."
   },
   {
@@ -3721,7 +3881,24 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable during the site phase on an untapped character at Bag End. Tap the character. No marshalling points are received until this card is stored at Barad-dûr during his organization phase. Only the first News of the Shire stored is worth 3 marshalling points, all others are only worth 1 marshalling point each. If stored, The Shire becomes a Border-land [{b}], and Bag End becomes a Border-hold [{B}]. Cannot be included in a Balrog's/Fallen-wizard's deck."
   },
   {
@@ -3917,7 +4094,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on Ren the Ringwraith (as your Ringwraith). All characters at the same site as Ren must make a corruption check modified by -2."
   },
   {
@@ -3931,6 +4117,14 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
       {
         "type": "move",
         "select": "target",
@@ -4152,7 +4346,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable only at a Darkhaven [{DH}] during the organization phase on your Ringwraith’s company. You may bring any Ringwraith followers into play with your Ringwraith’s company as you have in your hand and have direct influence to control."
   },
   {
@@ -4238,7 +4441,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on Ûvatha the Ringwraith’s own company (if Ûvatha is your Ringwraith) at the end of his movement/hazard phase. His company may move to an additional site this turn. A site card may be played and another movement/hazard phase immediately follows for his company."
   },
   {
@@ -4330,6 +4542,14 @@
     "certified": "2026-07-29",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
@@ -4387,7 +4607,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      }
+    ],
     "text": "Playable on The Witch-king (as your Ringwraith). +5 to his direct influence this turn. Cannot be duplicated on a given turn."
   },
   {

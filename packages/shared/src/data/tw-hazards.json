@@ -868,6 +868,14 @@
     "marshallingPointsType": "kill",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {

@@ -438,6 +438,22 @@
     "certified": "2026-07-25",
     "effects": [
       {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "fallen-wizard"
+        },
+        "reason": "rule 1.18"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "excluded-from-deck",
+        "when": {
+          "deck.alignment": "balrog"
+        },
+        "reason": "rule 1.23"
+      },
+      {
         "type": "play-condition",
         "requires": "player-state",
         "condition": {
