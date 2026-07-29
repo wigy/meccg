@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Update the deployed MECCG dev instance on the remote server.
+#
+# Connects over SSH and, in the deployment directory, pulls the latest
+# dataplug/meccg-dev:latest image and restarts the stack.
+#
+# Usage: bin/update-dev
+set -euo pipefail
+
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/update-dev
+
+Update the deployed MECCG dev instance. SSHes into the server and runs:
+
+  docker pull dataplug/meccg-dev:latest
+  ./prod.sh up -d
+
+Environment:
+  METW_SERVER      SSH host to connect to (default: dataplug)
+  METW_PATH        Deployment directory on the server (default: /home/wigy/dataplug)
+
+Options:
+  -h, --help       Show this help message.
+EOF
+  exit 0
+fi
+
+METW_SERVER="${METW_SERVER:-dataplug}"
+METW_PATH="${METW_PATH:-/home/wigy/dataplug}"
+
+log() { echo "[update-dev] $*"; }
+
+log "Updating $METW_SERVER:$METW_PATH..."
+
+ssh "$METW_SERVER" bash -s <<EOF
+set -euo pipefail
+cd "$METW_PATH"
+docker pull dataplug/meccg-dev:latest
+./prod.sh up -d
+EOF
+
+log "Done."
