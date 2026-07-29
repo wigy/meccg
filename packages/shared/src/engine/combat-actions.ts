@@ -1239,6 +1239,15 @@ export function handleConvertCreatureToAlly(state: GameState, action: GameAction
  * Halve the number of strikes in the current attack (rounded up) by
  * discarding a short event card from hand. Only allowed during the
  * assign-strikes phase before any strikes have been assigned.
+ *
+ * For a multi-attack creature (e.g. Slayer le-90 — "two attacks of one
+ * strike each"), CoE 2.IV.vii.2.1 resolves each attack as a separate combat
+ * in succession, and 3.i's "modify attributes of the attack as a whole"
+ * window only covers the *current* attack. `combat.strikesTotal` pools the
+ * remaining attacks' strikes together (`multiAttackCount × strikesPerAttack`)
+ * for bookkeeping, but a strike-reduction effect must only touch the current
+ * attack's share (`strikesPerAttack`) — the other, not-yet-resolved attacks
+ * are untouched and contribute their full strikes back into the new total.
  */
 export function handleHalveStrikes(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'halve-strikes') return wrongActionType(state, action, 'halve-strikes');
@@ -1253,21 +1262,27 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
   if (!discardedCard) return { state, error: 'Card not in hand' };
 
   const originalStrikes = combat.strikesTotal;
+  const perAttackStrikes = combat.strikesPerAttack ?? originalStrikes;
+  const remainingAttacks = Math.max(0, (combat.multiAttackCount ?? 1) - 1);
+  const untouchedStrikes = perAttackStrikes * remainingAttacks;
+  const currentAttackStrikes = originalStrikes - untouchedStrikes;
+
   const cardDef = state.cardPool[discardedCard.definitionId];
   const halveEffect = getCardEffects(cardDef).find(
     (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
   );
   const op = halveEffect?.op ?? 'halve';
-  let newStrikes: number;
+  let newCurrentAttackStrikes: number;
   if (op === 'subtract') {
     const subtractValue = halveEffect?.value ?? 2;
     const min = halveEffect?.min ?? 1;
-    newStrikes = Math.max(min, originalStrikes - subtractValue);
-    logDetail(`Strikes reduced by ${subtractValue} (min ${min}): ${originalStrikes} → ${newStrikes} (${discardedCard.definitionId as string} played)`);
+    newCurrentAttackStrikes = Math.max(min, currentAttackStrikes - subtractValue);
+    logDetail(`Strikes reduced by ${subtractValue} (min ${min}): current attack ${currentAttackStrikes} → ${newCurrentAttackStrikes} (${untouchedStrikes} untouched from ${remainingAttacks} further attack(s)) (${discardedCard.definitionId as string} played)`);
   } else {
-    newStrikes = Math.ceil(originalStrikes / 2);
-    logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${discardedCard.definitionId as string} played)`);
+    newCurrentAttackStrikes = Math.ceil(currentAttackStrikes / 2);
+    logDetail(`Strikes halved: current attack ${currentAttackStrikes} → ${newCurrentAttackStrikes} (${untouchedStrikes} untouched from ${remainingAttacks} further attack(s)) (${discardedCard.definitionId as string} played)`);
   }
+  const newStrikes = newCurrentAttackStrikes + untouchedStrikes;
 
   const newHand = removeById(defPlayer.hand, discardedCard.instanceId);
   const newDiscard = [...defPlayer.discardPile, toCardInstance(discardedCard)];

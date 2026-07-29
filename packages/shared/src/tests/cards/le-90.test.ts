@@ -32,12 +32,13 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
+  DARK_QUARRELS, GATES_OF_MORNING,
   buildTestState, resetMint, makeMHState,
   resolveChain,
-  handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  handCardId, companyIdAt, charIdAt, dispatch, viableActions, expectInDiscardPile, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, SiteType } from '../../index.js';
-import type { CardDefinitionId } from '../../index.js';
+import { computeLegalActions, Phase, SiteType, CardStatus } from '../../index.js';
+import type { CardDefinitionId, CardInPlay, CardInstanceId } from '../../index.js';
 
 const SLAYER = 'le-90' as CardDefinitionId;
 
@@ -485,5 +486,73 @@ describe('Slayer (le-90)', () => {
     expect(r3.combat!.strikesTotal).toBe(1);
     expect(r3.players[0].characters[aragornCharId].status).toBe('tapped');
     expect(r3.combat!.phase).toBe('resolve-strike');
+  });
+
+  test('a generic halve-strikes effect (Dark Quarrels) does not remove a whole attack', () => {
+    // Regression test: Slayer's two attacks (of one strike each) are resolved
+    // as two separate attacks in succession (CoE 2.IV.vii.2.1); a "reduce
+    // strikes" effect only affects the *current* attack (CoE 3.i), so halving
+    // the current 1-strike attack (ceil(1/2) = 1) leaves it unchanged, and the
+    // second, not-yet-resolved attack contributes its strike untouched. Total
+    // strikes must remain 2, not collapse to 1 (which would silently cancel an
+    // entire attack the halving effect was never meant to reach).
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [DARK_QUARRELS],
+          siteDeck: [MINAS_TIRITH],
+          cardsInPlay: [gomInPlay],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [SLAYER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const slayerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: slayerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+    expect(afterChain.combat!.strikesTotal).toBe(2);
+    expect(afterChain.combat!.multiAttackCount).toBe(2);
+    expect(afterChain.combat!.strikesPerAttack).toBe(1);
+
+    const halveActions = viableActions(afterChain, PLAYER_1, 'halve-strikes');
+    expect(halveActions.length).toBe(1);
+
+    const afterHalve = dispatch(afterChain, halveActions[0].action);
+
+    // Still 2 total strikes: the current attack's single strike can't be
+    // halved below 1, and the second attack is entirely untouched.
+    expect(afterHalve.combat!.strikesTotal).toBe(2);
+    expectInDiscardPile(afterHalve, RESOURCE_PLAYER, DARK_QUARRELS);
   });
 });
