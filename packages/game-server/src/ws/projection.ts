@@ -106,6 +106,7 @@ function commonViewFields(state: GameState, player: PlayerState) {
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
     marshallingPoints: player.marshallingPoints,
+    callableMarshallingPoints: player.callableMarshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
     generalInfluence: effectiveGeneralInfluence(state, player.id),
     stagePoints: player.stagePoints,
