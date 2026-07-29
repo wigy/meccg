@@ -53,8 +53,9 @@ import {
 } from './company-view-state.js';
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
-import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu } from './company-modals.js';
-import { showTooltipMenu } from './tooltip-menu.js';
+import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems } from './company-modals.js';
+import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
+import { resolveItemClick } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
 
 /**
@@ -359,8 +360,41 @@ export function renderCompanyBlock(
     };
   };
 
-  /** Build the item click handler for an item on a character, if applicable. */
+  /**
+   * Discard-target short event: highlight and click the target card. Shared by
+   * items and hazards since a discard-target short event can name either.
+   */
+  const buildDiscardTargetClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    const selectedSE = getSelectedShortEvent();
+    if (!selectedSE || !options?.onAction) return undefined;
+    const seAction = viableActions(lastView!.legalActions).find(
+      (a): a is PlayShortEventAction => a.type === 'play-short-event'
+        && a.cardInstanceId === selectedSE
+        && a.discardTargetInstanceId === instId,
+    );
+    if (!seAction) return undefined;
+    return {
+      cls: 'company-card--influence-target',
+      handler: (e) => {
+        e.stopPropagation();
+        clearShortEventSelection();
+        options.onAction!(seAction);
+      },
+    };
+  };
+
+  /**
+   * Build the item click handler for an item on a character, if applicable.
+   *
+   * An item can simultaneously be storable at the current site, transferable
+   * to another character, AND carry its own granted action (e.g. Cram is both
+   * transferable and grants untap-bearer / extra-region-movement) — all
+   * options are merged into one menu so none is silently hidden behind another.
+   */
   const buildItemClick = (itemInstId: CardInstanceId, charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    const discardClick = buildDiscardTargetClick(itemInstId);
+    if (discardClick) return discardClick;
+
     if (!options?.onAction) return undefined;
 
     if (transferItemSourceId) {
@@ -381,16 +415,15 @@ export function renderCompanyBlock(
       return undefined;
     }
 
-    // Not in targeting mode — gather the item's possible actions. An item may be
-    // both storable at the current site AND transferable to other characters; we
-    // must never silently commit to one when the other is also legal.
+    // Not in targeting mode — gather the item's possible actions.
     const onAction = options.onAction;
     const storeAction = options.storeItemActions?.get(itemInstId as string);
     const hasStore = !!storeAction && storeAction.characterId === charInstId;
     const transferActions = options.transferActions?.get(itemInstId as string) ?? [];
-    const hasTransfer = transferActions.length > 0;
+    const grantedActions = options.grantedActions?.get(itemInstId as string) ?? [];
 
-    if (!hasStore && !hasTransfer) return undefined;
+    const resolution = resolveItemClick(grantedActions, hasStore ? storeAction : undefined, transferActions);
+    if (resolution.kind === 'none') return undefined;
 
     const itemDefId = cachedInstanceLookup(itemInstId);
     const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
@@ -405,28 +438,41 @@ export function renderCompanyBlock(
       rerender();
     };
 
-    // Both options available — present a menu so the player explicitly chooses
-    // between storing and transferring instead of one action being forced.
-    if (hasStore && hasTransfer) {
+    // More than one option available — present a menu so the player explicitly
+    // chooses instead of one option being forced or silently hidden.
+    if (resolution.kind === 'menu') {
+      const menuItems: TooltipMenuItem[] = [
+        ...buildGrantedActionMenuItems(grantedActions, onAction),
+        ...(hasStore ? [{ label: 'Store at site', onClick: () => onAction(storeAction) }] : []),
+        ...(transferActions.length > 0 ? [{ label: `Transfer ${itemName ?? 'item'}`, onClick: enterTransferMode }] : []),
+      ];
       return {
         cls: 'company-card--transfer-source',
         handler: (e) => {
           e.stopPropagation();
-          showTooltipMenu(e.currentTarget as HTMLElement, [
-            { label: 'Store at site', onClick: () => onAction(storeAction) },
-            { label: `Transfer ${itemName ?? 'item'}`, onClick: enterTransferMode },
-          ], { placement: 'auto' });
+          showTooltipMenu(e.currentTarget as HTMLElement, menuItems, { placement: 'auto' });
+        },
+      };
+    }
+
+    // Only a granted action is available — commit it directly.
+    if (resolution.kind === 'granted') {
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          onAction(resolution.action);
         },
       };
     }
 
     // Only storing is available — commit the store action directly.
-    if (hasStore) {
+    if (resolution.kind === 'store') {
       return {
         cls: 'company-card--transfer-source',
         handler: (e) => {
           e.stopPropagation();
-          onAction(storeAction);
+          onAction(resolution.action);
         },
       };
     }
@@ -444,27 +490,10 @@ export function renderCompanyBlock(
     };
   };
 
-  /** Build click handler for cards with granted actions (hazards or items like Cram). */
+  /** Build click handler for cards with granted actions (hazards, or bearer-less in-play cards). */
   const buildHazardClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
-    // Discard-target short event: highlight and click the target hazard
-    const selectedSE = getSelectedShortEvent();
-    if (selectedSE && options?.onAction) {
-      const seAction = viableActions(lastView!.legalActions).find(
-        (a): a is PlayShortEventAction => a.type === 'play-short-event'
-          && a.cardInstanceId === selectedSE
-          && a.discardTargetInstanceId === instId,
-      );
-      if (seAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearShortEventSelection();
-            options.onAction!(seAction);
-          },
-        };
-      }
-    }
+    const discardClick = buildDiscardTargetClick(instId);
+    if (discardClick) return discardClick;
 
     if (!options?.onAction || !options.grantedActions) return undefined;
     const actions = options.grantedActions.get(instId as string);

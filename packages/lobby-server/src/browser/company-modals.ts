@@ -667,19 +667,21 @@ export function showInPlayGrantedActionMenu(
 }
 
 /**
- * Show a tooltip menu for choosing between multiple granted actions on a single card
- * (e.g. Cram offers both untap-bearer and extra-region-movement).
+ * Build the tooltip menu items for a set of granted actions on a single card
+ * (e.g. Cram offers both untap-bearer and extra-region-movement). Exported so
+ * callers that need to merge granted actions into a larger combined menu
+ * (e.g. an item that is both usable and transferable) can build the entries
+ * without opening a tooltip themselves.
  *
  * @param getCharacterName - optional lookup that resolves a character instance ID
  *   to a display name; used to disambiguate items when multiple characters offer
  *   the same action (e.g. two rangers each able to cancel River).
  */
-export function showGrantedActionTooltip(
-  anchor: HTMLElement,
-  actions: ActivateGrantedAction[],
+export function buildGrantedActionMenuItems(
+  actions: readonly ActivateGrantedAction[],
   onAction: (action: GameAction) => void,
   getCharacterName?: (id: CardInstanceId) => string | undefined,
-): void {
+): TooltipMenuItem[] {
   // Detect when multiple entries share the same actionId so we know whether
   // appending a character name is necessary to distinguish them.
   const actionIdCounts = new Map<string, number>();
@@ -687,7 +689,7 @@ export function showGrantedActionTooltip(
     actionIdCounts.set(a.actionId, (actionIdCounts.get(a.actionId) ?? 0) + 1);
   }
 
-  const items = actions.map((action): TooltipMenuItem => {
+  return actions.map((action): TooltipMenuItem => {
     // METD §7 / rule 10.08: corruption removal has two variants for the
     // same actionId — tap-and-roll (standard) vs no-tap-at-minus-3.
     // Distinguish them by the action's `noTap` flag; otherwise fall back
@@ -707,8 +709,23 @@ export function showGrantedActionTooltip(
     }
     return { label, onClick: () => onAction(action) };
   });
+}
 
-  showTooltipMenu(anchor, items);
+/**
+ * Show a tooltip menu for choosing between multiple granted actions on a single card
+ * (e.g. Cram offers both untap-bearer and extra-region-movement).
+ *
+ * @param getCharacterName - optional lookup that resolves a character instance ID
+ *   to a display name; used to disambiguate items when multiple characters offer
+ *   the same action (e.g. two rangers each able to cancel River).
+ */
+export function showGrantedActionTooltip(
+  anchor: HTMLElement,
+  actions: ActivateGrantedAction[],
+  onAction: (action: GameAction) => void,
+  getCharacterName?: (id: CardInstanceId) => string | undefined,
+): void {
+  showTooltipMenu(anchor, buildGrantedActionMenuItems(actions, onAction, getCharacterName));
 }
 
 /**
