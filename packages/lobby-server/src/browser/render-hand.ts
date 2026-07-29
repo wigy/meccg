@@ -9,6 +9,7 @@
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup } from '@meccg/shared';
+import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
 import {
   setTargetingInstruction,
@@ -626,6 +627,21 @@ export function renderHand(
   // Overlap cards more when there are many
   const margin = total > 7 ? -4 : -2.5;
   el.style.setProperty('--card-margin', `${margin}vh`);
+
+  // Spectators cannot act and must not see hand identities: render the bottom
+  // player's hand as face-down backs, static — no play affordance, no
+  // interactive hover — and skip all the play/selection wiring below.
+  if (appState.spectating) {
+    for (let i = 0; i < total; i++) {
+      const img = document.createElement('img');
+      img.src = '/images/card-back.jpg';
+      img.alt = 'Hidden card';
+      img.className = 'hand-card hand-card-static';
+      img.style.setProperty('--i', String(i));
+      el.appendChild(img);
+    }
+    return;
+  }
 
   // Cache render state for item draft re-rendering
   const viable = viableActions(view.legalActions);

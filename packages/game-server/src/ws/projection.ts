@@ -215,12 +215,25 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const p2 = state.players[1];
 
   const _self = buildOpponentView(state, p1);
-  const opponent = buildOpponentView(state, p2);
+  // Reveal the opponent-side player's planned movement to spectators. The
+  // bottom player (p1, projected as "self" from raw companies) already carries
+  // its own destinationSite, so spectators see both planned region paths — just
+  // as each player sees their own during the Organization phase.
+  const opponentBase = buildOpponentView(state, p2);
+  const opponent: OpponentView = {
+    ...opponentBase,
+    companies: opponentBase.companies.map((c, i) => ({
+      ...c,
+      revealedDestinationSite: p2.companies[i]?.destinationSite ?? null,
+    })),
+  };
 
   return {
     self: {
       ...commonViewFields(state, p1),
-      hand: [],
+      // Spectators see that the bottom player holds a hand (as face-down backs)
+      // but never its card identities — hands stay hidden information.
+      hand: hiddenCardPile(p1.hand),
       playDeck: hiddenCardPile(p1.playDeck),
       discardPile: [],
       // Only sites whose identity is currently public (a brought-out Hidden
