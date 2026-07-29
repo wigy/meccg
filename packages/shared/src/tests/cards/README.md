@@ -147,7 +147,7 @@
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
-| ba-26 | Unabated in Malice | — | 10 | ☑ |
+| ba-26 | Unabated in Malice | — | 11 | ☑ |
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-30 | Longbottom Leaf | — | 8 | ☑ |

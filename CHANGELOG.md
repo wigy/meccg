@@ -22,6 +22,7 @@ More cards and AI
 ### Game Engine
 
 - Fixed a crash when a Forewarned-selected automatic-attack index went stale
+- Fixed from-hand modify-attack short events (Unabated in Malice, Black Vapour) being offered as an open movement/hazard play and then resolving as a no-op — the buff never reached the target attack. They remain playable on the active attack, or as an on-guard card revealed against a site's automatic-attack
 - Self-play surfaced an engine defect (seed 599: `engine rejected 'pass' — Card not found in hand`), now reported for investigation
 
 ### Lobby & Web Client
