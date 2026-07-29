@@ -77,6 +77,125 @@ export function discardCardTriggeredCard(
 }
 
 /**
+ * Advance a `card-triggered-attack` (Rescue Prisoners, Burning Rick, Cot, and
+ * Tree, …) once its current attack has ended — whether it resolved normally or
+ * was cancelled. Returns `state` untouched for every other attack source.
+ *
+ * The card sits in `cardsInPlay` for the duration of the attack, so something
+ * must always happen to it here:
+ *
+ * - **More queued attacks** (multi-attack form of `trigger-attack-on-play`) —
+ *   build the next combat immediately, carrying the remaining queue forward.
+ * - **Last attack, no untapped characters left** — the card is discarded.
+ * - **Last attack, untapped characters remain** — queue a `select-card-bearer`
+ *   resolution so the defender chooses who taps to take the card. The card's
+ *   `trigger-attack-on-play` effect supplies the post-attack mode and the
+ *   faction-disposal flags.
+ *
+ * A cancelled attack takes the identical path — the attack simply never dealt
+ * strikes — so both {@link finalizeCombat} and the cancel path call this.
+ * `cancelled` only distinguishes the log lines.
+ */
+export function continueOrDisposeCardTriggeredAttack(
+  state: GameState,
+  combat: CombatState,
+  cancelled: boolean,
+): GameState {
+  if (combat.attackSource.type !== 'card-triggered-attack') return state;
+  const { cardInstanceId, remainingAttacks } = combat.attackSource;
+  const label = cancelled ? 'Card-auto-attack cancelled' : 'Card-auto-attack';
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const cardDefId = resolveInstanceId(state, cardInstanceId);
+  const cardLabel = cardDefId ? cardName(state, cardDefId, '?') : '?';
+
+  if (remainingAttacks && remainingAttacks.length > 0) {
+    // More attacks remain — trigger the next one immediately
+    const next = remainingAttacks[0];
+    const rest = remainingAttacks.slice(1);
+    const defPlayer = state.players[defIdx];
+    const atkPlayer = state.players[1 - defIdx];
+    const inPlayNames = buildInPlayNames(state);
+    const creatureRace = normalizeCreatureRace(next.creatureType);
+    const effectiveProwess = resolveAttackProwess(
+      state, next.prowess, inPlayNames, creatureRace, true, undefined,
+      { companyId: combat.companyId },
+    );
+    const effectiveStrikes = resolveAttackStrikes(
+      state, next.strikes, inPlayNames, creatureRace, true, { companyId: combat.companyId },
+    );
+    logDetail(
+      `${label}: "${cardLabel}" triggering next attack — ${next.creatureType} ` +
+      `(${effectiveStrikes} strikes, ${effectiveProwess} prowess)` +
+      (rest.length > 0 ? `; ${rest.length} more after this` : ''),
+    );
+    const nextCombat: CombatState = makeCombatState({
+      attackSource: {
+        type: 'card-triggered-attack',
+        cardInstanceId,
+        ...(rest.length > 0 ? { remainingAttacks: rest } : {}),
+      },
+      companyId: combat.companyId,
+      defendingPlayerId: defPlayer.id,
+      attackingPlayerId: atkPlayer.id,
+      strikesTotal: effectiveStrikes,
+      strikeProwess: effectiveProwess,
+      creatureBody: null,
+      creatureRace,
+      assignmentPhase: 'defender',
+      detainment: false,
+    });
+    return { ...state, combat: nextCombat };
+  }
+
+  // Final (or only) attack — check for untapped characters
+  const defPlayer = state.players[defIdx];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  const anyUntapped = company
+    ? company.characters.some(charId => {
+        const ch = defPlayer.characters[charId];
+        return ch && ch.status === CardStatus.Untapped;
+      })
+    : false;
+
+  if (!anyUntapped) {
+    // No untapped characters — discard the card from cardsInPlay
+    logDetail(`${label}: no untapped characters — discarding "${cardLabel}" from cardsInPlay`);
+    return discardCardTriggeredCard(state, cardInstanceId, defIdx);
+  }
+
+  // Untapped characters remain — queue bearer selection for the resource player.
+  // The card definition supplies the post-attack mode and faction-discard flags.
+  const cardDef = cardDefId ? defById(state, cardDefId) : undefined;
+  const triggerEffect = cardDef
+    ? (getCardEffects(cardDef).find(
+        (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
+      ) ?? null)
+    : null;
+  const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
+  const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
+  const returnFactionsAtSite = triggerEffect?.returnFactionsAtSite ?? false;
+  const discardUniqueFactionsAtSite = triggerEffect?.discardUniqueFactionsAtSite ?? false;
+  logDetail(
+    `${label}: untapped characters remain — queuing select-card-bearer for "${cardLabel}" ` +
+    `(company ${combat.companyId as string}, mode: ${afterAttack})`,
+  );
+  return enqueueResolution(state, {
+    source: cardInstanceId,
+    actor: combat.defendingPlayerId,
+    scope: { kind: 'phase', phase: state.phaseState.phase },
+    kind: {
+      type: 'select-card-bearer',
+      cardInstanceId,
+      companyId: combat.companyId,
+      ...(afterAttack !== 'attach-with-constraint' ? { mode: afterAttack } : {}),
+      ...(discardFactionsAtSite ? { discardFactionsAtSite: true } : {}),
+      ...(returnFactionsAtSite ? { returnFactionsAtSite: true } : {}),
+      ...(discardUniqueFactionsAtSite ? { discardUniqueFactionsAtSite: true } : {}),
+    },
+  });
+}
+
+/**
  * My Precious (dm-29) `agent-attack-outcome` post-effects, applied when his
  * agent attack finalizes:
  *   - Successful attack (a defender wounded/eliminated) against a company that
@@ -790,105 +909,9 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
   stateAfterCombat = restoreHavenJumpOrigins(stateAfterCombat, combat);
 
-  // card-triggered-attack finalization (e.g. Rescue Prisoners, Burning Rick, Cot, and Tree):
-  // The card sits in cardsInPlay during the attack. After combat, check whether there
-  // are remaining queued attacks (multi-attack form); if so, trigger the next one.
-  // On the final attack, check for untapped characters to determine whether to discard
-  // or queue bearer selection.
-  if (combat.attackSource.type === 'card-triggered-attack') {
-    const { cardInstanceId, remainingAttacks } = combat.attackSource;
-    const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
-    const cardDefId = resolveInstanceId(stateAfterCombat, cardInstanceId);
-    const cardLabel = cardDefId ? cardName(stateAfterCombat, cardDefId, '?') : '?';
-
-    if (remainingAttacks && remainingAttacks.length > 0) {
-      // More attacks remain — trigger the next one immediately
-      const next = remainingAttacks[0];
-      const rest = remainingAttacks.slice(1);
-      const defPlayer = stateAfterCombat.players[defIdx];
-      const atkPlayer = stateAfterCombat.players[1 - defIdx];
-      const inPlayNames = buildInPlayNames(stateAfterCombat);
-      const creatureRace = normalizeCreatureRace(next.creatureType);
-      const effectiveProwess = resolveAttackProwess(
-        stateAfterCombat, next.prowess, inPlayNames, creatureRace, true, undefined,
-        { companyId: combat.companyId },
-      );
-      const effectiveStrikes = resolveAttackStrikes(
-        stateAfterCombat, next.strikes, inPlayNames, creatureRace, true, { companyId: combat.companyId },
-      );
-      logDetail(
-        `Card-auto-attack: "${cardLabel}" triggering next attack — ${next.creatureType} ` +
-        `(${effectiveStrikes} strikes, ${effectiveProwess} prowess)` +
-        (rest.length > 0 ? `; ${rest.length} more after this` : ''),
-      );
-      const nextCombat: CombatState = makeCombatState({
-        attackSource: {
-          type: 'card-triggered-attack',
-          cardInstanceId,
-          ...(rest.length > 0 ? { remainingAttacks: rest } : {}),
-        },
-        companyId: combat.companyId,
-        defendingPlayerId: defPlayer.id,
-        attackingPlayerId: atkPlayer.id,
-        strikesTotal: effectiveStrikes,
-        strikeProwess: effectiveProwess,
-        creatureBody: null,
-        creatureRace,
-        assignmentPhase: 'defender',
-        detainment: false,
-      });
-      stateAfterCombat = { ...stateAfterCombat, combat: nextCombat };
-    } else {
-      // Final (or only) attack — check for untapped characters
-      const defPlayer = stateAfterCombat.players[defIdx];
-      const company = companyById(defPlayer.companies, combat.companyId);
-      const anyUntapped = company
-        ? company.characters.some(charId => {
-            const ch = defPlayer.characters[charId];
-            return ch && ch.status === CardStatus.Untapped;
-          })
-        : false;
-
-      if (!anyUntapped) {
-        // No untapped characters — discard the card from cardsInPlay
-        logDetail(
-          `Card-auto-attack: no untapped characters after combat — discarding "${cardLabel}" from cardsInPlay`,
-        );
-        stateAfterCombat = discardCardTriggeredCard(stateAfterCombat, cardInstanceId, defIdx);
-      } else {
-        // Untapped characters remain — queue bearer selection for the resource player
-        // Read card definition to determine post-attack mode and faction-discard flag
-        const cardDef = cardDefId ? defById(stateAfterCombat, cardDefId) : undefined;
-        const triggerEffect = cardDef
-          ? (getCardEffects(cardDef).find(
-              (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
-            ) ?? null)
-          : null;
-        const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
-        const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
-        const returnFactionsAtSite = triggerEffect?.returnFactionsAtSite ?? false;
-        const discardUniqueFactionsAtSite = triggerEffect?.discardUniqueFactionsAtSite ?? false;
-        logDetail(
-          `Card-auto-attack: untapped characters remain — queuing select-card-bearer for "${cardLabel}" ` +
-          `(company ${combat.companyId as string}, mode: ${afterAttack})`,
-        );
-        stateAfterCombat = enqueueResolution(stateAfterCombat, {
-          source: cardInstanceId,
-          actor: combat.defendingPlayerId,
-          scope: { kind: 'phase', phase: stateAfterCombat.phaseState.phase },
-          kind: {
-            type: 'select-card-bearer',
-            cardInstanceId,
-            companyId: combat.companyId,
-            ...(afterAttack !== 'attach-with-constraint' ? { mode: afterAttack } : {}),
-            ...(discardFactionsAtSite ? { discardFactionsAtSite: true } : {}),
-            ...(returnFactionsAtSite ? { returnFactionsAtSite: true } : {}),
-            ...(discardUniqueFactionsAtSite ? { discardUniqueFactionsAtSite: true } : {}),
-          },
-        });
-      }
-    }
-  }
+  // card-triggered-attack: continue the queued attack sequence, or dispose of
+  // the card now that its last attack has resolved.
+  stateAfterCombat = continueOrDisposeCardTriggeredAttack(stateAfterCombat, combat, false);
 
   // lucky-search-attack finalization (Lucky Search tw-269):
   // After combat, move the found item to the scout or discard it if the scout
