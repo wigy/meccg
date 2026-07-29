@@ -76,6 +76,8 @@ export function disconnect(): void {
   appState.gamePort = null;
   appState.gameToken = null;
   appState.isPseudoAi = false;
+  appState.spectating = false;
+  document.body.classList.remove('spectating');
   appState.pseudoAiToken = null;
   if (appState.pseudoAiWs) { appState.pseudoAiWs.close(); appState.pseudoAiWs = null; }
   clearGameSession();
@@ -322,6 +324,12 @@ function describeOpponentAction(
 
 /** Connect to the game server via WebSocket. */
 export function connect(name: string): void {
+  // Re-apply dev-mode UI: a spectator connection forces the debug menu and
+  // debug-view toggle off; a player connection restores them per setting.
+  window.__meccg?.refreshDevMode?.();
+  // Mark spectator mode on the body so spectator-only CSS applies (e.g. the
+  // hand arc must not lift on hover).
+  document.body.classList.toggle('spectating', appState.spectating);
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   let url: string;
   if (LOBBY_MODE && appState.gamePort) {
@@ -338,9 +346,11 @@ export function connect(name: string): void {
 
   appState.ws.onopen = () => {
     renderLog('Connected. Sending join...');
-    if (!appState.currentFullDeck) {
+    if (!appState.currentFullDeck || appState.spectating) {
       // Reconnecting to an existing game (e.g. page refresh) -- the server
       // already has the deck, so send a minimal join with just the name.
+      // A spectator never has a deck in the game either way, so the same
+      // minimal join seats them (their name is not one of the two players).
       const minimalJoin = {
         type: 'join' as const,
         name,
@@ -610,6 +620,14 @@ export function connect(name: string): void {
 
   appState.ws.onclose = () => {
     if (appState.autoReconnect) {
+      if (appState.spectating) {
+        // A spectator has no player slot to rejoin: the game ended (server
+        // exited) or the connection dropped. Either way, return to the lobby.
+        renderLog('Stopped watching -- returning to lobby.');
+        showNotification('Stopped watching.');
+        disconnect();
+        return;
+      }
       if (LOBBY_MODE && appState.opponentName) {
         // Ask the lobby to relaunch a fresh game server
         renderLog('Game server lost. Asking lobby to relaunch...');

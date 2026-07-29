@@ -126,6 +126,106 @@ export function selectRandomBackground(): void {
   document.documentElement.style.setProperty('--visual-bg', `url('${bg}')`);
 }
 
+type OnlinePlayerRow = { name: string; displayName: string; credits: number; inGame: boolean };
+type OnlineGameRow = {
+  port: number; player1: string; player1DisplayName: string; player2: string; player2DisplayName: string;
+};
+
+/** Last online-players snapshot, so local state changes can re-render the list. */
+let lastOnline: { players: OnlinePlayerRow[]; games: OnlineGameRow[] } | null = null;
+
+/**
+ * Render the online-players list from the last snapshot: games in progress as
+ * "p1 vs. p2" with a Watch button, then challengeable players. The per-player
+ * button is Challenge or, once a challenge has been sent, Cancel — tracked in
+ * appState.sentChallenges so it survives re-renders. Safe to call any time the
+ * list or the sent-challenge set changes.
+ */
+function renderOnlineList(): void {
+  if (!lastOnline) return;
+  const { players, games } = lastOnline;
+
+  // Drop sent-challenge markers for anyone no longer challengeable (gone
+  // offline or now in a game), so a stale "Cancel" button never lingers.
+  for (const n of [...appState.sentChallenges]) {
+    if (!players.some(p => p.name === n && !p.inGame)) appState.sentChallenges.delete(n);
+  }
+
+  // Players already shown as part of a "p1 vs p2" game must not also appear as
+  // individual entries.
+  const inListedGame = new Set<string>();
+  for (const g of games) { inListedGame.add(g.player1); inListedGame.add(g.player2); }
+
+  const others = players.filter(p => p.name !== appState.lobbyPlayerName && !inListedGame.has(p.name));
+  const container = document.getElementById('online-players')!;
+  container.innerHTML = '';
+
+  // Ongoing games first: shown as "p1 vs. p2" with a Watch button.
+  for (const game of games) {
+    const item = document.createElement('div');
+    item.className = 'lobby-player-item lobby-game-item';
+    const span = document.createElement('span');
+    span.textContent = `${game.player1DisplayName} vs. ${game.player2DisplayName}`;
+    item.appendChild(span);
+    // You cannot watch a game you are playing in (the server rejects it), so
+    // offer Watch only to non-participants.
+    const isParticipant = game.player1 === appState.lobbyPlayerName || game.player2 === appState.lobbyPlayerName;
+    if (!isParticipant) {
+      const btn = document.createElement('button');
+      btn.textContent = 'Watch';
+      btn.addEventListener('click', () => {
+        appState.lobbyWs?.send(JSON.stringify({ type: 'watch-game', port: game.port }));
+        btn.textContent = 'Joining...';
+        btn.disabled = true;
+      });
+      item.appendChild(btn);
+    }
+    container.appendChild(item);
+  }
+
+  // Then individual players not in a listed game.
+  for (const player of others) {
+    const item = document.createElement('div');
+    item.className = 'lobby-player-item';
+    const span = document.createElement('span');
+    span.textContent = player.displayName;
+    item.appendChild(span);
+    if (player.inGame) {
+      // In an AI game (not watchable) — show a muted status, no Challenge.
+      const status = document.createElement('span');
+      status.className = 'lobby-player-status';
+      status.textContent = 'In game';
+      item.appendChild(status);
+    } else {
+      const btn = document.createElement('button');
+      if (appState.sentChallenges.has(player.name)) {
+        // Challenge already sent — offer to withdraw it.
+        btn.textContent = 'Cancel';
+        btn.className = 'lobby-cancel-btn';
+        btn.addEventListener('click', () => {
+          appState.lobbyWs?.send(JSON.stringify({ type: 'cancel-challenge', opponentName: player.name }));
+          appState.sentChallenges.delete(player.name);
+          renderOnlineList();
+        });
+      } else {
+        btn.textContent = 'Challenge';
+        if (!appState.currentDeckId) btn.disabled = true;
+        btn.addEventListener('click', () => {
+          appState.lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: player.name }));
+          appState.sentChallenges.add(player.name);
+          renderOnlineList();
+        });
+      }
+      item.appendChild(btn);
+    }
+    container.appendChild(item);
+  }
+
+  if (container.childElementCount === 0) {
+    container.innerHTML = '<p class="lobby-empty">No other players online</p>';
+  }
+}
+
 /** Connect the lobby WebSocket for online presence and challenges. */
 export function connectLobbyWs(): void {
   if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) return;
@@ -136,37 +236,16 @@ export function connectLobbyWs(): void {
     const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
     switch (msg.type) {
       case 'online-players': {
-        const players = (msg.players as { name: string; displayName: string; credits: number }[]);
+        const players = (msg.players as OnlinePlayerRow[]);
+        const games = (msg.games as OnlineGameRow[] | undefined) ?? [];
         // Update own credits from the broadcast
         const self = players.find(p => p.name === appState.lobbyPlayerName);
         if (self) {
           appState.lobbyPlayerCredits = self.credits;
           updateCreditsBadge();
         }
-        const others = players.filter(p => p.name !== appState.lobbyPlayerName);
-        const container = document.getElementById('online-players')!;
-        if (others.length === 0) {
-          container.innerHTML = '<p class="lobby-empty">No other players online</p>';
-        } else {
-          container.innerHTML = '';
-          for (const player of others) {
-            const item = document.createElement('div');
-            item.className = 'lobby-player-item';
-            const span = document.createElement('span');
-            span.textContent = player.displayName;
-            const btn = document.createElement('button');
-            btn.textContent = 'Challenge';
-            if (!appState.currentDeckId) btn.disabled = true;
-            btn.addEventListener('click', () => {
-              appState.lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: player.name }));
-              btn.textContent = 'Sent';
-              btn.disabled = true;
-            });
-            item.appendChild(span);
-            item.appendChild(btn);
-            container.appendChild(item);
-          }
-        }
+        lastOnline = { players, games };
+        renderOnlineList();
         break;
       }
       case 'challenge-received': {
@@ -179,10 +258,24 @@ export function connectLobbyWs(): void {
       }
       case 'challenge-declined': {
         const byDisplay = (msg.byDisplayName as string) ?? (msg.by as string);
+        appState.sentChallenges.delete(msg.by as string);
+        renderOnlineList();
         renderLog(`${byDisplay} declined your challenge.`);
         break;
       }
+      case 'challenge-cancelled': {
+        // The challenger withdrew (or entered a game): dismiss the incoming
+        // prompt if it is the one currently showing.
+        if (appState.challengeFrom === (msg.from as string)) {
+          document.getElementById('challenge-incoming')!.classList.add('hidden');
+          appState.challengeFrom = null;
+        }
+        break;
+      }
       case 'game-starting': {
+        // Entering a game withdraws every challenge we sent (the server does the
+        // same), so forget them rather than show stale "Cancel" buttons later.
+        appState.sentChallenges.clear();
         appState.gamePort = msg.port as number;
         appState.gameToken = msg.token as string;
         appState.opponentName = (msg.opponent as string) ?? null;
@@ -206,6 +299,32 @@ export function connectLobbyWs(): void {
             window.__meccg!.connectPseudoAi!(appState.opponentName, appState.pendingAiDeck);
             appState.pendingAiDeck = null;
           }
+        });
+        break;
+      }
+      case 'game-watching': {
+        appState.gamePort = msg.port as number;
+        appState.gameToken = msg.token as string;
+        // A spectator sees two players, not a single opponent; leaving null
+        // keeps the rejoin-as-player path from ever running (see onclose).
+        appState.opponentName = null;
+        appState.spectating = true;
+        appState.isPseudoAi = false;
+        appState.pseudoAiToken = null;
+        const p1 = (msg.player1DisplayName as string) ?? 'Player 1';
+        const p2 = (msg.player2DisplayName as string) ?? 'Player 2';
+        // Do not persist a spectator session: watching is ephemeral, so a page
+        // refresh returns to the lobby rather than silently re-joining.
+        // Close lobby WS during the game
+        if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
+        showScreen('auth-screen'); // hide all screens
+        document.getElementById('auth-screen')!.classList.add('hidden');
+        document.getElementById('game')!.classList.remove('hidden');
+        selectRandomBackground();
+        appState.autoReconnect = true;
+        renderLog(`Watching ${p1} vs. ${p2} on port ${appState.gamePort}...`);
+        void loadGameBundle().then(() => {
+          window.__meccg!.connect!(appState.lobbyPlayerName!);
         });
         break;
       }

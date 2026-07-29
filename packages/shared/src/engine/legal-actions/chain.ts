@@ -28,6 +28,8 @@ import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { playPermanentEventActions } from './organization-events.js';
+import { findEnvironmentTargets } from '../environment-targets.js';
+import { cardTargetsSetAside } from '../set-aside.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -288,27 +290,7 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
     if (!hasPlayFlag(def, 'playable-as-resource')) continue;
 
-    // Collect environment targets
-    const isEnv = (defId: string): boolean => {
-      const d = state.cardPool[defId as CardDefinitionId];
-      return !!d && 'keywords' in d
-        && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
-    };
-    const envTargets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-    for (const p of state.players) {
-      for (const c of p.cardsInPlay) {
-        if (isEnv(c.definitionId as string)) envTargets.push(c);
-      }
-    }
-    if (state.chain) {
-      for (const entry of state.chain.entries) {
-        if (entry.resolved || entry.negated) continue;
-        if (!entry.card) continue;
-        if (isEnv(entry.card.definitionId as string)) {
-          envTargets.push({ instanceId: entry.card.instanceId, definitionId: entry.card.definitionId as string });
-        }
-      }
-    }
+    const envTargets = findEnvironmentTargets(state, { mayTargetSetAside: cardTargetsSetAside(def) });
 
     for (const target of envTargets) {
       const targetDef = state.cardPool[target.definitionId as CardDefinitionId];

@@ -26,6 +26,12 @@ export interface DeclineChallengeMessage {
   readonly from: string;
 }
 
+/** Withdraw a challenge you previously sent to another player. */
+export interface CancelChallengeMessage {
+  readonly type: 'cancel-challenge';
+  readonly opponentName: string;
+}
+
 /** Start a game against the Heuristic-AI (rule-based strategy). */
 export interface PlayHeuristicAiMessage {
   readonly type: 'play-heuristic-ai';
@@ -94,18 +100,31 @@ export interface RejoinGameMessage {
   readonly opponent: string;
 }
 
+/**
+ * Ask to watch an ongoing human-vs-human game as a spectator. The port
+ * identifies the game (from the {@link OngoingGameEntry} list); the lobby
+ * mints a short-lived spectator token and replies with {@link GameWatchingMessage}.
+ */
+export interface WatchGameMessage {
+  readonly type: 'watch-game';
+  /** Port of the game to watch, taken from the broadcast game list. */
+  readonly port: number;
+}
+
 /** Union of all client → lobby messages. */
 export type LobbyClientMessage =
   | ChallengeMessage
   | AcceptChallengeMessage
   | DeclineChallengeMessage
+  | CancelChallengeMessage
   | PlayHeuristicAiMessage
   | PlayMcAiMessage
   | PlayModularAiMessage
   | PlayRealAiMessage
   | PlayPseudoAiMessage
   | PseudoAiPickMessage
-  | RejoinGameMessage;
+  | RejoinGameMessage
+  | WatchGameMessage;
 
 // ---- Lobby → Client ----
 
@@ -114,12 +133,26 @@ export interface OnlinePlayerEntry {
   readonly name: string;
   readonly displayName: string;
   readonly credits: number;
+  /** Whether this player is currently in a game (so no Challenge is offered). */
+  readonly inGame: boolean;
 }
 
-/** Broadcast of all currently online players. */
+/** An ongoing human-vs-human game that other players can watch. */
+export interface OngoingGameEntry {
+  /** Port of the game server, used to request watching. */
+  readonly port: number;
+  readonly player1: string;
+  readonly player1DisplayName: string;
+  readonly player2: string;
+  readonly player2DisplayName: string;
+}
+
+/** Broadcast of all currently online players and the games in progress. */
 export interface OnlinePlayersMessage {
   readonly type: 'online-players';
   readonly players: readonly OnlinePlayerEntry[];
+  /** Human-vs-human games currently in progress that can be watched. */
+  readonly games: readonly OngoingGameEntry[];
 }
 
 /** Incoming challenge from another player. */
@@ -136,6 +169,17 @@ export interface ChallengeDeclinedMessage {
   readonly byDisplayName: string;
 }
 
+/**
+ * A pending challenge you received is no longer valid — the challenger has
+ * entered a game. The client dismisses the incoming-challenge prompt if it is
+ * showing this challenger.
+ */
+export interface ChallengeCancelledMessage {
+  readonly type: 'challenge-cancelled';
+  /** Name of the challenger whose challenge is being withdrawn. */
+  readonly from: string;
+}
+
 /** A game is starting — connect to the game server. */
 export interface GameStartingMessage {
   readonly type: 'game-starting';
@@ -147,6 +191,16 @@ export interface GameStartingMessage {
   readonly pseudoAi?: boolean;
   /** Game token for the AI player (pseudo-AI mode only — human controls both sides). */
   readonly aiToken?: string;
+}
+
+/** A game is ready to watch — connect to the game server as a spectator. */
+export interface GameWatchingMessage {
+  readonly type: 'game-watching';
+  readonly port: number;
+  /** Spectator join token, signed for the watcher's own name. */
+  readonly token: string;
+  readonly player1DisplayName: string;
+  readonly player2DisplayName: string;
 }
 
 /** Error message from the lobby. */
@@ -187,7 +241,9 @@ export type LobbyServerMessage =
   | OnlinePlayersMessage
   | ChallengeReceivedMessage
   | ChallengeDeclinedMessage
+  | ChallengeCancelledMessage
   | GameStartingMessage
+  | GameWatchingMessage
   | LobbyErrorMessage
   | SystemNotificationMessage
   | ForceReloadMessage
