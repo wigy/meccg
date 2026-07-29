@@ -36,6 +36,7 @@ import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { hazardLongEventsRetained } from './retain-hazard-long-events.js';
+import { cvccSides } from './cvcc-sides.js';
 
 
 /**
@@ -1016,14 +1017,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   if (discardOppItemEffect && newState.combat?.isCvCC) {
     const combat = newState.combat;
     // Identify the opposing company relative to the acting player.
-    let oppCompanyId: import('../types/common.js').CompanyId | undefined;
-    if (action.player === combat.defendingPlayerId) {
-      oppCompanyId = combat.attackSource.type === 'company-attack'
-        ? combat.attackSource.attackingCompanyId
-        : undefined;
-    } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
-      oppCompanyId = combat.companyId;
-    }
+    const oppCompanyId = cvccSides(combat, action.player)?.oppCompanyId;
 
     // Discard the spent short-event to the player's discard pile first.
     let working = updatePlayer(newState, playerIndex, p => ({
@@ -1088,18 +1082,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   if (stormEffect && newState.combat?.isCvCC) {
     const combat = newState.combat;
     // Resolve the two participating companies (owner index + company id).
-    let myCompanyId: import('../types/common.js').CompanyId | undefined;
-    let oppPlayerId: import('../index.js').PlayerId | undefined;
-    let oppCompanyId: import('../types/common.js').CompanyId | undefined;
-    if (action.player === combat.defendingPlayerId) {
-      myCompanyId = combat.companyId;
-      oppPlayerId = combat.attackingPlayerId;
-      oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
-    } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
-      myCompanyId = combat.attackSource.attackingCompanyId;
-      oppPlayerId = combat.defendingPlayerId;
-      oppCompanyId = combat.companyId;
-    }
+    const sides = cvccSides(combat, action.player);
+    const myCompanyId = sides?.myCompanyId;
+    const oppPlayerId = sides?.oppPlayerId;
+    const oppCompanyId = sides?.oppCompanyId;
 
     // Discard the spent short-event to the Balrog player's discard pile first.
     let working = updatePlayer(newState, playerIndex, p => ({

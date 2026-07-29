@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction, CompanyId } from '../index.js';
+import type { GameState, CombatState, GameAction } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -32,6 +32,7 @@ import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase } from './combat-strike.js';
 import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
+import { cvccSides } from './cvcc-sides.js';
 
 /**
  * Handle cancel-attack sourced from an in-play ally (e.g. The Warg-king's
@@ -450,21 +451,11 @@ export function handleCancelWeaponEffects(
   if (!player) return { state, error: 'Cancel-weapon: acting player not found' };
 
   // Locate the acting player's participating company and the opponent's.
-  let myCompanyId: CompanyId | undefined;
-  let oppPlayerId: typeof combat.attackingPlayerId | undefined;
-  let oppCompanyId: CompanyId | undefined;
-  if (action.player === combat.defendingPlayerId) {
-    myCompanyId = combat.companyId;
-    oppPlayerId = combat.attackingPlayerId;
-    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
-  } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
-    myCompanyId = combat.attackSource.attackingCompanyId;
-    oppPlayerId = combat.defendingPlayerId;
-    oppCompanyId = combat.companyId;
-  }
-  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) {
+  const sides = cvccSides(combat, action.player);
+  if (!sides) {
     return { state, error: 'Cancel-weapon: acting player is not a combatant' };
   }
+  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
 
   const myCompany = companyById(player.companies, myCompanyId);
   if (!myCompany) return { state, error: 'Cancel-weapon: participating company not found' };
