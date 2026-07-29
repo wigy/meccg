@@ -33,7 +33,7 @@ import { logDetail, logEvaluated, logHeading, logResult } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
-import { applyCardPlayProhibitions } from '../card-play-prohibition.js';
+import { applyCardPlayProhibitions, applyPendingPlayFilter } from '../card-play-prohibition.js';
 import { applyConstraints } from './pending.js';
 import { resolutionLegalActions } from '../pending-handlers.js';
 
@@ -261,7 +261,10 @@ function applyOpponentBans(
  * card can be played from — phase menus, the chain, and combat responses alike.
  */
 export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  return applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId));
+  return applyPendingPlayFilter(
+    state, playerId,
+    applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
+  );
 }
 
 /**
