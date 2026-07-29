@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1023 | 1020 | 3 | 99.7% |
+| 1023 | 1021 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 87 | 87 | 100.0% |
 | LE | 289 | 287 | 99.3% |
 | TD | 74 | 74 | 100.0% |
-| TW | 296 | 295 | 99.7% |
+| TW | 296 | 296 | 100.0% |
 | WH | 82 | 82 | 100.0% |
 
 ## Detailed Test Matrix
@@ -707,7 +707,7 @@
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
-| tw-067 | — | — | 6 | ☑ |
+| tw-067 | — | — | 7 | ☑ |
 | tw-068 | — | — | 8 | ☑ |
 | tw-70 | Old Man Willow | — | 9 | ☑ |
 | tw-71 | Olog-hai (Trolls) | — | 8 | ☑ |
@@ -936,7 +936,7 @@
 | tw-414 | Mount Doom | — | 7 | ☑ |
 | tw-415 | Mount Gram | — | 6 | ☑ |
 | tw-416 | Mount Gundabad | — | 8 | ☑ |
-| tw-417 | Old Forest | — | 7 | ◐ |
+| tw-417 | Old Forest | — | 7 | ☑ |
 | tw-418 | Ost-in-Edhil | — | 8 | ☑ |
 | tw-419 | Pelargir | — | 5 | ☑ |
 | tw-420 | Rhosgobel | — | 5 | ☑ |

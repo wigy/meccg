@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.61.0 — 2026-07-29
+
+Spectators
+
+### Lobby & Web Client
+
+- **Game watching (spectator mode).** In-progress human games are listed as "P1 vs. P2" with a Watch button; watching mints a spectator game token (refused for a game's own players) and connects to the running game server as a spectator
+- The spectator view forces the debug menu and debug-view toggle off, hides the "Waiting…" box, renders the bottom player's hand as face-down backs (identities stay hidden, no hover lift) and reveals both players' planned movement destinations, so the region paths are visible during the Organization phase
+- Challenge handling: players busy in an AI game show a muted "In game" status instead of a Challenge button, every pending challenge involving a player is cancelled when they enter a game (a stale challenge can no longer be accepted against someone already playing), and a sent challenge can be withdrawn with a new Cancel button
+
+### Game Engine
+
+- **CoE 10.13 — play the revealed card after a successful influence attempt.** The success path of the rule 10.11 reveal variant returned the card to hand and stopped; it now enqueues an `influence-reveal-play-offer` resolution and a `play-revealed-card` action, placing the card without tapping the site, without spending the resource-per-site allowance and without the card's own playability restrictions — the exemptions the rule grants. Influence is the one cost kept, so a revealed character is offered once per controller that can actually pay
+- **CoE 9.16 — item switching.** A character bearing several items in one slot was stuck with the first one it picked up. A new `use-item` organization action declares which borne item is in use; the declared item is promoted ahead of its slot-mates and the item it displaces stops contributing its effects at the same moment, on top of the existing per-slot capacity modifiers and exclusions
+- **CoE 3.47 — end-of-organization-phase influence overflow.** Excess general influence (from an eliminated controller, a departed bonus, a raised mind) is now settled when the player leaves their organization phase, via an `influence-overflow-discard` resolution that removes one item at a time in the rule's priority order: characters played this phase return to hand, then characters that silently lost direct-influence control are discarded, then free choice
+- **CoE 3.07 — Ringwraith company composition** is enforced on `play-character`, `move-to-company` and `merge-companies`, lifted only at a Darkhaven, with the forced end-of-movement combine discarding non-Ringwraith companies sharing the site instead of merging them; **3.33** makes fallen-wizard stored Stage resources visible to both halves of the rule, and **10.11** is covered
+- Fixed a card being offered again while its own play was still pending behind an on-guard window — repeated declarations queued duplicate windows and the second one failed with "Card not found in hand". `hasPendingPlay` now suppresses it across every emitter with a `not-playable` explanation. Found in a 320-game gate run; both heuristic agents did it and neither knew
+- Fixed Muster Disperses (tw-67 / le-126) and reprints being targetable on the hazard player's own faction — hazard events may only target the resource player's entities (CoE 2.IV.vii.3)
+- Fixed site ownership not transferring to a sibling company when the owning company departs a shared site: the site card stayed in play but unowned, rendering as an unowned copy instead of the real card
+- Environment-target collection is consolidated into one module; the three copies had drifted, and only one applied the MEAS §1 set-aside guard, which now holds uniformly on the movement/hazard and chain paths too
+
+### Testing & Internals
+
+- Old Forest's healing-affects-all site rule (tw-417) is now covered — the extension follows the site, not the healing card's targeting, with Rivendell as the control
+- The ~90-line card-triggered-attack continuation, duplicated byte-for-byte between combat finalize and combat cancel, is extracted to a shared `continueOrDisposeCardTriggeredAttack`
+- Deck validation gets one source of truth for its section lists (previously spelled out seven times) and one copies-per-card tally instead of two; region-type keying helpers are deduplicated into `reducer-utils`
+- Rule tests: 280 of 336 (83.3%), up from 273
+
 ## 0.60.0 — 2026-07-29
 
 More cards and AI

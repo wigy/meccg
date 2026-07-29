@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 336 | 273 | 63 | 81.3% |
+| 336 | 280 | 56 | 83.3% |
 
 ## Section Breakdown
 
@@ -118,13 +118,13 @@
 | 3.04 | Organization Phase | [Hero Avatar Location](03-organization-phase/rule-3.04-hero-avatar-location.test.ts) | ☑ |
 | 3.05 | Organization Phase | [Minion Avatar Location](03-organization-phase/rule-3.05-minion-avatar-location.test.ts) | ☑ |
 | 3.06 | Organization Phase | [Minion Ringwraith Play](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ☐ |
-| 3.07 | Organization Phase | [Ringwraith Company Composition](03-organization-phase/rule-3.07-ringwraith-company-composition.test.ts) | ☐ |
+| 3.07 | Organization Phase | [Ringwraith Company Composition](03-organization-phase/rule-3.07-ringwraith-company-composition.test.ts) | ☑ |
 | 3.08 | Organization Phase | [Ringwraith Follower](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ◐ |
 | 3.09 | Organization Phase | [Fw Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ☑ |
 | 3.10 | Organization Phase | [Balrog Avatar Play](03-organization-phase/rule-3.10-balrog-avatar-play.test.ts) | ☑ |
 | 3.11 | Organization Phase | [Non Avatar Character Play](03-organization-phase/rule-3.11-non-avatar-character-play.test.ts) | ☑ |
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☑ |
-| 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ◐ |
+| 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☑ |
 | 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
 | 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☑ |
 | 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☑ |
@@ -144,7 +144,7 @@
 | 3.30 | Organization Phase | [Join Companies](03-organization-phase/rule-3.30-join-companies.test.ts) | ☑ |
 | 3.31 | Organization Phase | [Split Companies](03-organization-phase/rule-3.31-split-companies.test.ts) | ☑ |
 | 3.32 | Organization Phase | [Storing Cards](03-organization-phase/rule-3.32-storing-cards.test.ts) | ☑ |
-| 3.33 | Organization Phase | [Fw Stored Stage](03-organization-phase/rule-3.33-fw-stored-stage.test.ts) | ☐ |
+| 3.33 | Organization Phase | [Fw Stored Stage](03-organization-phase/rule-3.33-fw-stored-stage.test.ts) | ☑ |
 | 3.34 | Organization Phase | [Balrog No Store Barad Dur](03-organization-phase/rule-3.34-balrog-no-store-barad-dur.test.ts) | ☑ |
 | 3.35 | Organization Phase | [Transferring Items](03-organization-phase/rule-3.35-transferring-items.test.ts) | ☑ |
 | 3.36 | Organization Phase | [Avatar Sideboard Access](03-organization-phase/rule-3.36-avatar-sideboard-access.test.ts) | ☑ |
@@ -158,7 +158,7 @@
 | 3.44 | Organization Phase | [Region Movement](03-organization-phase/rule-3.44-region-movement.test.ts) | ☑ |
 | 3.45 | Organization Phase | [Under Deeps Movement](03-organization-phase/rule-3.45-under-deeps-movement.test.ts) | ☑ |
 | 3.46 | Organization Phase | [Special Movement](03-organization-phase/rule-3.46-special-movement.test.ts) | ☑ |
-| 3.47 | Organization Phase | [Influence Overflow](03-organization-phase/rule-3.47-influence-overflow.test.ts) | ☐ |
+| 3.47 | Organization Phase | [Influence Overflow](03-organization-phase/rule-3.47-influence-overflow.test.ts) | ☑ |
 | 3.48 | Organization Phase | [Fw Discard Stage](03-organization-phase/rule-3.48-fw-discard-stage.test.ts) | ☑ |
 | 4.01 | Long-Event Phase | [Discard Own Long Events](04-long-event-phase/rule-4.01-discard-own-long-events.test.ts) | ☑ |
 | 4.02 | Long-Event Phase | [Play Resource Long Events](04-long-event-phase/rule-4.02-play-resource-long-events.test.ts) | ☑ |
@@ -279,7 +279,7 @@
 | 9.13 | Agents, Events, Items & Rings | [Permanent Events](09-agents-events-items/rule-9.13-permanent-events.test.ts) | ☑ |
 | 9.14 | Agents, Events, Items & Rings | [Fw Stage Event Rules](09-agents-events-items/rule-9.14-fw-stage-event-rules.test.ts) | ◐ |
 | 9.15 | Agents, Events, Items & Rings | [Item Usage](09-agents-events-items/rule-9.15-item-usage.test.ts) | ☑ |
-| 9.16 | Agents, Events, Items & Rings | [Switching Items](09-agents-events-items/rule-9.16-switching-items.test.ts) | ☐ |
+| 9.16 | Agents, Events, Items & Rings | [Switching Items](09-agents-events-items/rule-9.16-switching-items.test.ts) | ☑ |
 | 9.17 | Agents, Events, Items & Rings | [Item Modification Order](09-agents-events-items/rule-9.17-item-modification-order.test.ts) | ☑ |
 | 9.18 | Agents, Events, Items & Rings | [Item Movement Restrictions](09-agents-events-items/rule-9.18-item-movement-restrictions.test.ts) | ☐ |
 | 9.19 | Agents, Events, Items & Rings | [Ally Item Restriction](09-agents-events-items/rule-9.19-ally-item-restriction.test.ts) | ☑ |
@@ -303,9 +303,9 @@
 | 10.08 | Corruption, Influence, Actions/Timing & Ending the Game | [Removing Corruption Cards](10-corruption-influence-endgame/rule-10.08-removing-corruption-cards.test.ts) | ☑ |
 | 10.09 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Immunity](10-corruption-influence-endgame/rule-10.09-corruption-immunity.test.ts) | ☑ |
 | 10.10 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Declaration](10-corruption-influence-endgame/rule-10.10-influence-attempt-declaration.test.ts) | ☑ |
-| 10.11 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Targets](10-corruption-influence-endgame/rule-10.11-influence-attempt-targets.test.ts) | ◐ |
+| 10.11 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Targets](10-corruption-influence-endgame/rule-10.11-influence-attempt-targets.test.ts) | ☑ |
 | 10.12 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Resolution](10-corruption-influence-endgame/rule-10.12-influence-attempt-resolution.test.ts) | ☑ |
-| 10.13 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Success Play](10-corruption-influence-endgame/rule-10.13-influence-success-play.test.ts) | ☐ |
+| 10.13 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Success Play](10-corruption-influence-endgame/rule-10.13-influence-success-play.test.ts) | ☑ |
 | 10.14 | Corruption, Influence, Actions/Timing & Ending the Game | [Agent Influence](10-corruption-influence-endgame/rule-10.14-agent-influence.test.ts) | ☑ |
 | 10.15 | Corruption, Influence, Actions/Timing & Ending the Game | [Cross Alignment Influence](10-corruption-influence-endgame/rule-10.15-cross-alignment-influence.test.ts) | ☑ |
 | 10.16 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Influence Alignment Match](10-corruption-influence-endgame/rule-10.16-fw-influence-alignment-match.test.ts) | ☐ |
