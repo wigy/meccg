@@ -669,6 +669,169 @@ h2 {
   vertical-align: middle;
 }
 
+.scoreboard-row {
+  cursor: pointer;
+}
+
+.scoreboard-player-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #c4a35a;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.scoreboard-player-link:hover,
+.scoreboard-player-link:focus-visible {
+  text-decoration: underline solid;
+}
+
+/* ---- Scoreboard: one player's games ---- */
+
+.scoreboard-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.scoreboard-back {
+  background: none;
+  border: 1px solid #556;
+  border-radius: 3px;
+  padding: 0.25rem 0.6rem;
+  color: #a0a8b0;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.scoreboard-back:hover {
+  border-color: #c4a35a;
+  color: #c4a35a;
+}
+
+.scoreboard-detail-name {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  margin: 0;
+}
+
+.scoreboard-detail-count {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+}
+
+.scoreboard-game {
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.scoreboard-game-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.scoreboard-result {
+  padding: 0.05rem 0.45rem;
+  border: 1px solid #556;
+  border-radius: 3px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+}
+
+.scoreboard-result--win {
+  border-color: #4c7a4c;
+  color: #8ec98e;
+}
+
+.scoreboard-result--loss {
+  border-color: #7a4c4c;
+  color: #c98e8e;
+}
+
+.scoreboard-result--draw {
+  border-color: #556;
+  color: #a0a8b0;
+}
+
+.scoreboard-game-vs {
+  color: #d8d8e0;
+}
+
+.scoreboard-game-when {
+  margin-left: auto;
+  color: #a0a8b0;
+  font-size: 0.8rem;
+}
+
+.scoreboard-game-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+}
+
+.scoreboard-game-meta dt {
+  color: #a0a8b0;
+}
+
+.scoreboard-game-meta dd {
+  margin: 0;
+  color: #d8d8e0;
+}
+
+.scoreboard-game-id {
+  font-family: monospace;
+  color: #8890a0;
+}
+
+.scoreboard-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.scoreboard-detail-table th,
+.scoreboard-detail-table td {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid #2a2a40;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreboard-detail-table thead th {
+  background: rgba(196, 163, 90, 0.12);
+  color: #c4a35a;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+}
+
+.scoreboard-detail-table tbody th[scope='row'] {
+  text-align: left;
+  color: #a0a8b0;
+  font-weight: 400;
+}
+
+.scoreboard-detail-sum td,
+.scoreboard-detail-sum th {
+  border-top: 1px solid #445;
+  font-weight: 700;
+  color: #d8d8e0;
+}
+
+.scoreboard-mp-adjusted {
+  color: #c4a35a;
+}
+
 /* ---- Credit Usage page ---- */
 
 .credits-page {
