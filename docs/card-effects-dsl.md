@@ -11090,6 +11090,10 @@ The `when` condition is evaluated against a per-company context exposing:
   companies.
 - `company.covert` — MELE covert/overt status (`isCovertCompany`); an **overt**
   company is `false`.
+- `company.regionNames` — the names of the regions the company is moving through
+  this phase (the M/H state's `resolvedSitePathNames`; empty for a stationary
+  company), for rules that name the regions they cover. Match with `$includes`
+  (or a bare string, which the matcher also treats as array membership).
 
 ```json
 {
@@ -11126,6 +11130,26 @@ overt minion companies is increased by one" —
   "value": 1,
   "appliesTo": "all",
   "when": { "company.alignment": "ringwraith", "company.covert": false }
+}
+```
+
+And by Radagast the Tamer (as-18): "all companies moving in Southern Mirkwood,
+Western Mirkwood, Woodland Realm, and/or Heart of Mirkwood have their hazard
+limit increased by one" — the default `appliesTo: "moving"` supplies "moving",
+and the named regions are matched against `company.regionNames`:
+
+```json
+{
+  "type": "hazard-limit-environment",
+  "value": 1,
+  "when": {
+    "$or": [
+      { "company.regionNames": { "$includes": "Southern Mirkwood" } },
+      { "company.regionNames": { "$includes": "Western Mirkwood" } },
+      { "company.regionNames": { "$includes": "Woodland Realm" } },
+      { "company.regionNames": { "$includes": "Heart of Mirkwood" } }
+    ]
+  }
 }
 ```
 

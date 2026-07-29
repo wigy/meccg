@@ -7905,9 +7905,11 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
  * `company.hasWizard` (a Wizard avatar is in the company),
  * `company.maxNonRangerMind` (the highest mind among the company's
  * non-ranger characters, or 0 if none), `company.alignment` (the owning
- * player's alignment) and `company.covert` (MELE covert/overt status — an
- * overt company is `false`) — see `snapshotHazardLimit` in `mh-steps.ts`. An
- * absent `when` matches every company.
+ * player's alignment), `company.covert` (MELE covert/overt status — an
+ * overt company is `false`) and `company.regionNames` (the names of the regions
+ * the company is moving through this phase, empty when stationary) — see
+ * `snapshotHazardLimit` in `mh-steps.ts`. An absent `when` matches every
+ * company.
  *
  * Used by Eyes of the Shadow (dm-56): "The hazard limit is increased by two
  * for each moving company with a size of less than four that also contains a
@@ -7921,6 +7923,12 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
  * Used by Gandalf the White Rider (as-11): "the hazard limit against all overt
  * minion companies is increased by one." — `value: 1, appliesTo: "all"` with
  * `when: { "company.alignment": "ringwraith", "company.covert": false }`.
+ *
+ * Used by Radagast the Tamer (as-18): "all companies moving in Southern
+ * Mirkwood, Western Mirkwood, Woodland Realm, and/or Heart of Mirkwood have
+ * their hazard limit increased by one." — `value: 1` (default
+ * `appliesTo: "moving"`) with an `$or` of
+ * `{ "company.regionNames": { "$includes": <region> } }` clauses.
  */
 export interface HazardLimitEnvironmentEffect extends EffectBase {
   readonly type: 'hazard-limit-environment';

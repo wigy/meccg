@@ -783,10 +783,26 @@
     "killMarshallingPoints": 6,
     "starredKillMarshallingPoints": true,
     "race": "maia",
+    "manifestId": "tw-178",
+    "certified": "2026-07-29",
     "keyedTo": [
       {
         "regionTypes": [
           "free"
+        ],
+        "siteTypes": [
+          "free-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Southern Mirkwood",
+          "Western Mirkwood",
+          "Woodland Realm",
+          "Heart of Mirkwood"
+        ],
+        "siteNames": [
+          "Rhosgobel"
         ]
       }
     ],
@@ -794,6 +810,83 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      },
+      {
+        "type": "discard-self-when",
+        "condition": {
+          "charactersInPlayAnywhere": "Radagast"
+        }
+      },
+      {
+        "type": "hazard-limit-environment",
+        "value": 1,
+        "when": {
+          "$or": [
+            {
+              "company.regionNames": {
+                "$includes": "Southern Mirkwood"
+              }
+            },
+            {
+              "company.regionNames": {
+                "$includes": "Western Mirkwood"
+              }
+            },
+            {
+              "company.regionNames": {
+                "$includes": "Woodland Realm"
+              }
+            },
+            {
+              "company.regionNames": {
+                "$includes": "Heart of Mirkwood"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
