@@ -28,7 +28,7 @@ import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test
 import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
 import { dispatch, executeAction, resolveChain, runActions } from './test-helpers-dispatch.js';
-import { buildTestState, mint, addCardInPlay, pushCardInPlay, attachAllyToChar, setCharStatus } from './test-helpers-core.js';
+import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, setCharStatus } from './test-helpers-core.js';
 import type { CharacterEntry } from './test-helpers-core.js';
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
@@ -1322,9 +1322,11 @@ export function buildMovingAllyMHState(opts: {
  * `stageCardsInPlay` become `cardsInPlay` entries on the Fallen-wizard; every
  * entry in `stageCardsOnLeader` is attached to the first company character's
  * `items` instead — the shape the engine gives a Stage permanent-event played
- * "on a character" (Wizard's Myrmidon wh-84, The Forge-master wh-117). The
- * resulting stage-point total is derived by `recomputeDerived`, never set by
- * hand, so tests assert against the real derivation.
+ * "on a character" (Wizard's Myrmidon wh-84, The Forge-master wh-117); every
+ * entry in `storedStageCards` lands in the marshalling-point pile, the shape a
+ * Stage resource has once stored (CoE 2.II.4.1, rule 3.33). The resulting
+ * stage-point total is derived by `recomputeDerived`, never set by hand, so
+ * tests assert against the real derivation.
  *
  * Used by hazards that read the opponent's Stage state (Echoes of the Song
  * wh-17).
@@ -1332,6 +1334,7 @@ export function buildMovingAllyMHState(opts: {
 export function buildFwStageCardsMHState(opts: {
   stageCardsInPlay: CardDefinitionId[];
   stageCardsOnLeader?: CardDefinitionId[];
+  storedStageCards?: CardDefinitionId[];
   hazardHand: CardDefinitionId[];
   characters?: CharacterEntry[];
 }): GameState {
@@ -1361,6 +1364,9 @@ export function buildFwStageCardsMHState(opts: {
   });
   let state: GameState = { ...built, phaseState: makeMHState() };
   for (const defId of opts.stageCardsInPlay) state = addCardInPlay(state, RESOURCE_PLAYER, defId);
+  for (const defId of opts.storedStageCards ?? []) {
+    state = addStoredCard(state, RESOURCE_PLAYER, defId, RIVENDELL).state;
+  }
   return recomputeDerived(state);
 }
 
