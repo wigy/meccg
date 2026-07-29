@@ -1012,6 +1012,23 @@ export interface ChainEntry {
   readonly resolved: boolean;
   /** Whether this entry was negated before it could resolve (e.g. target became invalid). */
   readonly negated: boolean;
+  /**
+   * Whether declaring this entry counted one against the active company's hazard
+   * limit. Recorded at declaration because the exemptions are only knowable then
+   * (a `no-hazard-limit` play flag, or a creature whose race is exempt for the
+   * site being moved to — see `isCreatureRaceExempt`, which needs the play action).
+   *
+   * CoE 2.IV.iii.1 makes the hazard limit an active condition for the whole
+   * movement/hazard phase: "there must be no more declared actions that count
+   * against the hazard limit when compared to that hazard limit **at
+   * resolution**". So a limit lowered after declaration — Many Turns and
+   * Doublings (td-132) with Gates of Morning in play — fizzles hazards already on
+   * the chain. Only entries with this flag are subject to that check; an exempt
+   * hazard never counted, so it can never exceed.
+   *
+   * Absent on every non-hazard entry (resource plays, passive conditions, …).
+   */
+  readonly countsAgainstHazardLimit?: boolean;
 }
 
 /**

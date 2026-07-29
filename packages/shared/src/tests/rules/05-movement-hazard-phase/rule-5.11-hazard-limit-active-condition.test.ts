@@ -18,10 +18,10 @@ import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
-  GATES_OF_MORNING, EYE_OF_SAURON,
+  GATES_OF_MORNING, EYE_OF_SAURON, ORC_PATROL, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, nonViableOfType,
-  makeMHState, makeShadowMHState,
+  makeMHState, makeShadowMHState, makeWildernessMHState,
   handCardId, dispatch, resolveChain,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   companyIdAt, CardStatus,
@@ -167,6 +167,83 @@ describe('Rule 5.11 — Hazard Limit as Active Condition', () => {
     // Many Turns and Doublings is in resource player's discard pile
     const resourceDiscard = final.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId);
     expect(resourceDiscard).toContain(mtdId);
+  });
+
+  test('hazard limit decrease in chain causes already-declared creature to fizzle at resolution', () => {
+    // The active condition is not long-event specific: CRF 22 says Many Turns and
+    // Doublings "can cancel hazards by reducing the hazard limit to the point
+    // where the hazard resolving is no longer playable". A creature declared at
+    // the limit must therefore never reach combat.
+    const gomInPlay: CardInPlay = { instanceId: 'gom-1' as CardInstanceId, definitionId: GATES_OF_MORNING, status: CardStatus.Untapped };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [MANY_TURNS_AND_DOUBLINGS], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    // Hazard limit is 2; Orc-patrol is declared as the 2nd hazard.
+    const stateAtMH = {
+      ...base,
+      phaseState: makeWildernessMHState({ activeCompanyIndex: 0, hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 1 }),
+    };
+    const orcId = handCardId(stateAtMH, HAZARD_PLAYER);
+
+    const creaturePlay = viableActions(stateAtMH, PLAYER_2, 'play-hazard')[0];
+    const afterOrc = dispatch(stateAtMH, creaturePlay.action);
+    expect(afterOrc.chain).not.toBeNull();
+
+    // Resource player responds with Many Turns and Doublings, dropping the limit to 1.
+    const mtdPlays = viableActions(afterOrc, PLAYER_1, 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    expect(mtdPlays[0].optionId).toBe('decrease-hazard-limit');
+    const afterMtd = dispatch(afterOrc, mtdPlays[0]);
+
+    const final = resolveChain(afterMtd);
+
+    expect(final.chain).toBeNull();
+    // No combat was ever initiated — the creature fizzled before reaching it.
+    expect(final.combat).toBeNull();
+    expect(final.players[HAZARD_PLAYER].discardPile.map(c => c.instanceId)).toContain(orcId);
+  });
+
+  test('hazard limit decrease in chain causes already-declared permanent-event to fizzle at resolution', () => {
+    const gomInPlay: CardInPlay = { instanceId: 'gom-1' as CardInstanceId, definitionId: GATES_OF_MORNING, status: CardStatus.Untapped };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [MANY_TURNS_AND_DOUBLINGS], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DOORS_OF_NIGHT], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const stateAtMH = {
+      ...base,
+      phaseState: makeMHState({ activeCompanyIndex: 0, hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 1 }),
+    };
+    const doorsId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+
+    const afterDoors = dispatch(stateAtMH, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: doorsId, targetCompanyId,
+    });
+    expect(afterDoors.chain).not.toBeNull();
+
+    const mtdPlays = viableActions(afterDoors, PLAYER_1, 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    const afterMtd = dispatch(afterDoors, mtdPlays[0]);
+
+    const final = resolveChain(afterMtd);
+
+    expect(final.chain).toBeNull();
+    // Doors of Night must not have entered play.
+    expect(final.players[HAZARD_PLAYER].cardsInPlay.map(c => c.definitionId)).not.toContain(DOORS_OF_NIGHT);
+    expect(final.players[HAZARD_PLAYER].discardPile.map(c => c.instanceId)).toContain(doorsId);
   });
 
   test('decrease-hazard-limit NOT available in chain when Gates of Morning is not in play', () => {

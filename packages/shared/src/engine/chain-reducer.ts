@@ -68,6 +68,8 @@ function opponent(state: GameState, playerId: PlayerId): PlayerId {
  * @param card - The card being played (physically held by the chain), or null for non-card entries.
  * @param payload - What kind of chain entry this is.
  * @param restriction - Chain restriction mode (default: 'normal').
+ * @param countsAgainstHazardLimit - Whether declaring this entry counted one against the
+ *   active company's hazard limit (see {@link ChainEntry.countsAgainstHazardLimit}).
  * @returns New game state with chain active.
  */
 export function initiateChain(
@@ -76,6 +78,7 @@ export function initiateChain(
   card: CardInstance | null,
   payload: ChainEntryPayload,
   restriction: ChainRestriction = 'normal',
+  countsAgainstHazardLimit = false,
 ): GameState {
   logHeading(`Initiating chain of effects`);
   logDetail(`Declared by player ${declaredBy as string}, payload type: ${payload.type}, restriction: ${restriction}`);
@@ -87,6 +90,7 @@ export function initiateChain(
     payload,
     resolved: false,
     negated: false,
+    ...(countsAgainstHazardLimit ? { countsAgainstHazardLimit: true } : {}),
   };
 
   const chain: ChainState = {
@@ -115,6 +119,8 @@ export function initiateChain(
  * @param declaredBy - The player declaring the response.
  * @param card - The card being played (physically held by the chain), or null.
  * @param payload - What kind of chain entry this is.
+ * @param countsAgainstHazardLimit - Whether declaring this entry counted one against the
+ *   active company's hazard limit (see {@link ChainEntry.countsAgainstHazardLimit}).
  * @returns New game state with entry added and priority flipped.
  */
 export function pushChainEntry(
@@ -122,6 +128,7 @@ export function pushChainEntry(
   declaredBy: PlayerId,
   card: CardInstance | null,
   payload: ChainEntryPayload,
+  countsAgainstHazardLimit = false,
 ): GameState {
   const chain = state.chain!;
   logDetail(`Pushing chain entry #${chain.entries.length} by player ${declaredBy as string}, payload: ${payload.type}`);
@@ -133,6 +140,7 @@ export function pushChainEntry(
     payload,
     resolved: false,
     negated: false,
+    ...(countsAgainstHazardLimit ? { countsAgainstHazardLimit: true } : {}),
   };
 
   const newChain: ChainState = {
@@ -160,10 +168,11 @@ export function initiateOrPushChain(
   declaredBy: PlayerId,
   card: CardInstance | null,
   payload: ChainEntryPayload,
+  countsAgainstHazardLimit = false,
 ): GameState {
   return state.chain === null
-    ? initiateChain(state, declaredBy, card, payload)
-    : pushChainEntry(state, declaredBy, card, payload);
+    ? initiateChain(state, declaredBy, card, payload, 'normal', countsAgainstHazardLimit)
+    : pushChainEntry(state, declaredBy, card, payload, countsAgainstHazardLimit);
 }
 
 /**
@@ -2974,36 +2983,14 @@ export function applyStageResourceSiteConstraints(
  * Resolves a long-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay`.
  *
- * Per CoE rule 2.IV.iii.1, if the hazard limit has been decreased after
- * declaration (e.g. by Many Turns and Doublings) such that the number of
- * hazards played now exceeds the current limit at resolution, the long-event
- * fizzles — it is discarded without entering play.
+ * The CoE 2.IV.iii.1 hazard-limit check that used to live here is now applied
+ * uniformly to every hazard entry by {@link hazardLimitExceededAtResolution},
+ * called from {@link resolveEntry} before any effect runs.
  */
 function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card!;
   const def = defById(state, card.definitionId);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
-
-  // CoE rule 2.IV.iii.1: hazard limit active condition — check at resolution.
-  if (state.phaseState.phase === Phase.MovementHazard) {
-    const mhState = state.phaseState;
-    const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
-    const company = activePlayerIndex >= 0
-      ? state.players[activePlayerIndex].companies[mhState.activeCompanyIndex]
-      : undefined;
-    if (company) {
-      const limit = currentHazardLimit(state, mhState, company.id);
-      if (mhState.hazardsPlayedThisCompany > limit) {
-        logDetail(`Long event "${def?.name ?? card.definitionId}" fizzles — hazard limit exceeded at resolution (${mhState.hazardsPlayedThisCompany} declared > limit ${limit})`);
-        const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-        newPlayers[playerIndex] = {
-          ...newPlayers[playerIndex],
-          discardPile: [...newPlayers[playerIndex].discardPile, card],
-        };
-        return { ...state, players: newPlayers };
-      }
-    }
-  }
 
   logDetail(`Long event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 
@@ -3650,11 +3637,64 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
  * environments cancel and discard the target. Other entry types currently
  * resolve as no-ops (effects via DSL resolver to be added).
  */
+/**
+ * CoE 2.IV.iii.1 — the hazard limit is an active condition for the *entirety* of
+ * a movement/hazard phase: "there must be no more declared actions that count
+ * against the hazard limit when compared to that hazard limit at resolution".
+ *
+ * A hazard is therefore legal to declare and still fizzle, if the limit drops
+ * between the two moments. The card that does this is Many Turns and Doublings
+ * (td-132): with Gates of Morning in play it decreases the company's hazard limit
+ * by one, and its CRF 22 ruling spells the consequence out — "Many Turns and
+ * Doublings can cancel hazards by reducing the hazard limit to the point where
+ * the hazard resolving is no longer playable".
+ *
+ * Only entries flagged {@link ChainEntry.countsAgainstHazardLimit} are checked:
+ * an exempt hazard (`no-hazard-limit`, race-exempt creature) never incremented
+ * the count, so lowering the limit cannot invalidate it. Resource plays and
+ * non-card entries are never flagged.
+ */
+function hazardLimitExceededAtResolution(state: GameState, entry: ChainEntry): boolean {
+  if (!entry.countsAgainstHazardLimit) return false;
+  if (state.phaseState.phase !== Phase.MovementHazard) return false;
+
+  const mhState = state.phaseState;
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  if (activePlayerIndex < 0) return false;
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  if (!company) return false;
+
+  const limit = currentHazardLimit(state, mhState, company.id);
+  return mhState.hazardsPlayedThisCompany > limit;
+}
+
 function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   const chain = state.chain!;
   const entry = chain.entries[entryIndex];
 
   logDetail(`Resolving chain entry #${entryIndex}: ${entry.payload.type} by player ${entry.declaredBy as string}`);
+
+  // CoE 2.IV.iii.1: re-check the hazard limit now, before any of this entry's
+  // effects run. Negating rather than special-casing each payload type means a
+  // creature never reaches `initiateCreatureCombat`, a short event never fires
+  // its triggers, and a permanent event never enters play. The card itself is
+  // flushed to its declarer's discard pile by `completeChain`, which already
+  // handles negated entries (and skips short events, discarded at play time).
+  if (hazardLimitExceededAtResolution(state, entry) && state.phaseState.phase === Phase.MovementHazard) {
+    const mhState = state.phaseState;
+    const def = entry.card ? defById(state, entry.card.definitionId) : undefined;
+    const activeCompany = state.players[state.players.findIndex(p => p.id === state.activePlayer)]
+      .companies[mhState.activeCompanyIndex];
+    const limit = currentHazardLimit(state, mhState, activeCompany.id);
+    logDetail(`Hazard "${def?.name ?? entry.payload.type}" fizzles — hazard limit exceeded at resolution (${mhState.hazardsPlayedThisCompany} declared > limit ${limit})`);
+    const negatedEntries = chain.entries.map((e, i) =>
+      i === entryIndex ? { ...e, negated: true, resolved: true } : e,
+    );
+    return {
+      state: { ...state, chain: { ...chain, entries: negatedEntries } },
+      needsInput: false,
+    };
+  }
 
   // TODO: check validity (CoE rule 681: conditions must still be legal)
 
