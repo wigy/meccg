@@ -1164,11 +1164,18 @@
     "keyedTo": [
       {
         "regionTypes": [
-          "coastal-sea"
+          "coastal"
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "attack-strike-successful",
+        "apply": { "type": "company-return-to-origin" }
+      }
+    ],
+    "certified": "2026-07-30",
     "text": "Animals. One strike. If any strike is successful, the defending company must return to its site of origin (defending characters are wounded normally)."
   },
   {
