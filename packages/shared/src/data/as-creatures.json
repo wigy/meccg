@@ -419,7 +419,47 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "dunadan",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Anfalas",
+          "Belfalas",
+          "Lamedon",
+          "Lebennin",
+          "Anórien"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-not-canceled",
+        "apply": {
+          "type": "company-tap-characters"
+        }
+      }
+    ],
+    "certified": "2026-07-30"
   },
   {
     "cardType": "hazard-creature",
