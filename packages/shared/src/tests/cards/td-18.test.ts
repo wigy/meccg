@@ -13,6 +13,12 @@
  * |---|----------------------------------------|-------------|-------------------------------------------|
  * | 1 | Target filter: major or greater item   | IMPLEMENTED | itemSubtypes context in movement-hazard   |
  * | 2 | Corruption check modifier -1 on resolve| IMPLEMENTED | play-target cost:check enqueue in chain   |
+ * | 3 | NOT a corruption card (CoE 7.2)        | IMPLEMENTED | no `corruption` keyword → 7.2.1 not applied|
+ *
+ * Note on rule 7.2: Dragon-sickness carries no printed Corruption keyword — it only
+ * *forces* a corruption check, which CoE 7.2 explicitly excludes from the definition of
+ * a corruption card. It therefore does not consume, and is not blocked by, the
+ * one-corruption-card-per-character-per-turn limit of CoE 7.2.1.
  *
  * Playable: YES
  * Certified: 2026-04-25
@@ -223,6 +229,89 @@ describe('Dragon-sickness (td-18)', () => {
     expect(cc.corruptionModifier).toBe(-1);
     expect(cc.characterId).toBe(aragornId);
     void companyId;
+  });
+
+  test('still playable on a character that already received a corruption card this turn', () => {
+    // CoE 7.2: a "corruption card" is a card carrying the *corruption keyword* —
+    // "not just any card that forces or modifies a corruption check". Dragon-sickness
+    // has no printed Corruption keyword (unlike the Lures, Alone and Unadvised, …);
+    // it merely forces a check. So CoE 7.2.1's one-corruption-card-per-character-per-turn
+    // limit must not gate it.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [GLAMDRING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [DRAGON_SICKNESS],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    const mhGameState = {
+      ...base,
+      phaseState: makeMHState({
+        corruptionCardsPlayedPerChar: { [aragornId as string]: true as const },
+      }),
+    };
+    const dsCard = mhGameState.players[1].hand[0];
+
+    const viablePlays = computeLegalActions(mhGameState, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard'
+        && (ea.action).cardInstanceId === dsCard.instanceId);
+
+    expect(viablePlays.length).toBe(1);
+    expect((viablePlays[0].action as PlayHazardAction).targetCharacterId).toBe(aragornId);
+  });
+
+  test('playing Dragon-sickness does not consume the character\'s corruption-card slot', () => {
+    // The converse of the rule above: because it is not a corruption card, resolving it
+    // must leave corruptionCardsPlayedPerChar untouched so a real corruption card can
+    // still be played on the same character this turn.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [GLAMDRING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [DRAGON_SICKNESS],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const mhGameState = { ...base, phaseState: makeMHState() };
+    const dsCard = mhGameState.players[1].hand[0];
+    const aragornId = charIdAt(mhGameState, RESOURCE_PLAYER);
+
+    const viablePlays = computeLegalActions(mhGameState, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard'
+        && (ea.action).cardInstanceId === dsCard.instanceId);
+    expect(viablePlays.length).toBe(1);
+
+    const playResult = reduce(mhGameState, viablePlays[0].action);
+    expect(playResult.error).toBeUndefined();
+
+    const phaseState = playResult.state.phaseState;
+    expect(phaseState.phase).toBe(Phase.MovementHazard);
+    if (phaseState.phase !== Phase.MovementHazard) return;
+    expect(phaseState.corruptionCardsPlayedPerChar[aragornId]).toBeUndefined();
   });
 
   test('companyId used in play-hazard matches targeted company', () => {
