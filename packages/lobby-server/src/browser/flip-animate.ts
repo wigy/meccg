@@ -72,6 +72,38 @@ let instanceSnapshot: Map<string, SnapshotEntry> | null = null;
 /** Stored positions keyed by definition ID (list to handle duplicates). */
 let defIdSnapshot: Map<string, DOMRect[]> | null = null;
 
+/** The parts of a DOMRect the animation decision needs. */
+interface RectLike {
+  readonly width: number;
+  readonly height: number;
+  readonly left: number;
+  readonly top: number;
+}
+
+/**
+ * Decide whether a card should animate between a recorded position and its
+ * current one.
+ *
+ * A rect of zero width *and* height is what `getBoundingClientRect()` returns
+ * for an element inside a `display: none` container, so it records no position
+ * at all. The hand and opponent arcs are hidden in the all-companies overview
+ * (`.all-companies-mode #hand-arc { display: none }`), which the view enters
+ * and leaves automatically on every turn change. Treating those zero rects as
+ * a real position at the viewport origin made the whole hand fly in from the
+ * top-left corner on the way back to single-company view. A card that was not
+ * laid out before, or is not laid out now, simply appears or disappears.
+ *
+ * Genuinely new cards never reach here — they have no snapshot entry and fade
+ * in instead — so suppressing this case costs no wanted animation.
+ *
+ * Moves under a pixel are also skipped: they read as a jitter, not a move.
+ */
+export function shouldAnimateBetween(oldRect: RectLike, newRect: RectLike): boolean {
+  const unlaidOut = (r: RectLike) => r.width === 0 && r.height === 0;
+  if (unlaidOut(oldRect) || unlaidOut(newRect)) return false;
+  return Math.abs(oldRect.left - newRect.left) >= 1 || Math.abs(oldRect.top - newRect.top) >= 1;
+}
+
 /**
  * Walk up from a card image to its nearest wrapper element, if any.
  * Returns the wrapper or the image itself if no wrapper is found.
@@ -181,11 +213,10 @@ export function animateFromSnapshot(): void {
 
     const oldRect = entry.rect;
     const newRect = target.getBoundingClientRect();
+    if (!shouldAnimateBetween(oldRect, newRect)) continue;
+
     const dx = oldRect.left - newRect.left;
     const dy = oldRect.top - newRect.top;
-
-    // Skip if the card hasn't moved (within 1px tolerance)
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
 
     const distance = Math.sqrt(dx * dx + dy * dy);
     const duration = Math.min(FLIP_MAX_DURATION, Math.max(FLIP_MIN_DURATION, distance / FLIP_SPEED * 1000));
@@ -239,9 +270,9 @@ export function animateFromSnapshot(): void {
         oldInstances.delete(id);
 
         if (!animated) {
+          if (!shouldAnimateBetween(old.rect, pileRect)) continue;
           const dx = old.rect.left - pileRect.left;
           const dy = old.rect.top - pileRect.top;
-          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
 
           const distance = Math.sqrt(dx * dx + dy * dy);
           const duration = Math.min(FLIP_MAX_DURATION, Math.max(FLIP_MIN_DURATION, distance / FLIP_SPEED * 1000));
