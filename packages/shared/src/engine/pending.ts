@@ -322,3 +322,35 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
     activeConstraints: newConstraints,
   };
 }
+
+/**
+ * Whether a hand card already has a play queued against it.
+ *
+ * Some plays are not applied when they are declared: a resource played into a
+ * company holding on-guard cards is captured as a pending `on-guard-window`
+ * resolution so the hazard player may reveal first, and the card waits in hand
+ * until that window closes (`reducer-site.ts`).
+ *
+ * The legal-action emitters read `player.hand` directly, so without this the
+ * same card is offered again while its own play is still pending — and
+ * declaring it again simply queues another window, changing nothing else. Each
+ * queued window holds its own copy of the deferred action, so when they resolve
+ * the first play removes the card from hand and the second fails in
+ * `handlePlayResourceShortEvent` with 'Card not found in hand'.
+ *
+ * Reproducible before this guard at seed 599 (heuristic vs h2, decks
+ * challenge-deck-a / challenge-deck-b): one card declared five times running,
+ * and the game ending in an engine error. Both agents did it; neither knew.
+ *
+ * CoE 5.1 says a short event is discarded after it resolves, and the engine
+ * models "declared but not resolved" by leaving the card in hand behind the
+ * window. That is an implementation choice, but a card whose play is already
+ * pending is not a card that can be played again.
+ */
+export function hasPendingPlay(state: GameState, cardInstanceId: CardInstanceId): boolean {
+  return state.pendingResolutions.some(resolution => {
+    if (resolution.source === cardInstanceId) return true;
+    const kind = resolution.kind as { deferredAction?: { cardInstanceId?: CardInstanceId } };
+    return kind.deferredAction?.cardInstanceId === cardInstanceId;
+  });
+}

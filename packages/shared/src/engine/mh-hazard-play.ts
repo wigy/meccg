@@ -3,7 +3,7 @@
  *
  * The hazard-play and company-M/H-completion core of the movement/hazard phase:
  * playing hazards and creatures (handlePlayHazards and its sub-handlers), the
- * creature-keying matchers (checkCreatureKeying, regionTypesMatch,
+ * creature-keying matchers (checkCreatureKeying,
  * isCreatureRaceExempt, consumeCreatureKeyingBypass, isLegalMovementHop,
  * findForcingEnvironment), and end-of-company-M/H completion plus arrival
  * triggers (endCompanyMH, advanceAfterCompanyMH, the fire* triggers). Extracted
@@ -29,7 +29,7 @@ import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
-import { CardStatus, RegionType, Skill, SiteType, Alignment, Race } from '../types/common.js';
+import { CardStatus, Skill, SiteType, Alignment, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
@@ -41,7 +41,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1333,7 +1333,6 @@ export function findForcingEnvironment(
   movingPlayer: import('../index.js').PlayerState,
 ): import('../index.js').CardInPlay | null {
   const path = mhState.resolvedSitePath;
-  const terrainCount = (t: RegionType): number => path.filter(r => r === t).length;
   // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
   // either the company's origin (currentSite) or its declared destination is an
   // Under-deeps site (`under-deeps` keyword on the site definition).
@@ -1345,12 +1344,7 @@ export function findForcingEnvironment(
   const underDeepsMove = siteIsUnderDeeps(company.currentSite) || siteIsUnderDeeps(company.destinationSite);
   const context = {
     sitePath: {
-      wildernessCount: terrainCount(RegionType.Wilderness),
-      shadowCount: terrainCount(RegionType.Shadow),
-      darkCount: terrainCount(RegionType.Dark),
-      coastalCount: terrainCount(RegionType.Coastal),
-      borderCount: terrainCount(RegionType.Border),
-      freeCount: terrainCount(RegionType.Free),
+      ...regionTypeCounts(path),
       length: path.length,
     },
     underDeepsMove,
@@ -2584,46 +2578,6 @@ export function handleExtraMHMoveOffer(
       phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
     },
   };
-}
-
-/**
- * Check whether any of the creature's region types can be keyed to the
- * company's site path.
- *
- * Each distinct region type is an independent keying option (OR). If the
- * same type appears N times on the creature card, the path must contain
- * at least N regions of that type.
- *
- * Per CoE: "If multiple of the same region type appear on the creature card,
- * the company must be moving through at least that many corresponding regions
- * (but which need not be consecutive)."
- */
-
-
-/**
- * Check whether any of the creature's region types can be keyed to the
- * company's site path.
- *
- * Each distinct region type is an independent keying option (OR). If the
- * same type appears N times on the creature card, the path must contain
- * at least N regions of that type.
- *
- * Per CoE: "If multiple of the same region type appear on the creature card,
- * the company must be moving through at least that many corresponding regions
- * (but which need not be consecutive)."
- */
-export function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
-  // Count how many of each type the creature requires
-  const requiredCounts = new Map<RegionType, number>();
-  for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
-  // Count how many of each type are in the path
-  const pathCounts = new Map<RegionType, number>();
-  for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
-  // Any type with enough matches in the path is sufficient (OR)
-  for (const [rt, need] of requiredCounts) {
-    if ((pathCounts.get(rt) ?? 0) >= need) return true;
-  }
-  return false;
 }
 
 /**

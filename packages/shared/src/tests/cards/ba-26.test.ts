@@ -38,15 +38,15 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
-  viableActions, dispatch,
-  makeCancelWindowCombat, placeOnGuard,
+  viableActions, dispatch, nonViableOfType,
+  makeCancelWindowCombat, makeMHState, placeOnGuard,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   ORC_PATROL,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, Race } from '../../index.js';
+import { Alignment, Race, computeLegalActions, RegionType, SiteType } from '../../index.js';
 import { resolveCancelAttackEntry } from '../../engine/combat-cancel.js';
 import type { CardDefinitionId, GameState, ModifyAttackAction } from '../../index.js';
 
@@ -137,6 +137,47 @@ describe('Unabated in Malice (ba-26)', () => {
       after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === UNABATED_IN_MALICE),
     ).toBe(true);
     expect(after.combat!.cancelProtection).toBeDefined();
+  });
+
+  test('NOT playable as an open hazard during the movement/hazard phase', () => {
+    // Regression (game mruvf51s-a9ge5j, seq 227): the hazard player played
+    // Unabated in Malice openly as a short-event during a company's
+    // movement/hazard phase while it was moving to Glittering Caves (a
+    // Ruins & Lairs with a Pûkel-creature automatic-attack). The card resolved
+    // to a no-op — its +1 strike / +1 prowess / -2 body buff was silently
+    // dropped and never reached the automatic-attack, which stayed at its base
+    // 1 strike / 9 prowess. A from-hand modify-attack is a combat modifier with
+    // no open M/H play: during M/H there is no active attack to modify. It must
+    // be played on the active attack (via the combat modify-attack action) or
+    // placed on-guard to be revealed when the company faces the site's
+    // automatic-attack (rule 2.V.i). The open play must therefore be suppressed.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [UNABATED_IN_MALICE], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state: GameState = {
+      ...base,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Wilderness],
+        destinationSiteType: SiteType.RuinsAndLairs,
+      }),
+    };
+    const ba26Inst = state.players[HAZARD_PLAYER].hand[0].instanceId;
+
+    // No viable open play-hazard is offered for Unabated in Malice.
+    const viable = viableActions(state, PLAYER_2, 'play-hazard')
+      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === ba26Inst);
+    expect(viable).toHaveLength(0);
+
+    // It is explicitly gated non-viable (not merely absent from the list),
+    // so the UI can explain why the open play is unavailable.
+    const gated = nonViableOfType(computeLegalActions(state, PLAYER_2), 'play-hazard')
+      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === ba26Inst);
+    expect(gated).toHaveLength(1);
   });
 
   test('attacker can play it on an attack from Shelob', () => {

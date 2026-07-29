@@ -12,6 +12,7 @@ import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
 import { resolveModelFile } from '../games/models.js';
+import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName, getCredits } from '../players/store.js';
 
@@ -86,8 +87,21 @@ interface OnlinePlayer {
   activeGame: ActiveGameInfo | null;
 }
 
+/** An ongoing human-vs-human game that others can watch. */
+interface WatchableGame {
+  readonly port: number;
+  readonly player1: string;
+  readonly player2: string;
+}
+
 /** The lobby state: tracks online players and pending challenges. */
 const onlinePlayers = new Map<string, OnlinePlayer>();
+
+/**
+ * Human-vs-human games in progress, keyed by port. Only these are watchable:
+ * AI games have a single human and are not broadcast for spectating.
+ */
+const watchableGames = new Map<number, WatchableGame>();
 
 /** Send a typed message to a WebSocket. */
 function send(ws: WebSocket, msg: LobbyServerMessage): void {
@@ -103,14 +117,45 @@ function broadcastToOnline(msg: LobbyServerMessage): void {
   }
 }
 
-/** Broadcast the current online player list to everyone. */
+/** Broadcast the current online player list and games in progress to everyone. */
 function broadcastPlayerList(): void {
-  const players = Array.from(onlinePlayers.keys()).map(name => ({
-    name,
-    displayName: getDisplayName(name),
-    credits: getCredits(name),
+  const players = Array.from(onlinePlayers.values()).map(p => ({
+    name: p.name,
+    displayName: getDisplayName(p.name),
+    credits: getCredits(p.name),
+    inGame: p.inGame,
   }));
-  broadcastToOnline({ type: 'online-players', players });
+  const games = Array.from(watchableGames.values()).map(g => ({
+    port: g.port,
+    player1: g.player1,
+    player1DisplayName: getDisplayName(g.player1),
+    player2: g.player2,
+    player2DisplayName: getDisplayName(g.player2),
+  }));
+  broadcastToOnline({ type: 'online-players', players, games });
+}
+
+/**
+ * Cancel every pending challenge that involves `name` because they are entering
+ * a game — both challenges they sent (they are in other players' `pendingFrom`)
+ * and challenges they received (`name`'s own `pendingFrom`). Any player whose
+ * incoming-challenge prompt names `name` is told to dismiss it. Callers should
+ * mark `name` as in-game and re-broadcast the player list afterwards so the
+ * challenger's stale "Sent" button clears too.
+ */
+function cancelChallengesInvolving(name: string): void {
+  // Outgoing: `name` challenged others — remove it from their pendingFrom and
+  // dismiss the prompt they were shown.
+  for (const other of onlinePlayers.values()) {
+    if (other.name === name) continue;
+    if (other.pendingFrom.delete(name)) {
+      send(other.ws, { type: 'challenge-cancelled', from: name });
+    }
+  }
+  // Incoming: others challenged `name` — drop those; `name`'s lobby prompt is
+  // hidden behind the game screen, so no notification is needed.
+  const player = onlinePlayers.get(name);
+  if (player) player.pendingFrom.clear();
 }
 
 /** Send a typed message to a specific player if they are online. Silently drops if offline. */
@@ -214,6 +259,16 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
+    case 'cancel-challenge': {
+      // Withdraw a challenge `fromName` sent to `msg.opponentName`: drop it from
+      // the target's pending set and dismiss the prompt they were shown.
+      const target = onlinePlayers.get(msg.opponentName);
+      if (target && target.pendingFrom.delete(fromName)) {
+        send(target.ws, { type: 'challenge-cancelled', from: fromName });
+      }
+      break;
+    }
+
     case 'play-heuristic-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
@@ -256,6 +311,34 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         return;
       }
       void startPseudoAiGame(from, msg.deckId);
+      break;
+    }
+
+    case 'watch-game': {
+      const game = watchableGames.get(msg.port);
+      if (!game) {
+        send(from.ws, { type: 'error', message: 'That game is no longer in progress' });
+        return;
+      }
+      // A player of the game cannot "watch" it: joining the game server with
+      // their own name would replace their real player connection.
+      if (game.player1 === fromName || game.player2 === fromName) {
+        send(from.ws, { type: 'error', message: 'You are a player in that game' });
+        return;
+      }
+      // The game server authenticates spectators by the same JWT as players
+      // (token.sub must equal the join name); it does not check the game id,
+      // so any valid id works. The watcher's name is not one of the two
+      // players, so the server seats them as a spectator.
+      const token = signGameToken(fromName, `watch-${game.port}`);
+      lobbyLog.log('watch-game', { watcher: fromName, port: game.port, player1: game.player1, player2: game.player2 });
+      send(from.ws, {
+        type: 'game-watching',
+        port: game.port,
+        token,
+        player1DisplayName: getDisplayName(game.player1),
+        player2DisplayName: getDisplayName(game.player2),
+      });
       break;
     }
 
@@ -316,6 +399,9 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
 async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<void> {
   player1.inGame = true;
   player2.inGame = true;
+  // Both are now busy: withdraw every other challenge involving either of them.
+  cancelChallengesInvolving(player1.name);
+  cancelChallengesInvolving(player2.name);
 
   try {
     const result = await launchGame(player1.name, player2.name);
@@ -336,8 +422,13 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
     player1.activeGame = p1Game;
     player2.activeGame = p2Game;
 
+    // Register the game so others can watch it, then broadcast so the updated
+    // list (players now in-game, a new watchable game) reaches everyone.
+    watchableGames.set(result.port, { port: result.port, player1: player1.name, player2: player2.name });
+
     send(player1.ws, { type: 'game-starting', ...p1Game });
     send(player2.ws, { type: 'game-starting', ...p2Game });
+    broadcastPlayerList();
 
     // When the game ends, mark players as available again
     result.onEnd(() => {
@@ -347,6 +438,7 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
       player2.activeGame = null;
       player1.pendingFrom.clear();
       player2.pendingFrom.clear();
+      watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player1.name, player2: player2.name });
     });
@@ -358,6 +450,7 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
     player2.activeGame = null;
     send(player1.ws, { type: 'error', message: 'Failed to start game server' });
     send(player2.ws, { type: 'error', message: 'Failed to start game server' });
+    broadcastPlayerList();
   }
 }
 
@@ -389,6 +482,8 @@ async function startAiGame(
     aiModelPath = resolved;
   }
   player.inGame = true;
+  // Entering a game withdraws any challenges involving this player.
+  cancelChallengesInvolving(player.name);
   // The name is the save key and the rejoin key, so each agent spec needs its
   // own. Deriving it from "an agent spec was supplied" was fine while there was
   // one such agent; a second would have made both share MC's saves.
@@ -412,6 +507,9 @@ async function startAiGame(
       aiModelFile: modelFile,
     };
     send(player.ws, { type: 'game-starting', ...player.activeGame });
+    // Others should see this player as busy (no Challenge offered). AI games
+    // are not watchable, so nothing is added to watchableGames.
+    broadcastPlayerList();
 
     result.onEnd(() => {
       player.inGame = false;
@@ -425,12 +523,15 @@ async function startAiGame(
     player.inGame = false;
     player.activeGame = null;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });
+    broadcastPlayerList();
   }
 }
 
 /** Launch a pseudo-AI game where the human controls both sides via two WS connections. */
 async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
   player.inGame = true;
+  // Entering a game withdraws any challenges involving this player.
+  cancelChallengesInvolving(player.name);
   const aiName = 'AI-Pseudo';
 
   try {
@@ -450,6 +551,7 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
       pseudoAi: true,
       aiToken: result.tokens[1],
     });
+    broadcastPlayerList();
 
     result.onEnd(() => {
       player.inGame = false;
@@ -463,5 +565,6 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
     player.inGame = false;
     player.activeGame = null;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });
+    broadcastPlayerList();
   }
 }

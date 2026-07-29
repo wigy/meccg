@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -45,6 +45,8 @@ import { currentHazardLimit } from '../hazard-limit.js';
 import { computeCandidateRegionPaths } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
+import { findEnvironmentTargets } from '../environment-targets.js';
+import { cardTargetsSetAside } from '../set-aside.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -2291,7 +2293,7 @@ function playHazardsActions(
           e => e.type === 'call-of-home-check' || e.type === 'protect-from-removal',
         );
         if (hasPlayFlag(def, 'playable-as-resource') && !isCharacterTargetingResourceHazard) {
-          const envTargets = findEnvironmentTargets(state);
+          const envTargets = findEnvironmentTargets(state, { mayTargetSetAside: cardTargetsSetAside(def) });
           if (envTargets.length === 0) {
             logDetail(`Hazard short-event "${def.name}": no environment in play to cancel`);
             actions.push({ action, viable: false, reason: 'No environment to cancel' });
@@ -3095,6 +3097,29 @@ function playHazardsActions(
           continue;
         }
 
+        // A short event whose only movement/hazard-relevant effect is a
+        // from-hand `modify-attack` is a *combat* modifier (e.g. Unabated in
+        // Malice ba-26, Black Vapour ba-14). It buffs an attack the company is
+        // facing, so it has no open movement/hazard play: during M/H there is
+        // no active attack to modify, and resolving it here would silently drop
+        // the buff (game mruvf51s-a9ge5j — Unabated in Malice played openly in
+        // M/H never affected the site's automatic-attack). Such a card must be
+        // played on the attack itself (via the combat modify-attack action) or
+        // placed on-guard to be revealed when the company faces the site's
+        // automatic-attack (rule 2.V.i). Suppress the open play; the on-guard
+        // placement action remains available separately. Cards reaching this
+        // point have already been ruled out of every legitimate M/H mode above
+        // (create-site-auto-attack, auto-attack-boost, creature-race-choice,
+        // etc.), each of which `continue`s before here.
+        const fromHandModifyAttack = getCardEffects(def).some(
+          (e): boolean => e.type === 'modify-attack' && !!(e as { fromHand?: boolean }).fromHand,
+        );
+        if (fromHandModifyAttack) {
+          logDetail(`Hazard short-event "${def.name}": from-hand modify-attack is a combat modifier — not playable openly in M/H (play it on the attack or place it on-guard)`);
+          actions.push({ action, viable: false, reason: `${def.name} must be played on the attack it modifies or placed on-guard` });
+          continue;
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
@@ -3863,34 +3888,6 @@ function nazgulSideboardFetchActions(
 }
 
 /**
- * Find all environment cards currently in play or declared in the active chain.
- * Searches player cardsInPlay and unresolved chain entries.
- */
-function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId; definitionId: string }[] {
-  const isEnv = (defId: string): boolean => {
-    const d = state.cardPool[defId as CardDefinitionId];
-    return !!d && 'keywords' in d
-      && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
-  };
-  const targets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-  for (const p of state.players) {
-    for (const c of p.cardsInPlay) {
-      if (isEnv(c.definitionId as string)) targets.push(c);
-    }
-  }
-  if (state.chain) {
-    for (const entry of state.chain.entries) {
-      if (entry.resolved || entry.negated) continue;
-      if (!entry.card) continue;
-      if (isEnv(entry.card.definitionId as string)) {
-        targets.push({ instanceId: entry.card.instanceId, definitionId: entry.card.definitionId as string });
-      }
-    }
-  }
-  return targets;
-}
-
-/**
  * Generate actions for the reset-hand step (CoE step 8).
  *
  * Players whose hand exceeds the base hand size must choose which cards
@@ -3927,45 +3924,6 @@ function resetHandActions(
     action: { type: 'discard-card' as const, player: playerId, cardInstanceId: handCard.instanceId },
     viable: true,
   }));
-}
-
-/**
- * Count occurrences of each region type in a path. Returns a flat record
- * keyed by `{type}Count` so DSL conditions can reference counts directly
- * (e.g. `destinationSite.sitePath.wildernessCount >= 2`).
- */
-function regionTypeCounts(path: readonly RegionType[]): Record<string, number> {
-  const counts: Record<string, number> = {
-    wildernessCount: 0, shadowCount: 0, darkCount: 0,
-    coastalCount: 0, freeCount: 0, borderCount: 0,
-  };
-  for (const rt of path) {
-    switch (rt) {
-      case RegionType.Wilderness: counts.wildernessCount++; break;
-      case RegionType.Shadow: counts.shadowCount++; break;
-      case RegionType.Dark: counts.darkCount++; break;
-      case RegionType.Coastal: counts.coastalCount++; break;
-      case RegionType.Free: counts.freeCount++; break;
-      case RegionType.Border: counts.borderCount++; break;
-    }
-  }
-  return counts;
-}
-
-/**
- * Check whether any of the creature's region types can be keyed to the
- * site path. Each distinct type is an independent option (OR). If the
- * same type appears N times, the path must have at least N of that type.
- */
-function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
-  const requiredCounts = new Map<RegionType, number>();
-  for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
-  const pathCounts = new Map<RegionType, number>();
-  for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
-  for (const [rt, need] of requiredCounts) {
-    if ((pathCounts.get(rt) ?? 0) >= need) return true;
-  }
-  return false;
 }
 
 /**
