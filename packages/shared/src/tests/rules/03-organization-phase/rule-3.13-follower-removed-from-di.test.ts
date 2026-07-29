@@ -20,7 +20,7 @@ import {
   buildTestState, resetMint, dispatch, viableActions, executeAction,
   companyIdAt, findCharInstanceId, makeShadowMHState, recomputeDerived,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ARAGORN, FARAMIR, LEGOLAS,
+  ARAGORN, FARAMIR, LEGOLAS, ELROND, BEREGOND,
   MORIA, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
 
@@ -151,10 +151,106 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
     expect(inOrg.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(giFull);
   });
 
-  // The enforcement half — "must be moved back under the control of either
-  // general influence or direct influence, or else it must be discarded at
-  // the end of that phase" — needs the end-of-organization-phase forced
-  // discard state machine shared with rule 3.47 (influence overflow), which
-  // does not exist yet.
-  test.todo('follower not reassigned by end of next organization phase is discarded');
+  test('follower not reassigned by the end of the next organization phase is discarded', () => {
+    // Aragorn (9) + Elrond (10) already use 19 of the 20-point pool. Beregond
+    // (2) was stripped of his controller between organization phases, so his
+    // mind was deferred; the organization phase charges it back, putting the
+    // player at 21. The player neither reassigns him nor frees room, so on
+    // passing he is the one who must go — and *only* he: the rule discards a
+    // character that lost direct-influence control before the player gets any
+    // choice, even though Aragorn and Elrond are worth far more influence.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, ELROND, BEREGOND] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const beregondId = findCharInstanceId(base, RESOURCE_PLAYER, BEREGOND);
+    const flagged = recomputeDerived({
+      ...base,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: true,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: true,
+      } as typeof base.phaseState,
+      players: base.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [beregondId as string]: { ...p.characters[beregondId], influenceUnsubtracted: true },
+        },
+      }) as unknown as typeof base.players,
+    });
+    expect(flagged.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(19);
+
+    const inOrg = dispatch(flagged, { type: 'untap', player: PLAYER_1 });
+    expect(inOrg.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(21);
+
+    const passed = dispatch(inOrg, { type: 'pass', player: PLAYER_1 });
+    const offered = viableActions(passed, PLAYER_1, 'influence-overflow-discard');
+    expect(offered).toHaveLength(1);
+    expect((offered[0].action as { characterInstanceId: CardInstanceId }).characterInstanceId).toBe(beregondId);
+
+    const after = dispatch(passed, { type: 'influence-overflow-discard', player: PLAYER_1, characterInstanceId: beregondId });
+    expect(after.players[RESOURCE_PLAYER].characters[beregondId]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === beregondId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(19);
+    expect(after.pendingResolutions.some(r => r.kind.type === 'influence-overflow-discard')).toBe(false);
+  });
+
+  test('a follower moved back under direct influence during that phase is not discarded', () => {
+    // Same 21-over-20 position, but this time the player uses the organization
+    // phase for what the rule asks: Beregond (mind 2) goes back under Aragorn's
+    // direct influence (3 available). That takes his mind off the pool, so the
+    // phase ends within general influence and nothing is forced.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, ELROND, BEREGOND] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const beregondId = findCharInstanceId(base, RESOURCE_PLAYER, BEREGOND);
+    const flagged = recomputeDerived({
+      ...base,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: true,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: true,
+      } as typeof base.phaseState,
+      players: base.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [beregondId as string]: { ...p.characters[beregondId], influenceUnsubtracted: true },
+        },
+      }) as unknown as typeof base.players,
+    });
+
+    const inOrg = dispatch(flagged, { type: 'untap', player: PLAYER_1 });
+    const reassigned = dispatch(inOrg, {
+      type: 'move-to-influence', player: PLAYER_1,
+      characterInstanceId: beregondId, controlledBy: aragornId,
+    });
+    expect(reassigned.players[RESOURCE_PLAYER].characters[beregondId].controlledBy).toBe(aragornId);
+    expect(reassigned.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(19);
+
+    const passed = dispatch(reassigned, { type: 'pass', player: PLAYER_1 });
+    expect(passed.pendingResolutions.some(r => r.kind.type === 'influence-overflow-discard')).toBe(false);
+    expect(passed.players[RESOURCE_PLAYER].characters[beregondId]).toBeDefined();
+  });
 });
