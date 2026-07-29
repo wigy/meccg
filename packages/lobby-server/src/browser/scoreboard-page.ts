@@ -14,6 +14,7 @@
 import { type ScreenId } from './app-state.js';
 import { apiGet } from './api.js';
 import { escapeHtml } from './html-utils.js';
+import { MP_SOURCES } from '@meccg/shared';
 
 // Forward-declared showScreen, set by the lobby module at startup to
 // avoid a circular dependency with lobby-screens.ts.
@@ -75,9 +76,6 @@ interface PlayerGame {
   readonly opponent: PlayerGameSide | null;
 }
 
-/** The marshalling-point categories, in the order the record lists them. */
-const MP_CATEGORIES: readonly (keyof Mp)[] =
-  ['character', 'item', 'faction', 'ally', 'kill', 'misc'];
 
 /** Format an ISO datetime as a locale-friendly date. */
 function formatDate(iso: string | null): string {
@@ -123,7 +121,7 @@ function formatWinReason(game: PlayerGame): string {
 
 /** Sum a marshalling-point breakdown. */
 function mpTotal(mp: Mp | null): number | null {
-  return mp ? MP_CATEGORIES.reduce((sum, key) => sum + mp[key], 0) : null;
+  return mp ? MP_SOURCES.reduce((sum, key) => sum + mp[key], 0) : null;
 }
 
 /**

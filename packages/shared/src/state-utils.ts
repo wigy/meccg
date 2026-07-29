@@ -77,8 +77,12 @@ const DOUBLING_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
   'character', 'item', 'faction', 'ally',
 ] as const;
 
-/** All six MP sources. */
-const ALL_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
+/**
+ * All six marshalling-point sources, in the order the tournament rules
+ * list them — which is also the order every scoreboard and MP tooltip
+ * displays them in.
+ */
+export const MP_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
   'character', 'item', 'faction', 'ally', 'kill', 'misc',
 ] as const;
 
@@ -109,7 +113,7 @@ export function computeTournamentBreakdown(
 ): MarshallingPointTotals {
   // Step 2: start with raw values per source
   const adjusted: Record<string, number> = {};
-  for (const src of ALL_SOURCES) {
+  for (const src of MP_SOURCES) {
     adjusted[src] = self[src];
   }
 
@@ -126,10 +130,10 @@ export function computeTournamentBreakdown(
   let changed = true;
   while (changed) {
     changed = false;
-    const total = ALL_SOURCES.reduce((sum, s) => sum + Math.max(0, adjusted[s]), 0);
+    const total = MP_SOURCES.reduce((sum, s) => sum + Math.max(0, adjusted[s]), 0);
     if (total <= 0) break;
     const half = Math.floor(total / 2);
-    for (const src of ALL_SOURCES) {
+    for (const src of MP_SOURCES) {
       if (adjusted[src] > half) {
         adjusted[src] = half;
         changed = true;

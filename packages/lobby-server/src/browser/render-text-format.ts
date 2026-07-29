@@ -8,9 +8,10 @@
  */
 
 import type { CardDefinition, CardDefinitionId, CardInstanceId, MarshallingPointTotals } from '@meccg/shared';
-import { cardImageProxyPath, buildInstanceLookup, getCardCss, computeTournamentScore } from '@meccg/shared';
+import { cardImageProxyPath, buildInstanceLookup, getCardCss } from '@meccg/shared';
 import { SERVER_DEV, DEV_MODE_KEY } from './app-state.js';
 import { createMiniDie } from './dice.js';
+import { buildMPTooltip } from './mp-categories.js';
 
 /** True when the user currently has Developer Mode enabled in settings. */
 function isDevModeOn(): boolean {
@@ -202,29 +203,10 @@ export function injectMPTooltips(html: string): string {
           selfRaw: MarshallingPointTotals; oppRaw: MarshallingPointTotals;
           selfAdj: MarshallingPointTotals; oppAdj: MarshallingPointTotals;
         };
-        const cats: { key: keyof MarshallingPointTotals; label: string }[] = [
-          { key: 'character', label: 'Chars' },
-          { key: 'item', label: 'Items' },
-          { key: 'faction', label: 'Factions' },
-          { key: 'ally', label: 'Allies' },
-          { key: 'kill', label: 'Kill' },
-          { key: 'misc', label: 'Misc' },
-        ];
-        const selfTotal = computeTournamentScore(data.selfRaw, data.oppRaw);
-        const oppTotal = computeTournamentScore(data.oppRaw, data.selfRaw);
-        let rows = '';
-        for (const { key, label } of cats) {
-          const s = data.selfAdj[key] !== data.selfRaw[key]
-            ? `${data.selfAdj[key]} (${data.selfRaw[key]})` : `${data.selfRaw[key]}`;
-          const o = data.oppAdj[key] !== data.oppRaw[key]
-            ? `${data.oppAdj[key]} (${data.oppRaw[key]})` : `${data.oppRaw[key]}`;
-          rows += `<tr><td class="mp-label">${label}</td><td class="mp-value">${s}</td><td class="mp-value">${o}</td></tr>`;
-        }
-        const tooltip = `<table class="mp-tooltip-table">
-          <thead><tr><th></th><th>${data.selfName}</th><th>${data.oppName}</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${selfTotal}</td><td class="mp-value mp-total">${oppTotal}</td></tr></tfoot>
-        </table>`;
+        const tooltip = buildMPTooltip(
+          data.selfName, data.selfRaw, data.selfAdj,
+          data.oppName, data.oppRaw, data.oppAdj,
+        );
         return `<span class="mp-badge">${score} MP<span class="mp-tooltip">${tooltip}</span></span>`;
       } catch {
         return `${score} MP`;
