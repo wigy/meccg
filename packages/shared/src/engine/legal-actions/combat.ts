@@ -12,7 +12,7 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId, CompanyId } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
 import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
@@ -33,6 +33,7 @@ import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { currentHazardLimit } from '../hazard-limit.js';
+import { cvccSides } from '../cvcc-sides.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -2699,22 +2700,9 @@ function cancelWeaponActions(
   const player = playerById(state, playerId);
   if (!player) return [];
 
-  // Identify the acting player's participating company and the opponent's.
-  let myCompanyId: CompanyId | undefined;
-  let oppPlayerId: PlayerId | undefined;
-  let oppCompanyId: CompanyId | undefined;
-  if (playerId === combat.defendingPlayerId) {
-    myCompanyId = combat.companyId;
-    oppPlayerId = combat.attackingPlayerId;
-    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
-  } else if (playerId === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
-    myCompanyId = combat.attackSource.attackingCompanyId;
-    oppPlayerId = combat.defendingPlayerId;
-    oppCompanyId = combat.companyId;
-  } else {
-    return [];
-  }
-  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) return [];
+  const sides = cvccSides(combat, playerId);
+  if (!sides) return [];
+  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
 
   const myCompany = companyById(player.companies, myCompanyId);
   if (!myCompany) return [];
@@ -2814,22 +2802,9 @@ function combatDiscardOpponentItemActions(
   );
   if (candidates.length === 0) return [];
 
-  // Identify the acting player's participating company and the opponent's.
-  let myCompanyId: CompanyId | undefined;
-  let oppPlayerId: PlayerId | undefined;
-  let oppCompanyId: CompanyId | undefined;
-  if (playerId === combat.defendingPlayerId) {
-    myCompanyId = combat.companyId;
-    oppPlayerId = combat.attackingPlayerId;
-    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
-  } else if (playerId === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
-    myCompanyId = combat.attackSource.attackingCompanyId;
-    oppPlayerId = combat.defendingPlayerId;
-    oppCompanyId = combat.companyId;
-  } else {
-    return [];
-  }
-  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) return [];
+  const sides = cvccSides(combat, playerId);
+  if (!sides) return [];
+  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
 
   const myCompany = companyById(player.companies, myCompanyId);
   if (!myCompany) return [];
@@ -2927,22 +2902,9 @@ function siteStormAtSiteActions(
   );
   if (candidates.length === 0) return [];
 
-  // Identify the acting player's participating company and the opponent's.
-  let myCompanyId: CompanyId | undefined;
-  let oppPlayerId: PlayerId | undefined;
-  let oppCompanyId: CompanyId | undefined;
-  if (playerId === combat.defendingPlayerId) {
-    myCompanyId = combat.companyId;
-    oppPlayerId = combat.attackingPlayerId;
-    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
-  } else if (playerId === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
-    myCompanyId = combat.attackSource.attackingCompanyId;
-    oppPlayerId = combat.defendingPlayerId;
-    oppCompanyId = combat.companyId;
-  } else {
-    return [];
-  }
-  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) return [];
+  const sides = cvccSides(combat, playerId);
+  if (!sides) return [];
+  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
 
   const myCompany = companyById(player.companies, myCompanyId);
   if (!myCompany) return [];
