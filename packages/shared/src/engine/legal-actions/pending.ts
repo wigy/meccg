@@ -45,7 +45,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
@@ -3012,6 +3012,86 @@ export function postAttackPlayOfferActions(
   }
 
   // "Playable on …" — the window is optional and always declinable.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions for an `influence-reveal-play-offer` pending resolution
+ * (CoE 10.13). A successful influence attempt was declared with an identical
+ * card revealed from hand, and the attacker "may immediately play the identical
+ * card with the influencing character (without tapping the site and without
+ * another influence check required)".
+ *
+ * The card's own playability restrictions are waived — the rule says so
+ * explicitly for characters ("a Hobbit may be played in this way") and the same
+ * follows for the rest, since the play is granted by the influence result
+ * rather than by the site. So nothing here checks `playableAt`, home sites or
+ * site tapping.
+ *
+ * What *is* checked is influence, which the rule does not waive: a revealed
+ * **character** is offered once per controller that can actually pay for it —
+ * general influence with enough left in the pool, or a character in the
+ * influencer's company with enough unused direct influence. A character nobody
+ * can control is not offered at all. Items, allies and factions cost no
+ * influence and are offered as a single action.
+ *
+ * The offer is optional, so `pass` is always available and leaves the revealed
+ * card in hand.
+ */
+export function influenceRevealPlayOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'influence-reveal-play-offer') return [];
+  const { revealedInstanceId, influencerId } = top.kind;
+  const actions: EvaluatedAction[] = [];
+
+  const player = playerById(state, actor);
+  const handCard = player?.hand.find(c => c.instanceId === revealedInstanceId);
+  const influencer = player?.characters[influencerId];
+  const def = handCard ? defById(state, handCard.definitionId) : undefined;
+
+  if (player && handCard && influencer && def) {
+    const name = def.name ?? (handCard.definitionId as string);
+    if (isCharacterCard(def)) {
+      // Influence is the one cost rule 10.13 keeps. Mind is the printed value:
+      // the card is still in hand, so it has no effective stats yet.
+      const mind = def.mind ?? 0;
+      const company = findCharacterCompany(player.companies, influencerId);
+      const remainingGI = generalInfluenceControlLimit(state, actor) - player.generalInfluenceUsed;
+      if (remainingGI >= mind) {
+        logDetail(`influence-reveal-play-offer: ${name} playable under general influence (${remainingGI} left ≥ mind ${mind})`);
+        actions.push({
+          action: { type: 'play-revealed-card' as const, player: actor, cardInstanceId: revealedInstanceId, controlledBy: 'general' as const },
+          viable: true,
+        });
+      }
+      for (const controllerId of company?.characters ?? []) {
+        const controller = player.characters[controllerId];
+        if (!controller) continue;
+        const di = availableDI(state, controllerId, player, def);
+        if (di < mind) continue;
+        logDetail(`influence-reveal-play-offer: ${name} playable under ${cardName(state, controller.definitionId, '?')}'s direct influence (${di} ≥ mind ${mind})`);
+        actions.push({
+          action: { type: 'play-revealed-card' as const, player: actor, cardInstanceId: revealedInstanceId, controlledBy: controllerId },
+          viable: true,
+        });
+      }
+      if (actions.length === 0) {
+        logDetail(`influence-reveal-play-offer: ${name} (mind ${mind}) cannot be controlled by any available influence — play not offered`);
+      }
+    } else {
+      logDetail(`influence-reveal-play-offer: ${name} playable with ${cardName(state, influencer.definitionId, '?')}`);
+      actions.push({
+        action: { type: 'play-revealed-card' as const, player: actor, cardInstanceId: revealedInstanceId },
+        viable: true,
+      });
+    }
+  }
+
+  // "May immediately play" — always declinable, which leaves the card in hand.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
 }

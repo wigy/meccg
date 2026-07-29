@@ -975,6 +975,37 @@ export interface PendingResolution {
       }
     | {
         /**
+         * CoE 10.13: an influence attempt declared with an identical card
+         * revealed from hand (rule 10.11) has just succeeded, so the attacker
+         * "may immediately play the identical card with the influencing
+         * character (without tapping the site and without another influence
+         * check required)".
+         *
+         * The revealed card is back in the attacker's hand by the time this is
+         * enqueued — the offer is optional, and declining must leave it there
+         * rather than anywhere else. Resolved by a `play-revealed-card` action,
+         * or `pass` to decline.
+         *
+         * The play waives the card's own playability restrictions: a character
+         * revealed this way needs no matching home site or haven ("a Hobbit may
+         * be played in this way"), an item needs no `playableAt` match, and a
+         * faction skips the influence check it would normally require. What is
+         * *not* waived is influence: a revealed character still has to be
+         * controllable, which is why {@link PlayRevealedCardAction} carries a
+         * controller.
+         */
+        readonly type: 'influence-reveal-play-offer';
+        /** The revealed identical card, sitting in the actor's hand. */
+        readonly revealedInstanceId: CardInstanceId;
+        /**
+         * The character that made the influence attempt. The card is played
+         * "with" them: an item or ally attaches to them, and a character joins
+         * their company.
+         */
+        readonly influencerId: CardInstanceId;
+      }
+    | {
+        /**
          * CoE 3.47: the active player left their organization phase with the
          * total mind of their non-follower characters above their general
          * influence, and must now remove non-avatar characters until they are

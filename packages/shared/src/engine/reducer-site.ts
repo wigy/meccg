@@ -4004,11 +4004,12 @@ export function resolveOpponentInfluenceDefend(
     discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
 
     // The revealed identical card was removed from the attacker's hand when the
-    // attempt was declared. On success the attacker MAY immediately play it
-    // (CoE rule 8.4) — that optional play is not automated, so the un-played
-    // card simply returns to hand rather than vanishing (preserving the
-    // no-card-disappears invariant). For an item attempt the reveal is
-    // mandatory, so this always runs when influencing an item.
+    // attempt was declared. On success it goes back to hand and the attacker is
+    // offered the immediate play of CoE rule 10.13 (see the resolution enqueued
+    // below). Returning it first means declining the offer needs no special
+    // case, and the card is never in limbo (no-card-disappears invariant). For
+    // an item attempt the reveal is mandatory, so this always runs when
+    // influencing an item.
     if (attempt.revealedCard) {
       const attackerIndex = playerIndex;
       const attacker = newPlayers[attackerIndex];
@@ -4016,7 +4017,7 @@ export function resolveOpponentInfluenceDefend(
         ...attacker,
         hand: [...attacker.hand, { instanceId: attempt.revealedCard.instanceId, definitionId: attempt.revealedCard.definitionId }],
       };
-      logDetail(`Revealed card ${attempt.revealedCard.instanceId as string} returns to hand after successful influence (rule 8.4 play not automated)`);
+      logDetail(`Revealed card ${attempt.revealedCard.instanceId as string} returns to hand after successful influence`);
     }
 
     const afterInfluence = cleanupEmptyCompanies({ ...state, players: newPlayers, rng, cheatRollTotal });
@@ -4031,6 +4032,19 @@ export function resolveOpponentInfluenceDefend(
     // "successful influence attempt" — fire the in-play triggers on the
     // influencing character (corruption check, then self-discard).
     afterSweep = fireSuccessfulInfluenceTriggers(afterSweep, attempt.influencerId, state.players[playerIndex].id);
+
+    // CoE 10.13: with an identical card revealed, the attacker may now play it
+    // with the influencing character — no site tap, no second influence check.
+    // Enqueued after the triggers above so a corruption check from Lure of
+    // Power resolves first; the offer is optional and `pass` declines it.
+    if (attempt.revealedCard) {
+      afterSweep = enqueueInfluenceRevealPlayOffer(
+        afterSweep,
+        state.players[playerIndex].id,
+        attempt.revealedCard.instanceId,
+        attempt.influencerId,
+      );
+    }
     return {
       state: afterSweep,
       effects: rollEffects,
@@ -4067,6 +4081,37 @@ export function resolveOpponentInfluenceDefend(
  * Followers of the discarded character fall to GI if room, otherwise are discarded.
  * For allies: just moves the ally to the discard pile.
  */
+/**
+ * CoE 10.13: after a successful influence attempt declared with an identical
+ * card revealed from hand, offer the attacker the immediate play of that card
+ * with the influencing character.
+ *
+ * Nothing is enqueued when the influencer is no longer in play — the rule plays
+ * the card *with* that character, so without them there is no play to offer and
+ * the revealed card simply stays in hand. (Lure of Power tw-59 can discard the
+ * influencer as part of the very same success, which is why this is checked
+ * rather than assumed.)
+ */
+function enqueueInfluenceRevealPlayOffer(
+  state: GameState,
+  attackerId: PlayerId,
+  revealedInstanceId: CardInstanceId,
+  influencerId: CardInstanceId,
+): GameState {
+  const attacker = playerById(state, attackerId);
+  if (!attacker?.characters[influencerId]) {
+    logDetail(`Influence reveal play (rule 10.13): influencer ${influencerId as string} is no longer in play — no offer, revealed card stays in hand`);
+    return state;
+  }
+  logDetail(`Influence reveal play (rule 10.13): offering ${attacker.name} the immediate play of the revealed card with ${cardName(state, attacker.characters[influencerId].definitionId)}`);
+  return enqueueResolution(state, {
+    source: revealedInstanceId,
+    actor: attackerId,
+    scope: { kind: 'phase', phase: Phase.Site },
+    kind: { type: 'influence-reveal-play-offer', revealedInstanceId, influencerId },
+  });
+}
+
 function discardInfluencedCard(
   players: [PlayerState, PlayerState],
   opponentIndex: number,

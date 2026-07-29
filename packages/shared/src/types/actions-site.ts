@@ -419,3 +419,35 @@ export interface PaySiteTaxAction {
   /** The untapped character in the active company to tap. */
   readonly characterId: CardInstanceId;
 }
+
+/**
+ * Resolve an `influence-reveal-play-offer` pending resolution (CoE 10.13) by
+ * playing the identical card that was revealed for a successful influence
+ * attempt, with the influencing character.
+ *
+ * The play is free of the costs and gates a normal play would carry: the site
+ * is not tapped, no second influence check is made, and the card's own
+ * playability restrictions do not apply (an item needs no `playableAt` match,
+ * a character no matching home site — "a Hobbit may be played in this way").
+ *
+ * Where the card lands follows from its type: an item or ally attaches to the
+ * influencing character, a character joins that character's company, and a
+ * faction enters play under its controller. Declining the offer is a `pass`,
+ * which leaves the revealed card in hand.
+ */
+export interface PlayRevealedCardAction {
+  /** Action discriminant. */
+  readonly type: 'play-revealed-card';
+  /** The player who made the successful influence attempt. */
+  readonly player: PlayerId;
+  /** The revealed card instance, played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /**
+   * For a revealed **character** only — how it is controlled. Influence is the
+   * one requirement rule 10.13 does not waive, so the character must be
+   * affordable under general influence or under the direct influence of a
+   * character in the influencer's company. Absent for items, allies and
+   * factions, which cost no influence to bring in this way.
+   */
+  readonly controlledBy?: 'general' | CardInstanceId;
+}
