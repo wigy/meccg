@@ -281,6 +281,16 @@ function handleEndOfTurnResetHand(
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} drew ${cardsToDrawCount} cards (${newHand.length}/${handSize})`);
 
+    // Rule 2.4: exhaustion (and its reshuffle sub-flow) happens immediately
+    // when the last card is drawn — even if this same draw also completed
+    // the hand-size requirement. Enter the sub-flow before marking this
+    // player done, so a deck that empties exactly on the final needed card
+    // doesn't sit un-reshuffled until the next time a draw is required.
+    if (newPlayDeck.length === 0 && player.discardPile.length > 0) {
+      logDetail(`End-of-Turn reset-hand: player ${player.name}'s last card drawn — play deck exhausted, starting reshuffle`);
+      return { state: startDeckExhaust(updatedState, playerIndex) };
+    }
+
     // At hand size after drawing → mark done
     if (newHand.length === handSize) {
       return markResetHandDone(updatedState, eotState, playerIndex);
