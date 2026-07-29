@@ -28,6 +28,11 @@
         "type": "combat-attacker-chooses-defenders"
       },
       {
+        "type": "combat-body-per-defender-skill",
+        "skill": "ranger",
+        "value": -2
+      },
+      {
         "type": "on-event",
         "event": "attack-not-defeated",
         "apply": {
