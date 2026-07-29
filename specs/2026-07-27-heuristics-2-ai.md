@@ -900,32 +900,54 @@ Not an AI finding, but it was found here and it fails the gate's completion
 criterion, so it is recorded where the run that found it is described.
 
 One game in 320 ended with `engine rejected 'pass' (seq 1167, stateSeq 1167):
-Card not found in hand`. Reproduction, deterministic:
+Card not found in hand`. Reproduction is deterministic: heuristic as p1, h2 as
+p2, decks `challenge-deck-a` / `challenge-deck-b`, seed 599.
 
-```sh
-# heuristic as p1, h2 as p2, decks challenge-deck-a / challenge-deck-b, seed 599
-```
-
-What leads up to it: during a `site/play-resources` chain, the *same* hand card
-is declared as a `play-short-event` **five times in succession**, and the card
-is still in hand each time. Tracked across those decisions:
+**The mechanism, traced.** The card is Many Turns and Doublings (td-132), a hero
+resource short event, played during the site phase's `play-resources` step.
+Applying that action does *not* play the card. It enqueues a pending resolution:
 
 ```text
-  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
-  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
-  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
-  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
-  p2-15: hand=true play=false discard=false offered=2  chose play-short-event [THIS CARD]
+  { source: "p2-15", actor: "p1",
+    scope: { kind: "phase-step", phase: "site", step: "play-resources" },
+    kind: { type: "on-guard-window", stage: "reveal-window",
+            deferredAction: { type: "play-short-event", cardInstanceId: "p2-15", … } } }
 ```
 
-So a short event declared into an open chain is not removed from hand, and the
-chain emitters in `legal-actions/chain.ts` read `player.hand` directly — so the
-card is offered again on the next priority pass, indefinitely. The `pass` that
-eventually fails is downstream of the inconsistency rather than its cause.
+That is the engine correctly giving the *hazard* player a window to reveal an
+on-guard card in response before the resource resolves (CoE 2.V.6), with the
+resource play held as `deferredAction`. The card stays in hand meanwhile, which
+is defensible — the play has not resolved.
 
-Left as a report rather than a fix: this is engine rules code, the correct
-behaviour on a *cancelled* declaration (does the card return to hand, or go to
-the discard?) is a rules question, and the verification loop for a change here
-is a 320-game gate. Worth noting that an AI which plays the same card five times
-is an AI exploiting the bug rather than causing it — Heuristics 1 does not,
-because it declines to repeat a card it has already played this chain.
+What is not defensible is that it is **still offered**. The legal-action
+emitters read `player.hand` directly, so the same card can be declared again,
+queuing a second window with the same deferred action, and again:
+
+```text
+  applying the action:  hand still has the card, chain entries for it: 0,
+                        constraints unchanged, pendingResolutions 0 → 1
+  applying it again:    no error, pendingResolutions → 2
+  and again:            no error, pendingResolutions → 3
+```
+
+When the windows finally resolve, the first deferred play executes and removes
+the card from hand. The second then reaches `handlePlayResourceShortEvent`,
+whose first act is `findById(player.hand, cardInstanceId)` — and that is the
+`'Card not found in hand'` at `reducer-events.ts:394`. The `pass` blamed in the
+error is merely the action that triggered processing of the queue.
+
+**It is not an AI-specific bug.** An earlier note here claimed H2 exploited a
+path Heuristics 1 never took. That was inferred from the failing game being an
+H2 one, and it is wrong: measured over six seeds, the worst stacking of queued
+resolutions naming one card is **6 for heuristic-vs-heuristic and 6 for
+heuristic-vs-h2**. Both agents do it, and neither knows it is doing it.
+
+**The minimal fix avoids the rules question.** A card with a deferred action
+already queued against it should not be offered again — that is a legality fix
+in the emitters, needing no decision about what happens to a declared card whose
+play is later cancelled. Moving the card out of hand at declaration would be the
+tidier model but does raise that question (return to hand, or discard?), and
+CoE 2.V.6.1 does not settle it directly.
+
+Left as a report because it is engine rules code and the verification loop for a
+change here is a 320-game gate.
