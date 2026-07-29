@@ -17,7 +17,7 @@ import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
 import { getEffectiveSiteType } from '../effective.js';
@@ -118,17 +118,6 @@ function recruitmentVehicleInHand(
     if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind, agentRecruit: eff.agentRecruit === true };
   }
   return undefined;
-}
-
-/**
- * True if the site is a Darkhaven [{DH}] — a dark-side haven (a minion or Balrog
- * site of type `haven`, e.g. Minas Morgul, Dol Guldur, Carn Dûm), as opposed to
- * a hero haven. Open to the Summons (wh-46) lets an agent be summoned into a
- * company "at a Darkhaven".
- */
-function isDarkhavenSite(siteDef: SiteCard): boolean {
-  return siteDef.siteType === SiteType.Haven
-    && (siteDef.cardType === 'minion-site' || siteDef.cardType === 'balrog-site');
 }
 
 /**
@@ -316,7 +305,7 @@ function findPlayableSites(
     let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId) === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
-    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
+    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSiteDef(siteDef);
     // Bree (le-356) `allow-agent-play`: an agent may join a company already at
     // this site under direct influence, even though it is not the agent's home
     // site. General-influence play is not granted (directInfluenceOnly below).
@@ -351,7 +340,7 @@ function findPlayableSites(
     let isHaven = siteDef.siteType === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
-    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
+    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSiteDef(siteDef);
 
     if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
@@ -725,6 +714,18 @@ export function playCharacterActions(
     if (isAvatar) {
       // Avatars are always controlled under general influence and cost no mind
       for (const site of playableSites) {
+        // Rule 3.07, same gate as the non-avatar branch below: a Ringwraith
+        // avatar revealed into a company of non-Ringwraiths (or an avatar of
+        // another race joining a Ringwraith's company) is illegal away from a
+        // Darkhaven. The Ringwraith's own Darkhavens are exempt, so the normal
+        // [R1] reveal at Minas Morgul / Dol Guldur is unaffected.
+        const joined = companyAtSiteInstance(player, site.instanceId);
+        if (joined
+          && !isDarkhavenSiteDef(site.siteDef)
+          && wouldViolateRingwraithComposition(state, [...joined.characters, cardInstanceId])) {
+          logDetail(`  → skip ${site.siteName}: a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
+          continue;
+        }
         logDetail(`  → viable: play avatar at ${site.siteName}`);
         results.push({
           action: {
@@ -837,6 +838,16 @@ export function playCharacterActions(
         // joined; a `company-influence-exempt` company costs nothing to join.
         const companyHere = companyAtSiteInstance(player, site.instanceId);
         const companyHereId = companyHere ? (companyHere.id as string) : undefined;
+        // Rule 3.07: away from a Darkhaven, a Ringwraith's company may only hold
+        // other Ringwraiths. Joining the company already standing here must not
+        // create that mix — in either direction (a non-Ringwraith joining a
+        // Ringwraith's company, or a Ringwraith joining anyone else's).
+        if (companyHere
+          && !isDarkhavenSiteDef(site.siteDef)
+          && wouldViolateRingwraithComposition(state, [...companyHere.characters, cardInstanceId])) {
+          logDetail(`  → skip ${site.siteName}: a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
+          continue;
+        }
         if (rawPlayLimitReached && (companyHereId === undefined || !playLimitExemptCompanies.has(companyHereId))) {
           logDetail(`  → skip ${site.siteName}: one-character-per-turn limit reached and no company there exempts ${charName}`);
           continue;
@@ -851,7 +862,7 @@ export function playCharacterActions(
         // Open to the Summons (wh-46): the agent is summoned *via the vehicle*
         // (card placed with it, mind − 1) only at a Darkhaven; at its home site
         // it is played normally at full mind with no vehicle attached.
-        const summonHere = isAgentSummonsCandidate && isDarkhavenSite(site.siteDef);
+        const summonHere = isAgentSummonsCandidate && isDarkhavenSiteDef(site.siteDef);
         const costHere = summonHere ? summonsCostMind : costMind;
         // The waiver applies to the general-influence branch only: a character
         // that "does not require influence to be controlled" is held under

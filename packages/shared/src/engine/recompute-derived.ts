@@ -48,7 +48,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
@@ -1293,6 +1293,15 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
   let stagePoints = 0;
   for (const def of playerCardsInPlayDefs(state, player)) {
     stagePoints += stagePointsOfCard(def);
+  }
+  // CoE 2.II.4.1 (rule 3.33): "Stored Stage resources continue to give stage
+  // points." Storing takes the card out of `cardsInPlay` and into the
+  // marshalling-point pile, so the pile is summed as well. Restricted to Stage
+  // cards so an ordinary stored item or a defeated creature can never be
+  // mistaken for one.
+  for (const card of player.killPile) {
+    if (!isStageCardDef(state, card.definitionId)) continue;
+    stagePoints += stagePointsOfCard(defById(state, card.definitionId));
   }
   // A stage permanent-event played "on a character" (Wizard's Myrmidon wh-84,
   // The Forge-master wh-117) is attached to the bearer's `items`, not to

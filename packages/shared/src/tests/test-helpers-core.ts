@@ -358,6 +358,60 @@ export function addToPile(
 }
 
 /**
+ * Make every company of `playerIdx` standing at the same site *definition*
+ * share one site instance — the shape real play produces, where a second
+ * company arriving at an occupied site joins the site card already there.
+ *
+ * `buildTestState` mints a separate site instance per `CompanySetup`, and the
+ * engine groups companies "at the same site" by instance id (`merge-companies`,
+ * `move-to-company`, the end-of-M/H forced combine), so tests about two
+ * companies sharing a site must collapse the instances first. The first company
+ * at each site definition keeps its instance and its `siteCardOwned` flag; the
+ * rest adopt it.
+ */
+export function shareSiteInstances(state: GameState, playerIdx: 0 | 1): GameState {
+  const player = state.players[playerIdx];
+  const firstByDef = new Map<string, NonNullable<(typeof player.companies)[number]['currentSite']>>();
+  const companies = player.companies.map(company => {
+    const site = company.currentSite;
+    if (!site) return company;
+    const existing = firstByDef.get(site.definitionId as string);
+    if (!existing) {
+      firstByDef.set(site.definitionId as string, site);
+      return company;
+    }
+    return { ...company, currentSite: existing, siteCardOwned: false };
+  });
+  const updated = { ...player, companies };
+  const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
+  return { ...state, players: players as unknown as typeof state.players };
+}
+
+/**
+ * Place a card in a player's marshalling-point pile as a **stored** card — the
+ * end state of the `store-item` flow (CoE 2.II.4.1). Mints a fresh instance and
+ * stamps `storedAtSite` when a storage site is named, so "stored there"
+ * references resolve. Returns the new state and the minted instance ID.
+ *
+ * Lets a test start from "already stored" without driving the store action and
+ * its corruption check.
+ */
+export function addStoredCard(
+  state: GameState,
+  playerIdx: 0 | 1,
+  defId: CardDefinitionId,
+  storedAtSite?: CardDefinitionId,
+): { state: GameState; instanceId: CardInstanceId } {
+  const instanceId = mint();
+  const card: CardInstance = {
+    instanceId,
+    definitionId: defId,
+    ...(storedAtSite !== undefined ? { storedAtSite } : {}),
+  };
+  return { state: addToPile(state, playerIdx, 'killPile', card), instanceId };
+}
+
+/**
  * Append a CardInPlay entry to a player's `cardsInPlay` (e.g. a
  * permanent event). Mints a fresh `<playerId>-<n>` instance ID so
  * {@link ownerOf} resolves to the owning player. The counter starts

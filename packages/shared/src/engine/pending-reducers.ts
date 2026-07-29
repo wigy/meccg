@@ -3288,6 +3288,7 @@ export function applyForceDiscardCardResolution(
   const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === cardInstanceId);
   let newHand = actorPlayer.hand;
   let newCardsInPlay = actorPlayer.cardsInPlay;
+  let newKillPile = actorPlayer.killPile;
   const newCharacters = { ...actorPlayer.characters };
   if (handIdx >= 0) {
     removed = toCardInstance(actorPlayer.hand[handIdx]);
@@ -3295,6 +3296,13 @@ export function applyForceDiscardCardResolution(
   } else if (actorPlayer.cardsInPlay.some(c => c.instanceId === cardInstanceId)) {
     removed = toCardInstance(actorPlayer.cardsInPlay.find(c => c.instanceId === cardInstanceId)!);
     newCardsInPlay = actorPlayer.cardsInPlay.filter(c => c.instanceId !== cardInstanceId);
+  } else if (actorPlayer.killPile.some(c => c.instanceId === cardInstanceId)) {
+    // CoE 2.II.4.1 (rule 3.33): a *stored* Stage resource sits in the
+    // marshalling-point pile and "may be discarded while stored if their player
+    // must discard a Stage resource" — so a candidate may legitimately be found
+    // there rather than in play.
+    removed = actorPlayer.killPile.find(c => c.instanceId === cardInstanceId)!;
+    newKillPile = actorPlayer.killPile.filter(c => c.instanceId !== cardInstanceId);
   } else {
     for (const [charId, charData] of Object.entries(newCharacters)) {
       const idx = charData.items.findIndex(it => it.instanceId === cardInstanceId);
@@ -3318,7 +3326,7 @@ export function applyForceDiscardCardResolution(
     }
   }
   if (!removed) {
-    return { state, error: `Card ${cardInstanceId as string} not found in hand, in play or in the company` };
+    return { state, error: `Card ${cardInstanceId as string} not found in hand, in play, stored or in the company` };
   }
 
   const cardDef = defById(state, removed.definitionId);
@@ -3330,6 +3338,7 @@ export function applyForceDiscardCardResolution(
     ...actorPlayer,
     hand: newHand,
     cardsInPlay: newCardsInPlay,
+    killPile: newKillPile,
     characters: newCharacters,
     discardPile: [...actorPlayer.discardPile, removed],
   };

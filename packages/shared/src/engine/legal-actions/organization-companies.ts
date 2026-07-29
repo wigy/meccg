@@ -28,7 +28,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
@@ -1286,6 +1286,14 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
           }
         }
 
+        // Rule 3.07 is lifted only at a **Darkhaven**, not at any haven, so it
+        // is gated separately from rules 3.24–3.26 above.
+        if (!companyAtDarkhaven(state, targetCompany)
+          && wouldViolateRingwraithComposition(state, resultingCharIds)) {
+          logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
+          continue;
+        }
+
         logDetail(`  → viable: move ${charDef.name} from ${company.id as string} to ${targetCompany.id as string}`);
         const candidate: GameAction = {
           type: 'move-to-company',
@@ -1333,6 +1341,21 @@ function companyAtHaven(
   // alignment, so non-Fallen-wizard behaviour is unchanged. A site converted to
   // a Wizardhaven for this player (Hidden Haven, wh-75) also qualifies.
   return isHavenForPlayer(siteDef, alignment, { state, siteDefinitionId: siteDefId, playerId });
+}
+
+/**
+ * Check whether a company's current site is a **Darkhaven** — the one place a
+ * Ringwraith's company may hold non-Ringwraith characters (CoE rule 3.07).
+ * Distinct from {@link companyAtHaven}: a hero Haven or a Wizardhaven does not
+ * lift that restriction.
+ */
+function companyAtDarkhaven(
+  state: GameState,
+  company: { currentSite?: { instanceId: CardInstanceId } | null },
+): boolean {
+  if (!company.currentSite) return false;
+  const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+  return isDarkhavenSiteDef(siteDefId ? defById(state, siteDefId) : undefined);
 }
 
 /** The MECCG races that cannot mix with Orcs/Trolls (CoE rule 3.25). */
@@ -1480,6 +1503,14 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — leader restriction (rule 3.26)`);
           continue;
         }
+      }
+
+      // Rule 3.07 is lifted only at a **Darkhaven**, not at any haven, so it is
+      // gated separately from rules 3.24–3.26 above.
+      if (!companyAtDarkhaven(state, targetCompany)
+        && wouldViolateRingwraithComposition(state, mergedCharIds)) {
+        logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
+        continue;
       }
 
       logDetail(`  → viable: merge company ${company.id as string} into ${targetCompany.id as string}`);

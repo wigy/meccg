@@ -21,10 +21,10 @@
 import { describe, test, expect } from 'vitest';
 import {
   buildTargetState, findCharInstanceId, attachAllyToChar,
-  addCardInPlay,
+  addCardInPlay, pushCardInPlay, mint, CardStatus,
   viableActions, PLAYER_1,
   ARAGORN, LEGOLAS, GIMLI, BILBO,
-  GWAIHIR,
+  GWAIHIR, DAGGER_OF_WESTERNESSE,
   MORIA, LORIEN, BREE, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import type { OpponentInfluenceAttemptAction, CardDefinitionId } from '../../test-helpers.js';
@@ -115,13 +115,69 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
     expect(factionActions.some(a => a.action.influencingCharacterId === aragornId)).toBe(true);
   });
 
-  // `opponentInfluenceActions` (legal-actions/site.ts) has one loop per
-  // target kind — character (line ~1861), ally (line ~1941), faction — but
-  // no item loop at all: it never iterates an opponent character's `items`.
-  // Adding it means not just a new legal-action branch (site/no-permanent-event
-  // gating + identical-item-in-hand reveal) but also new resolution logic for
-  // what a successful item influence attempt actually does (transfer
-  // ownership to the influencing character) — a real feature, not a test gap,
-  // and there's no partial version of it to exercise today.
-  test.todo('item: same site + no permanent-event + reveal identical item');
+  test('item: same site + no permanent-event + reveal identical item', () => {
+    // P2's Legolas bears the Dagger of Westernesse at Moria; P1's Aragorn is at
+    // the same site and holds an identical Dagger to reveal.
+    const state = buildTargetState({
+      p1Site: MORIA,
+      p2Site: MORIA,
+      p2Chars: [{ defId: LEGOLAS, items: [DAGGER_OF_WESTERNESSE] }],
+      p1Hand: [DAGGER_OF_WESTERNESSE],
+    });
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
+    const daggerId = state.players[HAZARD_PLAYER].characters[legolasId].items[0].instanceId;
+    const revealId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    const itemActions = (viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[])
+      .filter(a => a.action.targetKind === 'item');
+    expect(itemActions).toHaveLength(1);
+    // The reveal is mandatory for an item, so the one action carries it.
+    expect(itemActions[0].action.targetInstanceId).toBe(daggerId);
+    expect(itemActions[0].action.revealedCardInstanceId).toBe(revealId);
+  });
+
+  test('item: not a valid target without an identical item in hand', () => {
+    const state = buildTargetState({
+      p1Site: MORIA,
+      p2Site: MORIA,
+      p2Chars: [{ defId: LEGOLAS, items: [DAGGER_OF_WESTERNESSE] }],
+    });
+    const itemActions = (viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[])
+      .filter(a => a.action.targetKind === 'item');
+    expect(itemActions).toHaveLength(0);
+  });
+
+  test('item: not a valid target while a permanent-event is played on it', () => {
+    // Barrow-blade (dm-119) is played on the Dagger of Westernesse, binding to
+    // it via `attachedToItem` — that shuts the item out as an influence target.
+    const BARROW_BLADE = 'dm-119' as CardDefinitionId;
+    const state = buildTargetState({
+      p1Site: MORIA,
+      p2Site: MORIA,
+      p2Chars: [{ defId: LEGOLAS, items: [DAGGER_OF_WESTERNESSE] }],
+      p1Hand: [DAGGER_OF_WESTERNESSE],
+    });
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
+    const daggerId = state.players[HAZARD_PLAYER].characters[legolasId].items[0].instanceId;
+
+    const blocked = pushCardInPlay(state, HAZARD_PLAYER, {
+      instanceId: mint(),
+      definitionId: BARROW_BLADE,
+      status: CardStatus.Untapped,
+      attachedToItem: daggerId,
+    });
+    const itemActions = (viableActions(blocked, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[])
+      .filter(a => a.action.targetKind === 'item');
+    expect(itemActions).toHaveLength(0);
+  });
+
+  test('item: at a different site is NOT a valid target', () => {
+    const state = buildTargetState({
+      p1Site: MORIA,
+      p2Site: LORIEN,
+      p2Chars: [{ defId: LEGOLAS, items: [DAGGER_OF_WESTERNESSE] }],
+      p1Hand: [DAGGER_OF_WESTERNESSE],
+    });
+    expect(viableActions(state, PLAYER_1, 'opponent-influence-attempt')).toHaveLength(0);
+  });
 });
