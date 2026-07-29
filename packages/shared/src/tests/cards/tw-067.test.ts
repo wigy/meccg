@@ -80,6 +80,52 @@ describe('Muster Disperses (tw-067)', () => {
     expect(action.targetFactionInstanceId).toBe(factionInPlay.instanceId);
   });
 
+  test('not playable on the hazard player\'s own faction', () => {
+    const ownFaction: CardInPlay = {
+      instanceId: 'faction-own' as CardInstanceId,
+      definitionId: RIDERS_OF_ROHAN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          cardsInPlay: [factionInPlay],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [MUSTER_DISPERSES],
+          siteDeck: [RIVENDELL],
+          cardsInPlay: [ownFaction],
+        },
+      ],
+    });
+
+    const mhState = makeWildernessMHState();
+    const gameState = { ...state, phaseState: mhState };
+
+    const actions = computeLegalActions(gameState, PLAYER_2);
+    const playActions = actions.filter(
+      a => a.viable && a.action.type === 'play-hazard'
+        && (a.action).targetFactionInstanceId != null,
+    );
+    // Only the opponent's faction may be targeted — never the hazard
+    // player's own faction (hazard events target the resource player's
+    // entities per CoE 2.IV.vii.3).
+    expect(playActions).toHaveLength(1);
+    const targetIds = playActions.map(a => (a.action as PlayHazardAction).targetFactionInstanceId);
+    expect(targetIds).toContain(factionInPlay.instanceId);
+    expect(targetIds).not.toContain(ownFaction.instanceId);
+  });
+
   test('not playable when no factions are in play', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
