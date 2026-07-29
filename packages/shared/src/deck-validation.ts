@@ -169,6 +169,30 @@ function defHasPlayFlag(def: CardDefinition, flag: Parameters<typeof hasPlayFlag
   return 'effects' in def && hasPlayFlag(def, flag);
 }
 
+/** The entries of one deck section: a card id (or a blank slot) and a quantity. */
+type DeckEntries = readonly { card: CardDefinitionId | null; qty: number }[];
+
+/** A deck section paired with the {@link DeckSection} key its errors report under. */
+type KeyedSection = readonly [DeckEntries, DeckSection];
+
+/**
+ * Total copies of each card id across the given sections.
+ *
+ * Rules 1.04 (unique limits) and 1.14 (fallen-wizard stricter limits) both count
+ * across every section *except* the location deck — haven sites are exempt from
+ * copy limits — so they share one tally.
+ */
+function countCopiesPerCard(sections: readonly DeckEntries[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const section of sections) {
+    for (const entry of section) {
+      if (entry.card === null) continue;
+      counts.set(entry.card as string, (counts.get(entry.card as string) ?? 0) + entry.qty);
+    }
+  }
+  return counts;
+}
+
 /**
  * Banned-card check shared by the Fallen-wizard (rule 1.18) and Balrog
  * (rule 1.23) restrictions: scan every deck section and flag any card whose id
@@ -176,7 +200,7 @@ function defHasPlayFlag(def: CardDefinition, flag: Parameters<typeof hasPlayFlag
  * (`<label> deck: "<name>" is not allowed (rule <rule>)`).
  */
 function checkBannedCards(
-  sections: readonly [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][],
+  sections: readonly KeyedSection[],
   bannedIds: ReadonlySet<string>,
   cardPool: Readonly<Record<string, CardDefinition>>,
   label: string,
@@ -300,6 +324,23 @@ export function validateDeck(
   const sideboard = deck.sideboard ?? [];
   const antiFwSideboard = deck.antiFwSideboard ?? [];
 
+  // The deck sections other than the location deck, each with the key its
+  // errors report under. Several rules scan exactly this set (site-misplacement,
+  // wizard-specific cards — which additionally scans the location deck — and the
+  // 1.18/1.23 banned-card checks).
+  const nonSiteSections: readonly KeyedSection[] = [
+    [characters, 'characters'],
+    [hazards, 'hazards'],
+    [resources, 'resources'],
+    [poolCards, 'pool'],
+    [sideboard, 'sideboard'],
+    [antiFwSideboard, 'anti-fw-sideboard'],
+  ];
+
+  // Copies of each card across every section except the location deck, shared by
+  // the rule 1.04 and rule 1.14 copy limits.
+  const copiesPerCard = countCopiesPerCard([poolCards, characters, hazards, resources, sideboard, antiFwSideboard]);
+
   // Section typing — the location deck holds sites and nothing else.
   // Site cards may not appear in any other section, and no other card
   // type may appear in the sites section.
@@ -317,14 +358,6 @@ export function validateDeck(
     }
   }
   {
-    const nonSiteSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
-      [characters, 'characters'],
-      [hazards, 'hazards'],
-      [resources, 'resources'],
-      [poolCards, 'pool'],
-      [sideboard, 'sideboard'],
-      [antiFwSideboard, 'anti-fw-sideboard'],
-    ];
     for (const [section, sectionKey] of nonSiteSections) {
       for (const entry of section) {
         if (entry.card === null) continue;
@@ -341,15 +374,7 @@ export function validateDeck(
 
   // Rule 1.04 — unique card limits (across entire deck except haven sites)
   {
-    const counts = new Map<string, number>();
-    const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
-    for (const section of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        counts.set(entry.card as string, (counts.get(entry.card as string) ?? 0) + entry.qty);
-      }
-    }
-    for (const [cardId, count] of counts) {
+    for (const [cardId, count] of copiesPerCard) {
       const def = cardPool[cardId];
       if (!def) continue;
       if (isAvatarCharacter(def)) {
@@ -408,15 +433,7 @@ export function validateDeck(
   // resources carry alignment 'stage'; some Fallen-wizard-only cards carry
   // alignment 'fallen-wizard' — both are treated as the 3-copy category.
   if (deck.alignment === 'fallen-wizard') {
-    const fw14Counts = new Map<string, number>();
-    const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
-    for (const section of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        fw14Counts.set(entry.card as string, (fw14Counts.get(entry.card as string) ?? 0) + entry.qty);
-      }
-    }
-    for (const [cardId, count] of fw14Counts) {
+    for (const [cardId, count] of copiesPerCard) {
       const def = cardPool[cardId];
       if (!def) continue;
       if ('unique' in def && def.unique) continue;
@@ -481,18 +498,10 @@ export function validateDeck(
       const def = cardPool[entry.card];
       if (isCharacterCard(def) && isAvatarCharacter(def)) declaredAvatarNames.add(def.name);
     }
-    const allSections: readonly [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
-      [characters, 'characters'],
-      [hazards, 'hazards'],
-      [resources, 'resources'],
-      [poolCards, 'pool'],
-      [sideboard, 'sideboard'],
-      [antiFwSideboard, 'anti-fw-sideboard'],
-      // The location deck too: a `<wizard>-specific` site (Rhosgobel wh-57,
-      // `radagast-specific`: "Only Radagast's companies may use this card") may
-      // only be included when that wizard is the declared avatar.
-      [sites, 'sites'],
-    ];
+    // The location deck too: a `<wizard>-specific` site (Rhosgobel wh-57,
+    // `radagast-specific`: "Only Radagast's companies may use this card") may
+    // only be included when that wizard is the declared avatar.
+    const allSections: readonly KeyedSection[] = [...nonSiteSections, [sites, 'sites']];
     for (const [section, sectionKey] of allSections) {
       for (const entry of section) {
         if (entry.card === null) continue;
@@ -919,20 +928,9 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.18 / 1.23 — alignment-banned cards. Both alignments scan the same
-  // set of deck sections; only the banned-id set, label, and rule differ.
-  const bannedCheckSections: readonly [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
-    [characters, 'characters'],
-    [resources, 'resources'],
-    [hazards, 'hazards'],
-    [poolCards, 'pool'],
-    [sideboard, 'sideboard'],
-    [antiFwSideboard, 'anti-fw-sideboard'],
-  ];
-
   // Rule 1.18 — fallen-wizard banned cards
   if (deck.alignment === 'fallen-wizard') {
-    errors.push(...checkBannedCards(bannedCheckSections, FALLEN_WIZARD_BANNED_CARD_IDS, cardPool, 'fallen-wizard', '1.18'));
+    errors.push(...checkBannedCards(nonSiteSections, FALLEN_WIZARD_BANNED_CARD_IDS, cardPool, 'fallen-wizard', '1.18'));
   }
 
   // Rule 1.22 — balrog faction race restriction
@@ -953,7 +951,7 @@ export function validateDeck(
 
   // Rule 1.23 — balrog banned cards
   if (deck.alignment === 'balrog') {
-    errors.push(...checkBannedCards(bannedCheckSections, BALROG_BANNED_CARD_IDS, cardPool, 'balrog', '1.23'));
+    errors.push(...checkBannedCards(nonSiteSections, BALROG_BANNED_CARD_IDS, cardPool, 'balrog', '1.23'));
   }
 
   // Rule 1.32 — pool limits
