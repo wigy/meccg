@@ -348,6 +348,51 @@ export function makeBillFernyAgent(): AgentInPlay {
   return { ...makeAgent(BILL_FERNY), id: 'agent-bill-ferny-0' as CompanyId };
 }
 
+/**
+ * A movement/hazard state in which the hazard player (PLAYER_2) holds `hazard`
+ * in hand with a face-down, untapped Bill Ferny agent at his home site (Bree),
+ * facing a resource player of `opponentAlignment` whose company stands at
+ * Lórien with `opponentCharacters`.
+ *
+ * Written for rule 1.35, which turns on nothing but the opponent's alignment:
+ * building the same hazard against a Wizard and against a Ringwraith is what
+ * separates "this card was never playable here" from "the Ringwraith opponent
+ * is what stopped it".
+ */
+export function buildAgentHazardVsOpponent(
+  hazard: CardDefinitionId,
+  opponentAlignment: Alignment,
+  opponentCharacters: CardDefinitionId[] = [],
+): GameState {
+  const state = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: opponentAlignment,
+        companies: [{ site: LORIEN, characters: opponentCharacters }],
+        hand: [],
+        siteDeck: [],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: RIVENDELL, characters: [] }],
+        hand: [hazard],
+        siteDeck: [],
+      },
+    ],
+  });
+  return {
+    ...state,
+    phaseState: makeMHState(),
+    players: [
+      state.players[0],
+      { ...state.players[1], agents: [makeBillFernyAgent()] },
+    ] as typeof state.players,
+  };
+}
+
 /** Returns a copy of `state` with every company's current site tapped. */
 export function withSiteTapped(state: GameState): GameState {
   const players = state.players.map(p => ({
