@@ -12,7 +12,7 @@ import type { GameState, Company, CharacterInPlay, CombatState, ChainState, Phas
 import { Phase, SetupStep } from './types/state.js';
 import { resolveInstanceId } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
-import { computeTournamentBreakdown } from './state-utils.js';
+import { computeTournamentBreakdown, sumMarshallingPoints } from './state-utils.js';
 import { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
 import { cardsAttachedToCompany, isAttachedToPresentCompany } from './company-attachments.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
@@ -382,6 +382,12 @@ interface RenderPlayerInput {
   /** Number of cards remaining in the draft pool during setup. */
   readonly poolSize?: number;
   readonly marshallingPoints: MarshallingPointTotals;
+  /**
+   * Callable marshalling point totals — the raw, unmodified figure CoE rule
+   * 10.40 compares against the calling threshold (see
+   * {@link callableMarshallingTotal}).
+   */
+  readonly callableMarshallingPoints: MarshallingPointTotals;
   /** How much of the player's 20-point GI pool is currently used. */
   readonly generalInfluenceUsed?: number;
   /** The player's effective GI pool (20, or a Fallen-wizard avatar's white-hand value, plus bonuses). */
@@ -521,6 +527,11 @@ function renderState(input: RenderInput): string {
     const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
     const oppAdj = computeTournamentBreakdown(oppRaw, selfRaw);
     const totalMP = selfAdj.character + selfAdj.item + selfAdj.faction + selfAdj.ally + selfAdj.kill + selfAdj.misc;
+    // Unmodified total (CoE rule 10.40's actual 25-point calling threshold) —
+    // shown alongside the tournament-adjusted score so players can tell
+    // whether they've hit the Short Game calling threshold without doing
+    // the doubling/diversity-cap math themselves.
+    const callableTotal = sumMarshallingPoints(player.callableMarshallingPoints);
     if (player.isActive) lines.push('«ACTIVE-START»');
     const giLabel = player.generalInfluenceUsed !== undefined
       ? ` | Free GI: ${(player.generalInfluence ?? GENERAL_INFLUENCE) - player.generalInfluenceUsed}`
@@ -535,7 +546,7 @@ function renderState(input: RenderInput): string {
       ? ` «DICE:${player.lastDiceRoll.die1},${player.lastDiceRoll.die2},${pi === 0 ? 'black' : 'red'}»`
       : '';
     const mpComponents = `C=${selfAdj.character} I=${selfAdj.item} F=${selfAdj.faction} A=${selfAdj.ally} K=${selfAdj.kill} M=${selfAdj.misc}`;
-    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP (${mpComponents})${giLabel}${diceMarker}`);
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP (${callableTotal} unmodified) (${mpComponents})${giLabel}${diceMarker}`);
     const renderPile = (label: string, cards: readonly CardInstanceId[], showEmpty = false) => {
       if (cards.length === 0 && !showEmpty) return;
       if (cards.length === 0) {
@@ -631,6 +642,7 @@ export function formatGameState(state: GameState): string {
       outOfPlayCards: p.outOfPlayPile.map(c => c.instanceId),
       sideboardCards: p.sideboard.map(c => c.instanceId),
       marshallingPoints: p.marshallingPoints,
+      callableMarshallingPoints: p.callableMarshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
       generalInfluence: effectiveGeneralInfluence(state, p.id),
       lastDiceRoll: p.lastDiceRoll,
@@ -698,6 +710,7 @@ export function formatPlayerView(
         sideboardCards: view.self.sideboard.map(c => c.instanceId),
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
+        callableMarshallingPoints: view.self.callableMarshallingPoints,
         generalInfluenceUsed: view.self.generalInfluenceUsed,
         generalInfluence: view.self.generalInfluence,
         companies: view.self.companies,
@@ -719,6 +732,7 @@ export function formatPlayerView(
         sideboardCards: [],
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
+        callableMarshallingPoints: view.opponent.callableMarshallingPoints,
         generalInfluenceUsed: view.opponent.generalInfluenceUsed,
         generalInfluence: view.opponent.generalInfluence,
         lastDiceRoll: view.opponent.lastDiceRoll,

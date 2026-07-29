@@ -24,6 +24,7 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
+import { formatGameState } from '../../../index.js';
 import type { EndOfTurnPhaseState } from '../../../index.js';
 
 describe('Rule 10.40 — Calling the Game', () => {
@@ -92,5 +93,26 @@ describe('Rule 10.40 — Calling the Game', () => {
     const state10mp1 = { ...state10mp1ex, phaseState: eotSignalEnd };
     const canCall10mp1 = viableFor(state10mp1, PLAYER_1).some(a => a.action.type === 'call-free-council');
     expect(canCall10mp1).toBe(false);
+  });
+
+  test('formatGameState shows the unmodified MP total alongside the tournament-adjusted score, so the 25-MP calling threshold is visible', () => {
+    // Player 1's raw total is exactly 25 — the calling threshold — but the
+    // tournament-adjusted score shown as "MP" is inflated to 33 by the
+    // doubling step (CoE §10.3.iii: opponent has 0 in item/ally, so player
+    // 1's item/ally sources double). Without the raw total also shown, a
+    // player can't tell from the adjusted score alone whether they can call.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 9, item: 6, faction: 3, ally: 2, kill: 3, misc: 2 } },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL],
+          marshallingPoints: { character: 1, faction: 5 } },
+      ],
+    });
+
+    const text = formatGameState(state);
+    expect(text).toContain('33 MP (25 unmodified)');
   });
 });

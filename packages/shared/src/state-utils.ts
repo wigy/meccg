@@ -239,11 +239,33 @@ export function isWizard(player: PlayerState): boolean {
  * applied at the legal-action site.
  */
 export function canCallEndgameNow(player: PlayerState): boolean {
-  // MEAS §6e: MPs of companies at an Under-deeps site do not count toward
-  // *reaching* the call threshold — use the callable totals, not the full tally.
-  // Fall back to the full tally for states constructed before this field exists.
-  const mp = player.callableMarshallingPoints ?? player.marshallingPoints;
-  const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+  const rawScore = callableMarshallingTotal(player);
   const exhaustions = player.deckExhaustionCount;
   return (rawScore >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
+}
+
+/**
+ * Sum of the six marshalling-point categories in a {@link MarshallingPointTotals}.
+ * Shared by {@link callableMarshallingTotal} and by display code that only has
+ * a raw totals object on hand (e.g. a `PlayerView`), not a full `PlayerState`.
+ */
+export function sumMarshallingPoints(mp: MarshallingPointTotals): number {
+  return mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+}
+
+/**
+ * Sum of a player's *callable* marshalling-point categories — the raw,
+ * unmodified total that CoE rule 10.40 actually compares against the
+ * 25-point Short Game calling threshold. This is distinct from the
+ * tournament-adjusted score (see {@link computeTournamentBreakdown}) shown
+ * for final scoring, which applies doubling/diversity-cap steps that don't
+ * apply while merely checking whether the Free Council can be called.
+ *
+ * MEAS §6e: MPs of companies at an Under-deeps site do not count toward
+ * *reaching* the call threshold — use the callable totals, not the full
+ * tally. Falls back to the full tally for states constructed before
+ * `callableMarshallingPoints` existed.
+ */
+export function callableMarshallingTotal(player: PlayerState): number {
+  return sumMarshallingPoints(player.callableMarshallingPoints ?? player.marshallingPoints);
 }
