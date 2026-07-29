@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+# Nightly release: release master if anything landed since the last version tag.
+#
+# Sequence:
+#   1. Sanity-check the working tree (must be clean, on master, up to date)
+#   2. Read the current version from packages/shared/package.json
+#   3. Compare master against the matching vX.Y.Z tag
+#   4. If there are no new commits, exit 0 without doing anything
+#   5. Otherwise hand `/release Nightly Build` to a headless claude, which
+#      bumps the version, writes the CHANGELOG, tags, pushes and publishes
+#   6. Verify a new tag actually appeared
+#
+# Exit status is chainable — `bin/nightly-release && bin/update-dev` deploys
+# only when a new version was actually built:
+#   0   a release was made (new version committed, tagged, pushed, published)
+#   10  nothing to release — master is already at the current version tag
+#   1   error (dirty tree, wrong branch, missing tag/token, release failed)
+#   2   bad usage
+#
+# Usage: bin/nightly-release
+set -euo pipefail
+
+# Make the script self-sufficient about PATH: run from cron/systemd, ~/.profile
+# is never sourced, so tools installed in ~/.local/bin (claude, gh) are missing.
+export PATH="$HOME/.local/bin:$PATH"
+
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/nightly-release [--dry-run]
+
+Release master if there are any commits since the current version tag.
+
+Reads the current version from packages/shared/package.json, compares master
+against the tag vX.Y.Z, and — only when that range is non-empty — runs the
+/release command with the title "Nightly Build" in a headless claude. The
+release itself (version bump, CHANGELOG, docs, tag, push, docker publish) is
+performed by the /release command in .claude/commands/release.md.
+
+Exit status is chainable, so a deploy can be gated on a release having
+happened:
+
+  bin/nightly-release && bin/update-dev
+
+  0   a release was made (new version committed, tagged, pushed, published)
+  10  nothing to release — master is already at the current version tag
+  1   error (dirty tree, wrong branch, missing tag/token, release failed)
+  2   bad usage
+
+Options:
+      --dry-run   Report whether a release is needed and list the pending
+                  commits, but do not run the release. Uses the same 0 / 10
+                  exit status, so the check can be tested without releasing.
+  -h, --help      Show this help message.
+
+Environment:
+  CLAUDE_CODE_OAUTH_TOKEN
+                  Long-lived OAuth token (from `claude setup-token`) for the
+                  headless claude. Falls back to `claudeOauthToken` in
+                  ~/.meccg/secrets.json. Required for unattended runs — see
+                  bin/handle-mail for why the rotating subscription token in
+                  ~/.claude/.credentials.json will not do.
+  NIGHTLY_RELEASE_TIMEOUT
+                  Hard deadline in seconds for the headless claude
+                  (default 7200 — the release builds and pushes two docker
+                  images, which is slow).
+EOF
+  exit 0
+fi
+
+DRY_RUN=false
+if [ $# -ge 1 ] && [ "$1" = "--dry-run" ]; then
+  DRY_RUN=true
+  shift
+fi
+
+if [ $# -gt 0 ]; then
+  echo "Error: unexpected argument '$1'. See --help." >&2
+  exit 2
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SECRETS="$HOME/.meccg/secrets.json"
+LOG_DIR="$HOME/.meccg/logs"
+COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
+RELEASE_TITLE="Nightly Build"
+HARD_TIMEOUT="${NIGHTLY_RELEASE_TIMEOUT:-7200}"
+
+log() { echo "[nightly-release] $*"; }
+
+cd "$PROJECT_DIR"
+mkdir -p "$LOG_DIR"
+
+# ---------------------------------------------------------------------------
+# Step 1: preconditions
+# ---------------------------------------------------------------------------
+
+# A release commits package.json files and CHANGELOG.md. Unrelated local edits
+# would be swept into that commit, so refuse to start on a dirty tree.
+if [ -n "$(git status --porcelain)" ]; then
+  log "ERROR: working tree is not clean. Commit or stash your changes first."
+  git status --short
+  exit 1
+fi
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$BRANCH" != "master" ]; then
+  log "ERROR: not on master (currently on '$BRANCH')."
+  exit 1
+fi
+
+log "Fetching origin..."
+git fetch --tags --quiet origin
+
+# Release from exactly what is on the remote: releasing local-only commits
+# would push work that never went through PR review, and releasing while
+# behind would tag a stale tree.
+LOCAL_HEAD="$(git rev-parse master)"
+REMOTE_HEAD="$(git rev-parse origin/master)"
+if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
+  AHEAD="$(git rev-list --count origin/master..master)"
+  BEHIND="$(git rev-list --count master..origin/master)"
+  if [ "$AHEAD" -gt 0 ]; then
+    log "ERROR: master is $AHEAD commit(s) ahead of origin/master. Push or drop them first."
+    exit 1
+  fi
+  log "master is $BEHIND commit(s) behind origin/master — fast-forwarding."
+  git merge --ff-only origin/master
+fi
+
+# ---------------------------------------------------------------------------
+# Step 2: current version and its tag
+# ---------------------------------------------------------------------------
+
+VERSION="$(jq -r '.version' packages/shared/package.json)"
+if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+  log "ERROR: could not read .version from packages/shared/package.json."
+  exit 1
+fi
+TAG="v$VERSION"
+log "Current version: $VERSION"
+
+if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+  log "ERROR: tag $TAG does not exist. Cannot tell what is unreleased."
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Step 3: anything to release?
+# ---------------------------------------------------------------------------
+
+PENDING="$(git log --oneline "$TAG..master")"
+PENDING_COUNT="$(git rev-list --count "$TAG..master")"
+
+# Exit 10, not 0: "nothing to release" is not a failure, but it must short-
+# circuit `bin/nightly-release && bin/update-dev` so no deploy is triggered.
+if [ "$PENDING_COUNT" -eq 0 ]; then
+  log "No commits since $TAG — nothing to release."
+  exit 10
+fi
+
+log "$PENDING_COUNT commit(s) since $TAG:"
+echo "$PENDING"
+
+if [ "$DRY_RUN" = true ]; then
+  log "Dry run — a release would be made. Stopping before the release."
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Step 4: run /release in a headless claude
+# ---------------------------------------------------------------------------
+
+# The release writes a categorized CHANGELOG and refreshes the README, so it
+# runs through the /release command rather than being reimplemented here.
+if [ ! -f "$COMMANDS_DIR/release.md" ]; then
+  log "ERROR: $COMMANDS_DIR/release.md not found."
+  exit 1
+fi
+
+# See bin/handle-mail: the headless claude needs the long-lived, non-rotating
+# OAuth token, because the rotating subscription token is invalidated when we
+# kill claude after it prints its result.
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -f "$SECRETS" ]; then
+  TOK="$(jq -r '.claudeOauthToken // empty' "$SECRETS" 2>/dev/null || true)"
+  [ -n "$TOK" ] && export CLAUDE_CODE_OAUTH_TOKEN="$TOK"
+fi
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  log "ERROR: no CLAUDE_CODE_OAUTH_TOKEN set and no claudeOauthToken in $SECRETS."
+  log "       Run 'claude setup-token' once and add it to $SECRETS as"
+  log '       {"claudeOauthToken": "<token>"}.'
+  exit 1
+fi
+
+PROMPT="$(cat "$COMMANDS_DIR/release.md")"
+PROMPT="${PROMPT//\$ARGUMENTS/$RELEASE_TITLE}"
+
+RAW_TMP="$(mktemp)"
+trap 'rm -f "$RAW_TMP"' EXIT
+
+log "Running /release \"$RELEASE_TITLE\" (timeout ${HARD_TIMEOUT}s)..."
+
+# The prompt goes in on stdin, not as `-p "$PROMPT"`: Linux caps a single argv
+# string at 128KB (MAX_ARG_STRLEN), and a pipe has no such limit.
+printf '%s' "$PROMPT" | claude --dangerously-skip-permissions \
+  --verbose --output-format stream-json -p > "$RAW_TMP" 2>&1 &
+CLAUDE_PID=$!
+
+# claude sometimes prints its terminal {"type":"result",...} line without ever
+# exiting, which would stall an unattended run forever. Terminate it ourselves
+# once the result appears (after a short grace period), or at the deadline.
+DEADLINE=$(( $(date +%s) + HARD_TIMEOUT ))
+RESULT_SEEN_AT=0
+TERM_REASON=""
+
+while kill -0 "$CLAUDE_PID" 2>/dev/null; do
+  NOW=$(date +%s)
+  if [ "$NOW" -ge "$DEADLINE" ]; then
+    TERM_REASON="hard-deadline"
+    break
+  fi
+  if [ "$RESULT_SEEN_AT" -eq 0 ]; then
+    if grep -q '"type":"result"' "$RAW_TMP" 2>/dev/null; then
+      RESULT_SEEN_AT=$NOW
+      log "terminal result emitted — allowing 10s for graceful exit"
+    fi
+  elif [ $(( NOW - RESULT_SEEN_AT )) -ge 10 ]; then
+    TERM_REASON="post-result-hang"
+    break
+  fi
+  sleep 5
+done
+
+if [ -n "$TERM_REASON" ]; then
+  log "terminating claude (reason=$TERM_REASON, pid=$CLAUDE_PID)"
+  kill -TERM "$CLAUDE_PID" 2>/dev/null || true
+  # Generous grace period so claude can flush credential/session writes before
+  # we resort to SIGKILL — a hard kill mid-write is what corrupts auth state.
+  i=0
+  while kill -0 "$CLAUDE_PID" 2>/dev/null && [ "$i" -lt 15 ]; do
+    sleep 1
+    i=$(( i + 1 ))
+  done
+  kill -KILL "$CLAUDE_PID" 2>/dev/null || true
+fi
+
+wait "$CLAUDE_PID" 2>/dev/null || true
+
+cat "$RAW_TMP" >> "$LOG_DIR/nightly-release-raw.log"
+
+# Classify the terminal result with jq, not a substring match: the CLI emits
+# the result object's keys in an unstable order. Read .is_error bare — `//`
+# treats false as empty and would misreport every success.
+STATUS="error"
+RESULT_LINE="$(grep '"type":"result"' "$RAW_TMP" 2>/dev/null | tail -1 || true)"
+if [ -n "$RESULT_LINE" ] \
+   && [ "$(jq -r '.is_error' <<<"$RESULT_LINE" 2>/dev/null)" = "false" ]; then
+  STATUS="success"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 5: verify a release actually happened
+# ---------------------------------------------------------------------------
+
+# Don't trust the claude status alone — check for the artifact that matters.
+NEW_VERSION="$(jq -r '.version' packages/shared/package.json)"
+NEW_TAG="v$NEW_VERSION"
+
+if [ "$NEW_VERSION" = "$VERSION" ]; then
+  log "ERROR: version is still $VERSION — no release was made (claude status=$STATUS)."
+  log "       Raw log: $LOG_DIR/nightly-release-raw.log"
+  exit 1
+fi
+
+if ! git rev-parse -q --verify "refs/tags/$NEW_TAG" >/dev/null; then
+  log "ERROR: version was bumped to $NEW_VERSION but tag $NEW_TAG does not exist."
+  log "       Raw log: $LOG_DIR/nightly-release-raw.log"
+  exit 1
+fi
+
+if [ "$STATUS" != "success" ]; then
+  log "WARNING: released $NEW_TAG, but claude did not report a successful result."
+  log "         Check $LOG_DIR/nightly-release-raw.log."
+fi
+
+log "Released $NEW_TAG (was $TAG)."
