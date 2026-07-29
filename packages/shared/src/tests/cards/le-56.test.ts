@@ -30,6 +30,7 @@
  * | 7 | "any one of your companies" — one activation per company    | IMPLEMENTED | targets scope player-companies |
  * | 8 | Applies to every corruption check by minions in that company| IMPLEMENTED | company-scoped check-modifier collected in pending + Free Council corruption resolvers, not consumed |
  * | 9 | Unique / can use sorcery & shadow-magic                      | DATA        | unique flag + skills array |
+ * |10 | Manifestation of Ren the Unclean (tw-83)                     | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
  *
  * Playable: YES — CERTIFIED.
  */

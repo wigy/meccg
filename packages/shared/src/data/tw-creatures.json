@@ -993,6 +993,7 @@
         ]
       }
     ],
+    "manifestId": "tw-4",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -1112,6 +1113,7 @@
         ]
       }
     ],
+    "manifestId": "tw-31",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -1254,6 +1256,7 @@
         ]
       }
     ],
+    "manifestId": "tw-44",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -1339,6 +1342,7 @@
         ]
       }
     ],
+    "manifestId": "tw-46",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -1600,6 +1604,7 @@
         ]
       }
     ],
+    "manifestId": "tw-83",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -1794,6 +1799,7 @@
         ]
       }
     ],
+    "manifestId": "tw-107",
     "effects": [
       {
         "type": "play-flag",

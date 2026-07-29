@@ -47,6 +47,7 @@
  * | 6 | Same magic card under a non-Akhôrahil avatar (Adûnaphel) discards   | IMPLEMENTED |
  * | 7 | A magic cancel-attack (as-102) recycles via the combat-cancel path  | IMPLEMENTED |
  * | 8 | A non-magic cancel-attack (le-216) still discards normally          | IMPLEMENTED |
+ * | 9 | Manifestation of Akhôrahil (tw-4) — discarded on entering play      | IMPLEMENTED |
  *
  * Playable: YES
  *

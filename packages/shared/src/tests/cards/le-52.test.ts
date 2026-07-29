@@ -21,6 +21,7 @@
  * | 4 | Gated on bearer.atHaven                              | IMPLEMENTED | when condition evaluated before emitting actions         |
  * | 5 | Can use sorcery                                      | FLAVOR      | No certified sorcery consumer today; deferred            |
  * | 6 | -3 DI in Heralded Lord / -1 prowess in Fell Rider    | IMPLEMENTED | per-mode stat-modifiers on the avatar gated on `bearer.ringwraithMode` |
+ * | 7 | Manifestation of Dwar of Waw (tw-31)                 | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
  *
  * Playable: YES.
  */

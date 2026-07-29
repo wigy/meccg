@@ -24,7 +24,9 @@ import {
 
 // Sites the Fallen-wizard's location deck mixes (game mqtbg9mu-u4g9gt):
 const ETTENMOORS = 'le-373' as CardDefinitionId;       // minion site (ringwraith), Rhudaur
-const MOUNT_GRAM = 'le-394' as CardDefinitionId;        // minion site (ringwraith), Angmar
+// Zarak Dûm is a minion Ruins & Lairs, the one site type a Fallen-wizard may use
+// in either alignment whatever his company's covert/overt status (rule 3.42).
+const ZARAK_DUM = 'le-417' as CardDefinitionId;         // minion site (ringwraith), Angmar
 const THE_WHITE_TOWERS = 'wh-58' as CardDefinitionId;   // fallen-wizard haven, Arthedain
 // BREE (tw-378) is a hero site in Arthedain.
 
@@ -34,7 +36,7 @@ describe('MEWH §7 / rule 1.28 — Fallen-wizard mixed-alignment movement', () =
   test('FW company on a minion site can declare movement to hero, minion, and FW sites', () => {
     // From Ettenmoors (Rhudaur), every destination is within four regions:
     //   • Bree (hero, Arthedain) — 2 regions
-    //   • Mount Gram (minion, Angmar) — 2 regions
+    //   • Zarak Dûm (minion, Angmar) — 2 regions
     //   • The White Towers (FW haven, Arthedain) — 2 regions
     // Before the fix, the FW movement map indexed only fallen-wizard sites, so
     // Ettenmoors had no region indexed and no movement was offered at all.
@@ -47,7 +49,7 @@ describe('MEWH §7 / rule 1.28 — Fallen-wizard mixed-alignment movement', () =
           alignment: Alignment.FallenWizard,
           companies: [{ site: ETTENMOORS, characters: [ARAGORN] }],
           hand: [],
-          siteDeck: [BREE, MOUNT_GRAM, THE_WHITE_TOWERS],
+          siteDeck: [BREE, ZARAK_DUM, THE_WHITE_TOWERS],
         },
         {
           id: PLAYER_2,
@@ -66,7 +68,7 @@ describe('MEWH §7 / rule 1.28 — Fallen-wizard mixed-alignment movement', () =
 
     const destinations = new Set(movements.map(a => a.action.destinationSite));
     expect(destinations.has(instOf(BREE))).toBe(true);
-    expect(destinations.has(instOf(MOUNT_GRAM))).toBe(true);
+    expect(destinations.has(instOf(ZARAK_DUM))).toBe(true);
     expect(destinations.has(instOf(THE_WHITE_TOWERS))).toBe(true);
   });
 });

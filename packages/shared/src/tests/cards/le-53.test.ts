@@ -19,6 +19,7 @@
  * | 2 | +2 prowess in Fell Rider mode                    | IMPLEMENTED | stat-modifier gated on `bearer.ringwraithMode === fell-rider`   |
  * | 3 | +1 hand size at a Darkhaven                      | IMPLEMENTED | hand-size-modifier gated on `self.atDarkhaven`                  |
  * | 4 | Can use sorcery                                  | N/A         | No engine consumer: spell-casting is not gated by caster skill |
+ * | 5 | Manifestation of Hoarmûrath of Dír (tw-44)       | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
  *
  * The Ringwraith mode is established by a mode card (Black Rider le-170, Fell
  * Rider le-183, Heralded Lord le-190) bound to the company via
