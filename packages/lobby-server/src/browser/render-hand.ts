@@ -441,6 +441,37 @@ export function agentPlayChoices(
   return choices;
 }
 
+/** A labelled choice for how to play a character-targeting hazard from hand. */
+export interface CharTargetHazardChoice {
+  readonly label: string;
+  /**
+   * The action to dispatch, or `null` to enter two-step character targeting
+   * (the player then clicks the character to play the hazard on).
+   */
+  readonly action: GameAction | null;
+}
+
+/**
+ * Enumerate the ways a character-targeting hazard in hand may be played. Such a
+ * hazard (Lure of Expedience le-122, Dragon-sickness td-18, …) is normally played
+ * by selecting it and then clicking a character. CoE 2.IV.vii.4 additionally lets
+ * the hazard player place any hand card face-down on-guard, so when an on-guard
+ * action is available it must be offered as an explicit, labelled choice.
+ *
+ * Previously the on-guard placement was reachable only by clicking the opponent
+ * company's *site* card while the hazard was selected — an unlabelled shortcut
+ * that read as "play the hazard here", so players could not find it at all. The
+ * shortcut still works; this menu makes the option discoverable.
+ */
+export function charTargetHazardPlayChoices(
+  cardName: string,
+  onGuardAction: GameAction | undefined,
+): readonly CharTargetHazardChoice[] {
+  const choices: CharTargetHazardChoice[] = [{ label: `Play ${cardName} on a character`, action: null }];
+  if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  return choices;
+}
+
 /**
  * Show a disambiguation menu for an agent card that may be played face-up as an
  * agent OR placed face-down on-guard.
@@ -1072,12 +1103,28 @@ export function renderHand(
           : 'hand-card hand-card-playable';
         if (onAction && cardInstanceId) {
           const instId = cardInstanceId;
-          img.addEventListener('click', () => {
-            setSelectedHazardForPlay(isHazardSelected ? null : instId, onGuardAction);
+          const dispatch = onAction;
+          const enterTargeting = (): void => {
+            setSelectedHazardForPlay(instId, onGuardAction);
             setTargetingInstruction(
-              getSelectedHazardForPlay() ? `Click a character or site to play ${def.name}` : null,
+              `Click a character to play ${def.name}, or a site to place it on-guard`,
             );
             reRenderHazardTarget();
+          };
+          img.addEventListener('click', (e) => {
+            // Clicking the already-selected card cancels the targeting mode.
+            if (isHazardSelected) {
+              setSelectedHazardForPlay(null);
+              setTargetingInstruction(null);
+              reRenderHazardTarget();
+              return;
+            }
+            // Both plays are legal, so neither may be assumed: offer them by name.
+            const choices = charTargetHazardPlayChoices(def.name, onGuardAction);
+            showCursorTooltipMenu(e, choices.map(c => ({
+              label: c.label,
+              onClick: () => (c.action ? dispatch(c.action) : enterTargeting()),
+            })));
           });
         }
       } else {
