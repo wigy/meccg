@@ -678,6 +678,42 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // Check for on-event: attack-strike-successful effects on the attack source.
+  // Fires when at least one of this creature's own strikes wounded or
+  // eliminated a defender (struckCharIds, computed above) while the defending
+  // company is still moving. Used by Fell Turtle (tw-34): "If any strike is
+  // successful, the defending company must return to its site of origin" —
+  // the CoE rule 2.IV.4 mechanism shared with the short-event
+  // `company-return-to-origin` effect and `agent-discard-return-to-origin`.
+  if (struckCharIds.length > 0 && state.phaseState.phase === Phase.MovementHazard) {
+    const sourceCardForStrikeSuccess = getAttackSourceCard(state, combat);
+    const strikeSuccessEvents = getOnEventEffects(sourceCardForStrikeSuccess, 'attack-strike-successful');
+    for (const sse of strikeSuccessEvents) {
+      if (sse.apply.type !== 'company-return-to-origin') continue;
+      const mhStateSS = stateAfterCombat.phaseState as MovementHazardPhaseState;
+      if (mhStateSS.returnedToOrigin) continue;
+      const defIdxSS = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+      const companySS = companyById(stateAfterCombat.players[defIdxSS].companies, combat.companyId);
+      if (!companySS || !companySS.destinationSite) continue;
+      const creatureSource = attackSourceCreatureInstanceId(combat);
+      if (!creatureSource) continue;
+      const creatureDefId = resolveInstanceId(state, creatureSource);
+      const creatureName = cardName(state, creatureDefId!, 'creature');
+      logDetail(`Successful strike — ${creatureName} forces company ${combat.companyId as string} to return to its site of origin (rule 2.IV.4)`);
+      stateAfterCombat = {
+        ...stateAfterCombat,
+        phaseState: { ...mhStateSS, returnedToOrigin: true },
+      };
+      stateAfterCombat = addConstraint(stateAfterCombat, {
+        source: creatureSource,
+        sourceDefinitionId: (creatureDefId ?? creatureSource) as import('../types/common.js').CardDefinitionId,
+        scope: { kind: 'company-site-phase', companyId: combat.companyId },
+        target: { kind: 'company', companyId: combat.companyId },
+        kind: { type: 'site-phase-do-nothing' },
+      });
+    }
+  }
+
   // Check for on-event: attack-not-canceled effects on the attack source.
   // All resolved combats were by definition not canceled (cancellation prevents
   // combat resolution entirely), so this fires unconditionally after any attack.

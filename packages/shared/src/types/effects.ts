@@ -1953,6 +1953,7 @@ export type TriggeredActionType =
   | 'remove-constraint'
   | 'cancel-chain-entry'
   | 'company-tap-characters'
+  | 'company-return-to-origin'
   | 'counter-cancel-attack'
   | 'discard-character'
   | 'eliminate-character'
@@ -2741,6 +2742,19 @@ export interface CompanyTapCharactersTriggeredAction extends TriggeredActionBase
 }
 
 /**
+ * `company-return-to-origin` — `on-event: "attack-strike-successful"` apply
+ * verb (Fell Turtle tw-34). Fires in `finalizeCombat` when at least one of
+ * this creature's own strikes wounded or eliminated a defender during the
+ * defending company's movement/hazard phase: forces the company back to its
+ * site of origin (CoE rule 2.IV.4 — same mechanism as the short-event
+ * `company-return-to-origin` card effect and `agent-discard-return-to-origin`).
+ * Type-only marker; no fields beyond `type`.
+ */
+export interface CompanyReturnToOriginTriggeredAction extends TriggeredActionBase {
+  readonly type: 'company-return-to-origin';
+}
+
+/**
  * `counter-cancel-attack` — dice-check onPass verb for Black Vapour (ba-14).
  * Negates the chain entry named by the resolution's `targetInstanceId` (the
  * opponent's cancel-attack) so the attack survives, and adds {@link prowessBonus}
@@ -2915,6 +2929,7 @@ export type TriggeredAction =
   | SequenceAction
   | CancelChainEntryAction
   | CompanyTapCharactersTriggeredAction
+  | CompanyReturnToOriginTriggeredAction
   | CounterCancelAttackTriggeredAction
   | SiteEntryAttackAction
   | SetCompanySpecialMovementAction
