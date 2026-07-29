@@ -25,6 +25,7 @@ import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, playerById, defById } from '../reducer-utils.js';
+import { grantedAction } from './granted-action-emit.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -90,18 +91,13 @@ export function emitGrantedActionConstraintActions(
       }
 
       logDetail(`granted-action "${kind.action}" available: ${charDef?.name ?? '?'} (source: ${sourceName})`);
-      actions.push({
-        action: {
-          type: 'activate-granted-action',
-          player: playerId,
-          characterId: charId,
-          sourceCardId: constraint.source,
-          sourceCardDefinitionId: constraint.sourceDefinitionId,
-          actionId: kind.action,
-          rollThreshold: 0,
-        },
-        viable: true,
-      });
+      actions.push(grantedAction(
+        playerId,
+        charId,
+        { instanceId: constraint.source, definitionId: constraint.sourceDefinitionId },
+        kind.action,
+        0,
+      ));
     }
   }
 

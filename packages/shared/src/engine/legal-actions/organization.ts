@@ -64,6 +64,7 @@ import {
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
+import { grantedAction, grantedActionFor } from './granted-action-emit.js';
 
 /**
  * Filter mode for {@link grantedActionActivations}. Selects which subset
@@ -946,18 +947,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             if (!companionDef || !isCharacterCard(companionDef)) continue;
             if (!getEffectiveSkills(state, companion, companionDef as { skills?: readonly string[] }).includes('sage')) continue;
             logDetail(`Grant-action ${effect.action} available: ${companionDef.name} (sage) can tap to activate (source: ${hazardDef?.name ?? '?'})`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: companionId,
-                sourceCardId: hazard.instanceId,
-                sourceCardDefinitionId: hazard.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, companionId, hazard, effect));
             emitted++;
           }
           if (emitted === 0) {
@@ -997,18 +987,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         if (canPayCost(effect.cost, char) && whenSatisfied) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
-          actions.push({
-            action: {
-              type: 'activate-granted-action',
-              player: playerId,
-              characterId: charId,
-              sourceCardId: hazard.instanceId,
-              sourceCardDefinitionId: hazard.definitionId,
-              actionId: effect.action,
-              rollThreshold: rollThresholdFor(effect),
-            },
-            viable: true,
-          });
+          actions.push(grantedActionFor(playerId, charId, hazard, effect));
         }
 
         // METD §7 / rule 10.08: also offer the no-tap variant for
@@ -1017,19 +996,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         if (isCorruptionRemoval) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action}-no-tap available: ${charDef?.name ?? '?'} may roll without tapping at -3 (source: ${hazardDef?.name ?? '?'})`);
-          actions.push({
-            action: {
-              type: 'activate-granted-action',
-              player: playerId,
-              characterId: charId,
-              sourceCardId: hazard.instanceId,
-              sourceCardDefinitionId: hazard.definitionId,
-              actionId: effect.action,
-              rollThreshold: rollThresholdFor(effect),
-              noTap: true,
-            },
-            viable: true,
-          });
+          actions.push(grantedActionFor(playerId, charId, hazard, effect, { noTap: true }));
         }
       }
     }
@@ -1080,19 +1047,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
               if (!compDef || !isCharacterCard(compDef)) continue;
               if (!companionIds.includes(compDef.id as string)) continue;
               logDetail(`Grant-action ${effect.action} available: ${charDef.name} can tap to untap ${compDef.name}`);
-              actions.push({
-                action: {
-                  type: 'activate-granted-action',
-                  player: playerId,
-                  characterId: charId,
-                  sourceCardId: char.instanceId,
-                  sourceCardDefinitionId: char.definitionId,
-                  actionId: effect.action,
-                  rollThreshold: rollThresholdFor(effect),
-                  targetCardId: companion.instanceId,
-                },
-                viable: true,
-              });
+              actions.push(grantedActionFor(playerId, charId, char, effect, { targetCardId: companion.instanceId }));
               emitted++;
             }
             if (emitted === 0) {
@@ -1113,19 +1068,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
               }
               for (const company of companies) {
                 logDetail(`Grant-action ${effect.action} available: ${charDef.name} can activate targeting company ${company.id as string}`);
-                actions.push({
-                  action: {
-                    type: 'activate-granted-action',
-                    player: playerId,
-                    characterId: charId,
-                    sourceCardId: char.instanceId,
-                    sourceCardDefinitionId: char.definitionId,
-                    actionId: effect.action,
-                    rollThreshold: rollThresholdFor(effect),
-                    targetCompanyId: company.id,
-                  },
-                  viable: true,
-                });
+                actions.push(grantedActionFor(playerId, charId, char, effect, { targetCompanyId: company.id }));
               }
               continue;
             }
@@ -1138,37 +1081,14 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             for (const target of candidates) {
               const targetDef = defById(state, target.definitionId);
               logDetail(`Grant-action ${effect.action} available: ${charDef.name} can tap to target ${targetDef?.name ?? '?'}`);
-              actions.push({
-                action: {
-                  type: 'activate-granted-action',
-                  player: playerId,
-                  characterId: charId,
-                  sourceCardId: char.instanceId,
-                  sourceCardDefinitionId: char.definitionId,
-                  actionId: effect.action,
-                  rollThreshold: rollThresholdFor(effect),
-                  targetCardId: target.instanceId,
-                },
-                viable: true,
-              });
+              actions.push(grantedActionFor(playerId, charId, char, effect, { targetCardId: target.instanceId }));
             }
             continue;
           }
 
           // Generic character grant-action (future use)
           logDetail(`Grant-action ${effect.action} available: ${charDef.name} can activate`);
-          actions.push({
-            action: {
-              type: 'activate-granted-action',
-              player: playerId,
-              characterId: charId,
-              sourceCardId: char.instanceId,
-              sourceCardDefinitionId: char.definitionId,
-              actionId: effect.action,
-              rollThreshold: rollThresholdFor(effect),
-            },
-            viable: true,
-          });
+          actions.push(grantedActionFor(playerId, charId, char, effect));
         }
       }
     }
@@ -1203,18 +1123,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const def = defById(state, ally.definitionId);
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
 
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: charId,
-            sourceCardId: ally.instanceId,
-            sourceCardDefinitionId: ally.definitionId,
-            actionId: effect.action,
-            rollThreshold: rollThresholdFor(effect),
-          },
-          viable: true,
-        });
+        actions.push(grantedActionFor(playerId, charId, ally, effect));
       }
     }
 
@@ -1282,20 +1191,13 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           for (const itemInstId of zoneItemIds) {
             for (const recipientId of recipients) {
-              actions.push({
-                action: {
-                  type: 'activate-granted-action',
-                  player: playerId,
-                  characterId: charId,
-                  sourceCardId: item.instanceId,
-                  sourceCardDefinitionId: item.definitionId,
-                  actionId: effect.action,
-                  rollThreshold: rollThresholdFor(effect),
-                  targetCardId: itemInstId,
-                  recipientCharacterId: recipientId,
-                },
-                viable: true,
-              });
+              actions.push(grantedActionFor(
+                playerId,
+                charId,
+                item,
+                effect,
+                { targetCardId: itemInstId, recipientCharacterId: recipientId },
+              ));
             }
           }
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: offered ${zoneItemIds.length} item(s) × ${recipients.length} recipient(s) at site`);
@@ -1323,19 +1225,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           for (const target of wounded) {
             const targetDef = defById(state, target.definitionId);
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to heal ${targetDef?.name ?? '?'}`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: charId,
-                sourceCardId: item.instanceId,
-                sourceCardDefinitionId: item.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-                targetCardId: target.instanceId,
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: target.instanceId }));
           }
           continue;
         }
@@ -1381,19 +1271,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           for (const { instanceId: targetId, name: targetName } of dwarfTargets) {
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to discard ${targetName}`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: charId,
-                sourceCardId: item.instanceId,
-                sourceCardDefinitionId: item.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-                targetCardId: targetId,
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: targetId }));
           }
           continue;
         }
@@ -1429,19 +1307,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           for (const { instanceId: targetId, name: targetName } of siteTargets) {
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to make ${targetName} automatically pass a corruption check`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: charId,
-                sourceCardId: item.instanceId,
-                sourceCardDefinitionId: item.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-                targetCardId: targetId,
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: targetId }));
           }
           continue;
         }
@@ -1472,19 +1338,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           for (const { instanceId: targetId, name: targetName } of boostTargets) {
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap ${def?.name ?? '?'} to give ${targetName} +2 to an influence attempt`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: charId,
-                sourceCardId: item.instanceId,
-                sourceCardDefinitionId: item.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-                targetCardId: targetId,
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: targetId }));
           }
           continue;
         }
@@ -1502,19 +1356,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           for (const targetCompany of companies) {
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} targeting company ${targetCompany.id as string}`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: charId,
-                sourceCardId: item.instanceId,
-                sourceCardDefinitionId: item.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-                targetCompanyId: targetCompany.id,
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCompanyId: targetCompany.id }));
           }
           continue;
         }
@@ -1537,37 +1379,14 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           for (const target of inPlayTargets) {
             const targetDef = defById(state, target.definitionId);
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to discard opponent's ${targetDef?.name ?? '?'}`);
-            actions.push({
-              action: {
-                type: 'activate-granted-action',
-                player: playerId,
-                characterId: charId,
-                sourceCardId: item.instanceId,
-                sourceCardDefinitionId: item.definitionId,
-                actionId: effect.action,
-                rollThreshold: rollThresholdFor(effect),
-                targetCardId: target.instanceId,
-              },
-              viable: true,
-            });
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: target.instanceId }));
           }
           continue;
         }
 
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: charId,
-            sourceCardId: item.instanceId,
-            sourceCardDefinitionId: item.definitionId,
-            actionId: effect.action,
-            rollThreshold: rollThresholdFor(effect),
-          },
-          viable: true,
-        });
+        actions.push(grantedActionFor(playerId, charId, item, effect));
       }
     }
   }
@@ -1623,18 +1442,7 @@ export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId):
       if (effect.cost.discard !== 'self') continue;
       if (effect.apply?.type !== 'add-constraint') continue;
       logDetail(`In-play faction grant-action ${effect.action} available: discard ${def.name} in play`);
-      actions.push({
-        action: {
-          type: 'activate-granted-action',
-          player: playerId,
-          characterId: cip.instanceId,
-          sourceCardId: cip.instanceId,
-          sourceCardDefinitionId: cip.definitionId,
-          actionId: effect.action,
-          rollThreshold: 0,
-        },
-        viable: true,
-      });
+      actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0));
     }
   }
   return actions;
@@ -1695,19 +1503,14 @@ export function sauronOrgGrantActions(state: GameState, playerId: PlayerId): Eva
         const eligible = MINION_RESOURCE_TYPES.has(sbDef.cardType) || isCharacterCard(sbDef);
         if (!eligible) continue;
         logDetail(`Sauron sideboard-fetch available (${def.name}): bring ${sbDef.name} (${sb.instanceId as string}) from sideboard into the play deck and shuffle`);
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: cip.instanceId,
-            sourceCardId: cip.instanceId,
-            sourceCardDefinitionId: cip.definitionId,
-            actionId: 'sauron-sideboard-fetch',
-            rollThreshold: 0,
-            targetCardId: sb.instanceId,
-          },
-          viable: true,
-        });
+        actions.push(grantedAction(
+          playerId,
+          cip.instanceId,
+          cip,
+          'sauron-sideboard-fetch',
+          0,
+          { targetCardId: sb.instanceId },
+        ));
       }
     }
 
@@ -1717,19 +1520,14 @@ export function sauronOrgGrantActions(state: GameState, playerId: PlayerId): Eva
         for (const hc of player.hand) {
           const hcDef = defById(state, hc.definitionId);
           logDetail(`Sauron peek-hand available (${def.name}): discard ${hcDef?.name ?? '?'} (${hc.instanceId as string}) to look at up to 5 random opponent-hand cards`);
-          actions.push({
-            action: {
-              type: 'activate-granted-action',
-              player: playerId,
-              characterId: cip.instanceId,
-              sourceCardId: cip.instanceId,
-              sourceCardDefinitionId: cip.definitionId,
-              actionId: 'sauron-peek-hand',
-              rollThreshold: 0,
-              targetCardId: hc.instanceId,
-            },
-            viable: true,
-          });
+          actions.push(grantedAction(
+            playerId,
+            cip.instanceId,
+            cip,
+            'sauron-peek-hand',
+            0,
+            { targetCardId: hc.instanceId },
+          ));
         }
       } else {
         logDetail(`Sauron peek-hand unavailable (${def.name}): opponent has no cards in hand`);
@@ -2048,36 +1846,10 @@ export function modifyCorruptionCheckGrantActions(
       );
       if (!grant) continue;
       logDetail(`Corruption-check modifier available: ${def?.name ?? '?'} (bearer ${charId as string}) → boost check by ${resolvingCharacterId as string}`);
-      actions.push({
-        action: {
-          type: 'activate-granted-action',
-          player: playerId,
-          characterId: charId,
-          sourceCardId: item.instanceId,
-          sourceCardDefinitionId: item.definitionId,
-          actionId: grant.action,
-          rollThreshold: 0,
-          targetCardId: resolvingCharacterId,
-        },
-        viable: true,
-      });
+      actions.push(grantedAction(playerId, charId, item, grant.action, 0, { targetCardId: resolvingCharacterId }));
     }
   }
   return actions;
-}
-
-/**
- * Resolve the effective 2d6 threshold for a roll-based granted action.
- * Cards migrated to the generic `apply: roll-then-apply` shape carry
- * the threshold on the apply; legacy cards still expose it as
- * `effect.rollThreshold`. Returns 0 for non-roll actions.
- */
-function rollThresholdFor(effect: import('../../types/effects.js').GrantActionEffect): number {
-  if (effect.rollThreshold !== undefined) return effect.rollThreshold;
-  if (effect.apply?.type === 'roll-then-apply' && typeof effect.apply.threshold === 'number') {
-    return effect.apply.threshold;
-  }
-  return 0;
 }
 
 /**
