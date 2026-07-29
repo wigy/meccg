@@ -137,6 +137,12 @@ export interface OpponentView {
   readonly cardsInPlay: readonly CardInPlay[];
   /** The opponent's current marshalling point totals (public information). */
   readonly marshallingPoints: MarshallingPointTotals;
+  /**
+   * The opponent's *callable* marshalling point totals — the raw, unmodified
+   * figure CoE rule 10.40 compares against the calling threshold (excludes
+   * Under-deeps company MPs per MEAS §6e). Public information.
+   */
+  readonly callableMarshallingPoints: MarshallingPointTotals;
   /** How much of the opponent's general influence is committed (public information). */
   readonly generalInfluenceUsed: number;
   /**
@@ -197,6 +203,12 @@ export interface SelfView {
   readonly cardsInPlay: readonly CardInPlay[];
   /** Current marshalling point totals by category. */
   readonly marshallingPoints: MarshallingPointTotals;
+  /**
+   * Callable marshalling point totals — the raw, unmodified figure CoE rule
+   * 10.40 compares against the 25-point calling threshold (excludes
+   * Under-deeps company MPs per MEAS §6e).
+   */
+  readonly callableMarshallingPoints: MarshallingPointTotals;
   /** How much general influence is currently committed to controlling characters. */
   readonly generalInfluenceUsed: number;
   /**
