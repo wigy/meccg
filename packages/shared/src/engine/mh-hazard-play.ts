@@ -1521,12 +1521,23 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     const newSiteDiscardPile = [...resourcePlayer.siteDiscardPile];
     let newOutOfPlayPile = [...resourcePlayer.outOfPlayPile];
     if (originSite) {
-      const siblingStillAtOrigin = resourcePlayer.companies.some(
+      const siblingAtOriginIdx = resourcePlayer.companies.findIndex(
         (c, idx) => idx !== mhState.activeCompanyIndex
           && c.currentSite?.instanceId === originSite.instanceId,
       );
-      if (siblingStillAtOrigin) {
-        logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
+      if (siblingAtOriginIdx !== -1) {
+        // The departing company no longer holds the physical card at all
+        // (it moved elsewhere), so if it was the one holding the card, that
+        // ownership must pass to the sibling left behind — otherwise the
+        // site would end up with no owner even though a company still
+        // occupies it.
+        if (company.siteCardOwned) {
+          const sibling = updatedCompanies[siblingAtOriginIdx];
+          updatedCompanies[siblingAtOriginIdx] = { ...sibling, siteCardOwned: true };
+          logDetail(`Step 8: site of origin remains in play — ownership passes to sibling company ${sibling.id as string}`);
+        } else {
+          logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
+        }
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
