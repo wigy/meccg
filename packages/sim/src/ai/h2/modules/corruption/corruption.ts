@@ -27,6 +27,14 @@
  * changes a decision. It is worth having anyway: `explain` can then say what a
  * position is risking, and the outcome distribution is one the calibration
  * harness can check against the reducer.
+ *
+ * Shedding an attached corruption card is the same valuation run backwards —
+ * the roll narrows the failing band instead of widening it — but it lives in
+ * `grants`, with every other card-granted ability. `claims()` is per decision
+ * rather than per action, so two modules sharing `activate-granted-action`
+ * would fight over a decision offering one grant of each kind and leave the
+ * loser's grant unscored. What this module contributes there is
+ * `character-value.corruptionRelief`, which both sides of the question share.
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
@@ -39,6 +47,7 @@ import { computeCharacterValue } from '../../services/character-value.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['corruption-check'] as const;
+
 
 /** The marshalling points a set of possessions would take with them. */
 function possessionLoss(

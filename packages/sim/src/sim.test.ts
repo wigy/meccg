@@ -18,6 +18,15 @@ import { ReplayWriter, readReplay, verifyReplay } from './replay.js';
 import type { DecisionRecord, GameObserver } from './types.js';
 import { UNKNOWN_CARD } from '@meccg/shared';
 
+/**
+ * Budget for a test that plays a whole game.
+ *
+ * Vitest's 5s default is not enough for one when the suite runs files in
+ * parallel: these pass in isolation and fail together, which reads as a
+ * flaky suite rather than as a slow test.
+ */
+const GAME_TIMEOUT = 30000;
+
 const DECKS: [ReturnType<typeof loadDeck>, ReturnType<typeof loadDeck>] =
   [loadDeck('challenge-deck-a'), loadDeck('challenge-deck-b')];
 
@@ -43,7 +52,7 @@ describe('headless runner', () => {
     expect(run.result.error).toBeUndefined();
     expect(run.result.decisions).toBeGreaterThan(100);
     expect(run.result.stats.branching.max).toBeGreaterThan(1);
-  });
+  }, GAME_TIMEOUT);
 
   test('heuristic-vs-heuristic game runs to completion', () => {
     const run = playGame({
@@ -53,7 +62,7 @@ describe('headless runner', () => {
     });
     expect(run.result.outcome).toBe('completed');
     expect(run.result.winner).not.toBeNull();
-  });
+  }, GAME_TIMEOUT);
 
   test('same seed reproduces the identical decision sequence', () => {
     const record = (): string[] => {

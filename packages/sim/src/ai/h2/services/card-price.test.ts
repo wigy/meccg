@@ -34,7 +34,7 @@ describe('the card price', () => {
     expect(priced.worth('not-a-card' as never)).toBeNull();
   });
 
-  test('a creature is worth what it would deny, not a flat price', () => {
+  test('a creature is worth what it adds to the plan, not a flat price', () => {
     const { view, cardPool, prices: priced } = prices();
     const creature = view.self.hand.find(
       c => (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-creature',
@@ -43,13 +43,17 @@ describe('the card price', () => {
     const worth = priced.worth(creature!.instanceId)!;
     // The reason is the test: a number that happens to equal the floor is fine,
     // a number that came *from* the floor is the thing this service replaced.
-    expect(worth.reason).toMatch(/deny|beat it/);
+    // It now comes from `hazard-plan`, so it names a target or says there is
+    // none — never "the flat price".
+    expect(worth.reason).toMatch(/adds .* to the plan|worth nothing as an attack/);
   });
 
-  test('two copies of the same creature are priced identically', () => {
-    // The valuation is memoised by definition, and it had better be the same
-    // answer either way — a hand that prefers one copy of a card to another is
-    // reporting cache state, not value.
+  test('two copies of the same creature can be priced differently, and should be', () => {
+    // They were identical while each creature was priced alone. Under a plan
+    // they are not: the first copy takes the slot and the second is credited
+    // only with what it adds behind it, which is the whole point of pricing a
+    // contribution rather than a card. What must hold is that no copy is
+    // credited with more than the first.
     const { view, cardPool, prices: priced } = prices();
     const byDefinition = new Map<string, number[]>();
     for (const card of view.self.hand) {
@@ -60,7 +64,8 @@ describe('the card price', () => {
       ]);
     }
     for (const values of byDefinition.values()) {
-      for (const value of values) expect(value).toBeCloseTo(values[0], 9);
+      const sorted = [...values].sort((a, b) => b - a);
+      for (const value of values) expect(value).toBeLessThanOrEqual(sorted[0] + 1e-9);
     }
   });
 

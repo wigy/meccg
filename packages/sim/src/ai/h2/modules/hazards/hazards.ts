@@ -29,21 +29,34 @@
  * makes the second one look better, not worse, so the plan is not abandoned
  * halfway.
  *
- * **What it does not do yet.** Hazard *events* — Doors of Night, the company
- * restrictions, everything that is not a creature attack — are declined, so a
- * decision containing them is only partly covered and the registry says so.
- * Modelling them means modelling their effects, which is the DSL's job and a
- * separate piece of work.
+ * **It also owns one moment inside combat.** Excess strikes are assigned by the
+ * *attacking* player (CoE 3.iv), so the hazard seat is asked which enemy
+ * character eats the extra strike. `combat` cannot answer that — every price it
+ * knows has the wrong sign, because harm to that company is the thing being
+ * aimed for — and this module already has the model: it is a denial choice like
+ * any other, and the answer is whoever it hurts them most to lose.
+ *
+ * **What it does not do yet.** Hazard *events* played from hand — Doors of
+ * Night, the company restrictions, everything that is not a creature attack —
+ * are declined, so a decision containing them is only partly covered and the
+ * registry says so. Modelling them means modelling their effects, which is the
+ * DSL's job and a separate piece of work. A non-creature placed *on guard* is a
+ * different case and is scored: placement is free, so zero is its floor rather
+ * than a guess.
  */
 
 import { CardStatus, Phase } from '@meccg/shared';
-import type { CardDefinition, GameAction, OpponentCompanyView, PlayerView } from '@meccg/shared';
-import type { Evaluation, H2Module, ModuleContext, Rationale } from '../../core/types.js';
+import type {
+  CardDefinition, CombatState, GameAction, OpponentCompanyView, PlayerView,
+} from '@meccg/shared';
+import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
+import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { computeExposure } from '../../services/exposure.js';
-import { rosterOf } from '../../services/strike/prowess.js';
+import { bodyOf, effectiveStrikeProwess, needAgainst, rosterOf } from '../../services/strike/prowess.js';
+import { strikeOutcomes } from '../../services/strike/strike-model.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
@@ -51,7 +64,7 @@ import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'pass'] as const;
+const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'assign-strike', 'pass'] as const;
 
 /** Assumptions every hazard evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
@@ -64,9 +77,22 @@ const ASSUMPTIONS: readonly string[] = [
   + 'only one: a character who stays untapped at -3 prowess denies this bundle the tap it counts',
   'the bundle is priced against the company as it stands now; a hazard the opponent answers by '
   + 'cancelling the attack outright is not modelled',
-  'on-guard placement is priced as a discounted version of playing the same card at the company, '
-  + 'not as a distinct decision about the site it guards',
+  'on-guard placement is priced as the option it is — the card returns to hand unless revealed — '
+  + 'discounted for the company never arriving, and not as a decision about the site it guards',
 ];
+
+/**
+ * The combat we are the *attacker* in, if this is one.
+ *
+ * Recognised by the company under attack not being ours: the defender's own
+ * module gates on the opposite test, so the two windows cannot both be claimed.
+ */
+function attackingCombat(view: PlayerView): CombatState | null {
+  const combat = view.combat;
+  if (!combat) return null;
+  if (view.self.companies.some(company => company.id === combat.companyId)) return null;
+  return view.opponent.companies.some(company => company.id === combat.companyId) ? combat : null;
+}
 
 /** Whether the acting player is the hazard player in a live play-hazards step. */
 function inHazardWindow(view: PlayerView): boolean {
@@ -284,32 +310,23 @@ export const hazardsModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   claims(context: ModuleContext): boolean {
+    if (attackingCombat(context.view) !== null) return true;
     if (!inHazardWindow(context.view)) return false;
     return activeCompany(context.view) !== null;
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    const attacking = attackingCombat(context.view);
+    if (attacking !== null) {
+      return action.type === 'assign-strike'
+        ? evaluateAssignStrike(action, context, attacking)
+        : action.type === 'pass'
+          ? passEvaluation(action, context)
+          : null;
+    }
     if (!inHazardWindow(context.view)) return null;
 
-    if (action.type === 'pass') {
-      // The baseline every bundle is measured against: stop, keep the cards,
-      // let the company arrive as it stands.
-      return {
-        action,
-        module: 'hazards',
-        outcomes: [{ p: 1, label: 'play nothing further into this company', dtsd: 0 }],
-        expectedTsd: 0,
-        sigmaTsd: 0,
-        utility: 0,
-        method: 'integrated',
-        rationale: node('stop playing hazards', 0, [
-          leaf('cards kept', context.view.self.hand.length, {
-            note: 'the baseline — a hazard is only worth playing if it beats this',
-          }),
-        ], { unit: 'winprob' }),
-        assumptions: ASSUMPTIONS,
-      };
-    }
+    if (action.type === 'pass') return passEvaluation(action, context);
 
     if (action.type === 'play-hazard') {
       const play = action as unknown as { cardInstanceId: string; targetCompanyId: string };
@@ -317,36 +334,340 @@ export const hazardsModule: H2Module = {
       if (!company) return null;
       const plan = buildPlan(context.view, context, company);
       const bundle = bestBundleStartingWith(plan.search, play.cardInstanceId);
-      // Not a creature, or no slot left for it: this module has nothing to say,
-      // and saying nothing is what leaves the decision honestly uncovered.
-      if (!bundle) return null;
+      // Not a creature: it may still be an event this module can price, and if
+      // it is not, saying nothing is what leaves the decision honestly
+      // uncovered.
+      if (!bundle) return evaluateHazardEvent(action, context);
       return evaluateBundle(action, plan, bundle, context, 1, `play ${bundle.cards[0].name}`);
     }
 
-    if (action.type === 'place-on-guard') {
-      const place = action as unknown as { cardInstanceId: string };
-      const company = activeCompany(context.view);
-      if (!company) return null;
-      const card = context.view.self.hand.find(c => (c.instanceId as string) === place.cardInstanceId);
-      if (!card) return null;
-      if (!creatureProfile(context.cardPool, card.definitionId as string)) return null;
-      const plan = buildPlan(context.view, context, company);
-      // On-guard placement is outside the hazard limit, so a card with no slot
-      // left can still be placed — the single-card bundle is scored even when
-      // `slots` is zero.
-      const single = plan.search.bundles.find(
-        b => b.cards.length === 1 && b.cards[0].instanceId === place.cardInstanceId,
-      ) ?? placeOnly(context, plan, place.cardInstanceId);
-      if (!single) return null;
-      return evaluateBundle(
-        action, plan, single, context, context.tunables.onGuardDiscount,
-        `place ${single.cards[0].name} on guard`,
-      );
-    }
+    if (action.type === 'place-on-guard') return evaluateOnGuard(action, context);
 
     return null;
   },
 };
+
+/** The do-nothing baseline, shared by both windows this module claims. */
+function passEvaluation(action: GameAction, context: ModuleContext): Evaluation {
+  return {
+    action,
+    module: 'hazards',
+    outcomes: [{ p: 1, label: 'play nothing further into this company', dtsd: 0 }],
+    expectedTsd: 0,
+    sigmaTsd: 0,
+    utility: 0,
+    method: 'integrated',
+    rationale: node('stop playing hazards', 0, [
+      leaf('cards kept', context.view.self.hand.length, {
+        note: 'the baseline — a hazard is only worth playing if it beats this',
+      }),
+    ], { unit: 'winprob' }),
+    assumptions: ASSUMPTIONS,
+  };
+}
+
+/**
+ * Score giving one strike to one of *their* characters.
+ *
+ * The attacking player assigns excess strikes, so this is the hazard seat
+ * choosing where the extra damage lands. It is the same denial question the
+ * bundle planner answers, one strike at a time: the strike is going to happen,
+ * and all that is being chosen is who faces it, so the whole evaluation is what
+ * harming that particular character denies them.
+ */
+function evaluateAssignStrike(
+  action: GameAction,
+  context: ModuleContext,
+  combat: CombatState,
+): Evaluation | null {
+  const { view, cardPool, standing, tunables } = context;
+  const characterId = (action as unknown as { characterId?: string }).characterId;
+  const company = view.opponent.companies.find(c => c.id === combat.companyId);
+  if (!characterId || !company) return null;
+
+  const roster = rosterOf(company, view.opponent.characters, cardPool);
+  const target = roster.find(t => (t.instanceId as string) === characterId);
+  if (!target) return null;
+
+  const beliefs = computeBeliefs(view, cardPool);
+  const denial = denialContext(view, company, beliefs, standing, tunables);
+  const price = denialPricer(cardPool, standing, tunables, denial);
+  const untappedBefore = roster.filter(
+    t => !t.isAlly && t.status === CardStatus.Untapped,
+  ).length;
+
+  const excess = (action as unknown as { excess?: boolean }).excess === true;
+  const need = needAgainst(target, cardPool, effectiveStrikeProwess(combat), {
+    excessStrikes: excess ? 1 : 0,
+  });
+  const outcomes: Outcome[] = strikeOutcomes(
+    { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
+    {
+      creatureBody: combat.creatureBody,
+      detainment: combat.detainment,
+      characterBody: bodyOf(target, cardPool),
+      alreadyWounded: target.status === CardStatus.Inverted,
+      bodyCheckModifier: combat.bodyCheckModifier ?? 0,
+    },
+  ).map(outcome => ({
+    p: outcome.p,
+    label: `${target.name}: ${outcome.strike} / ${outcome.character}`,
+    dtsd: price(outcome, target, { untappedBefore }),
+  }));
+  const scored = standing.score(outcomes);
+
+  return {
+    action,
+    module: 'hazards',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`strike ${target.name}`, scored.utility, [
+      node('what harming him denies', scored.expectedTsd, [
+        leaf('facing', target.name, { note: excess ? 'an excess strike, at -1 prowess' : 'an assigned strike' }),
+        leaf('their roll needs', need, { unit: 'p', note: 'predicted, not published — the strike is not reached yet' }),
+        leaf('characters still standing', untappedBefore, {
+          note: `they hold about ${denial.believedPlays.toFixed(1)} resource play(s)`,
+        }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'the strike is going to happen; only who faces it is being chosen, so nothing here prices '
+      + 'the attack as a whole',
+      'the defender is assumed to tap to fight and to spend no cards answering it',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
+
+/**
+ * Score a hazard *event* — the half of hazard play that is not an attack.
+ *
+ * Two families can be priced, and they come from different places.
+ *
+ * **What the action targets.** Muster Disperses declares nothing but
+ * `play-target: faction`; the dispersal is the card's own semantics, so there
+ * is no effect to read. But the *action* names the faction, and a faction in
+ * play has printed marshalling points — so what the play is worth is exactly
+ * what those points are worth to the opponent, through `standing`, which
+ * correctly says zero when their faction source is already capped.
+ *
+ * **What the effects declare.** An Unexpected Outpost moves cards from the
+ * sideboard or discard back into the deck, which is the recovery family
+ * `events` and `grants` both price, discounted again because a card put back in
+ * the deck is further away than one put in hand.
+ *
+ * Everything else is declined. The largest family by appearances is
+ * `stat-modifier` — Minions Stir giving every Orc attack +1 prowess — and its
+ * value is entirely "it makes my other hazards better", which is computable
+ * from the plan but is a bigger piece of work than tonight: the plan would have
+ * to be re-run with the modifier applied and the difference taken.
+ */
+function evaluateHazardEvent(action: GameAction, context: ModuleContext): Evaluation | null {
+  const record = action as unknown as {
+    cardInstanceId: string;
+    targetFactionInstanceId?: string;
+    targetStoredItemInstanceId?: string;
+  };
+  const { view, cardPool, standing, tunables } = context;
+  const card = view.self.hand.find(c => (c.instanceId as string) === record.cardInstanceId);
+  if (!card) return null;
+  const def = cardPool[card.definitionId] as unknown as {
+    name?: string; effects?: readonly { type?: string; to?: string; count?: number }[];
+  } | undefined;
+  const name = def?.name ?? (card.definitionId as string);
+
+  const gain = removalGain(record, context) ?? recoveryGain(def?.effects ?? [], tunables);
+  if (!gain) return null;
+
+  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.provisionalCardPrice }, tunables);
+  const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
+  const scored = standing.score(outcomes);
+
+  return {
+    action,
+    module: 'hazards',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`play ${name}`, scored.utility, [
+      node('the event', gain.tsd, [
+        leaf('event', name),
+        leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
+        leaf('the card it spends', tunables.provisionalCardPrice, {
+          unit: 'tsd',
+          tunable: 'provisionalCardPrice',
+        }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'a hazard event is priced by what the action targets or by the family its effects declare, '
+      + 'never by its text: an event that also restricts or enables something is under-valued',
+      'the hazard-limit slot it consumes is not charged — what else could have gone in that slot '
+      + 'is the bundle planner\'s question, and it does not plan events',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
+/** What taking a named card out of the opponent's play is worth. */
+function removalGain(
+  record: { targetFactionInstanceId?: string; targetStoredItemInstanceId?: string },
+  context: ModuleContext,
+): { tsd: number; reason: string } | null {
+  const targetId = record.targetFactionInstanceId ?? record.targetStoredItemInstanceId;
+  if (!targetId) return null;
+  const { view, cardPool, standing } = context;
+  const target = view.opponent.cardsInPlay.find(c => (c.instanceId as string) === targetId);
+  if (!target) return null;
+  const printed = cardPool[target.definitionId] as unknown as {
+    name?: string; marshallingPoints?: number; marshallingCategory?: string;
+  } | undefined;
+  const points = printed?.marshallingPoints ?? 0;
+  if (points <= 0) return null;
+  const source = printed?.marshallingCategory ?? 'misc';
+  const tsd = standing.tsd - standing.tsdAfter({}, { [source]: -points });
+  return {
+    tsd,
+    reason: tsd > 0
+      ? `takes ${printed?.name ?? 'a card'} out of play — ${points} ${source} MP they lose`
+      : `takes ${printed?.name ?? 'a card'} out of play, but that source is already capped for them`,
+  };
+}
+
+/** What an event that recycles cards into our own deck or hand is worth. */
+function recoveryGain(
+  effects: readonly { type?: string; to?: string; count?: number }[],
+  tunables: ModuleContext['tunables'],
+): { tsd: number; reason: string } | null {
+  const moves = effects.filter(e => e.type === 'move' && (e.to === 'deck' || e.to === 'hand'));
+  if (moves.length === 0) return null;
+  const cards = moves.reduce((sum, move) => sum + (move.count ?? 1), 0);
+  const toHand = moves.every(move => move.to === 'hand');
+  // A card put back in the deck is further away than one put in hand, so it is
+  // discounted again by the same factor every "might never happen" is.
+  const each = toHand ? tunables.resourceDrawValue : tunables.resourceDrawValue * tunables.potentialDiscount;
+  return {
+    tsd: cards * each,
+    reason: `${cards} card(s) back into the ${toHand ? 'hand' : 'deck'}, at `
+      + `${each.toFixed(2)} each${toHand ? '' : ' — discounted for being a draw away'}`,
+  };
+}
+
+/**
+ * Score placing a card face down on the company's site.
+ *
+ * The rule that decides this one is in `reducer-site.ts`: an on-guard card that
+ * is never revealed **goes back to the hazard player's hand** at cleanup. So
+ * placement does not spend the card. It buys an option — the right to reveal it
+ * during the site phase, when hazards otherwise cannot be played — and an option
+ * that costs nothing is worth nothing or better.
+ *
+ * That is a correction rather than a refinement. This module used to charge half
+ * a card for a placement (the bundle's card price times `onGuardDiscount`), a
+ * cost the rules do not impose, which made placing look worse than passing.
+ *
+ * Two consequences:
+ *
+ * - **A creature** is worth what its attack would do if revealed, discounted by
+ *   `onGuardDiscount` for the company never arriving or the reveal conditions
+ *   never being met — and with no card price, because the card comes back.
+ * - **Anything else** — and the rules allow any card, "even a character or
+ *   resource" — is worth *at least* nothing, and this module cannot say more.
+ *   What it does on reveal is its text, which is the DSL's to price. Scored at
+ *   zero rather than declined, because zero is the honest floor for a free
+ *   option and declining left 920 candidates unscored in three self-play games.
+ */
+function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation | null {
+  const place = action as unknown as { cardInstanceId: string };
+  const company = activeCompany(context.view);
+  if (!company) return null;
+  const card = context.view.self.hand.find(c => (c.instanceId as string) === place.cardInstanceId);
+  if (!card) return null;
+
+  const { tunables } = context;
+  const creature = creatureProfile(context.cardPool, card.definitionId as string);
+
+  if (creature) {
+    // Worth the attack it would make, with no card price: the card is only
+    // spent if it is revealed and used.
+    const plan = buildPlan(context.view, context, company);
+    const free = { ...tunables, provisionalCardPrice: 0 };
+    const single = placeOnly({ ...context, tunables: free }, plan, place.cardInstanceId);
+    if (!single) return null;
+    // An option is never exercised at a loss. A creature whose reveal would
+    // hand over more kill MP than it denies simply is not revealed, and the
+    // card comes back — so its placement is worth the floor, not the negative.
+    if (single.expectedTsd > 0) {
+      return evaluateBundle(
+        action, plan, single, context, tunables.onGuardDiscount,
+        `place ${single.cards[0].name} on guard`,
+      );
+    }
+    return freeOption(
+      action, context, single.cards[0].name,
+      `revealing it would cost ${(-single.expectedTsd).toFixed(1)} more than it denies, so it `
+      + 'would not be revealed — the option is simply never exercised',
+    );
+  }
+
+  const name = (context.cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name
+    ?? (card.definitionId as string);
+  return freeOption(
+    action, context, name,
+    'not a creature: what it would do on reveal is the card\'s text, which this module does not '
+    + 'price. Zero is the floor for a free option, not an estimate',
+  );
+}
+
+/** A placement worth exactly its floor: it costs nothing and may pay nothing. */
+function freeOption(
+  action: GameAction,
+  context: ModuleContext,
+  name: string,
+  why: string,
+): Evaluation {
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: `place ${name} face down — it returns to hand unless it is revealed`,
+    dtsd: 0,
+  }];
+  const scored = context.standing.score(outcomes);
+  return {
+    action,
+    module: 'hazards',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`place ${name} on guard`, scored.utility, [
+      node('a free option', 0, [
+        leaf('card', name),
+        leaf('cost of placing it', 0, {
+          unit: 'tsd',
+          note: 'an unrevealed on-guard card returns to hand at cleanup — the card is not spent',
+        }),
+        leaf('worth of revealing it', 0, { unit: 'tsd', note: why }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'a placement is priced as costing nothing, because an unrevealed on-guard card returns to '
+      + 'hand; what placing it gives away by being there at all is not modelled',
+      'an option is assumed never to be exercised at a loss, so a placement is never worth less '
+      + 'than nothing — which is why the floor is zero rather than the reveal\'s value',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
 
 /** Score a lone card for on-guard when the hazard limit left no slot to plan it. */
 function placeOnly(context: ModuleContext, plan: Plan, instanceId: string): Bundle | null {

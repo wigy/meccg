@@ -15,7 +15,7 @@ import type { GameAction } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { evaluateDecision } from '../../core/registry.js';
-import { loadScenario, scenarioView } from '../../scenario-store.js';
+import { loadScenario, opposingPlayer, scenarioView } from '../../scenario-store.js';
 import { testWinProbModel } from '../../test-support.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
@@ -202,5 +202,143 @@ describe('the module at a real decision', () => {
     // and creatures in hand: attacking is right, and the module says so rather
     // than hiding behind the card price.
     expect(Math.max(...plays.map(p => p.utility))).toBeGreaterThan(0);
+  });
+});
+
+describe('the attacker assigning an excess strike', () => {
+  /**
+   * The same captured combat, seen from the other side.
+   *
+   * Excess strikes are assigned by the *attacking* player (CoE 3.iv), so a
+   * position captured from the defender is a real instance of a choice the
+   * hazard seat makes — no fixture needed, just the other projection.
+   */
+  function attackerSeat() {
+    const scenario = loadScenario('combat/attacker-assigns-excess');
+    const view = scenarioView(scenario, opposingPlayer(scenario));
+    const cardPool = loadCardPool();
+    return {
+      view,
+      cardPool,
+      context: {
+        view,
+        cardPool,
+        legalActions: [],
+        tunables: DEFAULT_TUNABLES,
+        standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+      },
+    };
+  }
+
+  test('hazards claims the window, because the company under attack is theirs', () => {
+    const { view, context } = attackerSeat();
+    expect(view.self.companies.some(c => c.id === view.combat!.companyId)).toBe(false);
+    expect(hazardsModule.claims!(context)).toBe(true);
+  });
+
+  test('it prefers the character whose harm denies the most', () => {
+    // `combat` cannot answer this one: every price it knows has the wrong sign,
+    // because harm to that company is the thing being aimed for. It used to
+    // claim the window anyway and decline every candidate on it.
+    const { view, context } = attackerSeat();
+    const company = view.opponent.companies.find(c => c.id === view.combat!.companyId)!;
+    const scores = company.characters.map(characterId => hazardsModule.evaluate(
+      { type: 'assign-strike', player: view.self.id, characterId } as unknown as GameAction,
+      context,
+    ));
+    expect(scores.every(s => s !== null)).toBe(true);
+    // Harming them is worth something to us — the sign `combat` could not give.
+    expect(Math.max(...scores.map(s => s!.expectedTsd))).toBeGreaterThan(0);
+  });
+});
+
+describe('placing a card on guard', () => {
+  test('costs nothing, because an unrevealed on-guard card comes back', () => {
+    // `reducer-site.ts` returns unrevealed on-guard cards to the hazard
+    // player's hand at cleanup, so placement does not spend the card. The
+    // module used to charge half a card price for it — a cost the rules do not
+    // impose, which made placing look worse than passing.
+    const { scenario, view, cardPool, standing } = position();
+    const legalActions = viableActions(scenario);
+    const { evaluations } = evaluateDecision([hazardsModule], {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing,
+    });
+    const placements = evaluations.filter(e => e.action.type === 'place-on-guard');
+    expect(placements.length).toBeGreaterThan(0);
+    // Nothing is worse than doing nothing: a free option cannot cost.
+    for (const placement of placements) expect(placement.expectedTsd).toBeGreaterThanOrEqual(0);
+  });
+
+  test('every card can be placed, and a non-creature is scored at its floor', () => {
+    // The rules allow any card on guard, "even a character or resource".
+    // Declining the non-creatures left 920 candidates unscored in three games;
+    // zero is the honest floor for an option that costs nothing.
+    const { scenario, view, cardPool, standing } = position();
+    const legalActions = viableActions(scenario);
+    const offered = legalActions.filter(a => a.type === 'place-on-guard');
+    const { evaluations } = evaluateDecision([hazardsModule], {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing,
+    });
+    const scored = evaluations.filter(e => e.action.type === 'place-on-guard');
+    expect(scored).toHaveLength(offered.length);
+
+    const floors = scored.filter(e => e.expectedTsd === 0);
+    expect(floors.length).toBeGreaterThan(0);
+    expect(JSON.stringify(floors[0].rationale)).toContain('returns to hand');
+  });
+});
+
+describe('hazard events', () => {
+  test('removing something from their play is worth the points it takes with it', () => {
+    // Muster Disperses declares nothing but `play-target: faction` — the
+    // dispersal is the card's own semantics, so there is no effect to read.
+    // What can be read is the *action's* target, and a faction in play has
+    // printed marshalling points.
+    const { view, cardPool, standing } = position();
+    const faction = view.opponent.cardsInPlay.find(c => {
+      const def = cardPool[c.definitionId] as unknown as {
+        marshallingCategory?: string; marshallingPoints?: number;
+      };
+      return def?.marshallingCategory === 'faction' && (def?.marshallingPoints ?? 0) > 0;
+    });
+    if (!faction) return; // no faction in play in this position
+
+    const hazardCard = view.self.hand.find(c =>
+      (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
+    if (!hazardCard) return;
+
+    const evaluation = hazardsModule.evaluate({
+      type: 'play-hazard',
+      player: view.self.id,
+      cardInstanceId: hazardCard.instanceId,
+      targetCompanyId: view.opponent.companies[0].id,
+      targetFactionInstanceId: faction.instanceId,
+    } as unknown as GameAction, {
+      view, cardPool, legalActions: [], tunables: DEFAULT_TUNABLES, standing,
+    });
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation!.rationale)).toContain('out of play');
+  });
+
+  test('an event whose family it cannot read is declined, not charged', () => {
+    // The property that keeps H2 able to play events at all. An effect this
+    // module cannot price leaves the decision uncovered rather than scored at
+    // "costs a card, achieves nothing".
+    const { view, cardPool, standing } = position();
+    const event = view.self.hand.find(c =>
+      (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
+    if (!event) return;
+    const evaluation = hazardsModule.evaluate({
+      type: 'play-hazard',
+      player: view.self.id,
+      cardInstanceId: event.instanceId,
+      targetCompanyId: view.opponent.companies[0].id,
+    } as unknown as GameAction, {
+      view, cardPool, legalActions: [], tunables: DEFAULT_TUNABLES, standing,
+    });
+    // Doors of Night and the like declare no family this module reads.
+    if (evaluation !== null) {
+      expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    }
   });
 });

@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadCardPool } from '@meccg/shared';
+import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
@@ -180,5 +180,57 @@ describe('kill marshalling points', () => {
     const evaluation = find(rank('combat/two-strike-attack'), isResolve(true))!;
     const defeated = evaluation.outcomes.find(o => o.label.includes('strike defeated'));
     expect(defeated?.label).not.toContain('attack beaten');
+  });
+});
+
+describe('choosing which strike resolves next', () => {
+  test('every candidate is scored — the decision is claimed, not just owned', () => {
+    // At this step there is deliberately no *current* strike: picking one is
+    // the decision. The module used to handle ordering only inside the
+    // strike-window switch, which that branch never reaches, so it claimed the
+    // decision and then declined every candidate on it — 124 times in three
+    // self-play games, and indistinguishable in `coverage` from an action type
+    // nobody owns.
+    const scenario = loadScenario('combat/choose-strike-order');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const ordering = legalActions.filter(a => a.type === 'choose-strike-order');
+    expect(ordering.length).toBeGreaterThan(1);
+
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    expect(combatModule.claims!(context)).toBe(true);
+    for (const action of ordering) {
+      expect(combatModule.evaluate(action, context)).not.toBeNull();
+    }
+  });
+
+  test('it names the character facing each strike, not the strike index', () => {
+    const scenario = loadScenario('combat/choose-strike-order');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const first = legalActions.find(a => a.type === 'choose-strike-order')!;
+    const evaluation = combatModule.evaluate(first, context)!;
+    // The action's own `characterId` is documented as informational and the
+    // engine may omit it; the authority is `strikeIndex` into the assignments.
+    expect(evaluation.outcomes[0].label).not.toMatch(/^p\d+-\d+/);
   });
 });

@@ -169,14 +169,16 @@ export interface Tunables {
    */
   readonly hazardMaxBundle: number;
   /**
-   * What an on-guard card is worth relative to playing the same card outright,
-   * in [0, 1].
+   * The chance an on-guard card is ever revealed and pays, in [0, 1].
    *
-   * On-guard placement buys a card that does not count against the hazard
-   * limit and lands at the site instead of on the path. It is discounted
-   * because the company may never arrive, the defender may answer it with
-   * foreknowledge that something is there, and the placement is spent whether
-   * or not it ever fires.
+   * Placement itself is free: an on-guard card that is never revealed returns
+   * to the hazard player's hand at cleanup (`reducer-site.ts`), so the card is
+   * not spent. What is uncertain is whether the option is ever exercised — the
+   * company may never enter, and the reveal conditions (CoE 2.V.i) are narrow.
+   * So this discounts the *gain* and nothing else.
+   *
+   * It used to discount a bundle price that included the cost of the card,
+   * which charged half a card for a placement the rules charge nothing for.
    */
   readonly onGuardDiscount: number;
 }

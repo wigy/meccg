@@ -58,7 +58,16 @@ export interface TypicalAttack {
 export interface Defence {
   /** Expected TSD lost by a roster facing `slots` typical attacks. */
   expectedHarm(roster: readonly StrikeTarget[], slots: number): number;
-  /** The attack the harm was computed against. */
+  /**
+   * Expected TSD lost by a roster facing named attacks, in order.
+   *
+   * The form for threats that are *published* rather than guessed at: a site
+   * prints its automatic attacks with their strikes, prowess and body, so
+   * entering it can be priced against the real thing instead of against a
+   * median creature.
+   */
+  harmFrom(roster: readonly StrikeTarget[], profiles: readonly AttackProfile[]): number;
+  /** The attack the harm was computed against when none is named. */
   readonly typical: TypicalAttack;
 }
 
@@ -187,6 +196,18 @@ function buildComputeDefence(
 
     expectedHarm(roster: readonly StrikeTarget[], slots: number): number {
       if (roster.length === 0 || slots <= 0) return 0;
+      const profile: AttackProfile = {
+        strikeProwess: typical.prowess,
+        strikes: typical.strikes,
+        creatureBody: typical.body,
+        detainment: false,
+        bodyCheckModifier: 0,
+      };
+      return this.harmFrom(roster, new Array(slots).fill(profile));
+    },
+
+    harmFrom(roster: readonly StrikeTarget[], profiles: readonly AttackProfile[]): number {
+      if (roster.length === 0 || profiles.length === 0) return 0;
       // Canonical order, so the answer is a function of *who is in the company*
       // and not of the order they happen to appear in a list. Strike targets are
       // picked by lowest need and ties fall back to array order, so without this
@@ -197,15 +218,8 @@ function buildComputeDefence(
       // cycling split → plan-movement → merge inside one organization phase.
       const canonical = [...roster].sort((a, b) =>
         (a.instanceId as string) < (b.instanceId as string) ? -1 : 1);
-      const profile: AttackProfile = {
-        strikeProwess: typical.prowess,
-        strikes: typical.strikes,
-        creatureBody: typical.body,
-        detainment: false,
-        bodyCheckModifier: 0,
-      };
       const result = resolveAttacks(
-        canonical, cardPool, new Array(slots).fill(profile),
+        canonical, cardPool, profiles,
         (outcome, target) => {
           // Shape-independent by construction: the tempo constants and the
           // character's own printed points. Anything that varies with which

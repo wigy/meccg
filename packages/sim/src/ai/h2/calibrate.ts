@@ -391,3 +391,60 @@ export function rolloutStrike(state: GameState, action: GameAction, rng: RngStat
   if (strikeFate === null) return { outcome: null, rng: current.rng };
   return { outcome: { character: characterFate, strike: strikeFate }, rng: current.rng };
 }
+
+/**
+ * Replay a granted action and report whether the roll succeeded.
+ *
+ * `grants` claims a probability straight off the threshold the engine publishes
+ * on the action — `pAtLeast(rollThreshold)` — which is the most directly
+ * falsifiable claim any module makes: no modelling assumption stands between
+ * the number and the dice.
+ *
+ * Success is read from where the granting card came to rest. A
+ * `remove-self-on-roll` that succeeds moves the card to its owner's discard
+ * pile; one that fails leaves it attached. That is the engine's own record of
+ * what happened, not a re-derivation of the rule.
+ */
+export function rolloutGrantedAction(
+  state: GameState,
+  action: GameAction,
+  rng: RngState,
+): { succeeded: boolean | null; rng: RngState } {
+  const sourceId = (action as unknown as { sourceCardId?: CardInstanceId }).sourceCardId;
+  if (!sourceId) return { succeeded: null, rng };
+
+  const applied = reduce({ ...state, rng }, action);
+  if (applied.error) return { succeeded: null, rng };
+  let current = applied.state;
+
+  /** True once the granting card has left play for a discard pile. */
+  const gone = (s: GameState): boolean =>
+    s.players.some(p => p.discardPile.some(c => c.instanceId === sourceId));
+  /** True while it is still attached to somebody. */
+  const attached = (s: GameState): boolean =>
+    s.players.some(p => Object.values(p.characters)
+      .some(character => character.hazards.some(h => h.instanceId === sourceId)));
+
+  // Follow through only forced steps and passes: anything that is a real choice
+  // would make the harness measure the *agent's* judgement rather than the die.
+  for (let step = 0; step < MAX_FOLLOW_THROUGH_STEPS; step++) {
+    if (gone(current) || !attached(current)) break;
+    let acted = false;
+    for (const id of current.players.map(p => p.id)) {
+      const actions = viableFor(current, id);
+      const chosen = actions.find(a => a.type.startsWith('pass'))
+        ?? (actions.length === 1 ? actions[0] : undefined);
+      if (!chosen) continue;
+      const next = reduce(current, chosen);
+      if (next.error) return { succeeded: null, rng: current.rng };
+      current = next.state;
+      acted = true;
+      break;
+    }
+    if (!acted) break;
+  }
+
+  if (gone(current)) return { succeeded: true, rng: current.rng };
+  if (attached(current)) return { succeeded: false, rng: current.rng };
+  return { succeeded: null, rng: current.rng };
+}

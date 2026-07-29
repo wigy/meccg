@@ -43,11 +43,16 @@ import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeBeliefs } from '../../services/beliefs.js';
+import { computeDefence } from '../../services/defence.js';
+import { rosterOf } from '../../services/strike/prowess.js';
+import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['plan-movement', 'cancel-movement', 'declare-path', 'select-company', 'pass'] as const;
+const OWNED_ACTION_TYPES = [
+  'plan-movement', 'cancel-movement', 'declare-path', 'select-company', 'enter-site', 'pass',
+] as const;
 
 /** What a hand card would be worth if the company stood at a destination. */
 interface PlayableCard {
@@ -199,6 +204,26 @@ function siteDefinitionOf(context: ModuleContext, companyId: string): string | u
   return (company?.destinationSite ?? company?.currentSite)?.definitionId;
 }
 
+/** The attacks a site inflicts on any company that enters it, as attack profiles. */
+function automaticAttacksOf(
+  cardPool: ModuleContext['cardPool'],
+  siteDefinitionId: string,
+): AttackProfile[] {
+  const def = cardPool[siteDefinitionId] as unknown as {
+    automaticAttacks?: readonly {
+      strikes?: number; prowess?: number; body?: number; creatureType?: string;
+    }[];
+  } | undefined;
+  return (def?.automaticAttacks ?? []).map(attack => ({
+    strikeProwess: attack.prowess ?? 0,
+    strikes: attack.strikes ?? 1,
+    creatureBody: attack.body ?? null,
+    detainment: false,
+    bodyCheckModifier: 0,
+    name: attack.creatureType,
+  }));
+}
+
 /** Assumptions every travel evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
   'hazards en route are priced only as a likelihood that the opponent holds *a* creature, not by '
@@ -308,6 +333,113 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
       scored.rationale,
     ], { unit: 'winprob' }),
     assumptions: ASSUMPTIONS,
+  };
+}
+
+
+/**
+ * Score entering the site the company is standing on.
+ *
+ * The one decision in the game where both halves are published. Entering
+ * commits the company to the site's **automatic attacks** and to whatever was
+ * placed on guard, before a single resource can be played (CoE 341–343) — and
+ * the site card prints those attacks, with their strikes, prowess and body. So
+ * this is not a guess about danger: it is `defence` run against the real thing.
+ *
+ * The other half is what entering unlocks, which `travel` already computes for
+ * destinations: the cards in hand playable here, bounded by the characters left
+ * to tap. Passing forgoes both, which is the zero this is measured against.
+ *
+ * On-guard cards are the estimated part. They are face down, so what is priced
+ * is the chance each one is a creature at all — `beliefs`, again estimating
+ * kinds rather than cards.
+ */
+function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluation | null {
+  const companyId = (action as unknown as { companyId?: string }).companyId;
+  if (!companyId) return null;
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  if (!company) return null;
+  const siteDefinitionId = company.currentSite?.definitionId;
+  if (!siteDefinitionId) return null;
+
+  const { standing, cardPool, tunables, view } = context;
+  const exposure = computeExposure(view, cardPool);
+  const budget = computeBudget(view, cardPool);
+  const site = exposure.siteExposure(siteDefinitionId);
+  if (!site) return null;
+
+  // What entering unlocks: the cards that become playable, capped by taps.
+  const playable = playableAt(context, siteDefinitionId);
+  const taps = budget.untappedIn(company.id).length;
+  const playableNow = playable.slice(0, Math.max(0, taps));
+  const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
+
+  // What entering costs: the site's own attacks, priced against this roster.
+  const defence = computeDefence(view, cardPool, standing, tunables);
+  const roster = rosterOf(company, view.self.characters, cardPool);
+  const automatic = automaticAttacksOf(cardPool, siteDefinitionId);
+  const attackHarm = defence.harmFrom(roster, automatic);
+
+  // And the on-guard cards, which are face down: only the chance each is a
+  // creature can be priced, not which creature it is.
+  const beliefs = computeBeliefs(view, cardPool);
+  const onGuard = company.onGuardCards?.length ?? 0;
+  const creatureShare = beliefs.share('creature');
+  const guardHarm = onGuard > 0
+    ? creatureShare * defence.expectedHarm(roster, onGuard)
+    : 0;
+
+  const dtsd = netTsdDelta({ realized, tempo: attackHarm + guardHarm }, tunables);
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: playableNow.length > 0
+      ? `enter ${site.name} and play ${playableNow.map(c => c.name).join(', ')}`
+      : `enter ${site.name} with nothing to play`,
+    dtsd,
+  }];
+  const scored = standing.score(outcomes);
+
+  const detail: Rationale[] = [
+    leaf('site', `${site.name} (${site.siteType})`),
+    leaf('automatic attacks', automatic.length, {
+      note: automatic.length > 0
+        ? automatic.map(a => `${a.strikes} strike(s) at prowess ${a.strikeProwess}`).join('; ')
+        : 'none printed on the site',
+    }),
+    leaf('what they would cost', attackHarm, { unit: 'tsd', note: 'priced against this company' }),
+    leaf('on-guard cards', onGuard, {
+      note: onGuard > 0
+        ? `each a ${(creatureShare * 100).toFixed(0)}% chance of being a creature`
+        : 'nothing was placed',
+    }),
+    leaf('taps available', taps),
+  ];
+  for (const card of playableNow) {
+    detail.push(leaf(card.name, card.tsd, {
+      unit: 'tsd',
+      note: `${card.marshallingPoints} ${card.source} MP, priced at the current standing`,
+    }));
+  }
+
+  return {
+    action,
+    module: 'travel',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`enter ${site.name}`, scored.utility, [
+      node('what entering buys and costs', dtsd, detail),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'the automatic attacks are priced as printed; a card that suppresses them — a defeated '
+      + 'Dragon at its lair, a site effect — is not modelled',
+      'an on-guard card is priced only as a chance of being a creature at all, at the average '
+      + 'creature: which creature, and whether it is playable here, is not known',
+      ...ASSUMPTIONS,
+    ],
   };
 }
 
@@ -453,11 +585,13 @@ export const travelModule: H2Module = {
     return context.legalActions.some(a => a.type === 'plan-movement'
       || a.type === 'cancel-movement'
       || a.type === 'declare-path'
+      || a.type === 'enter-site'
       || a.type === 'select-company');
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     if (action.type === 'select-company') return evaluateSelectCompany(context, action);
+    if (action.type === 'enter-site') return evaluateEnterSite(context, action);
     if (action.type === 'cancel-movement') return evaluateCancelMovement(context, action);
     if (action.type === 'declare-path') return evaluateDeclarePath(context, action);
     const budget = computeBudget(context.view, context.cardPool);

@@ -112,20 +112,36 @@ EXPOSURE
 ```
 
 ```text
+HAZARD PLAN
+    4.20  Orc-warband              → their 5-character company
+    0.00  Orc-lieutenant           nothing left it improves
+  total denied if carried out: 4.20 tsd
+
 HAND
-    2.60  Orc-warband         would deny 5.2 against their largest company
+    2.10  Orc-warband         adds 4.2 to the plan against their 5-character company
     1.00  Doors of Night      no points and no attack to model — the flat price
     0.00  Anborn              mind 2 does not fit the 1 influence free
-    0.00  Orc-lieutenant      their companies can beat it — worth nothing as an attack
+    0.00  Orc-lieutenant      nothing left it improves — worth nothing as an attack
 ```
 
-That last section is §3.5's shadow price (`card-price`), which was blocked on
-`hazards` until `denial` existed. It is what makes a discard a decision rather
-than a coin flip, and the reason `hand` is the only module the horizon test can
-see any signal from. Note the tension it prints rather than hides: the
-Orc-lieutenant is worth nothing *alone*, while `hazards` ranks playing it at
-+3.9% as the opener of a bundle the warband finishes. Both answer different
-questions; the gap is real and declared.
+Those two are §3.5's shadow price (`card-price`) and the plan it now rests on.
+The price is what makes a discard a decision rather than a coin flip, and the
+reason `hand` is the only module the horizon test can see any signal from.
+
+It used to price a creature **alone**, and printed a tension it could not
+resolve: the Orc-lieutenant was worth nothing by itself while `hazards` ranked
+*playing* it at +3.9% as the opener of a bundle the warband finished.
+`hazard-plan` resolves it by answering both questions at once — a standing
+assignment of every hazard in hand to a company it would be played against,
+greedy and supermodular, so a follow-up is credited as one. Each card is then
+worth its **marginal** contribution, which is why the marginals sum to the
+total and no pair is credited twice. The lieutenant still comes out at zero, but
+now for a reason that agrees with `hazards`: behind the warband there is nothing
+left it improves, because it hands over more kill MP than it denies.
+
+It is the most expensive thing in the project — an attack sequence resolved per
+(card, company) pair per round — so it is memoised per position, and an
+instrumented self-play game runs in about 15 seconds rather than 10.
 
 `exposure` reports facts and stops there. H1 carries a `REGION_DANGER` table —
 wilderness 2, shadow-land 4, dark-domain 5 — which is a valuation dressed as a
@@ -244,7 +260,7 @@ Status by phase:
 | P2 services | `standing`, `budget`, `exposure`, `beliefs`, `character-value`, `card-price`, `denial`, `defence`, `strike/*` — printed by `explain` where they are spent |
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
-| P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame` and `hazards` written; `allies`/`misc` not started |
+| P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
 
 ### Coverage, measured
 
@@ -255,16 +271,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1364 contested decisions:
+Over 1575 contested decisions:
 
 ```text
-  covered and decisive        461  33.8%
-  covered but flat            188  13.8%   → H1
-  partial, acted anyway       141  10.3%
-  partial, handed over        448  32.8%   → H1
-  no owner at all             126   9.2%   → H1
+  covered and decisive        907  57.6%
+  covered but flat            120   7.6%   → H1
+  partial, acted anyway       138   8.8%
+  partial, handed over        367  23.3%   → H1
+  no owner at all              43   2.7%   → H1
 
-  H2 decides 44.1% of contested decisions.
+  H2 decides 66.3% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -273,8 +289,8 @@ comparison is not like for like: the denominator is now the decision the agent
 actually faces, with the engine's marked undos removed. More of what is left
 scores flat, because dropping a candidate and its undo often leaves a tie.
 
-The three commits that moved the number were all found by running this rather
-than by reasoning about it:
+The commits that moved the number were all found by running this rather than by
+reasoning about it:
 
 - **`pass` was the largest single blocker by a factor of three** — 476
   decisions. Three modules own it inside their own windows and nobody owned it
@@ -287,77 +303,188 @@ than by reasoning about it:
 - **`split-company` and `merge-companies`** (191) turned out to have an exact
   half: the hazard limit *is* the company size, so shape decides how
   concentrated the harm can be. `services/defence.ts` computes it.
+- **`enter-site`** (89) is the one decision in the game where *both* halves are
+  published. Entering commits the company to the site's automatic attacks before
+  a single resource can be played (CoE 341–343), and the site card prints those
+  attacks with their strikes, prowess and body — so the cost is `defence` run
+  against the real thing rather than a median creature, and the gain is the
+  hand cards that become playable, capped by the characters left to tap:
 
-What is left, by decisions blocked: `activate-granted-action` 145,
-`discard-character` 138, `place-on-guard` 129, `play-short-event` 128,
-`play-hazard` 127, `assign-strike` 64. The last two are `hazards`'s own
-declared gaps — events and non-creature on-guard cards — and closing them means
-pricing card effects, which is the DSL's work rather than a module's.
+  ```text
+  enter Goblin-gate: -1.0%
+  ├─ automatic attacks: 1  [3 strike(s) at prowess 6]
+  ├─ what they would cost: +0.9  [priced against this company]
+  ├─ on-guard cards: 0  [nothing was placed]
+  └─ taps available: 0
+  ```
+
+  Every character is tapped, so nothing is playable and the attacks buy nothing
+  at all. Passing wins, and the tree says why.
+
+The report also separates an action type **nobody owns** from one a module owns
+and then **declines**, because they mean opposite things: the first is a module
+waiting to be written, the second is a module that took responsibility and had
+nothing to say. That column immediately found two bugs, both `combat` claiming a window it
+could not serve:
+
+- **`choose-strike-order`**, declined 124 times. Ordering was handled only
+  inside the strike-window branch, which is reached when a strike is already
+  current — and at that step there deliberately is not one, because picking it
+  *is* the decision.
+- **`assign-strike` from the attacking seat.** Excess strikes are assigned by
+  the *attacker* (CoE 3.iv), so the hazard player is asked which enemy character
+  eats the extra strike. Every price `combat` knows has the wrong sign there,
+  because harm to that company is the thing being aimed for. It now gates on the
+  company being ours, and `hazards` takes the window — it is a denial choice
+  like any other.
+
+### Pricing a card's ability without knowing the card
+
+`activate-granted-action` was the largest unowned type — 213 blocked decisions —
+and it looks like a card-by-card problem, which is why nobody had taken it. It
+is not, quite. The DSL already declares both halves of every grant:
+
+```json
+{ "type": "grant-action", "action": "saruman-fetch-spell",
+  "cost": { "tap": "self" },
+  "apply": { "type": "move", "from": "discard", "to": "hand" } }
+```
+
+So `grants` prices **families of declared effect**: a `tap` cost is what
+`character-value` says tapping that character forfeits, a `move` into hand is a
+card recovered, an on-success that discards the granting card is that card
+ceasing to do whatever it was doing. Cards this project has never seen are
+priced the moment their effects are written; effects outside the list are
+declined.
+
+```text
+activate Lure of Nature: -0.8%
+├─ needs on 2d6: 5  [83.3% to succeed]
+├─ what it is worth: +1.7
+│    [corruption 5 → 3 narrows the failing band by 19.4%, against 9.0 tsd lost]
+└─ what it costs: +2.1
+     [taps bearer — flat tempo plus the influence attempt forfeited]
+```
+
+It declines to try, for a reason no flat tap cost could reach: shedding two
+corruption is worth 1.7, and tapping Glorfindel forfeits a faction attempt worth
+2.1.
+
+What is left, by decisions blocked: hazard `play-hazard` events at 146,
+`play-short-event` at 130, and the granted-action families `grants` still
+declines at 64. All three need a card's *effect* priced against the opponent
+rather than against a card in play, which is where the family approach runs
+out — knowing an event moves a card tells you the mechanism, not what the target
+is worth.
 
 ### Does it win?
 
 ```sh
-npm run headtohead -w @meccg/sim -- --games 8 --max-decisions 4000
+# The verdict: paired seeds, side-swapped, with an Elo interval
+npm run gate -w @meccg/sim -- --challenger h2 --champion heuristic --pairs 20 --jobs 4
+
+# The watchable version: prints each game as it finishes
+npm run headtohead -w @meccg/sim -- --games 16 --max-decisions 4000
 ```
+
+`gate` is the tool that answers this properly, and `headtohead` exists because a
+run you can watch beats a run you wait on. Over **320 rated games**, paired and
+side-swapped:
 
 ```text
-  h2 9 — 7 heuristic over 16 games (56.3% of the points available)
+  score:     175W-138L-6D (55.8%) over 319 rated games
+  elo diff:  +40 [+3, +79]      (95% CI, challenger − champion)
+  glicko-2:  +29 [-40, +98]
+  failures:  1 — seed 599: engine rejected 'pass', "Card not found in hand"
 ```
 
-Sixteen games separate nothing but a landslide, and this is not one — read it as
-evidence that H2 plays whole games to completion, not as a result. `gate` is the
-tool for a verdict; `headtohead` exists because it prints each game as it
-finishes, and a run you can watch is worth more than a run you wait on.
+The two methods disagree about significance: the Elo interval clears zero by
+three points, the Glicko-2 interval does not. Read together with three smaller
+`headtohead` samples — 67.5%, 60.4% and 53.1% on 20, 24 and 32 games — the claim
+the evidence supports is **probably somewhat stronger than Heuristics 1, and
+certainly not weaker**. Not a landslide, and the run technically fails its own
+criterion, because one game in 320 ended in an engine error rather than a result.
 
-That "to completion" was earned. Two self-play games ran to the decision limit
-without finishing, both cycling `split-company → plan-movement →
-merge-companies` inside a single organization phase, because `characters` valued
-a shape change and its undo both positively. Company-shape utility has to be a
-difference of one potential, `Σ harm(company)` over the whole board — then an
-accepted change strictly lowers it and the finitely many shapes cannot be
-cycled. Two separate things were breaking that, and `services/defence.ts`
-carries both, with tests:
+An earlier run of the same command reported +61 [+24, +100]. It is not quoted
+here: source was edited while it was running, and `gate` spawns `tsx` children
+that read the source at launch, so different games in it played different code.
+The number above is from a stable tree.
+
+What the samples do establish is that H2 plays every game to completion, which
+was not true a week ago. Two self-play games once ran to the decision limit
+cycling `split-company → plan-movement → merge-companies` inside one
+organization phase, because `characters` valued a shape change and its undo both
+positively. Company-shape utility has to be a difference of one potential,
+`Σ harm(company)` over the whole board. Three separate things were breaking that:
 
 - **Order.** Strike targets are picked by lowest need with ties falling back to
   array position, so a company scored differently depending on how it had been
-  assembled: merging A into B came out at +2.61%, B into A at +2.30%, for the
-  identical result.
-- **Shape-dependent prices.** Harm was priced through `character-value`, so a
-  tap cost what `combat` pays for it — including the influence attempt the tap
-  forfeits, which depends on *which company the character is in*. Splitting
-  scored +1.28 tsd and merging the pair straight back +0.48, because the prices
-  had moved underneath the comparison.
-
-The second cost a refinement worth having: a tap that forfeits a faction attempt
-really does cost more than one that does not, and `defence` can no longer say
-so. It was the right trade. The refinement was not making the comparison more
-accurate, it was making it incoherent.
+  assembled: merging A into B came out at +2.61%, B into A at +2.30%.
+- **Shape-dependent prices.** Harm was priced through `character-value`, whose
+  tap cost includes the influence attempt the tap forfeits — which depends on
+  *which company the character is in*. Splitting scored +1.28 tsd and merging
+  the pair straight back +0.48.
+- **The engine had already said so.** `reverse-actions.ts` marks every candidate
+  that undoes this phase's progress, and Heuristics 1 had filtered on that flag
+  since before H2 existed. H2 and the Monte-Carlo searcher did not. That is now
+  `ai/regress.ts`, used by all three and by the CLIs that report what the agent
+  sees.
 
 ### Does any of it predict anything?
 
-The horizon test (§6.4) correlates what a module predicted against what the
-score actually did 1, 3 and 5 turns later. Two things had to be fixed before it
-said anything at all:
-
-- It correlated single *decisions*. Sixteen games put every module's
-  correlation indistinguishable from zero out to n=2689 — which is what that
-  measurement deserves, because one action among the hundreds taken in a turn
-  cannot explain what the score did three turns later. It now aggregates a
-  module's predictions **by turn**.
-- It failed a module on the sign of a point estimate. Two six-game samples put
-  the same module at +0.10 and -0.18. It now prints a 95% interval and fails a
-  module only when the whole interval is negative.
-
-With both fixed, over 16 games, exactly one module's interval clears zero:
+Not measurably. The horizon test (§6.4) correlates what a module predicted over
+a turn against what the score actually did 1, 3 and 5 turns later. Over **32
+games**:
 
 ```text
-  hand    h1 +0.01 [-0.07, 0.09]   h3 +0.09 [0.02, 0.17]   h5 +0.13 [0.05, 0.20]
+  (all)        h1 +0.00 [-0.05, 0.06]  h3 +0.01 [-0.04, 0.07]  h5 +0.03 [-0.03, 0.08]
+  hand         h1 -0.01 [-0.06, 0.05]  h3 -0.03 [-0.09, 0.02]  h5 -0.05 [-0.11, 0.00]
+  travel       h1 -0.09 [-0.16, -0.01] h3 -0.06 [-0.14, 0.02]  h5 -0.03 [-0.11, 0.05]
+  hazards      h1 -0.05 [-0.14, 0.03]  h3 +0.01 [-0.07, 0.10]  h5 +0.04 [-0.05, 0.12]
 ```
 
-That is the module whose card price stopped being flat one commit earlier, and
-it is the first evidence in this project that a module's predictions track
-anything. Every other module spans zero in both directions — not a verdict
-against them, but not support either. Treat their valuations as unverified.
+Every interval spans zero at horizon 3, including the aggregate. No module
+fails the gate and none passes it: the honest reading is that a module's
+predicted change over a turn does not measurably track the score three turns
+later, in either direction.
+
+**This corrects a claim made a few commits earlier.** A 16-game run on different
+seeds put the aggregate at +0.13 [0.05, 0.21] and `hand` at -0.10 [-0.18,
+-0.02], and both went into this README — the first as "the first run where the
+aggregate predicts anything", the second as a module failing the gate. Neither
+replicates. The test's own documentation warns that two six-game samples once
+put the same module at +0.10 and -0.18, and reporting a single 16-game sample
+was the same mistake one size up. The 32-game numbers are the ones to trust,
+and what they say is "no signal", not "signal".
+
+One diagnostic worth keeping from that episode: the report now prints how
+strongly each module's per-turn total correlates with its own *decision count*,
+because a module whose predictions all carry one sign has a per-turn total that
+is mostly how busy it was. `hazards` trips it at +0.85 — its number there is
+partly an activity measure. `hand` does not, so that never explained its sign.
+
+Two earlier fixes were needed before the test said anything at all: it
+correlated single *decisions* (16 games put every module indistinguishable from
+zero out to n=2689 — one action among hundreds in a turn cannot explain a score
+change), and it failed modules on the sign of a point estimate.
+
+### Falsifiable, where it can be
+
+```sh
+npm run calibrate -w @meccg/sim -- --module grants --rollouts 4000
+```
+
+`combat` (36 claims), `resources` (3), `corruption` (2), `factions` (1) and now
+`grants` (4) are checked against the reducer: the harness replays the action
+thousands of times and asserts the observed frequency lies inside a 99% binomial
+interval of the claim.
+
+`grants` found a bug on its first run. Two claims of 83.3% in one position, one
+measuring 84.0% and the other 40.4% — the second action carried `noTap: true`,
+and the engine applies **-3 to the roll** for not tapping while publishing the
+*unmodified* threshold on both variants. `pAtLeast(5 + 3)` is 41.7%. The module
+was also charging a tap the no-tap variant does not pay, so it preferred the
+tapping variant, which is exactly backwards.
 
 ## Replay format
 

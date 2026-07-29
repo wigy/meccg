@@ -42,6 +42,9 @@ import { BASELINE_ACTION_TYPES, BASELINE_NAME, evaluateBaseline } from './baseli
 import { combatModule } from '../modules/combat/combat.js';
 import { charactersModule } from '../modules/characters/characters.js';
 import { corruptionModule } from '../modules/corruption/corruption.js';
+import { eventsModule } from '../modules/events/events.js';
+import { fetchingModule } from '../modules/fetching/fetching.js';
+import { grantsModule } from '../modules/grants/grants.js';
 import { handModule } from '../modules/hand/hand.js';
 import { hazardsModule } from '../modules/hazards/hazards.js';
 import { killModule } from '../modules/kill/kill.js';
@@ -59,7 +62,7 @@ import { travelModule } from '../modules/travel/travel.js';
  * corpus and a calibration harness already waiting for it, rather than being
  * validated by eye.
  */
-export const ALL_MODULES: readonly H2Module[] = [charactersModule, killModule, combatModule, corruptionModule, endgameModule, factionsModule, handModule, hazardsModule, healthModule, resourcesModule, travelModule];
+export const ALL_MODULES: readonly H2Module[] = [charactersModule, killModule, combatModule, corruptionModule, endgameModule, eventsModule, factionsModule, fetchingModule, grantsModule, handModule, hazardsModule, healthModule, resourcesModule, travelModule];
 
 /** Look up modules by name, throwing on an unknown one. */
 export function resolveModules(spec: string | undefined, available: readonly H2Module[] = ALL_MODULES): H2Module[] {

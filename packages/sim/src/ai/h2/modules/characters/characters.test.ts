@@ -248,3 +248,32 @@ describe('company shape', () => {
     } as unknown as GameAction, context)).toBeNull();
   });
 });
+
+describe('walking a character between companies', () => {
+  test('is the same comparison as a split and a merge at once', () => {
+    // `move-to-company` changes two companies' sizes together, so two hazard
+    // limits move with it. It is the third operation of the same shape and
+    // needs no third model — only the same potential.
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    if (view.self.companies.length < 2) return;
+    const [source, target] = [...view.self.companies].sort(
+      (a, b) => b.characters.length - a.characters.length);
+    const evaluation = charactersModule.evaluate({
+      type: 'move-to-company',
+      player: view.self.id,
+      characterInstanceId: source.characters[0],
+      sourceCompanyId: source.id,
+      targetCompanyId: target.id,
+    } as unknown as GameAction, context);
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation!.rationale)).toContain('hazard slot');
+  });
+});

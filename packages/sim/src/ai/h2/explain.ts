@@ -18,6 +18,7 @@ import type { Standing } from './services/standing.js';
 import type { Budget } from './services/budget.js';
 import type { Exposure } from './services/exposure.js';
 import type { CardPrices } from './services/card-price.js';
+import type { HazardPlan } from './services/hazard-plan.js';
 
 /** Everything the renderer needs about one decision. */
 export interface ExplanationInput {
@@ -45,6 +46,8 @@ export interface ExplanationInput {
   readonly exposure?: Exposure;
   /** What each card in hand is worth keeping — §3.5's shadow price. */
   readonly prices?: CardPrices;
+  /** What each hazard in hand is for — §3.4's plan, standing rather than per-decision. */
+  readonly hazardPlan?: HazardPlan;
 }
 
 /** Build a describer for the acting player's view. */
@@ -160,6 +163,24 @@ export function renderExplanation(input: ExplanationInput): string[] {
         + `${input.prices.floor.toFixed(2)})`);
       lines.push('');
     }
+  }
+
+  if (input.hazardPlan && input.hazardPlan.assignments.length > 0) {
+    // The hand's hazards with a job each. A hand of creatures with no company
+    // to aim them at is a different position from one where every card has a
+    // target, and nothing in the output could tell them apart before.
+    const plan = input.hazardPlan;
+    lines.push('HAZARD PLAN');
+    for (const assignment of plan.assignments) {
+      const where = assignment.targetCompanyId === null
+        ? assignment.targetLabel
+        : `→ their ${assignment.targetLabel}`
+          + (assignment.order > 1 ? `, ${assignment.order}${assignment.order === 2 ? 'nd' : assignment.order === 3 ? 'rd' : 'th'} in` : '');
+      lines.push(`  ${assignment.marginal.toFixed(2).padStart(6)}  ${assignment.name.padEnd(24)} ${where}`);
+    }
+    lines.push(`  total denied if carried out: ${plan.totalHarm.toFixed(2)} tsd`);
+    lines.push('  (a greedy assignment, re-made each round so a follow-up is credited as one)');
+    lines.push('');
   }
 
   if (input.modules.length === 0) {
