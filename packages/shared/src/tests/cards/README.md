@@ -602,7 +602,7 @@
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
 | td-11 | Daelomin at Home | — | 11 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
-| td-18 | Dragon-sickness | — | 6 | ☑ |
+| td-18 | Dragon-sickness | — | 8 | ☑ |
 | td-19 | Dunlending Raiders | — | 2 | ☑ |
 | td-20 | Eärcaraxë | — | 9 | ☑ |
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |

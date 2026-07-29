@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.63.0 — 2026-07-29
+
+Nightly Build
+
+### Game Engine
+
+- **Dragon-sickness (td-18) is no longer a corruption card.** CoE 7.2 defines a corruption card as one carrying the printed *Corruption keyword*, not merely any card that forces a corruption check. Dragon-sickness only forces a check on a character bearing a major/greater item, but the stray keyword in its card data made CoE 7.2.1 (one corruption card per character per turn) treat it as one — so it both blocked, and was blocked by, a real corruption card on the same character. Keyword dropped, both directions covered by regression tests
+- Fixed deck exhaustion not triggering immediately during the End-of-Turn reset-hand draw. When the draw filled the hand to size and emptied the play deck in the same step, the "hand size reached" shortcut marked the player done without starting the deck-exhaust/reshuffle sub-flow, leaving the deck empty and un-reshuffled until a later End-of-Turn cycle happened to need a card. CoE 2.4 requires exhaustion to happen the moment the last card is drawn
+
+### Lobby & Web Client
+
+- **On-guard placement is offered for character-targeting hazards.** CoE 2.IV.vii.4 lets the hazard player place any hand card on-guard, and the engine has always offered it, but the hand renderer's character-targeting branch swallowed the option: clicking e.g. Lure of Expedience went straight to "click a character", leaving on-guard reachable only by clicking the opponent company's site card — an unlabelled shortcut that reads as "play the hazard here". Clicking such a hazard now opens a disambiguation menu, matching the fix already applied to agent cards; the site-click shortcut still works and the targeting instruction says what it does
+- **The scoreboard shows the avatar and both deck names.** The per-game table's "Wizard" and "Deck" rows were always empty. `PlayerState.wizard` is never assigned by the engine — an avatar is just a character card with no mind cost — so the record now recovers the avatar from the cards themselves (in play first, then every zone the player's cards can rest in, restricted to the player's own alignment so a Nazgûl held as a hazard creature is not mistaken for an avatar). That covers Ringwraiths, fallen Istari and the Balrog, so the row is labelled "Avatar". Deck names were missing on AI seats because lobby-spawned clients join through `loadDeckJoin`, which sent only flat card lists; it now forwards the catalog deck as `JoinMessage.deckList`, which also means an AI seat's deck-legality verdict comes from the catalog deck rather than a re-bucketed reconstruction. Records written before this keep their nulls
+
+### Testing & Internals
+
+- Card tests: 1021 of 1023 (99.8%); cards certified: 1079 of 1683 (64.1%)
+
 ## 0.62.0 — 2026-07-29
 
 Nightly Build
