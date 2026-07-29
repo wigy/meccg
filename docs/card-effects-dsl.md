@@ -4232,6 +4232,13 @@ strings to chase through the engine.
   `handleBodyCheckRoll`. Card text is "All body checks resulting from
   successful strikes are modified by an additional +1" (e.g. Carrion Feeders
   ba-11). (implemented in `chain-reducer.ts`, `combat-actions.ts`)
+- `combat-body-per-defender-skill` — self-bound to the creature: its own
+  `body` is adjusted by `value` for each defending company member with the
+  given `skill` (their effective skills, including `grant-skill` /
+  `override-skills` contributions), resolved once at combat initiation and
+  floored at 0. Card text is "Each ranger in attacked company lowers [the
+  creature]'s body by 2" (e.g. Little Snuffler dm-108: `skill: "ranger"`,
+  `value: -2`). (implemented in `chain-reducer.ts`)
 - `combat-tap-to-cancel-strike` — the defending company may tap an untapped
   character to cancel one of this attack's strikes against a wounded character.
   Pairs with `combat-one-strike-per-character: onlyWounded` (every strike is
@@ -4281,6 +4288,7 @@ strings to chase through the engine.
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
 { "type": "combat-one-strike-per-character" }
+{ "type": "combat-body-per-defender-skill", "skill": "ranger", "value": -2 }
 { "type": "combat-tap-low-mind" }
 { "type": "combat-detainment" }
 {

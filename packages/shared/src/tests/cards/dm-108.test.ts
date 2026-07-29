@@ -3,7 +3,7 @@
  *
  * Card test: Little Snuffler (dm-108)
  * Type: hazard-creature
- * Effects: 2
+ * Effects: 3
  *
  * "Orc. One strike. Attacker chooses defending characters. Each ranger in
  * attacked company lowers Little Snuffler's body by 2. If attack is not
@@ -19,9 +19,9 @@
  *    engine auto-defeat the creature with no body check (bug report: "was
  *    defeated without a body check").
  *
- * Note: the per-ranger body-reduction clause ("Each ranger in attacked
- * company lowers Little Snuffler's body by 2") is not yet implemented as a
- * DSL effect, so the body check is always taken against the full body of 10.
+ * 4. combat-body-per-defender-skill — each ranger in the defending company
+ *    lowers Little Snuffler's own body by 2 (resolved once at combat
+ *    initiation; body checks are then taken against the reduced body).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -395,5 +395,85 @@ describe('Little Snuffler (dm-108)', () => {
     // Pass should always be available
     const passAction = actions.find(a => a.viable && a.action.type === 'pass');
     expect(passAction).toBeDefined();
+  });
+
+  test('REGRESSION: ranger in defending company lowers creature body by 2 (bug report: body check needed 11+ instead of 9+)', () => {
+    // Bug report: a defending company containing a ranger (Aragorn) still
+    // faced a body check needing 11+ (full body 10) — the "Each ranger in
+    // attacked company lowers Little Snuffler's body by 2" clause was not
+    // implemented. Aragorn is a ranger (skills: warrior/scout/ranger);
+    // Legolas is not, so the company has exactly one ranger.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [LITTLE_SNUFFLER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const snufflerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: snufflerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    // One ranger (Aragorn) in the defending company → body 10 - 2 = 8.
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.creatureBody).toBe(8);
+
+    // Defender passes cancel-window, attacker assigns to Legolas (non-ranger,
+    // prowess 5) so the strike is parried on a moderate roll.
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const legolasId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
+    const afterAssign = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: legolasId,
+      tapped: false,
+    });
+
+    // Legolas prowess 5 + roll 12 = 17 > creature prowess 5 → strike parried
+    const stateWithRoll = { ...afterAssign, cheatRollTotal: 12 };
+    const actions = computeLegalActions(stateWithRoll, PLAYER_1);
+    const resolveAction = actions.find(a => a.viable && a.action.type === 'resolve-strike');
+    expect(resolveAction).toBeDefined();
+    const afterStrike = dispatch(stateWithRoll, resolveAction!.action);
+
+    // Body check is now taken against the reduced body of 8 (need 9+), not
+    // the printed body of 10 (need 11+).
+    expect(afterStrike.combat).not.toBeNull();
+    expect(afterStrike.combat!.phase).toBe('body-check');
+    expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
+    expect(afterStrike.combat!.creatureBody).toBe(8);
+
+    const bodyActions = computeLegalActions(afterStrike, PLAYER_2);
+    const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
+    expect(bodyAction).toBeDefined();
+    expect((bodyAction!.action as { need?: number }).need).toBe(9);
   });
 });

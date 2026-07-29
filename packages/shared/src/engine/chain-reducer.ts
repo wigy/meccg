@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
@@ -29,7 +29,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize, getEffectiveSkills } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
@@ -3425,7 +3425,29 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
-  const effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
+  let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
+
+  // combat-body-per-defender-skill (Little Snuffler dm-108): "Each ranger in
+  // attacked company lowers Little Snuffler's body by 2." Self-bound to the
+  // creature — count defending company members with the given skill and
+  // apply the per-member delta to the creature's own body.
+  const bodyPerSkillEffect = creatureDef.effects?.find(
+    (e): e is CombatBodyPerDefenderSkillEffect => e.type === 'combat-body-per-defender-skill',
+  );
+  if (bodyPerSkillEffect && effectiveBody !== null) {
+    const matchingCount = company.characters.filter(charId => {
+      const charData = resourcePlayer.characters[charId];
+      const charDef = charData ? state.cardPool[charData.definitionId] : undefined;
+      return charData && charDef && isCharacterCard(charDef)
+        && getEffectiveSkills(state, charData, charDef).includes(bodyPerSkillEffect.skill);
+    }).length;
+    if (matchingCount > 0) {
+      const delta = bodyPerSkillEffect.value * matchingCount;
+      const newBody = Math.max(0, effectiveBody + delta);
+      logDetail(`combat-body-per-defender-skill: ${matchingCount} ${bodyPerSkillEffect.skill}(s) in defending company × ${bodyPerSkillEffect.value} = ${delta} → creature body ${effectiveBody} → ${newBody}`);
+      effectiveBody = newBody;
+    }
+  }
 
   // Wounded (inverted) characters in the defending company — the strike
   // targets for `onlyWounded` mode (Carrion Feeders ba-11).

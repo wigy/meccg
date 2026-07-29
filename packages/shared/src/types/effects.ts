@@ -3231,6 +3231,24 @@ export interface CombatBodyCheckModifierEffect extends EffectBase {
 }
 
 /**
+ * The creature's own body is adjusted by `value` for each defending company
+ * member with the given {@link skill} (their effective skills, including
+ * `grant-skill`/`override-skills` contributions — see
+ * {@link getEffectiveSkills}). Self-bound: it belongs to the creature card
+ * carrying it and is resolved once at combat initiation from the printed
+ * `body`, floored at 0. Card text is "Each ranger in attacked company lowers
+ * [creature]'s body by 2" (e.g. Little Snuffler dm-108). (implemented in
+ * `chain-reducer.ts`)
+ */
+export interface CombatBodyPerDefenderSkillEffect extends EffectBase {
+  readonly type: 'combat-body-per-defender-skill';
+  /** The skill to count among defending company members (e.g. `"ranger"`). */
+  readonly skill: string;
+  /** Amount added to the creature's body per matching company member (negative to lower). */
+  readonly value: number;
+}
+
+/**
  * The defending company may tap an untapped character to cancel one of this
  * attack's strikes against a wounded character. Pairs with
  * `combat-one-strike-per-character: onlyWounded` (every strike is against a
@@ -7145,6 +7163,7 @@ export type CardEffect =
   | CombatTapLowMindEffect
   | CombatOneStrikePerCharacterEffect
   | CombatBodyCheckModifierEffect
+  | CombatBodyPerDefenderSkillEffect
   | CombatTapToCancelStrikeEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
