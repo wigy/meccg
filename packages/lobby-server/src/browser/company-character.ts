@@ -120,21 +120,17 @@ export function renderCharacterColumn(
       }
       const isItem = char.items.some(i => i.instanceId === att.instanceId);
       const isHazard = char.hazards.some(h => h.instanceId === att.instanceId);
-      // Granted-action click handler (items like Cram or hazards like corruption checks)
-      const grantedClick = (isItem || isHazard) && hazardClickBuilder
-        ? hazardClickBuilder(att.instanceId) : undefined;
-      if (grantedClick) {
-        if (grantedClick.cls) attEl.classList.add(grantedClick.cls);
+      // Items merge their own granted actions (e.g. Cram) with store/transfer
+      // in one click handler; hazards only ever carry granted actions.
+      const itemOrHazardClick = isItem && itemClickBuilder
+        ? itemClickBuilder(att.instanceId, char.instanceId)
+        : isHazard && hazardClickBuilder
+          ? hazardClickBuilder(att.instanceId)
+          : undefined;
+      if (itemOrHazardClick) {
+        if (itemOrHazardClick.cls) attEl.classList.add(itemOrHazardClick.cls);
         attEl.style.cursor = 'pointer';
-        attEl.addEventListener('click', grantedClick.handler);
-      } else if (isItem && itemClickBuilder) {
-        // Item transfer click handler (only when no granted action takes priority)
-        const itemClick = itemClickBuilder(att.instanceId, char.instanceId);
-        if (itemClick) {
-          if (itemClick.cls) attEl.classList.add(itemClick.cls);
-          attEl.style.cursor = 'pointer';
-          attEl.addEventListener('click', itemClick.handler);
-        }
+        attEl.addEventListener('click', itemOrHazardClick.handler);
       }
       // Wrap item in a container for CP badge positioning
       const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, inPlayDefs, bearerAlignment) : 0;
@@ -231,21 +227,17 @@ export function renderCharacterColumn(
             }
             const fIsItem = follower.items.some(i => i.instanceId === fAtt.instanceId);
             const fIsHazard = follower.hazards.some(h => h.instanceId === fAtt.instanceId);
-            // Granted-action click handler for follower items and hazards
-            const fGrantedClick = (fIsItem || fIsHazard) && hazardClickBuilder
-              ? hazardClickBuilder(fAtt.instanceId) : undefined;
-            if (fGrantedClick) {
-              if (fGrantedClick.cls) fAttEl.classList.add(fGrantedClick.cls);
+            // Items merge their own granted actions with store/transfer; hazards
+            // only ever carry granted actions.
+            const fItemOrHazardClick = fIsItem && itemClickBuilder
+              ? itemClickBuilder(fAtt.instanceId, follower.instanceId)
+              : fIsHazard && hazardClickBuilder
+                ? hazardClickBuilder(fAtt.instanceId)
+                : undefined;
+            if (fItemOrHazardClick) {
+              if (fItemOrHazardClick.cls) fAttEl.classList.add(fItemOrHazardClick.cls);
               fAttEl.style.cursor = 'pointer';
-              fAttEl.addEventListener('click', fGrantedClick.handler);
-            } else if (fIsItem && itemClickBuilder) {
-              // Item transfer click handler (only when no granted action takes priority)
-              const fItemClick = itemClickBuilder(fAtt.instanceId, follower.instanceId);
-              if (fItemClick) {
-                if (fItemClick.cls) fAttEl.classList.add(fItemClick.cls);
-                fAttEl.style.cursor = 'pointer';
-                fAttEl.addEventListener('click', fItemClick.handler);
-              }
+              fAttEl.addEventListener('click', fItemOrHazardClick.handler);
             }
             // Wrap item in a container for CP badge positioning
             const fAttCp = isItemCard(fAttDef) ? effectiveItemCorruptionPoints(fAttDef, inPlayDefs, bearerAlignment) : 0;

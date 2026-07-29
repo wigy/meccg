@@ -278,3 +278,41 @@ export function getAgentOtherActions(view: PlayerView): Map<string, GameAction[]
   }
   return result;
 }
+
+/** What clicking an item on a character should do, given its available actions. */
+export type ItemClickResolution =
+  | { kind: 'none' }
+  | { kind: 'menu'; optionCount: number }
+  | { kind: 'granted'; action: ActivateGrantedAction }
+  | { kind: 'store'; action: StoreItemAction }
+  | { kind: 'transfer' };
+
+/**
+ * Decide what a click on an item should do, given every kind of action it may
+ * simultaneously offer: its own granted actions (e.g. Cram's discard-to-untap
+ * or discard-for-extra-movement), storing it at the current site, and
+ * transferring it to another character at the same site.
+ *
+ * An item bearing a granted action is not exclusively a "use it" card — it may
+ * also be legally transferable or storable at the same moment (e.g. Cram
+ * offering `extra-region-movement` on a character whose company hasn't planned
+ * movement yet, while also sitting at a site with another character to receive
+ * it). None of these must be hidden behind another: when more than one option
+ * is available the caller must present a menu instead of picking one for the
+ * player.
+ */
+export function resolveItemClick(
+  grantedActions: readonly ActivateGrantedAction[],
+  storeAction: StoreItemAction | undefined,
+  transferActions: readonly TransferItemAction[],
+): ItemClickResolution {
+  const hasStore = storeAction !== undefined;
+  const hasTransfer = transferActions.length > 0;
+  const optionCount = grantedActions.length + (hasStore ? 1 : 0) + (hasTransfer ? 1 : 0);
+
+  if (optionCount === 0) return { kind: 'none' };
+  if (optionCount > 1) return { kind: 'menu', optionCount };
+  if (grantedActions.length === 1) return { kind: 'granted', action: grantedActions[0] };
+  if (hasStore) return { kind: 'store', action: storeAction };
+  return { kind: 'transfer' };
+}
