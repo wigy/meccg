@@ -184,6 +184,8 @@ export const ACTION_TYPES: readonly string[] = [
   'use-item',
   // Added with the CoE 3.47 end-of-organization-phase influence overflow.
   'influence-overflow-discard',
+  // Added by certifying tw-326 (Shadowfax).
+  'ally-tap-extra-mh-phase',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

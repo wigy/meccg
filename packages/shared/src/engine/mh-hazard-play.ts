@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition } from '../types/effects.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect } from '../types/effects.js';
 import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -41,7 +41,8 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2153,6 +2154,40 @@ function extraMHPhaseConstraint(
   return null;
 }
 
+/**
+ * Find an untapped ally in `company`'s roster carrying an
+ * `ally-tap-extra-mh-phase` effect (Shadowfax tw-326) whose company-composition
+ * condition currently holds, or null.
+ *
+ * The ally attaches to one of the company's characters (`CharacterInPlay.allies`,
+ * not a company-level list), but the condition is evaluated over the whole
+ * company's roster the same way `discard-self-when-company` does
+ * ({@link buildCompanyCompositionContext}) — the bearer does not have to be the
+ * "one character" the effect counts.
+ */
+function findAllyTapExtraMHPhase(
+  state: GameState,
+  player: import('../index.js').PlayerState,
+  company: Company,
+): { readonly allyInstanceId: CardInstanceId; readonly allyName: string } | null {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const ally of char.allies) {
+      if (ally.status !== CardStatus.Untapped) continue;
+      const def = defById(state, ally.definitionId);
+      const effect = def && getCardEffects(def).find(
+        (e): e is AllyTapExtraMHPhaseEffect => e.type === 'ally-tap-extra-mh-phase',
+      );
+      if (!effect) continue;
+      const ctx = buildCompanyCompositionContext(state, player, company, effect.counts ?? []);
+      if (!matchesCondition(effect.condition, ctx)) continue;
+      return { allyInstanceId: ally.instanceId, allyName: def && 'name' in def ? (def as { name: string }).name : (ally.definitionId as string) };
+    }
+  }
+  return null;
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
@@ -2209,6 +2244,15 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
         phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
       },
     };
+  }
+
+  // ally-tap-extra-mh-phase (Shadowfax tw-326): offer, don't force — the active
+  // player may tap the qualifying untapped ally to send the company through the
+  // shared extra-move offer step, or decline and finalize normally.
+  const allyTapMatch = findAllyTapExtraMHPhase(state, state.players[activeIndex], currentCompany);
+  if (allyTapMatch) {
+    logDetail(`Ally-tap extra M/H phase: ${allyTapMatch.allyName} is untapped and company ${currentCompany.id as string}'s composition qualifies → ally-tap-mh-offer`);
+    return { state: { ...state, phaseState: { ...mhState, step: 'ally-tap-mh-offer' as const } } };
   }
 
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
@@ -2596,6 +2640,53 @@ export function handleExtraMHMoveOffer(
     state: {
       ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
       phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
+    },
+  };
+}
+
+/**
+ * Handle the `ally-tap-mh-offer` step (`ally-tap-extra-mh-phase` — Shadowfax
+ * tw-326): the active player either finishes the company (`pass` → finalize)
+ * or taps the qualifying ally (`ally-tap-extra-mh-phase`) to advance to the
+ * shared `extra-mh-move-offer` step, where the destination for the additional
+ * movement/hazard phase is chosen exactly as for `grant-extra-mh-phase`
+ * resources (Forced March et al.) — the tap is the only thing this step adds.
+ */
+export function handleAllyTapExtraMHOffer(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type === 'pass') {
+    logDetail(`Ally-tap extra M/H phase: active player declined — finalizing company`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
+  if (action.type !== 'ally-tap-extra-mh-phase') {
+    return wrongActionType(state, action, 'ally-tap-extra-mh-phase', 'ally-tap-mh-offer step');
+  }
+
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx !== mhState.activeCompanyIndex) {
+    return { state, error: 'Ally-tap extra M/H phase must target the company that just finished its M/H phase' };
+  }
+  const company = player.companies[companyIdx];
+  const match = findAllyTapExtraMHPhase(state, player, company);
+  if (!match || match.allyInstanceId !== action.allyInstanceId) {
+    return { state, error: 'Chosen ally is not a legal ally-tap-extra-mh-phase source' };
+  }
+
+  const updated = updateAttachment(player, 'allies', action.allyInstanceId, a => ({ ...a, status: CardStatus.Tapped }));
+  if (!updated) return { state, error: 'Ally to tap not found' };
+
+  logDetail(`Ally-tap extra M/H phase: tapping ${match.allyName} — company ${action.companyId as string} may move to an additional site → extra-mh-move-offer`);
+
+  return {
+    state: {
+      ...updatePlayer(state, activeIndex, () => updated.player),
+      phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
     },
   };
 }

@@ -419,7 +419,17 @@ export type MHStep =
    * a fresh movement/hazard phase — by choosing a new destination
    * (`extra-mh-move`), or pass to finish the company.
    */
-  | 'extra-mh-move-offer';
+  | 'extra-mh-move-offer'
+  /**
+   * `ally-tap-extra-mh-phase` (Shadowfax tw-326): after a company whose
+   * composition matches the carrying ally's condition (e.g. one character, or
+   * one character and a Hobbit) completes its movement/hazard phase, the
+   * active player may tap the untapped ally to move on to the same
+   * `extra-mh-move-offer` step — an additional site card is played and a
+   * fresh movement/hazard phase follows — or pass to finish the company
+   * without tapping it.
+   */
+  | 'ally-tap-mh-offer';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */

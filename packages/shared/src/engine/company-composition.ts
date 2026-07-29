@@ -184,11 +184,12 @@ export function companyAtSiteInstance(
 }
 
 /**
- * Builds the condition context a {@link DiscardSelfWhenCompanyEffect} is
- * evaluated against: base company facts plus one `count.<as>` headcount per
+ * Builds the condition context a {@link DiscardSelfWhenCompanyEffect} (or any
+ * other company-composition-gated effect, e.g. {@link AllyTapExtraMHPhaseEffect})
+ * is evaluated against: base company facts plus one `count.<as>` headcount per
  * declared filter.
  */
-function buildCompanyCompositionContext(
+export function buildCompanyCompositionContext(
   state: GameState,
   player: PlayerState,
   company: Company,

@@ -7302,6 +7302,7 @@ export type CardEffect =
   | ProhibitCardPlayEffect
   | ExtraUnderDeepsMhPhaseEffect
   | GrantExtraMHPhaseEffect
+  | AllyTapExtraMHPhaseEffect
   | RegionMovementLimitEffect
   | FwSiteAlignmentRestrictionEffect
   | ProhibitCompanyEventsEffect
@@ -7897,6 +7898,30 @@ export interface GrantExtraMHPhaseEffect extends EffectBase {
   readonly requiresDestinationSiteType?: SiteType;
   /** Required destination site alignment (e.g. `ringwraith` for a Darkhaven), if any. */
   readonly requiresDestinationAlignment?: string;
+}
+
+/**
+ * Ally-carried ability offered at the same `advanceAfterCompanyMH` decision
+ * point as {@link GrantExtraMHPhaseEffect}: when the bearer's company matches
+ * {@link condition} (evaluated against the {@link CompanyCharacterCount}-style
+ * composition context — `company.characterCount` plus one `count.<as>` per
+ * declared {@link counts} entry) at the end of its movement/hazard phase, the
+ * active player may tap the untapped ally carrying this effect to send the
+ * company on another movement to an additional site — a fresh movement/hazard
+ * phase, via the shared `extra-mh-move-offer` step.
+ *
+ * Used by Shadowfax (tw-326): "If his company has only one character or one
+ * character and a Hobbit at the end of the movement/hazard phase, tap
+ * Shadowfax to allow his company to immediately move again" —
+ * `counts: [{ "as": "hobbit", "filter": { "character.race": "hobbit" } }]`,
+ * `condition: { "$or": [{ "company.characterCount": 1 }, { "$and": [{ "company.characterCount": 2 }, { "count.hobbit": 1 }] }] }`.
+ */
+export interface AllyTapExtraMHPhaseEffect extends EffectBase {
+  readonly type: 'ally-tap-extra-mh-phase';
+  /** Named filtered headcounts published to {@link condition} as `count.<as>`. */
+  readonly counts?: readonly CompanyCharacterCount[];
+  /** Condition against the company-composition context gating the offer. */
+  readonly condition: Condition;
 }
 
 /**
