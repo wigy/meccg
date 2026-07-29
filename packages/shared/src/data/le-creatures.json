@@ -964,6 +964,7 @@
   {
     "cardType": "hazard-creature",
     "id": "le-70",
+    "certified": "2026-07-29",
     "name": "Elves upon Errantry",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ElvesuponErrantry.jpg",
     "unique": false,
@@ -971,17 +972,29 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
+    "starredKillMarshallingPoints": true,
     "race": "elf",
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness",
           "border",
           "free"
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "company.alignment": {
+            "$ne": "hero"
+          }
+        }
+      }
+    ],
     "text": "Elves. Four strikes (playable only against minion companies)."
   },
   {
