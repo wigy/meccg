@@ -45,6 +45,8 @@ import { currentHazardLimit } from '../hazard-limit.js';
 import { computeCandidateRegionPaths } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
+import { findEnvironmentTargets } from '../environment-targets.js';
+import { cardTargetsSetAside } from '../set-aside.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -2291,7 +2293,7 @@ function playHazardsActions(
           e => e.type === 'call-of-home-check' || e.type === 'protect-from-removal',
         );
         if (hasPlayFlag(def, 'playable-as-resource') && !isCharacterTargetingResourceHazard) {
-          const envTargets = findEnvironmentTargets(state);
+          const envTargets = findEnvironmentTargets(state, { mayTargetSetAside: cardTargetsSetAside(def) });
           if (envTargets.length === 0) {
             logDetail(`Hazard short-event "${def.name}": no environment in play to cancel`);
             actions.push({ action, viable: false, reason: 'No environment to cancel' });
@@ -3883,34 +3885,6 @@ function nazgulSideboardFetchActions(
     actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   }
   return actions;
-}
-
-/**
- * Find all environment cards currently in play or declared in the active chain.
- * Searches player cardsInPlay and unresolved chain entries.
- */
-function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId; definitionId: string }[] {
-  const isEnv = (defId: string): boolean => {
-    const d = state.cardPool[defId as CardDefinitionId];
-    return !!d && 'keywords' in d
-      && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
-  };
-  const targets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-  for (const p of state.players) {
-    for (const c of p.cardsInPlay) {
-      if (isEnv(c.definitionId as string)) targets.push(c);
-    }
-  }
-  if (state.chain) {
-    for (const entry of state.chain.entries) {
-      if (entry.resolved || entry.negated) continue;
-      if (!entry.card) continue;
-      if (isEnv(entry.card.definitionId as string)) {
-        targets.push({ instanceId: entry.card.instanceId, definitionId: entry.card.definitionId as string });
-      }
-    }
-  }
-  return targets;
 }
 
 /**
