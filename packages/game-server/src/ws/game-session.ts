@@ -119,7 +119,8 @@ export interface GameSessionOptions {
 export class GameSession {
   private state: GameState | null = null;
   private players: Map<string, { ws: WebSocket; playerId: PlayerId; name: string }> = new Map();
-  private spectators: Set<WebSocket> = new Set();
+  /** Spectator connections, each mapped to the display name it joined with. */
+  private spectators: Map<WebSocket, string> = new Map();
   private pending: Map<string, PendingPlayer> = new Map();
   private cardPool: Readonly<Record<string, CardDefinition>>;
   private nameToPlayerId: Record<string, string> = {};
@@ -206,7 +207,7 @@ export class GameSession {
     }
     this.players.clear();
 
-    for (const ws of this.spectators) {
+    for (const ws of this.spectators.keys()) {
       this.send(ws, msg);
       ws.close();
     }
@@ -270,6 +271,7 @@ export class GameSession {
         this.players.set(playerId, { ws, playerId: playerId as PlayerId, name: player.name });
         ws.on('close', () => this.handleDisconnect(ws));
         this.send(ws, { type: 'assigned', playerId: playerId as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
+        this.broadcastSpectators();
         if (this.state) this.broadcastState();
         return;
       }
@@ -289,6 +291,7 @@ export class GameSession {
         this.players.set(playerId, { ws, playerId: playerId as PlayerId, name: msg.name });
         ws.on('close', () => this.handleDisconnect(ws));
         this.send(ws, { type: 'assigned', playerId: playerId as PlayerId, gameId: this.state.gameId ?? 'unknown' });
+        this.broadcastSpectators();
         this.broadcastState();
         return;
       }
@@ -351,7 +354,7 @@ export class GameSession {
   }
 
   private addSpectator(ws: WebSocket, name: string): void {
-    this.spectators.add(ws);
+    this.spectators.set(ws, name);
     this.serverLog.log('join', { name, role: 'spectator' });
     this.send(ws, { type: 'assigned', playerId: 'spectator' as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
 
@@ -359,6 +362,19 @@ export class GameSession {
       const view = projectSpectatorView(this.state);
       this.send(ws, { type: 'state', view });
     }
+    this.broadcastSpectators();
+  }
+
+  /**
+   * Tell everyone who is currently watching. Called whenever the spectator
+   * set changes and whenever a client is seated, since a spectator arriving
+   * or leaving does not change the game state and so never reaches the state
+   * broadcast. Duplicate names collapse: one person watching from two tabs
+   * is one watcher.
+   */
+  private broadcastSpectators(): void {
+    const names = [...new Set(this.spectators.values())].sort();
+    this.broadcastToAll({ type: 'spectators', names });
   }
 
   private startNewGame(p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
@@ -530,6 +546,7 @@ export class GameSession {
     const gameId = this.state?.gameId ?? 'unknown';
     this.send(p1.ws, { type: 'assigned', playerId: p1Id, gameId });
     this.send(p2.ws, { type: 'assigned', playerId: p2Id, gameId });
+    this.broadcastSpectators();
   }
 
   private toPlayerConfig(p: PendingPlayer, playerId: PlayerId, name: string): PlayerConfig {
@@ -822,6 +839,7 @@ export class GameSession {
     this.serverLog.log('disconnect', { who });
 
     if (this.spectators.delete(ws)) {
+      this.broadcastSpectators();
       return;
     }
 
@@ -1072,7 +1090,7 @@ export class GameSession {
 
     if (this.spectators.size > 0) {
       const spectatorView = projectSpectatorView(this.state);
-      for (const ws of this.spectators) {
+      for (const ws of this.spectators.keys()) {
         const msg: StateMessage = lastAction
           ? { type: 'state', view: spectatorView, lastAction, lastActionCardDefs }
           : { type: 'state', view: spectatorView };
@@ -1100,7 +1118,7 @@ export class GameSession {
     for (const [, { ws }] of this.players.entries()) {
       this.send(ws, msg);
     }
-    for (const ws of this.spectators) {
+    for (const ws of this.spectators.keys()) {
       this.send(ws, msg);
     }
   }
