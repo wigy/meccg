@@ -177,7 +177,7 @@ export class GameSession {
 
   gracefulShutdown(): void {
     this.serverLog.log('shutdown');
-    if (this.state) {
+    if (this.state && !this.isFullyFinished()) {
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -846,7 +846,7 @@ export class GameSession {
 
     if (!disconnectedId || !disconnectedName) return;
 
-    if (this.state) {
+    if (this.state && !this.isFullyFinished()) {
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -937,15 +937,25 @@ export class GameSession {
   }
 
   /**
+   * True once the game is over *and* every player has acknowledged the result.
+   * At that point the outcome lives in each player's history and the save files
+   * have been deleted, so the session must never write them again: rewriting an
+   * autosave on shutdown or disconnect resurrects the finished game, and the
+   * next game between the same two names restores it and starts in `game-over`
+   * with no legal actions for either player.
+   */
+  private isFullyFinished(): boolean {
+    if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return false;
+    return this.state.phaseState.finishedPlayers.length >= this.state.players.length;
+  }
+
+  /**
    * Delete save and autosave files once all players have acknowledged the
    * game result. At that point the outcome is persisted in each player's
    * history, so the save is no longer needed.
    */
   private deleteSavesIfAllFinished(): void {
-    if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
-
-    const goState = this.state.phaseState;
-    if (goState.finishedPlayers.length < this.state.players.length) return;
+    if (!this.isFullyFinished()) return;
 
     for (const filePath of [this.saveFilePath(), this.autosaveFilePath()]) {
       try {
@@ -1028,6 +1038,17 @@ export class GameSession {
         const save = JSON.parse(data) as GameSave;
 
         if (!(name1 in save.nameToPlayerId) || !(name2 in save.nameToPlayerId)) {
+          continue;
+        }
+
+        // A save of an already-acknowledged game is dead weight: restoring it
+        // would seat both players in `game-over` with no legal actions, so the
+        // new game could never start. Drop it and fall through to a fresh game.
+        const phaseState = save.state.phaseState;
+        if (phaseState.phase === Phase.GameOver
+          && phaseState.finishedPlayers.length >= save.state.players.length) {
+          fs.unlinkSync(savePath);
+          this.serverLog.log('save-discarded-finished', { path: savePath });
           continue;
         }
 
