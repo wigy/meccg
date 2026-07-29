@@ -275,7 +275,7 @@
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
-| dm-108 | Little Snuffler | — | 5 | ☑ |
+| dm-108 | Little Snuffler | — | 6 | ☑ |
 | dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
@@ -374,7 +374,7 @@
 | le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
-| le-90 | Slayer | — | 7 | ☑ |
+| le-90 | Slayer | — | 8 | ☑ |
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |

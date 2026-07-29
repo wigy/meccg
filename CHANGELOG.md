@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.62.0 — 2026-07-29
+
+Nightly Build
+
+### Lobby & Web Client
+
+- **Per-player game history from the scoreboard.** Clicking a player name drills into their completed games — one card per game with outcome, how it was decided, turns, duration and game id, plus a side-by-side scoring table comparing both seats across every marshalling-point category, totals, stage points and final score. Where CoE 10.3 doubling/capping changed a category, the cell shows both the raw and the tournament-adjusted value. No new data is written: `playerGames` projects the same completed-game records `loadScoreboard` already aggregates, and fields older records lack stay null rather than being invented
+
+### Game Engine
+
+- **CoE 10.40 — the raw MP total is displayed alongside the adjusted one.** The Short Game calling threshold is checked against the unmodified total, but the display only showed the tournament-adjusted score (doubling + diversity cap), so players could not tell whether they had actually reached 25. `callableMarshallingPoints` is now plumbed through `PlayerView` and printed as e.g. `33 MP (25 unmodified)`
+- Fixed strike-reduction effects (Dark Quarrels' halve-strikes and friends) cancelling a whole multi-attack creature attack instead of halving the strikes of the attack they apply to
+- Implemented Little Snuffler's ranger body-reduction clause (dm-108), with a new effect type for it in the card-effects DSL
+
+### Infrastructure
+
+- `bin/nightly-release` releases master only when there are commits since the current version tag, driving `/release "Nightly Build"` through a headless run and verifying afterwards that the version changed and the tag exists. Exit status is chainable (0 released, 10 nothing to release, 1 error, 2 bad usage)
+- `bin/update-dev` pulls `dataplug/meccg-dev:latest` on the dev host and restarts the stack, so `bin/nightly-release && bin/update-dev` deploys only on a new version
+
+### Testing & Internals
+
+- Card tests: 1021 of 1023 (99.8%); cards certified: 1079 of 1683 (64.1%)
+
 ## 0.61.0 — 2026-07-29
 
 Spectators
