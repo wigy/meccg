@@ -2471,7 +2471,12 @@ export function buildActiveCompanyContext(
  *   (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`).
  * - `player.avatar` — the name of the player's revealed avatar (e.g.
  *   `"Pallando"`, `"Saruman"`), or `undefined` if none is in play. Used by The
- *   Fortress of Isen/Towers (wh-68/69) and A Strident Spawn (wh-61).
+ *   Fortress of Isen/Towers (wh-68/69) and A Strident Spawn (wh-61). Not
+ *   Fallen-wizard-only: the in-play avatar is resolved for every alignment, so
+ *   this is also the "as your Ringwraith" identity gate — Hoarmûrath Unleashed
+ *   (le-193) uses `{ "player.avatar": "Hoarmûrath the Ringwraith" }`. A
+ *   Ringwraith riding as another Ringwraith's follower is not controlled under
+ *   general influence and so is not the player's avatar.
  * - `player.avatarInPlay` — `true` when the player has an avatar character in
  *   play (in a company). Unlike `avatar` (the declared Fallen-wizard identity,
  *   which persists in the deck/hand), this is the in-play signal. Used by Saw

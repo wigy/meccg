@@ -3428,8 +3428,20 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Hoarmûrath the Ringwraith (as your Ringwraith). Cancel an attack against any one of your companies."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Hoarmûrath the Ringwraith"
+        }
+      },
+      {
+        "type": "cancel-attack"
+      }
+    ],
+    "text": "Playable on Hoarmûrath the Ringwraith (as your Ringwraith). Cancel an attack against any one of your companies.",
+    "certified": "2026-07-29"
   },
   {
     "cardType": "minion-resource-event",
