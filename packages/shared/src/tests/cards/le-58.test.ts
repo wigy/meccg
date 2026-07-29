@@ -36,6 +36,7 @@
  * | 4 | Up to two Ringwraith followers, controlled with no influence  | IMPLEMENTED | ringwraith-follower-slots (legal-actions emitter   |
  * |   |                                                               |             | `ringwraithFollowerPlayAction`)                    |
  * | 5 | Followers brought into play during separate org phases        | IMPLEMENTED | one-character-per-turn organization rule           |
+ * | 6 | Manifestation of Witch-king of Angmar (tw-113)                | IMPLEMENTED | `manifestId` chain + on-event discard (rule 3.06)  |
  *
  * Playable: YES.
  */

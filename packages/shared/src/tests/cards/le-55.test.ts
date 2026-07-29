@@ -42,6 +42,7 @@
  * | 3 | Can use sorcery                                               | DATA        | `sorcery` skill in skills array                    |
  * | 4 | -2 to the body of any Elf character struck by Khamûl          | IMPLEMENTED | enemy-modifier body subtract 2, `enemy.race` elf   |
  * | 5 | One Ringwraith follower controlled with no influence          | IMPLEMENTED | ringwraith-follower-slots count 1                  |
+ * | 6 | Manifestation of Khamûl the Easterling (tw-47)                | IMPLEMENTED | `manifestId` chain + on-event discard (rule 3.06)  |
  *
  * Playable: YES.
  */

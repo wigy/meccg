@@ -927,6 +927,7 @@
         ]
       }
     ],
+    "manifestId": "tw-113",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -993,6 +994,7 @@
         ]
       }
     ],
+    "manifestId": "tw-47",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -1064,6 +1066,7 @@
         ]
       }
     ],
+    "manifestId": "tw-2",
     "effects": [
       {
         "type": "permanent-event-auto-attack",

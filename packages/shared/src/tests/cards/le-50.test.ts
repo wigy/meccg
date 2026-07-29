@@ -20,6 +20,7 @@
  * | 2 | "Not played at a site" discriminator                 | IMPLEMENTED | `attack.source === "creature"` (M/H-played only)        |
  * | 3 | Can use spirit-magic                                 | FLAVOR      | No certified spirit-magic consumer today; deferred      |
  * | 4 | +2 DI in Heralded Lord mode / -2 prow in Fell Rider  | IMPLEMENTED | per-mode stat-modifiers on the avatar gated on `bearer.ringwraithMode` |
+ * | 5 | Manifestation of Adûnaphel (tw-2)                    | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
  *
  * Playable: YES.
  */

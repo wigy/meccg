@@ -28,7 +28,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
@@ -597,6 +597,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       const siteDef = defById(state, siteCard.definitionId);
       if (!siteDef || !isSiteCard(siteDef)) continue;
       if (fwSiteVersionForbidden(state, player, siteDef)) continue;
+      if (fwSiteUsageForbidden(state, player, company, siteDef)) continue;
       candidateSites.push(siteDef);
       siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
@@ -627,6 +628,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         // Fallen-wizard barred from the hero card cannot join a sibling standing
         // on it either.
         if (fwSiteVersionForbidden(state, player, siblingDef)) continue;
+        if (fwSiteUsageForbidden(state, player, company, siblingDef)) continue;
         candidateSites.push(siblingDef);
         siteInstMap.set(siblingDef.name, siblingSite.instanceId);
         logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);

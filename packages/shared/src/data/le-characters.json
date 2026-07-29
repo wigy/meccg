@@ -297,7 +297,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Urlurtsu Nurn",
+    "manifestId": "tw-2",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-2"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1058,7 +1074,23 @@
     "marshallingCategory": "character",
     "homesite": "Any site in Udûn",
     "certified": "2026-06-04",
+    "manifestId": "tw-31",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-31"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1133,7 +1165,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Any site in Udûn",
+    "manifestId": "tw-44",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-44"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1182,7 +1230,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Any site in Udûn or Imlad Morgul",
+    "manifestId": "tw-46",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-46"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1264,7 +1328,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Dol Guldur",
+    "manifestId": "tw-47",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-47"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1319,7 +1399,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Any site in Gorgoroth",
+    "manifestId": "tw-83",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-83"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1384,7 +1480,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Any site in Khand",
+    "manifestId": "tw-107",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-107"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -1454,7 +1566,23 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul",
+    "manifestId": "tw-113",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-113"
+          }
+        }
+      },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
@@ -2323,7 +2451,23 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any site in Nurn",
+    "manifestId": "tw-4",
     "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": [
+            "in-play"
+          ],
+          "to": "discard",
+          "filter": {
+            "manifestId": "tw-4"
+          }
+        }
+      },
       { "type": "stat-modifier", "stat": "direct-influence", "value": 3, "when": { "bearer.ringwraithMode": "heralded-lord" } },
       { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "bearer.ringwraithMode": "fell-rider" } },
       { "type": "magic-discard-to-deck" }

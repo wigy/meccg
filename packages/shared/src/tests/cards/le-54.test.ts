@@ -23,7 +23,7 @@
  * | 4 | "magic card" = any spell (spell/sorcery/spirit/shadow-magic) | IMPLEMENTED | $or keyword filter on the move apply                 |
  * | 5 | "As your Ringwraith" gate (only the revealed avatar) | IMPLEMENTED | when bearer.isRevealedAvatar — Ringwraith followers excluded |
  * | 6 | Unique / Can use sorcery & spirit-magic            | DATA        | unique flag + skills array consumed by the engine              |
- * | 7 | Manifestation of Indûr Dawndeath                   | FLAVOR      | no separate in-play tracking (consistent with le-50/52/53)     |
+ * | 7 | Manifestation of Indûr Dawndeath (tw-46)           | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
  *
  * Playable: YES.
  */

@@ -69,6 +69,12 @@ export interface PlayerSetup {
   companies: CompanySetup[];
   hand: CardDefinitionId[];
   siteDeck: CardDefinitionId[];
+  /**
+   * Site cards this player has already used and discarded. Seeds tests for
+   * rules that key off a location's past use, e.g. the Fallen-wizard
+   * alignment commitment of rule 3.42 (CoE 2.II.7.F2).
+   */
+  siteDiscardPile?: CardDefinitionId[];
   playDeck?: CardDefinitionId[];
   discardPile?: CardDefinitionId[];
   sideboard?: CardDefinitionId[];
@@ -120,6 +126,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   const playerStates = opts.players.map((setup) => {
     const hand = setup.hand.map(defId => mintFor(defId));
     const siteDeck = setup.siteDeck.map(defId => mintFor(defId));
+    const siteDiscardPile = (setup.siteDiscardPile ?? []).map(defId => mintFor(defId));
 
     const characters: Record<string, CharacterInPlay> = {};
     const companies: Company[] = [];
@@ -207,7 +214,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       playDeck,
       discardPile,
       siteDeck,
-      siteDiscardPile: [] as CardInstance[],
+      siteDiscardPile,
       sideboard,
       killPile: [] as CardInstance[],
       outOfPlayPile: [] as CardInstance[],

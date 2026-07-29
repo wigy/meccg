@@ -24,6 +24,9 @@
  *    during the organization phase to move one resource *event* card from the
  *    discard pile to the play deck (reshuffle). Not offered off a Darkhaven,
  *    when tapped, or when Ûvatha is a follower (not the revealed avatar).
+ * 5. manifestation chain with Ûvatha the Horseman (tw-107): the Nazgûl hazard is
+ *    discarded when Ûvatha enters play (rule 3.06), and neither card may be in
+ *    play while the other is.
  *
  * Fixture alignment: minion (ringwraith) — minion sites (LE) and minion cards.
  */

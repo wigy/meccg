@@ -1708,6 +1708,156 @@ export function fwSiteVersionForbidden(
 }
 
 /**
+ * Whether an in-play `fw-site-alignment-restriction` currently *governs* which
+ * version of `siteDef`'s location the Fallen-wizard `player` may use — i.e.
+ * some effect names this site's printed type and its optional `when` holds.
+ *
+ * A governing card overrides the default covert/overt site-usage rule
+ * ({@link fwSiteUsageForbidden}): Heart Grown Cold (wh-21) tells a Fallen-wizard
+ * to use *minion* cards for hero Havens, which a covert company could never do
+ * under 2.II.7.F1 alone. Per CoE 10.28 the card effect wins over the rule it
+ * contradicts, so the general rule steps aside wherever a card has spoken.
+ * Which of the two versions is barred stays {@link fwSiteVersionForbidden}'s
+ * job — this predicate only answers "is a card deciding this location?".
+ *
+ * A restriction names a *location* by the printed type of one of its versions,
+ * so the other version answers to it too: Heart Grown Cold locks "hero Havens",
+ * and the minion card it thereby demands for Rivendell is a Free-hold. Hence the
+ * fall-back scan over the other printings of the same location. The card pool is
+ * only searched once a restriction is actually in play, which is the rare case.
+ */
+function fwCardRestrictionGoverns(
+  state: GameState,
+  player: PlayerState,
+  siteDef: SiteCard,
+): boolean {
+  const ctx = { player: { alignment: player.alignment, stagePoints: player.stagePoints } };
+  const governed = new Set<string>();
+  for (const other of state.players) {
+    for (const card of other.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'fw-site-alignment-restriction') continue;
+        if (eff.when && !matchesCondition(eff.when, ctx)) continue;
+        for (const siteType of eff.siteTypes) governed.add(siteType);
+      }
+    }
+  }
+  if (governed.size === 0) return false;
+  if (governed.has(siteDef.siteType)) return true;
+  for (const other of Object.values(state.cardPool)) {
+    if (other.id === siteDef.id) continue;
+    if (!isSiteCard(other) || other.name !== siteDef.name) continue;
+    if (other.cardType !== 'hero-site' && other.cardType !== 'minion-site') continue;
+    if (governed.has(other.siteType)) return true;
+  }
+  return false;
+}
+
+/**
+ * CoE 2.II.7.F2: the version of a location a Fallen-wizard has already
+ * committed to — the `hero-site` / `minion-site` card type of a site card of
+ * that name he has in play (any company's current or declared destination site)
+ * or in his site discard pile. Returns `undefined` while he is still free to
+ * choose.
+ *
+ * Locations are matched by printed name because the hero and minion cards for
+ * one place are distinct definitions (hero Rivendell tw-421 vs minion Rivendell
+ * as-160). A Wizardhaven (`fallen-wizard-site`) counts as both alignments
+ * (MEWH §10) and therefore never commits the player to either version.
+ */
+function fwCommittedSiteVersion(
+  state: GameState,
+  player: PlayerState,
+  siteName: string,
+): 'hero-site' | 'minion-site' | undefined {
+  const versionOf = (defId: CardDefinitionId | undefined): 'hero-site' | 'minion-site' | undefined => {
+    if (defId === undefined) return undefined;
+    const def = defById(state, defId);
+    if (!def || !isSiteCard(def) || def.name !== siteName) return undefined;
+    if (def.cardType !== 'hero-site' && def.cardType !== 'minion-site') return undefined;
+    return def.cardType;
+  };
+  for (const company of player.companies) {
+    const inPlay = versionOf(company.currentSite?.definitionId)
+      ?? versionOf(company.destinationSite?.definitionId);
+    if (inPlay) return inPlay;
+  }
+  for (const card of player.siteDiscardPile) {
+    const discarded = versionOf(card.definitionId);
+    if (discarded) return discarded;
+  }
+  return undefined;
+}
+
+/**
+ * Whether CoE rule 2.II.7.F1/F2 bars the Fallen-wizard `player`'s `company`
+ * from using `siteDef` as a destination.
+ *
+ * A Fallen-wizard's location deck mixes hero, minion and Fallen-wizard site
+ * cards (CoE 1.28), so most places are in it twice. Two rules narrow the choice:
+ *
+ * - **F2** — once he has used one version of a location (it is in play under one
+ *   of his companies, is a declared destination, or has been discarded to his
+ *   site discard pile) he is committed to that version for the rest of the game.
+ * - **F1** — otherwise the choice follows the moving company's covert/overt
+ *   status ({@link isCovertCompany}). Ruins & Lairs (which is what Isengard and
+ *   The White Towers are printed as outside their Wizardhaven versions) stay
+ *   free either way. A **covert** company may only use hero cards. An **overt**
+ *   company must use the minion card for Border-holds and Free-holds — and so
+ *   for the places that are Havens for a Wizard, whose minion card is a
+ *   Free-hold — and the hero card for Shadow-holds and Dark-holds, and so for
+ *   the places that are Darkhavens for a Ringwraith, whose hero card is a
+ *   Dark-hold. A `haven`-typed hero or minion card is therefore always the wrong
+ *   version for an overt company; his havens are the Wizardhavens instead.
+ *
+ * Wizardhavens (`fallen-wizard-site`) are exempt throughout — they count as both
+ * a hero and a minion site (MEWH §10). A card that dictates which version to use
+ * (Heart Grown Cold wh-21) overrides F1 for the site types it names; see
+ * {@link fwCardRestrictionGoverns}.
+ */
+export function fwSiteUsageForbidden(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  siteDef: SiteCard,
+): boolean {
+  if (player.alignment !== 'fallen-wizard') return false;
+  if (siteDef.cardType !== 'hero-site' && siteDef.cardType !== 'minion-site') return false;
+
+  // 2.II.7.F2 — already committed to the other version of this location.
+  const committed = fwCommittedSiteVersion(state, player, siteDef.name);
+  if (committed !== undefined && committed !== siteDef.cardType) {
+    logDetail(`Rule 2.II.7.F2: Fallen-wizard ${player.id as string} already uses the ${committed} version of ${siteDef.name} — the ${siteDef.cardType} card is unusable`);
+    return true;
+  }
+
+  // 2.II.7.F1 — Ruins & Lairs may be used in either version.
+  if (siteDef.siteType === SiteType.RuinsAndLairs) return false;
+
+  // A card effect naming this site type decides the version instead (CoE 10.28).
+  if (fwCardRestrictionGoverns(state, player, siteDef)) return false;
+
+  const covert = isCovertCompany(company, player, state);
+  // The version an overt company must use for this site type; `undefined` when
+  // neither version of a `haven`-typed card is the right one for an overt
+  // company (a Wizard Haven's minion card is a Free-hold, a Ringwraith
+  // Darkhaven's hero card is a Dark-hold — the haven card is never it).
+  const overtRequires: 'hero-site' | 'minion-site' | undefined =
+    siteDef.siteType === SiteType.BorderHold || siteDef.siteType === SiteType.FreeHold
+      ? 'minion-site'
+      : siteDef.siteType === SiteType.ShadowHold || siteDef.siteType === SiteType.DarkHold
+        ? 'hero-site'
+        : undefined;
+  const required = covert ? 'hero-site' : overtRequires;
+  if (required === siteDef.cardType) return false;
+
+  logDetail(`Rule 2.II.7.F1: ${covert ? 'covert' : 'overt'} Fallen-wizard company ${company.id as string} cannot use the ${siteDef.cardType} card for ${siteDef.name} (${siteDef.siteType}) — ${required === undefined ? 'neither version is usable' : `the ${required} card is required`}`);
+  return true;
+}
+
+/**
  * The result of a corruption check on a character, before any cards are moved.
  *
  * - `success` — the roll exceeded the corruption point total; nothing happens.
