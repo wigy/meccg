@@ -83,7 +83,12 @@ export function showScreen(id: ScreenId): void {
     const heuristicBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement | null;
     if (heuristicBtn) { heuristicBtn.textContent = 'Play vs Heuristic-AI'; heuristicBtn.disabled = false; }
     const realBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
-    if (realBtn) { realBtn.textContent = 'Play vs Real-AI'; realBtn.disabled = false; }
+    if (realBtn) { realBtn.textContent = 'Play vs Real-AI (experimental)'; realBtn.disabled = false; }
+    // Collapse the model picker again, so returning to the lobby starts from
+    // the same state as a fresh visit.
+    document.getElementById('real-ai-options')?.classList.add('hidden');
+    const startRealBtn = document.getElementById('start-real-ai-btn') as HTMLButtonElement | null;
+    if (startRealBtn) { startRealBtn.textContent = 'Start'; startRealBtn.disabled = false; }
     const mcBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
     if (mcBtn) { mcBtn.textContent = 'Play vs MC-AI (experimental)'; mcBtn.disabled = false; }
     const modularBtn = document.getElementById('play-modular-ai-btn') as HTMLButtonElement | null;

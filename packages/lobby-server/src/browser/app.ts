@@ -247,6 +247,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- Real-AI (trained model) ----
     const playRealAiBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement;
+    const realAiOptions = document.getElementById('real-ai-options') as HTMLElement;
+    const startRealAiBtn = document.getElementById('start-real-ai-btn') as HTMLButtonElement;
     const aiModelSelect = document.getElementById('ai-model-select') as HTMLSelectElement;
 
     /** Populate the Real-AI model picker; hides the option when none exist. */
@@ -262,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const usable = models.length > 0;
       playRealAiBtn.disabled = !usable;
+      startRealAiBtn.disabled = !usable;
       if (!usable) {
         const option = document.createElement('option');
         option.textContent = 'no models installed';
@@ -280,7 +283,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    playRealAiBtn.addEventListener('click', () => { void (async () => {
+    // The model picker lives under the button and only appears once the player
+    // has asked for a Real-AI game; the reveal replaces the old always-visible
+    // select next to the deck pickers.
+    playRealAiBtn.addEventListener('click', () => {
+      realAiOptions.classList.toggle('hidden');
+    });
+
+    startRealAiBtn.addEventListener('click', () => { void (async () => {
       const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Real');
       if (r.ok && r.data?.hasSave) {
         const cont = await showConfirm(
