@@ -32,7 +32,7 @@ import { advanceMaintenanceChain, discardMaintainedEvent } from './event-mainten
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard, isFactionCard } from '../types/cards.js';
+import { isCharacterCard, isFactionCard, isItemCard, isAllyCard } from '../types/cards.js';
 import { CardStatus, Skill } from '../types/common.js';
 import type { Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
@@ -4392,4 +4392,116 @@ export function applyPostAttackPlayOfferResolution(
   // re-offered while that chain resolves.
   const dequeued = dequeueResolution(state, top.id);
   return handlePlayPermanentEvent(dequeued, action);
+}
+
+/**
+ * Resolve an `influence-reveal-play-offer` pending resolution (CoE 10.13): the
+ * attacker plays the identical card they revealed for a successful influence
+ * attempt, with the influencing character — or declines with `pass`, leaving it
+ * in hand.
+ *
+ * The placement is done here rather than by routing to the normal play handlers
+ * because the rule waives exactly the things those handlers exist to enforce:
+ * the site tap, the resource-per-site allowance, and the card's own playability
+ * restrictions. What the card *does* on entering play is unaffected — its
+ * effects are collected from wherever it now sits, the same as for a card
+ * played the ordinary way, which is why the recompute at the end is enough.
+ *
+ * Where the card lands follows its type: an item or ally attaches to the
+ * influencing character, a character joins that character's company under the
+ * controller named by the action, and a faction enters play. A revealed card
+ * whose type is none of these is refused rather than silently dropped — no
+ * `CardInstance` may go missing.
+ */
+export function applyInfluenceRevealPlayOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'influence-reveal-play-offer') return null;
+
+  if (action.type === 'pass') {
+    logDetail('influence-reveal-play-offer: declined — the revealed card stays in hand (CoE 10.13)');
+    return { state: dequeueResolution(state, top.id) };
+  }
+  if (action.type !== 'play-revealed-card') {
+    return { state, error: `Pending influence-reveal-play-offer requires play-revealed-card or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) return { state, error: 'Wrong player for influence-reveal-play-offer' };
+
+  const { revealedInstanceId, influencerId } = top.kind;
+  if (action.cardInstanceId !== revealedInstanceId) {
+    return { state, error: 'Only the revealed card may be played by this offer' };
+  }
+
+  const playerIdx = getPlayerIndex(state, action.player);
+  const player = state.players[playerIdx];
+  const handCard = findById(player.hand, revealedInstanceId);
+  if (!handCard) return { state, error: 'Revealed card is not in hand' };
+  const def = defById(state, handCard.definitionId);
+  if (!def) return { state, error: 'Revealed card definition not found' };
+  const influencer = player.characters[influencerId];
+  if (!influencer) return { state, error: 'Influencing character is no longer in play' };
+
+  const newHand = removeById(player.hand, revealedInstanceId);
+  const attached = { instanceId: revealedInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped };
+  const influencerName = cardName(state, influencer.definitionId, '?');
+  let updated: GameState;
+
+  if (isItemCard(def)) {
+    logDetail(`influence-reveal-play (CoE 10.13): ${def.name} enters play on ${influencerName} — site not tapped`);
+    updated = updatePlayer(state, playerIdx, p => ({
+      ...updateCharacter({ ...p, hand: newHand }, influencerId, c => ({ ...c, items: [...c.items, attached] })),
+    }));
+  } else if (isAllyCard(def)) {
+    logDetail(`influence-reveal-play (CoE 10.13): ${def.name} enters play with ${influencerName} — site not tapped`);
+    updated = updatePlayer(state, playerIdx, p => ({
+      ...updateCharacter({ ...p, hand: newHand }, influencerId, c => ({ ...c, allies: [...c.allies, attached] })),
+    }));
+  } else if (isFactionCard(def)) {
+    // No second influence check — the successful attempt is what brought it in.
+    logDetail(`influence-reveal-play (CoE 10.13): ${def.name} enters play — no influence check`);
+    updated = updatePlayer(state, playerIdx, p => ({ ...p, hand: newHand, cardsInPlay: [...p.cardsInPlay, attached] }));
+  } else if (isCharacterCard(def)) {
+    const controlledBy = action.controlledBy;
+    if (controlledBy === undefined) {
+      return { state, error: 'Playing a revealed character requires a controller (general or direct influence)' };
+    }
+    if (controlledBy !== 'general' && !player.characters[controlledBy]) {
+      return { state, error: 'Named direct-influence controller is not in play' };
+    }
+    const company = findCharacterCompany(player.companies, influencerId);
+    if (!company) return { state, error: 'Influencing character is not in a company' };
+    // Playability restrictions on the character card are not applied here
+    // (CoE 10.13, "i.e. a Hobbit may be played in this way") — the character
+    // joins the influencer's company wherever that company happens to stand.
+    logDetail(`influence-reveal-play (CoE 10.13): ${def.name} joins ${influencerName}'s company under ${controlledBy === 'general' ? 'general influence' : `${cardName(state, player.characters[controlledBy].definitionId, '?')}'s direct influence`} — home-site restrictions waived`);
+    const newChar: CharacterInPlay = {
+      instanceId: revealedInstanceId,
+      definitionId: handCard.definitionId,
+      status: CardStatus.Untapped,
+      items: [],
+      allies: [],
+      hazards: [],
+      followers: [],
+      controlledBy,
+      effectiveStats: ZERO_EFFECTIVE_STATS,
+    };
+    updated = updatePlayer(state, playerIdx, p => {
+      const withFollower = controlledBy === 'general'
+        ? p.characters
+        : { ...p.characters, [controlledBy as string]: { ...p.characters[controlledBy], followers: [...p.characters[controlledBy].followers, revealedInstanceId] } };
+      return {
+        ...p,
+        hand: newHand,
+        characters: { ...withFollower, [revealedInstanceId as string]: newChar },
+        companies: p.companies.map(co =>
+          co.id === company.id ? { ...co, characters: [...co.characters, revealedInstanceId] } : co),
+      };
+    });
+  } else {
+    return { state, error: `Revealed ${def.cardType} cannot be played by the influence-reveal offer` };
+  }
+
+  return { state: recomputeDerived(dequeueResolution(updated, top.id)) };
 }

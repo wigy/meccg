@@ -58,6 +58,7 @@ import {
   applyGreatHuntSourceResolution,
   applyGreatHuntDiscardAttackResolution,
   applyPostAttackPlayOfferResolution,
+  applyInfluenceRevealPlayOfferResolution,
   applyInfluenceOverflowDiscardResolution,
 } from './pending-reducers.js';
 import {
@@ -93,6 +94,7 @@ import {
   greatHuntSourceActions,
   greatHuntDiscardAttackActions,
   postAttackPlayOfferActions,
+  influenceRevealPlayOfferActions,
   influenceOverflowDiscardActions,
 } from './legal-actions/pending.js';
 
@@ -156,6 +158,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'great-hunt-source': { legalActions: greatHuntSourceActions, apply: applyGreatHuntSourceResolution },
   'great-hunt-discard-attack': { legalActions: greatHuntDiscardAttackActions, apply: applyGreatHuntDiscardAttackResolution },
   'post-attack-play-offer': { legalActions: postAttackPlayOfferActions, apply: applyPostAttackPlayOfferResolution },
+  'influence-reveal-play-offer': { legalActions: influenceRevealPlayOfferActions, apply: applyInfluenceRevealPlayOfferResolution },
   'influence-overflow-discard': { legalActions: influenceOverflowDiscardActions, apply: applyInfluenceOverflowDiscardResolution },
 };
 
