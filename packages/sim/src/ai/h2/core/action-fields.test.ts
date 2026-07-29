@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
+import { setEngineConsoleLog } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { playGame } from '../../../runner.js';
 import { loadDeck } from '../../../decks.js';
