@@ -4880,68 +4880,7 @@ export function purgeCompanyAlliesAndFollowers(
   playerIndex: number,
   companyId: CompanyId,
 ): GameState {
-  const player = state.players[playerIndex];
-  const company = player.companies.find(c => c.id === companyId);
-  if (!company) return state;
-  const opponentIndex = playerIndex === 0 ? 1 : 0;
-
-  const newChars: Record<string, CharacterInPlay> = { ...player.characters };
-  const discard: CardInstance[] = [...player.discardPile];
-  const oppDiscard: CardInstance[] = [...state.players[opponentIndex].discardPile];
-
-  // Followers in the company = characters controlled by another character.
-  const followerSet = new Set<string>();
-  for (const id of company.characters) {
-    const c = newChars[id as string];
-    if (c && c.controlledBy !== 'general') followerSet.add(id as string);
-  }
-
-  // Discard every ally borne by any character in the company.
-  for (const id of company.characters) {
-    const c = newChars[id as string];
-    if (!c) continue;
-    for (const ally of c.allies) discard.push(toCardInstance(ally));
-  }
-
-  // Discard each follower character entirely (items → owner discard, hazards → opponent).
-  for (const id of followerSet) {
-    const f = newChars[id];
-    if (!f) continue;
-    for (const item of f.items) discard.push(toCardInstance(item));
-    for (const hz of f.hazards) oppDiscard.push(toCardInstance(hz));
-    discard.push(toCardInstance(f));
-    delete newChars[id];
-  }
-
-  // Remaining (non-follower) members keep their slot but lose allies, and drop
-  // any discarded follower from their `followers` list.
-  for (const id of company.characters) {
-    if (followerSet.has(id as string)) continue;
-    const c = newChars[id as string];
-    if (!c) continue;
-    newChars[id as string] = {
-      ...c,
-      allies: [],
-      followers: c.followers.filter(fid => !followerSet.has(fid as string)),
-    };
-  }
-
-  const newCompanies = player.companies.map(co =>
-    co.id === companyId
-      ? { ...co, characters: co.characters.filter(id => !followerSet.has(id as string)) }
-      : co,
-  );
-
-  const updatedPlayers = state.players.map((p, i) =>
-    i === playerIndex
-      ? { ...player, characters: newChars, companies: newCompanies, discardPile: discard }
-      : i === opponentIndex
-        ? { ...p, discardPile: oppDiscard }
-        : p,
-  ) as unknown as readonly [PlayerState, PlayerState];
-
-  const result: GameState = { ...state, players: updatedPlayers };
-  return sweepCompanyMembershipChangedEvents(result, [companyId]);
+  return purgeCompany(state, playerIndex, companyId, true);
 }
 
 /**
@@ -4960,6 +4899,32 @@ export function purgeCompanyFollowers(
   playerIndex: number,
   companyId: CompanyId,
 ): GameState {
+  return purgeCompany(state, playerIndex, companyId, false);
+}
+
+/**
+ * Shared implementation behind {@link purgeCompanyAlliesAndFollowers} and
+ * {@link purgeCompanyFollowers}.
+ *
+ * Every direct-influence follower in the company is discarded outright: its
+ * items and its own card go to the owner's discard pile, its attached hazards
+ * to the opponent's. The remaining general-influence members keep their slots
+ * and drop the departed followers from their `followers` lists. A
+ * company-membership sweep runs afterwards so other company-bound cards react
+ * to the departures; direct-influence usage is recomputed by the top-level
+ * reducer.
+ *
+ * @param includeNonFollowerAllies - when true (Fell Rider le-183, "Discard all
+ * allies and Ringwraith followers"), the surviving members lose their allies
+ * too and the purge runs even if the company has no followers at all. When
+ * false (Black Rider le-170) only the departing followers' own allies go.
+ */
+function purgeCompany(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+  includeNonFollowerAllies: boolean,
+): GameState {
   const player = state.players[playerIndex];
   const company = player.companies.find(c => c.id === companyId);
   if (!company) return state;
@@ -4975,28 +4940,42 @@ export function purgeCompanyFollowers(
     const c = newChars[id as string];
     if (c && c.controlledBy !== 'general') followerSet.add(id as string);
   }
-  if (followerSet.size === 0) return state;
+  // Without the ally sweep there is nothing to do for a follower-less company.
+  if (followerSet.size === 0 && !includeNonFollowerAllies) return state;
 
-  // Discard each follower character entirely, together with its own attached
-  // allies (→ owner), items (→ owner) and hazards (→ opponent).
+  // Discard every ally borne by any character in the company. Skipped when only
+  // followers are targeted — their allies go with the rest of their cards below.
+  if (includeNonFollowerAllies) {
+    for (const id of company.characters) {
+      const c = newChars[id as string];
+      if (!c) continue;
+      for (const ally of c.allies) discard.push(toCardInstance(ally));
+    }
+  }
+
+  // Discard each follower character entirely (items → owner discard, hazards → opponent).
   for (const id of followerSet) {
     const f = newChars[id];
     if (!f) continue;
-    for (const ally of f.allies) discard.push(toCardInstance(ally));
+    if (!includeNonFollowerAllies) {
+      for (const ally of f.allies) discard.push(toCardInstance(ally));
+    }
     for (const item of f.items) discard.push(toCardInstance(item));
     for (const hz of f.hazards) oppDiscard.push(toCardInstance(hz));
     discard.push(toCardInstance(f));
     delete newChars[id];
   }
 
-  // Remaining (non-follower) members drop any discarded follower from their
-  // `followers` list but keep their own allies.
+  // Remaining (non-follower) members keep their slot, drop any discarded
+  // follower from their `followers` list, and lose their allies if those were
+  // targeted too.
   for (const id of company.characters) {
     if (followerSet.has(id as string)) continue;
     const c = newChars[id as string];
     if (!c) continue;
     newChars[id as string] = {
       ...c,
+      ...(includeNonFollowerAllies ? { allies: [] } : {}),
       followers: c.followers.filter(fid => !followerSet.has(fid as string)),
     };
   }
