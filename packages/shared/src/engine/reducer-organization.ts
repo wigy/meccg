@@ -31,6 +31,7 @@ import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
 import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
+import { getItemSlot, pickActiveItemsForCharacter } from './item-slots.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -58,6 +59,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'move-to-influence': handleMoveToInfluence,
   'discard-character': handleDiscardCharacter,
   'transfer-item': handleTransferItem,
+  'use-item': handleUseItem,
   'store-item': handleStoreItem,
   'split-company': handleSplitCompany,
   'move-to-company': handleMoveToCompany,
@@ -1252,6 +1254,73 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
       characterId: fromCharId,
       reason: 'Transfer',
       transferredItemId: itemInstId,
+    }),
+  };
+}
+
+/**
+ * Handle use-item during organization (CoE 9.16).
+ *
+ * The character begins using a borne item it was not using. The declaration is
+ * recorded on the character as {@link CharacterInPlay.itemsInUse}, replacing
+ * any earlier declaration for the same slot — only one weapon, armor, shield
+ * or helmet may be in use at a time, so a second declaration in the same slot
+ * supersedes the first rather than stacking. Slot selection itself lives in
+ * `item-slots.ts`, which promotes the declared items ahead of their
+ * slot-mates; recomputing derived state here is what makes the displaced
+ * item's effects cease "immediately", as the rule requires.
+ *
+ * Nothing leaves the character, so — unlike a transfer — no corruption check
+ * follows.
+ */
+function handleUseItem(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'use-item') return wrongActionType(state, action, 'use-item');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const { characterInstanceId: charId, itemInstanceId: itemInstId } = action;
+
+  const char = player.characters[charId];
+  if (!char) return { state, error: 'Character not found' };
+  if (!char.items.some(i => i.instanceId === itemInstId)) {
+    return { state, error: 'Item is not borne by that character' };
+  }
+
+  const itemDef = resolveDef(state, itemInstId);
+  const slot = getItemSlot(itemDef);
+  if (slot === null) {
+    // A non-slotted item is always in use; there is nothing to declare.
+    return { state, error: 'Item occupies no weapon/armor/shield/helmet slot' };
+  }
+
+  // Drop any previous declaration for this slot — a character uses one item
+  // per slot — and prune declarations naming an item this character no longer
+  // bears (transferred away, discarded), which could never take a slot again.
+  // Declarations for the character's other slots survive untouched.
+  const kept = (char.itemsInUse ?? []).filter(id =>
+    char.items.some(i => i.instanceId === id) && getItemSlot(resolveDef(state, id)) !== slot);
+  const charName = resolveDef(state, charId)?.name ?? (charId as string);
+  const previous = [...pickActiveItemsForCharacter(state, char)]
+    .find(id => id !== (itemInstId as string) && getItemSlot(resolveDef(state, id as CardInstanceId)) === slot);
+  if (previous) {
+    logDetail(`Use item: ${charName} stops using ${resolveDef(state, previous as CardInstanceId)?.name ?? previous} as their ${slot}`);
+  }
+  logDetail(`Use item: ${charName} begins using ${itemDef?.name ?? (itemInstId as string)} as their ${slot}`);
+
+  const updated = updatePlayer(state, playerIndex, p =>
+    updateCharacter(p, charId, c => ({ ...c, itemsInUse: [...kept, itemInstId] })));
+
+  return {
+    state: recomputeDerived({
+      ...updated,
+      reverseActions: previous
+        ? [...state.reverseActions, {
+            type: 'use-item' as const,
+            player: action.player,
+            characterInstanceId: charId,
+            itemInstanceId: previous as CardInstanceId,
+          }]
+        : state.reverseActions,
     }),
   };
 }

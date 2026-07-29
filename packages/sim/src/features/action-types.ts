@@ -180,6 +180,8 @@ export const ACTION_TYPES: readonly string[] = [
   // Appended out of alphabetical order deliberately — see the note above.
   // Added by certifying tw-282 (Mirror of Galadriel).
   'choose-peek-deck',
+  // Added with the CoE 9.16 item-switching declaration.
+  'use-item',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

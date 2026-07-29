@@ -252,6 +252,8 @@ export function describeAction(
       return `Move ${instName(action.characterInstanceId)} to ${compName(action.targetCompanyId)}`;
     case 'merge-companies':
       return `Merge ${compName(action.sourceCompanyId)} into ${compName(action.targetCompanyId)}`;
+    case 'use-item':
+      return `${instName(action.characterInstanceId)} begins using ${instName(action.itemInstanceId)}`;
     case 'transfer-item':
       return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
     case 'store-item':

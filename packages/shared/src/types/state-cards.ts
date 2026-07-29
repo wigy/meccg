@@ -330,6 +330,21 @@ export interface CharacterInPlay {
    * general-influence tally in {@link recomputeDerived}.
    */
   readonly influenceUnsubtracted?: boolean;
+  /**
+   * Items this character's controller has explicitly declared *in use*
+   * (CoE 9.16). A character may bear any number of items but only use one
+   * weapon, armor, shield and helmet at a time; absent a declaration the
+   * engine picks per slot by carrying order (first-carried-wins). Declaring
+   * an item promotes it ahead of its slot-mates, so it takes the slot and the
+   * previously-used item's effects cease immediately.
+   *
+   * Only ever holds ids the player has actually declared — one per slot,
+   * replaced when they declare another item of the same slot. Entries whose
+   * item has since left the character are inert: slot selection is driven by
+   * the real {@link items} array, which such an id no longer appears in.
+   * Optional — absent while the character has never switched.
+   */
+  readonly itemsInUse?: readonly CardInstanceId[];
   /** Computed stats including item modifiers. Recomputed after every action. */
   readonly effectiveStats: EffectiveStats;
   /**
