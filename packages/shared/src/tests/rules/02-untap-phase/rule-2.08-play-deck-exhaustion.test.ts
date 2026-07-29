@@ -59,6 +59,66 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(state.players[0].deckExhaustionCount).toBe(0);
   });
 
+  test('End-of-Turn reset-hand: drawing the card that both fills the hand and empties the play deck still triggers immediate reshuffle', () => {
+    // Regression test (bug report: "Deck exhausted" / "Nothing happens").
+    // PLAYER_1 is 1 card short of hand size (7/8) and has exactly 1 card
+    // left in their play deck. The single draw needed to reach hand size
+    // is also the *last* card in the deck — this coincidence previously
+    // let the reset-hand handler take its "reached hand size" shortcut
+    // and mark the player done without ever starting the exhaust/reshuffle
+    // sub-flow, leaving the play deck empty and un-reshuffled indefinitely.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [CAVE_DRAKE, CAVE_DRAKE, CAVE_DRAKE, ORC_PATROL, ORC_PATROL, ORC_PATROL, BARROW_WIGHT],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE], // Only 1 card left
+          discardPile: [CAVE_DRAKE, ORC_PATROL, DAGGER_OF_WESTERNESSE],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    // Advance to reset-hand step (both players pass discard step)
+    const p1Pass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const p2Pass = dispatch(p1Pass, { type: 'pass', player: PLAYER_2 });
+
+    // PLAYER_1 is offered draw-cards for exactly the 1 card they need.
+    const drawActions = computeLegalActions(p2Pass, PLAYER_1).filter(a => a.viable);
+    const drawAction = drawActions.find(a => a.action.type === 'draw-cards');
+    expect(drawAction).toBeDefined();
+
+    const afterDraw = dispatch(p2Pass, drawAction!.action);
+
+    // The deck-exhaust sub-flow must have started immediately: the play
+    // deck must not be left empty and un-reshuffled.
+    const p1 = afterDraw.players[0];
+    expect(p1.hand).toHaveLength(8);
+    expect(p1.deckExhaustPending).toBe(true);
+
+    // Only the exchange/pass sub-flow actions are legal now — reset-hand
+    // must not have been silently marked done with an empty play deck.
+    const postDrawActions = computeLegalActions(afterDraw, PLAYER_1).filter(a => a.viable);
+    expect(postDrawActions.some(a => a.action.type === 'deck-exhaust')).toBe(false);
+    expect(postDrawActions.every(a => a.action.type === 'pass' || a.action.type === 'exchange-sideboard')).toBe(true);
+
+    // Completing the sub-flow reshuffles the discard pile into a fresh play deck.
+    const afterComplete = dispatch(afterDraw, { type: 'pass', player: PLAYER_1 });
+    const completedP1 = afterComplete.players[0];
+    expect(completedP1.deckExhaustPending).toBe(false);
+    expect(completedP1.playDeck.length).toBeGreaterThan(0);
+    expect(completedP1.deckExhaustionCount).toBe(1);
+  });
+
   test('Exhaustion discards cards in play that trigger on deck exhaustion', () => {
     // Set up P1 with Safe from the Shadow (as-54) in cardsInPlay.
     // Safe from the Shadow has: on-event play-deck-exhausted → discard-self.
