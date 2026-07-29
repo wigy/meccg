@@ -2619,20 +2619,21 @@ function playHazardsActions(
           continue;
         }
 
-        // Faction-targeting short events (e.g. Muster Disperses)
+        // Faction-targeting short events (e.g. Muster Disperses): a hazard
+        // event can only target the resource player's own factions (CoE
+        // 2.IV.vii.3 — hazard events target the opponent's entities), never
+        // the hazard player's own factions in play.
         if (shortPlayTarget?.target === 'faction') {
           let hasFactionTarget = false;
-          for (const p of state.players) {
-            for (const cip of p.cardsInPlay) {
-              const cipDef = defById(state, cip.definitionId);
-              if (cipDef && isFactionCard(cipDef)) {
-                logDetail(`Hazard short-event "${def.name}" playable on faction ${cipDef.name} (${cip.instanceId as string})`);
-                actions.push({
-                  action: { ...action, targetFactionInstanceId: cip.instanceId },
-                  viable: true,
-                });
-                hasFactionTarget = true;
-              }
+          for (const cip of resourcePlayer.cardsInPlay) {
+            const cipDef = defById(state, cip.definitionId);
+            if (cipDef && isFactionCard(cipDef)) {
+              logDetail(`Hazard short-event "${def.name}" playable on faction ${cipDef.name} (${cip.instanceId as string})`);
+              actions.push({
+                action: { ...action, targetFactionInstanceId: cip.instanceId },
+                viable: true,
+              });
+              hasFactionTarget = true;
             }
           }
           if (!hasFactionTarget) {
