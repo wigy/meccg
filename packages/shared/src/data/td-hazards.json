@@ -741,9 +741,6 @@
     "text": "Playable on a character bearing a major or greater item. Character makes a corruption check modified by -1.",
     "unique": false,
     "eventType": "short",
-    "keywords": [
-      "corruption"
-    ],
     "effects": [
       {
         "type": "play-target",
