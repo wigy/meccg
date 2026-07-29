@@ -1,0 +1,98 @@
+/**
+ * @module render-instructions.test
+ *
+ * Regression test for bug report 8093610d9e502973 (game ms6enliw-o6qeah, seq
+ * 669): "No UI for rolling." *Muster Disperses* (tw-67) enqueues a generic
+ * `dice-check` pending resolution, whose only legal action is
+ * `resolve-dice-check`. {@link renderPassButton}'s whitelist of pass-like
+ * action types omitted `resolve-dice-check`, so neither the roll button nor
+ * the "Waiting…" indicator appeared — the player had no way to trigger the
+ * roll. `resolve-dice-check` is now whitelisted with a "Roll" label, matching
+ * the other generic roll actions (`roll-initiative`, `corruption-check`, …).
+ *
+ * Uses the hand-rolled DOM stub pattern of `company-attachments-render.test.ts`
+ * (the package runs vitest in the default node environment, with no jsdom).
+ */
+
+import './test-dom-bootstrap.js'; // must precede the render-instructions import (load-time window access)
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { Phase } from '@meccg/shared';
+import type { PlayerView, EvaluatedAction } from '@meccg/shared';
+import { renderPassButton } from './render-instructions.js';
+
+class StubEl {
+  tagName: string;
+  textContent = '';
+  onclick: (() => void) | null = null;
+  parentElement: StubEl | null = null;
+  children: StubEl[] = [];
+  classList = {
+    classes: new Set<string>(),
+    add: (...cs: string[]) => { for (const c of cs) this.classList.classes.add(c); },
+    remove: (...cs: string[]) => { for (const c of cs) this.classList.classes.delete(c); },
+    toggle: (c: string, force?: boolean) => {
+      const on = force ?? !this.classList.classes.has(c);
+      if (on) this.classList.classes.add(c); else this.classList.classes.delete(c);
+    },
+    contains: (c: string) => this.classList.classes.has(c),
+  };
+  constructor(tagName: string) { this.tagName = tagName; }
+  appendChild(child: StubEl): StubEl { this.children.push(child); return child; }
+}
+
+let passBtn: StubEl;
+let waitingEl: StubEl;
+
+beforeEach(() => {
+  passBtn = new StubEl('button');
+  waitingEl = new StubEl('div');
+  const byId: Record<string, StubEl | null> = {
+    'pass-btn': passBtn,
+    'waiting-indicator': waitingEl,
+  };
+  (globalThis as unknown as { document: unknown }).document = {
+    createElement: (tag: string) => new StubEl(tag),
+    getElementById: (id: string) => (id in byId ? byId[id] : null),
+    querySelectorAll: () => [],
+  };
+});
+
+afterEach(() => {
+  delete (globalThis as unknown as { document?: unknown }).document;
+});
+
+const resolveDiceCheck: EvaluatedAction = {
+  action: {
+    type: 'resolve-dice-check',
+    player: 'p1',
+    explanation: 'Muster: Iron Hill Dwarves: roll +4 must be >= 11 (need roll >= 7)',
+  },
+  viable: true,
+} as EvaluatedAction;
+
+const viewWith = (legalActions: EvaluatedAction[]): PlayerView =>
+  ({
+    phaseState: { phase: Phase.MovementHazard, step: null },
+    legalActions,
+    self: { id: 'p1' },
+    activePlayer: 'p1',
+  } as unknown as PlayerView);
+
+describe('renderPassButton', () => {
+  test('shows a Roll button for a pending resolve-dice-check resolution', () => {
+    renderPassButton(viewWith([resolveDiceCheck]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('clicking the button sends the resolve-dice-check action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([resolveDiceCheck]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(resolveDiceCheck.action);
+  });
+});
