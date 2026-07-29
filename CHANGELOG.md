@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.60.0 — 2026-07-29
+
+More cards and AI
+
+### Card Certification
+
+- 21 further cards certified, bringing the pool to 1079 of 1683 (64.1%): Pallando the Soul-keeper, Radagast the Tamer, Saruman the Wise, Returned Beyond All Hope, Thong of Fire, Orcs of Dol Guldur, Challenge the Power, Twisted Tales, Chill Them with Fear, Plague, Hoarmûrath Unleashed, While the Yellow Face Sleeps, True Fire-drake, Wild Fell Beast, Bard Bowman, Balrog of Moria, Morgul Night, Sting, Gollum's Fate, Wizard's Voice and A New Ringlord
+- New effect primitives behind them: elimination-instead-of-discard (Pallando the Soul-keeper), site-wide end-of-turn wound rolls (Plague), a named-avatar play gate in the combat window (Hoarmûrath Unleashed), race-keyed attack boosts that also cover agent attacks (Chill Them with Fear), agent-tap faction influence (Twisted Tales) and an environment region-type remap (Morgul Night)
+- Card-data corrections: Wild Fell Beast's `{s}{s}` keying and True Fire-drake's playable regions, with the rule 5.09 fixtures updated to match
+
+### AI & Training
+
+- Heuristics 2 gains four new decision owners — `grants` (prices a granted action by its family of effect rather than card by card), `fetching` (search-and-retrieve, including both setup pools), `events` (prices an event by what its action targets) and a shared `hazard-plan` service that assigns every hazard in hand a standing purpose
+- `combat` now owns strike ordering and excess-strike assignment, `travel` owns the enter-site decision, and `corruption` can shed a corruption card
+- Fixed the agent handing decisions to Heuristics 1 whenever its scores were close: the partial-coverage margin now applies only when candidates are genuinely unscored, and a complete ranking acts on any strict preference. H2 now decides roughly two-thirds to three-quarters of contested decisions, up from 33.1% when the coverage CLI was written
+- Measured against Heuristics 1 over 319 rated games: **+40 Elo [+3, +79]** — probably somewhat stronger, certainly not weaker. Earlier single-sample claims in the sim README were corrected downward after larger runs failed to replicate them; the horizon test shows no measurable per-module signal in either direction
+- `calibrate` now checks module assumptions against the reducer, `horizon` reports when a module's number is measuring how busy it was, and new scenarios cover draft picks, enter-or-pass, strike order, excess-strike assignment and shedding corruption
+- Action field spellings are consolidated in one place with a test that keeps them honest
+
+### Game Engine
+
+- Fixed a crash when a Forewarned-selected automatic-attack index went stale
+- Self-play surfaced an engine defect (seed 599: `engine rejected 'pass' — Card not found in hand`), now reported for investigation
+
+### Lobby & Web Client
+
+- The Real-AI model picker moved out of the deck row into a panel revealed by the **Play vs Real-AI** button, with its own Start button; Real-AI is now marked experimental alongside MC-AI and Modular AI
+- Fixed rejoining a Real-AI game: the model file is remembered alongside the deck ID and passed back on reconnect, instead of silently seating the heuristic under a different save key
+
+### Documentation
+
+- Card-effects DSL guide expanded by ~300 lines; certification engine-support catalog gains the named-avatar-gate precedent
+- Player guide documents the deck lifecycle and what the star on a sample deck means
+
 ## 0.59.0 — 2026-07-28
 
 Scoreboard

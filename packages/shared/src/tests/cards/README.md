@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1008 | 1005 | 3 | 99.7% |
+| 1023 | 1020 | 3 | 99.7% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 93 | 93 | 100.0% |
+| AS | 99 | 99 | 100.0% |
 | BA | 96 | 96 | 100.0% |
-| DM | 86 | 86 | 100.0% |
-| LE | 285 | 283 | 99.3% |
-| TD | 72 | 72 | 100.0% |
-| TW | 294 | 293 | 99.7% |
+| DM | 87 | 87 | 100.0% |
+| LE | 289 | 287 | 99.3% |
+| TD | 74 | 74 | 100.0% |
+| TW | 296 | 295 | 99.7% |
 | WH | 82 | 82 | 100.0% |
 
 ## Detailed Test Matrix
@@ -37,6 +37,9 @@
 | as-13 | Lady of the Golden Wood | — | 14 | ☑ |
 | as-14 | Lord of the Carrock | — | 19 | ☑ |
 | as-16 | Master of the House | — | 18 | ☑ |
+| as-17 | Pallando the Soul-keeper | — | 18 | ☑ |
+| as-18 | Radagast the Tamer | — | 20 | ☑ |
+| as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 14 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
@@ -44,6 +47,7 @@
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-33 | Pilfer Anything Unwatched | — | 13 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
+| as-35 | Returned Beyond All Hope | — | 17 | ☑ |
 | as-39 | Summons from Long Sleep | — | 9 | ☑ |
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
@@ -59,11 +63,8 @@
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-77 | Above the Abyss | — | 7 | ☑ |
-| as-79 | The Dark Power | — | 7 | ☑ |
 | as-80 | Dark Tryst | — | 4 | ☑ |
-| as-82 | Eye Never Sleeping | — | 6 | ☑ |
 | as-83 | Faithless Steward | — | 14 | ☑ |
-| as-85 | The Great Eye | — | 13 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
@@ -74,6 +75,7 @@
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
+| as-121 | Orcs of Dol Guldur | — | 12 | ☑ |
 | as-122 | Ancient Black Axe | — | 14 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
@@ -81,6 +83,7 @@
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
 | as-131 | Secret Book | — | 11 | ☑ |
+| as-132 | Thong of Fire | — | 14 | ☑ |
 | as-133 | Thrall-ring | — | 6 | ☑ |
 | as-134 | Thrór’s Map | — | 4 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
@@ -117,6 +120,9 @@
 | as-168 | The Under-vaults | — | 13 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
 | as-170 | Wellinghall | — | 10 | ☑ |
+| as-79-the-dark-power | — | — | 7 | ☑ |
+| as-82-eye-never-sleeping | — | — | 6 | ☑ |
+| as-85-the-great-eye | — | — | 13 | ☑ |
 | ba-1 | Strider | — | 16 | ☑ |
 | ba-2 | Azog | — | 6 | ☑ |
 | ba-3 | The Balrog | — | 8 | ☑ |
@@ -152,7 +158,6 @@
 | ba-38 | Great Army of the North | — | 10 | ☑ |
 | ba-40 | Long Grievous Siege | — | 12 | ☑ |
 | ba-42 | Prone to Violence | — | 8 | ☑ |
-| ba-43 | Sauron | — | 14 | ☑ |
 | ba-45 | Evil Things Lingering | — | 7 | ☑ |
 | ba-46 | Great Troll | — | 12 | ☑ |
 | ba-47 | Nasty Slimy Thing | — | 10 | ☑ |
@@ -213,6 +218,7 @@
 | ba-102 | The Under-leas | — | 15 | ☑ |
 | ba-103 | The Under-vaults | — | 13 | ☑ |
 | ba-104 | The Wind-deeps | — | 15 | ☑ |
+| ba-43-sauron | — | — | 14 | ☑ |
 | dm-2 | Baduila | — | 8 | ☑ |
 | dm-3 | Bill Ferny | — | 4 | ☑ |
 | dm-4 | Dâsakûn | — | 4 | ☑ |
@@ -255,16 +261,17 @@
 | dm-58 | Flies and Spiders | — | 5 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
-| dm-71 | The Moon Is Dead | — | 8 | ☑ |
+| dm-71 | The Moon Is Dead | — | 9 | ☑ |
 | dm-72 | Mordor in Arms | — | 10 | ☑ |
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-76 | Nobody’s Friend | — | 14 | ☑ |
-| dm-80 | Rank upon Rank | — | 10 | ☑ |
+| dm-80 | Rank upon Rank | — | 11 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
 | dm-88 | Seized by Terror | — | 8 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
+| dm-96 | Twisted Tales | — | 14 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
@@ -280,7 +287,7 @@
 | dm-124 | The Dwarves Are upon You! | — | 7 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-130 | Fireworks | — | 12 | ☑ |
-| dm-132 | Forewarned Is Forearmed | — | 12 | ☑ |
+| dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
 | dm-134 | Hall of Fire | — | 11 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 10 | ☑ |
@@ -299,7 +306,6 @@
 | dm-180 | Folco Boffin | — | 9 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
-| le-pending-effects-parity | — | — | 3 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
@@ -379,6 +385,7 @@
 | le-101 | Arouse Defenders | — | 10 | ☑ |
 | le-103 | Awaken Defenders | — | 7 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
+| le-106 | Chill Them with Fear | — | 15 | ☑ |
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
 | le-110 | Doors of Night | — | 7 | ☑ |
 | le-111 | Fell Winter | — | 11 | ☑ |
@@ -392,12 +399,13 @@
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-126 | Muster Disperses | — | 6 | ☑ |
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
+| le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
 | le-132 | Rebel-talk | — | 12 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-137 | Shut Yer Mouth | — | 11 | ☑ |
-| le-138 | So You’ve Come Back | — | 9 | ☑ |
+| le-138 | So You’ve Come Back  | — | 9 | ☑ |
 | le-140 | Stay Her Appetite | — | 5 | ☑ |
 | le-141 | Stench of Mordor | — | 10 | ☑ |
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
@@ -406,7 +414,7 @@
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
-| le-153 | Last Child of Ungoliant | — | 10 | ◐ |
+| le-153 | Last Child of Ungoliant | — | 11 | ◐ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
@@ -415,7 +423,7 @@
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
-| le-167 | Bade to Rule | — | 11 | ◐ |
+| le-167 | Bade to Rule | — | 13 | ◐ |
 | le-170 | Black Rider | — | 8 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
@@ -432,9 +440,9 @@
 | le-185 | Forced March | — | 6 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
+| le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
 | le-196 | I’ll Report You | — | 15 | ☑ |
-| le-203 | The Lidless Eye | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 12 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
 | le-212 | Not Slay Needlessly | — | 13 | ☑ |
@@ -460,6 +468,7 @@
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-252 | We Have Come to Kill | — | 17 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
+| le-255 | While the Yellow Face Sleeps | — | 13 | ☑ |
 | le-258 | Words of Menace and Deceit | — | 7 | ☑ |
 | le-260 | Balchoth | — | 8 | ☑ |
 | le-261 | Beornings | — | 5 | ☑ |
@@ -584,6 +593,8 @@
 | le-416 | Wose Passage-hold | — | 5 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
+| le-203-the-lidless-eye | — | — | 11 | ☑ |
+| le-pending-effects-parity | — | — | 3 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 16 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
@@ -618,6 +629,8 @@
 | td-73 | Stormcrow | — | 12 | ☑ |
 | td-76 | Times Are Evil | — | 5 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
+| td-78 | True Fire-drake | — | 8 | ☑ |
+| td-81 | Wild Fell Beast | — | 8 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
 | td-91 | Fram Framson | — | 2 | ☑ |
@@ -626,7 +639,7 @@
 | td-94 | Thráin II | — | 4 | ☑ |
 | td-95 | A Short Rest | — | 6 | ☑ |
 | td-96 | Adamant Helmet | — | 10 | ☑ |
-| td-98 | And Forth He Hastened | — | 7 | ☑ |
+| td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-101 | Bounty of the Hoard | — | 12 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-105 | Cram | — | 14 | ☑ |
@@ -692,6 +705,7 @@
 | tw-060 | — | — | 7 | ☑ |
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
+| tw-62 | Morgul Night | — | 10 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
 | tw-067 | — | — | 6 | ☑ |
 | tw-068 | — | — | 8 | ☑ |
@@ -795,7 +809,7 @@
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
 | tw-204 | Concealment | — | 11 | ☑ |
-| tw-205 | Cracks of Doom | — | 6 | ☑ |
+| tw-205 | Cracks of Doom | — | 9 | ☑ |
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
 | tw-209 | Dodge | — | 8 | ☑ |
@@ -853,10 +867,10 @@
 | tw-330 | Star-glass | — | 14 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
-| tw-335 | Sun | — | 6 | ☑ |
+| tw-335 | Sun | — | 7 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
-| tw-338 | Test of Form | — | 15 | ☑ |
+| tw-338 | Test of Form | — | 16 | ☑ |
 | tw-342 | The Cock Crows | — | 9 | ☑ |
 | tw-344 | The Great Eagles | — | 5 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
@@ -874,6 +888,7 @@
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
+| tw-366 | Wizard’s Voice | — | 9 | ☑ |
 | tw-367 | Wood-elves | — | 4 | ☑ |
 | tw-371 | Amon Hen | — | 8 | ☑ |
 | tw-372 | Bag End | — | 4 | ☑ |
@@ -921,7 +936,7 @@
 | tw-414 | Mount Doom | — | 7 | ☑ |
 | tw-415 | Mount Gram | — | 6 | ☑ |
 | tw-416 | Mount Gundabad | — | 8 | ☑ |
-| tw-417 | Old Forest | — | 5 | ◐ |
+| tw-417 | Old Forest | — | 7 | ◐ |
 | tw-418 | Ost-in-Edhil | — | 8 | ☑ |
 | tw-419 | Pelargir | — | 5 | ☑ |
 | tw-420 | Rhosgobel | — | 5 | ☑ |
@@ -1032,3 +1047,6 @@
 | wh-119 | Man of Skill | — | 7 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 20 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
+
+---
+*Legend: ☐ = todo, ☑ = implemented, ◐ = partial*
