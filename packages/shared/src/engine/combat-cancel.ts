@@ -18,22 +18,19 @@
 
 import type { GameState, CombatState, GameAction, CompanyId } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import type { StrikeModifierEffect, TriggerAttackOnPlayEffect } from '../types/effects.js';
+import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { CardStatus, Skill } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
-import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
-import { resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
-import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase } from './combat-strike.js';
-import { discardCardTriggeredCard, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
+import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 
 /**
@@ -757,95 +754,11 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
     }
   }
 
-  // card-triggered-attack cancelled: the attack never resolved. If there are remaining
-  // queued attacks (multi-attack form), trigger the next one. Otherwise check for
-  // untapped characters; queue bearer selection if any remain, or discard the card.
+  // card-triggered-attack cancelled: the attack never resolved, but the card is
+  // still in play — continue the queued sequence or dispose of it, exactly as
+  // finalization would.
   let stateWithCancelledPlayers: GameState = { ...state, players: newPlayers, combat: null };
-  if (combat.attackSource.type === 'card-triggered-attack') {
-    const { cardInstanceId, remainingAttacks } = combat.attackSource;
-    const defIdx = getPlayerIndex(stateWithCancelledPlayers, combat.defendingPlayerId);
-    const cardDefId = resolveInstanceId(stateWithCancelledPlayers, cardInstanceId);
-    const cardLabel = cardDefId ? cardName(stateWithCancelledPlayers, cardDefId, '?') : '?';
-
-    if (remainingAttacks && remainingAttacks.length > 0) {
-      // More attacks remain — trigger the next one
-      const next = remainingAttacks[0];
-      const rest = remainingAttacks.slice(1);
-      const defPlayer = stateWithCancelledPlayers.players[defIdx];
-      const atkPlayer = stateWithCancelledPlayers.players[1 - defIdx];
-      const inPlayNames = buildInPlayNames(stateWithCancelledPlayers);
-      const creatureRace = normalizeCreatureRace(next.creatureType);
-      const effectiveProwess = resolveAttackProwess(
-        stateWithCancelledPlayers, next.prowess, inPlayNames, creatureRace, true, undefined,
-        { companyId: combat.companyId },
-      );
-      const effectiveStrikes = resolveAttackStrikes(
-        stateWithCancelledPlayers, next.strikes, inPlayNames, creatureRace, true, { companyId: combat.companyId },
-      );
-      logDetail(
-        `Card-auto-attack cancelled: "${cardLabel}" triggering next attack — ${next.creatureType} ` +
-        `(${effectiveStrikes} strikes, ${effectiveProwess} prowess)`,
-      );
-      const nextCombat: CombatState = makeCombatState({
-        attackSource: {
-          type: 'card-triggered-attack',
-          cardInstanceId,
-          ...(rest.length > 0 ? { remainingAttacks: rest } : {}),
-        },
-        companyId: combat.companyId,
-        defendingPlayerId: defPlayer.id,
-        attackingPlayerId: atkPlayer.id,
-        strikesTotal: effectiveStrikes,
-        strikeProwess: effectiveProwess,
-        creatureBody: null,
-        creatureRace,
-        assignmentPhase: 'defender',
-        detainment: false,
-      });
-      stateWithCancelledPlayers = { ...stateWithCancelledPlayers, combat: nextCombat };
-    } else {
-      const defPlayer = stateWithCancelledPlayers.players[defIdx];
-      const company = companyById(defPlayer.companies, combat.companyId);
-      const anyUntapped = company
-        ? company.characters.some(charId => {
-            const ch = defPlayer.characters[charId];
-            return ch && ch.status === CardStatus.Untapped;
-          })
-        : false;
-      if (!anyUntapped) {
-        logDetail(`Card-auto-attack cancelled: no untapped characters — discarding "${cardLabel}"`);
-        stateWithCancelledPlayers = discardCardTriggeredCard(stateWithCancelledPlayers, cardInstanceId, defIdx);
-      } else {
-        const cardDef = cardDefId ? defById(stateWithCancelledPlayers, cardDefId) : undefined;
-        const triggerEffect = cardDef
-          ? (getCardEffects(cardDef).find(
-              (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
-            ) ?? null)
-          : null;
-        const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
-        const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
-        const returnFactionsAtSite = triggerEffect?.returnFactionsAtSite ?? false;
-        const discardUniqueFactionsAtSite = triggerEffect?.discardUniqueFactionsAtSite ?? false;
-        logDetail(
-          `Card-auto-attack cancelled: untapped characters remain — queuing select-card-bearer for "${cardLabel}"`,
-        );
-        stateWithCancelledPlayers = enqueueResolution(stateWithCancelledPlayers, {
-          source: cardInstanceId,
-          actor: combat.defendingPlayerId,
-          scope: { kind: 'phase', phase: stateWithCancelledPlayers.phaseState.phase },
-          kind: {
-            type: 'select-card-bearer',
-            cardInstanceId,
-            companyId: combat.companyId,
-            ...(afterAttack !== 'attach-with-constraint' ? { mode: afterAttack } : {}),
-            ...(discardFactionsAtSite ? { discardFactionsAtSite: true } : {}),
-            ...(returnFactionsAtSite ? { returnFactionsAtSite: true } : {}),
-            ...(discardUniqueFactionsAtSite ? { discardUniqueFactionsAtSite: true } : {}),
-          },
-        });
-      }
-    }
-  }
+  stateWithCancelledPlayers = continueOrDisposeCardTriggeredAttack(stateWithCancelledPlayers, combat, true);
 
   // The Great Hunt (wh-91): a canceled reveal-sequence attack still advances
   // the reveal queue to the next creature (the creature never moved out of its
