@@ -1,11 +1,10 @@
 /**
  * @module cancel-attack-targets
  *
- * Pure helper shared by the combat renderer: given a defending company's
- * characters (with their equipped items and allies), collect the instance IDs of
- * every in-play card that can host a direct tap-to-cancel `cancel-attack`
- * ability. Kept dependency-free (types only) so it is unit-testable without
- * pulling in the browser render graph.
+ * Pure helpers shared by the combat renderer for `cancel-attack` targeting:
+ * collecting in-play tap-to-cancel hosts, and grouping a selected hand card's
+ * scout-targeted actions by scout. Kept dependency-free (types only) so both
+ * are unit-testable without pulling in the browser render graph.
  */
 
 import type { CardInstanceId } from '@meccg/shared';
@@ -43,4 +42,26 @@ export function inPlayCancelAttackIds(
     }
   }
   return ids;
+}
+
+/**
+ * Group the selected hand card's `cancel-attack` actions by scout character
+ * instance ID. A dual-mode card (e.g. The Tormented Earth: "Cancels the
+ * attack or gives the attack -3 prowess, your choice") is offered as two
+ * separate actions naming the same scout — one per mode. Grouping into a list
+ * (rather than keeping only the last action seen per scout) preserves every
+ * mode so the combat view can let the player choose, instead of one mode
+ * silently overwriting the other in a single-action map.
+ */
+export function groupCancelAttackActionsByScout<
+  T extends { readonly cardInstanceId: CardInstanceId; readonly scoutInstanceId?: CardInstanceId },
+>(actions: readonly T[], selectedCardInstanceId: CardInstanceId): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const action of actions) {
+    if (action.cardInstanceId !== selectedCardInstanceId || !action.scoutInstanceId) continue;
+    const list = map.get(action.scoutInstanceId as string) ?? [];
+    list.push(action);
+    map.set(action.scoutInstanceId as string, list);
+  }
+  return map;
 }

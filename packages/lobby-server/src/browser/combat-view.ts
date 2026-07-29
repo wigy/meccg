@@ -29,10 +29,11 @@ import type {
   TapItemForStrikeAction,
   SalvageItemAction,
   EvaluatedAction,
+  CardEffect,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
-import { inPlayCancelAttackIds } from './cancel-attack-targets.js';
+import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
@@ -554,16 +555,11 @@ function renderDefenderRow(
     cancelStrikeMap.set(a.cancellerInstanceId as string, a);
   }
 
-  // Build a map of scout character ID → cancel-attack action for the selected card
-  const cancelAttackScoutMap = new Map<string, CancelAttackAction>();
+  // Build a map of scout character ID → cancel-attack actions for the selected card.
   const selectedCancelAttack = getSelectedCancelAttack();
-  if (selectedCancelAttack) {
-    for (const a of cancelAttackActions) {
-      if (a.cardInstanceId === selectedCancelAttack && a.scoutInstanceId) {
-        cancelAttackScoutMap.set(a.scoutInstanceId as string, a);
-      }
-    }
-  }
+  const cancelAttackScoutMap = selectedCancelAttack
+    ? groupCancelAttackActionsByScout(cancelAttackActions, selectedCancelAttack)
+    : new Map<string, CancelAttackAction[]>();
 
   // Build a map of in-play card ID → cancel-attack action for direct tap-to-cancel
   // abilities on characters, their items (e.g. Torque of Hues), and their allies
@@ -641,7 +637,7 @@ function renderCombatCharacterColumn(
   supportableIds: Set<string>,
   cancelByTapIds: Set<string>,
   cancelStrikeMap: Map<string, CancelStrikeAction>,
-  cancelAttackScoutMap: Map<string, CancelAttackAction>,
+  cancelAttackScoutMap: Map<string, CancelAttackAction[]>,
   cancelAttackInPlayMap: Map<string, CancelAttackAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   modifyAttackMap: Map<string, ModifyAttackAction>,
@@ -690,20 +686,26 @@ function renderCombatCharacterColumn(
   const isAssignable = assignableIds.has(charIdStr);
   const isSupportable = supportableIds.has(charIdStr);
   const isCancelByTap = cancelByTapIds.has(charIdStr);
-  const cancelAttackAction = cancelAttackScoutMap.get(charIdStr);
+  const cancelAttackActionsForScout = cancelAttackScoutMap.get(charIdStr);
 
   const chooseOrderAction = chooseOrderMap.get(charIdStr);
 
   const cancelAttackInPlayAction = cancelAttackInPlayMap.get(charIdStr);
 
-  if (cancelAttackAction) {
-    // Cancel-attack scout targeting: click this scout to play the selected cancel-attack card
+  if (cancelAttackActionsForScout) {
+    // Cancel-attack scout targeting: click this scout to play the selected cancel-attack card.
+    // A dual-mode card (e.g. The Tormented Earth) offers more than one action for this
+    // scout — open a menu so the player picks a mode instead of one being applied silently.
     img.classList.add('combat-card--assignable');
     img.style.cursor = 'pointer';
     img.addEventListener('click', (e) => {
       e.stopPropagation();
-      clearCancelAttackSelection();
-      onAction(cancelAttackAction);
+      if (cancelAttackActionsForScout.length > 1) {
+        showCancelAttackModeTooltip(img, cancelAttackActionsForScout, cardPool, onAction);
+      } else {
+        clearCancelAttackSelection();
+        onAction(cancelAttackActionsForScout[0]);
+      }
     });
   } else if (cancelAttackInPlayAction) {
     // In-play character cancel-attack: tap this character to cancel the attack directly
@@ -1239,6 +1241,38 @@ function renderCombatActionButtons(
     btn.addEventListener('click', () => onAction(action));
     parent.appendChild(btn);
   }
+}
+
+/**
+ * Show a tooltip letting the player pick a mode for a dual-mode cancel-attack
+ * card (e.g. The Tormented Earth: "Cancels the attack or gives the attack -3
+ * prowess, your choice"). Without this, the scout-click handler would have to
+ * pick one of the two actions on its own — silently denying the outright
+ * cancel the card's text explicitly grants as a choice.
+ */
+function showCancelAttackModeTooltip(
+  anchor: HTMLElement,
+  actions: readonly CancelAttackAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const cardDefId = cachedInstanceLookup(actions[0].cardInstanceId);
+  const cardDef = cardDefId ? cardPool[cardDefId as string] : undefined;
+  const cancelEffect = (cardDef as { effects?: readonly CardEffect[] } | undefined)?.effects?.find(
+    (e): e is Extract<CardEffect, { type: 'cancel-attack' }> => e.type === 'cancel-attack',
+  );
+
+  const items: TooltipMenuItem[] = actions.map(action => ({
+    label: action.mode === 'reduce-prowess'
+      ? `Reduce attack prowess by ${cancelEffect?.prowessPenalty ?? '?'}`
+      : 'Cancel attack',
+    onClick: () => {
+      clearCancelAttackSelection();
+      onAction(action);
+    },
+  }));
+
+  showTooltipMenu(anchor, items);
 }
 
 // ---- Combat choice tooltip ----
