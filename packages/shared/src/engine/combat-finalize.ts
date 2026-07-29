@@ -39,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -277,11 +277,7 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
  * - Minion/Balrog: non-starred creatures → out-of-play
  */
 export function applyRule8_22AfterTrophyDecision(state: GameState, combat: CombatState): GameState {
-  const creatureInstanceId =
-    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-          : null;
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
   if (!creatureInstanceId || combat.detainment) return state;
 
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
@@ -329,11 +325,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // the site's automatic-attack", which means it is discarded after
   // combat regardless of outcome — the resource player does NOT gain
   // kill-MP, mirroring standard auto-attacks.
-  const creatureInstanceId =
-    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-          : null;
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
   const isPlayedAutoAttack = combat.attackSource.type === 'played-auto-attack';
 
   if (creatureInstanceId) {
@@ -669,11 +661,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const notDefeatedEvents = getOnEventEffects(sourceCardForNotDefeated, 'attack-not-defeated');
     for (const nde of notDefeatedEvents) {
       if (nde.apply.type === 'add-constraint' && nde.apply.constraint === 'deny-scout-resources') {
-        const creatureSource =
-          combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-            : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-              : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-                : null;
+        const creatureSource = attackSourceCreatureInstanceId(combat);
         if (creatureSource) {
           const creatureDefId = resolveInstanceId(state, creatureSource);
           const creatureName = cardName(state, creatureDefId!, 'creature');
@@ -697,11 +685,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   const notCanceledEvents = getOnEventEffects(sourceCardForNotCanceled, 'attack-not-canceled');
   for (const nce of notCanceledEvents) {
     if (nce.apply.type === 'add-constraint' && nce.apply.constraint === 'creature-attack-boost') {
-      const creatureSource =
-        combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-          : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-            : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-              : null;
+      const creatureSource = attackSourceCreatureInstanceId(combat);
       const boostRace = nce.apply.race;
       if (creatureSource && boostRace !== undefined) {
         const creatureDefId = resolveInstanceId(state, creatureSource);

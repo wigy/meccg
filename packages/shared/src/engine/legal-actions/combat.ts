@@ -28,7 +28,7 @@ import { resolveDef, enemyRaceContext } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -305,11 +305,7 @@ function trophyOfferActions(
 
   // The defeated creature instance — mirrors the derivation in finalizeCombat
   // so the take-trophy handler can locate it in the defender's kill pile.
-  const creatureInstanceId =
-    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
-          : null;
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
 
   const eligible = combat.trophyEligibleCharacters ?? [];
   if (!creatureInstanceId || eligible.length === 0) {
