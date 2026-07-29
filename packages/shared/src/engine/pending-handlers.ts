@@ -58,6 +58,7 @@ import {
   applyGreatHuntSourceResolution,
   applyGreatHuntDiscardAttackResolution,
   applyPostAttackPlayOfferResolution,
+  applyInfluenceOverflowDiscardResolution,
 } from './pending-reducers.js';
 import {
   corruptionCheckActions,
@@ -92,6 +93,7 @@ import {
   greatHuntSourceActions,
   greatHuntDiscardAttackActions,
   postAttackPlayOfferActions,
+  influenceOverflowDiscardActions,
 } from './legal-actions/pending.js';
 
 /** The discriminant of every {@link PendingResolution} kind. */
@@ -154,6 +156,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'great-hunt-source': { legalActions: greatHuntSourceActions, apply: applyGreatHuntSourceResolution },
   'great-hunt-discard-attack': { legalActions: greatHuntDiscardAttackActions, apply: applyGreatHuntDiscardAttackResolution },
   'post-attack-play-offer': { legalActions: postAttackPlayOfferActions, apply: applyPostAttackPlayOfferResolution },
+  'influence-overflow-discard': { legalActions: influenceOverflowDiscardActions, apply: applyInfluenceOverflowDiscardResolution },
 };
 
 /**

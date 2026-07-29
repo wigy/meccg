@@ -50,6 +50,7 @@ import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
+import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
 
 
 /**
@@ -2278,6 +2279,44 @@ export function forceDiscardCardActions(
     });
   }
   return actions;
+}
+
+/**
+ * Legal actions for an `influence-overflow-discard` pending resolution
+ * (CoE 3.47). The actor left their organization phase over their general
+ * influence and must remove non-avatar characters until they are back within
+ * it.
+ *
+ * The rule fixes the order, so only the highest-priority tier that still has a
+ * member is offered — characters brought into play during the phase that just
+ * ended, then characters that lost direct-influence control between
+ * organization phases, then a free choice. Within the offered tier the actor
+ * picks freely; passing is not on the table.
+ */
+export function influenceOverflowDiscardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'influence-overflow-discard') return [];
+  const step = influenceOverflowStep(state, actor, top.kind.playedThisTurnIds, top.kind.uncontrolledIds);
+  // No step means the overflow is gone (or nothing removable is left) and the
+  // resolution is about to be dequeued by whatever removal cleared it — the
+  // reducer dequeues on the same condition, so an empty menu here is never
+  // reachable while the resolution is genuinely at the head of the queue.
+  if (!step) return [];
+
+  const excess = influenceOverflowAmount(state, actor);
+  return viable(step.candidateIds.map(instanceId => {
+    const defId = resolveInstanceId(state, instanceId);
+    const name = defId ? cardName(state, defId) : (instanceId as string);
+    logDetail(`influence-overflow-discard: offering "${name}" (${step.tier} → ${step.destination}) — ${excess} influence over`);
+    return {
+      type: 'influence-overflow-discard' as const,
+      player: actor,
+      characterInstanceId: instanceId,
+    };
+  }));
 }
 
 /**

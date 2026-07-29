@@ -972,6 +972,40 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Hand cards whose after-attack play-window matched the ended attack. */
         readonly cardInstanceIds: readonly CardInstanceId[];
+      }
+    | {
+        /**
+         * CoE 3.47: the active player left their organization phase with the
+         * total mind of their non-follower characters above their general
+         * influence, and must now remove non-avatar characters until they are
+         * back within it. Enqueued at the organization/long-event boundary and
+         * kept alive, one removal per action, until the overflow is gone (or
+         * nothing removable is left).
+         *
+         * The rule prescribes a strict order, so each step offers only the
+         * highest-priority tier that still has a member:
+         *
+         * 1. Characters brought into play during this organization phase
+         *    ({@link playedThisTurnIds}) — these go back to the player's *hand*
+         *    rather than the discard pile.
+         * 2. Characters that lost direct-influence control between organization
+         *    phases and were never reassigned ({@link uncontrolledIds}) —
+         *    discarded.
+         * 3. Any other non-avatar character, the player's free choice —
+         *    discarded.
+         *
+         * Both id lists are captured at enqueue time (the organization phase
+         * state they come from is gone by the time this resolves) and filtered
+         * against live state at each step, so a character removed as collateral
+         * (e.g. a follower dispersed with its controller) simply drops out.
+         *
+         * Resolved by repeated `influence-overflow-discard` actions.
+         */
+        readonly type: 'influence-overflow-discard';
+        /** Tier 1: characters brought into play this organization phase (return to hand). */
+        readonly playedThisTurnIds: readonly CardInstanceId[];
+        /** Tier 2: characters that reverted to general influence outside the organization phase. */
+        readonly uncontrolledIds: readonly CardInstanceId[];
       };
 }
 
