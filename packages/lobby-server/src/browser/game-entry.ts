@@ -119,9 +119,13 @@ function setViewMode(visual: boolean): void {
 }
 
 function applyDevMode(on: boolean): void {
-  viewToggleBtn.style.display = on ? '' : 'none';
-  devMenuBtn.style.display = on ? '' : 'none';
-  if (!on) {
+  // Spectators never get the debug menu or debug view, whatever their own
+  // dev-mode setting: they can neither act nor issue dev commands, so the
+  // controls would be inert at best and confusing at worst.
+  const effectiveOn = on && !appState.spectating;
+  viewToggleBtn.style.display = effectiveOn ? '' : 'none';
+  devMenuBtn.style.display = effectiveOn ? '' : 'none';
+  if (!effectiveOn) {
     closeDevMenu();
     setViewMode(true);
   }
@@ -279,6 +283,16 @@ if (!SERVER_DEV) {
   devModeToggle.checked = localStorage.getItem(DEV_MODE_KEY) === 'true';
   applyDevMode(devModeToggle.checked);
 }
+
+/**
+ * Re-apply dev-mode UI visibility from the current setting. Called on every
+ * game connect so entering spectator mode forces the debug controls off and
+ * leaving it (a later game as a player) restores them.
+ */
+function refreshDevMode(): void {
+  applyDevMode(SERVER_DEV && devModeToggle.checked);
+}
+ns.refreshDevMode = refreshDevMode;
 
 settingsBtn.addEventListener('click', () => {
   settingsModal.classList.remove('hidden');
