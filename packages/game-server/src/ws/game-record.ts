@@ -13,9 +13,12 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { Phase, computeTournamentBreakdown } from '@meccg/shared';
+import {
+  Phase, computeTournamentBreakdown, isAvatarCharacter, isCharacterCard,
+} from '@meccg/shared';
 import type {
-  Alignment, CardDefinitionId, GameState, MarshallingPointTotals, PlayerId, WizardName,
+  Alignment, CardDefinitionId, CardInstance, GameState, MarshallingPointTotals, PlayerId,
+  PlayerState,
 } from '@meccg/shared';
 
 /** Where completed-game records are stored, one `<gameId>.json` each. */
@@ -36,7 +39,12 @@ export interface CompletedGamePlayer {
   /** False when the seat was played by an AI client. */
   readonly human: boolean;
   readonly alignment: Alignment;
-  readonly wizard: WizardName | null;
+  /**
+   * The player's avatar by name — a Wizard, a Ringwraith, a fallen Istar, or
+   * the Balrog, depending on alignment. Null only when the deck holds no
+   * avatar at all.
+   */
+  readonly avatar: string | null;
   readonly deck: PlayerDeckInfo;
   readonly startingPlayer: boolean;
   /** Tournament-adjusted final score the winner was decided on. */
@@ -71,6 +79,35 @@ export interface CompletedGameRecord {
 const NO_DECK: PlayerDeckInfo = { id: null, name: null, gameLength: null };
 
 /**
+ * The name of a player's avatar. `PlayerState.wizard` is never assigned by the
+ * engine (avatars are ordinary characters, not a declared selection), so the
+ * avatar is recovered from the cards themselves: an avatar is the only
+ * character with no mind cost ({@link isAvatarCharacter}).
+ *
+ * The avatar in play is preferred, but a game can end with it eliminated or
+ * still in the deck, so every zone the player's cards can rest in is searched.
+ * A deck carries three copies of its avatar, so this only comes back null for
+ * a deck built without one. Candidates are restricted to the player's own
+ * alignment: a deck may hold an opposing avatar as a hazard creature (a Nazgûl
+ * played against a hero company), and that is not the player's avatar.
+ */
+function avatarName(state: GameState, player: PlayerState): string | null {
+  const inPlay = Object.values(player.characters).map(c => c.definitionId);
+  const elsewhere: readonly (readonly CardInstance[])[] = [
+    player.hand, player.discardPile, player.outOfPlayPile, player.playDeck,
+    player.sideboard, player.killPile,
+  ];
+  const candidates = [...inPlay, ...elsewhere.flatMap(zone => zone.map(c => c.definitionId))];
+
+  for (const definitionId of candidates) {
+    const def = state.cardPool[definitionId];
+    if (!isCharacterCard(def) || !isAvatarCharacter(def)) continue;
+    if (def.alignment === player.alignment) return def.name;
+  }
+  return null;
+}
+
+/**
  * Build the record from a game-over state. Pure; throws if the game is not
  * over. `deckInfo` is keyed by lowercase player name and `aiPlayers` holds
  * lowercase names of AI-controlled seats (both facts only exist in the
@@ -98,7 +135,7 @@ export function buildCompletedGameRecord(
       name: player.name,
       human: !aiPlayers.has(player.name.toLowerCase()),
       alignment: player.alignment,
-      wizard: player.wizard,
+      avatar: avatarName(state, player),
       deck: deckInfo[player.name.toLowerCase()] ?? NO_DECK,
       startingPlayer: state.startingPlayer === player.id,
       finalScore: phaseState.finalScores[player.id],

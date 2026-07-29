@@ -50,7 +50,7 @@ interface PlayerGameSide {
   readonly name: string;
   readonly human: boolean;
   readonly alignment: string | null;
-  readonly wizard: string | null;
+  readonly avatar: string | null;
   readonly deckName: string | null;
   readonly gameLength: string | null;
   readonly startingPlayer: boolean;
@@ -166,7 +166,7 @@ function renderGameTable(game: PlayerGame): string {
       </thead>
       <tbody>
         <tr><th scope="row">Alignment</th>${sideCells(game, s => escapeHtml(orDash(s.alignment)))}</tr>
-        <tr><th scope="row">Wizard</th>${sideCells(game, s => escapeHtml(orDash(s.wizard)))}</tr>
+        <tr><th scope="row">Avatar</th>${sideCells(game, s => escapeHtml(orDash(s.avatar)))}</tr>
         <tr><th scope="row">Deck</th>${sideCells(game, s => escapeHtml(orDash(s.deckName)))}</tr>
         <tr><th scope="row">Game length</th>${sideCells(game, s => escapeHtml(orDash(s.gameLength)))}</tr>
         <tr><th scope="row">Started</th>${sideCells(game, s => (s.startingPlayer ? 'Yes' : 'No'))}</tr>

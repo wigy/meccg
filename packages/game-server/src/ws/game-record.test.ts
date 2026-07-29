@@ -19,6 +19,7 @@ import type { PlayerDeckInfo } from './game-record.js';
 const ALICE = 'p1' as PlayerId;
 const BOB = 'p2' as PlayerId;
 const BALIN = 'tw-123' as CardDefinitionId;
+const GANDALF = 'tw-156' as CardDefinitionId;
 const THRAIN = 'tw-149' as CardDefinitionId;
 const RIVENDELL = 'tw-258' as CardDefinitionId;
 const THE_ONE_RING = 'tw-236' as CardDefinitionId;
@@ -39,7 +40,7 @@ function gameOverState(over: Omit<GameOverPhaseState, 'phase'>): GameState {
   const config: GameConfig = {
     players: [
       { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
-        draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        draftPool: [BALIN], playDeck: [GANDALF], siteDeck: [RIVENDELL], sideboard: [] },
       { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
         draftPool: [THRAIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
     ],
@@ -90,13 +91,18 @@ describe('buildCompletedGameRecord', () => {
     expect(alice.playerId).toBe(ALICE);
     expect(alice.alignment).toBe(Alignment.Wizard);
     expect(alice.deck).toEqual(DECKS.alice);
+    // The avatar is recovered from the cards, wherever they rest — Alice's
+    // Wizard is still in her play deck.
+    expect(alice.avatar).toBe('Gandalf');
     expect(alice.startingPlayer).toBe(false);
     expect(alice.finalScore).toBe(13);
     expect(alice.mp).toEqual(MP_ALICE);
     expect(alice.stagePoints).toBe(0);
 
-    // Bob sent no deck list — identity stays null rather than guessed.
+    // Bob sent no deck list — identity stays null rather than guessed, and
+    // his cards hold no avatar to recover.
     expect(bob.deck).toEqual({ id: null, name: null, gameLength: null });
+    expect(bob.avatar).toBeNull();
     expect(bob.startingPlayer).toBe(true);
     expect(bob.finalScore).toBe(4);
     expect(bob.mp).toEqual(MP_BOB);

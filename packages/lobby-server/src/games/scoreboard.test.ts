@@ -72,7 +72,7 @@ describe('playerGames', () => {
     winCard: null,
     players: [
       {
-        name: 'Alice', human: true, alignment: 'hero', wizard: 'Gandalf',
+        name: 'Alice', human: true, alignment: 'hero', avatar: 'Gandalf',
         deck: { name: 'Rangers', gameLength: 'standard' }, startingPlayer: true,
         finalScore: 21, mp: { character: 4, item: 6 }, tournamentMp: { character: 4, item: 5 },
         stagePoints: 0,
@@ -102,7 +102,7 @@ describe('playerGames', () => {
       winner: 'Alice', winReason: 'marshalling-points', result: 'win',
     });
     expect(game.self).toMatchObject({
-      name: 'Alice', human: true, alignment: 'hero', wizard: 'Gandalf',
+      name: 'Alice', human: true, alignment: 'hero', avatar: 'Gandalf',
       deckName: 'Rangers', gameLength: 'standard', startingPlayer: true, finalScore: 21,
     });
     // Missing categories are filled in so the client renders a fixed table.

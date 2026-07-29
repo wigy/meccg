@@ -79,6 +79,13 @@ export interface LoadedDeck {
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
   readonly sideboard: readonly CardDefinitionId[];
+  /**
+   * The unexpanded catalog entry. The text clients forward it as
+   * `JoinMessage.deckList` so a lobby-spawned seat validates against the same
+   * structured deck the editor would send, and so the completed-game record
+   * keeps the deck's identity (id, name) instead of an anonymous card list.
+   */
+  readonly file: DeckFile;
 }
 
 /** Load and expand a catalog deck by ID (e.g. "challenge-deck-a"). */
@@ -99,6 +106,7 @@ export function loadDeck(deckId: string): LoadedDeck {
     ],
     siteDeck: expandEntries(deck.sites),
     sideboard: expandEntries(deck.sideboard ?? []),
+    file: deck,
   };
 }
 

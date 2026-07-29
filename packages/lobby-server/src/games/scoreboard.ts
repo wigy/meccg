@@ -30,7 +30,12 @@ export interface ScoreboardRecordPlayer {
   readonly name?: string;
   readonly human?: boolean;
   readonly alignment?: string;
-  readonly wizard?: string | null;
+  /**
+   * The player's avatar (Wizard, Ringwraith, fallen Istar, or the Balrog).
+   * Absent on records written before the game-server recovered it from the
+   * player's cards — those carry a `wizard` field that is always null.
+   */
+  readonly avatar?: string | null;
   readonly deck?: { readonly name?: string | null; readonly gameLength?: string | null };
   readonly startingPlayer?: boolean;
   readonly finalScore?: number;
@@ -113,7 +118,7 @@ export interface PlayerGameSide {
   readonly name: string;
   readonly human: boolean;
   readonly alignment: string | null;
-  readonly wizard: string | null;
+  readonly avatar: string | null;
   readonly deckName: string | null;
   readonly gameLength: string | null;
   readonly startingPlayer: boolean;
@@ -156,7 +161,7 @@ function toSide(player: ScoreboardRecordPlayer): PlayerGameSide {
     name,
     human: player.human ?? !/^ai-/i.test(name),
     alignment: player.alignment ?? null,
-    wizard: player.wizard ?? null,
+    avatar: player.avatar ?? null,
     deckName: player.deck?.name ?? null,
     gameLength: player.deck?.gameLength ?? null,
     startingPlayer: player.startingPlayer ?? false,

@@ -9,7 +9,7 @@
  */
 
 import type { WebSocket } from 'ws';
-import type { ClientMessage, JoinMessage, ServerMessage } from '@meccg/shared';
+import type { ClientMessage, DeckList, JoinMessage, ServerMessage } from '@meccg/shared';
 import { Alignment } from '@meccg/shared';
 import { loadDeck, listDecks } from '@meccg/sim';
 
@@ -26,6 +26,12 @@ export function loadDeckJoin(deckId: string, playerName: string): JoinMessage {
     playDeck: deck.playDeck,
     siteDeck: deck.siteDeck,
     sideboard: deck.sideboard,
+    // The structured catalog deck, so the server validates what the editor
+    // would have sent and records this seat's deck identity in the
+    // completed-game record. The catalog file is a `DeckList` apart from the
+    // branded `card` ids and the narrow alignment union — the same bridge the
+    // browser client uses for its own deck lists.
+    deckList: deck.file as unknown as DeckList,
   };
 }
 
