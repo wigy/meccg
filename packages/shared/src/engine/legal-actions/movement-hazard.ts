@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay, agentCurrentSiteName, agentMatchesFilter } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -3950,45 +3950,6 @@ function resetHandActions(
     action: { type: 'discard-card' as const, player: playerId, cardInstanceId: handCard.instanceId },
     viable: true,
   }));
-}
-
-/**
- * Count occurrences of each region type in a path. Returns a flat record
- * keyed by `{type}Count` so DSL conditions can reference counts directly
- * (e.g. `destinationSite.sitePath.wildernessCount >= 2`).
- */
-function regionTypeCounts(path: readonly RegionType[]): Record<string, number> {
-  const counts: Record<string, number> = {
-    wildernessCount: 0, shadowCount: 0, darkCount: 0,
-    coastalCount: 0, freeCount: 0, borderCount: 0,
-  };
-  for (const rt of path) {
-    switch (rt) {
-      case RegionType.Wilderness: counts.wildernessCount++; break;
-      case RegionType.Shadow: counts.shadowCount++; break;
-      case RegionType.Dark: counts.darkCount++; break;
-      case RegionType.Coastal: counts.coastalCount++; break;
-      case RegionType.Free: counts.freeCount++; break;
-      case RegionType.Border: counts.borderCount++; break;
-    }
-  }
-  return counts;
-}
-
-/**
- * Check whether any of the creature's region types can be keyed to the
- * site path. Each distinct type is an independent option (OR). If the
- * same type appears N times, the path must have at least N of that type.
- */
-function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
-  const requiredCounts = new Map<RegionType, number>();
-  for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
-  const pathCounts = new Map<RegionType, number>();
-  for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
-  for (const [rt, need] of requiredCounts) {
-    if ((pathCounts.get(rt) ?? 0) >= need) return true;
-  }
-  return false;
 }
 
 /**
