@@ -41,7 +41,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'faction-influence-roll' || ea.action.type === 'under-deeps-roll'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
     || ea.action.type === 'finished' || ea.action.type === 'untap'
-    || ea.action.type === 'opponent-influence-defend'));
+    || ea.action.type === 'opponent-influence-defend' || ea.action.type === 'resolve-dice-check'));
   const passAction = passEval?.action;
   const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
@@ -78,6 +78,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Untap';
   } else if (passAction.type === 'opponent-influence-defend') {
     label = 'Roll Defense';
+  } else if (passAction.type === 'resolve-dice-check') {
+    label = 'Roll';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Pass';
   } else if (view.phaseState.phase === Phase.Organization) {
