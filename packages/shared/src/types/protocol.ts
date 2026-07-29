@@ -375,4 +375,21 @@ export interface LogMessage {
   readonly lines: readonly string[];
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage | LogMessage;
+/**
+ * Sent by the server whenever the set of spectators watching this game
+ * changes, and to each client as it is seated so its watcher badge starts
+ * correct.
+ *
+ * This cannot ride along on {@link StateMessage}: spectators arriving and
+ * leaving does not change the game state, so the badge would only refresh on
+ * the next move. Names are deduplicated — one person watching from two tabs
+ * is one watcher.
+ */
+export interface SpectatorsMessage {
+  /** Message type discriminant. */
+  readonly type: 'spectators';
+  /** Display names of everyone currently watching, sorted, without duplicates. */
+  readonly names: readonly string[];
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage | LogMessage | SpectatorsMessage;

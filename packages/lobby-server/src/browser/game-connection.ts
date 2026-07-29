@@ -19,6 +19,7 @@ import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCounc
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
+import { setSpectators } from './spectators.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
 import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
 
@@ -604,6 +605,10 @@ export function connect(name: string): void {
         for (const line of msg.lines) {
           renderLog(line);
         }
+        break;
+
+      case 'spectators':
+        setSpectators(msg.names);
         break;
 
       case 'restart':

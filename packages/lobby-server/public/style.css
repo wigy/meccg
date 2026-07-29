@@ -2797,6 +2797,26 @@ h2 {
   vertical-align: middle;
 }
 
+/* Spectator badge: the watcher count sits beside the icon rather than on top
+   of it, so a two-digit count cannot spill outside the glyph. The button is
+   hidden outright when nobody is watching (see spectators.ts). */
+#spectators-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+#spectators-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #c4a35a;
+  line-height: 1;
+}
+
+#spectators-btn:hover svg {
+  stroke: #c4a35a;
+}
+
 /* The view toggle button contains two SVGs; show only the one that
    matches the current mode. Default (no class) shows visual icon. */
 #view-toggle-btn .view-icon-debug { display: none; }
