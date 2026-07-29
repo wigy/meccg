@@ -229,4 +229,70 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
     expect(arrivedCompany.currentSite?.definitionId).toBe(HENNETH_ANNUN);
     expect(arrivedCompany.siteCardOwned).toBe(true);
   });
+
+  test('site of origin ownership passes to a sibling company left behind', () => {
+    // Two companies share Minas Tirith: company 0 owns the physical card and
+    // moves away to Henneth Annun; company 1 stays behind. Since company 1 is
+    // still occupying the site of origin, the card must remain in play — and
+    // ownership of it must pass to company 1 (it can no longer be "borrowing"
+    // a card that its sibling no longer holds).
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN] },
+            { site: MINAS_TIRITH, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [HENNETH_ANNUN],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const [company0, company1] = built.players[0].companies;
+    const sharedSite = company0.currentSite!;
+    const hennethSite = built.players[0].siteDeck.find(
+      c => c.definitionId === HENNETH_ANNUN,
+    )!;
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [
+            {
+              ...company0,
+              siteCardOwned: true,
+              destinationSite: { instanceId: hennethSite.instanceId, definitionId: hennethSite.definitionId, status: CardStatus.Untapped },
+              siteOfOrigin: sharedSite.instanceId,
+            },
+            { ...company1, currentSite: sharedSite, siteCardOwned: false },
+          ],
+        },
+        built.players[1],
+      ],
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[0];
+    const stayedCompany = p1.companies.find(c => c.id === company1.id)!;
+    expect(stayedCompany.currentSite?.instanceId).toBe(sharedSite.instanceId);
+    expect(stayedCompany.siteCardOwned).toBe(true);
+    // The card is still in play at the sibling — it must not have been
+    // discarded or returned to the location deck.
+    expect(p1.siteDeck.some(c => c.instanceId === sharedSite.instanceId)).toBe(false);
+    expect(p1.siteDiscardPile.some(c => c.instanceId === sharedSite.instanceId)).toBe(false);
+  });
 });
