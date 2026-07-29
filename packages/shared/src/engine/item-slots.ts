@@ -17,15 +17,19 @@
  * slot ("both modifiers count") at the cost of the shield slot ("if he uses
  * two weapons he can't use a shield").
  *
- * "In use" selection: the first item carrying the slot keyword (in the
- * character's `items` array order) wins. The active player's right to switch
- * which item is in use (rule 9.16) is not yet modeled — when it is, this
- * module is the place to wire it. Where a slot modifier offers a trade-off
- * (two weapons vs. weapon+shield), the engine prefers consuming the extra
- * capacity rather than keeping the excluded slot.
+ * "In use" selection: by default the first item carrying the slot keyword (in
+ * the character's `items` array order) wins. Rule 9.16 lets the resource
+ * player declare that a character begins using a borne item it is not
+ * currently using; such declarations live on
+ * {@link CharacterInPlay.itemsInUse} and are honoured here by promoting the
+ * declared items ahead of their slot-mates before the carrying-order pass, so
+ * the declared item takes the slot and the item it displaces stops
+ * contributing its effects immediately. Where a slot modifier offers a
+ * trade-off (two weapons vs. weapon+shield), the engine prefers consuming the
+ * extra capacity rather than keeping the excluded slot.
  */
 
-import type { CardDefinition, CardInstance, CharacterInPlay, GameState, Keyword } from '../index.js';
+import type { CardDefinition, CardInstance, CardInstanceId, CharacterInPlay, GameState, Keyword } from '../index.js';
 import { resolveDef } from './effects/index.js';
 import { getCardEffects } from './reducer-utils.js';
 
@@ -97,6 +101,10 @@ function collectSlotCapacities(
  * `naturalSkills` gates `requiresNaturalSkill` slot modifiers — pass the
  * bearing character's natural (card-definition) skills.
  *
+ * `declaredInUse` holds the items the controller has declared in use under
+ * rule 9.16; they are considered ahead of their slot-mates, which is what
+ * makes a declaration displace the item that held the slot before.
+ *
  * Callers should still apply per-item corruption points and marshalling
  * points from every borne item — those are not effects.
  */
@@ -104,14 +112,26 @@ export function pickActiveItems(
   state: GameState,
   items: readonly CardInstance[],
   naturalSkills: readonly string[] = [],
+  declaredInUse: readonly CardInstanceId[] = [],
 ): ReadonlySet<string> {
   const { capacity, exclusions } = collectSlotCapacities(state, items, naturalSkills);
+
+  // Rule 9.16: a declared item is considered before the items it shares a slot
+  // with, so it claims the slot and displaces whichever item held it by
+  // carrying order. Stable within each group, so undeclared items keep their
+  // relative carrying order and declarations naming an item this character no
+  // longer bears simply never match.
+  const declared = new Set(declaredInUse as readonly string[]);
+  const ordered = declared.size === 0
+    ? items
+    : [...items.filter(i => declared.has(i.instanceId as string)),
+       ...items.filter(i => !declared.has(i.instanceId as string))];
 
   // First pass: admit items up to each slot's capacity (carrying order).
   const active = new Set<string>();
   const used = new Map<Keyword, number>();
   const admittedBySlot = new Map<Keyword, string[]>();
-  for (const item of items) {
+  for (const item of ordered) {
     const def = resolveDef(state, item.instanceId);
     const slot = getItemSlot(def);
     const id = item.instanceId as string;
@@ -144,7 +164,8 @@ export function pickActiveItems(
  * Convenience wrapper: returns the active-item set for a character, passing
  * the character's natural skills so `requiresNaturalSkill` slot modifiers
  * (e.g. Swordmaster's two-weapon privilege for an already-warrior sage) are
- * gated correctly.
+ * gated correctly, and its rule-9.16 in-use declarations so a switched-to item
+ * takes its slot.
  */
 export function pickActiveItemsForCharacter(
   state: GameState,
@@ -153,5 +174,5 @@ export function pickActiveItemsForCharacter(
   const charDef = resolveDef(state, char.instanceId);
   const naturalSkills =
     charDef && 'skills' in charDef && charDef.skills ? (charDef.skills as readonly string[]) : [];
-  return pickActiveItems(state, char.items, naturalSkills);
+  return pickActiveItems(state, char.items, naturalSkills, char.itemsInUse ?? []);
 }

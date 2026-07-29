@@ -55,6 +55,7 @@ import {
   planMovementActions,
   moveToInfluenceActions,
   transferItemActions,
+  useItemActions,
   storeItemActions,
   splitCompanyActions,
   moveToCompanyActions,
@@ -643,6 +644,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Transfer-item actions (move items between characters at the same site)
   actions.push(...transferItemActions(state, playerId));
+  actions.push(...useItemActions(state, playerId));
 
   // Store-item actions (store items at matching sites)
   actions.push(...storeItemActions(state, playerId));

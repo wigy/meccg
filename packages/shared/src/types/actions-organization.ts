@@ -676,6 +676,41 @@ export interface PayMovementTaxAction {
 }
 
 /**
+ * Declare that a character begins using a borne item it is not currently
+ * using (CoE 9.16).
+ *
+ * A character may bear any number of items but only one weapon, armor, shield
+ * and helmet may be in use at a time. Absent any declaration the engine picks
+ * per slot by carrying order; this action lets the resource player override
+ * that choice. The item takes its slot immediately, and the effects of the
+ * item it displaces cease at the same moment — nothing moves between
+ * characters and no corruption check is involved, which is what separates
+ * this from {@link TransferItemAction}.
+ *
+ * Only offered for a slotted item (weapon/armor/shield/helmet) that the
+ * character bears but is not already using: switching to an item already in
+ * use would change nothing.
+ *
+ * The declaration window is the organization phase, alongside the other
+ * item-handling actions (transfer, store). Rule 9.16 itself names no phase —
+ * it is an ordinary resource action — so the window may widen later; the
+ * declaration state it writes ({@link CharacterInPlay.itemsInUse}) is
+ * phase-independent and persists until the player declares otherwise.
+ */
+export interface UseItemAction {
+  /** Action discriminant. */
+  readonly type: 'use-item';
+  /** The resource player declaring the switch. */
+  readonly player: PlayerId;
+  /** The character that will begin using the item. */
+  readonly characterInstanceId: CardInstanceId;
+  /** The borne item that comes into use. */
+  readonly itemInstanceId: CardInstanceId;
+  /** When true, this action undoes a previous switch this phase (regressive). */
+  readonly regress?: true;
+}
+
+/**
  * Resolve one step of an `influence-overflow-discard` pending resolution
  * (CoE 3.47): the active player left their organization phase over their
  * general influence and removes one non-avatar character from play. The

@@ -40,6 +40,7 @@ import { viableWithRegress } from '../reverse-actions.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
+import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
 
 /**
  * Group a player's companies by the instance ID of the site they currently
@@ -1058,6 +1059,60 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
           };
           actions.push(viableWithRegress(candidate, state.reverseActions));
         }
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Computes use-item actions during the organization phase (CoE 9.16).
+ *
+ * A character may bear any number of items but only one weapon, armor, shield
+ * and helmet may be *in use* at a time. Absent a declaration the engine picks
+ * per slot by carrying order; this action lets the resource player say which
+ * of the slot-mates a character actually wields, at which point the displaced
+ * item's effects cease.
+ *
+ * Only borne items that are slotted *and* not already in use are offered —
+ * declaring an item that already holds its slot would change nothing, and a
+ * non-slotted item is always in use so there is nothing to declare. A
+ * character bearing at most one item per slot therefore produces no actions.
+ *
+ * Unlike {@link transferItemActions} nothing changes hands and no corruption
+ * check follows: the item stays on the same character throughout.
+ */
+export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const company of player.companies) {
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId];
+      if (!char || char.items.length < 2) continue;
+
+      const charDef = resolveDef(state, char.instanceId);
+      const charName = isCharacterCard(charDef) ? charDef.name : '?';
+      const active = pickActiveItemsForCharacter(state, char);
+
+      for (const item of char.items) {
+        const itemDef = defById(state, item.definitionId);
+        const itemName = itemDef?.name ?? '?';
+        const slot = getItemSlot(itemDef);
+        if (slot === null) continue;
+        if (active.has(item.instanceId as string)) {
+          logDetail(`  use-item: ${itemName} is already the ${slot} in use on ${charName}`);
+          continue;
+        }
+        logDetail(`  → viable: ${charName} begins using ${itemName} as their ${slot}`);
+        const candidate: GameAction = {
+          type: 'use-item',
+          player: playerId,
+          characterInstanceId: charInstId,
+          itemInstanceId: item.instanceId,
+        };
+        actions.push(viableWithRegress(candidate, state.reverseActions));
       }
     }
   }
