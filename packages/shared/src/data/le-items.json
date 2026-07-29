@@ -1182,7 +1182,23 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "company.characterCount": {
+            "$lt": 2
+          }
+        }
+      }
+    ],
     "text": "Unique. Palantír. If the bearer’s company is ever below 2 characters and it moves, discard this item. With its bearer able to use a Palantír, tap Palantír of Amon Sûl to look at your opponent’s hand or tap it to use the abilities of either the minion Palantír of Annúminas or minion Palantír of Elostirion if either one is in play. Bearer then makes a corruption check. 5 marshalling points if stored at Barad-dûr."
   },
   {
@@ -1308,7 +1324,23 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "company.characterCount": {
+            "$lt": 4
+          }
+        }
+      }
+    ],
     "text": "Unique. Palantír. If the bearer’s company is ever below 4 characters and it moves, discard this item. With its bearer able to use a Palantír, tap Palantír of Osgiliath to force the discard of any hazard permanent-event or to duplicate the effect of any minion Palantír in play. Bearer then makes a corruption check. 5 marshalling points if stored at Barad-dûr."
   },
   {

@@ -1645,6 +1645,15 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       // (ba-67), whose ally is discarded via a `sitePath.regionTypes`
       // `$includes` gate.
       sitePath: { regionTypes: [...mhState.resolvedSitePath] },
+      // The moving company itself. Lets a `bearer-company-moves` self-discard
+      // fire only for a company that has shrunk past a threshold — the Palantír
+      // of Amon Sûl (tw-296 / le-330) and Palantír of Osgiliath (tw-301 /
+      // le-335) are discarded "if the bearer's company is ever below 2 (resp. 4)
+      // characters and it moves", expressed as
+      // `when: { "company.characterCount": { "$lt": 2 } }`. Counted as the
+      // company stands on completing the move, which is the only moment the two
+      // halves of that clause ("below N" and "it moves") are both settled.
+      company: { characterCount: movedCompany.characters.length },
     };
     // True when a `bearer-company-moves` self-discard effect should fire given
     // its optional `when` gate against the destination site.
