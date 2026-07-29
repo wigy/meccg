@@ -929,6 +929,83 @@ function applyCharacterSelfEntersPlayMoveEffects(
  * one-character-per-turn bookkeeping is untouched and the swap is routed
  * from the organization, site, and M/H phase reducers alike.
  */
+/**
+ * Replaces an in-play character with a fresh instance played from hand, keeping
+ * the old one's slot in its company and every reference that pointed at it.
+ *
+ * The replacement enters untapped and inherits all attached cards (items,
+ * allies, hazards, trophies), the follower list, its own `controlledBy`, the
+ * `controlledBy` of every character it controlled, and any leader-controlled
+ * in-play card (e.g. a faction). Tap and wound state do NOT transfer — only
+ * cards do.
+ *
+ * The replaced character's own card instance is appended to `destination`, so
+ * no card ever disappears from the game state.
+ *
+ * Shared by {@link handleManifestationSwap} (card removed from the game) and
+ * {@link handleDiscardToRecruit} (card discarded), which differ only in that
+ * destination pile.
+ */
+function replaceCharacterInPlace(
+  state: GameState,
+  playerIndex: number,
+  oldChar: CharacterInPlay,
+  handCard: CardInstance,
+  destination: 'discardPile' | 'outOfPlayPile',
+): GameState {
+  const player = state.players[playerIndex];
+  const oldId = oldChar.instanceId;
+  const newId = handCard.instanceId;
+  const newName = defById(state, handCard.definitionId)?.name ?? (newId as string);
+
+  const newChar: CharacterInPlay = {
+    instanceId: newId,
+    definitionId: handCard.definitionId,
+    status: CardStatus.Untapped,
+    items: oldChar.items,
+    allies: oldChar.allies,
+    hazards: oldChar.hazards,
+    followers: oldChar.followers,
+    controlledBy: oldChar.controlledBy,
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+    ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
+  };
+
+  // Rebuild the characters map: drop the old instance, add the new one,
+  // repoint follower/controller references from old to new.
+  const characters: Record<CardInstanceId, CharacterInPlay> = {};
+  for (const [cid, c] of Object.entries(player.characters)) {
+    if (cid === (oldId as string)) continue;
+    let updated = c;
+    if (updated.controlledBy === oldId) {
+      updated = { ...updated, controlledBy: newId };
+      logDetail(`  Follower ${defById(state, updated.definitionId)?.name ?? cid} now controlled by ${newName}`);
+    }
+    if (updated.followers.includes(oldId)) {
+      updated = { ...updated, followers: updated.followers.map(f => (f === oldId ? newId : f)) };
+    }
+    characters[cid as CardInstanceId] = updated;
+  }
+  characters[newId] = newChar;
+
+  return updatePlayer(state, playerIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, newId),
+    characters,
+    // The replacement takes the old instance's position in its company.
+    companies: p.companies.map(comp =>
+      comp.characters.includes(oldId)
+        ? { ...comp, characters: comp.characters.map(c => (c === oldId ? newId : c)) }
+        : comp,
+    ),
+    // Leader-controlled in-play cards transfer with everything else.
+    cardsInPlay: p.cardsInPlay.map(c => (c.controlledBy === oldId ? { ...c, controlledBy: newId } : c)),
+    ...(destination === 'discardPile'
+      ? { discardPile: [...p.discardPile, toCardInstance(oldChar)] }
+      : { outOfPlayPile: [...p.outOfPlayPile, toCardInstance(oldChar)] }),
+  }));
+}
+
 export function handleManifestationSwap(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'manifestation-swap') return wrongActionType(state, action, 'manifestation-swap');
 
@@ -951,64 +1028,12 @@ export function handleManifestationSwap(state: GameState, action: GameAction): R
   if (!newDef || !isCharacterCard(newDef) || newDef.name !== swap.cardName) {
     return { state, error: `manifestation-swap: replacement must be ${swap.cardName}` };
   }
-  const newId = handCard.instanceId;
 
   logDetail(`Manifestation swap: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is removed from the game and all cards on him transfer`);
 
-  // The replacement enters play untapped, inheriting every attachment and
-  // control relationship of the old manifestation. Tap/wound state does not
-  // transfer — only cards do ("bring Aragorn II into play").
-  const newChar: CharacterInPlay = {
-    instanceId: newId,
-    definitionId: handCard.definitionId,
-    status: CardStatus.Untapped,
-    items: oldChar.items,
-    allies: oldChar.allies,
-    hazards: oldChar.hazards,
-    followers: oldChar.followers,
-    controlledBy: oldChar.controlledBy,
-    effectiveStats: ZERO_EFFECTIVE_STATS,
-    ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
-  };
-
-  // Rebuild the characters map: drop the old instance, add the new one,
-  // repoint follower/controller references from old to new.
-  const newCharacters: Record<CardInstanceId, CharacterInPlay> = {};
-  for (const [cid, c] of Object.entries(player.characters)) {
-    if (cid === (oldId as string)) continue;
-    let updated = c;
-    if (updated.controlledBy === oldId) {
-      updated = { ...updated, controlledBy: newId };
-      logDetail(`  Follower ${defById(state, updated.definitionId)?.name ?? cid} now controlled by ${newDef.name}`);
-    }
-    if (updated.followers.includes(oldId)) {
-      updated = { ...updated, followers: updated.followers.map(f => (f === oldId ? newId : f)) };
-    }
-    newCharacters[cid as CardInstanceId] = updated;
-  }
-  newCharacters[newId] = newChar;
-
-  // Replace the old instance in its company at the same position.
-  const companies = player.companies.map(comp =>
-    comp.characters.includes(oldId)
-      ? { ...comp, characters: comp.characters.map(c => (c === oldId ? newId : c)) }
-      : comp,
-  );
-
-  // Leader-controlled in-play cards (e.g. Orcs of Udûn-style factions)
-  // transfer with everything else.
-  const cardsInPlay = player.cardsInPlay.map(c =>
-    c.controlledBy === oldId ? { ...c, controlledBy: newId } : c,
-  );
-
-  const newState = updatePlayer(state, playerIndex, p => ({
-    ...p,
-    hand: removeById(p.hand, newId),
-    characters: newCharacters,
-    companies,
-    cardsInPlay,
-    outOfPlayPile: [...p.outOfPlayPile, toCardInstance(oldChar)],
-  }));
+  // The old manifestation's card leaves the game entirely ("bring Aragorn II
+  // into play" — the Strider card is removed, not discarded).
+  const newState = replaceCharacterInPlace(state, playerIndex, oldChar, handCard, 'outOfPlayPile');
 
   return {
     state: newState,
@@ -1071,65 +1096,12 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   if (recruit.filter && !matchesCondition(recruit.filter, { target: newDef })) {
     return { state, error: `discard-to-recruit: ${newDef.name} does not match the recruit filter` };
   }
-  const newId = handCard.instanceId;
 
   logDetail(`Discard-to-recruit: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is discarded and all cards on him transfer`);
 
-  // The replacement enters play untapped, inheriting every attachment and
-  // control relationship of the bearer. Tap/wound state does not transfer —
-  // only cards do ("play any Hobbit from your hand with his company").
-  const newChar: CharacterInPlay = {
-    instanceId: newId,
-    definitionId: handCard.definitionId,
-    status: CardStatus.Untapped,
-    items: oldChar.items,
-    allies: oldChar.allies,
-    hazards: oldChar.hazards,
-    followers: oldChar.followers,
-    controlledBy: oldChar.controlledBy,
-    effectiveStats: ZERO_EFFECTIVE_STATS,
-    ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
-  };
-
-  // Rebuild the characters map: drop the bearer, add the new one, repoint
-  // follower/controller references from bearer to new instance.
-  const newCharacters: Record<CardInstanceId, CharacterInPlay> = {};
-  for (const [cid, c] of Object.entries(player.characters)) {
-    if (cid === (oldId as string)) continue;
-    let updated = c;
-    if (updated.controlledBy === oldId) {
-      updated = { ...updated, controlledBy: newId };
-      logDetail(`  Follower ${defById(state, updated.definitionId)?.name ?? cid} now controlled by ${newDef.name}`);
-    }
-    if (updated.followers.includes(oldId)) {
-      updated = { ...updated, followers: updated.followers.map(f => (f === oldId ? newId : f)) };
-    }
-    newCharacters[cid as CardInstanceId] = updated;
-  }
-  newCharacters[newId] = newChar;
-
-  // Replace the bearer in its company at the same position.
-  const companies = player.companies.map(comp =>
-    comp.characters.includes(oldId)
-      ? { ...comp, characters: comp.characters.map(c => (c === oldId ? newId : c)) }
-      : comp,
-  );
-
-  // Leader-controlled in-play cards transfer with everything else.
-  const cardsInPlay = player.cardsInPlay.map(c =>
-    c.controlledBy === oldId ? { ...c, controlledBy: newId } : c,
-  );
-
-  // The bearer's own card is discarded (its attachments transferred above, so
-  // only the bare card instance goes to the discard pile).
-  const newState = updatePlayer(state, playerIndex, p => ({
-    ...p,
-    hand: removeById(p.hand, newId),
-    characters: newCharacters,
-    companies,
-    cardsInPlay,
-    discardPile: [...p.discardPile, toCardInstance(oldChar)],
-  }));
+  // Unlike a manifestation swap, the bearer's own card is discarded (and so
+  // stays recyclable); its attachments transfer to the replacement.
+  const newState = replaceCharacterInPlace(state, playerIndex, oldChar, handCard, 'discardPile');
 
   return {
     state: newState,
