@@ -272,16 +272,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1575 contested decisions:
+Over 1601 contested decisions:
 
 ```text
-  covered and decisive        907  57.6%
-  covered but flat            120   7.6%   → H1
-  partial, acted anyway       138   8.8%
-  partial, handed over        367  23.3%   → H1
-  no owner at all              43   2.7%   → H1
+  covered and decisive       1200  75.0%
+  covered but flat            105   6.6%   → H1
+  partial, acted anyway        75   4.7%
+  partial, handed over        208  13.0%   → H1
+  no owner at all              13   0.8%   → H1
 
-  H2 decides 66.3% of contested decisions.
+  H2 decides 79.6% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -301,6 +301,15 @@ reasoning about it:
   zero is a definition and lives in `core/baseline.ts`.
 - **`cancel-movement` and `declare-path`** (262 decisions) were already inside
   `travel`'s model — cancelling is the destination value with the sign flipped.
+- **Sideboard access** (72 decisions) was the largest *flat* decision left: four
+  action types that `hand` owned and scored at zero, on the grounds that no
+  marshalling point moves. True, and beside the point — the cost of reaching
+  into a sideboard is never measured in points, and both variants publish
+  exactly what it is. The resource player taps their avatar (CoE 2.II.6, and the
+  action names him), so `character-value` prices it. The hazard player pays with
+  **half the hazard limit** for every company in the coming movement/hazard
+  phase, and `hazard-plan` prices that by re-running its allocation against
+  halved limits: the cost is the denial the hand can no longer do.
 - **`split-company` and `merge-companies`** (191) turned out to have an exact
   half: the hazard limit *is* the company size, so shape decides how
   concentrated the harm can be. `services/defence.ts` computes it.

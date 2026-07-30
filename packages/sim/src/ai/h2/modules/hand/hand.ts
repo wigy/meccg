@@ -25,17 +25,37 @@
  * correlation of -0.02 over a thousand predictions. A module whose predictions
  * do not vary cannot be right about anything.
  *
- * This module also owns the sideboard exchange, which is a real decision with a
- * real shape: cards move between the sideboard and the deck or discard,
- * changing what the deck will offer later without moving a single marshalling
- * point now. That is scored as the point-neutral action it is, with the deck's
- * size reported, rather than given an invented preference.
+ * This module also owns **sideboard access**, and that used to be scored at a
+ * flat zero on the grounds that no marshalling point moves. True, and beside the
+ * point: the cost of reaching into a sideboard is never measured in points, and
+ * both variants publish exactly what it is.
+ *
+ * - The resource player **taps their avatar** (CoE 2.II.6, and the action names
+ *   him), so the cost is what `character-value` says that tap forfeits — which
+ *   is far more than the flat tempo when he is the company's best influencer.
+ * - The hazard player pays with **half the hazard limit**: `snapshotHazardLimit`
+ *   halves it, rounding up, for every company in the coming movement/hazard
+ *   phase. `hazard-plan` prices that directly by re-running its allocation
+ *   against halved limits — the cost is the denial the hand can no longer do.
+ *
+ * The gain is the best card the sideboard could supply, at the same `quote` a
+ * fetch uses, discounted for how far from playable it lands: a card shuffled
+ * into the play deck must still be drawn, and one sent to the discard pile waits
+ * for the deck to run out first. Both use `potentialDiscount`, once and twice
+ * respectively, so no new constant is invented for the distance.
+ *
+ * It was the largest **flat** decision left in the game — 72 contested decisions
+ * in three self-play games where every candidate tied at zero and the whole
+ * thing went to Heuristics 1, which is not an opinion but the absence of one.
  */
 
-import type { CardInstanceId, GameAction } from '@meccg/shared';
-import type { Evaluation, H2Module, ModuleContext, Outcome } from '../../core/types.js';
+import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
+import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
+import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
+import { computeCharacterValue } from '../../services/character-value.js';
+import { computeHazardPlan } from '../../services/hazard-plan.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -58,13 +78,51 @@ const OWNED_ACTION_TYPES = [
 
 /** Assumptions every hand evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
-  'a sideboard exchange is scored as marshalling-point neutral, which it is — what the deck will '
-  + 'be worth holding is a question about cards not yet drawn, which the card price cannot answer',
   'the card price values a creature by what it would deny against their *largest* company, which '
   + 'is a stand-in for the company it would actually be keyed to',
   'other consumers still charge the flat `provisionalCardPrice` when they spend a card: `combat` '
   + 'and `factions` have not been moved onto the priced service yet',
 ];
+
+/** Assumptions specific to reaching into a sideboard. */
+const SIDEBOARD_ASSUMPTIONS: readonly string[] = [
+  'the fetch is priced by the best card the sideboard holds, assuming it can be taken — the '
+  + 'engine\'s own filter on what this variant may fetch is approximated by card type alone',
+  'only the *best* card is priced even where five may be taken, because a second card\'s worth '
+  + 'depends on the plan the first one changes; the five-card variant is understated, not guessed',
+  'a card landing in the play deck or the discard is discounted for the distance with '
+  + '`potentialDiscount`, once and twice — a stand-in for the chance of ever drawing it, not a '
+  + 'model of the deck',
+  'the halved hazard limit is priced against the hazards *now in hand*: the plan cannot know what '
+  + 'the coming turn will draw, so a hand with nothing to spend prices the loss at nothing',
+];
+
+/**
+ * The four ways into a sideboard, and what each one costs and reaches.
+ *
+ * `hazard` is the untap access of CoE 2.I, which the hazard player pays for with
+ * half the coming hazard limit; the other two are the resource player's avatar
+ * tap of CoE 2.II.6. `steps` is how far from playable the fetched card lands —
+ * one for the play deck, two for the discard pile, which is only reached once
+ * the deck runs out.
+ */
+const SIDEBOARD_ACCESS: Readonly<Record<string, {
+  readonly seat: 'hazard' | 'resource';
+  readonly steps: number;
+  readonly cards: number;
+  readonly where: string;
+}>> = {
+  'start-sideboard-to-deck': { seat: 'resource', steps: 1, cards: 1, where: 'play deck' },
+  'start-sideboard-to-discard': { seat: 'resource', steps: 2, cards: 5, where: 'discard pile' },
+  'start-hazard-sideboard-to-deck': { seat: 'hazard', steps: 1, cards: 1, where: 'play deck' },
+  'start-hazard-sideboard-to-discard': { seat: 'hazard', steps: 2, cards: 5, where: 'discard pile' },
+};
+
+/** Whether a definition is a hazard, which is what the two seats fetch apart. */
+function isHazard(def: CardDefinition | undefined): boolean {
+  return String((def as unknown as { cardType?: string } | undefined)?.cardType ?? '')
+    .startsWith('hazard-');
+}
 
 /**
  * The hand module. No context gate: a sideboard action is always its own.
@@ -136,15 +194,74 @@ export const handModule: H2Module = {
       };
     }
 
-    const toDeck = action.type === 'start-sideboard-to-deck';
+    const access = SIDEBOARD_ACCESS[action.type];
+    if (!access) return null;
+    const prices = computeCardPrices(view, context.cardPool, standing, tunables);
+
+    // What the sideboard could actually supply, best first. The two seats reach
+    // different halves of it: the untap access fetches hazards, the avatar tap
+    // fetches resources and characters.
+    const reachable = view.self.sideboard
+      .filter(card => isHazard(context.cardPool[card.definitionId]) === (access.seat === 'hazard'))
+      .map(card => prices.quote(card.definitionId as string))
+      .sort((a, b) => b.tsd - a.tsd);
+    // Only the best card is priced, even where the variant may take five. The
+    // second one's worth depends on the plan the first one changes — `hazards`
+    // is supermodular and its slots are finite — and summing independent
+    // marginals for five creatures credits the hazard player with five bundles
+    // it has no limit to play. So the five-card variant is deliberately
+    // *understated* rather than guessed at, and the assumption says so.
+    const best = reachable[0];
+    // A card that lands in the deck must still be drawn; one that lands in the
+    // discard waits for the deck to run out first. The same discount an unplayed
+    // card already carries, applied once per step of that distance.
+    const reach = tunables.potentialDiscount ** access.steps;
+    const gain = (best?.tsd ?? 0) * reach;
+
+    const cost = access.seat === 'hazard'
+      ? ((): { tsd: number; reason: string } => {
+        const plan = computeHazardPlan(view, context.cardPool, standing, tunables);
+        const lost = plan.totalHarm - plan.harmIfLimitsHalved();
+        return {
+          tsd: lost,
+          reason: lost > 0
+            ? `the coming hazard limit is halved: the plan denies ${plan.totalHarm.toFixed(1)} at `
+              + `full limits and ${plan.harmIfLimitsHalved().toFixed(1)} at half`
+            : 'the coming hazard limit is halved, but the hand holds nothing the lost slots '
+              + 'would have carried',
+        };
+      })()
+      : ((): { tsd: number; reason: string } => {
+        const avatar = namedCharacter(action);
+        if (!avatar) return { tsd: tunables.tapTempoCost, reason: 'flat tempo — the action names no avatar' };
+        const price = computeCharacterValue(view, context.cardPool, standing, tunables).tapCost(avatar);
+        return { tsd: price.tsd, reason: `taps the avatar — ${price.reason}` };
+      })();
+
+    const dtsd = gain - cost.tsd;
     const outcomes: Outcome[] = [{
       p: 1,
-      label: toDeck
-        ? 'move a card from the sideboard into the deck — no marshalling points move'
-        : 'move a card from the sideboard to the discard — no marshalling points move',
-      dtsd: 0,
+      label: `reach into the sideboard for up to ${access.cards} card(s) into the ${access.where}`,
+      dtsd,
     }];
     const scored = standing.score(outcomes);
+
+    const detail: Rationale[] = [
+      leaf('what it fetches', gain, {
+        unit: 'tsd',
+        tunable: 'potentialDiscount',
+        note: best
+          ? `${best.name} — ${best.reason}, discounted ${access.steps}× for landing in `
+            + `the ${access.where}`
+          : 'the sideboard holds nothing this variant may take',
+      }),
+      leaf('what it costs', cost.tsd, { unit: 'tsd', note: cost.reason }),
+      leaf('sideboard remaining', view.self.sideboard.length, {
+        note: access.cards > 1
+          ? `up to ${access.cards} may be taken; only the best is priced`
+          : undefined,
+      }),
+    ];
 
     return {
       action,
@@ -154,22 +271,11 @@ export const handModule: H2Module = {
       sigmaTsd: scored.sigmaTsd,
       utility: scored.utility,
       method: scored.method,
-      rationale: node('sideboard exchange', scored.utility, [
-        node('hand economy', 0, [
-          leaf('marshalling points moved', 0, { unit: 'mp', note: 'the deck changes, the score does not' }),
-          leaf('deck remaining', view.self.playDeck.length, {
-            note: 'how much is left to draw — an input to the card price once one exists',
-          }),
-          leaf('sideboard remaining', view.self.sideboard.length),
-          leaf('card price in use elsewhere', tunables.provisionalCardPrice, {
-            unit: 'tsd',
-            tunable: 'provisionalCardPrice',
-            note: 'the flat placeholder every consumer charges until §3.5\'s shadow price exists',
-          }),
-        ]),
+      rationale: node('sideboard access', scored.utility, [
+        node('the fetch', dtsd, detail, { unit: 'tsd' }),
         scored.rationale,
       ], { unit: 'winprob' }),
-      assumptions: ASSUMPTIONS,
+      assumptions: [...SIDEBOARD_ASSUMPTIONS, ...ASSUMPTIONS],
     };
   },
 };
