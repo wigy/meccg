@@ -60,9 +60,15 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
   return raw === undefined || raw === true ? undefined : raw;
 }
 
-/** Available agent names for the CLIs. */
+/**
+ * Available agent names for the CLIs.
+ *
+ * `h2` additionally composes: `h2+<spec>` names the agent it hands the
+ * decisions its modules decline to, so `h2+mc` is the module tree with a
+ * Monte-Carlo fallback in place of Heuristics 1.
+ */
 export const AGENT_NAMES = [
-  'random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2', 'mc',
+  'random', 'heuristic', 'noisy-heuristic', 'h2', 'h2+<agent>', 'bc', 'search', 'search-h2', 'mc',
 ] as const;
 
 /**
@@ -124,6 +130,13 @@ export function resolveAgent(spec: string): Agent {
   const colon = spec.indexOf(':');
   const name = colon === -1 ? spec : spec.slice(0, colon);
   const param = colon === -1 ? undefined : spec.slice(colon + 1);
+  // `h2+mc` is `h2:all+mc` — the composition operator without a module
+  // selector in front of it. Normalising here keeps the h2 parser to one
+  // grammar instead of two.
+  if (name.includes('+')) {
+    const plus = name.indexOf('+');
+    return resolveAgent(`${name.slice(0, plus)}:all${name.slice(plus)}${param === undefined ? '' : `:${param}`}`);
+  }
   switch (name) {
     case 'random': return createRandomAgent();
     case 'heuristic': return createHeuristicAgent();
@@ -136,15 +149,29 @@ export function resolveAgent(spec: string): Agent {
       // Heuristics 2 with a module selector for ablation gates:
       // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`,
       // `h2:all@0.5` (softmax temperature 0.5). Decisions no enabled module
-      // claims fall through to Heuristics 1, so `h2:<module>` isolates
+      // claims fall through to the fallback agent, so `h2:<module>` isolates
       // exactly that module's contribution.
-      const at = param === undefined ? -1 : param.lastIndexOf('@');
-      const modules = param === undefined ? undefined : at > 0 ? param.slice(0, at) : param;
-      const temperature = at > 0 ? Number(param!.slice(at + 1)) : undefined;
-      if (temperature !== undefined && !Number.isFinite(temperature)) {
-        throw new Error(`h2 expects a numeric temperature after "@", got "${param!.slice(at + 1)}"`);
+      //
+      // `+<spec>` names that fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`.
+      // It is the last `+` because a nested spec may contain none, and the
+      // module selector never does.
+      const plus = param === undefined ? -1 : param.indexOf('+');
+      const fallbackSpec = plus >= 0 ? param!.slice(plus + 1) : undefined;
+      if (fallbackSpec !== undefined && fallbackSpec.length === 0) {
+        throw new Error('h2 expects an agent spec after "+", as in `h2+mc`');
       }
-      return createHeuristic2Agent({ modules, temperature });
+      const head = plus >= 0 ? param!.slice(0, plus) : param;
+      const at = head === undefined ? -1 : head.lastIndexOf('@');
+      const modules = head === undefined || head.length === 0 ? undefined : at > 0 ? head.slice(0, at) : head;
+      const temperature = at > 0 ? Number(head!.slice(at + 1)) : undefined;
+      if (temperature !== undefined && !Number.isFinite(temperature)) {
+        throw new Error(`h2 expects a numeric temperature after "@", got "${head!.slice(at + 1)}"`);
+      }
+      return createHeuristic2Agent({
+        modules,
+        temperature,
+        fallback: fallbackSpec === undefined ? undefined : resolveAgent(fallbackSpec),
+      });
     }
     case 'search-h2': {
       // Search with the fitted win-probability model as the leaf evaluator
