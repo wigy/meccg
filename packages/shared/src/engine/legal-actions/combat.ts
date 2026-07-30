@@ -14,7 +14,7 @@
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
 import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
-import type { AllyInPlay } from '../../types/state-cards.js';
+import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -32,7 +32,7 @@ import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCa
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
-import { currentHazardLimit } from '../hazard-limit.js';
+import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
 
 /**
@@ -2677,6 +2677,47 @@ function halveStrikesActions(
 }
 
 /**
+ * Resolve a CvCC combat into the four objects every Balrog CvCC card scanner
+ * needs: the acting player with their participating company, and the opposing
+ * player with theirs.
+ *
+ * {@link cancelWeaponActions}, {@link combatDiscardOpponentItemActions} and
+ * {@link siteStormAtSiteActions} each repeated the same chain — {@link cvccSides}
+ * to name the two companies, then `playerById`/`companyById` to resolve each of
+ * them.
+ *
+ * @returns undefined if any step fails, which includes the acting player not
+ * being a combatant in this CvCC.
+ */
+function cvccParticipants(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): {
+  player: PlayerState;
+  myCompany: Company;
+  oppPlayer: PlayerState;
+  oppCompany: Company;
+} | undefined {
+  const player = playerById(state, playerId);
+  if (!player) return undefined;
+
+  const sides = cvccSides(combat, playerId);
+  if (!sides) return undefined;
+
+  const myCompany = companyById(player.companies, sides.myCompanyId);
+  if (!myCompany) return undefined;
+
+  const oppPlayer = playerById(state, sides.oppPlayerId);
+  if (!oppPlayer) return undefined;
+
+  const oppCompany = companyById(oppPlayer.companies, sides.oppCompanyId);
+  if (!oppCompany) return undefined;
+
+  return { player, myCompany, oppPlayer, oppCompany };
+}
+
+/**
  * Whip of Many Thongs (ba-82) — `cancel-weapon-effects` actions.
  *
  * During a company-vs-company combat, the controller of an in-play
@@ -2697,15 +2738,9 @@ function cancelWeaponActions(
 ): EvaluatedAction[] {
   if (!combat.isCvCC) return [];
 
-  const player = playerById(state, playerId);
-  if (!player) return [];
-
-  const sides = cvccSides(combat, playerId);
-  if (!sides) return [];
-  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
-
-  const myCompany = companyById(player.companies, myCompanyId);
-  if (!myCompany) return [];
+  const participants = cvccParticipants(state, playerId, combat);
+  if (!participants) return [];
+  const { player, myCompany, oppPlayer, oppCompany } = participants;
 
   // Find the in-play `combat-cancel-weapon` item borne by The Balrog, untapped.
   let whipInstanceId: CardInstanceId | undefined;
@@ -2729,11 +2764,6 @@ function cancelWeaponActions(
     if (whipInstanceId) break;
   }
   if (!whipInstanceId) return [];
-
-  const oppPlayer = playerById(state, oppPlayerId);
-  if (!oppPlayer) return [];
-  const oppCompany = companyById(oppPlayer.companies, oppCompanyId);
-  if (!oppCompany) return [];
 
   const alreadySuppressed = new Set(
     (combat.suppressedWeaponInstanceIds ?? []).map(i => i as string),
@@ -2802,12 +2832,9 @@ function combatDiscardOpponentItemActions(
   );
   if (candidates.length === 0) return [];
 
-  const sides = cvccSides(combat, playerId);
-  if (!sides) return [];
-  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
-
-  const myCompany = companyById(player.companies, myCompanyId);
-  if (!myCompany) return [];
+  const participants = cvccParticipants(state, playerId, combat);
+  if (!participants) return [];
+  const { myCompany, oppPlayer, oppCompany } = participants;
 
   // The Balrog must be untapped and in the acting player's participating company.
   const balrogUntapped = myCompany.characters.some(charId => {
@@ -2822,10 +2849,6 @@ function combatDiscardOpponentItemActions(
   }
 
   // The opposing company must bear at least one genuine item to discard.
-  const oppPlayer = playerById(state, oppPlayerId);
-  if (!oppPlayer) return [];
-  const oppCompany = companyById(oppPlayer.companies, oppCompanyId);
-  if (!oppCompany) return [];
   const oppHasItem = oppCompany.characters.some(charId => {
     const ch = oppPlayer.characters[charId];
     return !!ch && ch.items.some(it => isItemCard(defById(state, it.definitionId)));
@@ -2902,12 +2925,9 @@ function siteStormAtSiteActions(
   );
   if (candidates.length === 0) return [];
 
-  const sides = cvccSides(combat, playerId);
-  if (!sides) return [];
-  const { myCompanyId, oppPlayerId, oppCompanyId } = sides;
-
-  const myCompany = companyById(player.companies, myCompanyId);
-  if (!myCompany) return [];
+  const participants = cvccParticipants(state, playerId, combat);
+  if (!participants) return [];
+  const { myCompany, oppPlayer, oppCompany } = participants;
 
   // The Balrog must be present in the acting player's participating company.
   if (!companyContainsBalrogAvatar(state, player, myCompany)) {
@@ -2924,10 +2944,6 @@ function siteStormAtSiteActions(
   }
 
   // The opposing company must contain a Wizard (race `wizard`).
-  const oppPlayer = playerById(state, oppPlayerId);
-  if (!oppPlayer) return [];
-  const oppCompany = companyById(oppPlayer.companies, oppCompanyId);
-  if (!oppCompany) return [];
   const oppHasWizard = oppCompany.characters.some(charId => {
     const ch = oppPlayer.characters[charId];
     if (!ch) return false;
@@ -3235,7 +3251,6 @@ function altPermanentEventModifyAttackActions(
   if (!player) return actions;
   // Printed timing: "tapped during the opponent's movement/hazard phase".
   if (state.phaseState.phase !== Phase.MovementHazard) return actions;
-  const mhState = state.phaseState;
 
   for (const card of player.cardsInPlay) {
     if (card.status !== CardStatus.Untapped) continue;
@@ -3262,17 +3277,15 @@ function altPermanentEventModifyAttackActions(
     // The conversion is a hazard action and counts one against the company's
     // hazard limit (printed on the card, and CoE 8.12 for combat-window plays).
     const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
-    if (!bypassesLimit) {
-      const limit = currentHazardLimit(state, mhState, combat.companyId);
-      if ((mhState.hazardsPlayedThisCompany ?? 0) >= limit) {
-        logDetail(`Modify-attack (permanent-event tap) ${def.name}: hazard limit reached (${mhState.hazardsPlayedThisCompany}/${limit})`);
-        actions.push({
-          action: { type: 'modify-attack', player: playerId, cardInstanceId: card.instanceId },
-          viable: false,
-          reason: 'Hazard limit reached',
-        });
-        continue;
-      }
+    const hazardLimit = bypassesLimit ? undefined : hazardLimitStatus(state, combat.companyId);
+    if (hazardLimit?.reached) {
+      logDetail(`Modify-attack (permanent-event tap) ${def.name}: hazard limit reached (${hazardLimit.played}/${hazardLimit.limit})`);
+      actions.push({
+        action: { type: 'modify-attack', player: playerId, cardInstanceId: card.instanceId },
+        viable: false,
+        reason: 'Hazard limit reached',
+      });
+      continue;
     }
 
     logDetail(`Modify-attack (permanent-event tap) available: ${def.name} (strikes ${formatSignedNumber(effect.strikesModifier ?? 0)}, prowess ${formatSignedNumber(effect.prowessModifier ?? 0)})`);
@@ -3721,13 +3734,10 @@ function combatHazardPermanentPlays(
   // M/H phase count against the company's hazard limit — no further hazard
   // plays are offered once the limit is reached. (Site-phase combat has no
   // hazard-limit bookkeeping.)
-  if (state.phaseState.phase === Phase.MovementHazard && state.phaseState.hazardLimitAtReveal !== undefined) {
-    const mhState = state.phaseState;
-    const limit = currentHazardLimit(state, mhState, combat.companyId);
-    if ((mhState.hazardsPlayedThisCompany ?? 0) >= limit) {
-      logDetail(`Combat play-hazard: hazard limit reached (${mhState.hazardsPlayedThisCompany}/${limit}) — no mid-strike hazard plays`);
-      return [];
-    }
+  const hazardLimit = hazardLimitStatus(state, combat.companyId);
+  if (hazardLimit?.reached) {
+    logDetail(`Combat play-hazard: hazard limit reached (${hazardLimit.played}/${hazardLimit.limit}) — no mid-strike hazard plays`);
+    return [];
   }
 
   const attacker = playerById(state, playerId);
@@ -3855,11 +3865,7 @@ function leftBehindActions(
   if (!currentStrike || currentStrike.resolved) return [];
 
   // Rule 8.12: no further hazard plays once the company's hazard limit is met.
-  if (state.phaseState.phase === Phase.MovementHazard && state.phaseState.hazardLimitAtReveal !== undefined) {
-    const mhState = state.phaseState;
-    const limit = currentHazardLimit(state, mhState, combat.companyId);
-    if ((mhState.hazardsPlayedThisCompany ?? 0) >= limit) return [];
-  }
+  if (hazardLimitStatus(state, combat.companyId)?.reached) return [];
 
   const attacker = playerById(state, playerId);
   if (!attacker) return [];

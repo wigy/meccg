@@ -15,6 +15,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState } from '../index.js';
+import { Phase } from '../types/state-phases.js';
 import type { CompanyId } from '../types/common.js';
 import type { ActiveConstraint } from '../types/pending.js';
 
@@ -68,4 +69,31 @@ export function currentHazardLimit(
     mhState.preRevealHazardLimitConstraintIds,
     companyId,
   );
+}
+
+/**
+ * How the company stands against its hazard limit right now, or undefined when
+ * there is no limit to stand against.
+ *
+ * Hazard-limit bookkeeping only exists in the Movement/Hazard phase, whose
+ * phase state carries the reveal snapshot the limit is derived from. Outside it
+ * — most notably site-phase combat — no hazard action is limit-gated at all,
+ * and this returns undefined rather than a vacuous "not reached".
+ *
+ * Callers need the numbers, not just the verdict: the combat-window scanners
+ * log the played/limit pair, and one of them offers the action as non-viable
+ * with the count in its reason rather than hiding it. See CoE rule 8.12 —
+ * hazard actions taken during a strike sequence in the opponent's M/H phase
+ * count against the defending company's limit.
+ */
+export function hazardLimitStatus(
+  state: GameState,
+  companyId: CompanyId,
+): { played: number; limit: number; reached: boolean } | undefined {
+  if (state.phaseState.phase !== Phase.MovementHazard) return undefined;
+  const mhState = state.phaseState;
+
+  const limit = currentHazardLimit(state, mhState, companyId);
+  const played = mhState.hazardsPlayedThisCompany ?? 0;
+  return { played, limit, reached: played >= limit };
 }
