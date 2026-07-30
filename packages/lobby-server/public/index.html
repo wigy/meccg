@@ -69,12 +69,13 @@
   <!-- Persistent nav bar (lobby mode) -->
   <nav id="lobby-nav" class="lobby-nav hidden">
     <span class="lobby-nav-brand">MECCG</span>
-    <span id="lobby-nav-version" class="lobby-nav-version"></span>
+    <button id="lobby-nav-version" class="lobby-nav-version" title="What's new — view the changelog"></button>
     <span class="lobby-nav-divider"></span>
     <button id="nav-lobby" class="lobby-nav-item lobby-nav-item--active">Lobby</button>
     <button id="nav-decks" class="lobby-nav-item">Decks</button>
     <button id="nav-mail" class="lobby-nav-item">Mail <span id="nav-mail-badge" class="lobby-nav-badge"></span></button>
     <button id="nav-scoreboard" class="lobby-nav-item">Scores</button>
+    <button id="nav-changelog" class="lobby-nav-item">Changelog</button>
     <button id="nav-admin" class="lobby-nav-item hidden">Admin</button>
     <span class="lobby-nav-spacer"></span>
     <button id="nav-bug-report-btn" class="lobby-nav-icon-btn" title="Report Bug"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.88 1.88"/><path d="M14.12 3.88L16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></button>
@@ -229,6 +230,17 @@
       <h2 class="credits-page-title">Credit Usage</h2>
       <div id="credits-page-summary" class="credits-page-summary"></div>
       <div id="credits-page-list" class="credits-page-list">
+        <p class="lobby-empty">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Changelog screen (lobby mode) -->
+  <div id="changelog-screen" class="hidden">
+    <div class="changelog-page">
+      <h2 class="changelog-page-title">Changelog</h2>
+      <p class="changelog-page-note">What's new in each release. Click the version number in the nav bar to return here any time.</p>
+      <div id="changelog-page-list" class="changelog-page-list">
         <p class="lobby-empty">Loading...</p>
       </div>
     </div>
