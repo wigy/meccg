@@ -275,7 +275,7 @@ export async function openAdminPage(): Promise<void> {
 
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
 
-  const r = await apiGet<{ users: AdminUser[] }>('/api/admin/users');
+  const r = await apiGet<{ users: AdminUser[]; initialCredits: number }>('/api/admin/users');
   if (!r.ok) {
     listEl.innerHTML = `<p class="lobby-empty">${escapeHtml(r.error ?? 'Failed to load users')}</p>`;
     return;
@@ -305,9 +305,13 @@ export async function openAdminPage(): Promise<void> {
     <tbody></tbody>
   `;
   const tbody = table.querySelector('tbody')!;
-  for (const user of r.data.users) {
+  // Accounts that have burned below their initial credits come first, in red,
+  // so accounts likely to need a top-up are visible at a glance.
+  const lowBalance = (user: AdminUser): boolean => user.credits < r.data.initialCredits;
+  const users = [...r.data.users].sort((a, b) => Number(lowBalance(b)) - Number(lowBalance(a)));
+  for (const user of users) {
     const tr = document.createElement('tr');
-    tr.className = 'admin-user-row';
+    tr.className = lowBalance(user) ? 'admin-user-row admin-user-row--low' : 'admin-user-row';
     const systemBadge = user.system ? ' <span class="admin-system-badge">system</span>' : '';
     tr.innerHTML = `
       <td><button type="button" class="admin-user-link" data-user="${escapeHtml(user.name)}"

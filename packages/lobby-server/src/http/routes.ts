@@ -52,7 +52,7 @@ import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { sendMail, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -417,7 +417,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
   if (urlPath === '/api/admin/users' && method === 'GET') {
     await adminRoute(req, res, 'admin-users', 'Failed to load users', () => {
-      sendJson(res, 200, { users: listPlayers() });
+      sendJson(res, 200, { users: listPlayers(), initialCredits: DEFAULT_CREDITS });
     });
     return;
   }

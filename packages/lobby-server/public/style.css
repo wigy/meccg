@@ -901,6 +901,11 @@ h2 {
   cursor: pointer;
 }
 
+.admin-user-row--low td,
+.admin-user-row--low .admin-user-link {
+  color: #ff8a8a;
+}
+
 .admin-user-link {
   background: none;
   border: none;
