@@ -316,6 +316,19 @@ npm run gate -w @meccg/sim -- --challenger h2:combat --champion heuristic --game
 npm run gate -w @meccg/sim -- --challenger h2:combat,kill --champion h2:combat --games 400
 ```
 
+The ablation that matters most is the other direction — *everything*, against
+everything but one module — and until recently it could not be run at all. An
+agent spec may contain commas of its own, and `--agents` split the pair on
+commas, so a fifteen-name selector parsed as fifteen agents and the child
+process died. A **semicolon** separates the pair when one is present, and the
+comma keeps working for every spec without one:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:characters,kill,combat,corruption,endgame,events,factions,fetching,grants,hand,hazards,health,resources,travel'
+npm run bench -w @meccg/sim -- --agents 'h2;h2:combat,kill'
+```
+
 The fitted `W` is also available as the leaf evaluator for the determinizing
 PUCT search, which is the experiment `docs/ai-training-system.md` §11 names as
 the immediate one — §8 records that search only ties the bare policy, and §9
@@ -543,6 +556,55 @@ declines at 43. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
+
+### The opening draft: built, gated, and rejected
+
+The draft has scored **flat** since P0 — every candidate at exactly 0.0% — and
+the reason is not a gap in a module. CoE 10.3 step 4 reduces any source
+contributing more than half a player's total until it is no more than half, and
+that iterates, so at 0–0 a score made of one source cancels itself: three
+character marshalling points alone score zero. `card-price` quotes every
+character in the pool at the same number because the standing has no opinion
+there, and the most consequential decision in the game went to Heuristics 1.
+
+The obvious way out is to stop pricing the draft in marshalling points. What a
+starting character is *for* is that he stands in front of the company all game,
+and that is priced in the flat tempo constants a tap, a wound and an elimination
+cost — which do not vanish at 0–0. So a pick is worth the harm it takes off the
+company: `defence.expectedHarm(drafted, slots)` minus the same with the
+candidate in it, both arms at the limit the company will have *after* the pick,
+so the comparison is between candidates rather than between company sizes.
+
+It ranks exactly as you would hope — Glorfindel II first, Fatty Bolger last —
+and it **loses**:
+
+```text
+h2 vs h2 without the draft module, paired seeds, side-swapped
+  score:     90W-106L-4D (46.0%) over 200 rated games
+  elo diff:  -28 [-77, +20]
+  glicko-2:  -6 [-84, +73]
+```
+
+Not conclusively worse — the interval spans zero — but no evidence of gain and
+the point estimate on the wrong side, and it fails the gate's own criterion. So
+it is not shipped. Two things are worth carrying forward from it.
+
+**The first pick cannot be scored this way at all.** With nothing drafted the
+baseline is a company that does not exist, and a company that does not exist
+cannot be harmed — so every candidate comes out *negative* (−1.7 to −6.3 in the
+corpus position) and `draft-stop` outranks all of them, which would leave the
+player with no company. From the second pick the comparison means something
+(+2.7 to −2.5, and +6.1 by the fourth). The experiment declined the first pick
+for that reason.
+
+**The half that is missing is mind.** Twenty points of general influence across
+the whole starting company is the draft's real budget, and a defence-only
+valuation never trades it off: a mind-8 character who parries well beats two
+mind-4s who would answer better between them, so the pool goes early and the
+company ends up small. Pricing mind needs a rate, and a rate is the hand-tuned
+weight this design exists to remove. The next attempt should start there rather
+than from the defensive number, which is measured and does not carry the
+decision on its own.
 
 ### Does it win?
 
