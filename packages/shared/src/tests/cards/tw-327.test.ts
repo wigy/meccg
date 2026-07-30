@@ -2,7 +2,7 @@
  * @module tw-327.test
  *
  * Card test: Shield of Iron-bound Ash (tw-327)
- * Type: hero-resource-item (minor), non-unique, 0 corruption.
+ * Type: hero-resource-item (minor), non-unique, 1 corruption point.
  * Effects:
  *   1. stat-modifier: +1 body, max 8
  *   2. modify-attack(scope: current-strike): tap to gain +1 prowess against one strike
@@ -22,6 +22,9 @@
  * 5. The action is NOT available during the assign-strikes (cancel)
  *    window — only during resolve-strike.
  * 6. A tapped shield does not emit a tap-item-for-strike action.
+ * 7. The shield's 1 corruption point is included in the bearer's
+ *    effective corruption point total (regression: bug report where the
+ *    shield contributed 0 corruption).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -94,6 +97,32 @@ describe('Shield of Iron-bound Ash (tw-327)', () => {
     const withShieldBody = getCharacter(withShield, RESOURCE_PLAYER, THEODEN_ID).effectiveStats.body;
     expect(withShieldBody).toBe(baseBody + 1);
     expect(withShieldBody).toBeLessThanOrEqual(8);
+  });
+
+  // ─── Corruption: 1 corruption point counts toward the bearer's total ───
+
+  test("the shield's 1 corruption point is included in the bearer's corruption total", () => {
+    const withShield = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: THEODEN_ID, items: [SHIELD] }] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const stats = getCharacter(withShield, RESOURCE_PLAYER, THEODEN_ID).effectiveStats;
+    expect(stats.corruptionPoints).toBe(1);
   });
 
   // ─── Effect 2: tap to gain +1 prowess for one strike ───────────────────
