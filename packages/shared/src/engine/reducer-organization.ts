@@ -68,6 +68,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'start-sideboard-to-deck': handleStartSideboard,
   'start-sideboard-to-discard': handleStartSideboard,
   'fetch-from-sideboard': handleFetchFromSideboard,
+  'cancel-sideboard-access': handleCancelSideboardAccess,
   'card-sideboard-to-deck': handleCardSideboardToDeck,
   'activate-granted-action': handleActivateGrantedAction,
   'test-ring-at-site': handleTestRingAtSite,
@@ -1545,6 +1546,41 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
     state: {
       ...newState,
       phaseState: { ...orgState, sideboardFetchDestination: destination },
+    },
+  };
+}
+
+/**
+ * Handle cancel-sideboard-access: back out of a sideboard access sub-flow
+ * before fetching any card, untapping the avatar that was tapped to start it.
+ */
+function handleCancelSideboardAccess(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'cancel-sideboard-access') return wrongActionType(state, action, 'cancel-sideboard-access');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const orgState = requirePhaseState(state, Phase.Organization);
+
+  if (orgState.sideboardFetchDestination === null) {
+    return { state, error: 'No sideboard access sub-flow active' };
+  }
+  if (orgState.sideboardFetchedThisTurn > 0) {
+    return { state, error: 'Cannot cancel sideboard access after fetching a card' };
+  }
+
+  const avatarKey = action.characterInstanceId;
+  const avatarChar = state.players[playerIndex].characters[avatarKey];
+  if (avatarChar) {
+    const charDef = defById(state, avatarChar.definitionId);
+    logDetail(`Sideboard access canceled: untapping avatar ${charDef?.name ?? '?'}`);
+  }
+  const newState = avatarChar
+    ? updatePlayer(state, playerIndex, p => updateCharacter(p, avatarKey, c => ({ ...c, status: CardStatus.Untapped })))
+    : state;
+
+  return {
+    state: {
+      ...newState,
+      phaseState: { ...orgState, sideboardFetchDestination: null },
     },
   };
 }

@@ -18,13 +18,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, viableFor, Phase,
+  buildTestState, resetMint, viableFor, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, GANDALF, LEGOLAS,
   SCROLL_OF_ISILDUR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
 } from '../../test-helpers.js';
+import type { StartSideboardToDeckAction, CancelSideboardAccessAction } from '../../../index.js';
 
 describe('Rule 3.36 — Avatar Sideboard Access', () => {
   beforeEach(() => resetMint());
@@ -85,5 +86,54 @@ describe('Rule 3.36 — Avatar Sideboard Access', () => {
     const tappedSideboardActions = viableFor(tappedState, PLAYER_1)
       .filter(a => a.action.type === 'start-sideboard-to-discard' || a.action.type === 'start-sideboard-to-deck');
     expect(tappedSideboardActions).toHaveLength(0);
+  });
+
+  test('canceling sideboard access before fetching untaps the avatar again', () => {
+    // Gandalf taps to start a sideboard-to-deck sub-flow. Before picking a
+    // card, the player backs out via cancel-sideboard-access — the avatar
+    // must become untapped again and sideboard access must be re-offerable,
+    // rather than being stuck tapped with no way to exit the sub-flow.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [SCROLL_OF_ISILDUR],
+          playDeck: [ARAGORN, ARAGORN, ARAGORN, ARAGORN, ARAGORN],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const avatarInstanceId = state.players[0].companies[0].characters[0];
+
+    const startAction = viableFor(state, PLAYER_1)
+      .find(a => a.action.type === 'start-sideboard-to-deck')!.action as StartSideboardToDeckAction;
+    expect(startAction).toBeDefined();
+    const afterStart = dispatch(state, startAction);
+
+    // Avatar is now tapped, and canceling must be offered since nothing has been fetched yet.
+    expect(afterStart.players[0].characters[avatarInstanceId].status).toBe(CardStatus.Tapped);
+    const cancelAction = viableFor(afterStart, PLAYER_1)
+      .find(a => a.action.type === 'cancel-sideboard-access')?.action as CancelSideboardAccessAction | undefined;
+    expect(cancelAction).toBeDefined();
+
+    const afterCancel = dispatch(afterStart, cancelAction!);
+
+    // Avatar is untapped again, sideboard is untouched, and sideboard access can be re-declared.
+    expect(afterCancel.players[0].characters[avatarInstanceId].status).toBe(CardStatus.Untapped);
+    expect(afterCancel.players[0].sideboard).toHaveLength(1);
+    const reOfferedActions = viableFor(afterCancel, PLAYER_1)
+      .filter(a => a.action.type === 'start-sideboard-to-discard' || a.action.type === 'start-sideboard-to-deck');
+    expect(reOfferedActions.length).toBeGreaterThan(0);
   });
 });

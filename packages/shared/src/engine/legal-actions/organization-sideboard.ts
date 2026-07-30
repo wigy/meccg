@@ -60,6 +60,25 @@ function getEligibleSideboardCards(state: GameState, player: PlayerState) {
 }
 
 /**
+ * Pushes a `cancel-sideboard-access` action, letting the player back out of
+ * the sub-flow and untap their avatar before fetching any card.
+ */
+function pushCancelSideboardAccess(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  actions: EvaluatedAction[],
+): void {
+  const avatar = findPlayerAvatar(state, player);
+  if (!avatar) return;
+  logDetail('Sideboard access: nothing fetched yet — can cancel and untap avatar');
+  actions.push({
+    action: { type: 'cancel-sideboard-access', player: playerId, characterInstanceId: avatar.instanceId },
+    viable: true,
+  });
+}
+
+/**
  * Generates sideboard access actions during organization phase (CoE 2.II.6).
  *
  * Two-step flow:
@@ -85,7 +104,9 @@ export function fetchFromSideboardActions(state: GameState, playerId: PlayerId):
       actions.push({ action: { type: 'pass', player: playerId }, viable: true });
       return actions;
     }
-    // Must pick exactly 1 card — no pass while a pick is possible
+    // Must pick exactly 1 card — no pass while a pick is possible, but the
+    // player can still back out before committing to a pick (untaps avatar).
+    pushCancelSideboardAccess(state, player, playerId, actions);
     const eligible = getEligibleSideboardCards(state, player);
     for (const card of eligible) {
       logDetail(`Sideboard access: ${card.name} → play deck (viable)`);
@@ -117,9 +138,12 @@ export function fetchFromSideboardActions(state: GameState, playerId: PlayerId):
         viable: true,
       });
     }
-    // Pass available after at least 1 card fetched
+    // Pass available after at least 1 card fetched; before that, the player
+    // can still back out and untap the avatar instead.
     if (orgState.sideboardFetchedThisTurn >= 1) {
       actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    } else {
+      pushCancelSideboardAccess(state, player, playerId, actions);
     }
     return actions;
   }

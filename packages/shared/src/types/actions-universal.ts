@@ -211,6 +211,23 @@ export interface FetchFromSideboardAction {
 }
 
 /**
+ * Back out of a sideboard access sub-flow before fetching any card, undoing
+ * the avatar tap that started it ({@link StartSideboardToDeckAction} /
+ * {@link StartSideboardToDiscardAction}).
+ *
+ * Only legal while the sub-flow is active and no card has been fetched yet —
+ * once a card has moved to the deck or discard pile, the access is committed
+ * and can no longer be canceled.
+ */
+export interface CancelSideboardAccessAction {
+  readonly type: 'cancel-sideboard-access';
+  /** The player canceling sideboard access. */
+  readonly player: PlayerId;
+  /** The avatar character being untapped. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Bring a specific card from the sideboard into the play deck during the
  * organization phase, driven by an ability on the card itself.
  *

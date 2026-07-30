@@ -521,7 +521,8 @@ export function renderCompanyViews(
     openExchangeModal(exchangeActions, passAction, cardPool, onAction);
   } else if (fetchActions.length > 0) {
     const passAction = viable.find(a => a.type === 'pass') ?? null;
-    openSideboardForFetch(fetchActions, passAction, cardPool, onAction);
+    const cancelAction = viable.find(a => a.type === 'cancel-sideboard-access') ?? null;
+    openSideboardForFetch(fetchActions, passAction, cardPool, onAction, cancelAction);
   } else {
     dismissSideboardModal();
     dismissExchangeModal();

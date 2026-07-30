@@ -65,6 +65,7 @@ function openCardGridModal(
   passAction: GameAction | null,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
+  cancelAction: GameAction | null = null,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
   const dismiss = () => dismissCardGridModal(variant);
@@ -120,7 +121,22 @@ function openCardGridModal(
     modal.appendChild(doneBtn);
   }
 
-  backdrop.onclick = () => dismiss();
+  // "Cancel" button when backing out is possible (nothing fetched yet) —
+  // sends the cancel action so the avatar is untapped server-side, rather
+  // than just closing the modal and leaving the tap in place.
+  if (cancelAction) {
+    const cancelBtn = tooltipButton('Cancel', () => {
+      dismiss();
+      onAction(cancelAction);
+    });
+    cancelBtn.style.marginTop = '0.6rem';
+    modal.appendChild(cancelBtn);
+  }
+
+  backdrop.onclick = () => {
+    dismiss();
+    if (cancelAction) onAction(cancelAction);
+  };
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 }
@@ -135,19 +151,23 @@ function dismissCardGridModal(variant: 'sideboard-fetch' | 'granted-target'): vo
  * Open a sideboard browser modal for the active fetch-from-sideboard sub-flow.
  * Shows eligible sideboard cards; clicking one sends the fetch action.
  * For discard mode with at least 1 fetched, also shows a "Done" button (pass).
+ * Before anything has been fetched, `cancelAction` (if provided) backs out of
+ * the sub-flow and untaps the avatar — triggered by the "Cancel" button or by
+ * closing the modal via the backdrop.
  */
 export function openSideboardForFetch(
   fetchActions: GameAction[],
   passAction: GameAction | null,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
+  cancelAction: GameAction | null = null,
 ): void {
   const choices: CardGridChoice[] = [];
   for (const action of fetchActions) {
     if (action.type !== 'fetch-from-sideboard' && action.type !== 'fetch-hazard-from-sideboard') continue;
     choices.push({ action, instanceId: action.sideboardCardInstanceId });
   }
-  openCardGridModal('sideboard-fetch', 'Fetch from Sideboard', choices, passAction, cardPool, onAction);
+  openCardGridModal('sideboard-fetch', 'Fetch from Sideboard', choices, passAction, cardPool, onAction, cancelAction);
 }
 
 /** Remove sideboard fetch modal and its backdrop. */
