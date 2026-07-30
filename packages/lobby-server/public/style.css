@@ -2131,7 +2131,8 @@ h2 {
   box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
-/* Muted status shown for a player busy in a (non-watchable) AI game. */
+/* Muted status shown for a busy player whose game is not (yet) listed as
+   watchable, e.g. while its game server is still launching. */
 .lobby-player-status {
   color: #6b6b7a;
   font-size: 0.78rem;
@@ -3115,11 +3116,39 @@ h2 {
 
 /* Spectator badge: the watcher count sits beside the icon rather than on top
    of it, so a two-digit count cannot spill outside the glyph. The button is
-   hidden outright when nobody is watching (see spectators.ts). */
+   hidden outright when nobody is watching (see spectators.ts). Hovering it
+   shows the watcher names in a tooltip, so it is not clickable. */
 #spectators-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
+  position: relative;
+  cursor: default;
+}
+
+/* Watcher-name list shown on hover. The toolbar sits at the top-right edge,
+   so the tooltip hangs below the badge and right-aligns to stay on screen.
+   pre-line turns the "heading, blank line, one name per line" text from
+   spectatorListText into actual lines. */
+#spectators-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  background: #1c1c26;
+  border: 1px solid #55555f;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  color: #d8d2c2;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: pre-line;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+#spectators-btn:hover #spectators-tooltip {
+  display: block;
 }
 
 #spectators-count {
