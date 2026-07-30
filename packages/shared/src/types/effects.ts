@@ -1962,6 +1962,7 @@ export type TriggeredActionType =
   | 'force-discard-one-company-item'
   | 'enqueue-corruption-check'
   | 'enqueue-body-check'
+  | 'whip-discipline'
   | 'enqueue-site-wound-rolls'
   | 'malady-without-healing'
   | 'enqueue-pending-fetch'
@@ -2111,6 +2112,31 @@ export interface EnqueueBodyCheckAction extends TriggeredActionBase {
   readonly awardKillMpTo?: PlayerId;
   /** UI/log banner for the enqueued check. */
   readonly reason?: string;
+}
+
+/**
+ * `whip-discipline` -- Where There's a Whip (le-254): the resolution-context
+ * target (an untapped Orc/Troll bearing a Whip) disciplines his own company.
+ * Every OTHER character in his company that is currently **tapped**, has a
+ * printed mind greater than 0, and has a lower effective prowess than the
+ * bearer makes a body check with `modifier` added to the roll (CoE 3.I.1),
+ * comparing to the character's body (or, for an Orc/Troll, the lowest value
+ * in its `discardBodyCheck` array, mirroring the approximation used by
+ * `force-check-all-company`). Per CoE 3.I.3 an Orc/Troll who fails is
+ * discarded instead of wounded; every other race is wounded instead of
+ * eliminated (the card's own "does not eliminate" override — moot in
+ * practice since only *tapped*, i.e. never-already-wounded, characters are
+ * checked). Company members not required to check (including the bearer
+ * himself, and anyone excluded by status/mind/prowess) are untapped
+ * immediately since their outcome never depended on a roll; a checked member
+ * who passes is untapped too — so every unwounded character in the company
+ * ends up untapped. Implemented in `applyShortEventOnEntersPlay`
+ * (`reducer-events.ts`).
+ */
+export interface WhipDisciplineAction extends TriggeredActionBase {
+  readonly type: 'whip-discipline';
+  /** Added directly to each disciplined character's 2d6 roll (e.g. -2). */
+  readonly modifier: number;
 }
 
 /**
@@ -2917,6 +2943,7 @@ export type TriggeredAction =
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
   | EnqueueBodyCheckAction
+  | WhipDisciplineAction
   | EnqueueGoodwillAttemptAction
   | EnqueueSiteWoundRollsAction
   | MaladyWithoutHealingAction

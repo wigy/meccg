@@ -435,22 +435,26 @@ meet this later" in the relevant panel.
 ## Phased delivery
 
 ### Phase 1 — Deterministic substrate
+
 `orderedDecks` engine flag + unit test; tutorial deck files (cards verified
 against data, certified-only, ordered); ScriptAgent; headless run of the full
 setup + two turns with both sides scripted (no UI, no gating yet). This
 proves the arranged decks and script are legal end to end.
 
 ### Phase 2 — Script + controller
+
 `TUTORIAL_SCRIPT` content, `matchStep`, gating filter; TutorialController in
 game-server; cheat-roll queue; launcher/lobby `tutorial` option; the
 integration test from Testing §3.
 
 ### Phase 3 — Browser experience
+
 `tutorial-panel.ts` (instruction panel, expected-action highlight, progress,
 restart-step via undo); lobby "Play tutorial" button; polish pass on all 31
 step texts.
 
 ### Phase 4 — Follow-ups (separate specs)
+
 More chapters (corruption, influence/factions, agents, Free Council), puzzle
 mode reusing the same script/gating machinery, "Why?" tooltips on arbitrary
 actions (roadmap §6).
@@ -466,6 +470,44 @@ actions (roadmap §6).
    creature-keying regions are chosen at implementation under the "Mentor
    deck constraints" table (no ranger, a Lure target, a path the human's
    Orc creature can key to).
+
+## Implementation notes (feat/tutorial)
+
+Where the built tutorial deviates from the plan above, the implementation is
+authoritative (every deviation was forced by engine reality and is locked in
+by the integration test):
+
+- **Script model.** `matchStep`-over-state became an ordered list of
+  **beats** — 212 prescribed actions (`TUTORIAL_BEATS`) grouped under 45
+  presentation steps (`TUTORIAL_STEPS`). The server tracks the cursor and
+  attaches a `TutorialProgress` snapshot to `PlayerView.tutorial`; the
+  browser renders from that and never computes the cursor itself.
+- **Mentor.** Played inside `GameSession` by the `TutorialController` — no
+  spawned ScriptAgent client. The session starts when the human joins;
+  tutorial games are never saved; dev operations are refused (restart =
+  relaunch the tutorial, replacing the undo-based restart-step idea).
+- **Decks** are TypeScript modules (`packages/shared/src/tutorial/decks.ts`)
+  rather than JSON, so every slot carries its teaching purpose as a comment.
+- **The first creature** is Orc-lieutenant (tw-073, 1 strike, keys to
+  wilderness) instead of Orc-guard — a five-strike creature is a poor first
+  lesson and Orc-guard cannot key to wilderness paths at all.
+- **The Mentor's company** is Thorin II, Gimli and Glóin (19 mind, no
+  rangers) routing Rivendell → Moria (Glamdring) → Lórien → Dimrill Dale.
+  Moria's four-strike automatic-attack yields a bonus lesson: the hazard
+  player (the human!) assigns the strikes beyond the defender's choices.
+- **Marvels Told timing.** A permanent on the chain cannot be targeted, so
+  the Foolish Words reveal resolves first: the influence roll is made at
+  −4 (needing — and scripted to get — a perfect 12), and Marvels Told then
+  removes Foolish Words so future attempts are clean. The chain, response
+  windows and ritual corruption check are all still taught, plus one more
+  truth: sometimes you play through the hazard.
+- **Wound mechanics as built:** Elladan faces the Undead untapped (tapped he
+  could not fail); the body check is rolled by the opponent; Barrow-downs'
+  corruption check follows. Starting minor items are Dagger of Westernesse
+  and Shield of Iron-bound Ash (Star-glass would cancel the Undead attack).
+- The tutorial ends at the Mentor's turn-6 end-of-turn; final tally human
+  12 MP (6 character + 2 item + 3 faction + 1 ally) vs Mentor 10
+  (7 character + 2 item + 1 kill).
 
 Resolved:
 

@@ -4526,8 +4526,26 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an untapped Orc or Troll character bearing a Whip. Each tapped character in the bearer’s company with a mind and prowess less than the bearer’s makes a body check modified by -2. Failing the body check wounds, but does not eliminate the character. An Orc or Troll is discarded according to its card. Each unwounded character in the company becomes untapped."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$in": ["orc", "troll"] } },
+            { "target.status": "untapped" },
+            { "target.itemNames": { "$includes": "Whip" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "whip-discipline", "modifier": -2 }
+      }
+    ],
+    "text": "Playable on an untapped Orc or Troll character bearing a Whip. Each tapped character in the bearer’s company with a mind and prowess less than the bearer’s makes a body check modified by -2. Failing the body check wounds, but does not eliminate the character. An Orc or Troll is discarded according to its card. Each unwounded character in the company becomes untapped.",
+    "certified": "2026-07-30"
   },
   {
     "cardType": "minion-resource-event",

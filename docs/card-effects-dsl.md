@@ -2785,6 +2785,28 @@ Apply types:
   `recompute-derived.ts`). The `corruption-check` pending kind gains the same
   `awardKillMpTo` field for hero eliminations by the corruption check itself.
 
+- `whip-discipline` -- an `on-event: self-enters-play` apply for a resource
+  short event with a character `play-target` (Where There's a Whip le-254:
+  "Each tapped character in the bearer's company with a mind and prowess less
+  than the bearer's makes a body check modified by -2..."). Every other
+  character in the target's company that is tapped, has a printed mind greater
+  than 0, and has a lower effective prowess than the target enqueues a generic
+  `dice-check` (roll modifier `modifier`, `comparison: 'gt'`, threshold the
+  character's effective body — or, for an Orc/Troll, the minimum of its
+  printed `discardBodyCheck` array, the same approximation `force-check-all-
+  company` uses). `onPass` (the check "fails", CoE 3.I.1: higher than body is
+  bad) discards an Orc/Troll (CoE 3.I.3) or wounds anyone else via
+  `set-character-status inverted`; `onFail` (safe) untaps them. Company members
+  never checked (already untapped, no mind, or prowess not lower than the
+  target's) are untapped immediately, so together with the passing branch every
+  unwounded company member ends up untapped without a separate sweep step.
+  Implemented in `applyShortEventOnEntersPlay` (`reducer-events.ts`).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "whip-discipline", "modifier": -2 } }
+  ```
+
 - `enqueue-site-wound-rolls` -- an `on-event: end-of-turn` apply carried by a
   permanent hazard **attached to a character**, for plague-style contagion that
   afflicts everybody standing at the bearer's site rather than just the bearer.

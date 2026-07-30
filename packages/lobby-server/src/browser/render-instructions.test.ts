@@ -124,6 +124,47 @@ const corruptionCheckFor = (characterId: string): EvaluatedAction => ({
   viable: true,
 } as unknown as EvaluatedAction);
 
+/**
+ * Regression test for bug report 0fe157e9aff02fc3 (game ms7pnib4-ofnoo4):
+ * "Flatter a Foe was very unintuitive -> no Roll-Button visible, rolling had
+ * to be done by pressing Enter." *Flatter a Foe* (td-116) enqueues a
+ * `flattery-attempt` pending resolution, whose only legal action is
+ * `flattery-attempt`. {@link renderPassButton}'s whitelist of pass-like
+ * action types omitted `flattery-attempt`, so neither the roll button nor the
+ * "Waiting…" indicator appeared — the same class of bug as the
+ * `resolve-dice-check` case above. `flattery-attempt` is now whitelisted with
+ * a "Roll" label.
+ */
+const flatteryAttempt: EvaluatedAction = {
+  action: {
+    type: 'flattery-attempt',
+    player: 'p1',
+    characterInstanceId: 'p1-2',
+    need: 8,
+    explanation: 'Radagast flattery vs orc: threshold 12, unused DI 3, +2 diplomat, → need roll >= 8',
+  },
+  viable: true,
+} as EvaluatedAction;
+
+describe('renderPassButton — flattery-attempt (Flatter a Foe)', () => {
+  test('shows a Roll button for a pending flattery-attempt resolution', () => {
+    renderPassButton(viewWith([flatteryAttempt]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('clicking the button sends the flattery-attempt action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([flatteryAttempt]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(flatteryAttempt.action);
+  });
+});
+
 describe('renderPassButton — Free Council corruption-check declare step', () => {
   test('hides the bottom button when several characters are eligible, letting the player pick one', () => {
     renderPassButton(
