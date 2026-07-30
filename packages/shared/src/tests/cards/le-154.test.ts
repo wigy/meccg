@@ -39,8 +39,10 @@ import {
   ARAGORN,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   companyIdAt, makeMHState,
+  handCardId, resolveChain,
+  ORC_WATCH,
 } from '../test-helpers.js';
-import { Alignment, CardStatus, Race } from '../../index.js';
+import { Alignment, CardStatus, Race, RegionType as RegionTypeEnum, SiteType } from '../../index.js';
 import type {
   CardDefinitionId,
   ActivateGrantedAction,
@@ -559,5 +561,52 @@ describe('Stinker (le-154)', () => {
 
     // Orc-patrol lands in the hazard player's discard pile.
     expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);
+  });
+
+  test('cancel-attack is NOT available against Orc-watch keyed only by site-type Shadow-hold (regression for game ms6gbt8d-5na91m)', () => {
+    // Orc-watch (tw-078) is keyed to Shadow/Dark regions *or* Shadow-hold/
+    // Dark-hold sites — alternative ways to justify the play. Here the
+    // company travels through a Wilderness region and only arrives at a
+    // Shadow-hold, so the hazard player can only declare a site-type match;
+    // the attack is keyed to Shadow-hold (a site type), not Shadow-land (a
+    // region type). Stinker only cancels attacks "keyed to Wilderness or
+    // Shadow-land" (region types) — it must not fire here just because
+    // Orc-watch's card *could* have been keyed to a Shadow-land elsewhere.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [HORSEMAN_IN_THE_NIGHT] }], hand: [], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [ORC_WATCH], siteDeck: [] },
+      ],
+    });
+    const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionTypeEnum.Wilderness],
+      resolvedSitePathNames: ['Wilderland'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...withStinker, phaseState: mhState };
+
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type', value: 'shadow-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.attackKeying).toBeUndefined();
+    expect(afterChain.combat!.attackSiteKeyingTypes).toEqual(['shadow-hold']);
+
+    const cancelActions = viableActions(afterChain, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(0);
   });
 });
