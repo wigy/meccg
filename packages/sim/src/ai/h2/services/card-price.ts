@@ -153,6 +153,8 @@ function buildComputeCardPrices(
   const budget = computeBudget(view, cardPool);
 
   const plan = computeHazardPlan(view, cardPool, standing, tunables);
+  /** Quotes already computed in this position, by definition ID. */
+  const quotes = new Map<string, CardWorth>();
 
   /**
    * The part of the valuation that needs only the definition.
@@ -240,8 +242,17 @@ function buildComputeCardPrices(
     worth: worthOf,
 
     quote(definitionId: string): CardWorth {
+      // Cached by definition, because one decision can ask for the same quote
+      // hundreds of times: the deck-exhaust exchange offers every (discard,
+      // sideboard) *pair* as its own candidate — 1008 of them in the captured
+      // position — over a few dozen distinct cards. The price cannot differ
+      // between two candidates of one position, and the creature branch
+      // resolves a whole attack to produce it. Measured on that decision:
+      // 110–580 ms without the cache, 29–64 ms with it.
+      const cached = quotes.get(definitionId);
+      if (cached) return cached;
       const offered = 'offered' as CardInstanceId;
-      return priceDefinition(offered, definitionId, () => {
+      const quoted = priceDefinition(offered, definitionId, () => {
         const def = printed(cardPool[definitionId], definitionId)!;
         const raw = plan.marginalFor(definitionId);
         return {
@@ -253,6 +264,8 @@ function buildComputeCardPrices(
             : 'the plan has no company left it would improve',
         };
       });
+      quotes.set(definitionId, quoted);
+      return quoted;
     },
     ranked(): readonly CardWorth[] {
       return view.self.hand
