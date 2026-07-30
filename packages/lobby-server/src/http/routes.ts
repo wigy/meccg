@@ -19,7 +19,7 @@
  * - GET /api/admin/users — all accounts with name, display name, email, credits (admin session)
  * - GET /api/admin/users/:name — one account's full data, credit history, games (admin session)
  * - POST /api/admin/users/:name/credits/top-up — add consumption-since-last-addition, rounded up to
- *   the nearest hundred (admin session)
+ *   the nearest hundred plus a 200-credit bonus (admin session)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)

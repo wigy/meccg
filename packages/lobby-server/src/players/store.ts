@@ -231,11 +231,13 @@ export function consumptionSinceLastAddition(history: readonly CreditHistoryEntr
 
 /**
  * The top-up the admin screen offers: consumption since the last addition,
- * rounded up to the nearest hundred. Zero when nothing has been spent since,
- * so the button has nothing to add.
+ * rounded up to the nearest hundred, plus a 200-credit bonus. Zero when
+ * nothing has been spent since, so the button has nothing to add.
  */
 export function pendingTopUp(history: readonly CreditHistoryEntry[]): number {
-  return Math.ceil(consumptionSinceLastAddition(history) / 100) * 100;
+  const spent = consumptionSinceLastAddition(history);
+  if (spent <= 0) return 0;
+  return Math.ceil(spent / 100) * 100 + 200;
 }
 
 /** Outcome of {@link updateCredits}. */

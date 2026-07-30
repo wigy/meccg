@@ -7,9 +7,10 @@
  *
  * The detail view carries the top-up button. The amount it adds is decided
  * server-side (`POST /api/admin/users/:name/credits/top-up`): everything
- * consumed since the last credit addition, rounded up to the nearest hundred.
- * The button only ever adds what the account has already spent, so pressing
- * it twice in a row is a no-op the second time.
+ * consumed since the last credit addition, rounded up to the nearest hundred,
+ * plus a 200-credit bonus. When nothing was consumed since the last addition
+ * there is nothing to add, so pressing the button twice in a row is a no-op
+ * the second time.
  */
 
 import { appState, type ScreenId } from './app-state.js';
@@ -206,7 +207,7 @@ function renderTopUp(detail: AdminUserDetail): string {
     <button type="button" class="admin-topup-btn" data-user="${escapeHtml(detail.profile.name)}">
       Add ${detail.pendingTopUp} credits
     </button>
-    <p class="admin-topup-note">Covers all consumption since the last addition, rounded up to the nearest hundred.</p>`;
+    <p class="admin-topup-note">Covers all consumption since the last addition, rounded up to the nearest hundred, plus 200 extra.</p>`;
 }
 
 /** Show one account's full detail: fields, credit history, games. */
@@ -285,6 +286,11 @@ export async function openAdminPage(): Promise<void> {
     return;
   }
 
+  const nonSystemCount = r.data.users.filter((user) => !user.system).length;
+  const totalEl = document.createElement('p');
+  totalEl.className = 'admin-users-total';
+  totalEl.textContent = `${nonSystemCount} registered user${nonSystemCount === 1 ? '' : 's'} (system accounts excluded)`;
+
   const table = document.createElement('table');
   table.className = 'admin-users-table';
   table.innerHTML = `
@@ -322,5 +328,6 @@ export async function openAdminPage(): Promise<void> {
   });
 
   listEl.innerHTML = '';
+  listEl.appendChild(totalEl);
   listEl.appendChild(table);
 }
