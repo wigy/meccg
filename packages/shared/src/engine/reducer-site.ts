@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2081,6 +2081,18 @@ function handleSitePlaySiteAutoAttack(
         : undefined;
       const dynForcesNormal = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
         || (dynSiteType !== undefined && siteTypeForcesAutoAttacksNormal(state, dynSiteType));
+      // The played creature is keyed per the site rule's own keying (e.g. The
+      // Under-vaults as-168: "play one hazard creature keyed to Shadow-holds
+      // as an automatic-attack"), so that keying — not the union of everything
+      // the creature could key to — is what a defender-side
+      // keyed-attacks-normal override (World Gnawed by the Nameless as-110)
+      // is matched against.
+      const dynRule = siteDef && isSiteCard(siteDef)
+        ? siteDef.effects?.find(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack')
+        : undefined;
+      const dynDeclaredSiteTypes = dynRule && dynRule.type === 'site-rule' && dynRule.rule === 'dynamic-auto-attack'
+        ? dynRule.keying?.siteTypes
+        : undefined;
       return (!dynForcesNormal && (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false)) || isDetainmentAttack({
         attackEffects: creatureDef.effects,
         attackRace: creatureRace ?? null,
@@ -2090,6 +2102,8 @@ function handleSitePlaySiteAutoAttack(
         defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
         isAutomaticAttack: true,
         defenderForcesNormalAttacks: dynForcesNormal,
+        attackDeclaredSiteTypes: dynDeclaredSiteTypes,
+        normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(state, company.id),
       });
     })(),
   });

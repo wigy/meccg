@@ -40,7 +40,7 @@ import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
-import { extraMHMoveDestinations } from '../mh-hazard-play.js';
+import { extraMHMoveDestinations, extraMHUnderDeepsDestinations } from '../mh-hazard-play.js';
 import { buildCompanyCompositionContext } from '../company-composition.js';
 import { currentHazardLimit } from '../hazard-limit.js';
 import { computeCandidateRegionPaths } from '../region-keying.js';
@@ -236,10 +236,16 @@ function extraMHMoveOfferActions(
   const company = player.companies[mhState.activeCompanyIndex];
   const actions: GameAction[] = [];
   if (company) {
-    for (const siteInst of extraMHMoveDestinations(state, activeIndex, company)) {
+    // Under-deeps variant (World Gnawed by the Nameless as-110): offer only
+    // Under-deeps sites adjacent to the current site that the company has not
+    // attempted to move to yet this turn.
+    const destinations = mhState.extraMHMoveUnderDeeps
+      ? extraMHUnderDeepsDestinations(state, activeIndex, company, mhState.underDeepsAttempts?.[company.id as string] ?? [])
+      : extraMHMoveDestinations(state, activeIndex, company);
+    for (const siteInst of destinations) {
       const destDef = defById(state, siteInst.definitionId);
       actions.push({ type: 'extra-mh-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
-      logDetail(`Extra M/H phase: offering extra move to ${destDef?.name ?? (siteInst.definitionId as string)}`);
+      logDetail(`Extra M/H phase: offering extra ${mhState.extraMHMoveUnderDeeps ? 'Under-deeps ' : ''}move to ${destDef?.name ?? (siteInst.definitionId as string)}`);
     }
   }
   // Always allow passing to finish the company.
@@ -324,6 +330,13 @@ function extraMHPhaseResourceActions(
     }
     if (effect.requiresDestinationSiteType && destSite.siteType !== effect.requiresDestinationSiteType) {
       actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: the company is not moving to a ${effect.requiresDestinationSiteType}`));
+      continue;
+    }
+    // Under-deeps variant (World Gnawed by the Nameless as-110): "Playable
+    // during the movement/hazard phase on a company moving to an Under-deeps
+    // site."
+    if (effect.movement === 'under-deeps' && !(destSite.keywords?.includes('under-deeps') ?? false)) {
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: the company is not moving to an Under-deeps site`));
       continue;
     }
     if (effect.requiresDestinationAlignment && destSite.alignment !== effect.requiresDestinationAlignment) {

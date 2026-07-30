@@ -1240,6 +1240,32 @@ export function playerConvertsDetainmentToNormal(state: GameState, player: Playe
 }
 
 /**
+ * Site types for which the given company currently converts keyed hazard
+ * attacks into normal (non-detainment) attacks — the union of the `siteTypes`
+ * of every active `keyed-attacks-normal` constraint targeting the company
+ * (World Gnawed by the Nameless as-110, turn-scoped). Threaded into
+ * {@link isDetainmentAttack} as `normalIfKeyedToSiteTypes` at hazard-creature
+ * combat initiation. Empty array when no such constraint is active.
+ */
+export function companyKeyedAttacksNormalSiteTypes(
+  state: GameState,
+  companyId: CompanyId,
+): readonly SiteType[] {
+  const types: SiteType[] = [];
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'keyed-attacks-normal') continue;
+    if (c.target.kind !== 'company' || c.target.companyId !== companyId) continue;
+    for (const s of c.kind.siteTypes) {
+      if (!types.includes(s)) types.push(s);
+    }
+  }
+  if (types.length > 0) {
+    logDetail(`keyed-attacks-normal: company ${companyId as string} converts attacks keyed to [${types.join(', ')}] to normal`);
+  }
+  return types;
+}
+
+/**
  * True when some in-play long hazard-event (either player's `cardsInPlay`)
  * carries an `auto-attacks-normal` effect whose `siteTypes` include
  * `effectiveSiteType` — Awaken Defenders (le-103): "each detainment

@@ -1217,6 +1217,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * World Gnawed by the Nameless (as-110): "All hazard creatures the
+         * company faces this turn keyed to Shadow-holds [{S}] attack normally,
+         * not as detainment." Turn-scoped, installed on the target company by
+         * the `keyed-attacks-normal` DSL effect when the carrying resource
+         * event resolves. `isDetainmentAttack` receives the union of these
+         * site types (via its `normalIfKeyedToSiteTypes` context field) and
+         * forces any attack actually keyed to one of them to resolve as a
+         * normal, non-detainment attack.
+         */
+        readonly type: 'keyed-attacks-normal';
+        /** Site types whose keyed attacks against the company become normal. */
+        readonly siteTypes: readonly import('./common.js').SiteType[];
+      }
+    | {
+        /**
          * Crack in the Wall (le-177): the inverse of
          * `only-creatures-keyed-to-site` — no hazard creatures may be played
          * *at the target company's new site*. Any hazard-creature play whose

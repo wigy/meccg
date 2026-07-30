@@ -113,6 +113,27 @@ export interface DetainmentContext {
    * `playerConvertsDetainmentToNormal(state, defendingPlayer)`.
    */
   readonly defenderForcesNormalAttacks?: boolean;
+  /**
+   * Site types the attack was **actually keyed by** — the declared keying
+   * match when the play declared one, else the union of the attack's
+   * currently-valid `keyedTo` site types (on-guard reveals etc.). Consulted
+   * by the {@link normalIfKeyedToSiteTypes} override; when omitted, the
+   * site types are derived from {@link attackKeyedTo} (filtered by their
+   * `when` clauses against {@link inPlayNames}).
+   */
+  readonly attackDeclaredSiteTypes?: readonly SiteType[];
+  /**
+   * Site types for which the defending company converts keyed attacks to
+   * normal (World Gnawed by the Nameless as-110: "All hazard creatures the
+   * company faces this turn keyed to Shadow-holds attack normally, not as
+   * detainment"). Collected from the company's turn-scoped
+   * `keyed-attacks-normal` active constraints
+   * (`companyKeyedAttacksNormalSiteTypes` in `reducer-utils.ts`). When the
+   * attack's keying site types intersect this list, the attack is never
+   * detainment — overriding `combat-detainment` effects and the §3.II
+   * alignment-based rules alike.
+   */
+  readonly normalIfKeyedToSiteTypes?: readonly SiteType[];
 }
 
 /** Races covered by rule 3.II.2.R2/B2 when keyed to a Shadow-land. */
@@ -167,6 +188,22 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
   if (ctx.defenderForcesNormalAttacks) {
     logDetail('Detainment: overridden — defender converts all detainment attacks to normal (e.g. Alatar wh-1)');
     return false;
+  }
+
+  // keyed-attacks-normal (World Gnawed by the Nameless as-110): attacks keyed
+  // to one of the listed site types resolve normally, never as detainment —
+  // this beats combat-detainment effects and the §3.II alignment rules alike.
+  if (ctx.normalIfKeyedToSiteTypes && ctx.normalIfKeyedToSiteTypes.length > 0) {
+    const keyingCtx = { inPlay: ctx.inPlayNames ?? [] };
+    const attackSiteTypes = ctx.attackDeclaredSiteTypes
+      ?? (ctx.attackKeyedTo ?? [])
+        .filter(k => !k.when || matchesCondition(k.when, keyingCtx))
+        .flatMap(k => k.siteTypes ?? []);
+    const match = attackSiteTypes.find(s => ctx.normalIfKeyedToSiteTypes!.includes(s));
+    if (match) {
+      logDetail(`Detainment: overridden — defending company converts attacks keyed to ${match} to normal (keyed-attacks-normal, e.g. as-110)`);
+      return false;
+    }
   }
 
   const forcedDetainmentRule = (ctx.defendingSiteEffects ?? []).find(

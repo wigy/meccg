@@ -2184,13 +2184,23 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   // movement to an additional site — a fresh movement/hazard phase — via the
   // dedicated offer step. The active player may instead pass to finish here.
   if (currentCompany.extraMHPhasePending) {
-    logDetail(`Extra M/H phase: company ${currentCompany.id as string} may move to an additional site → extra-mh-move-offer`);
+    const underDeeps = currentCompany.extraMHPhasePending === 'under-deeps';
+    logDetail(`Extra M/H phase: company ${currentCompany.id as string} may move to an additional ${underDeeps ? 'Under-deeps ' : ''}site → extra-mh-move-offer`);
     const clearedState = updatePlayer(state, activeIndex, p => ({
       ...p,
       companies: p.companies.map((c, idx) =>
         idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
     }));
-    return { state: { ...clearedState, phaseState: { ...mhState, step: 'extra-mh-move-offer' as const } } };
+    return {
+      state: {
+        ...clearedState,
+        phaseState: {
+          ...mhState,
+          step: 'extra-mh-move-offer' as const,
+          extraMHMoveUnderDeeps: underDeeps ? true : undefined,
+        },
+      },
+    };
   }
 
   // extra-mh-phase constraint (Master of Esgaroth td-135): played at the end of
@@ -2551,10 +2561,50 @@ export function extraMHMoveDestinations(
 }
 
 /**
+ * Enumerate the destination sites for the **Under-deeps** variant of the
+ * extra-move offer (`grant-extra-mh-phase` `movement: "under-deeps"` — World
+ * Gnawed by the Nameless as-110): sites in the active player's site deck that
+ * carry the `under-deeps` keyword, are Under-deeps-adjacent to the company's
+ * current site, and are not among the Under-deeps destinations this company
+ * has already attempted to move to this turn (`underDeepsAttempts` on the M/H
+ * phase state — a failed movement roll still counts as an attempt).
+ * De-duplicated by definition.
+ */
+export function extraMHUnderDeepsDestinations(
+  state: GameState,
+  activeIndex: number,
+  company: Company,
+  attemptedSiteDefIds: readonly CardDefinitionId[],
+): readonly CardInstance[] {
+  const player = state.players[activeIndex];
+  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const attempted = new Set(attemptedSiteDefIds.map(id => id as string));
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (attempted.has(siteInst.definitionId as string)) continue;
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!(destDef.keywords?.includes('under-deeps') ?? false)) continue;
+    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
  * Handle the `extra-mh-move-offer` step (`grant-extra-mh-phase` resources —
  * Forced March le-185, Bridge tw-202, Leg It Double Quick le-202): the active
  * player either finishes the company (`pass` → finalize) or picks a new
  * destination for another movement/hazard phase (`extra-mh-move`).
+ *
+ * When the step was entered for an Under-deeps extra move
+ * (`mhState.extraMHMoveUnderDeeps` — World Gnawed by the Nameless as-110),
+ * the legal destinations come from {@link extraMHUnderDeepsDestinations}
+ * instead, and the flag is cleared on either exit.
  *
  * On selection, the chosen site is drawn from the site deck and installed as the
  * company's destination; the per-phase state is reset and the phase re-enters at
@@ -2567,10 +2617,11 @@ export function handleExtraMHMoveOffer(
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const underDeeps = mhState.extraMHMoveUnderDeeps === true;
 
   if (action.type === 'pass') {
     logDetail(`Extra M/H phase: active player declined the additional move — finalizing company`);
-    return finalizeCompanyMH(state, mhState);
+    return finalizeCompanyMH(state, { ...mhState, extraMHMoveUnderDeeps: undefined });
   }
 
   if (action.type !== 'extra-mh-move') {
@@ -2584,10 +2635,12 @@ export function handleExtraMHMoveOffer(
   }
   const company = player.companies[companyIdx];
 
-  const dest = extraMHMoveDestinations(state, activeIndex, company)
-    .find(s => s.instanceId === action.destinationSite);
+  const candidates = underDeeps
+    ? extraMHUnderDeepsDestinations(state, activeIndex, company, mhState.underDeepsAttempts?.[company.id as string] ?? [])
+    : extraMHMoveDestinations(state, activeIndex, company);
+  const dest = candidates.find(s => s.instanceId === action.destinationSite);
   if (!dest) {
-    return { state, error: 'Chosen site is not a legal extra-movement destination' };
+    return { state, error: underDeeps ? 'Chosen site is not a legal extra Under-deeps destination' : 'Chosen site is not a legal extra-movement destination' };
   }
 
   const companies = [...player.companies];
@@ -2598,12 +2651,17 @@ export function handleExtraMHMoveOffer(
   };
   const siteDeck = removeById(player.siteDeck, dest.instanceId);
   const destName = cardNameLocal(state, dest.definitionId);
-  logDetail(`Extra M/H phase: company ${action.companyId as string} sets destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
+  logDetail(`Extra M/H phase: company ${action.companyId as string} sets ${underDeeps ? 'Under-deeps ' : ''}destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
 
   return {
     state: {
       ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
-      phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
+      phaseState: {
+        ...resetCompanyMHFields(mhState),
+        step: 'reveal-new-site' as const,
+        siteRevealed: true,
+        extraMHMoveUnderDeeps: undefined,
+      },
     },
   };
 }

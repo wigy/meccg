@@ -1802,7 +1802,18 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "grant-extra-mh-phase",
+        "movement": "under-deeps",
+        "returnToHand": true
+      },
+      {
+        "type": "keyed-attacks-normal",
+        "siteTypes": ["shadow-hold"]
+      }
+    ],
+    "certified": "2026-07-30",
     "text": "Playable during the movement/hazard phase on a company moving to an Under-deeps site. At the end of its movement/hazard phase, target company attempts to move to an additional Under-deeps site which it has not attempted to move to yet this turn. Another site card is played and a movement/hazard phase immediately follows. Return this card to your hand. All hazard creatures the company faces this turn keyed to Shadow-holds [{S}] attack normally, not as detainment."
   },
   {
