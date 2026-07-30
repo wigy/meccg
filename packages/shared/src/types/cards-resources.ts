@@ -82,7 +82,37 @@ export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType | PlayableAtRe
  */
 export type ItemSubtype = 'minor' | 'major' | 'greater' | 'gold-ring' | 'special';
 
-// ---- Hero Resources ----
+// ---- Resource card bases ----
+//
+// Hero and minion resources of the same kind are structurally identical: they
+// differ only in the `cardType` discriminant (plus the minion-only
+// `manifestId` on factions). Each kind therefore gets a base interface that
+// both alignments extend, so a field added to items or allies lands on both
+// alignments by construction instead of by remembering to edit two blocks.
+
+/**
+ * Fields every resource card carries, whatever its kind or alignment.
+ */
+interface ResourceCardBase {
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Glamdring", "Black Mace"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Whether only one copy of this card can be in play across all players. */
+  readonly unique: boolean;
+  /** Victory points scored at the Free Council for controlling this card. */
+  readonly marshallingPoints: number;
+  /** Declarative effects describing this card's abilities and modifiers. */
+  readonly effects?: readonly CardEffect[];
+  /** Flavor/rules text describing special abilities or play conditions. */
+  readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
+}
 
 /**
  * An item resource card that can be played on a character at an appropriate site.
@@ -91,23 +121,9 @@ export type ItemSubtype = 'minor' | 'major' | 'greater' | 'gold-ring' | 'special
  * points but also adding corruption points that risk the character's loyalty.
  * This risk/reward tension is central to MECCG strategy.
  */
-export interface HeroItemCard {
-  /** Discriminant for the card type union. */
-  readonly cardType: 'hero-resource-item';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Glamdring", "Mithril Coat"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /** Whether only one copy of this item can be in play across all players. */
-  readonly unique: boolean;
+interface ItemCardBase extends ResourceCardBase {
   /** Item tier, determining which sites it can be played at. */
   readonly subtype: ItemSubtype;
-  /** Victory points scored at the Free Council for controlling this item. */
-  readonly marshallingPoints: number;
   /** Always 'item' -- used for scoring category calculations. */
   readonly marshallingCategory: MarshallingCategory.Item;
   /** Corruption points added to the bearing character, increasing risk of corruption check failure. */
@@ -120,41 +136,17 @@ export interface HeroItemCard {
   readonly playableAt: readonly SiteType[];
   /** Game keywords (e.g. "weapon", "armor") that affect card interactions. */
   readonly keywords?: readonly Keyword[];
-  /** Declarative effects describing this item's abilities and modifiers. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing special abilities or play conditions. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
 
 /**
- * A faction resource card representing a Free Peoples group that can be
- * allied to the player's cause through an influence attempt.
+ * A faction resource card representing a group that can be allied to the
+ * player's cause through an influence attempt.
  *
  * Factions are played at a specific site by a character making an influence
- * roll (2d6 >= influence number). They are always unique and provide
- * significant marshalling points, making them high-value targets.
+ * roll (2d6 >= influence number). Most are unique and provide significant
+ * marshalling points, making them high-value targets.
  */
-export interface HeroFactionCard {
-  /** Discriminant for the card type union. */
-  readonly cardType: 'hero-resource-faction';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Riders of Rohan", "Rangers of the North"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /**
-   * Whether this faction is unique. Most factions are unique (only one copy
-   * may be in play), but a few (e.g. Snaga-hai) are non-unique and allow
-   * multiple copies in play. Authoritative source is `attributes.unique`.
-   */
-  readonly unique: boolean;
-  /** Victory points scored at the Free Council for controlling this faction. */
-  readonly marshallingPoints: number;
+interface FactionCardBase extends ResourceCardBase {
   /** Always 'faction' -- used for scoring category calculations. */
   readonly marshallingCategory: MarshallingCategory.Faction;
   /** The 2d6 roll target needed to successfully influence this faction (lower = easier). */
@@ -172,34 +164,16 @@ export interface HeroFactionCard {
   readonly race: Race;
   /** Locations where this faction can be played (typically a single named site). */
   readonly playableAt: readonly PlayableAtEntry[];
-  /** Declarative effects describing this faction's abilities. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing special abilities or modifiers. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
 
 /**
- * An ally resource card representing a unique companion that joins a company.
+ * An ally resource card representing a companion or creature that joins a company.
  *
  * Allies function similarly to characters in combat (they have prowess and body)
  * but are played as resource cards at specific sites rather than being recruited
  * via influence. They score marshalling points but don't carry items or exert influence.
  */
-export interface HeroAllyCard {
-  /** Discriminant for the card type union. */
-  readonly cardType: 'hero-resource-ally';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Tom Bombadil", "Goldberry"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /** Whether only one copy of this ally can be in play across all players. */
-  readonly unique: boolean;
+interface AllyCardBase extends ResourceCardBase {
   /** The ally's combat strength when fighting or defending. */
   readonly prowess: number;
   /** The ally's resistance to being eliminated in combat. */
@@ -220,18 +194,10 @@ export interface HeroAllyCard {
    * Marvels Told. Optional: most allies have no skills.
    */
   readonly skills?: readonly Skill[];
-  /** Victory points scored at the Free Council for controlling this ally. */
-  readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */
   readonly marshallingCategory: MarshallingCategory.Ally;
   /** Locations where this ally can be played (typically specific named sites). */
   readonly playableAt: readonly PlayableAtEntry[];
-  /** Declarative effects describing this ally's abilities. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing special abilities. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
 
 /**
@@ -244,33 +210,50 @@ export interface HeroAllyCard {
  *
  * They score marshalling points in the 'misc' category (usually 0).
  */
-export interface HeroResourceEventCard {
-  /** Discriminant for the card type union. */
-  readonly cardType: 'hero-resource-event';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Dark Quarrels", "A Short Rest"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /** Whether only one copy of this event can be in play. Mainly relevant for long/permanent events. */
-  readonly unique: boolean;
+interface ResourceEventCardBase extends ResourceCardBase {
   /** Duration class determining when this event is removed from play. */
   readonly eventType: 'short' | 'long' | 'permanent';
-  /** Victory points scored at the Free Council (typically 0 for events). */
-  readonly marshallingPoints: number;
   /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
   readonly marshallingCategory: MarshallingCategory.Misc;
   /** Game keywords (e.g. "environment") that affect card interactions. */
   readonly keywords?: readonly Keyword[];
-  /** Declarative effects describing this event's abilities. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing the event's effect. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
+}
+
+// ---- Hero Resources ----
+
+/**
+ * A hero item resource card (e.g. "Glamdring", "Mithril Coat"), played on a
+ * hero character at an appropriate hero site.
+ */
+export interface HeroItemCard extends ItemCardBase {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'hero-resource-item';
+}
+
+/**
+ * A hero faction resource card representing a Free Peoples group
+ * (e.g. "Riders of Rohan", "Rangers of the North").
+ */
+export interface HeroFactionCard extends FactionCardBase {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'hero-resource-faction';
+}
+
+/**
+ * A hero ally resource card representing a unique companion that joins a
+ * hero company (e.g. "Tom Bombadil", "Goldberry").
+ */
+export interface HeroAllyCard extends AllyCardBase {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'hero-resource-ally';
+}
+
+/**
+ * A hero resource event card (e.g. "Dark Quarrels", "A Short Rest").
+ */
+export interface HeroResourceEventCard extends ResourceEventCardBase {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'hero-resource-event';
 }
 
 // ---- Minion Resources ----
@@ -282,41 +265,9 @@ export interface HeroResourceEventCard {
  * alignment — they are played at minion sites and carried by minion characters.
  * They include thematic equipment like Black Mace, High Helm, and Saw-toothed Blade.
  */
-export interface MinionItemCard {
+export interface MinionItemCard extends ItemCardBase {
   /** Discriminant for the card type union. */
   readonly cardType: 'minion-resource-item';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Black Mace", "Saw-toothed Blade"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /** Whether only one copy of this item can be in play across all players. */
-  readonly unique: boolean;
-  /** Item tier, determining which sites it can be played at. */
-  readonly subtype: ItemSubtype;
-  /** Victory points scored for controlling this item. */
-  readonly marshallingPoints: number;
-  /** Always 'item' -- used for scoring category calculations. */
-  readonly marshallingCategory: MarshallingCategory.Item;
-  /** Corruption points added to the bearing character. */
-  readonly corruptionPoints: number;
-  /** Bonus (or penalty) to the bearing character's prowess in combat. */
-  readonly prowessModifier: number;
-  /** Bonus (or penalty) to the bearing character's body for defense. */
-  readonly bodyModifier: number;
-  /** Site types where this item can be played. */
-  readonly playableAt: readonly SiteType[];
-  /** Game keywords (e.g. "weapon", "armor") that affect card interactions. */
-  readonly keywords?: readonly Keyword[];
-  /** Declarative effects describing this item's abilities and modifiers. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing special abilities or play conditions. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
 
 /**
@@ -324,41 +275,12 @@ export interface MinionItemCard {
  * swayed to serve the Dark Lord through an influence attempt.
  *
  * Minion factions include Orc tribes, Troll bands, and corrupted Men.
- * They work like hero factions but are played at minion sites.
+ * They work like hero factions but are played at minion sites, and are the
+ * only factions that can take part in a Dragon manifestation chain.
  */
-export interface MinionFactionCard {
+export interface MinionFactionCard extends FactionCardBase {
   /** Discriminant for the card type union. */
   readonly cardType: 'minion-resource-faction';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Goblins of Goblin-gate"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /**
-   * Whether this faction is unique. Most minion factions are unique (only one
-   * copy may be in play), but a few (e.g. Snaga-hai) are non-unique and allow
-   * multiple copies in play. Authoritative source is `attributes.unique`.
-   */
-  readonly unique: boolean;
-  /** Victory points scored for controlling this faction. */
-  readonly marshallingPoints: number;
-  /** Always 'faction' -- used for scoring category calculations. */
-  readonly marshallingCategory: MarshallingCategory.Faction;
-  /** The 2d6 roll target needed to successfully influence this faction. */
-  readonly influenceNumber: number;
-  /**
-   * The value required when an opponent attempts to re-influence this faction
-   * while it is already in play (CoE rule 8.3, "the value required for the
-   * influence check on the faction that is already in play"). If omitted,
-   * the first-play `influenceNumber` is reused. The clause "Once in play,
-   * the number required to influence this faction is N" sets this field.
-   */
-  readonly inPlayInfluenceNumber?: number;
-  /** The faction's race. */
-  readonly race: Race;
   /**
    * Manifestation-chain tag (Dragons expansion). A "Roused" faction such as
    * Smaug Roused (le-285) is one in-game form of a unique Dragon; every card in
@@ -369,107 +291,22 @@ export interface MinionFactionCard {
    * references such as this card's own attack-cancellation.
    */
   readonly manifestId?: ManifestId;
-  /** Locations where this faction can be played (typically a single named site). */
-  readonly playableAt: readonly PlayableAtEntry[];
-  /** Declarative effects describing this faction's abilities. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing special abilities or modifiers. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
 
 /**
  * A minion ally resource card representing a creature or servant
- * that joins a minion company.
- *
- * Minion allies include beasts and monsters like War-wargs and the Warg-king.
- * They have prowess and body for combat but don't carry items.
+ * that joins a minion company (e.g. "The Warg-king", "War-wolf").
  */
-export interface MinionAllyCard {
+export interface MinionAllyCard extends AllyCardBase {
   /** Discriminant for the card type union. */
   readonly cardType: 'minion-resource-ally';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "The Warg-king", "War-wolf"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /** Whether only one copy of this ally can be in play across all players. */
-  readonly unique: boolean;
-  /** The ally's combat strength when fighting or defending. */
-  readonly prowess: number;
-  /** The ally's resistance to being eliminated in combat. */
-  readonly body: number;
-  /** The ally's mind value, used as the comparison value in opponent influence attempts. */
-  readonly mind: number;
-  /**
-   * The ally's direct influence, relevant only when the ally can "attempt to
-   * influence factions as if he were a character" (the `influences-factions`
-   * play-flag, e.g. Radagast's Black Bird wh-114). Optional: most allies do not
-   * influence factions and have no printed direct-influence value.
-   */
-  readonly directInfluence?: number;
-  /**
-   * Skills the ally possesses. Per CoE rule 2.V.2.2, allies are treated as
-   * characters when fulfilling "skill only" active conditions. Optional:
-   * most allies have no skills.
-   */
-  readonly skills?: readonly Skill[];
-  /** Victory points scored for controlling this ally. */
-  readonly marshallingPoints: number;
-  /** Always 'ally' -- used for scoring category calculations. */
-  readonly marshallingCategory: MarshallingCategory.Ally;
-  /** Locations where this ally can be played (typically specific named sites). */
-  readonly playableAt: readonly PlayableAtEntry[];
-  /** Declarative effects describing this ally's abilities. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing special abilities. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
 
-// ---- Minion Resource Events ----
-
 /**
- * A minion resource event card -- the minion counterpart to {@link HeroResourceEventCard}.
- *
- * Minion resource events are beneficial cards played by the minion player.
- * Like hero resource events, they have a duration class:
- * - `short` -- Resolved immediately and discarded.
- * - `long` -- Stays in play until the next Long-event phase, then discarded.
- * - `permanent` -- Remains in play indefinitely.
- *
- * They score marshalling points in the 'misc' category (usually 0).
+ * A minion resource event card -- the minion counterpart to
+ * {@link HeroResourceEventCard} (e.g. "Orc Quarrels", "A Nice Place to Hide").
  */
-export interface MinionResourceEventCard {
+export interface MinionResourceEventCard extends ResourceEventCardBase {
   /** Discriminant for the card type union. */
   readonly cardType: 'minion-resource-event';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
-  /** Unique identifier in the static card pool. */
-  readonly id: CardDefinitionId;
-  /** Display name (e.g. "Orc Quarrels", "A Nice Place to Hide"). */
-  readonly name: string;
-  /** Full URL to the card's remastered image in the meccg-remaster repository. */
-  readonly image: string;
-  /** Whether only one copy of this event can be in play. Mainly relevant for long/permanent events. */
-  readonly unique: boolean;
-  /** Duration class determining when this event is removed from play. */
-  readonly eventType: 'short' | 'long' | 'permanent';
-  /** Victory points scored at the Free Council (typically 0 for events). */
-  readonly marshallingPoints: number;
-  /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
-  readonly marshallingCategory: MarshallingCategory.Misc;
-  /** Game keywords that affect card interactions. */
-  readonly keywords?: readonly Keyword[];
-  /** Declarative effects describing this event's abilities. */
-  readonly effects?: readonly CardEffect[];
-  /** Flavor/rules text describing the event's effect. */
-  readonly text: string;
-  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
-  readonly certified?: string;
 }
