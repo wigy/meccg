@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.66.0 — 2026-07-30
+
+More UI features
+
+### Lobby & Web Client
+
+- **Display requests in the mail page** — the mail screen now shows the request queue alongside messages
+- **Show a Detainment marker on the combat situation banner** so detainment attacks are visible at a glance
+- Show the unadjusted MP total in parentheses in the MP tooltip
+- Show a loading cover until the first full game state renders, avoiding a flash of partial UI
+- Fixed the full-map company label to use the company's title character instead of array order
+- Admin screen shows the non-system user count, and top-ups grant a 200-credit bonus
+- The player guide now explains credit replenishment instead of pointing to admin top-ups
+
+### Game Engine
+
+- Fixed Ready to His Will (le-220) being wrongly offered as a generic playable event
+
+### Infrastructure
+
+- Measured the flat Monte-Carlo playout horizon in the sim harness: longer playouts buy nothing
+- Fixed a pre-existing markdown lint error in the card-effects DSL docs
+
 ## 0.65.0 — 2026-07-30
 
 Admin screen
