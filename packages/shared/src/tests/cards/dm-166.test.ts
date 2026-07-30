@@ -254,7 +254,8 @@ describe('Aiglos (dm-166)', () => {
       attackSource: { type: 'creature', instanceId: creatureId },
     });
     // Roll 8 > effective body 6 (8 - 2) → creature defeated, kill MP awarded.
-    const after = executeAction({ ...state, phaseState: makeMHState(), combat }, PLAYER_2, 'body-check-roll', 8);
+    // The creature belongs to the attacker, so the defender rolls (CoE 3.I.1).
+    const after = executeAction({ ...state, phaseState: makeMHState(), combat }, PLAYER_1, 'body-check-roll', 8);
     expect(findInPile(after, RESOURCE_PLAYER, 'killPile', creatureId)).toBeDefined();
   });
 
@@ -282,7 +283,8 @@ describe('Aiglos (dm-166)', () => {
       attackSource: { type: 'creature', instanceId: creatureId },
     });
     // Roll 8 = body 8 → not > body → creature survives, discarded.
-    const after = executeAction({ ...state, phaseState: makeMHState(), combat }, PLAYER_2, 'body-check-roll', 8);
+    // The creature belongs to the attacker, so the defender rolls (CoE 3.I.1).
+    const after = executeAction({ ...state, phaseState: makeMHState(), combat }, PLAYER_1, 'body-check-roll', 8);
     expect(findInPile(after, RESOURCE_PLAYER, 'killPile', creatureId)).toBeUndefined();
     expect(findInPile(after, HAZARD_PLAYER, 'discardPile', creatureId)).toBeDefined();
   });

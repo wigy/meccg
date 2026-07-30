@@ -116,11 +116,11 @@ describe('Éowyn (tw-147)', () => {
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
 
     // Roll 5 ≤ 5 (halved body) → creature survives
-    const afterSurvive = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 5);
+    const afterSurvive = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 5);
     expect(afterSurvive.combat).toBeNull();
 
     // Roll 6 > 5 → creature defeated
-    const afterDefeat = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 6);
+    const afterDefeat = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 6);
     expect(afterDefeat.combat).toBeNull();
   });
 
@@ -134,11 +134,11 @@ describe('Éowyn (tw-147)', () => {
     expect(afterStrike.combat?.phase).toBe('body-check');
 
     // Roll 5 ≤ 5 → creature survives
-    const afterSurvive = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 5);
+    const afterSurvive = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 5);
     expect(afterSurvive.combat).toBeNull();
 
     // Roll 6 > 5 → creature defeated
-    const afterDefeat = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 6);
+    const afterDefeat = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 6);
     expect(afterDefeat.combat).toBeNull();
   });
 
@@ -152,11 +152,11 @@ describe('Éowyn (tw-147)', () => {
     expect(afterStrike.combat?.phase).toBe('body-check');
 
     // Roll 9 ≤ 9 (full body, not halved) → creature survives
-    const afterSurvive = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 9);
+    const afterSurvive = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 9);
     expect(afterSurvive.combat).toBeNull();
 
     // Roll 10 > 9 → creature defeated (body was 9, not 5)
-    const afterDefeat = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 10);
+    const afterDefeat = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 10);
     expect(afterDefeat.combat).toBeNull();
   });
 });

@@ -290,7 +290,8 @@ describe('Elerína (dm-7)', () => {
       const firstResolves = viableActions({ ...s, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
       expect(firstResolves.length).toBeGreaterThan(0);
       s = dispatch({ ...s, cheatRollTotal: 12 }, firstResolves[0].action);
-      const firstBodyChecks = viableActions(s, PLAYER_2, 'body-check-roll');
+      // The agent belongs to the attacker, so the defender rolls (CoE 3.I.1).
+      const firstBodyChecks = viableActions(s, PLAYER_1, 'body-check-roll');
       expect(firstBodyChecks.length).toBeGreaterThan(0);
       s = dispatch({ ...s, cheatRollTotal: 2 }, firstBodyChecks[0].action);
 
@@ -300,7 +301,8 @@ describe('Elerína (dm-7)', () => {
       const secondResolves = viableActions({ ...s, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
       expect(secondResolves.length).toBeGreaterThan(0);
       s = dispatch({ ...s, cheatRollTotal: 12 }, secondResolves[0].action);
-      const secondBodyChecks = viableActions(s, PLAYER_2, 'body-check-roll');
+      // The agent belongs to the attacker, so the defender rolls (CoE 3.I.1).
+      const secondBodyChecks = viableActions(s, PLAYER_1, 'body-check-roll');
       expect(secondBodyChecks.length).toBeGreaterThan(0);
       s = dispatch({ ...s, cheatRollTotal: 2 }, secondBodyChecks[0].action);
 
