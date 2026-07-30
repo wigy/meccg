@@ -301,6 +301,75 @@ export function listUnhandledRequests(
 }
 
 /**
+ * Handling priority of a request topic, lower served first. Mirrors
+ * `next_request_id` in `bin/run-ai`: bug reports, then planned feature work,
+ * then everything else, with certifications drained last. Keep the two in
+ * sync — this is what the lobby shows players as their queue position.
+ */
+export function requestPriority(topic: MailTopic): number {
+  if (topic === 'bug-report') return 0;
+  if (topic === 'feature-planning-request' || topic === 'feature-implementation-request') return 1;
+  if (topic === 'certification-request') return 3;
+  return 2;
+}
+
+/** One of the viewing player's open requests, with its queue position. */
+export interface OpenRequestInfo {
+  /** Message ID. */
+  readonly id: string;
+  /** Subject line. */
+  readonly subject: string;
+  /** Message topic. */
+  readonly topic: MailTopic;
+  /** Current lifecycle status. */
+  readonly status: MailStatus;
+  /** ISO 8601 timestamp of when the request was filed. */
+  readonly timestamp: string;
+  /** Number of open requests (any player's) served before this one. */
+  readonly ahead: number;
+}
+
+/**
+ * From the global request listing, pick the viewing player's open requests
+ * and record each one's queue position. Pure core of
+ * {@link listOpenRequests}, split out for tests. Open means status 'new' —
+ * the unhandled queue exactly as `bin/requests` lists it. `ahead` counts
+ * every open request served before that one, whoever filed it, in the
+ * {@link requestPriority} order `bin/run-ai` drains the queue in — bug
+ * reports jump ahead, certifications fall behind, arrival order decides
+ * within a tier.
+ */
+export function annotateOpenRequests(
+  all: readonly UnhandledRequest[],
+  mineIds: ReadonlySet<string>,
+): OpenRequestInfo[] {
+  return all
+    .filter(r => r.status === 'new')
+    .map((r, index) => ({ r, index }))
+    .sort((a, b) => (requestPriority(a.r.topic) - requestPriority(b.r.topic)) || (a.index - b.index))
+    .map(({ r }, rank) => ({
+      id: r.id,
+      subject: r.subject,
+      topic: r.topic,
+      status: r.status,
+      timestamp: r.timestamp,
+      ahead: rank,
+    }))
+    .filter(r => mineIds.has(r.id));
+}
+
+/**
+ * List the viewing player's open requests, oldest first, each with the
+ * number of requests queued before it (same order as `bin/requests`).
+ * Ownership is derived from the player's sent folder, which holds a copy of
+ * every request they filed (see {@link sendMail}).
+ */
+export function listOpenRequests(playerName: string): OpenRequestInfo[] {
+  const mineIds = new Set(listSent(playerName).map(m => m.id));
+  return annotateOpenRequests(listUnhandledRequests(['ai', 'admin']), mineIds);
+}
+
+/**
  * Count messages in a player's inbox that need attention: status 'new', plus
  * review-requests in 'waiting' state (the reviewer still has to approve/decline).
  */

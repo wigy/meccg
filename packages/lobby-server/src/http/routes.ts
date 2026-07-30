@@ -11,6 +11,7 @@
  * - POST /api/my-decks — add a deck to the player's collection
  * - PUT /api/my-decks/current — set the player's current deck
  * - GET /api/mail/inbox — list inbox messages with unread count
+ * - GET /api/mail/requests — the player's open requests with AI-queue positions
  * - GET /api/mail/inbox/:id — read a message (marks as read)
  * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
@@ -48,7 +49,7 @@ import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
-import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
+import { sendMail, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp } from '../players/store.js';
@@ -648,6 +649,13 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/mail/sent' && method === 'GET') {
     await authedRoute(req, res, 'mail-sent', 'Failed to load sent mail', (playerName) => {
       sendJson(res, 200, { messages: listSent(playerName) });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/mail/requests' && method === 'GET') {
+    await authedRoute(req, res, 'mail-requests', 'Failed to load open requests', (playerName) => {
+      sendJson(res, 200, { requests: listOpenRequests(playerName) });
     });
     return;
   }

@@ -7,7 +7,6 @@
  */
 
 import { appState, type ScreenId, VIEWING_INBOX_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY } from './app-state.js';
-import { showAlert } from './dialog.js';
 import { renderMarkdown } from './markdown.js';
 import { apiGet, apiSend } from './api.js';
 import { escapeHtml } from './html-utils.js';
@@ -36,6 +35,66 @@ export interface InboxMessage {
   readonly keywords: Record<string, string>;
   readonly replyTo?: string;
   readonly recipients?: readonly string[];
+}
+
+/** Shape of an open request entry from GET /api/mail/requests. */
+interface OpenRequest {
+  readonly id: string;
+  readonly subject: string;
+  readonly topic: string;
+  readonly status: string;
+  readonly timestamp: string;
+  readonly ahead: number;
+}
+
+/**
+ * Short note shown after an open request's title in the requests box. The
+ * queue position is only in the summary line, not repeated per row.
+ */
+function openRequestNote(req: OpenRequest): string {
+  return req.topic === 'feature-request' ? 'awaiting approval' : '';
+}
+
+/** Fetch the player's open requests and fill the box; it stays hidden when there are none. */
+async function loadOpenRequests(box: HTMLElement): Promise<void> {
+  const r = await apiGet<{ requests: OpenRequest[] }>('/api/mail/requests');
+  if (!r.ok || r.data.requests.length === 0) return;
+  const requests = r.data.requests;
+
+  const title = document.createElement('div');
+  title.className = 'inbox-requests-title';
+  title.textContent = `Open requests (${requests.length})`;
+  box.appendChild(title);
+
+  // Summary line: how far the player's next request is from being handled.
+  // The list arrives in handling order, so the first entry is the next one.
+  const summary = document.createElement('div');
+  summary.className = 'inbox-requests-summary';
+  const ahead = requests[0].ahead;
+  summary.textContent = ahead === 0
+    ? 'Your next request is first in the queue.'
+    : `${ahead} request${ahead === 1 ? '' : 's'} ahead of your next one.`;
+  box.appendChild(summary);
+
+  for (const req of requests) {
+    const row = document.createElement('div');
+    row.className = 'inbox-requests-item';
+    const subject = document.createElement('span');
+    subject.className = 'inbox-requests-subject';
+    subject.textContent = req.subject;
+    subject.title = req.subject;
+    row.appendChild(subject);
+    const noteText = openRequestNote(req);
+    if (noteText) {
+      const note = document.createElement('span');
+      note.className = 'inbox-requests-note';
+      note.textContent = noteText;
+      row.appendChild(note);
+    }
+    box.appendChild(row);
+  }
+
+  box.classList.remove('hidden');
 }
 
 /** IDs of inbox rows currently in a read (deletable) state — not unread, not waiting. */
@@ -247,25 +306,6 @@ function renderMailList(
   tabsDiv.appendChild(sentTab);
   listEl.appendChild(tabsDiv);
 
-  // Feature request button
-  const featureBtn = document.createElement('button');
-  featureBtn.className = 'inbox-action-btn';
-  featureBtn.textContent = 'Feature Request';
-  featureBtn.addEventListener('click', () => {
-    if (appState.lobbyPlayerCredits <= 0) {
-      void showAlert('No credits available. Top up your credits before sending a feature request.');
-      return;
-    }
-    const modal = document.getElementById('feature-request-modal')!;
-    const subjectEl = document.getElementById('feature-request-subject') as HTMLInputElement;
-    const bodyEl = document.getElementById('feature-request-body') as HTMLTextAreaElement;
-    subjectEl.value = '';
-    bodyEl.value = '';
-    modal.classList.remove('hidden');
-    subjectEl.focus();
-  });
-  listEl.appendChild(featureBtn);
-
   // Delete Read button — always shown on the inbox tab. Its enabled state is derived
   // from the list rows (see refreshDeleteReadState), so it is disabled whenever there
   // are no read messages and enabled as soon as one is read.
@@ -287,6 +327,15 @@ function renderMailList(
       })();
     });
     listEl.appendChild(deleteReadBtn);
+  }
+
+  // Open-requests panel above the list — populated asynchronously and
+  // revealed only when the player has open requests.
+  const requestsBox = document.getElementById('inbox-requests');
+  if (requestsBox) {
+    requestsBox.innerHTML = '';
+    requestsBox.classList.add('hidden');
+    void loadOpenRequests(requestsBox);
   }
 
   if (messages.length === 0) {
