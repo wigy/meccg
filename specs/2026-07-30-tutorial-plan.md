@@ -435,22 +435,26 @@ meet this later" in the relevant panel.
 ## Phased delivery
 
 ### Phase 1 — Deterministic substrate
+
 `orderedDecks` engine flag + unit test; tutorial deck files (cards verified
 against data, certified-only, ordered); ScriptAgent; headless run of the full
 setup + two turns with both sides scripted (no UI, no gating yet). This
 proves the arranged decks and script are legal end to end.
 
 ### Phase 2 — Script + controller
+
 `TUTORIAL_SCRIPT` content, `matchStep`, gating filter; TutorialController in
 game-server; cheat-roll queue; launcher/lobby `tutorial` option; the
 integration test from Testing §3.
 
 ### Phase 3 — Browser experience
+
 `tutorial-panel.ts` (instruction panel, expected-action highlight, progress,
 restart-step via undo); lobby "Play tutorial" button; polish pass on all 31
 step texts.
 
 ### Phase 4 — Follow-ups (separate specs)
+
 More chapters (corruption, influence/factions, agents, Free Council), puzzle
 mode reusing the same script/gating machinery, "Why?" tooltips on arbitrary
 actions (roadmap §6).
