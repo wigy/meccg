@@ -227,6 +227,11 @@ export function buildConstraintKind(
       if (!race) return null;
       return { type: 'auto-attack-race-duplicate', race };
     }
+    case 'only-race-creatures-on-company': {
+      const race = (onEvent.apply as { race?: Race }).race;
+      if (!race) return null;
+      return { type: 'only-race-creatures-on-company', race };
+    }
     case 'granted-action': {
       const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;
       if (!payload) return null;

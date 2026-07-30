@@ -700,6 +700,30 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
+    // Paths of the Dead (tw-302, CoE IE 2018 erratum): the company may move
+    // directly to the Vale of Erech site, regardless of region adjacency.
+    if (company.specialMovement === 'paths-of-the-dead') {
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Paths of the Dead special movement — Vale of Erech only`);
+      for (const siteDef of candidateSites) {
+        if (siteDef.name !== 'Vale of Erech') continue;
+        const destInstId = siteInstMap.get(siteDef.name);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} reachable via Paths of the Dead`);
+        const candidate: GameAction = {
+          type: 'plan-movement',
+          player: playerId,
+          companyId: company.id,
+          destinationSite: destInstId,
+        };
+        actions.push(viableWithRegress(candidate, state.reverseActions));
+      }
+      continue;
+    }
+
     // CoE 3.44 / MEAS §3: region movement spans a maximum of 4 consecutive
     // regions, or 6 when an effect grants extra region distance. The total is
     // hard-capped at 6 no matter how much extra distance is granted.
