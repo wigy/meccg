@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1027 | 1025 | 2 | 99.8% |
+| 1029 | 1027 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -14,9 +14,9 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 100 | 100 | 100.0% |
 | BA | 96 | 96 | 100.0% |
-| DM | 87 | 87 | 100.0% |
+| DM | 88 | 88 | 100.0% |
 | LE | 290 | 288 | 99.3% |
-| TD | 74 | 74 | 100.0% |
+| TD | 75 | 75 | 100.0% |
 | TW | 298 | 298 | 100.0% |
 | WH | 82 | 82 | 100.0% |
 
@@ -276,7 +276,7 @@
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
-| dm-108 | Little Snuffler | — | 6 | ☑ |
+| dm-108 | Little Snuffler | — | 7 | ☑ |
 | dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
@@ -295,6 +295,7 @@
 | dm-155 | Rebuild the Town | — | 5 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-159 | Smoke Rings | — | 12 | ☑ |
+| dm-160 | Token of Goodwill | — | 11 | ☑ |
 | dm-163 | When You Know More | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 19 | ☑ |
 | dm-165 | Withdrawn to Mordor | — | 10 | ☑ |
@@ -417,7 +418,7 @@
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 11 | ◐ |
-| le-154 | Stinker | — | 16 | ☑ |
+| le-154 | Stinker | — | 17 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
@@ -646,7 +647,7 @@
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-105 | Cram | — | 14 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
-| td-116 | Flatter a Foe | — | 18 | ☑ |
+| td-116 | Flatter a Foe | — | 20 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
@@ -656,6 +657,7 @@
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
+| td-154 | Star of High Hope | — | 3 | ☑ |
 | td-158 | Thrór’s Map | — | 4 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |
@@ -701,7 +703,7 @@
 | tw-46 | Indûr Dawndeath | — | 15 | ☑ |
 | tw-47 | Khamûl the Easterling | — | 11 | ☑ |
 | tw-050 | — | — | 7 | ☑ |
-| tw-053 | — | — | 6 | ☑ |
+| tw-053 | — | — | 7 | ☑ |
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
 | tw-58 | Lure of Nature | — | 13 | ☑ |
 | tw-59 | Lure of Power | — | 7 | ☑ |

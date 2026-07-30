@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.67.0 — 2026-07-30
+
+Various Improvements
+
+### Game Engine
+
+- **Implemented CoE 3.II.4** — Nazgul attacks against minion companies are now detainment
+- **Implemented the Ringwraith-follower reclaim grace period** (CoE rule 3.08) with a shared follower-dispersal helper
+- Fixed the defending player to roll creature and agent body checks (previously rolled by the wrong player)
+- Fixed attack keying to use the hazard player's declared match instead of the full card union
+- Strikes are now assigned to allies in "each character faces 1 strike" attacks, and the strike arrow renders when the defender is an ally
+- Fixed a pre-assignment race that let the defender skip the attacker's modify-attack window
+- Fixed Free Council auto-picking a character for corruption checks
+- Fixed Flatter a Foe leaving the chain stuck in `resolving`
+- Fixed Lost in Free-domains being playable without a Free-domain in the site path
+- Fixed Star of High Hope (td-154) not granting its prowess bonus
+- Implemented Token of Goodwill (dm-160), which had no DSL effects
+- Fixed the general-influence summary ignoring in-play general-influence bonuses
+
+### Lobby & Web Client
+
+- AI games now appear as watchable rows instead of a bare busy label, and watchers are listed in a hover tooltip
+- The game server exits once no human player is connected
+- Deck import recognizes more apostrophe-like characters when matching GCCG deck lists
+- Added Users/Requests tabs to the admin page, with low-balance accounts highlighted
+
+### Rule Tests
+
+- Implemented rule 3.14 restricted direct influence tests
+- Implemented the rule 8.03 faced-attack test and print-order tests for rules 10.30 and 10.29.4 (stale todos)
+
+### Infrastructure
+
+- The sim hazard planner prices support events by running the plan twice, treats in-play hazard events as part of every plan, and charges for sideboard access and deck-exhaust exchanges
+- Calibration runs every module that has a classifier and reports which ones ran
+- Added a `--pr-check` option to `bin/run-ai`
+
 ## 0.66.0 — 2026-07-30
 
 More UI features
