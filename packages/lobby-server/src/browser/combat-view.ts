@@ -36,6 +36,7 @@ import { combatButtonLabel } from './combat-button-label.js';
 import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
+import { resolveCardElement } from './combat-arrow-card-el.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -1139,8 +1140,9 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
     const charEl = arena.querySelector(`[data-combat-char-id="${sa.characterId}"]`);
     if (!charEl) continue;
 
-    // Find the card image inside the character column
-    const cardEl = charEl.querySelector('.company-card');
+    // Find the card image: characters wrap it in a column div, but allies/items
+    // render data-combat-char-id directly on the .company-card image itself.
+    const cardEl = resolveCardElement(charEl);
     if (!cardEl) continue;
 
     // Skip assignments without a paired attacker (should not occur after the reservation
@@ -1154,7 +1156,7 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
     if (combat.isCvCC && sa.attackingCharacterId) {
       const atkEl = arena.querySelector(`[data-combat-char-id="${sa.attackingCharacterId}"]`);
       if (!atkEl) continue;
-      const atkCardEl = atkEl.querySelector('.company-card');
+      const atkCardEl = resolveCardElement(atkEl);
       if (!atkCardEl) continue;
       const atkRect = atkCardEl.getBoundingClientRect();
       attackerX = atkRect.left + atkRect.width / 2 - arenaRect.left;
