@@ -102,4 +102,26 @@ describe('Rule 8.19 — Strike Step 7: Resolve the Strike', () => {
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(killBefore);
   });
+
+  // Regression (bug report game ms79d5f9-7xs9ad, seq 816): a defender who
+  // applied the Step 3 -3 modification to stay untapped (rule 3.14) and then
+  // tied the strike was incorrectly tapped anyway. Rule 3.iv.7 taps the
+  // character on a tie "unless a -3 modification was applied in Step 3" — the
+  // whole point of paying the -3 penalty is to guarantee no tap regardless of
+  // the strike's outcome.
+  test('A tie while staying untapped (-3) does not tap the character', () => {
+    // Aragorn prowess=6, strikeProwess=10; stay-untapped applies -3 → effective
+    // prowess 3. roll=7 → total=10 = 10 → tie (ineffectual), but the -3 was
+    // applied so the character stays untapped.
+    const { state, characterId } = makeDetainmentStrikeState({
+      detainment: false,
+      strikeProwess: 10,
+      creatureBody: null,
+    });
+
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 7, false);
+
+    expect(after.combat).toBeNull();
+    expect(after.players[RESOURCE_PLAYER].characters[characterId]?.status).toBe(CardStatus.Untapped);
+  });
 });

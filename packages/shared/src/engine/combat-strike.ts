@@ -335,24 +335,24 @@ export function resolveStrikeCore(
     bodyCheckTarget = null;
   }
 
-  // Whether the combatant taps on a non-wounded outcome:
+  // Whether the combatant taps on a non-wounded outcome (CoE rule 3.iv.7:
+  // tapped on both fail and tie "unless a -3 modification was applied in
+  // Step 3"):
   //  - tap:    always (success or tie)
   //  - reroll: always (same as tap)
-  //  - untap:  only on tie
+  //  - untap:  never (the -3 penalty was paid specifically to stay untapped)
   //  - dodge:  never
-  const tapOnNonWounded =
-    mode === 'tap' ||
-    mode === 'reroll' ||
-    (mode === 'untap' && characterTotal === effectiveProwess);
+  const tapOnNonWounded = mode === 'tap' || mode === 'reroll';
 
   // Record strike assignment. Dodge tags the strike so the body check picks
   // up the body penalty (CoE rule 3.I +1 for already-wounded still applies).
   // absorb-wound: record 'absorbed' (not 'success') so finalizeCombat does not
   // treat the absorb as a creature defeat.
   const wasAlreadyWounded = targetStatus === CardStatus.Inverted;
-  // A tie (characterTotal === effectiveProwess) leaves the character unharmed and
-  // tapped (local `result` stays 'success' so the tap/status logic below fires),
-  // but the strike is NOT defeated (CoE rule 8.19 / 3.iv.7 — "ineffectual"). Record
+  // A tie (characterTotal === effectiveProwess) leaves the character unharmed
+  // (local `result` stays 'success' so the tap/status logic below fires, tapping
+  // unless in 'untap' mode — see tapOnNonWounded above), but the strike is NOT
+  // defeated (CoE rule 8.19 / 3.iv.7 — "ineffectual"). Record
   // it as 'tie' rather than 'success' so finalizeCombat does not count the strike as
   // defeating the creature and award kill-MP for it. Note: absorb-wound and the
   // wounded-derived overrides (discard-item) only fire when result was 'wounded',
