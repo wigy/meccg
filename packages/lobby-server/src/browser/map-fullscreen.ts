@@ -22,9 +22,9 @@ import type {
   AgentInPlay,
   OpponentAgentView,
 } from '@meccg/shared';
+import { getTitleCharacter } from '@meccg/shared';
 import { getUnderDeepsCoordinates } from './map-under-deeps.js';
 import { getMapMode, setMapMode, isOnCurrentLevel } from './map-mode.js';
-import { resolveCardDef } from './company-site.js';
 import { createCombatMarker } from './map-radar.js';
 import {
   DIM_CLASS,
@@ -280,15 +280,23 @@ function buildDotTooltip(primary: string, secondary: string): HTMLElement {
   return tooltip;
 }
 
-/** Derive a short company label, e.g. "Gandalf's Company". */
-function companyLabel(
+/**
+ * Derive a short company label, e.g. "Gandalf's Company".
+ *
+ * Uses the same title-character rule as the all-companies view (avatar
+ * first, then highest mind/MP/prowess) rather than the first character in
+ * the company array, so the two views never disagree on which character
+ * names the company.
+ */
+export function companyLabel(
   company: Company | OpponentCompanyView,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
-  const firstId = company.characters[0];
-  if (!firstId) return 'Company';
-  const def = resolveCardDef(firstId, view, cardPool);
+  const charMap = { ...view.opponent.characters, ...view.self.characters };
+  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  if (!titleChar) return 'Company';
+  const def = cardPool[titleChar.definitionId as string];
   if (!def) return 'Company';
   return def.name.endsWith('s') ? `${def.name}' Company` : `${def.name}'s Company`;
 }
