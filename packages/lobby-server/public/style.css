@@ -852,6 +852,12 @@ h2 {
   margin: 0 0 1rem;
 }
 
+.admin-users-total {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
 .admin-users-table,
 .admin-games-table {
   width: 100%;
