@@ -299,16 +299,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1614 contested decisions:
+Over 1980 contested decisions:
 
 ```text
-  covered and decisive       1220  75.6%
-  covered but flat             92   5.7%   → H1
-  partial, acted anyway        79   4.9%
-  partial, handed over        211  13.1%   → H1
-  no owner at all              12   0.7%   → H1
+  covered and decisive       1665  84.1%
+  covered but flat            104   5.3%   → H1
+  partial, acted anyway        64   3.2%
+  partial, handed over        146   7.4%   → H1
+  no owner at all               1   0.1%   → H1
 
-  H2 decides 80.5% of contested decisions.
+  H2 decides 87.3% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -474,9 +474,9 @@ on a different target, that no card in this family has. Whenever one of our
 characters happened to be carrying a corrupting hazard, the module credited a
 benefit the card could not deliver.
 
-What is left, by decisions blocked: hazard `play-hazard` events at 86,
-`play-short-event` at 51, and the granted-action families `grants` still
-declines at 17. All three need a card's *effect* priced against the opponent
+What is left, by decisions blocked: `play-short-event` at 102,
+hazard `play-hazard` events at 50, and the granted-action families `grants` still
+declines at 37. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
