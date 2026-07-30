@@ -11,7 +11,7 @@
  * stacking for corruption hazards, and a small baseline for events.
  */
 
-import type { GameAction, CreatureCard } from '@meccg/shared';
+import type { GameAction, CreatureCard, CardDefinition } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
@@ -20,6 +20,7 @@ import {
   isCorruption,
   isHazardEvent,
   freeDi,
+  boostsCreatureAttack,
 } from './common.js';
 
 /** Estimate how dangerous a creature is against a target company. */
@@ -27,6 +28,30 @@ function creatureThreat(def: CreatureCard, defenderProwess: number): number {
   const baseThreat = def.prowess * def.strikes;
   // Subtract roughly half of company prowess so big companies absorb small creatures.
   return Math.max(1, baseThreat - Math.floor(defenderProwess / 2));
+}
+
+/**
+ * Highest threat score among creature cards still in hand that a hazard
+ * event's board-wide stat boost would strengthen — 0 if none match.
+ *
+ * A boost like Full of Froth and Rage only helps attacks that happen while
+ * it's in play, so it must be sequenced *before* the creature it targets.
+ * Scoring it above that creature's own threat (rather than the flat event
+ * baseline) makes the AI prefer playing the boost first.
+ */
+function boostedCreatureThreatInHand(
+  eventDef: CardDefinition,
+  view: AiContext['view'],
+  pool: Readonly<Record<string, CardDefinition>>,
+): number {
+  let best = 0;
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (!isCreature(def)) continue;
+    if (!boostsCreatureAttack(eventDef, def)) continue;
+    best = Math.max(best, creatureThreat(def, 0));
+  }
+  return best;
 }
 
 export const movementHazardEvaluator: ActionEvaluator = {
@@ -80,6 +105,11 @@ export const movementHazardEvaluator: ActionEvaluator = {
           return 8;
         }
         if (isHazardEvent(def)) {
+          // A board-wide boost (e.g. Full of Froth and Rage) is worthless
+          // once played after the creature attack it targets has already
+          // resolved — outscore that creature so the boost is sequenced first.
+          const boosted = boostedCreatureThreatInHand(def, view, pool);
+          if (boosted > 0) return boosted + 1;
           return 5;
         }
         return 3;

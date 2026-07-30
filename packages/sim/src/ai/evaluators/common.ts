@@ -144,6 +144,36 @@ export function isHazardEvent(def: CardDefinition | undefined): boolean {
   return def !== undefined && def.cardType === 'hazard-event';
 }
 
+/**
+ * Whether a hazard-event card carries a board-wide `stat-modifier` boost
+ * (`target: 'all-attacks'`, stat `prowess` or `strikes`) that would apply to
+ * the given creature's attack — i.e. its `when` condition (if any) matches
+ * `{ enemy: { race: creature.race } }`, the same context the engine resolves
+ * such effects against in `resolveAttackProwess`/`resolveAttackStrikes`
+ * (`packages/shared/src/engine/effects/resolver.ts`). Effects with no
+ * `target` (self-only) or a different target scope don't count.
+ *
+ * Used to sequence hazard play: a boost like Full of Froth and Rage (as-30,
+ * "+2 prowess to Spider/Animal attacks") is worthless once played after the
+ * creature attack it would have strengthened has already resolved, so the AI
+ * should prefer playing it *before* a matching creature still in hand.
+ */
+export function boostsCreatureAttack(
+  eventDef: CardDefinition,
+  creature: CreatureCard,
+): boolean {
+  const effects = (eventDef as { effects?: readonly Record<string, unknown>[] }).effects;
+  if (!effects) return false;
+  for (const effect of effects) {
+    if (effect.type !== 'stat-modifier') continue;
+    if (effect.target !== 'all-attacks') continue;
+    if (effect.stat !== 'prowess' && effect.stat !== 'strikes') continue;
+    const when = effect.when as Condition | undefined;
+    if (!when || matchesCondition(when, { enemy: { race: creature.race } })) return true;
+  }
+  return false;
+}
+
 /** Mind cost (general influence) of a character, defaulting to 0 for avatars. */
 export function mindCost(def: CardDefinition | undefined): number {
   if (!def || !isCharacter(def)) return 0;
