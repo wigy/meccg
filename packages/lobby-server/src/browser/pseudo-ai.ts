@@ -10,6 +10,7 @@
 import type { ClientMessage, GameAction, JoinMessage, ServerMessage } from '@meccg/shared';
 import { Alignment, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
 import { appState, cardPool, buildJoinFromDeck, type FullDeck } from './app-state.js';
+import { addJsonToggle } from './render-utils.js';
 
 /** A described action for the pseudo-AI panel: pre-rendered text + the raw action and viability. */
 export interface DescribedAction {
@@ -44,25 +45,6 @@ export function cleanActionText(text: string): string {
 /** Action types that represent "pass" or "do nothing". */
 const PASS_ACTION_TYPES = new Set(['pass', 'draft-stop']);
 
-/** Create a "+" toggle that reveals the raw JSON of an action. */
-function addJsonToggle(container: HTMLElement, action: GameAction): void {
-  const toggle = document.createElement('span');
-  toggle.className = 'action-json-toggle';
-  toggle.textContent = '+';
-  toggle.title = 'Show JSON';
-  const pre = document.createElement('pre');
-  pre.className = 'action-json hidden';
-  pre.textContent = JSON.stringify(action, null, 2);
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    pre.classList.toggle('hidden');
-    const nowVisible = !pre.classList.contains('hidden');
-    toggle.textContent = nowVisible ? '\u2212' : '+';
-    toggle.title = nowVisible ? 'Hide JSON' : 'Show JSON';
-  });
-  container.appendChild(toggle);
-  container.appendChild(pre);
-}
 
 /** Render the pseudo-AI action panel with pre-described actions. */
 export function renderPseudoAiActions(actions: readonly DescribedAction[]): void {

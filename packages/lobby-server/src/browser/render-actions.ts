@@ -8,7 +8,7 @@
 
 import type { EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
 import { describeAction } from '@meccg/shared';
-import { $ } from './render-utils.js';
+import { $, addJsonToggle } from './render-utils.js';
 import { textToHtml, tagCardImages } from './render-text-format.js';
 
 /** Render action buttons (viable actions clickable, non-viable shown disabled with reason). */
@@ -22,26 +22,6 @@ export function renderActions(
 ): void {
   const el = $('actions');
   el.innerHTML = '';
-
-  /** Create a "+" toggle that reveals the raw JSON of an action. */
-  function addJsonToggle(container: HTMLElement, action: GameAction): void {
-    const toggle = document.createElement('span');
-    toggle.className = 'action-json-toggle';
-    toggle.textContent = '+';
-    toggle.title = 'Show JSON';
-    const pre = document.createElement('pre');
-    pre.className = 'action-json hidden';
-    pre.textContent = JSON.stringify(action, null, 2);
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      pre.classList.toggle('hidden');
-      const nowVisible = !pre.classList.contains('hidden');
-      toggle.textContent = nowVisible ? '−' : '+';
-      toggle.title = nowVisible ? 'Hide JSON' : 'Show JSON';
-    });
-    container.appendChild(toggle);
-    container.appendChild(pre);
-  }
 
   // Viable actions first — clickable (pass first, regressive actions shown lighter)
   const viable = evaluated.filter(e => e.viable);
