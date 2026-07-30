@@ -840,7 +840,11 @@ export function handlePlayHazardCard(
     }
 
     // Initiate chain — when creature entry resolves, combat will start (TODO)
-    newState = initiateChain(newState, action.player, handCard, { type: 'creature' }, 'normal', !raceExempt);
+    const creaturePayload: import('../index.js').ChainEntryPayload = {
+      type: 'creature',
+      ...(action.keyedBy ? { keyedBy: action.keyedBy } : {}),
+    };
+    newState = initiateChain(newState, action.player, handCard, creaturePayload, 'normal', !raceExempt);
 
     return { state: newState };
   }
@@ -3156,6 +3160,7 @@ export function handlePlayReservedCreature(
     type: 'creature',
     prowessBonus: 2,
     reservingCardInstanceId: action.sourceCardInstanceId,
+    ...(action.keyedBy ? { keyedBy: action.keyedBy } : {}),
   };
   newState = initiateChain(newState, action.player, creatureCard, payload, 'normal', true);
 
