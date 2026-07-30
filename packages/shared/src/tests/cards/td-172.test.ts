@@ -219,11 +219,11 @@ describe('Wormsbane (td-172)', () => {
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
 
     // Roll 7 ≤ 7 (effective body 9-2=7) — body check completes (creature survives).
-    const afterSurvive = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 7);
+    const afterSurvive = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 7);
     expect(afterSurvive.combat).toBeNull();
 
     // Roll 8 > 7 (effective body 9-2=7) — body check completes (creature defeated).
-    const afterDefeated = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 8);
+    const afterDefeated = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 8);
     expect(afterDefeated.combat).toBeNull();
   });
 
@@ -257,7 +257,7 @@ describe('Wormsbane (td-172)', () => {
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
 
     // Roll 8 > 7 (effective body 9-2=7) — body check completes.
-    const afterBodyCheck = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 8);
+    const afterBodyCheck = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 8);
     expect(afterBodyCheck.combat).toBeNull();
   });
 
@@ -293,11 +293,11 @@ describe('Wormsbane (td-172)', () => {
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
 
     // Roll 9 ≤ 9 (no reduction, full body 9) — body check completes.
-    const afterSurvive = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 9);
+    const afterSurvive = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 9);
     expect(afterSurvive.combat).toBeNull();
 
     // Roll 10 > 9 (no reduction, full body 9) — body check completes.
-    const afterDefeated = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 10);
+    const afterDefeated = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 10);
     expect(afterDefeated.combat).toBeNull();
   });
 });

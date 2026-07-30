@@ -290,7 +290,7 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
     test('agent survives its body check → left in play but wounded', () => {
       let s = driveToBodyCheck();
       // Body check passes (dice 2 ≤ body 9) → agent survives, but is wounded.
-      const roll = viableActions({ ...s, cheatRollTotal: 2 }, PLAYER_2, 'body-check-roll')[0];
+      const roll = viableActions({ ...s, cheatRollTotal: 2 }, PLAYER_1, 'body-check-roll')[0];
       s = dispatch({ ...s, cheatRollTotal: 2 }, roll.action);
 
       expect(s.combat).toBeNull();
@@ -303,7 +303,7 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
       let s = driveToBodyCheck();
       const agentInstId = s.players[HAZARD_PLAYER].agents[0].character.instanceId;
       // Body check fails (dice 12 > body 9) → strike defeated → agent removed.
-      const roll = viableActions({ ...s, cheatRollTotal: 12 }, PLAYER_2, 'body-check-roll')[0];
+      const roll = viableActions({ ...s, cheatRollTotal: 12 }, PLAYER_1, 'body-check-roll')[0];
       s = dispatch({ ...s, cheatRollTotal: 12 }, roll.action);
 
       expect(s.combat).toBeNull();

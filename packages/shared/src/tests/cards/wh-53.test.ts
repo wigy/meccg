@@ -170,7 +170,7 @@ describe('Mechanical Bow (wh-53)', () => {
     const afterStrike = executeAction(combat, PLAYER_1, 'resolve-strike', 8, /* tapToFight */ true);
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
     // Creature body check: roll 9 vs reduced body 8 → 9 > 8 → creature defeated.
-    const after = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 9);
+    const after = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 9);
     expect(creatureDefeated(after)).toBe(true);
   });
 
@@ -180,7 +180,7 @@ describe('Mechanical Bow (wh-53)', () => {
     const afterStrike = executeAction(combat, PLAYER_1, 'resolve-strike', 8, /* tapToFight */ false);
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
     // …but `combat.strikeMode` is 'untap', so the -1 does not apply: 9 vs body 9 → survives.
-    const after = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 9);
+    const after = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 9);
     expect(creatureDefeated(after)).toBe(false);
   });
 
@@ -190,7 +190,7 @@ describe('Mechanical Bow (wh-53)', () => {
     const afterStrike = executeAction(combat, PLAYER_1, 'resolve-strike', 8, /* tapToFight */ true);
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
     // No warrior → enemy-modifier gate fails: body stays 9, roll 9 → survives.
-    const after = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 9);
+    const after = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 9);
     expect(creatureDefeated(after)).toBe(false);
   });
 });

@@ -1685,19 +1685,19 @@ function tapItemForStrikeActions(
 
 /**
  * Actions during the body-check sub-phase.
- * The attacking player rolls 2d6 against the body value.
+ * Per CoE rule 3.I.1, the player who doesn't control the checked entity rolls:
+ * - defender's character wounded → attacker (opponent, doesn't control the character) rolls
+ * - creature's strike defeated → defender (opponent, doesn't control the creature) rolls
+ * - attacker's character wounded (CvCC) → defender (opponent, doesn't control the character) rolls
  */
 function bodyCheckActions(
   state: GameState,
   playerId: PlayerId,
   combat: CombatState,
 ): EvaluatedAction[] {
-  // Body check always belongs to the opponent of the wounded character:
-  // - defender's character wounded → attacker (opponent) rolls
-  // - attacker's character wounded (CvCC) → defender (opponent) rolls
-  const roller = combat.bodyCheckTarget === 'attacker-character'
-    ? combat.defendingPlayerId
-    : combat.attackingPlayerId;
+  const roller = combat.bodyCheckTarget === 'character'
+    ? combat.attackingPlayerId
+    : combat.defendingPlayerId;
   if (playerId !== roller) return [];
 
   let body: number;

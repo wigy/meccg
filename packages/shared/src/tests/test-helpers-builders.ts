@@ -1794,9 +1794,14 @@ export function runCreatureCombat(
   // Resolve strike
   const afterStrike = executeAction(result.state, attacker, 'resolve-strike', strikeRoll, tapToFight);
 
-  // Body check if needed
+  // Body check if needed. Per CoE rule 3.I.1, the non-controlling player rolls:
+  // a wounded character (bodyCheckTarget 'character') is checked by the
+  // opponent (`defender`); a defeated creature (bodyCheckTarget 'creature') is
+  // checked by the character's own owner (`attacker`), since the creature
+  // itself is controlled by `defender`.
   if (afterStrike.combat?.phase === 'body-check' && bodyRoll !== null) {
-    return executeAction(afterStrike, defender, 'body-check-roll', bodyRoll);
+    const roller = afterStrike.combat.bodyCheckTarget === 'character' ? defender : attacker;
+    return executeAction(afterStrike, roller, 'body-check-roll', bodyRoll);
   }
 
   return afterStrike;
@@ -2022,9 +2027,14 @@ export function runAutoAttackCombat(
   result = reduce({ ...result.state, cheatRollTotal: strikeRoll }, selectedAction);
   expect(result.error).toBeUndefined();
 
-  // If body check is needed
+  // If body check is needed. Per CoE rule 3.I.1, the non-controlling player
+  // rolls: a wounded character (bodyCheckTarget 'character') is checked by
+  // the opponent (`defender`); a defeated attack (bodyCheckTarget 'creature')
+  // is checked by the character's own owner (`attacker`), since the attack
+  // itself is controlled by `defender`.
   if (result.state.combat?.phase === 'body-check' && bodyRoll !== null) {
-    const bodyActions = viableActions(result.state, defender, 'body-check-roll');
+    const roller = result.state.combat.bodyCheckTarget === 'character' ? defender : attacker;
+    const bodyActions = viableActions(result.state, roller, 'body-check-roll');
     expect(bodyActions.length).toBeGreaterThan(0);
     result = reduce({ ...result.state, cheatRollTotal: bodyRoll }, bodyActions[0].action);
     expect(result.error).toBeUndefined();
@@ -2142,7 +2152,12 @@ export function continueAutoAttackCombat(
       const defId = charId ? resolveInstanceId(s, charId) : undefined;
       const sd = defId ? strikeDefs.find(d => d.characterDefId === defId) : undefined;
       const bodyRoll = sd?.bodyRoll ?? 12;
-      const actions = viableActions(s, hazardPlayer, 'body-check-roll');
+      // Per CoE rule 3.I.1, the non-controlling player rolls: a wounded
+      // character is checked by the hazard player; a defeated attack
+      // (bodyCheckTarget 'creature') is checked by the resource player, since
+      // the attack itself is controlled by the hazard player.
+      const roller = s.combat.bodyCheckTarget === 'character' ? hazardPlayer : resourcePlayer;
+      const actions = viableActions(s, roller, 'body-check-roll');
       if (actions.length === 0) break;
       const r = reduce({ ...s, cheatRollTotal: bodyRoll }, actions[0].action);
       if (r.error) break;
@@ -2771,7 +2786,12 @@ export function runAhuntSequence(
     if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
     acts = viableActions(cur, resourcePlayer, 'resolve-strike');
     if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    // Per CoE rule 3.I.1, a character body check is rolled by the hazard
+    // player, but a defeated creature/attack body check (bodyCheckTarget
+    // 'creature') is rolled by the resource player instead — try both.
     acts = viableActions(cur, hazardPlayer, 'body-check-roll');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, resourcePlayer, 'body-check-roll');
     if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
     let stepped = false;
     for (const pid of [resourcePlayer, hazardPlayer]) {

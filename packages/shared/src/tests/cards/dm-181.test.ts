@@ -243,7 +243,7 @@ describe('Baugúr (dm-181)', () => {
       cheatRollTotal: 12, // 12 > creatureBody 5 → creature defeated
     };
 
-    const [bodyCheckAction] = viableActions(state, PLAYER_2, 'body-check-roll');
+    const [bodyCheckAction] = viableActions(state, PLAYER_1, 'body-check-roll');
     const after = dispatch(state, bodyCheckAction.action);
 
     // No trophy offer for a Half-orc — combat resolves straight through.
@@ -295,7 +295,7 @@ describe('Baugúr (dm-181)', () => {
       cheatRollTotal: 12,
     };
 
-    const [bodyCheckAction] = viableActions(state, PLAYER_2, 'body-check-roll');
+    const [bodyCheckAction] = viableActions(state, PLAYER_1, 'body-check-roll');
     const after = dispatch(state, bodyCheckAction.action);
 
     expect(after.combat?.phase).toBe('trophy-offer');

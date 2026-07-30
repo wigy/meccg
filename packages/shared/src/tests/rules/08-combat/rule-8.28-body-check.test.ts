@@ -25,7 +25,7 @@ import {
   Phase, companyIdAt, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import { CardStatus } from '../../../index.js';
-import type { DieRoll, TwoDiceSix } from '../../../index.js';
+import type { DieRoll, TwoDiceSix, CardInstanceId } from '../../../index.js';
 
 describe('Rule 8.28 — Body Check', () => {
   beforeEach(() => resetMint());
@@ -181,5 +181,46 @@ describe('Rule 8.28 — Body Check', () => {
     expect(defTypes).not.toContain('play-hazard');
     expect(defTypes).not.toContain('play-long-event');
     expect(defTypes).not.toContain('play-short-event');
+  });
+
+  test('a defeated creature\'s body check is rolled by the defender, not the creature\'s own controller', () => {
+    // Regression for the "Body check" bug report (game ms6gbt8d-5na91m, seq
+    // 1035): an on-guard creature's detainment strike was parried by the
+    // defending character, so a body check against the creature (bodyCheckTarget
+    // 'creature') followed. The creature is controlled by the attacking
+    // (hazard) player, so per CoE 3.I.1 ("the player who doesn't control the
+    // entity makes a roll") the *defending* player must roll — not the
+    // creature's own controller, as the engine previously offered.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const ready = {
+      ...state,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({
+        companyId,
+        characterId: aragornId,
+        bodyCheckTarget: 'creature',
+        result: 'success', // Aragorn parried the on-guard creature's strike
+        creatureBody: 8,
+        detainment: true,
+        attackSource: { type: 'on-guard-creature', cardInstanceId: 'creature-1' as CardInstanceId },
+      }),
+    };
+
+    // The defending player (who doesn't control the creature) rolls.
+    expect(viableActionTypes(ready, PLAYER_1)).toEqual(['body-check-roll']);
+    // The creature's own controller (the attacking player) has nothing to declare.
+    expect(viableActions(ready, PLAYER_2, 'body-check-roll')).toHaveLength(0);
   });
 });

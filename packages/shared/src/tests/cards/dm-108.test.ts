@@ -172,7 +172,7 @@ describe('Little Snuffler (dm-108)', () => {
 
     // Hazard player rolls the creature body check; roll 12 > body 10 → check fails → creature defeated
     const bodyState = { ...afterStrike, cheatRollTotal: 12 };
-    const bodyActions = computeLegalActions(bodyState, PLAYER_2);
+    const bodyActions = computeLegalActions(bodyState, PLAYER_1);
     const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
     expect(bodyAction).toBeDefined();
     const afterBody = dispatch(bodyState, bodyAction!.action);
@@ -253,7 +253,7 @@ describe('Little Snuffler (dm-108)', () => {
 
     // Low body-check roll (2 ≤ body 10) → body check passes → strike not defeated
     const bodyState = { ...afterStrike, cheatRollTotal: 2 };
-    const bodyActions = computeLegalActions(bodyState, PLAYER_2);
+    const bodyActions = computeLegalActions(bodyState, PLAYER_1);
     const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
     expect(bodyAction).toBeDefined();
     const afterBody = dispatch(bodyState, bodyAction!.action);
@@ -471,7 +471,7 @@ describe('Little Snuffler (dm-108)', () => {
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
     expect(afterStrike.combat!.creatureBody).toBe(8);
 
-    const bodyActions = computeLegalActions(afterStrike, PLAYER_2);
+    const bodyActions = computeLegalActions(afterStrike, PLAYER_1);
     const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
     expect(bodyAction).toBeDefined();
     expect((bodyAction!.action as { need?: number }).need).toBe(9);

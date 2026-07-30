@@ -244,7 +244,7 @@ describe('Flame of Udûn (ba-58)', () => {
       // Roll 8 + 1 (Flame) = 9 > creature body 8 → strike defeated, creature killed.
       // A Balrog defender's non-starred kill is routed to out-of-play (rule 8.22),
       // so the defeated creature leaves the hazard player's play/discard entirely.
-      const after = executeAction(state, PLAYER_2, 'body-check-roll', 8);
+      const after = executeAction(state, PLAYER_1, 'body-check-roll', 8);
       expect(after.combat).toBeNull();
       expect(findInPile(after, RESOURCE_PLAYER, 'outOfPlayPile', creatureId)).toBeDefined();
       expect(findInPile(after, HAZARD_PLAYER, 'discardPile', creatureId)).toBeUndefined();
@@ -253,7 +253,7 @@ describe('Flame of Udûn (ba-58)', () => {
     test('without Flame of Udûn, the same roll leaves the creature alive (control)', () => {
       const { state, creatureId } = creatureBodyCheckState({ withFlame: false });
       // Roll 8 = creature body 8 (no +1) → not > body → creature survives, discarded.
-      const after = executeAction(state, PLAYER_2, 'body-check-roll', 8);
+      const after = executeAction(state, PLAYER_1, 'body-check-roll', 8);
       expect(after.combat).toBeNull();
       expect(findInPile(after, RESOURCE_PLAYER, 'killPile', creatureId)).toBeUndefined();
       expect(findInPile(after, HAZARD_PLAYER, 'discardPile', creatureId)).toBeDefined();

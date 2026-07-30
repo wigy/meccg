@@ -244,7 +244,7 @@ describe('Stabbing Tongue of Fire (ba-81)', () => {
       const { state, creatureId } = creatureBodyCheckState(true);
       // Roll 8 + 1 (item) = 9 > creature body 8 → strike defeated, creature killed.
       // A Balrog defender's non-starred kill is routed out of play (rule 8.22).
-      const after = executeAction(state, PLAYER_2, 'body-check-roll', 8);
+      const after = executeAction(state, PLAYER_1, 'body-check-roll', 8);
       expect(after.combat).toBeNull();
       expect(findInPile(after, RESOURCE_PLAYER, 'outOfPlayPile', creatureId)).toBeDefined();
       expect(findInPile(after, HAZARD_PLAYER, 'discardPile', creatureId)).toBeUndefined();
@@ -253,7 +253,7 @@ describe('Stabbing Tongue of Fire (ba-81)', () => {
     test('without the item, the same roll leaves the creature alive (control)', () => {
       const { state, creatureId } = creatureBodyCheckState(false);
       // Roll 8 = creature body 8 (no +1) → not > body → creature survives, discarded.
-      const after = executeAction(state, PLAYER_2, 'body-check-roll', 8);
+      const after = executeAction(state, PLAYER_1, 'body-check-roll', 8);
       expect(after.combat).toBeNull();
       expect(findInPile(after, HAZARD_PLAYER, 'discardPile', creatureId)).toBeDefined();
     });
