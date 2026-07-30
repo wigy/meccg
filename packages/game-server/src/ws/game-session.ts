@@ -259,6 +259,10 @@ export class GameSession {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
         }
+        // Any dev command taints the game: mark before handling so a 'save'
+        // persists the flag, and again after because 'undo'/'load' replace
+        // the current state with one from before the marking.
+        this.markCheated(msg.type);
         if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
         else if (msg.type === 'load') this.handleLoad();
         else if (msg.type === 'reseed') this.handleReseed(ws);
@@ -266,6 +270,7 @@ export class GameSession {
         else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
         else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
         else if (msg.type === 'swap-hand') this.handleSwapHand(ws);
+        this.markCheated(msg.type);
         break;
     }
   }
@@ -933,12 +938,28 @@ export class GameSession {
   }
 
   /**
+   * Mark the game as cheated because a developer-tools command was used.
+   * A cheated game's end result is never recorded (per-game record or
+   * player histories). The flag lives on {@link GameState} so it survives
+   * saves and restores; it is never cleared once set.
+   */
+  private markCheated(command: string): void {
+    if (!this.state || this.state.cheated) return;
+    this.state = { ...this.state, cheated: true };
+    this.serverLog.log('game-cheated', { gameId: this.state.gameId, command });
+  }
+
+  /**
    * Write the single per-game statistics record to
    * `~/.meccg/games/<gameId>.json`. Failures are logged, never thrown —
    * losing a stats record must not take the session down with it.
    */
   private recordCompletedGame(): void {
     if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
+    if (this.state.cheated) {
+      this.serverLog.log('game-not-recorded-cheated', { gameId: this.state.gameId });
+      return;
+    }
     try {
       const record = buildCompletedGameRecord(this.state, this.deckInfo, this.aiPlayers, new Date());
       const filePath = writeCompletedGameRecord(record);
@@ -954,6 +975,10 @@ export class GameSession {
    */
   private recordGameResult(playerId: PlayerId): void {
     if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
+    if (this.state.cheated) {
+      this.serverLog.log('game-not-recorded-cheated', { gameId: this.state.gameId, playerId });
+      return;
+    }
 
     const goState = this.state.phaseState;
     const playerIndex = this.state.players.findIndex(p => p.id === playerId);
