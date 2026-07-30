@@ -17,6 +17,7 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
 } from '../../index.js';
+import type { ConvertCreatureToAllyEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
@@ -125,6 +126,23 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     );
     if (playWindow && playWindow.phase !== state.phaseState.phase) {
       logDetail(`Permanent event ${def.name}: play-window restricts it to the ${playWindow.phase} phase (current ${state.phaseState.phase})`);
+      continue;
+    }
+
+    // A `convert-creature-to-ally` effect (Ready to His Will le-220, Memories
+    // of Old Torture ba-67) is a combat-only mechanism: it is playable solely
+    // during the defending player's assign-strikes window against an eligible
+    // creature attack, and is offered exclusively by
+    // `legal-actions/combat.ts`'s `convertCreatureToAllyActions`. There is no
+    // "any time" mode for such a card, so it must never reach the generic
+    // fallback below (which would offer it as an unconditionally playable
+    // permanent event with no target, in any phase, even with no attack in
+    // progress).
+    const convertCreatureToAlly = getCardEffects(def).find(
+      (e): e is ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
+    );
+    if (convertCreatureToAlly) {
+      logDetail(`Permanent event ${def.name}: convert-creature-to-ally is combat-only — not offered here`);
       continue;
     }
 
