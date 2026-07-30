@@ -823,6 +823,59 @@ correlated single *decisions* (16 games put every module indistinguishable from
 zero out to n=2689 — one action among hundreds in a turn cannot explain a score
 change), and it failed modules on the sign of a point estimate.
 
+### Gating a constant, not just a decision
+
+`sweep` varies a tunable on **one scenario** and prints where the ranking
+changes. That answers "is this number on a decision boundary" and cannot answer
+"does the number matter", because a constant that flips a decision here and
+there may still leave the agent exactly as strong. The second question needs a
+strength gate, and a gate could not ask it: `gate` spawns `tsx` children and
+hands each one an agent *spec*, so anything it varies has to survive being
+written as a string.
+
+So the `h2` spec grammar carries the constants now:
+
+```text
+h2[:<modules>][@<temperature>][/<tunable>=<value>...][+<fallback agent>]
+```
+
+```sh
+npm run gate -w @meccg/sim -- --challenger 'h2:all/tapTempoCost=0.6' \
+  --champion h2 --pairs 100 --rounds 1 --jobs 10
+```
+
+An unknown name throws at launch rather than being ignored — a dropped
+parameter would rate the shipped defaults against themselves and report a dead
+heat, which is indistinguishable from a real answer. The overrides are part of
+the agent's name (`h2/tapTempoCost=0.6`) for the same reason.
+
+The first constant put through it was `tapTempoCost`, because two separate
+things pointed at it: the tunable's own documentation calls 0.3 a value sitting
+on a decision boundary, and pricing H2's disagreements with `mc` by `mc`'s own
+rollouts leaves `pass` as the one action type clearly above the estimator's
+noise floor — H2 spends a tap, the rollouts decline. Four points, 200 paired
+side-swapped games each, all against the shipped 0.3:
+
+| `tapTempoCost` | score | elo diff (95% CI) |
+|---|---|---|
+| 0.15 (½×) | 48.5% | −10 [−59, +37] |
+| 0.3 | — | reference |
+| 0.6 (2×) | 49.8% | −2 [−50, +46] |
+| 1.2 (4×) | 48.0% | −14 [−62, +34] |
+
+**Nothing moves across an 8× range.** Every interval contains zero; pooled over
+all 600 games the challengers score 48.8%, which is about −8 Elo and still not
+separable from parity. The three point estimates all sitting a little below the
+reference is the only hint of structure, and it is far too weak to read as 0.3
+being optimal — what it does rule out is the value being badly wrong in either
+direction.
+
+So the decision-boundary worry is true and does not matter: the constant flips
+individual decisions and does not change who wins. And the `pass` excess is
+**not** an under-charged tap. If the cost is right, what is left is the gain —
+which is the same place § *Does any of it predict anything?* ends up, from a
+different direction.
+
 ### Falsifiable, where it can be
 
 ```sh

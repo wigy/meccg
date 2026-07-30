@@ -12,6 +12,8 @@ import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { createBcAgent } from '../agents/bc-agent.js';
 import { createSearchAgent } from '../agents/search-agent.js';
 import { createHeuristic2Agent } from '../ai/h2/agent.js';
+import { DEFAULT_TUNABLES, withTunable } from '../ai/h2/core/tunables.js';
+import type { Tunables } from '../ai/h2/core/tunables.js';
 import { createMcAgent } from '../agents/mc-agent.js';
 import type { McAgentOptions } from '../agents/mc-agent.js';
 import { loadDeck, listDecks } from '../decks.js';
@@ -72,6 +74,14 @@ export const AGENT_NAMES = [
 ] as const;
 
 /**
+ * `h2` spec grammar, for the CLIs that print it.
+ *
+ * `h2[:<modules>][@<temperature>][/<tunable>=<value>…][+<fallback spec>]`
+ */
+export const H2_SPEC_GRAMMAR =
+  'h2[:<modules>][@<temperature>][/<tunable>=<value>...][+<fallback agent>]';
+
+/**
  * Parses an `mc` spec's `key=value/key=value` parameter list. The
  * separator is `/` rather than `,` because `--agents` splits agent specs on
  * commas, so a comma here would tear the spec in half. Unknown keys are an
@@ -122,6 +132,29 @@ function parseMcOptions(param: string | undefined): McAgentOptions {
 }
 
 /**
+ * Parses an `h2` spec's `/name=value` tunable overrides.
+ *
+ * The separator is `/` for the same reason `mc` uses it — `--agents` splits
+ * specs on commas, and the module selector spends commas already. Unknown
+ * names throw via `withTunable`, so a typo in a gate fails at launch rather
+ * than quietly rating the shipped defaults against themselves.
+ */
+function parseH2Tunables(param: string): Tunables {
+  let tunables = DEFAULT_TUNABLES;
+  for (const part of param.split('/')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) throw new Error(`h2 expects name=value tunables separated by "/", got "${part}"`);
+    const name = part.slice(0, eq).trim();
+    const value = Number(part.slice(eq + 1).trim());
+    if (!Number.isFinite(value)) {
+      throw new Error(`h2 tunable ${name} expects a number, got "${part.slice(eq + 1).trim()}"`);
+    }
+    tunables = withTunable(tunables, name, value);
+  }
+  return tunables;
+}
+
+/**
  * Instantiate an agent by registry spec. A spec is a name with an optional
  * `:parameter` suffix — `noisy-heuristic:0.75` blunders 75% of the time,
  * `bc:path/to/weights.json` loads a trained behavioral-cloning policy.
@@ -155,12 +188,20 @@ export function resolveAgent(spec: string): Agent {
       // `+<spec>` names that fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`.
       // It is the last `+` because a nested spec may contain none, and the
       // module selector never does.
+      //
+      // `/name=value` overrides a tunable: `h2:all/tapTempoCost=0.6`. Without
+      // it a constant can only be swept on a single scenario, and every
+      // question of the form "is this number right" needs a strength gate —
+      // which spawns children that receive an agent *spec* and nothing else.
       const plus = param === undefined ? -1 : param.indexOf('+');
       const fallbackSpec = plus >= 0 ? param!.slice(plus + 1) : undefined;
       if (fallbackSpec !== undefined && fallbackSpec.length === 0) {
         throw new Error('h2 expects an agent spec after "+", as in `h2+mc`');
       }
-      const head = plus >= 0 ? param!.slice(0, plus) : param;
+      const beforeFallback = plus >= 0 ? param!.slice(0, plus) : param;
+      const slash = beforeFallback === undefined ? -1 : beforeFallback.indexOf('/');
+      const head = slash >= 0 ? beforeFallback!.slice(0, slash) : beforeFallback;
+      const tunables = slash >= 0 ? parseH2Tunables(beforeFallback!.slice(slash + 1)) : undefined;
       const at = head === undefined ? -1 : head.lastIndexOf('@');
       const modules = head === undefined || head.length === 0 ? undefined : at > 0 ? head.slice(0, at) : head;
       const temperature = at > 0 ? Number(head!.slice(at + 1)) : undefined;
@@ -170,6 +211,7 @@ export function resolveAgent(spec: string): Agent {
       return createHeuristic2Agent({
         modules,
         temperature,
+        tunables,
         fallback: fallbackSpec === undefined ? undefined : resolveAgent(fallbackSpec),
       });
     }

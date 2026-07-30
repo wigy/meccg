@@ -116,6 +116,18 @@ function softmax(utilities: readonly number[], temperature: number): number[] {
 }
 
 /**
+ * The tunables that differ from the shipped set, as a spec-shaped suffix.
+ *
+ * Empty for the defaults, so the common case still reports plain `h2`.
+ */
+function describeTunableOverrides(tunables: Tunables): string {
+  const changed = (Object.keys(DEFAULT_TUNABLES) as (keyof Tunables)[])
+    .filter(name => tunables[name] !== DEFAULT_TUNABLES[name])
+    .map(name => `/${name}=${tunables[name]}`);
+  return changed.join('');
+}
+
+/**
  * Create the Heuristics-2 agent.
  *
  * The win-probability model is resolved once at construction: an agent without
@@ -128,7 +140,11 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   const model = options.model ?? loadWinProbModel();
   const temperature = options.temperature ?? tunables.softmaxTemperature;
   const fallback = options.fallback ?? createHeuristicAgent();
-  const base = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
+  const selector = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
+  // A tunable override changes how every module scores, so a run that reports
+  // plain `h2` for two different constant sets cannot be read afterwards —
+  // which is exactly the failure a tunable gate would produce.
+  const base = `${selector}${describeTunableOverrides(tunables)}`;
   // The fallback is part of what the agent *is* — a run that reports `h2` for
   // two differently-composed agents cannot be read afterwards.
   const label = options.fallback ? `${base}+${fallback.name}` : base;
