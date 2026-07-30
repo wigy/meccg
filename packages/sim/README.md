@@ -222,6 +222,31 @@ because the +2 clauses carry `overrides` naming the +1 clauses they replace. A
 modifier whose condition the module cannot read is *dropped* rather than assumed
 to hold, so an unfamiliar gate under-values the card instead of over-valuing it.
 
+**Once it is out, it is simply the numbers.** The first version of that read a
+modifier only at the moment its card was played, which priced the play correctly
+and then went on resolving every bundle behind it as if the card were not there
+— a long event lasts the turn, a permanent one the game. `planFor` now resolves
+every attack with the modifiers the hazard events in play declare, so the
+baseline is the board as it stands and the counterfactual arm is **the board
+with one more card on it**.
+
+That second reading is the whole of Doors of Night. It does nothing to an attack
+itself; what it does is satisfy `inPlay: "Doors of Night"` on the Minions Stir
+already out, turning +1 of each into +2. Pricing it by its own declared effects
+finds nothing and declines; pricing the board with and without it finds the
+upgrade — and says what it found, which in the captured position is that the
+upgrade buys nothing, because the bundle already beats the company:
+
+```text
+play Doors of Night: -1.1%
+  orc attack +1 prowess, +1 strike(s); troll attack +1 prowess, +1 strike(s)
+  becomes orc attack +2 prowess, +2 strike(s); troll attack +1 prowess, +1
+  strike(s) — but the plan has no attack left it would improve
+```
+
+So it is scored at minus the card and refused, rather than declined for want of
+a family. A refusal with that tree behind it is an opinion; silence is not.
+
 Hazard events outside those families are still declined — modelling a company
 restriction means modelling its effect — so the decision is reported as partly
 covered rather than guessed at.
