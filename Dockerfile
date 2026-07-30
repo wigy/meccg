@@ -13,6 +13,7 @@ RUN npm ci
 COPY packages ./packages
 COPY data ./data
 COPY bin ./bin
+COPY CHANGELOG.md ./
 
 RUN npm run build
 
