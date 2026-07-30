@@ -34,6 +34,7 @@ import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
 import { getItemSlot, pickActiveItemsForCharacter } from './item-slots.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
+import { isLongEventProtected } from './protected-long-event.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -117,6 +118,13 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   const remainingCards = player.cardsInPlay.filter(card => {
     const def = defById(state, card.definitionId);
     if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
+      // Echo of All Joy (td-110): a long-event attached to an in-play
+      // protector is exempt from this sweep for as long as the protector
+      // stays in play.
+      if (isLongEventProtected(player.cardsInPlay, card.instanceId)) {
+        logDetail(`Long-event entry: resource long-event "${def.name}" (${card.instanceId as string}) protected by an attached card — not discarded`);
+        return true;
+      }
       logDetail(`Long-event entry: discarding resource long-event "${def.name}" (${card.instanceId as string})`);
       discardedEvents.push(toCardInstance(card));
       return false;

@@ -53,18 +53,23 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // just left its controller's play area. Prev/next diff, so it runs on the raw
   // post-action state before the single-state sweeps and recompute below.
   const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
-  const swept = sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves))))))))))))))));
+  const swept = sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))))));
   // The Will of Sauron (tw-100): when the card retaining hazard long-events left
   // play this step, every hazard long-event goes with it. Runs *after* the
   // single-state sweeps so a retainer discarded by its own `discard-self-when`
   // (Doors of Night gone) is already absent from the state being compared.
   const afterRetention = prevState ? sweepRetainedHazardLongEvents(prevState, swept) : swept;
+  // Echo of All Joy (td-110): when the card protecting an attached resource
+  // long-event left play this step (its own `discard-self-when` /
+  // `play-deck-exhausted` self-discard), the protected long-event goes with
+  // it. Same prev/next-diff shape as the retention sweep above.
+  const afterLongEventProtection = prevState ? sweepProtectedLongEventCascade(prevState, afterRetention) : afterRetention;
   // No News of Our Riding (le-211): an attack that just ended opens the
   // "immediately after his company faces …" resource play window for the
   // defending player. Another prev/next diff — every combat teardown path
   // (strikes resolved, canceled on the chain, canceled by tap) is covered by
   // the single `prev.combat → next.combat` transition.
-  const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterRetention) : afterRetention;
+  const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterLongEventProtection) : afterLongEventProtection;
   return accrueRevealedInstances(recomputeDerived(afterAttackWindow));
 }
 
@@ -75,6 +80,7 @@ import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
 import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
+import { discardOrphanedLongEventAttachedEvents, sweepProtectedLongEventCascade } from './protected-long-event.js';
 import { enqueuePostAttackPlayOffers } from './post-attack-play.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
