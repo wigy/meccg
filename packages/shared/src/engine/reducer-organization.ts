@@ -33,6 +33,7 @@ import { wizardSpecificName } from './fallen-wizard-specific.js';
 import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
 import { getItemSlot, pickActiveItemsForCharacter } from './item-slots.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
+import { discardCharacterToDiscardPile } from './pending-reducers.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -143,12 +144,18 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     phaseState: { phase: Phase.LongEvent },
   };
 
+  // CoE 3.08: a Ringwraith follower whose controlling avatar left play got
+  // until the end of this organization phase to be re-controlled by a
+  // Ringwraith avatar — settle that deadline before the influence overflow
+  // below, so a discarded follower's own freed followers are seen by it.
+  const afterReclaim = enforceRingwraithReclaim(afterDiscards as GameState, activeIndex);
+
   // CoE 3.47: the phase ends over general influence → force the excess
   // characters out before anything else happens. Enqueued ahead of the Siege
   // rolls below (both are scoped to the following long-event phase and pending
   // resolutions resolve in queue order) so a company that loses its last
   // character to the overflow never rolls.
-  const afterOverflow = enqueueInfluenceOverflowDiscard(afterDiscards as GameState, activePlayer, orgState);
+  const afterOverflow = enqueueInfluenceOverflowDiscard(afterReclaim, activePlayer, orgState);
 
   // Siege (tw-87): "At the end of its organization phase, a company at a site
   // with Siege on it must make a roll …" Enqueued after the phase transition so
@@ -156,6 +163,43 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   // pending resolutions take priority over phase actions, so no other decision
   // can slip in between the organization phase ending and the roll.
   return { state: enqueueCompanyMovementRolls(afterOverflow, activePlayer, activeIndex) };
+}
+
+/**
+ * CoE rule 3.08: settle the Ringwraith-follower reclaim deadline as the active
+ * player leaves their organization phase. A follower flagged `'due'` (its
+ * controlling Ringwraith avatar left play before this phase began) survives if
+ * it is once again controlled by a Ringwraith avatar — the flag simply clears —
+ * and is otherwise immediately discarded, with no player choice involved.
+ * Followers still flagged `'grace'` lost their avatar *during* this phase; their
+ * deadline is the end of the player's next organization phase, so they pass
+ * through untouched (the flag promotes at that phase's start).
+ */
+function enforceRingwraithReclaim(state: GameState, activeIndex: number): GameState {
+  let working = state;
+  for (const char of Object.values(state.players[activeIndex].characters)) {
+    if (char.ringwraithReclaim !== 'due') continue;
+    const live = working.players[activeIndex].characters[char.instanceId];
+    if (!live) continue; // already left play as collateral of an earlier removal
+    const controller = live.controlledBy !== 'general'
+      ? working.players[activeIndex].characters[live.controlledBy]
+      : undefined;
+    const controllerDef = controller ? defById(working, controller.definitionId) : undefined;
+    const reclaimed = !!controllerDef && isCharacterCard(controllerDef) && isAvatarCharacter(controllerDef)
+      && controllerDef.race === Race.Ringwraith;
+    if (reclaimed) {
+      logDetail(`Ringwraith reclaim: ${live.instanceId as string} is controlled by Ringwraith avatar ${controllerDef.name} again — grace period ends, follower stays (CoE 3.08)`);
+      const { ringwraithReclaim: _drop, ...rest } = live;
+      working = updatePlayer(working, activeIndex, p => ({
+        ...p,
+        characters: { ...p.characters, [rest.instanceId]: rest },
+      }));
+    } else {
+      logDetail(`Ringwraith reclaim: ${live.instanceId as string} was not re-controlled by a Ringwraith avatar by the end of the organization phase — immediately discarded (CoE 3.08)`);
+      working = discardCharacterToDiscardPile(working, activeIndex, live.instanceId, live);
+    }
+  }
+  return working === state ? state : recomputeDerived(working);
 }
 
 /**
