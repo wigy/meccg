@@ -1712,10 +1712,13 @@ function bodyCheckActions(
   playerId: PlayerId,
   combat: CombatState,
 ): EvaluatedAction[] {
-  // Body check always belongs to the opponent of the wounded character:
+  // Body check always belongs to the opponent of the entity being checked
+  // (CoE 3.I.1):
   // - defender's character wounded → attacker (opponent) rolls
   // - attacker's character wounded (CvCC) → defender (opponent) rolls
-  const roller = combat.bodyCheckTarget === 'attacker-character'
+  // - creature/agent's strike defeated → the creature/agent is controlled by
+  //   the attacker, so the defender (opponent) rolls
+  const roller = combat.bodyCheckTarget === 'attacker-character' || combat.bodyCheckTarget === 'creature'
     ? combat.defendingPlayerId
     : combat.attackingPlayerId;
   if (playerId !== roller) return [];

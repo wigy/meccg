@@ -654,7 +654,9 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
-  const roller = combat.bodyCheckTarget === 'attacker-character' ? combat.defendingPlayerId : combat.attackingPlayerId;
+  const roller = combat.bodyCheckTarget === 'attacker-character' || combat.bodyCheckTarget === 'creature'
+    ? combat.defendingPlayerId
+    : combat.attackingPlayerId;
   logDetail(`Body check roll: target=${combat.bodyCheckTarget} roller=${roller as string} roll=${roll.die1}+${roll.die2}=${rollTotal} (lastDiceRoll stored on attacker ${combat.attackingPlayerId as string})`);
   const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
   // Broadcast the body-check outcome as a text notification so the result is

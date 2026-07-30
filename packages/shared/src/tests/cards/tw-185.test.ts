@@ -263,11 +263,11 @@ describe('Vôteli (tw-185)', () => {
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
 
     // Roll 5 ≤ 5 (halved body) → creature survives
-    const afterSurvive = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 5);
+    const afterSurvive = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 5);
     expect(afterSurvive.combat).toBeNull();
 
     // Roll 6 > 5 → creature defeated
-    const afterDefeat = executeAction(afterStrike, PLAYER_2, 'body-check-roll', 6);
+    const afterDefeat = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 6);
     expect(afterDefeat.combat).toBeNull();
   });
 
@@ -309,8 +309,8 @@ describe('Vôteli (tw-185)', () => {
     expect(afterStrike.combat?.phase).toBe('body-check');
 
     // Roll 5 ≤ 5 → creature survives; roll 6 > 5 → creature defeated
-    expect(executeAction(afterStrike, PLAYER_2, 'body-check-roll', 5).combat).toBeNull();
-    expect(executeAction(afterStrike, PLAYER_2, 'body-check-roll', 6).combat).toBeNull();
+    expect(executeAction(afterStrike, PLAYER_1, 'body-check-roll', 5).combat).toBeNull();
+    expect(executeAction(afterStrike, PLAYER_1, 'body-check-roll', 6).combat).toBeNull();
   });
 
   test('enemy body is NOT halved vs a non-nazgul (orc)', () => {
@@ -351,8 +351,8 @@ describe('Vôteli (tw-185)', () => {
     expect(afterStrike.combat?.phase).toBe('body-check');
 
     // Roll 9 ≤ 9 (full body, not halved) → creature survives
-    expect(executeAction(afterStrike, PLAYER_2, 'body-check-roll', 9).combat).toBeNull();
+    expect(executeAction(afterStrike, PLAYER_1, 'body-check-roll', 9).combat).toBeNull();
     // Roll 10 > 9 → creature defeated (body was 9, not 5)
-    expect(executeAction(afterStrike, PLAYER_2, 'body-check-roll', 10).combat).toBeNull();
+    expect(executeAction(afterStrike, PLAYER_1, 'body-check-roll', 10).combat).toBeNull();
   });
 });
