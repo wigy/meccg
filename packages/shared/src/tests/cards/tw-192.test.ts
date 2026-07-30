@@ -1,0 +1,230 @@
+/**
+ * @module tw-192.test
+ *
+ * Card test: Andúril, the Flame of the West (tw-192)
+ * Type: hero-resource-event (permanent)
+ *
+ * Text:
+ *   "Unique. Sage only during the site phase at an untapped site where
+ *    Information is playable. Tap the sage and the site. Sage makes a
+ *    corruption check modified by -3. Keep sage tapped until Andúril is
+ *    stored at a Haven. Once stored, you may discard a stored Reforging and
+ *    place Andúril with Narsil. In addition to Narsil's effects, Andúril
+ *    gives its bearer 4 marshalling points, +4 prowess (to a maximum of 11),
+ *    +1 direct influence, and one more corruption point. Andúril may be
+ *    tapped to untap a Dúnadan character in the same company, but its bearer
+ *    must make a corruption check modified by -1."
+ *
+ * Regression: a bug report (msg 59508721ea62ac32) showed Andúril entering
+ * play with no sage/site verification, no tap, and no corruption check — the
+ * card had an empty `effects` array, so it did nothing at all. This test
+ * covers the play-time half of the card: the sage/site play conditions, the
+ * tap costs, the corruption check on entering play, and the
+ * bearer-cannot-untap-until-stored lock (same primitives as the sibling
+ * Reforging tw-314, itself fixed for an identical empty-effects bug). The
+ * "once stored, combine with Narsil into a single bearer-boosting item"
+ * clause is a separate, much larger mechanic (no reforging/combination
+ * primitive exists in the engine at all) and is left for a follow-up pass.
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  CardStatus,
+  resetMint,
+  buildSitePhaseState,
+  buildTestState, makePlayDeck,
+  findCharInstanceId,
+  viableActions, dispatch, resolveChain,
+  GALADRIEL, ARAGORN, RIVENDELL, LORIEN, LEGOLAS,
+  mint, addToPile,
+} from '../test-helpers.js';
+import { recomputeDerived } from '../../engine/recompute-derived.js';
+import { Phase } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction } from '../../index.js';
+
+const ANDURIL = 'tw-192' as CardDefinitionId;
+const AMON_HEN = 'tw-371' as CardDefinitionId; // ruins-and-lairs, Information playable
+const TOLFALAS = 'tw-433' as CardDefinitionId; // ruins-and-lairs, NO Information
+
+describe('Andúril, the Flame of the West (tw-192)', () => {
+  beforeEach(() => resetMint());
+
+  // ── Effects 1 + 2: sage-only, site where Information is playable ──
+
+  test('offered on an untapped sage at a site where Information is playable', () => {
+    const state = buildSitePhaseState({
+      characters: [GALADRIEL], // scout+sage
+      site: AMON_HEN,
+      hand: [ANDURIL],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBeGreaterThan(0);
+  });
+
+  test('NOT offered on a non-sage character', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN], // warrior/scout/ranger — no sage skill
+      site: AMON_HEN,
+      hand: [ANDURIL],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
+  test('NOT offered at a site where Information is not playable', () => {
+    const state = buildSitePhaseState({
+      characters: [GALADRIEL],
+      site: TOLFALAS,
+      hand: [ANDURIL],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
+  // ── untapped-site-required: both sage and site must be untapped ──
+
+  test('NOT offered when the sage is already tapped', () => {
+    const state = buildSitePhaseState({
+      characters: [{ defId: GALADRIEL, status: CardStatus.Tapped }],
+      site: AMON_HEN,
+      hand: [ANDURIL],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
+  test('NOT offered at an already-tapped site', () => {
+    const state = buildSitePhaseState({
+      characters: [GALADRIEL],
+      site: AMON_HEN,
+      hand: [ANDURIL],
+      siteStatus: CardStatus.Tapped,
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
+  // ── Tap the sage and the site, attach to the sage, corruption check ──
+
+  test('playing it taps the sage and the site, attaches to the sage, and enqueues a corruption check modified by -3', () => {
+    const state = buildSitePhaseState({
+      characters: [GALADRIEL],
+      site: AMON_HEN,
+      hand: [ANDURIL],
+    });
+    const action = viableActions(state, PLAYER_1, 'play-permanent-event')[0].action;
+    const after = resolveChain(dispatch(state, action));
+
+    const galadrielId = findCharInstanceId(after, RESOURCE_PLAYER, GALADRIEL);
+    const galadriel = after.players[RESOURCE_PLAYER].characters[galadrielId];
+    expect(galadriel.status).toBe(CardStatus.Tapped);
+    expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
+    expect(galadriel.items.some(i => i.definitionId === ANDURIL)).toBe(true);
+
+    const corruptionChecks = after.pendingResolutions.filter(
+      r => r.kind.type === 'corruption-check'
+        && (r.kind as { characterId: CardInstanceId }).characterId === galadrielId,
+    );
+    expect(corruptionChecks).toHaveLength(1);
+    expect((corruptionChecks[0].kind as { modifier: number }).modifier).toBe(-3);
+  });
+
+  // ── Storable-at Haven + bearer-cannot-untap-until-stored ──
+
+  test('sage bearing Andúril cannot untap until it is stored', () => {
+    const state = buildSitePhaseState({
+      characters: [GALADRIEL],
+      site: AMON_HEN,
+      hand: [ANDURIL],
+    });
+    const action = viableActions(state, PLAYER_1, 'play-permanent-event')[0].action as PlayPermanentEventAction;
+    const afterPlay = resolveChain(dispatch(state, action));
+
+    const galadrielId = findCharInstanceId(afterPlay, RESOURCE_PLAYER, GALADRIEL);
+    const constraint = afterPlay.activeConstraints.find(
+      c => c.kind.type === 'bearer-cannot-untap'
+        && c.target.kind === 'character'
+        && c.target.characterId === galadrielId,
+    );
+    expect(constraint).toBeDefined();
+
+    // Resolve the pending corruption check (from enqueue-corruption-check on play)
+    // before advancing to the untap phase.
+    const ccAction = viableActions({ ...afterPlay, cheatRollTotal: 12 }, PLAYER_1, 'corruption-check')[0].action;
+    const afterCC = dispatch({ ...afterPlay, cheatRollTotal: 12 }, ccAction);
+
+    const inUntap = {
+      ...afterCC,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: false,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      } as typeof afterPlay.phaseState,
+    };
+    const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[galadrielId].status).toBe(CardStatus.Tapped);
+  });
+
+  test('Andúril can be stored at a Haven during organization', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: GALADRIEL, items: [ANDURIL] }] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+
+    const storeActions = viableActions(state, PLAYER_1, 'store-item');
+    expect(storeActions.length).toBe(1);
+  });
+
+  test('no marshalling points while Andúril is attached to a character', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: GALADRIEL, items: [ANDURIL] }] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+  });
+
+  test('no marshalling points awarded when Andúril is stored (no override declared)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GALADRIEL] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+    const stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: ANDURIL },
+    );
+    const state = recomputeDerived(stored);
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+  });
+});
