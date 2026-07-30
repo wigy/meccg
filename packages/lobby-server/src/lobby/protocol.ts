@@ -79,6 +79,15 @@ export interface PlayModularAiMessage {
   readonly deckId: string;
 }
 
+/**
+ * Start the guided tutorial (specs/2026-07-30-tutorial-plan.md): a scripted
+ * teaching game against the server-driven "Mentor". Carries no deck — both
+ * decks are fixed by the shared tutorial module.
+ */
+export interface PlayTutorialMessage {
+  readonly type: 'play-tutorial';
+}
+
 /** Start a game against the pseudo-AI (human controls both sides). */
 export interface PlayPseudoAiMessage {
   readonly type: 'play-pseudo-ai';
@@ -118,6 +127,7 @@ export type LobbyClientMessage =
   | DeclineChallengeMessage
   | CancelChallengeMessage
   | PlayHeuristicAiMessage
+  | PlayTutorialMessage
   | PlayMcAiMessage
   | PlayModularAiMessage
   | PlayRealAiMessage

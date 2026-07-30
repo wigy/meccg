@@ -82,6 +82,14 @@ export interface GameConfig {
   readonly players: readonly [PlayerConfig, PlayerConfig];
   /** Seed for the pseudo-random number generator (e.g. `Date.now()`). */
   readonly seed: number;
+  /**
+   * When true, play decks keep the exact order given in each
+   * {@link PlayerConfig.playDeck} for the whole game: neither the pre-draft
+   * shuffle nor the `shuffle-play-deck` setup step randomizes them, so
+   * index 0 is always the next card drawn. Used by scripted games (the
+   * guided tutorial) where every draw must be predetermined.
+   */
+  readonly orderedDecks?: boolean;
 }
 
 // ---- Instance minting ----
@@ -141,8 +149,8 @@ export function createGame(
 
   // Each player's anti-Fallen-wizard sideboard is folded into their main
   // sideboard only when their *opponent* is a Fallen-wizard (MEWH).
-  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter0, rng, config.players[1].alignment);
-  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter1, rng0, config.players[0].alignment);
+  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter0, rng, config.players[1].alignment, config.orderedDecks);
+  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter1, rng0, config.players[0].alignment, config.orderedDecks);
   rng = rng1;
   const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
@@ -182,6 +190,7 @@ export function createGame(
     cheatRollTotal: null,
     cheated: false,
     revealedInstances: {},
+    ...(config.orderedDecks ? { orderedDecks: true } : {}),
   };
 }
 
@@ -258,11 +267,17 @@ function initPlayerPreDraft(
   minter: InstanceMinter,
   rng: RngState,
   opponentAlignment?: Alignment,
+  orderedDecks?: boolean,
 ): [PlayerState, RngState] {
-  // Mint and shuffle play deck (no hand dealt yet — that happens after draft)
+  // Mint and shuffle play deck (no hand dealt yet — that happens after draft).
+  // Scripted games (orderedDecks) keep the configured order as the draw order.
   const playDeckMinted = config.playDeck.map(defId => mint(minter, defId));
   let shuffledDeck: CardInstance[];
-  [shuffledDeck, rng] = shuffle(playDeckMinted, rng);
+  if (orderedDecks) {
+    shuffledDeck = playDeckMinted;
+  } else {
+    [shuffledDeck, rng] = shuffle(playDeckMinted, rng);
+  }
 
   // Mint site deck
   const siteDeckCards = config.siteDeck.map(defId => mint(minter, defId));

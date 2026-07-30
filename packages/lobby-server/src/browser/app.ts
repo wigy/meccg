@@ -170,6 +170,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // ---- Guided tutorial ----
+    const playTutorialBtn = document.getElementById('play-tutorial-btn') as HTMLButtonElement | null;
+    playTutorialBtn?.addEventListener('click', () => {
+      // No deck selection and no save check: tutorial decks are fixed and
+      // tutorial games are never saved — each run starts from the draft.
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-tutorial' }));
+        playTutorialBtn.textContent = 'Starting...';
+        setLobbyPlayButtonsDisabled(true);
+      }
+    });
+
     // ---- Heuristic-AI ----
     const playHeuristicAiBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement;
 

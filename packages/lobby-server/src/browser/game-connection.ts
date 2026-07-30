@@ -17,6 +17,7 @@ import { clearGameSession, clearPlayerName, saveGameSession } from './session.js
 import { connectPseudoAi } from './pseudo-ai.js';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
+import { renderTutorialPanel } from './tutorial-panel.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
@@ -523,6 +524,7 @@ export function connect(name: string): void {
         renderCompanyViews(msg.view, cardPool, sendAction);
         renderGameOverView(msg.view, cardPool);
         renderChainPanel(msg.view, cardPool, sendAction);
+        renderTutorialPanel(msg.view);
         // Animate cards from old positions to new positions
         animateFromSnapshot();
         // The full state is now rendered — reveal the board.

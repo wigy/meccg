@@ -31,3 +31,4 @@ export { createGame, createGameQuickStart, applyDraftResults } from './engine/in
 export type { GameConfig, PlayerConfig, QuickStartGameConfig, QuickStartPlayerConfig } from './engine/init.js';
 export { validateDeck } from './deck-validation.js';
 export type { DeckValidationError, DeckSection } from './deck-validation.js';
+export * from './tutorial/index.js';

@@ -287,4 +287,32 @@ export interface PlayerView {
    * views built before this field existed read as not cheated.
    */
   readonly cheated?: boolean;
+  /**
+   * Present only in tutorial games: the active curriculum step and overall
+   * progress, computed server-side by the TutorialController. The browser
+   * tutorial panel renders directly from this — the client never tracks the
+   * script cursor itself.
+   */
+  readonly tutorial?: TutorialProgress;
+}
+
+/**
+ * Snapshot of the guided tutorial's progress attached to the human player's
+ * view (see specs/2026-07-30-tutorial-plan.md).
+ */
+export interface TutorialProgress {
+  /** Curriculum step id (see the shared tutorial script). */
+  readonly stepId: string;
+  /** Panel heading. */
+  readonly title: string;
+  /** Panel body: the rule explanation and what to do. */
+  readonly body: string;
+  /** Zero-based index of the step in the curriculum. */
+  readonly stepIndex: number;
+  /** Total number of curriculum steps. */
+  readonly stepCount: number;
+  /** True when the current beat is the human's to perform (vs. watch-only). */
+  readonly yourTurn: boolean;
+  /** True once every beat has been performed — the tutorial is complete. */
+  readonly done: boolean;
 }

@@ -1125,8 +1125,15 @@ function handleDeckShuffle(
 
   const player = state.players[playerIndex];
   let rng = state.rng;
-  const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
-  rng = nextRng;
+  let shuffled: readonly CardInstance[];
+  if (state.orderedDecks) {
+    // Scripted game: the configured deck order IS the draw order — the
+    // shuffle step advances but must not disturb it.
+    logDetail(`Deck shuffle for ${player.name}: orderedDecks set — keeping configured order (${player.playDeck.length} cards)`);
+    shuffled = player.playDeck;
+  } else {
+    [shuffled, rng] = shuffle([...player.playDeck], rng);
+  }
 
   const stateWithShuffle = updatePlayer(state, playerIndex, p => ({ ...p, playDeck: shuffled }));
 

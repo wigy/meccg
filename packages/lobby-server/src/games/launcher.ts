@@ -65,6 +65,12 @@ export interface LaunchOptions {
    * server-wide without a lobby protocol change.
    */
   aiAgentSpec?: string;
+  /**
+   * Launch the guided tutorial: the game server runs with `--tutorial`,
+   * player2 ("Mentor") is played server-side by the game session's
+   * TutorialController, and no AI client is spawned.
+   */
+  tutorial?: boolean;
 }
 
 /**
@@ -121,7 +127,9 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     DEV: DEV ? '1' : '',
   };
 
-  const child = spawn('npx', ['tsx', GAME_SERVER_ENTRY, player1, player2, '--dev'], {
+  const serverArgs = ['tsx', GAME_SERVER_ENTRY, player1, player2, '--dev'];
+  if (options?.tutorial) serverArgs.push('--tutorial');
+  const child = spawn('npx', serverArgs, {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

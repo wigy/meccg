@@ -174,6 +174,15 @@ export interface GameState {
    */
   readonly cheatRollTotal: number | null;
   /**
+   * When true, play decks are never shuffled: the deck order supplied in the
+   * game config is the literal draw order (index 0 = top of the deck). Both
+   * the pre-draft shuffle at game creation and the `shuffle-play-deck` setup
+   * step become order-preserving no-ops. Used by scripted games — the guided
+   * tutorial — where the script must know every card drawn at every step.
+   * Absent/false in normal games.
+   */
+  readonly orderedDecks?: boolean;
+  /**
    * True once any developer-tools (debug menu) command has been used in
    * this game. A cheated game is played out normally, but its end result
    * is never recorded — neither to the per-game statistics record nor to

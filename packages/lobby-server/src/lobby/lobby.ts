@@ -307,6 +307,15 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
+    case 'play-tutorial': {
+      if (from.inGame) {
+        send(from.ws, { type: 'error', message: 'You are already in a game' });
+        return;
+      }
+      void startTutorialGame(from);
+      break;
+    }
+
     case 'play-pseudo-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
@@ -364,7 +373,12 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       from.inGame = false;
       from.activeGame = null;
 
-      if (opponentName === 'AI-Pseudo') {
+      if (opponentName === 'Mentor') {
+        // A tutorial's script cursor dies with its process — restart the
+        // tutorial from the beginning rather than seating a normal game
+        // against a "Mentor" who would never join.
+        void startTutorialGame(from);
+      } else if (opponentName === 'AI-Pseudo') {
         void startPseudoAiGame(from);
       } else if (isAi) {
         // Preserve which AI it was: relaunching 'AI-MC' without the spec
@@ -525,6 +539,48 @@ async function startAiGame(
     });
   } catch (err) {
     lobbyLog.log('error', { context: 'ai-game-start', error: String(err) });
+    player.inGame = false;
+    player.activeGame = null;
+    send(player.ws, { type: 'error', message: 'Failed to start game server' });
+    broadcastPlayerList();
+  }
+}
+
+/**
+ * Launch the guided tutorial: a scripted teaching game against the
+ * server-driven "Mentor" seat (no AI client process; the game session
+ * plays the Mentor itself). Decks are fixed by the shared tutorial module.
+ */
+async function startTutorialGame(player: OnlinePlayer): Promise<void> {
+  player.inGame = true;
+  cancelChallengesInvolving(player.name);
+  const mentorName = 'Mentor';
+
+  try {
+    const result = await launchGame(player.name, mentorName, { tutorial: true });
+    lobbyLog.log('game-start', { player1: player.name, player2: mentorName, tutorial: true, port: result.port });
+
+    player.activeGame = {
+      port: result.port,
+      token: result.tokens[0],
+      opponent: mentorName,
+      opponentDisplayName: mentorName,
+    };
+    watchableGames.set(result.port, { port: result.port, player1: player.name, player2: mentorName });
+
+    send(player.ws, { type: 'game-starting', ...player.activeGame });
+    broadcastPlayerList();
+
+    result.onEnd(() => {
+      player.inGame = false;
+      player.activeGame = null;
+      player.pendingFrom.clear();
+      watchableGames.delete(result.port);
+      broadcastPlayerList();
+      lobbyLog.log('game-end', { player1: player.name, player2: mentorName, tutorial: true });
+    });
+  } catch (err) {
+    lobbyLog.log('error', { context: 'tutorial-game-start', error: String(err) });
     player.inGame = false;
     player.activeGame = null;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });

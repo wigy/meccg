@@ -29,7 +29,9 @@ import type {
 } from '@meccg/shared';
 import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
+import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
+import { TutorialController } from './tutorial-controller.js';
 import { ServerLog, GameLog } from './game-log.js';
 import { buildCompletedGameRecord, writeCompletedGameRecord, GAME_RECORDS_DIR } from './game-record.js';
 import type { PlayerDeckInfo } from './game-record.js';
@@ -118,6 +120,14 @@ export const IDLE_EXIT_GRACE_MS = 60_000;
 export interface GameSessionOptions {
   /** Enable development-mode operations (undo, save, load, reseed). */
   dev?: boolean;
+  /**
+   * Run the guided tutorial (specs/2026-07-30-tutorial-plan.md): both decks
+   * come from the shared tutorial module (joined decks are ignored), the
+   * game is created with ordered decks and a fixed seed, the second named
+   * player ("Mentor") is played server-side by the TutorialController, and
+   * the human's legal actions are gated to the current script beat.
+   */
+  tutorial?: boolean;
   playerNames: [string, string];
   /**
    * Called once no human player has been connected for
@@ -149,6 +159,10 @@ export class GameSession {
   private playerCounter = 0;
   /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
   private dev: boolean;
+  /** Non-null while running the guided tutorial: script cursor, gating, Mentor seat. */
+  private tutorial: TutorialController | null = null;
+  /** Set at construction when this session is a tutorial game. */
+  private tutorialMode: boolean;
   private playerNames: Set<string>;
   private serverLog: ServerLog;
   private gameLog: GameLog;
@@ -169,6 +183,7 @@ export class GameSession {
 
   constructor(options: GameSessionOptions) {
     this.dev = options.dev ?? false;
+    this.tutorialMode = options.tutorial ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.onIdle = options.onIdle;
     this.cardPool = loadCardPool();
@@ -203,7 +218,9 @@ export class GameSession {
 
   gracefulShutdown(): void {
     this.serverLog.log('shutdown');
-    if (this.state && !this.isFullyFinished()) {
+    // Tutorial games are never saved: the script cursor lives only in this
+    // process, so a restored save could not be continued on rails.
+    if (this.state && !this.isFullyFinished() && !this.tutorialMode) {
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -255,6 +272,12 @@ export class GameSession {
       case 'cheat-roll':
       case 'summon-card':
       case 'swap-hand':
+        if (this.tutorialMode) {
+          // The script owns the dice and the state; any of these would
+          // desynchronize the tutorial cursor.
+          this.send(ws, { type: 'error', message: `'${msg.type}' is not available in the tutorial` });
+          break;
+        }
         if (!this.dev) {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
@@ -339,6 +362,14 @@ export class GameSession {
     this.pending.set(normalizedName, { ws, join: msg });
     this.serverLog.log('join', { name: msg.name, role: 'player' });
 
+    // Tutorial: the Mentor seat is played server-side and never connects —
+    // start as soon as the human joins. The joined deck is ignored; both
+    // decks come from the shared tutorial module.
+    if (this.tutorialMode) {
+      this.startTutorialGame(this.pending.get(normalizedName)!, msg.name);
+      return;
+    }
+
     if (this.pending.size < 2) {
       this.send(ws, { type: 'waiting' });
       return;
@@ -414,6 +445,50 @@ export class GameSession {
   private broadcastSpectators(): void {
     const names = [...new Set(this.spectators.values())].sort();
     this.broadcastToAll({ type: 'spectators', names });
+  }
+
+  /**
+   * Start the guided tutorial: fixed decks and seed, ordered draws, the
+   * human in seat 0 and the server-driven Mentor in seat 1.
+   */
+  private startTutorialGame(p: PendingPlayer, humanName: string): void {
+    const humanId = `p${++this.playerCounter}` as PlayerId;
+    const mentorId = `p${++this.playerCounter}` as PlayerId;
+    const mentorName = 'Mentor';
+
+    this.nameToPlayerId = {
+      [humanName.toLowerCase()]: humanId as string,
+      [mentorName.toLowerCase()]: mentorId as string,
+    };
+
+    const config: GameConfig = {
+      players: [
+        { id: humanId, name: humanName, ...TUTORIAL_HERO_DECK },
+        { id: mentorId, name: mentorName, ...TUTORIAL_MENTOR_DECK },
+      ],
+      // The script's cheat rolls force every outcome; the seed only shapes
+      // the cosmetic die splits. Fixed so replays match the tutorial test.
+      seed: 7,
+      orderedDecks: true,
+    };
+
+    this.state = createGame(config, this.cardPool);
+    this.tutorial = new TutorialController(humanId, mentorId);
+    this.state = this.tutorial.armCheat(this.state);
+
+    this.players.set(humanId as string, { ws: p.ws, playerId: humanId, name: humanName });
+    this.pending.clear();
+    this.send(p.ws, { type: 'assigned', playerId: humanId, gameId: this.state.gameId });
+    this.broadcastSpectators();
+
+    this.serverLog.log('new-game', { gameId: this.state.gameId, player1: humanName, player2: mentorName, tutorial: true });
+    this.gameLog.open(this.state.gameId);
+    this.gameLog.writeStaticData(
+      this.state.cardPool as unknown as Record<string, unknown>,
+      this.state,
+    );
+    this.logState('new-game');
+    this.broadcastStateWithLogs();
   }
 
   private startNewGame(p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
@@ -659,6 +734,7 @@ export class GameSession {
 
     // Save previous state for undo before applying
     const wasGameOver = this.state.phaseState.phase === Phase.GameOver;
+    if (this.tutorial) this.tutorial.noteApplied(this.state, actionWithPlayer, playerId);
     this.stateHistory.push(this.state);
     this.state = result.state;
     this.serverLog.log('action', { action: actionWithPlayer });
@@ -719,6 +795,55 @@ export class GameSession {
       if (lines.length > 0) {
         this.broadcastToAll({ type: 'log', lines });
       }
+    }
+
+    this.runTutorialMentor();
+  }
+
+  /**
+   * Play the Mentor's scripted beats (and chain-priority passes) until the
+   * script waits on the human again. Each Mentor action is applied and
+   * broadcast individually so the player watches the Mentor "move". Finally
+   * arms the scripted dice for the human's next beat.
+   */
+  private runTutorialMentor(): void {
+    if (!this.tutorial || !this.state) return;
+
+    for (let guard = 0; guard < 64; guard++) {
+      this.state = this.tutorial.armCheat(this.state);
+      const action = this.tutorial.mentorAction(this.state);
+      if (!action) break;
+
+      const result = reduce(this.state, action);
+      if (result.error) {
+        // A script/engine divergence — a tutorial bug, never a user error.
+        this.serverLog.log('tutorial-mentor-error', { action, error: result.error });
+        break;
+      }
+
+      const wasGameOver = this.state.phaseState.phase === Phase.GameOver;
+      this.tutorial.noteApplied(this.state, action, this.tutorial.mentorId);
+      this.stateHistory.push(this.state);
+      this.state = result.state;
+      this.serverLog.log('action', { action, tutorialMentor: true });
+      this.logState(action.type, action as unknown as Record<string, unknown>);
+      if (!wasGameOver && this.state.phaseState.phase === Phase.GameOver) {
+        this.recordCompletedGame();
+      }
+
+      if (result.effects && result.effects.length > 0) {
+        for (const effect of result.effects) {
+          this.broadcastToAll({ type: 'effect', effect });
+        }
+      }
+      this.broadcastStateWithLogs(action);
+    }
+
+    // The dice for the human's next scripted roll must be armed before the
+    // human acts on the freshly broadcast legal actions.
+    const armed = this.tutorial.armCheat(this.state);
+    if (armed !== this.state) {
+      this.state = armed;
     }
   }
 
@@ -904,7 +1029,7 @@ export class GameSession {
 
     if (!disconnectedId || !disconnectedName) return;
 
-    if (this.state && !this.isFullyFinished()) {
+    if (this.state && !this.isFullyFinished() && !this.tutorialMode) {
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -1191,7 +1316,17 @@ export class GameSession {
 
     this.lastLegalActionsPerPlayer.clear();
     for (const [, { ws, playerId }] of this.players.entries()) {
-      const view = projectPlayerView(this.state, playerId);
+      let view = projectPlayerView(this.state, playerId);
+      if (this.tutorial && playerId === this.tutorial.humanId) {
+        // Gate the human to the current script beat and attach progress.
+        // The membership map below is built from the gated list, so
+        // off-script actions are rejected server-side too.
+        view = {
+          ...view,
+          legalActions: this.tutorial.gate(this.state, view.legalActions),
+          tutorial: this.tutorial.progress(),
+        };
+      }
       const legalSet = new Map<string, GameAction>();
       for (const ea of view.legalActions) {
         if (!ea.viable || !ea.actionId) continue;
