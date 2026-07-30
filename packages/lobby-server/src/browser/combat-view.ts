@@ -36,7 +36,7 @@ import { combatButtonLabel } from './combat-button-label.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
-import { createCardImage } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection, getSelectedCvCCAttacker, setSelectedCvCCAttacker, clearSelectedCvCCAttacker, getSelectedCvCCDefender, setSelectedCvCCDefender, clearSelectedCvCCDefender } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
@@ -651,36 +651,11 @@ function renderCombatCharacterColumn(
   selectedCvCCDefender: CardInstanceId | null,
   onAction: (action: GameAction) => void,
 ): HTMLElement {
-  const col = document.createElement('div');
-  col.className = 'character-column';
-  col.dataset.combatCharId = char.instanceId as string;
-
-  const def = cardPool[char.definitionId as string];
-  if (!def) return col;
-  const imgPath = cardImageProxyPath(def);
-  if (!imgPath) return col;
-
-  // Character card wrapper
-  const wrap = document.createElement('div');
-  wrap.className = 'character-card-wrap';
-
-  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0;
-  const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
-
-  const inner = document.createElement('div');
-  inner.className = 'character-card-inner';
-  if (char.status === CardStatus.Tapped) {
-    inner.classList.add('character-card-inner--tapped');
-    wrap.classList.add('character-card-wrap--tapped');
-  } else if (char.status === CardStatus.Inverted) {
-    inner.classList.add('character-card-inner--wounded');
-    if (hasAttachments) img.classList.add('company-card--faded-top');
-  } else {
-    if (hasAttachments) img.classList.add('company-card--faded');
-  }
+  const { col, parts } = buildCombatCharacterColumn(char, cardPool);
+  if (!parts) return col;
+  const { wrap, inner, img, charIdStr } = parts;
 
   // Combat-specific styling
-  const charIdStr = char.instanceId as string;
   const strike = strikeMap.get(charIdStr);
   const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved && combat.phase === 'resolve-strike';
   const isAssignable = assignableIds.has(charIdStr);
@@ -850,11 +825,8 @@ function renderCombatCharacterColumn(
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
     for (const item of items) {
-      const itemDef = cardPool[item.definitionId as string];
-      if (!itemDef) continue;
-      const itemImg = cardImageProxyPath(itemDef);
-      if (!itemImg) continue;
-      const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
+      const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'company-card company-card--item', item.instanceId as string);
+      if (!itemEl) continue;
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
 
       // Hazards are display-only in combat — skip combat click handlers and strike styling.
@@ -962,32 +934,45 @@ function renderCombatCharacterColumn(
   return col;
 }
 
-/** Render a single attacker character column for CvCC. */
-function renderCvCCAttackerCharacterColumn(
+/**
+ * Build the shared scaffolding of a combat character column: the column
+ * element, the card image, its wrapper, and the tap/wound styling that every
+ * column applies before adding its own combat-specific decoration.
+ *
+ * Both combat column renderers — the defending side (full interaction: strike
+ * assignment, support, cancel-by-tap, …) and the CvCC attacking side
+ * (selection only) — opened with an identical block of this.
+ *
+ * @returns `parts` is null when the character's definition or proxy image is
+ * unavailable, in which case the caller returns the bare `col` — the same
+ * early-out both renderers did inline.
+ */
+function buildCombatCharacterColumn(
   char: CharacterInPlay,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  combat: CombatState,
-  attackerStrikeMap: Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>,
-  selectableAttackerIds: Set<string>,
-  selectedAttackerId: CardInstanceId | null,
-  selectedCvCCDefender: CardInstanceId | null,
-  isCvCCDefenderPhaseWithSelection: boolean,
-  onAction: (action: GameAction) => void,
-): HTMLElement {
+): {
+  col: HTMLElement;
+  parts: {
+    wrap: HTMLElement;
+    inner: HTMLElement;
+    img: HTMLImageElement;
+    charIdStr: string;
+  } | null;
+} {
+  const charIdStr = char.instanceId as string;
+
   const col = document.createElement('div');
   col.className = 'character-column';
-  col.dataset.combatCharId = char.instanceId as string;
+  col.dataset.combatCharId = charIdStr;
 
-  const def = cardPool[char.definitionId as string];
-  if (!def) return col;
-  const imgPath = cardImageProxyPath(def);
-  if (!imgPath) return col;
+  const img = createCardImageFromDefId(char.definitionId, cardPool, 'company-card', charIdStr);
+  if (!img) return { col, parts: null };
 
+  // Character card wrapper
   const wrap = document.createElement('div');
   wrap.className = 'character-card-wrap';
 
   const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0;
-  const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
 
   const inner = document.createElement('div');
   inner.className = 'character-card-inner';
@@ -1001,7 +986,24 @@ function renderCvCCAttackerCharacterColumn(
     if (hasAttachments) img.classList.add('company-card--faded');
   }
 
-  const charIdStr = char.instanceId as string;
+  return { col, parts: { wrap, inner, img, charIdStr } };
+}
+
+/** Render a single attacker character column for CvCC. */
+function renderCvCCAttackerCharacterColumn(
+  char: CharacterInPlay,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  combat: CombatState,
+  attackerStrikeMap: Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>,
+  selectableAttackerIds: Set<string>,
+  selectedAttackerId: CardInstanceId | null,
+  selectedCvCCDefender: CardInstanceId | null,
+  isCvCCDefenderPhaseWithSelection: boolean,
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const { col, parts } = buildCombatCharacterColumn(char, cardPool);
+  if (!parts) return col;
+  const { wrap, inner, img, charIdStr } = parts;
   const strike = attackerStrikeMap.get(charIdStr);
   const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved && combat.phase === 'resolve-strike';
 
@@ -1090,11 +1092,8 @@ function renderCvCCAttackerCharacterColumn(
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
     for (const item of items) {
-      const itemDef = cardPool[item.definitionId as string];
-      if (!itemDef) continue;
-      const itemImg = cardImageProxyPath(itemDef);
-      if (!itemImg) continue;
-      const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
+      const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'company-card company-card--item', item.instanceId as string);
+      if (!itemEl) continue;
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
       attachments.appendChild(itemEl);
     }
