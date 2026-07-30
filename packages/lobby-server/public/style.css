@@ -6422,6 +6422,60 @@ body.all-companies-mode:has(#debug-view.hidden) {
   max-width: 34rem;
 }
 
+/* Guided tutorial instruction panel (rendered from PlayerView.tutorial). */
+.tutorial-panel {
+  flex: 0 0 100%;
+  max-width: 44rem;
+  margin: 0 auto 0.5rem;
+  position: relative;
+  z-index: var(--z-panel);
+  background: rgba(25, 35, 50, 0.92);
+  border: 1px solid rgba(120, 170, 230, 0.55);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: rgba(220, 230, 245, 0.95);
+}
+
+.tutorial-panel--done {
+  border-color: rgba(140, 220, 140, 0.6);
+}
+
+.tutorial-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.tutorial-panel-title {
+  font-weight: bold;
+  font-size: 1.05rem;
+  color: rgba(180, 210, 250, 1);
+}
+
+.tutorial-panel--done .tutorial-panel-title {
+  color: rgba(160, 230, 160, 1);
+}
+
+.tutorial-panel-progress {
+  font-size: 0.8rem;
+  color: rgba(170, 185, 205, 0.85);
+  white-space: nowrap;
+}
+
+.tutorial-panel-body {
+  font-size: 0.9rem;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.tutorial-panel-waiting {
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-top: 6px;
+  color: rgba(200, 190, 160, 0.9);
+}
+
 /* Combat character highlights */
 
 .combat-card--assignable {

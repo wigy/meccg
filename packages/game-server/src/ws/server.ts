@@ -9,7 +9,7 @@
  * the lobby watches the child exit to clear busy status and the watchable
  * game row, so a session must not outlive the humans playing it.
  *
- * Usage: npx tsx src/ws/server.ts <player1> <player2> [--dev]
+ * Usage: npx tsx src/ws/server.ts <player1> <player2> [--dev] [--tutorial]
  */
 
 import { WebSocketServer } from 'ws';
@@ -26,10 +26,12 @@ if (!PLAYER1_NAME || !PLAYER2_NAME) {
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const DEV = process.argv.includes('--dev') || process.env.DEV === '1';
+const TUTORIAL = process.argv.includes('--tutorial');
 
 const wss = new WebSocketServer({ port: PORT });
 const session = new GameSession({
   dev: DEV,
+  tutorial: TUTORIAL,
   playerNames: [PLAYER1_NAME, PLAYER2_NAME],
   onIdle: () => {
     console.log('No human players connected — shutting down.');
