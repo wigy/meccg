@@ -264,14 +264,70 @@ function gainOf(
     && e.to === 'discard'
     && (fromIncludes(e, 'in-play') || String(e.from ?? '').startsWith('attached')));
   if (removal) {
-    // With something in play it could reach, what the card is worth is what
-    // *that* card was doing — which is the thing this module cannot price. With
-    // nothing to reach, the play resolves for nothing, and that is a fact.
-    if (hasRemovalTarget(removal, context)) return null;
-    return { tsd: 0, reason: 'there is nothing in play it could discard' };
+    // With nothing to reach, the play resolves for nothing, and that is a fact.
+    if (!hasRemovalTarget(removal, context)) {
+      return { tsd: 0, reason: 'there is nothing in play it could discard' };
+    }
+    // With something to reach, the card is worth what *that* card was doing.
+    // One thing it might be doing is declared: a hazard event that makes every
+    // attack stronger. Anything else this module still cannot price.
+    return reliefFromRemoval(removal, context);
   }
 
   return null;
+}
+
+/**
+ * What discarding the best reachable card in play is worth, or null.
+ *
+ * The only thing a card in play does that this module can price is what
+ * `defence` already prices from the other direction: a hazard event declaring a
+ * modifier on every attack. Minions Stir gives the Orcs coming at our companies
+ * +1 strike and +1 prowess each, so taking it off the board is worth the harm it
+ * stops — summed over our companies, each facing its own size in hazards, which
+ * is the same convention `characters` compares company shapes with.
+ *
+ * The player picks the target in a later sub-flow, so the *best* reachable card
+ * is priced rather than a named one, on the assumption that they will take it.
+ * A target this cannot price leaves the card declined, which is the honest
+ * outcome for "it discards something, and what that something was doing is its
+ * own card's text".
+ */
+function reliefFromRemoval(
+  removal: Effect,
+  context: ModuleContext,
+): { tsd: number; reason: string } | null {
+  const { view, cardPool, standing, tunables } = context;
+  const defence = computeDefence(view, cardPool, standing, tunables);
+  const companies = view.self.companies.map(company => ({
+    roster: rosterOf(company, view.self.characters, cardPool),
+    size: company.characters.length,
+  }));
+  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, c.size), 0);
+
+  let best: { relief: number; name: string } | null = null;
+  for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
+    for (const card of zone) {
+      const def = cardPool[card.definitionId];
+      if (!couldMatch(removal.filter, def)) continue;
+      const without = companies.reduce(
+        (sum, c) => sum + defence.harmWithout(card.instanceId as string, c.roster, c.size), 0,
+      );
+      const relief = now - without;
+      if (relief > 0 && (!best || relief > best.relief)) {
+        best = {
+          relief,
+          name: (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string),
+        };
+      }
+    }
+  }
+  if (!best) return null;
+  return {
+    tsd: best.relief,
+    reason: `discarding ${best.name} takes ${best.relief.toFixed(1)} of harm off our companies — `
+      + 'the attacks it was strengthening go back to their printed numbers',
+  };
 }
 
 /** Whether anything the card declares will change the game when it resolves. */

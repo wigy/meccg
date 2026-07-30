@@ -82,6 +82,10 @@ import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
+import {
+  ALL_RACES, attackBoostOf, boostFor, boostInPlay, mergeBoosts, nameOfDefinition, sameBoost,
+} from '../../services/attack-modifiers.js';
+import type { AttackBoost } from '../../services/attack-modifiers.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'assign-strike', 'pass'] as const;
@@ -160,198 +164,6 @@ function creatureProfile(
 }
 
 /** Every creature in hand the engine is currently offering against a company. */
-/**
- * What a hazard event would add to every attack this turn, by creature race.
- *
- * Minions Stir declares six `stat-modifier` effects: +1 prowess and +1 strike
- * to Orc attacks, +2 of each instead if Doors of Night is in play, +1 of each
- * to Troll attacks. That is not card text a module has to guess at — it is a
- * declared change to the numbers the strike enumeration already runs on.
- *
- * Keyed by race, with `ALL_RACES` for a modifier that names none.
- */
-type AttackBoost = ReadonlyMap<string, { readonly prowess: number; readonly strikes: number }>;
-
-/** The key a boost uses when it applies to every attack, whatever the race. */
-const ALL_RACES = '*';
-
-/** A `stat-modifier` effect, as far as this module reads one. */
-interface StatModifier {
-  readonly type?: string;
-  readonly stat?: string;
-  readonly value?: number;
-  readonly target?: string;
-  readonly id?: string;
-  readonly overrides?: string;
-  readonly when?: Readonly<Record<string, unknown>>;
-}
-
-/**
- * Whether a card of that name is in play, for either player.
- *
- * `hypothetical` is the card whose play is being priced: an `inPlay` condition
- * naming it is satisfied in the arm of the counterfactual where it has been
- * played. That is the whole of Doors of Night's value here — it does nothing to
- * an attack itself, and everything to the modifiers that name it.
- */
-function inPlayNamed(
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  name: string,
-  hypothetical?: string,
-): boolean {
-  if (hypothetical !== undefined && hypothetical === name) return true;
-  for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
-    for (const card of zone) {
-      if ((cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name === name) return true;
-    }
-  }
-  return false;
-}
-
-/** The printed name of a definition, or its id. */
-function nameOfDefinition(def: CardDefinition | undefined, definitionId: string): string {
-  return (def as unknown as { name?: string } | undefined)?.name ?? definitionId;
-}
-
-/**
- * Read a modifier's `when` clause: which race it applies to, and whether it
- * applies at all.
- *
- * Returns null for a clause this cannot read, which makes the caller drop the
- * modifier — an unread condition must never be assumed true, or the module
- * credits a boost the engine will not apply.
- */
-function conditionOf(
-  when: Readonly<Record<string, unknown>> | undefined,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  hypothetical?: string,
-): { race: string; applies: boolean } | null {
-  if (!when) return { race: ALL_RACES, applies: true };
-  const clauses = Array.isArray(when.$and) ? (when.$and as Readonly<Record<string, unknown>>[]) : [when];
-  let race = ALL_RACES;
-  let applies = true;
-  for (const clause of clauses) {
-    const keys = Object.keys(clause);
-    if (keys.length !== 1) return null;
-    const [key] = keys;
-    const value = clause[key];
-    if (typeof value !== 'string') return null;
-    if (key === 'enemy.race') race = value;
-    else if (key === 'inPlay') applies &&= inPlayNamed(view, cardPool, value, hypothetical);
-    // A condition this does not know how to check: drop the modifier rather
-    // than assume it holds.
-    else return null;
-  }
-  return { race, applies };
-}
-
-/**
- * The attack boost a hazard event declares, or null when it declares none.
- *
- * `overrides` is what makes Minions Stir readable: the +2 variants name the +1
- * variants they replace, so the two are not summed when Doors of Night is out.
- */
-function attackBoostOf(
-  def: CardDefinition | undefined,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  hypothetical?: string,
-): AttackBoost | null {
-  const effects = (def as unknown as { effects?: readonly StatModifier[] } | undefined)?.effects ?? [];
-  const entries: { key: string; race: string; stat: string; value: number; overrides?: string }[] = [];
-  effects.forEach((effect, index) => {
-    if (effect.type !== 'stat-modifier' || effect.target !== 'all-attacks') return;
-    if (effect.stat !== 'prowess' && effect.stat !== 'strikes') return;
-    const condition = conditionOf(effect.when, view, cardPool, hypothetical);
-    if (!condition || !condition.applies) return;
-    entries.push({
-      key: effect.id ?? `#${index}`,
-      race: condition.race,
-      stat: effect.stat,
-      value: effect.value ?? 0,
-      overrides: effect.overrides,
-    });
-  });
-  if (entries.length === 0) return null;
-
-  const replaced = new Set(entries.map(e => e.overrides).filter((id): id is string => id !== undefined));
-  const boost = new Map<string, { prowess: number; strikes: number }>();
-  for (const entry of entries) {
-    if (replaced.has(entry.key)) continue;
-    const current = boost.get(entry.race) ?? { prowess: 0, strikes: 0 };
-    boost.set(entry.race, entry.stat === 'prowess'
-      ? { ...current, prowess: current.prowess + entry.value }
-      : { ...current, strikes: current.strikes + entry.value });
-  }
-  return boost.size > 0 ? boost : null;
-}
-
-/** Merge two boosts, race by race. Absent is zero on both sides. */
-function mergeBoosts(a: AttackBoost | null, b: AttackBoost | null): AttackBoost | null {
-  if (!a) return b;
-  if (!b) return a;
-  const merged = new Map<string, { prowess: number; strikes: number }>(a);
-  for (const [race, added] of b) {
-    const current = merged.get(race) ?? { prowess: 0, strikes: 0 };
-    merged.set(race, {
-      prowess: current.prowess + added.prowess,
-      strikes: current.strikes + added.strikes,
-    });
-  }
-  return merged;
-}
-
-/** Two boosts are the same when every race gets the same numbers. */
-function sameBoost(a: AttackBoost | null, b: AttackBoost | null): boolean {
-  const races = new Set([...(a?.keys() ?? []), ...(b?.keys() ?? [])]);
-  for (const race of races) {
-    const left = a?.get(race) ?? { prowess: 0, strikes: 0 };
-    const right = b?.get(race) ?? { prowess: 0, strikes: 0 };
-    if (left.prowess !== right.prowess || left.strikes !== right.strikes) return false;
-  }
-  return true;
-}
-
-/**
- * What the hazard events *already in play* are doing to every attack.
- *
- * A long event lasts the turn and a permanent one lasts the game, so Minions
- * Stir on the board is not a card waiting to be played — it is a change to the
- * numbers every bundle from here on is resolved with. Reading it only at the
- * moment it is played, as this module did at first, priced the play correctly
- * and then went on under-valuing every creature behind it.
- *
- * Restricted to hazard events, because the modifier is the hazard side's: a
- * resource card that happens to declare an all-attacks modifier is the other
- * seat's business, and crediting it here would price our bundle with their card.
- */
-function boostInPlay(context: ModuleContext, hypothetical?: string): AttackBoost | null {
-  const { view, cardPool } = context;
-  let boost: AttackBoost | null = null;
-  for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
-    for (const card of zone) {
-      const def = cardPool[card.definitionId];
-      if ((def as unknown as { cardType?: string } | undefined)?.cardType !== 'hazard-event') continue;
-      boost = mergeBoosts(boost, attackBoostOf(def, view, cardPool, hypothetical));
-    }
-  }
-  return boost;
-}
-
-/** What a boost adds to one creature, by the race printed on its card. */
-function boostFor(
-  boost: AttackBoost | undefined,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  definitionId: string,
-): { prowess: number; strikes: number } {
-  if (!boost) return { prowess: 0, strikes: 0 };
-  const race = (cardPool[definitionId] as unknown as { race?: string } | undefined)?.race;
-  const all = boost.get(ALL_RACES) ?? { prowess: 0, strikes: 0 };
-  const byRace = race ? boost.get(race) ?? { prowess: 0, strikes: 0 } : { prowess: 0, strikes: 0 };
-  return { prowess: all.prowess + byRace.prowess, strikes: all.strikes + byRace.strikes };
-}
 
 function candidatesFor(
   context: ModuleContext,
@@ -422,7 +234,7 @@ function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: A
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
   const candidates = candidatesFor(
-    context, company.id as string, killTsdOf, boost ?? boostInPlay(context) ?? undefined,
+    context, company.id as string, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
   );
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
@@ -697,9 +509,9 @@ function boostGain(
   company: OpponentCompanyView,
 ): { tsd: number; reason: string } | null {
   const name = nameOfDefinition(def, definitionId);
-  const current = boostInPlay(context);
+  const current = boostInPlay(context.view, context.cardPool);
   const hypothetical = mergeBoosts(
-    boostInPlay(context, name),
+    boostInPlay(context.view, context.cardPool, { hypothetical: name }),
     attackBoostOf(def, context.view, context.cardPool, name),
   );
   // Nothing about the attacks changes, so this is not the family. Saying so
