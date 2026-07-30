@@ -862,6 +862,7 @@
           "type": "add-constraint",
           "constraint": "site-type-override",
           "overrideType": "haven",
+          "purpose": "healing-and-hazards",
           "scope": "until-cleared"
         }
       }
