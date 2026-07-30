@@ -33,11 +33,11 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   resetMint,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  buildRingwraithCreatureCombat,
+  buildRingwraithCreatureCombat, buildTestState,
   viableActions, findAction, dispatch,
   charIdAt, companyIdAt,
 } from '../test-helpers.js';
-import { CardStatus, computeLegalActions, Race } from '../../index.js';
+import { CardStatus, computeLegalActions, Phase, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, ConvertCreatureToAllyAction } from '../../index.js';
 
 const READY_TO_HIS_WILL = 'le-220' as CardDefinitionId;
@@ -102,6 +102,21 @@ describe('Ready to His Will (le-220)', () => {
       creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     expect(viableActions(state, PLAYER_2, 'convert-creature-to-ally')).toHaveLength(0);
+  });
+
+  test('NOT offered as a generic play-permanent-event outside of combat (no attack in progress)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, hand: [READY_TO_HIS_WILL], siteDeck: [], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [] },
+      ],
+    });
+    expect(state.combat).toBeNull();
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+    expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);
   });
 
   // ── Conversion ──────────────────────────────────────────────────────

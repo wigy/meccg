@@ -24,7 +24,8 @@
     "sweep": "npx tsx src/cli/sweep.ts",
     "horizon": "npx tsx src/cli/horizon.ts",
     "coverage": "npx tsx src/cli/coverage.ts",
-    "headtohead": "npx tsx src/cli/headtohead.ts"
+    "headtohead": "npx tsx src/cli/headtohead.ts",
+    "mc-horizon-probe": "npx tsx src/cli/mc-horizon-probe.ts"
   },
   "dependencies": {
     "@meccg/shared": "*",
