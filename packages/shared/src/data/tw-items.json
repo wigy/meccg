@@ -1353,7 +1353,21 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "heal-company-character",
+        "anyPhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "target-character",
+          "status": "untapped"
+        }
+      }
+    ],
     "text": "The bearer can tap and discard this item to heal a character in his company, changing the character’s status from wounded to well and untapped.Alternatively, the bearer can tap and discard this item to untap a character in his company that is not wounded."
   },
   {
