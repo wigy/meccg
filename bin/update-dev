@@ -45,7 +45,7 @@ cd "$1"
 
 # Broadcast a toast to every player online via the lobby's system API.
 yell() {
-  curl -s -X POST "http://localhost:8080/api/system/notify" \
+  curl -s -X POST "http://ai-meccg.com/api/system/notify" \
     -H "Authorization: Bearer $(jq -r .masterKey "$HOME/.meccg/secrets.json")" \
     -H 'Content-Type: application/json' \
     -d "{\"message\": \"$1\"}" > /dev/null

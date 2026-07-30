@@ -464,12 +464,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Nav bar bug-report / feature-request icon buttons. Each opens the same
     // modal used elsewhere (bug report in-game, feature request on the mail
-    // page) after a credit check.
+    // page). Filing is always allowed regardless of credit balance — an
+    // out-of-funds request simply waits in the queue until a top-up.
     document.getElementById('nav-bug-report-btn')!.addEventListener('click', () => {
-      if (appState.lobbyPlayerCredits <= 0) {
-        void showAlert('No credits available. Top up your credits before sending a bug report.');
-        return;
-      }
       const modal = document.getElementById('bug-report-modal')!;
       modal.dataset.context = 'lobby';
       const hint = document.getElementById('bug-report-hint');
@@ -484,10 +481,6 @@ document.addEventListener('DOMContentLoaded', () => {
       subject.focus();
     });
     document.getElementById('nav-feature-request-btn')!.addEventListener('click', () => {
-      if (appState.lobbyPlayerCredits <= 0) {
-        void showAlert('No credits available. Top up your credits before sending a feature request.');
-        return;
-      }
       const subject = document.getElementById('feature-request-subject') as HTMLInputElement;
       const body = document.getElementById('feature-request-body') as HTMLTextAreaElement;
       subject.value = '';
@@ -558,10 +551,6 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
   });
   document.getElementById('bug-report-btn')!.addEventListener('click', () => {
-    if (appState.lobbyPlayerCredits <= 0) {
-      void showAlert('No credits available. Top up your credits before sending a bug report.');
-      return;
-    }
     brModal.dataset.context = 'game';
     const hint = document.getElementById('bug-report-hint');
     if (hint) {

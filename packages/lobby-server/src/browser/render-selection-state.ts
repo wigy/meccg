@@ -476,6 +476,51 @@ export function clearTapAltPermanentEventSelection(): void {
   setTargetingInstruction(null);
 }
 
+// ---- Permanent-event long-event targeting selection ----
+
+/**
+ * Selected permanent-event instance ID for the two-step long-event targeting
+ * flow (Echo of All Joy td-110): when a player clicks a long-event-targeting
+ * permanent event with multiple eligible own in-play resource long-events,
+ * the card instance ID is stored here and the board highlights valid target
+ * long-events for a second click. Distinct from
+ * {@link selectedPermanentEventInstanceId}, which targets a character.
+ */
+let selectedPermanentEventForLongEventTargetId: CardInstanceId | null = null;
+
+/** Returns the currently selected permanent-event instance ID for long-event targeting. */
+export function getSelectedPermanentEventForLongEventTarget(): CardInstanceId | null {
+  return selectedPermanentEventForLongEventTargetId;
+}
+
+/** Set the selected permanent-event instance ID for long-event targeting. */
+export function setSelectedPermanentEventForLongEventTarget(id: CardInstanceId | null): void {
+  selectedPermanentEventForLongEventTargetId = id;
+}
+
+/** Clear the permanent-event long-event targeting selection. */
+export function clearPermanentEventLongEventTargetSelection(): void {
+  selectedPermanentEventForLongEventTargetId = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during permanent-event long-event targeting. */
+let permanentEventLongEventTargetRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached permanent-event long-event target render arguments. */
+export function getPermanentEventLongEventTargetRenderCache(): typeof permanentEventLongEventTargetRenderCache {
+  return permanentEventLongEventTargetRenderCache;
+}
+
+/** Set the cached permanent-event long-event target render arguments. */
+export function setPermanentEventLongEventTargetRenderCache(cache: typeof permanentEventLongEventTargetRenderCache): void {
+  permanentEventLongEventTargetRenderCache = cache;
+}
+
 // ---- CvCC attacker selection ----
 
 /** The attacking character the player has first-clicked during CvCC attacker assignment. */

@@ -39,6 +39,15 @@
  * by the worse of the two agents — the fallback is there because a wrong
  * ranking is worse still, not because H1 is an acceptable answer.
  *
+ * Which is why the fallback is a *parameter* (`Heuristic2Options.fallback`)
+ * and not a hard-wired call. H1 is the default because it is free, but it is
+ * not the strongest agent in the package: the flat Monte-Carlo rollout agent
+ * is, by a wide margin. Handing the decisions H2 cannot price to `mc` instead
+ * costs a rollout budget on the one-in-seven contested decisions that reach
+ * the fallback, and nothing at all on the rest — and the two agents' blind
+ * spots are close to complementary, since `mc` cannot determinize a view in
+ * combat or mid-chain, which is exactly where H2's modules are strongest.
+ *
  * The way out is that a utility is a change in win probability *relative to
  * doing nothing*. So "this action improves the position by 2%" is a claim
  * that stands on its own, without reference to the candidates H2 could not
@@ -63,8 +72,7 @@
  */
 
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
-import type { AiContext } from '../strategy.js';
-import { heuristicStrategy } from '../heuristic.js';
+import { createHeuristicAgent } from '../../agents/heuristic-agent.js';
 import { forwardActions } from '../regress.js';
 import { sampleWeighted } from '../strategy.js';
 import type { H2Module, ModuleContext } from './core/types.js';
@@ -98,6 +106,16 @@ export interface Heuristic2Options {
    * data, where the point is coverage of positions rather than winning.
    */
   readonly sample?: boolean;
+  /**
+   * Agent asked for the decisions H2 cannot speak to — an unowned candidate
+   * it dare not rank blind, or a covered ranking that came out flat.
+   *
+   * Defaults to Heuristics 1, which is free and always applicable. Anything
+   * stronger is a straight upgrade on those decisions and costs nothing on
+   * the others, because the fallback is only ever consulted after the module
+   * tree has declined; see the module docstring.
+   */
+  readonly fallback?: Agent;
 }
 
 /**
@@ -135,10 +153,13 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   const modules = resolveModules(options.modules, options.available ?? ALL_MODULES);
   const model = options.model ?? loadWinProbModel();
   const temperature = options.temperature ?? tunables.softmaxTemperature;
+  const fallback = options.fallback ?? createHeuristicAgent();
   const base = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
-  // Sampled play is a different agent from argmax play — a replay that reports
-  // both as `h2` cannot be read afterwards.
-  const label = options.sample ? `${base}@${temperature}` : base;
+  // Sampled play and the fallback are each a different agent from plain argmax
+  // play — a run that reports `h2` for differently-configured agents cannot be
+  // read afterwards.
+  const sampled = options.sample ? `${base}@${temperature}` : base;
+  const label = options.fallback ? `${sampled}+${fallback.name}` : sampled;
 
   return {
     name: label,
@@ -184,18 +205,11 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
           : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {
-        // No H2 owner: Heuristics 1 handles the decision in its own units.
-        const aiContext: AiContext = {
-          view: context.view,
-          cardPool: context.cardPool,
-          legalActions,
-          random: context.random,
-        };
-        const weighted = heuristicStrategy.weighActions(aiContext);
-        if (weighted.length === 0) {
-          return { action: legalActions[0], note: 'h1 fallback: no weighted actions' };
-        }
-        return { action: sampleWeighted(weighted, context.random), considered: weighted, note: 'h1 fallback' };
+        // No H2 owner: the fallback handles the decision in its own units.
+        // It sees the *forward* candidate list rather than the raw one, so a
+        // fallback cannot pick a move H2 had already ruled out as an undo.
+        const decision = fallback.chooseAction({ ...context, legalActions });
+        return { ...decision, note: `${fallback.name} fallback${decision.note ? `: ${decision.note}` : ''}` };
       }
 
       // On a partial view the candidate list is not the whole decision, so it

@@ -130,7 +130,7 @@ describe('unowned decisions', () => {
       maxDecisions: 300,
     });
     expect(notes.length).toBeGreaterThan(50);
-    expect(notes.every(n => n === 'h1 fallback' || n === 'h1 fallback: no weighted actions')).toBe(true);
+    expect(notes.every(n => n?.startsWith('heuristic fallback'))).toBe(true);
     expect(run.result.outcome).not.toBe('engine-error');
   });
 });
@@ -167,7 +167,7 @@ describe('partial coverage', () => {
     // No H1 opinion is consulted for comparison — the fallback replaces the
     // whole decision rather than mixing the two scales.
     const decision = agent.chooseAction(decisionContext([PASS_A, UNOWNED]));
-    expect(decision.note).toContain('h1 fallback');
+    expect(decision.note).toContain('heuristic fallback');
   });
 });
 
@@ -176,6 +176,63 @@ describe('agent identity', () => {
     expect(createHeuristic2Agent({ available: [REWARDS], model: testWinProbModel() }).name).toBe('h2');
     expect(createHeuristic2Agent({ modules: 'stub', available: [REWARDS], model: testWinProbModel() }).name)
       .toBe('h2:stub');
+  });
+
+  test('records a non-default fallback too — it is half of how the agent plays', () => {
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model: testWinProbModel(), fallback: stubFallback(PASS_A),
+    });
+    expect(agent.name).toBe('h2+stub-fallback');
+  });
+});
+
+/** A fallback that always takes `pick`, so its decisions are recognisable. */
+function stubFallback(pick: GameAction): Agent & { calls: AgentContext[] } {
+  const calls: AgentContext[] = [];
+  return {
+    name: 'stub-fallback',
+    calls,
+    chooseAction(context: AgentContext) {
+      calls.push(context);
+      return { action: pick, note: 'stub chose' };
+    },
+  };
+}
+
+describe('the fallback seam', () => {
+  const model = testWinProbModel();
+  /** An action type no module owns. */
+  const UNOWNED = { type: 'transfer-item', id: 'y' } as unknown as GameAction;
+
+  test('a declined decision goes to the configured agent, not to Heuristics 1', () => {
+    const fallback = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({ available: [], model, fallback });
+    const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B, UNOWNED]));
+    expect(decision.action).toBe(PASS_A);
+    // The fallback's own note is kept, prefixed by who was asked — a
+    // transcript has to say which agent produced the move.
+    expect(decision.note).toBe('stub-fallback fallback: stub chose');
+    expect(fallback.calls).toHaveLength(1);
+  });
+
+  test('the fallback sees the forward candidate list, not the raw one', () => {
+    // H2 drops candidates the engine marked as undoing this phase's progress.
+    // A fallback offered them could re-introduce the oscillation `ai/regress`
+    // exists to stop.
+    const undo = { type: 'pass', id: 'undo', regress: true } as unknown as GameAction;
+    const fallback = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({ available: [], model, fallback });
+    agent.chooseAction(decisionContext([PASS_A, undo]));
+    expect(fallback.calls[0].legalActions).toEqual([PASS_A]);
+  });
+
+  test('a decision the modules do own never reaches the fallback', () => {
+    const fallback = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model, fallback, temperature: 0.0001,
+    });
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
+    expect(fallback.calls).toHaveLength(0);
   });
 });
 
@@ -195,7 +252,7 @@ describe('a ranking that does not discriminate', () => {
       }),
     };
     const agent = createHeuristic2Agent({ available: [flat], model: testWinProbModel() });
-    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).note).toContain('h1 fallback');
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).note).toContain('heuristic fallback');
   });
 
   test('still acts when one candidate is clearly better', () => {

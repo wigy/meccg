@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1031 | 1029 | 2 | 99.8% |
+| 1035 | 1033 | 2 | 99.8% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 100 | 100 | 100.0% |
+| AS | 102 | 102 | 100.0% |
 | BA | 96 | 96 | 100.0% |
 | DM | 88 | 88 | 100.0% |
-| LE | 290 | 288 | 99.3% |
+| LE | 291 | 289 | 99.3% |
 | TD | 75 | 75 | 100.0% |
-| TW | 300 | 300 | 100.0% |
+| TW | 301 | 301 | 100.0% |
 | WH | 82 | 82 | 100.0% |
 
 ## Detailed Test Matrix
@@ -73,6 +73,7 @@
 | as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-106 | The Under-roads | — | 7 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
+| as-110 | World Gnawed by the Nameless | — | 11 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
@@ -80,13 +81,14 @@
 | as-122 | Ancient Black Axe | — | 14 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
+| as-125 | Goblin Earth-plumb | — | 6 | ☑ |
 | as-126 | Helm of Fear | — | 16 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
 | as-131 | Secret Book | — | 11 | ☑ |
 | as-132 | Thong of Fire | — | 14 | ☑ |
 | as-133 | Thrall-ring | — | 6 | ☑ |
-| as-134 | Thrór’s Map | — | 4 | ☑ |
+| as-134 | Thrór’s Map | — | 5 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
@@ -471,6 +473,7 @@
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-252 | We Have Come to Kill | — | 17 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
+| le-254 | Where There’s a Whip | — | 10 | ☑ |
 | le-255 | While the Yellow Face Sleeps | — | 13 | ☑ |
 | le-258 | Words of Menace and Deceit | — | 7 | ☑ |
 | le-260 | Balchoth | — | 8 | ☑ |
@@ -645,7 +648,7 @@
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-101 | Bounty of the Hoard | — | 12 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
-| td-105 | Cram | — | 15 | ☑ |
+| td-105 | Cram | — | 16 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 20 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
@@ -658,7 +661,7 @@
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
-| td-158 | Thrór’s Map | — | 4 | ☑ |
+| td-158 | Thrór’s Map | — | 5 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
@@ -765,6 +768,7 @@
 | tw-137 | Círdan | — | 9 | ☑ |
 | tw-138 | Dáin II | — | 9 | ☑ |
 | tw-139 | Damrod | — | 2 | ☑ |
+| tw-140 | Denethor II | — | 2 | ☑ |
 | tw-141 | Dori | — | 4 | ☑ |
 | tw-142 | Dwalin | — | 4 | ☑ |
 | tw-143 | Elladan | — | 2 | ☑ |
@@ -835,7 +839,7 @@
 | tw-249 | Great-road | — | 8 | ☑ |
 | tw-250 | Great-shield of Rohan | — | 9 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
-| tw-253 | Halfling Strength | — | 12 | ☑ |
+| tw-253 | Halfling Strength | — | 14 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
 | tw-256 | Hiding | — | 9 | ☑ |
 | tw-259 | Horn of Anor | — | 4 | ☑ |
@@ -870,7 +874,7 @@
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-326 | Shadowfax | — | 8 | ☑ |
-| tw-327 | Shield of Iron-bound Ash | — | 6 | ☑ |
+| tw-327 | Shield of Iron-bound Ash | — | 7 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 14 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |

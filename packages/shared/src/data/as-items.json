@@ -497,6 +497,7 @@
         "cost": {
           "discard": "self"
         },
+        "activeSitePhase": true,
         "when": {
           "site.isTapped": true,
           "site.hasDragonAutoAttack": true

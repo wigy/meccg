@@ -736,6 +736,11 @@ log "Message $MSG_ID: \"$SUBJECT\" from $FROM (topic: $TOPIC)"
 # the lobby through to implementation requests), then `userName` from the
 # inbound keywords, then the message's `from` field. System accounts
 # (ai/admin/server) are never billed and are not gated.
+#
+# run-ai's queue selection (next_request_id) applies the same gate and skips
+# credit-blocked requests entirely, so in loop mode this check is a backstop
+# for races and direct one-shot runs. Exiting 0 with the message left 'new'
+# keeps the request parked until the player tops up.
 
 DEFAULT_RECIPIENT=$(echo "$KEYWORDS" | jq -r '.userName // empty')
 if [ -z "$DEFAULT_RECIPIENT" ]; then
