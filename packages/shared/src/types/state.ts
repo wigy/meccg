@@ -174,6 +174,13 @@ export interface GameState {
    */
   readonly cheatRollTotal: number | null;
   /**
+   * True once any developer-tools (debug menu) command has been used in
+   * this game. A cheated game is played out normally, but its end result
+   * is never recorded — neither to the per-game statistics record nor to
+   * any player's game history. Once set the flag is never cleared.
+   */
+  readonly cheated: boolean;
+  /**
    * Identities (instanceId → definitionId) of every card instance whose
    * definition has become publicly known at some point during the game.
    *

@@ -22,6 +22,7 @@ import { clearDice, restoreDice } from './dice.js';
 import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
 import { initSpectatorsButton, resetSpectators } from './spectators.js';
 import { renderLog } from './render-log.js';
+import { showConfirm } from './dialog.js';
 
 // Import side-effect modules so esbuild includes them in this bundle.
 import './render-board.js';
@@ -95,6 +96,19 @@ const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLBu
 const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
 const autoPassToggle = document.getElementById('auto-pass-toggle') as HTMLInputElement;
 const SERVER_DEV = window.__MECCG_DEV === true;
+
+/**
+ * Ask the player to confirm a developer-tools action. Any confirmed use
+ * marks the game as cheated on the server, and a cheated game's end result
+ * is never recorded to the scoreboard or player histories.
+ */
+function confirmCheat(): Promise<boolean> {
+  return showConfirm(
+    'Are you sure? Using a developer tool marks this game as cheated, '
+    + 'and its result will never be recorded.',
+    { okLabel: 'Yes, I am sure' },
+  );
+}
 
 /** Flash a button to confirm the action was triggered. */
 function flashBtn(btn: HTMLElement): void {
@@ -189,8 +203,9 @@ disconnectBtn.addEventListener('click', () => {
   disconnect();
 });
 
-undoBtn.addEventListener('click', () => {
+undoBtn.addEventListener('click', () => { void (async () => {
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+    if (!(await confirmCheat())) return;
     const msg: ClientMessage = { type: 'undo' };
     appState.ws.send(JSON.stringify(msg));
     const logEl = document.getElementById('log');
@@ -202,61 +217,68 @@ undoBtn.addEventListener('click', () => {
     }
     flashBtn(undoBtn);
   }
-});
+})(); });
 
-saveBtn.addEventListener('click', () => {
+saveBtn.addEventListener('click', () => { void (async () => {
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+    if (!(await confirmCheat())) return;
     const msg: ClientMessage = { type: 'save' };
     appState.ws.send(JSON.stringify(msg));
     flashBtn(saveBtn);
   }
-});
+})(); });
 
-reseedBtn.addEventListener('click', () => {
+reseedBtn.addEventListener('click', () => { void (async () => {
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+    if (!(await confirmCheat())) return;
     const msg: ClientMessage = { type: 'reseed' };
     appState.ws.send(JSON.stringify(msg));
     flashBtn(reseedBtn);
   }
-});
+})(); });
 
-cheatRollSelect.addEventListener('change', () => {
+cheatRollSelect.addEventListener('change', () => { void (async () => {
   const total = parseInt(cheatRollSelect.value, 10);
+  cheatRollSelect.value = '';
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN && total >= 2 && total <= 12) {
+    if (!(await confirmCheat())) return;
     const msg: ClientMessage = { type: 'cheat-roll', total };
     appState.ws.send(JSON.stringify(msg));
     renderLog(`>> Cheat: next roll will be ${total}`, cardPool);
   }
-  cheatRollSelect.value = '';
-});
+})(); });
 
-summonBtn.addEventListener('click', () => {
+summonBtn.addEventListener('click', () => { void (async () => {
+  if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
+  if (!(await confirmCheat())) return;
   const cardName = prompt('Enter card name to summon:');
-  if (cardName && appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+  if (cardName) {
     const msg: ClientMessage = { type: 'summon-card', cardName };
     appState.ws.send(JSON.stringify(msg));
     renderLog(`>> Cheat: summoning "${cardName}"`, cardPool);
     flashBtn(summonBtn);
   }
-});
+})(); });
 
-swapHandBtn.addEventListener('click', () => {
+swapHandBtn.addEventListener('click', () => { void (async () => {
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+    if (!(await confirmCheat())) return;
     const msg: ClientMessage = { type: 'swap-hand' };
     appState.ws.send(JSON.stringify(msg));
     renderLog('>> Cheat: swapping hands', cardPool);
     flashBtn(swapHandBtn);
   }
-});
+})(); });
 
-loadBtn.addEventListener('click', () => {
+loadBtn.addEventListener('click', () => { void (async () => {
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
+    if (!(await confirmCheat())) return;
     const msg: ClientMessage = { type: 'load' };
     appState.ws.send(JSON.stringify(msg));
     flashBtn(loadBtn);
     clearGameBoard();
   }
-});
+})(); });
 
 devMenuBtn.addEventListener('click', (e) => {
   e.stopPropagation();

@@ -180,6 +180,7 @@ export function createGame(
     reverseActions: [],
     lastTurnFor: null,
     cheatRollTotal: null,
+    cheated: false,
     revealedInstances: {},
   };
 }
@@ -689,6 +690,7 @@ export function createGameQuickStart(
     reverseActions: [],
     lastTurnFor: null,
     cheatRollTotal: null,
+    cheated: false,
     revealedInstances: {},
   });
 }
