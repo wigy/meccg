@@ -194,9 +194,15 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === rivendellInstId)).toBe(false);
   });
 
-  test('No other company at same site and site tapped: site discarded', () => {
+  test('No other company at same site and site tapped: site goes to the site discard pile', () => {
     // Aragorn at MORIA (tapped). CP=5, roll=2 → eliminated.
-    // After elimination: MORIA (tapped) must go to discardPile, not siteDeck.
+    // After elimination: MORIA (tapped) must go to the *site* discard pile.
+    //
+    // This test used to assert `discardPile`, which is the play deck's discard
+    // and a different pile entirely. A site sent there is lost as a site — only
+    // `siteDiscardPile` is returned to the location deck, by `startDeckExhaust`
+    // — and `completeDeckExhaust` shuffles the play deck's discard into the
+    // play deck, so the site card ended up among the cards drawn.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
@@ -243,9 +249,67 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const state = { ...tappedState, cheatRollTotal: 2, phaseState: fcState };
     const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
-    // MORIA was tapped → goes to discardPile, not siteDeck
-    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === moriaInstId)).toBe(true);
+    // MORIA was tapped → goes to the site discard pile, not the location deck
+    expect(after.players[RESOURCE_PLAYER].siteDiscardPile.some(c => c.instanceId === moriaInstId)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === moriaInstId)).toBe(false);
+    // And emphatically not into the play deck's discard, which is shuffled into
+    // the play deck the next time the deck runs out.
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === moriaInstId)).toBe(false);
+  });
+
+  test('a site card survives the company that held it, wherever it goes', () => {
+    // The property the bug broke: site cards are conserved. A player who loses
+    // companies must still hold every site they started with, across the
+    // location deck, the site discard pile and the sites still in play — or
+    // they eventually run out of havens and can never bring a character into
+    // play again, which makes losing the last character unrecoverable.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH, RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const company = base.players[RESOURCE_PLAYER].companies[0];
+    const tappedState = {
+      ...base,
+      players: [
+        {
+          ...base.players[RESOURCE_PLAYER],
+          companies: [{ ...company, currentSite: { ...company.currentSite!, status: CardStatus.Tapped } }],
+        },
+        base.players[1],
+      ] as typeof base.players,
+    };
+    const sitesOf = (p: typeof tappedState.players[0]): number =>
+      p.siteDeck.length + p.siteDiscardPile.length
+      + p.companies.filter(c => c.currentSite).length;
+    const before = sitesOf(tappedState.players[RESOURCE_PLAYER]);
+
+    const aragornId = tappedState.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+    const after = dispatch({ ...tappedState, cheatRollTotal: 2, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 });
+
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+    expect(sitesOf(after.players[RESOURCE_PLAYER])).toBe(before);
   });
 
   test('During movement/hazard phase: site stays until end of all M/H phases', () => {
