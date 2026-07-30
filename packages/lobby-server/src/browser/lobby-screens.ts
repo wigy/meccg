@@ -343,17 +343,21 @@ export function connectLobbyWs(): void {
         break;
       }
       case 'system-notification': {
-        const container = document.getElementById('game-log-system');
+        // Server announcements (admin yells, update warnings) go into a
+        // reddish box centered on the screen, not the game-log toasts, so
+        // they cannot be missed. Each stays until dismissed with its \u2715.
+        const container = document.getElementById('yell-container');
         if (container) {
-          const toast = document.createElement('div');
-          toast.className = 'toast toast--system';
-          toast.textContent = msg.message as string;
+          const box = document.createElement('div');
+          box.className = 'yell-box';
+          box.textContent = msg.message as string;
           const closeBtn = document.createElement('span');
-          closeBtn.className = 'toast-close';
+          closeBtn.className = 'yell-close';
+          closeBtn.title = 'Dismiss';
           closeBtn.textContent = '\u2715';
-          closeBtn.addEventListener('click', () => toast.remove());
-          toast.appendChild(closeBtn);
-          container.appendChild(toast);
+          closeBtn.addEventListener('click', () => box.remove());
+          box.appendChild(closeBtn);
+          container.appendChild(box);
         }
         break;
       }
