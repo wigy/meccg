@@ -13,14 +13,14 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
-import { CardStatus, SiteType, Alignment, Race } from '../../types/common.js';
+import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from '../recompute-derived.js';
@@ -2546,6 +2546,59 @@ function cancelAttackActions(
     // One action per character in the company — player picks who makes the attempt
     for (const charId of company.characters) {
       logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Goodwill-cancel-attack: hand cards with a `goodwill-cancel-attack` effect
+  // (e.g. Token of Goodwill dm-160). Only offered when the facing attack's
+  // race (or, for `matchAnyAgentAttack` entries, an Agent attack source) has
+  // a threshold entry, the target is a diplomat, and the diplomat's company
+  // carries at least one item of the entry's rank to discard.
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const goodwillEffect = getCardEffects(cardDef).find(
+      (e): e is GoodwillCancelAttackEffect => e.type === 'goodwill-cancel-attack',
+    );
+    if (!goodwillEffect) continue;
+
+    const isAgentAttack = combat.attackSource.type === 'agent';
+    const matchedEntry = goodwillEffect.thresholds.find(t =>
+      (combat.creatureRace !== undefined && t.races.includes(combat.creatureRace))
+      || (t.matchAnyAgentAttack === true && isAgentAttack));
+    if (!matchedEntry) {
+      logDetail(`Goodwill-cancel-attack ${handCard.definitionId as string}: no matching race/Agent threshold — skipping`);
+      continue;
+    }
+
+    const hasMatchingItem = company.characters.some(charId => {
+      const bearer = player.characters[charId];
+      if (!bearer) return false;
+      return bearer.items.some(item => {
+        const itemDef = defById(state, item.definitionId);
+        return itemDef && isItemCard(itemDef) && itemDef.subtype === matchedEntry.itemSubtype;
+      });
+    });
+    if (!hasMatchingItem) {
+      logDetail(`Goodwill-cancel-attack ${handCard.definitionId as string}: no ${matchedEntry.itemSubtype} item in company — skipping`);
+      continue;
+    }
+
+    // One action per diplomat in the company — player picks who makes the attempt
+    for (const charId of company.characters) {
+      const charData = player.characters[charId];
+      if (!charData) continue;
+      const charDef = defById(state, charData.definitionId);
+      if (!charDef || !isCharacterCard(charDef) || !charDef.skills.includes(Skill.Diplomat)) continue;
+      logDetail(`Goodwill-cancel-attack ${handCard.definitionId as string}: offering for diplomat ${charId as string}`);
       actions.push({
         action: {
           type: 'cancel-attack',
