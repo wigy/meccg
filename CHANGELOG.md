@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.65.0 — 2026-07-30
+
+Admin screen
+
+### Lobby & Web Client
+
+- **Added an admin screen** for user administration: lists all user accounts with their credit balances, shows each account's credit history and played games, and lets the admin top up credits. Backed by new admin-only HTTP routes and player-store queries, with the admin user configured via lobby config
+- Shared the JSON-toggle helper between the pseudo-AI and player action lists, removing two divergent copies
+- Shared the combat column scaffolding between attack columns and reused `createCardImageFromDefId` in the company site renderer
+
+### Game Engine
+
+- Centralized Movement/Hazard phase-state construction into a dedicated `mh-phase-state` module, replacing duplicated inline construction in hazard play and event reduction
+
+### Infrastructure
+
+- The AI reviewer now resolves its review-request mail from the PR outcome (merged/closed) instead of leaving requests dangling
+
 ## 0.64.0 — 2026-07-30
 
 Nightly Build
