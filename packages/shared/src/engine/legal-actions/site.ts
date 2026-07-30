@@ -969,6 +969,23 @@ function playResourcesActions(
           logDetail(`Permanent event ${eventDef.name}: playable only during [${phaseCond.phases.join(', ')}] — not in the site phase`);
           continue;
         }
+
+        // play-target: company — company-wide resource permanent-events
+        // (Fellowship tw-240, Great Ship tw-248, Great-road tw-249, An
+        // Unexpected Party dm-114, …) are, without exception, worded "during
+        // the organization phase" on their card text. Their siteType/
+        // memberCount/overt/orcCount filter is only evaluated by the
+        // organization-phase emitter (legal-actions/organization-events.ts);
+        // this site-phase loop has no target: 'company' handling below, so
+        // leave these unevaluated here rather than falling through to the
+        // generic "playable" tail unfiltered.
+        const companyPlayTargetGate = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'company',
+        );
+        if (companyPlayTargetGate) {
+          logDetail(`Permanent event ${eventDef.name}: company-targeting resource — only playable during the organization phase`);
+          continue;
+        }
         evaluatedInstances.add(cardInstanceId as string);
 
         // Check uniqueness
