@@ -14,6 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
@@ -24,7 +25,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -4216,46 +4217,18 @@ function discardInfluencedCard(
 
   // Handle followers — try to place under GI, otherwise discard
   const newCharacters = { ...opponent.characters };
-  for (const followerId of targetChar.followers) {
-    const follower = newCharacters[followerId];
-    if (!follower) continue;
-    const followerDef = defById(state, follower.definitionId);
-    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
-
-    // Check if there's room under GI
-    const currentGIUsed = Object.values(newCharacters)
-      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== pending.targetInstanceId)
-      .reduce((sum, ch) => {
-        const def = defById(state, ch.definitionId);
-        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-
-    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, opponent.id)) {
-      // Move to GI
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
-    } else {
-      // Discard follower and their items/allies/hazards
-      for (const item of follower.items) {
-        newDiscard.push(toCardInstance(item));
-      }
-      for (const ally of follower.allies) {
-        newDiscard.push(toCardInstance(ally));
-      }
-      // Dispatch follower hazards to their owner's discard pile
-      for (const haz of follower.hazards) {
-        const hazOwner = ownerOf(haz.instanceId);
-        let hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
-        if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
-        if (hazOwnerIdx === opponentIndex) newDiscard.push(toCardInstance(haz));
-        else newHazardDiscard.push(toCardInstance(haz));
-        logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched`);
-      }
-      newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId];
-      logDetail(`Follower ${followerId} discarded (no GI room)`);
-    }
-  }
+  freeOrDiscardFollowers(state, newCharacters, targetChar, opponent.id, {
+    discardOwn: card => newDiscard.push(card),
+    // Dispatch follower hazards to their owner's discard pile
+    discardHazard: haz => {
+      const hazOwner = ownerOf(haz.instanceId);
+      let hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+      if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
+      if (hazOwnerIdx === opponentIndex) newDiscard.push(haz);
+      else newHazardDiscard.push(haz);
+      logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched`);
+    },
+  }, 'discardInfluencedCard');
 
   // Remove the target character
   delete newCharacters[pending.targetInstanceId];

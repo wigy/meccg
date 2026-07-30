@@ -26,7 +26,7 @@ EOF
   exit 0
 fi
 
-METW_SERVER="${METW_SERVER:-dataplug}"
+METW_SERVER="${METW_SERVER:-ai-meccg.com}"
 METW_PATH="${METW_PATH:-/home/wigy/dataplug}"
 
 log() { echo "[update-dev] $*"; }

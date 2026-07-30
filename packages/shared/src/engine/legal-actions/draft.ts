@@ -15,7 +15,7 @@ import { GENERAL_INFLUENCE } from '../../constants.js';
 import { CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES } from '../../rules/definitions/character-draft.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { setupStepContext } from '../../state-utils.js';
-import { isCharacterCard, isHalfOrc } from '../../types/cards.js';
+import { isCharacterCard, isHalfOrc, printedMind } from '../../types/cards.js';
 import { Alignment, Race } from '../../types/common.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -77,7 +77,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   );
   const currentMind = draft.drafted.reduce((sum, card) => {
     const def = defById(state, card.definitionId);
-    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+    return sum + printedMind(def);
   }, 0);
 
   // Fallen-wizard draft gate (rules 1.42, 1.44): until an enabling Stage
