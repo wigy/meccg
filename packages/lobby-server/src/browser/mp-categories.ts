@@ -51,10 +51,17 @@ function mpCell(raw: MarshallingPointTotals, adjusted: MarshallingPointTotals, k
   return adjusted[key] !== raw[key] ? `${adjusted[key]} (${raw[key]})` : `${raw[key]}`;
 }
 
+/** Plain sum of a player's raw per-source values, before tournament adjustment. */
+function mpRawTotal(raw: MarshallingPointTotals): number {
+  return MP_SOURCES.reduce((sum, key) => sum + raw[key], 0);
+}
+
 /**
  * Builds the side-by-side MP breakdown tooltip: one row per category showing
  * each player's adjusted value (with the raw value in parentheses where the
- * tournament rules changed it), and the tournament totals in the footer.
+ * tournament rules changed it), and the tournament totals in the footer —
+ * likewise with the unadjusted sum in parentheses when doubling or the
+ * half-rule changed it.
  */
 export function buildMPTooltip(
   selfName: string,
@@ -69,9 +76,11 @@ export function buildMPTooltip(
     .join('');
   const selfTotal = computeTournamentScore(selfRaw, oppRaw);
   const oppTotal = computeTournamentScore(oppRaw, selfRaw);
+  const totalCell = (adjusted: number, raw: number): string =>
+    adjusted !== raw ? `${adjusted} (${raw})` : `${adjusted}`;
   return `<table class="mp-tooltip-table">
     <thead><tr><th></th><th>${selfName}</th><th>${oppName}</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${selfTotal}</td><td class="mp-value mp-total">${oppTotal}</td></tr></tfoot>
+    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${totalCell(selfTotal, mpRawTotal(selfRaw))}</td><td class="mp-value mp-total">${totalCell(oppTotal, mpRawTotal(oppRaw))}</td></tr></tfoot>
   </table>`;
 }
