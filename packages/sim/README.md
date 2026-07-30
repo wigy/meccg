@@ -655,33 +655,45 @@ here: source was edited while it was running, and `gate` spawns `tsx` children
 that read the source at launch, so different games in it played different code.
 The number above is from a stable tree.
 
-#### The one game that did not finish
+#### The one game that did not finish, and the wrong diagnosis of it
 
-Seed 1 ran **508 turns** and hit the decision limit at 0–0. It is not a cycle
-inside a phase — turns advance normally — and it is not the AI's fault:
+Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players
+having lost every character and a companyless player offered nothing but `pass`
+in their organization phase.
 
-```sh
-npm run play -w @meccg/sim -- --agents h2,heuristic --seed 1 --games 1 --max-decisions 6000
-```
+**The explanation recorded here was wrong**, and is corrected rather than
+deleted because the wrong version was acted on. It said there is no
+`play-character` on offer "because every path to playing one runs through an
+existing company". There is such a path: `findPlayableSites` searches the
+player's **site deck** precisely so a character can form a new company. Across
+sixty seeds, a companyless player holding a character was offered a viable
+`play-character` at 65 decisions; where none was offered the reason was a real
+rule — "already played a character this turn", "unique character already in
+play", or a home site the site deck no longer held. The seed-1 stall also no
+longer reproduces: on current master that game completes in 134 turns.
 
-By then **both players have lost every character**, and a player with no
-companies is offered exactly one action in their organization phase:
+What is real, and was the mechanism worth chasing, is that **site cards leak**.
+A companyless player can only reach the sites in their location deck, so a
+player who loses their havens loses the ability to start a new company — and
+sites were going missing. One of the leaks is fixed alongside this note:
+`cleanupEmptyCompanies` sent a dissolved company's *tapped* site to
+`discardPile`, the play deck's discard, where rule 2.07 means the **site**
+discard pile. A site sent there is lost as a site — only `siteDiscardPile` is
+returned to the location deck, by `startDeckExhaust` — and `completeDeckExhaust`
+shuffles that pile into the play deck, so the site card ends up among the cards
+drawn.
+
+That is not the whole leak. Tracking every site instance through twelve games
+shows a company dissolved during the organization phase losing **both** its
+current and its destination site, on master and after this fix alike:
 
 ```text
-turn 507 p2: options=1 [pass]
-    hand: Slayer, Goldberry, Elrond(hero-character), Chill Douser, …
-    discard has characters: true
+seed 1 p2 turn 5 organization: current:Lórien
+seed 1 p2 turn 5 organization: dest:Rivendell
 ```
 
-Elrond is in hand. There is no `play-character` on offer, because every path to
-playing one runs through an existing company, so a player who loses their last
-character can never bring another into play. Neither side can score, no end
-condition fires, and the game runs forever. One game in 200.
-
-Left as a report rather than a fix, on the same grounds as the defect recorded
-below: this is engine rules code, what a company-less player may do is a rules
-question (which sites may a new company be started at, and at whose influence
-cost), and the verification loop for a change here is a 200-game gate.
+That one is located but not diagnosed, and is deliberately left rather than
+guessed at.
 
 What the samples do establish is that H2 plays every game to completion, which
 was not true a week ago. Two self-play games once ran to the decision limit
