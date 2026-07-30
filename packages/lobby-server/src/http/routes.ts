@@ -21,6 +21,11 @@
  * - GET /api/admin/users/:name — one account's full data, credit history, games (admin session)
  * - POST /api/admin/users/:name/credits/top-up — add consumption-since-last-addition, rounded up to
  *   the nearest hundred plus a 200-credit bonus (admin session)
+ * - GET /api/admin/requests — open (status 'new') requests across the AI/admin inboxes (admin session)
+ * - GET /api/admin/requests/old?offset=N — handled requests, newest first, 50 per page (admin session)
+ * - GET /api/admin/requests/:inbox/:id — one request's full message, without marking it read (admin session)
+ * - DELETE /api/admin/requests/:inbox/:id — delete a request (admin session)
+ * - POST /api/admin/requests/:inbox/:id/renew — set a request back to 'new', re-queueing it (admin session)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
@@ -73,6 +78,12 @@ const LOBBY_VERSION: string = (() => {
 
 /** Names that cannot be registered by players. Checked case-insensitively. */
 const RESTRICTED_NAMES = new Set(['ai', 'server', 'admin']);
+
+/** Inboxes that hold AI work-queue requests, managed via /api/admin/requests. */
+const REQUEST_INBOXES = ['ai', 'admin'];
+
+/** Page size of GET /api/admin/requests/old. */
+const OLD_REQUESTS_PAGE_SIZE = 50;
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -454,6 +465,59 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       if (!result) { sendJson(res, 404, { error: 'Player not found' }); return; }
       lobbyLog.log('admin-top-up', { admin: adminName, player: profile.name, amount, balance: result.balance });
       sendJson(res, 200, { name: profile.name, ...result });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/admin/requests' && method === 'GET') {
+    await adminRoute(req, res, 'admin-requests', 'Failed to load requests', () => {
+      sendJson(res, 200, { requests: listUnhandledRequests(REQUEST_INBOXES) });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/admin/requests/old' && method === 'GET') {
+    await adminRoute(req, res, 'admin-requests-old', 'Failed to load old requests', () => {
+      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+      const old = listUnhandledRequests(REQUEST_INBOXES, { includeAll: true })
+        .filter(r => r.status !== 'new')
+        .reverse();
+      sendJson(res, 200, { requests: old.slice(offset, offset + OLD_REQUESTS_PAGE_SIZE), total: old.length });
+    });
+    return;
+  }
+
+  const adminRequestMatch = urlPath.match(/^\/api\/admin\/requests\/(ai|admin)\/([a-f0-9]+)$/);
+  if (adminRequestMatch && method === 'GET') {
+    await adminRoute(req, res, 'admin-request-view', 'Failed to load request', () => {
+      const [, inbox, msgId] = adminRequestMatch;
+      // Deliberately not readMessage: viewing must not flip a 'new' request
+      // to 'read', which would silently drop it from the AI work queue.
+      const msg = listInbox(inbox).find(m => m.id === msgId);
+      if (!msg) { sendJson(res, 404, { error: 'Request not found' }); return; }
+      sendJson(res, 200, { ...msg, inbox });
+    });
+    return;
+  }
+
+  if (adminRequestMatch && method === 'DELETE') {
+    await adminRoute(req, res, 'admin-request-delete', 'Failed to delete request', (adminName) => {
+      const [, inbox, msgId] = adminRequestMatch;
+      if (!deleteMessage(inbox, msgId)) { sendJson(res, 404, { error: 'Request not found' }); return; }
+      lobbyLog.log('admin-request-delete', { admin: adminName, inbox, msgId });
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  const adminRenewMatch = urlPath.match(/^\/api\/admin\/requests\/(ai|admin)\/([a-f0-9]+)\/renew$/);
+  if (adminRenewMatch && method === 'POST') {
+    await adminRoute(req, res, 'admin-request-renew', 'Failed to renew request', (adminName) => {
+      const [, inbox, msgId] = adminRenewMatch;
+      const updated = updateMessageStatus(inbox, msgId, 'new');
+      if (!updated) { sendJson(res, 404, { error: 'Request not found' }); return; }
+      lobbyLog.log('admin-request-renew', { admin: adminName, inbox, msgId });
+      sendJson(res, 200, { ok: true, message: updated });
     });
     return;
   }

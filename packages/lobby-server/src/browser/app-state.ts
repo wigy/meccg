@@ -282,6 +282,7 @@ export const VIEWING_CREDITS_KEY = 'meccg-viewing-credits';
 export const VIEWING_SCOREBOARD_KEY = 'meccg-viewing-scoreboard';
 export const VIEWING_ADMIN_KEY = 'meccg-viewing-admin';
 export const MAIL_TAB_KEY = 'meccg-mail-tab';
+export const ADMIN_TAB_KEY = 'meccg-admin-tab';
 export const MAIL_MSG_KEY = 'meccg-mail-msg';
 
 /** Maximum reconnect attempts before giving up and returning to the lobby. */
