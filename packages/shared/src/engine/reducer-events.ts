@@ -515,13 +515,39 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   );
   if (grantExtraMHPhase && state.phaseState.phase === Phase.MovementHazard) {
     const companyIndex = state.phaseState.activeCompanyIndex;
-    logDetail(`${def.name}: granting company (index ${companyIndex}) an extra movement/hazard phase this turn`);
+    const pendingValue = grantExtraMHPhase.movement === 'under-deeps' ? 'under-deeps' as const : true;
+    logDetail(`${def.name}: granting company (index ${companyIndex}) an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
+    // "Return this card to your hand" (World Gnawed by the Nameless as-110):
+    // the spent event goes back to its owner's hand instead of the discard
+    // pile, so it can be replayed in a later M/H phase this turn.
     const afterFlag = updatePlayer(state, playerIndex, p => ({
       ...p,
-      hand: newHand,
-      discardPile: [...p.discardPile, handCard],
-      companies: p.companies.map((c, idx) => idx === companyIndex ? { ...c, extraMHPhasePending: true } : c),
+      hand: grantExtraMHPhase.returnToHand ? p.hand : newHand,
+      discardPile: grantExtraMHPhase.returnToHand ? p.discardPile : [...p.discardPile, handCard],
+      companies: p.companies.map((c, idx) => idx === companyIndex ? { ...c, extraMHPhasePending: pendingValue } : c),
     }));
+    if (grantExtraMHPhase.returnToHand) {
+      logDetail(`${def.name}: returned to its owner's hand`);
+    }
+    // Companion keyed-attacks-normal effect (as-110): "All hazard creatures
+    // the company faces this turn keyed to Shadow-holds attack normally, not
+    // as detainment" — a turn-scoped constraint on the target company.
+    const keyedNormal = def.effects?.find(
+      (e): e is import('../types/effects.js').KeyedAttacksNormalEffect => e.type === 'keyed-attacks-normal',
+    );
+    const targetCompany = afterFlag.players[playerIndex].companies[companyIndex];
+    if (keyedNormal && targetCompany) {
+      logDetail(`${def.name}: attacks keyed to [${keyedNormal.siteTypes.join(', ')}] against company ${targetCompany.id as string} are normal (not detainment) this turn`);
+      return {
+        state: addConstraint(afterFlag, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'company', companyId: targetCompany.id },
+          kind: { type: 'keyed-attacks-normal', siteTypes: keyedNormal.siteTypes },
+        }),
+      };
+    }
     return { state: afterFlag };
   }
 

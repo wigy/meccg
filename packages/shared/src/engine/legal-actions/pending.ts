@@ -1456,6 +1456,11 @@ function applyOneConstraint(
       // `advanceAfterCompanyMH` (mh-hazard-play.ts) once the company's
       // movement/hazard phase ends — no broad legal-action filtering here.
       return base;
+    case 'keyed-attacks-normal':
+      // World Gnawed by the Nameless (as-110): consulted directly at
+      // hazard-creature combat initiation (`companyKeyedAttacksNormalSiteTypes`
+      // → `isDetainmentAttack`) — no broad legal-action filtering here.
+      return base;
     case 'no-creatures-keyed-to-site':
       return applyNoCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'company-cannot-move':

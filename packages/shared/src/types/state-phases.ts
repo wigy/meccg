@@ -633,6 +633,25 @@ export interface MovementHazardPhaseState {
    * without the effect in play.
    */
   readonly gangwaysSitesUsed?: { readonly [companyId: string]: readonly CardDefinitionId[] };
+  /**
+   * Site definition ids each company has **attempted** to move to with
+   * Under-deeps movement this turn, keyed by company id. Recorded when the
+   * Under-deeps path is declared, so a destination whose movement roll then
+   * fails still counts as attempted. Consumed by the Under-deeps variant of
+   * the `extra-mh-move-offer` step (World Gnawed by the Nameless as-110,
+   * `grant-extra-mh-phase` `movement: "under-deeps"`), whose extra move may
+   * only target "an additional Under-deeps site which it has not attempted to
+   * move to yet this turn". Absent until an Under-deeps path is declared.
+   */
+  readonly underDeepsAttempts?: { readonly [companyId: string]: readonly CardDefinitionId[] };
+  /**
+   * Set when the active `extra-mh-move-offer` step was entered for an
+   * Under-deeps extra move (`extraMHPhasePending === 'under-deeps'`, as-110):
+   * the offered destinations are Under-deeps sites adjacent to the company's
+   * current site and not yet attempted this turn, instead of normally-reachable
+   * sites. Cleared when the offer step resolves (move chosen or passed).
+   */
+  readonly extraMHMoveUnderDeeps?: boolean;
 }
 
 /**

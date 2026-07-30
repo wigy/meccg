@@ -497,8 +497,14 @@ export interface Company {
    * (its move to the qualifying site is committed), `advanceAfterCompanyMH`
    * consumes the flag and offers the company another movement to an additional
    * site — a fresh movement/hazard phase — via the `extra-mh-move-offer` step.
+   *
+   * The value `'under-deeps'` marks the Under-deeps variant (World Gnawed by
+   * the Nameless as-110, `grant-extra-mh-phase` with `movement:
+   * "under-deeps"`): the offer enumerates Under-deeps destinations the company
+   * has not attempted to move to yet this turn instead of normally-reachable
+   * sites.
    */
-  readonly extraMHPhasePending?: boolean | undefined;
+  readonly extraMHPhasePending?: boolean | 'under-deeps' | undefined;
   /**
    * Set on a company created by Urlurtsu Nurn's (le-409)
    * `ringwraith-reanimate-from-discard` ability: an Orc/Troll character was

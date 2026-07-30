@@ -7388,6 +7388,7 @@ export type CardEffect =
   | ProhibitCardPlayEffect
   | ExtraUnderDeepsMhPhaseEffect
   | GrantExtraMHPhaseEffect
+  | KeyedAttacksNormalEffect
   | AllyTapExtraMHPhaseEffect
   | RegionMovementLimitEffect
   | FwSiteAlignmentRestrictionEffect
@@ -7977,6 +7978,22 @@ export interface ExtraUnderDeepsMhPhaseEffect extends EffectBase {
  * {@link requiresDestinationAlignment} is set, the destination site must carry
  * that alignment (e.g. `ringwraith` — a Darkhaven — for Forced March). With no
  * requirements, any moving company qualifies (Leg It Double Quick).
+ *
+ * {@link movement} `"under-deeps"` switches the whole effect to the
+ * Under-deeps variant (World Gnawed by the Nameless as-110): the play gate
+ * requires the company to be moving to an Under-deeps site (`under-deeps`
+ * keyword on the destination), and the extra move offers Under-deeps
+ * destinations instead of normally-reachable ones — sites carrying the
+ * `under-deeps` keyword, Under-deeps-adjacent to the company's current site,
+ * still in the site deck, and **not attempted by this company yet this turn**
+ * (tracked per company on the M/H phase state `underDeepsAttempts` whenever an
+ * Under-deeps path is declared, so a failed movement roll still marks the site
+ * as attempted). The extra phase itself runs through the normal Under-deeps
+ * declare-path/roll flow.
+ *
+ * {@link returnToHand} makes the resolved event return to its owner's hand
+ * instead of being discarded ("Return this card to your hand" — as-110), so it
+ * can be replayed in a later movement/hazard phase this turn.
  */
 export interface GrantExtraMHPhaseEffect extends EffectBase {
   readonly type: 'grant-extra-mh-phase';
@@ -7984,6 +8001,33 @@ export interface GrantExtraMHPhaseEffect extends EffectBase {
   readonly requiresDestinationSiteType?: SiteType;
   /** Required destination site alignment (e.g. `ringwraith` for a Darkhaven), if any. */
   readonly requiresDestinationAlignment?: string;
+  /** `"under-deeps"`: gate on an Under-deeps destination and offer an Under-deeps extra move. */
+  readonly movement?: 'under-deeps';
+  /** Return the resolved event to its owner's hand instead of discarding it. */
+  readonly returnToHand?: boolean;
+}
+
+/**
+ * Companion effect on a company-affecting resource event: for the rest of the
+ * turn, every hazard-creature attack the target company faces that is **keyed
+ * to** one of {@link siteTypes} resolves as a normal attack, never as
+ * detainment — overriding the alignment-based detainment rules of CoE §3.II.2
+ * (and any `combat-detainment` declared on the creature).
+ *
+ * Resolved into a turn-scoped `keyed-attacks-normal` active constraint on the
+ * target company; `isDetainmentAttack` consults it via the
+ * `normalIfKeyedToSiteTypes` context field, matched against the site types the
+ * attack was actually keyed by (the declared keying when available, else the
+ * union of the creature's currently-valid `keyedTo` site types).
+ *
+ * Used by World Gnawed by the Nameless (as-110): "All hazard creatures the
+ * company faces this turn keyed to Shadow-holds [{S}] attack normally, not as
+ * detainment" — `siteTypes: ["shadow-hold"]`.
+ */
+export interface KeyedAttacksNormalEffect extends EffectBase {
+  readonly type: 'keyed-attacks-normal';
+  /** Site types whose keyed attacks against the target company become normal. */
+  readonly siteTypes: readonly SiteType[];
 }
 
 /**

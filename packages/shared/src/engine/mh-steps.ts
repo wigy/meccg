@@ -354,6 +354,20 @@ export function handleRevealNewSite(
     // Under-deeps: no region path — only site-type keyed hazards apply.
     // Determine required roll and either advance directly or enter the roll step.
     logDetail(`Under-deeps movement: no region path — only site-keyed hazards apply`);
+    // Record the attempted destination for this company (World Gnawed by the
+    // Nameless as-110: its extra move may only target an Under-deeps site the
+    // company "has not attempted to move to yet this turn"). Recorded at
+    // declare-path so a subsequently failed movement roll still counts as an
+    // attempt.
+    const cidStr = company.id as string;
+    const prevAttempts = mhState.underDeepsAttempts?.[cidStr] ?? [];
+    mhState = {
+      ...mhState,
+      underDeepsAttempts: {
+        ...(mhState.underDeepsAttempts ?? {}),
+        [cidStr]: prevAttempts.includes(destDefId) ? prevAttempts : [...prevAttempts, destDefId],
+      },
+    };
     let required = getUnderDeepsRequiredRoll(state, originDef, destDef, action.player);
     // The Balrog (ba-3): "+3 to the roll for his company to move between
     // adjacent Under-deeps sites" — modeled as -3 to the required roll,

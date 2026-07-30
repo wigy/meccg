@@ -10857,6 +10857,58 @@ starter/region movement (not restricted to Under-deeps), grants exactly one extr
 phase (a one-shot short-event, not a persistent in-play effect), and carries no
 roll penalty.
 
+**Under-deeps variant** — `movement: "under-deeps"` (World Gnawed by the
+Nameless as-110: "Playable during the movement/hazard phase on a company moving
+to an Under-deeps site. At the end of its movement/hazard phase, target company
+attempts to move to an additional Under-deeps site which it has not attempted
+to move to yet this turn."):
+
+- The play gate additionally requires the company's destination site to carry
+  the `under-deeps` keyword.
+- Resolution sets `extraMHPhasePending: 'under-deeps'`; `advanceAfterCompanyMH`
+  enters `extra-mh-move-offer` with `extraMHMoveUnderDeeps` set on the M/H
+  phase state, so the offered destinations come from
+  `extraMHUnderDeepsDestinations` instead: site-deck sites with the
+  `under-deeps` keyword, Under-deeps-adjacent to the company's current site,
+  and **not attempted by this company yet this turn**. Every Under-deeps
+  declare-path records its destination in `underDeepsAttempts` on the M/H
+  phase state (keyed by company id), so a destination whose movement roll
+  failed still counts as attempted. The extra phase runs through the normal
+  Under-deeps declare-path/roll flow with no extra roll penalty.
+- `returnToHand: true` — "Return this card to your hand": the resolved event
+  stays in its owner's hand instead of going to the discard pile, so it can be
+  replayed during the extra movement/hazard phase to chain further Under-deeps
+  moves.
+
+```json
+{ "type": "grant-extra-mh-phase", "movement": "under-deeps", "returnToHand": true }
+```
+
+### 52b-i-b. `keyed-attacks-normal`
+
+Companion effect on a company-affecting resource event (World Gnawed by the
+Nameless as-110: "All hazard creatures the company faces this turn keyed to
+Shadow-holds [{S}] attack normally, not as detainment"). When the carrying
+event resolves on a company, a **turn-scoped `keyed-attacks-normal` active
+constraint** is installed on that company.
+
+```json
+{ "type": "keyed-attacks-normal", "siteTypes": ["shadow-hold"] }
+```
+
+While the constraint is active, `isDetainmentAttack` (`engine/detainment.ts`)
+receives the union of the constraint's site types as `normalIfKeyedToSiteTypes`
+(collected by `companyKeyedAttacksNormalSiteTypes`, `reducer-utils.ts`) and
+forces any attack **actually keyed** to one of them to resolve as a normal,
+non-detainment attack — overriding `combat-detainment` effects on the creature
+and the alignment-based §3.II keying rules alike. The attack's actual keying is
+the declared keying match when the play declared one
+(`attackDeclaredSiteTypes`: the creature-play path in `chain-reducer.ts`
+threads its declared site-type keying; the `dynamic-auto-attack` played-attack
+path in `reducer-site.ts` threads the site rule's own keying `siteTypes`), else
+the union of the creature's currently-valid `keyedTo` site types (on-guard
+reveals, Great Hunt attacks).
+
 ### 52b-ii. `extra-mh-phase` constraint (organization-phase promise)
 
 The organization-phase sibling of `grant-extra-mh-phase`, for cards played
