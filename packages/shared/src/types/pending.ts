@@ -384,6 +384,24 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Goodwill attempt (dm-160 Token of Goodwill): the diplomat passed his
+         * corruption check and now discards one company item of `itemSubtype`
+         * to make an influence roll (2d6 + unused DI). If the total exceeds
+         * `threshold`, the attack is cancelled and the defending player may
+         * fetch one resource card from the play deck or discard pile into hand.
+         */
+        readonly type: 'goodwill-attempt';
+        /** The diplomat making the attempt. */
+        readonly characterInstanceId: CardInstanceId;
+        /** The diplomat's company — the item discarded must come from here. */
+        readonly companyId: CompanyId;
+        /** Item rank that must be discarded to make the roll. */
+        readonly itemSubtype: 'minor' | 'major' | 'greater';
+        /** Roll + unused DI must exceed this for success. */
+        readonly threshold: number;
+      }
+    | {
+        /**
          * Seized by Terror roll: a hazard short event has resolved against a
          * character moving through Shadow-land or Dark-domain. The character's
          * player rolls 2d6 and adds the character's mind. If roll + mind < 12,

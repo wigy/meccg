@@ -41,7 +41,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -560,6 +560,24 @@ export function applyCorruptionCheckResolution(
           },
         });
       }
+    }
+    // Token of Goodwill (dm-160): the diplomat survived his corruption check —
+    // raise a `goodwill-attempt` resolution so he can discard a company item
+    // of the listed rank and roll to cancel the attack.
+    if (onSuccess?.type === 'enqueue-goodwill-attempt') {
+      logDetail(`dm-160: ${charName} passed corruption check — enqueuing goodwill-attempt (item ${onSuccess.itemSubtype}, threshold ${onSuccess.threshold})`);
+      stateAfterDequeue = enqueueResolution(stateAfterDequeue, {
+        source: top.source,
+        actor: player.id,
+        scope: top.scope,
+        kind: {
+          type: 'goodwill-attempt',
+          characterInstanceId: characterId,
+          companyId: onSuccess.companyId,
+          itemSubtype: onSuccess.itemSubtype,
+          threshold: onSuccess.threshold,
+        },
+      });
     }
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
@@ -1603,6 +1621,118 @@ export function applyFlateryAttemptResolution(
     }
   } else {
     logDetail(`Flattery attempt failed: combat continues`);
+  }
+
+  return { state: postRoll, effects: [rollEffect] };
+}
+
+/**
+ * Resolve a queued `goodwill-attempt` resolution (Token of Goodwill, dm-160).
+ * The player picks a company item of the queued rank; it is discarded and
+ * the defending diplomat rolls 2d6 + unused DI in the same action (CRF 22:
+ * the discard is the cost that enables the roll, paid regardless of the
+ * outcome). Success (total > threshold) cancels the attack and offers to
+ * fetch one resource card from the play deck or discard pile into hand.
+ */
+export function applyGoodwillAttemptResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'goodwill-attempt', 'goodwill-attempt');
+  if (!g.ok) return g.result;
+  if (action.type !== 'goodwill-attempt') return { state, error: 'Pending goodwill-attempt requires goodwill-attempt action' };
+  const { actorIndex, player, kind } = g;
+  const { characterInstanceId, companyId, itemSubtype, threshold } = kind;
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) {
+    return { state, error: `Goodwill-attempt: character ${characterInstanceId as string} not found` };
+  }
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
+
+  const company = companyById(player.companies, companyId);
+  if (!company) return { state, error: `Goodwill-attempt: company ${companyId as string} not found` };
+
+  const { itemInstanceId } = action;
+  let bearerCharId: CardInstanceId | null = null;
+  let removedItem: CardInstance | null = null;
+  for (const charId of company.characters) {
+    const bearer = player.characters[charId];
+    if (!bearer) continue;
+    const found = bearer.items.find(it => it.instanceId === itemInstanceId);
+    if (found) {
+      bearerCharId = charId;
+      removedItem = toCardInstance(found);
+      break;
+    }
+  }
+  const itemDef = removedItem ? defById(state, removedItem.definitionId) : undefined;
+  if (!bearerCharId || !removedItem || !itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) {
+    return { state, error: `Goodwill-attempt: item ${itemInstanceId as string} of subtype "${itemSubtype}" not found in company ${companyId as string}` };
+  }
+  const itemName = itemDef.name;
+
+  const unusedDI = availableDI(state, characterInstanceId, player);
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + unusedDI;
+  const success = total > threshold;
+
+  logDetail(`Goodwill attempt by ${charName}: discarded "${itemName}" (${itemSubtype}), rolled ${roll.die1}+${roll.die2} + DI ${unusedDI} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+
+  const rollEffect = diceRollEffect(player.name, roll, `Goodwill attempt: ${charName}`);
+
+  // Discard the item regardless of the roll's outcome — the discard is the
+  // cost that enables the roll (CRF 22 erratum), not a reward for success.
+  const newPlayers = clonePlayers(state);
+  const bearer = newPlayers[actorIndex].characters[bearerCharId];
+  newPlayers[actorIndex] = {
+    ...newPlayers[actorIndex],
+    characters: {
+      ...newPlayers[actorIndex].characters,
+      [bearerCharId]: { ...bearer, items: bearer.items.filter(it => it.instanceId !== itemInstanceId) },
+    },
+    discardPile: [...newPlayers[actorIndex].discardPile, removedItem],
+    lastDiceRoll: roll,
+  };
+
+  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+
+  if (success && top.source) {
+    logDetail(`Goodwill attempt succeeded: cancelling attack`);
+    postRoll = resolveCancelAttackEntry(postRoll);
+
+    const fetchEffect = gateDeckSearchFetch(postRoll, player.id, {
+      type: 'fetch-to-deck',
+      source: ['deck', 'discard-pile'],
+      filter: { cardType: { $in: ['hero-resource-item', 'hero-resource-ally', 'hero-resource-faction', 'hero-resource-event'] } },
+      count: 1,
+      shuffle: true,
+      to: 'hand',
+    });
+    if (fetchEffect) {
+      logDetail(`Goodwill attempt: offering play-deck/discard-pile resource fetch to ${player.name}`);
+      postRoll = {
+        ...postRoll,
+        pendingEffects: [
+          ...postRoll.pendingEffects,
+          {
+            type: 'card-effect',
+            cardInstanceId: top.source,
+            actor: player.id,
+            effect: fetchEffect,
+            skipDiscard: true,
+          },
+        ],
+      };
+    }
+  } else if (success) {
+    logDetail(`Goodwill attempt succeeded: cancelling attack (no source card — resource fetch skipped)`);
+    postRoll = resolveCancelAttackEntry(postRoll);
+  } else {
+    logDetail(`Goodwill attempt failed: combat continues`);
   }
 
   return { state: postRoll, effects: [rollEffect] };

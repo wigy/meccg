@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, CompanyId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
 
 // ---- Value Expressions ----
@@ -2114,6 +2114,23 @@ export interface EnqueueBodyCheckAction extends TriggeredActionBase {
 }
 
 /**
+ * `enqueue-goodwill-attempt` — `onSuccess` follow-up on a diplomat's
+ * corruption check (Token of Goodwill dm-160): the diplomat discards a
+ * company item of `itemSubtype` to make an influence roll (2d6 + unused DI)
+ * against `threshold`. Success cancels the attack and offers a play-deck/
+ * discard-pile resource fetch.
+ */
+export interface EnqueueGoodwillAttemptAction extends TriggeredActionBase {
+  readonly type: 'enqueue-goodwill-attempt';
+  /** The diplomat's company — item must come from here. */
+  readonly companyId: CompanyId;
+  /** Item rank the diplomat must discard to make the roll. */
+  readonly itemSubtype: 'minor' | 'major' | 'greater';
+  /** Roll (2d6 + unused DI) must exceed this for the attack to be cancelled. */
+  readonly threshold: number;
+}
+
+/**
  * `enqueue-site-wound-rolls` — an `end-of-turn` on-event apply carried by a
  * permanent hazard **attached to a character**, modelling a plague-style
  * contagion that afflicts everybody standing at the bearer's site rather than
@@ -2892,6 +2909,7 @@ export type TriggeredAction =
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
   | EnqueueBodyCheckAction
+  | EnqueueGoodwillAttemptAction
   | EnqueueSiteWoundRollsAction
   | MaladyWithoutHealingAction
   | RollCheckAction
@@ -4753,6 +4771,34 @@ export interface FlatteryCancelAttackEffect extends EffectBase {
   readonly diplomatBonus: number;
   /** Amount to reduce the company's hazard limit on a successful attempt. */
   readonly hazardLimitReduction: number;
+}
+
+/**
+ * Offering attempt: the bearer's company is facing a creature or Agent
+ * attack. A diplomat in the company makes a corruption check first; if he
+ * survives, he discards a company item of the listed rank to make an
+ * influence roll (2d6 + unused DI). Success (roll > threshold) cancels the
+ * attack and offers to fetch one resource card from the play deck or discard
+ * pile into hand (reshuffling the play deck if it was searched).
+ *
+ * Used by Token of Goodwill (dm-160). CRF 22 erratum: "…and make a roll…"
+ * should be read "…to make a roll…" — the item discard is the cost that
+ * enables the roll, not an unconditional extra step.
+ */
+export interface GoodwillCancelAttackEffect extends EffectBase {
+  readonly type: 'goodwill-cancel-attack';
+  /**
+   * Race/Agent-to-(item rank, threshold) mappings, matched against the
+   * facing attack at play time. `matchAnyAgentAttack` additionally matches
+   * any attack whose source is a minion Agent, regardless of race (dm-160:
+   * "against … any Agent").
+   */
+  readonly thresholds: ReadonlyArray<{
+    readonly races: ReadonlyArray<Race>;
+    readonly matchAnyAgentAttack?: boolean;
+    readonly itemSubtype: 'minor' | 'major' | 'greater';
+    readonly threshold: number;
+  }>;
 }
 
 /**
@@ -7199,6 +7245,7 @@ export type CardEffect =
   | CancelAttackEffect
   | ConvertCreatureToAllyEffect
   | FlatteryCancelAttackEffect
+  | GoodwillCancelAttackEffect
   | CounterCancelAttackRollEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect
