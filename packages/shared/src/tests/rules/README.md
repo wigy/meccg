@@ -6,26 +6,26 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 336 | 280 | 56 | 83.3% |
+| 336 | 283 | 53 | 84.2% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
 | 00 | [Engine](00-engine/) | 9 | 9 | 100.0% |
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 60 | 57 | 95.0% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 60 | 58 | 96.7% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 40 | 83.3% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 25 | 73.5% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 2 | 100.0% |
 | 08 | [Combat](08-combat/) | 42 | 31 | 73.8% |
-| 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 27 | 87.1% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 29 | 54.7% |
+| 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 29 | 93.5% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 31 | 58.5% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
-| — | The White Hand (MEWH) | 14 | 14 | 100.0% |
 | — | The Balrog (MEBA) | 1 | 1 | 100.0% |
+| — | The White Hand (MEWH) | 14 | 14 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -73,7 +73,7 @@
 | 1.32 | Deck Construction & Setup | [Pool Rules](01-deck-construction/rule-1.32-pool-rules.test.ts) | ☑ |
 | 1.33 | Deck Construction & Setup | [Fw Pool Stage Resources](01-deck-construction/rule-1.33-fw-pool-stage-resources.test.ts) | ☑ |
 | 1.34 | Deck Construction & Setup | [Declaring Alignments](01-deck-construction/rule-1.34-declaring-alignments.test.ts) | ☑ |
-| 1.35 | Deck Construction & Setup | [Cards Vs Ringwraith](01-deck-construction/rule-1.35-cards-vs-ringwraith.test.ts) | ◐ |
+| 1.35 | Deck Construction & Setup | [Cards Vs Ringwraith](01-deck-construction/rule-1.35-cards-vs-ringwraith.test.ts) | ☑ |
 | 1.36 | Deck Construction & Setup | [Cards Vs Balrog](01-deck-construction/rule-1.36-cards-vs-balrog.test.ts) | ◐ |
 | 1.37 | Deck Construction & Setup | [Fw Declaring Avatar](01-deck-construction/rule-1.37-fw-declaring-avatar.test.ts) | ◐ |
 | 1.38 | Deck Construction & Setup | [Character Draft](01-deck-construction/rule-1.38-character-draft.test.ts) | ☑ |
@@ -117,7 +117,7 @@
 | 3.03 | Organization Phase | [Avatar Play Location](03-organization-phase/rule-3.03-avatar-play-location.test.ts) | ☑ |
 | 3.04 | Organization Phase | [Hero Avatar Location](03-organization-phase/rule-3.04-hero-avatar-location.test.ts) | ☑ |
 | 3.05 | Organization Phase | [Minion Avatar Location](03-organization-phase/rule-3.05-minion-avatar-location.test.ts) | ☑ |
-| 3.06 | Organization Phase | [Minion Ringwraith Play](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ☐ |
+| 3.06 | Organization Phase | [Minion Ringwraith Play](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ◐ |
 | 3.07 | Organization Phase | [Ringwraith Company Composition](03-organization-phase/rule-3.07-ringwraith-company-composition.test.ts) | ☑ |
 | 3.08 | Organization Phase | [Ringwraith Follower](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ◐ |
 | 3.09 | Organization Phase | [Fw Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ☑ |
@@ -153,7 +153,7 @@
 | 3.39 | Organization Phase | [Movement To Existing Site](03-organization-phase/rule-3.39-movement-to-existing-site.test.ts) | ☑ |
 | 3.40 | Organization Phase | [Haven Movement](03-organization-phase/rule-3.40-haven-movement.test.ts) | ☑ |
 | 3.41 | Organization Phase | [Ringwraith Movement](03-organization-phase/rule-3.41-ringwraith-movement.test.ts) | ☑ |
-| 3.42 | Organization Phase | [Fw Site Usage](03-organization-phase/rule-3.42-fw-site-usage.test.ts) | ☐ |
+| 3.42 | Organization Phase | [Fw Site Usage](03-organization-phase/rule-3.42-fw-site-usage.test.ts) | ☑ |
 | 3.43 | Organization Phase | [Starter Movement](03-organization-phase/rule-3.43-starter-movement.test.ts) | ☑ |
 | 3.44 | Organization Phase | [Region Movement](03-organization-phase/rule-3.44-region-movement.test.ts) | ☑ |
 | 3.45 | Organization Phase | [Under Deeps Movement](03-organization-phase/rule-3.45-under-deeps-movement.test.ts) | ☑ |
@@ -281,7 +281,7 @@
 | 9.15 | Agents, Events, Items & Rings | [Item Usage](09-agents-events-items/rule-9.15-item-usage.test.ts) | ☑ |
 | 9.16 | Agents, Events, Items & Rings | [Switching Items](09-agents-events-items/rule-9.16-switching-items.test.ts) | ☑ |
 | 9.17 | Agents, Events, Items & Rings | [Item Modification Order](09-agents-events-items/rule-9.17-item-modification-order.test.ts) | ☑ |
-| 9.18 | Agents, Events, Items & Rings | [Item Movement Restrictions](09-agents-events-items/rule-9.18-item-movement-restrictions.test.ts) | ☐ |
+| 9.18 | Agents, Events, Items & Rings | [Item Movement Restrictions](09-agents-events-items/rule-9.18-item-movement-restrictions.test.ts) | ☑ |
 | 9.19 | Agents, Events, Items & Rings | [Ally Item Restriction](09-agents-events-items/rule-9.19-ally-item-restriction.test.ts) | ☑ |
 | 9.20 | Agents, Events, Items & Rings | [Alignment Item Usage](09-agents-events-items/rule-9.20-alignment-item-usage.test.ts) | ☑ |
 | 9.21 | Agents, Events, Items & Rings | [Gold Ring Test](09-agents-events-items/rule-9.21-gold-ring-test.test.ts) | ☑ |

@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.64.0 — 2026-07-30
+
+Nightly Build
+
+### Game Engine
+
+- **Fixed le-193 (Hoarmûrath Unleashed) being wrongly offered outside combat.** The combat-only short-event detector required every effect on a card to be in a known allowlist to skip offering it as a generic play; adding the deck-restriction effect (excluded-from-deck) to the card's effects list made the allowlist check fail, so it leaked through as playable outside its cancel-attack combat window
+- **Fixed Tormented Earth (as-102) silently skipping its cancel option.** The combat view's cancel-attack scout map keyed actions only by scout instance ID, so when the engine legally offered two actions naming the same scout (cancel vs. reduce-prowess, per the card's dual-mode text), the second overwrote the first and clicking cancel always applied the prowess reduction instead
+- Implemented rule 9.18 — item movement restrictions (bearer-company-moves gains a threshold gate on the moving company's size, covering the two remaining movement-restricted items)
+- Implemented rules 3.42 (Fallen-wizard location-deck site usage) and 3.06 (Ringwraith minion play), the last two rule tests with no deferral rationale
+- Verified rule 1.35's agent-hazard clause and its CRF carve-out — hazards requiring an agent as an active condition cannot be played against a Ringwraith opponent; already enforced per agent-effect type, now covered by a regression test
+- Card certifications: tw-326 (Shadowfax), as-12 (Knights of the Prince), tw-34 (Fell Turtle), le-70 (Elves upon Errantry)
+- Deduplicated the CvCC participant-resolution and hazard-limit gate clone clusters in combat legal actions, and extracted a shared `cvccSides()` helper used by six copies of the same side-resolution logic
+- Collapsed the four alignment-parallel site-card and four resource-card interfaces onto shared base types, removing ~300 lines of byte-identical fields
+- Unified the two company-purge helpers (`purgeCompanyAlliesAndFollowers` / `purgeCompanyFollowers`) and extracted a shared character-replacement helper used by manifestation swaps and discard-to-recruit
+- Moved the deck-construction ban/restriction lists (Fallen-wizard bans, Balrog bans, designated Balrog sites, minion-site replacements) from hardcoded engine lists into the card DSL, so new expansions can declare their own restrictions
+- Collapsed 30 activate-granted-action object literals into a shared builder
+- Shared the view-widening core between the two search determinizers
+
+### Lobby & Web Client
+
+- **Fixed items with both a granted action and a transfer/store option being unclickable for the latter.** The board UI's item click handler picked granted-action-or-transfer/store exclusively, so a granted action always won and items like Cram (td-105) could never be transferred while the action was available
+- **Fixed the missing Roll button for generic dice-check resolutions**, hidden because the pass-button whitelist omitted `resolve-dice-check` — affecting Muster Disperses and every other card whose effect resolves through a generic dice check
+- Added a spectator-count badge to the toolbar, listing watchers by name on click; hidden outright when nobody is watching
+- Stopped a finished game's autosave from blocking the next game between the same two players — the disconnect/shutdown paths wrote the autosave back unconditionally even after saves had been deleted post-acknowledgment
+- Unified the marshalling-point category list and its tooltip builder, previously duplicated across five separate tables in shared, sim, and two browser renderers
+- Fixed the hand sliding in from the viewport origin when returning from the all-companies overview, caused by the FLIP animation reading a display:none element's zero rect as a real position
+- Shared the map marker helpers between the radar and full-screen map, removing five clone pairs of coordinate/marker logic
+
+### Testing & Internals
+
+- Rule tests: 283 of 336 (84.2%); card tests: 1025 of 1027 (99.8%); cards certified: 1083 of 1683 (64.3%)
+
 ## 0.63.0 — 2026-07-29
 
 Nightly Build
