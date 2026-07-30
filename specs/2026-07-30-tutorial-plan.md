@@ -61,7 +61,7 @@ through drafts, movement, combat, corruption, influence, chain of effects"
 | Opponent | Spawned text-client with a new `ScriptAgent` playing a fixed action list |
 | Player gating | Server-side: tutorial controller filters projected legal actions to the current step's expected action(s) |
 | Script location | `@meccg/shared` (`src/tutorial/`) — pure data + matchers, consumed by game-server (gating, rolls) and browser (instruction panel) |
-| Decks | Two checked-in tutorial decks with explicit play-deck order; **certified cards only** |
+| Decks | Two checked-in tutorial decks with explicit play-deck order, bundled with the tutorial module (NOT in the `data/decks/` catalog — they must not appear in deck listings); **certified cards only** |
 | Entry point | Lobby "Play tutorial" → `launchGame(player, 'Mentor', { tutorial: true })`; the human's join is built from the fixed tutorial deck automatically |
 | CI guard | A sim-based test replays the entire script headless with ScriptAgents on both sides |
 
@@ -148,7 +148,7 @@ Lobby "Play tutorial"
   └─ lobby.ts: startTutorialGame(player)
        └─ launcher.ts: launchGame(player, 'Mentor', { tutorial: true })
             ├─ game-server + TutorialController (gating, cheat rolls, step cursor)
-            └─ text-client tutorial-opponent-client (ScriptAgent, --deck tutorial-mentor)
+            └─ text-client tutorial-opponent-client (ScriptAgent, deck bundled from @meccg/shared tutorial module)
 Browser
   └─ tutorial-panel.ts: renders active step title/body, highlights expected
      action, shows progress (step N of M), "Restart step" button
@@ -180,18 +180,21 @@ Browser
 
 ## Tutorial decks
 
-Two new catalog files, picked up automatically by `listDecks`/`findDeckById`:
+Two files bundled with the tutorial module — deliberately **not** in the
+`data/decks/` catalog, so they never appear in deck listings (browser deck
+picker, `listDecks`, AI deck selection):
 
-- `data/decks/tutorial-hero.json` — the human. Hero alignment, wizard avatar,
-  starting site Rivendell.
-- `data/decks/tutorial-mentor.json` — the scripted opponent ("Mentor"). Also
-  hero alignment (avoids CvCC/minion rules noise in a first game).
+- `packages/shared/src/tutorial/tutorial-hero.json` — the human. Hero
+  alignment, wizard avatar, starting site Rivendell.
+- `packages/shared/src/tutorial/tutorial-mentor.json` — the scripted
+  opponent ("Mentor"). Also hero alignment (avoids CvCC/minion rules noise
+  in a first game).
 
-Deck files carry the play deck **in tutorial order** (see draw budget below).
-`validateDeck` only warns, so the undersized (~30 card) tutorial decks start
-fine; mark them `approved: false` so they are excluded from normal
-matchmaking deck lists (extend `listApprovedDecks` filtering to the lobby
-deck picker if not already the case).
+The TutorialController loads them directly when building the two
+`JoinMessage`s; they never pass through the deck catalog or player deck
+store. Deck files carry the play deck **in tutorial order** (see draw budget
+below). `validateDeck` only warns, so the undersized (~30 card) tutorial
+decks start fine.
 
 **Hard constraint: certified cards only.** Every card in both decks must be
 fully certified (no deferred/stubbed effects) — verify each id and
@@ -226,7 +229,7 @@ destination site is locked (see Open questions).
 
 | Slot | Role requirement | Candidate | Used in step |
 |---|---|---|---|
-| 1 | Low-mind character playable at a Haven under GI | Bilbo | Organization: `play-character` |
+| 1 | Low-mind character whose **home site is Rivendell** | Arwen (tw-122, mind 3) | Organization: `play-character` (characters come into play at their home site) |
 | 2 | Hazard-phase defensive short-event | Concealment | M/H: shown as "you could respond" (optional play) |
 | 3 | Major item playable at the destination site | Sword of Gondolin (or equivalent) | Site phase: `play-hero-resource` after `enter-site` |
 | 4 | Resource long-event (certified) | *(implementation pick)* | Long-event phase: `play-long-event` |
@@ -270,7 +273,7 @@ scripted via `cheatRolls`.
 | Step | State | Instruction & expected action |
 |---|---|---|
 | 11 | `Untap` | Phase order overview (the phase meter is introduced). Nothing is tapped yet — **untap** (`untap`). Mentor silently passes its sideboard option (scripted; explained later in step 24). |
-| 12 | `Organization` | Play characters, form companies, plan movement. **Play Bilbo** from hand at Rivendell (`play-character`) — explains direct vs general influence. |
+| 12 | `Organization` | Play characters, form companies, plan movement. **Play Arwen** from hand (`play-character`) — her home site is Rivendell, and characters come into play at their home site; explains direct vs general influence. |
 | 13 | `Organization` | **Declare movement** (`plan-movement`): choose the scripted destination (a 2–3 Wilderness-region journey from Rivendell to a site with an automatic-attack and playable major items — canonical candidate: Moria; see Open questions). Then `pass`. |
 | 14 | `LongEvent` | Long-events last until your next long-event phase. **Play the long-event** from hand (`play-long-event`), then `pass`. |
 | 15 | `MovementHazard` / `select-company` | **Select your company** (`select-company`). |
@@ -336,7 +339,7 @@ later" in the relevant panel.
 | `packages/lobby-server/src/games/launcher.ts` | `LaunchOptions.tutorial` |
 | `packages/lobby-server/src/lobby/lobby.ts` | `start-tutorial` message |
 | `packages/lobby-server/src/browser/tutorial-panel.ts` | instruction panel + highlights |
-| `data/decks/tutorial-hero.json`, `data/decks/tutorial-mentor.json` | arranged decks |
+| `packages/shared/src/tutorial/tutorial-hero.json`, `.../tutorial-mentor.json` | arranged decks (outside the deck catalog) |
 
 ---
 
