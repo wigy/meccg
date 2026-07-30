@@ -36,14 +36,26 @@
  * aimed for — and this module already has the model: it is a denial choice like
  * any other, and the answer is whoever it hurts them most to lose.
  *
- * **Support events are priced by re-running the plan.** Minions Stir gives every
- * Orc attack +1 strike and +1 prowess, +2 of each while Doors of Night is in
- * play, and the modifier is declared against the same two numbers the strike
- * enumeration runs on. So the plan is built twice — once as it stands, once with
- * the modifier applied to every attack it names — and the event is worth the
- * difference between the two best bundles. It is worth nothing when the hand
- * holds no attack the modifier would reach, which is the answer that keeps it
- * from being played into an empty plan.
+ * **The board's own modifiers are part of every plan.** Minions Stir gives every
+ * Orc attack +1 strike and +1 prowess, and the modifier is declared against the
+ * same two numbers the strike enumeration runs on. A long event lasts the turn
+ * and a permanent one the game, so once it is out those are simply the numbers —
+ * `planFor` resolves every bundle with the modifiers the hazard events in play
+ * declare. Reading them only at the moment such a card is *played* priced that
+ * play correctly and then went on under-valuing every creature behind it.
+ *
+ * **So a support event is priced by one counterfactual: the board with it.** The
+ * baseline is the plan as it stands; the other arm is the plan as it would be if
+ * this card were in play, which picks up its own modifiers *and* every condition
+ * on the board that names it. The event is worth the difference between the two
+ * best bundles, and worth nothing when the hand holds no attack the modifier
+ * would reach — the answer that keeps it out of an empty plan.
+ *
+ * That second half is the whole of Doors of Night. It does nothing to an attack
+ * itself; what it does is satisfy `inPlay: "Doors of Night"` on the Minions Stir
+ * already out, turning +1 of each into +2. Pricing it by its own declared
+ * effects finds nothing and declines; pricing the board with and without it
+ * finds the upgrade.
  *
  * **What it still does not do.** Hazard events outside the families above —
  * the company restrictions, the cancels, everything whose value is "the opponent
@@ -174,14 +186,32 @@ interface StatModifier {
   readonly when?: Readonly<Record<string, unknown>>;
 }
 
-/** Whether a card of that name is in play, for either player. */
-function inPlayNamed(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>, name: string): boolean {
+/**
+ * Whether a card of that name is in play, for either player.
+ *
+ * `hypothetical` is the card whose play is being priced: an `inPlay` condition
+ * naming it is satisfied in the arm of the counterfactual where it has been
+ * played. That is the whole of Doors of Night's value here — it does nothing to
+ * an attack itself, and everything to the modifiers that name it.
+ */
+function inPlayNamed(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  name: string,
+  hypothetical?: string,
+): boolean {
+  if (hypothetical !== undefined && hypothetical === name) return true;
   for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
     for (const card of zone) {
       if ((cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name === name) return true;
     }
   }
   return false;
+}
+
+/** The printed name of a definition, or its id. */
+function nameOfDefinition(def: CardDefinition | undefined, definitionId: string): string {
+  return (def as unknown as { name?: string } | undefined)?.name ?? definitionId;
 }
 
 /**
@@ -196,6 +226,7 @@ function conditionOf(
   when: Readonly<Record<string, unknown>> | undefined,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  hypothetical?: string,
 ): { race: string; applies: boolean } | null {
   if (!when) return { race: ALL_RACES, applies: true };
   const clauses = Array.isArray(when.$and) ? (when.$and as Readonly<Record<string, unknown>>[]) : [when];
@@ -208,7 +239,7 @@ function conditionOf(
     const value = clause[key];
     if (typeof value !== 'string') return null;
     if (key === 'enemy.race') race = value;
-    else if (key === 'inPlay') applies &&= inPlayNamed(view, cardPool, value);
+    else if (key === 'inPlay') applies &&= inPlayNamed(view, cardPool, value, hypothetical);
     // A condition this does not know how to check: drop the modifier rather
     // than assume it holds.
     else return null;
@@ -226,13 +257,14 @@ function attackBoostOf(
   def: CardDefinition | undefined,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  hypothetical?: string,
 ): AttackBoost | null {
   const effects = (def as unknown as { effects?: readonly StatModifier[] } | undefined)?.effects ?? [];
   const entries: { key: string; race: string; stat: string; value: number; overrides?: string }[] = [];
   effects.forEach((effect, index) => {
     if (effect.type !== 'stat-modifier' || effect.target !== 'all-attacks') return;
     if (effect.stat !== 'prowess' && effect.stat !== 'strikes') return;
-    const condition = conditionOf(effect.when, view, cardPool);
+    const condition = conditionOf(effect.when, view, cardPool, hypothetical);
     if (!condition || !condition.applies) return;
     entries.push({
       key: effect.id ?? `#${index}`,
@@ -254,6 +286,58 @@ function attackBoostOf(
       : { ...current, strikes: current.strikes + entry.value });
   }
   return boost.size > 0 ? boost : null;
+}
+
+/** Merge two boosts, race by race. Absent is zero on both sides. */
+function mergeBoosts(a: AttackBoost | null, b: AttackBoost | null): AttackBoost | null {
+  if (!a) return b;
+  if (!b) return a;
+  const merged = new Map<string, { prowess: number; strikes: number }>(a);
+  for (const [race, added] of b) {
+    const current = merged.get(race) ?? { prowess: 0, strikes: 0 };
+    merged.set(race, {
+      prowess: current.prowess + added.prowess,
+      strikes: current.strikes + added.strikes,
+    });
+  }
+  return merged;
+}
+
+/** Two boosts are the same when every race gets the same numbers. */
+function sameBoost(a: AttackBoost | null, b: AttackBoost | null): boolean {
+  const races = new Set([...(a?.keys() ?? []), ...(b?.keys() ?? [])]);
+  for (const race of races) {
+    const left = a?.get(race) ?? { prowess: 0, strikes: 0 };
+    const right = b?.get(race) ?? { prowess: 0, strikes: 0 };
+    if (left.prowess !== right.prowess || left.strikes !== right.strikes) return false;
+  }
+  return true;
+}
+
+/**
+ * What the hazard events *already in play* are doing to every attack.
+ *
+ * A long event lasts the turn and a permanent one lasts the game, so Minions
+ * Stir on the board is not a card waiting to be played — it is a change to the
+ * numbers every bundle from here on is resolved with. Reading it only at the
+ * moment it is played, as this module did at first, priced the play correctly
+ * and then went on under-valuing every creature behind it.
+ *
+ * Restricted to hazard events, because the modifier is the hazard side's: a
+ * resource card that happens to declare an all-attacks modifier is the other
+ * seat's business, and crediting it here would price our bundle with their card.
+ */
+function boostInPlay(context: ModuleContext, hypothetical?: string): AttackBoost | null {
+  const { view, cardPool } = context;
+  let boost: AttackBoost | null = null;
+  for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
+    for (const card of zone) {
+      const def = cardPool[card.definitionId];
+      if ((def as unknown as { cardType?: string } | undefined)?.cardType !== 'hazard-event') continue;
+      boost = mergeBoosts(boost, attackBoostOf(def, view, cardPool, hypothetical));
+    }
+  }
+  return boost;
 }
 
 /** What a boost adds to one creature, by the race printed on its card. */
@@ -316,11 +400,13 @@ interface Plan {
 /**
  * Build the plan: roster, denial context, ranked bundles.
  *
- * `boost` is the counterfactual arm: the same plan re-run with a hazard event's
- * declared modifier applied to every attack it names, so an event that makes the
- * other hazards better can be priced by the difference.
+ * Every attack is resolved with the modifiers the hazard events **already in
+ * play** declare, because those are the numbers the engine will use. `boost`
+ * replaces that with the counterfactual arm — the board as it would be if one
+ * more card were played — so an event that makes the other hazards better is
+ * priced by the difference between the two.
  */
-function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: AttackBoost): Plan {
+function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: AttackBoost | null): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
@@ -335,7 +421,9 @@ function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: A
   const killTsdOf = (killMp: number): number =>
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
-  const candidates = candidatesFor(context, company.id as string, killTsdOf, boost);
+  const candidates = candidatesFor(
+    context, company.id as string, killTsdOf, boost ?? boostInPlay(context) ?? undefined,
+  );
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
@@ -584,39 +672,59 @@ function evaluateAssignStrike(
 
 
 /**
- * What an event that boosts every attack is worth: the plan, re-run with it.
+ * What an event is worth for the numbers it changes, or null when it changes none.
  *
- * The counterfactual is the honest one — the *best bundle this hand can play
- * into this company* with the modifier and without it — so a boost is worth
- * nothing when there is no attack left to boost, which is exactly right for a
- * hand holding Minions Stir and no Orc.
+ * One counterfactual answers both halves of this. The baseline is the plan as
+ * the board stands, with the modifiers the hazard events already in play
+ * declare; the other arm is the plan as it would be **if this card were in
+ * play** — which picks up its own modifiers *and* every condition on the board
+ * that names it.
  *
- * The boosted arm is not memoised: it is one extra beam search, run for the one
- * candidate that asks, where the unboosted plan is shared by every candidate on
- * the decision.
+ * That second half is the whole of Doors of Night. It does nothing to an attack
+ * itself; what it does is satisfy `inPlay: "Doors of Night"` on the Minions Stir
+ * already out, turning +1 prowess and +1 strike into +2 of each. Pricing it by
+ * its own declared effects finds nothing and declines; pricing the board with
+ * and without it finds the upgrade.
+ *
+ * The counterfactual arm is not memoised: it is one extra beam search, run for
+ * the one candidate that asks, where the baseline is shared by every candidate
+ * on the decision.
  */
 function boostGain(
   def: CardDefinition | undefined,
+  definitionId: string,
   context: ModuleContext,
   company: OpponentCompanyView,
 ): { tsd: number; reason: string } | null {
-  const boost = attackBoostOf(def, context.view, context.cardPool);
-  if (!boost) return null;
+  const name = nameOfDefinition(def, definitionId);
+  const current = boostInPlay(context);
+  const hypothetical = mergeBoosts(
+    boostInPlay(context, name),
+    attackBoostOf(def, context.view, context.cardPool, name),
+  );
+  // Nothing about the attacks changes, so this is not the family. Saying so
+  // lets the removal and recovery families have their turn.
+  if (sameBoost(current, hypothetical)) return null;
+
   const before = buildPlan(context.view, context, company).search.bundles[0]?.expectedTsd ?? 0;
-  const after = planFor(context, company, boost).search.bundles[0]?.expectedTsd ?? 0;
-  const races = [...boost.entries()]
-    .map(([race, added]) => `${race === ALL_RACES ? 'every' : race} attack ${added.prowess >= 0 ? '+' : ''}`
-      + `${added.prowess} prowess, ${added.strikes >= 0 ? '+' : ''}${added.strikes} strike(s)`)
-    .join('; ');
+  const after = planFor(context, company, hypothetical).search.bundles[0]?.expectedTsd ?? 0;
+  const describe = (boost: AttackBoost | null): string => [...(boost?.entries() ?? [])]
+    .map(([race, added]) => `${race === ALL_RACES ? 'every' : race} attack `
+      + `${added.prowess >= 0 ? '+' : ''}${added.prowess} prowess, `
+      + `${added.strikes >= 0 ? '+' : ''}${added.strikes} strike(s)`)
+    .join('; ') || 'no modifier at all';
+  const shift = current === null
+    ? describe(hypothetical)
+    : `${describe(current)} becomes ${describe(hypothetical)}`;
   return {
     // A boost never makes the plan worse — the unboosted bundle is still
     // available — so a negative difference is beam noise, not a reason to play
     // it for a loss.
     tsd: Math.max(0, after - before),
     reason: after - before > 0
-      ? `${races} — the best bundle against this company goes from ${before.toFixed(1)} to `
+      ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to `
         + `${after.toFixed(1)}`
-      : `${races} — but the plan has no attack left it would improve`,
+      : `${shift} — but the plan has no attack left it would improve`,
   };
 }
 
@@ -667,7 +775,7 @@ function evaluateHazardEvent(
   } | undefined;
   const name = def?.name ?? (card.definitionId as string);
 
-  const gain = boostGain(cardPool[card.definitionId], context, company)
+  const gain = boostGain(cardPool[card.definitionId], card.definitionId as string, context, company)
     ?? removalGain(record, context)
     ?? recoveryGain(def?.effects ?? [], tunables);
   if (!gain) return null;

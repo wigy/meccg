@@ -170,9 +170,11 @@ describe('Little Snuffler (dm-108)', () => {
     expect(afterStrike.combat!.phase).toBe('body-check');
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
 
-    // Hazard player rolls the creature body check; roll 12 > body 10 → check fails → creature defeated
+    // The creature belongs to the attacker (P2), so the defender (P1) rolls
+    // the body check against it (CoE 3.I.1); roll 12 > body 10 → check fails
+    // → creature defeated.
     const bodyState = { ...afterStrike, cheatRollTotal: 12 };
-    const bodyActions = computeLegalActions(bodyState, PLAYER_2);
+    const bodyActions = computeLegalActions(bodyState, PLAYER_1);
     const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
     expect(bodyAction).toBeDefined();
     const afterBody = dispatch(bodyState, bodyAction!.action);
@@ -251,9 +253,11 @@ describe('Little Snuffler (dm-108)', () => {
     expect(afterStrike.combat!.phase).toBe('body-check');
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
 
-    // Low body-check roll (2 ≤ body 10) → body check passes → strike not defeated
+    // Low body-check roll (2 ≤ body 10) → body check passes → strike not defeated.
+    // The creature belongs to the attacker (P2), so the defender (P1) rolls
+    // the body check against it (CoE 3.I.1).
     const bodyState = { ...afterStrike, cheatRollTotal: 2 };
-    const bodyActions = computeLegalActions(bodyState, PLAYER_2);
+    const bodyActions = computeLegalActions(bodyState, PLAYER_1);
     const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
     expect(bodyAction).toBeDefined();
     const afterBody = dispatch(bodyState, bodyAction!.action);
@@ -397,6 +401,81 @@ describe('Little Snuffler (dm-108)', () => {
     expect(passAction).toBeDefined();
   });
 
+  test('REGRESSION: defending player (not attacker) rolls the creature body check (bug report: game ms6gbt8d-5na91m, seq 1035)', () => {
+    // Bug report: "I think defender should roll the body check." A parried
+    // strike against Little Snuffler (a creature the hazard/attacking player
+    // controls) put the body-check-roll action on the attacking player (P2)
+    // instead of the defending player (P1). Per CoE 3.I.1, the player who
+    // doesn't control the entity being checked rolls — since the creature
+    // belongs to the attacker, the defender must roll against it.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [LITTLE_SNUFFLER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const snufflerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: snufflerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const legolasId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
+    const afterAssign = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: legolasId,
+      tapped: false,
+    });
+
+    // Legolas prowess 5 + roll 12 = 17 > creature prowess 5 → strike parried
+    const stateWithRoll = { ...afterAssign, cheatRollTotal: 12 };
+    const actions = computeLegalActions(stateWithRoll, PLAYER_1);
+    const resolveAction = actions.find(a => a.viable && a.action.type === 'resolve-strike');
+    expect(resolveAction).toBeDefined();
+    const afterStrike = dispatch(stateWithRoll, resolveAction!.action);
+
+    expect(afterStrike.combat).not.toBeNull();
+    expect(afterStrike.combat!.phase).toBe('body-check');
+    expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
+
+    // The defender (P1) — not the attacker (P2) — is offered body-check-roll.
+    const defenderBodyActions = computeLegalActions(afterStrike, PLAYER_1);
+    const defenderBodyAction = defenderBodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
+    expect(defenderBodyAction).toBeDefined();
+
+    const attackerBodyActions = computeLegalActions(afterStrike, PLAYER_2);
+    expect(attackerBodyActions.some(a => a.viable && a.action.type === 'body-check-roll')).toBe(false);
+  });
+
   test('REGRESSION: ranger in defending company lowers creature body by 2 (bug report: body check needed 11+ instead of 9+)', () => {
     // Bug report: a defending company containing a ranger (Aragorn) still
     // faced a body check needing 11+ (full body 10) — the "Each ranger in
@@ -471,7 +550,7 @@ describe('Little Snuffler (dm-108)', () => {
     expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
     expect(afterStrike.combat!.creatureBody).toBe(8);
 
-    const bodyActions = computeLegalActions(afterStrike, PLAYER_2);
+    const bodyActions = computeLegalActions(afterStrike, PLAYER_1);
     const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
     expect(bodyAction).toBeDefined();
     expect((bodyAction!.action as { need?: number }).need).toBe(9);

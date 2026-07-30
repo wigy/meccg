@@ -15,9 +15,6 @@
  * - **A card comes back.** `move ... to: "hand"` or `to: "deck"` recovers a
  *   card, worth at least what a draw is worth — a floor, because the card is
  *   chosen rather than drawn.
- * - **Something leaves play.** `move ... from: "in-play" to: "discard"` filtered
- *   to hazard events takes an attached hazard off one of our characters, which
- *   is worth the corruption it was carrying.
  * - **A company is shut to creatures.** Stealth adds
  *   `no-creature-hazards-on-company` for the turn, and that is worth the whole
  *   hazard plan the opponent would otherwise aim at it — `defence`, against the
@@ -29,11 +26,36 @@
  * cannot be priced without modelling X.
  *
  * The cost is the card itself, at its shadow price — which for an event whose
- * effect this module cannot read is the flat floor. Note what that means: an
- * event is never scored *negative* here, because a family it cannot price is
- * declined rather than charged. Charging for the card and crediting nothing
- * would make H2 refuse to play any event in the game, which is worse than
- * having no opinion.
+ * effect this module cannot read is the flat floor.
+ *
+ * ## Doing nothing is not the same as being unreadable
+ *
+ * An event is never scored negative for a family the module cannot *read*:
+ * charging for the card and crediting nothing would make H2 refuse every event
+ * in the game. But there are two cases where the module can **prove** the play
+ * achieves nothing, and those are opinions rather than guesses:
+ *
+ * - **The card declares no effect this engine will execute.** Twilight's whole
+ *   effect list is two `play-flag`s — declarations about *how* it may be played,
+ *   not about what happens when it resolves. Its printed text cancels an
+ *   environment card; the DSL does not say so, and the engine plays what the DSL
+ *   declares. Playing it therefore spends a card for nothing. It was the second
+ *   most-offered declined short event, 44 of 122 in three games. The rule is
+ *   self-correcting: the day the cancel is written into the DSL, the effect list
+ *   stops being declaration-only and the module goes back to declining.
+ * - **A removal with nothing to remove.** Every short event in the pool that
+ *   discards something from play — Marvels Told, Ancient Secrets, Voices of
+ *   Malice, The Cock Crows, Wizard's River-horses — targets a *hazard event in
+ *   play*, and with none in play the card resolves for nothing. When there is
+ *   one, the module still declines, because what that event was doing is the
+ *   thing it cannot price.
+ *
+ * That second case replaces a branch that was simply wrong. It read the same
+ * `move ... from: "in-play" to: "discard"` and priced it as the corruption
+ * relief of taking an attached hazard off one of our own characters — a
+ * different effect, on a different target, that no card in this family has. The
+ * module credited a benefit the card could not deliver whenever any of our
+ * characters happened to be carrying a corrupting hazard.
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
@@ -42,7 +64,6 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
-import { computeCharacterValue } from '../../services/character-value.js';
 import { computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
@@ -56,11 +77,33 @@ interface Effect {
   readonly from?: string | readonly string[];
   readonly to?: string;
   readonly count?: number;
-  readonly filter?: { readonly cardType?: unknown };
+  readonly filter?: Filter;
   readonly constraint?: string;
   readonly cost?: { readonly tap?: string };
   readonly apply?: Effect;
 }
+
+/** A DSL filter, as far as this module reads one. */
+type Filter = Readonly<Record<string, unknown>>;
+
+/**
+ * Effect types that declare *how* a card may be played, not what it does.
+ *
+ * Deliberately short and deliberately conservative. A card whose whole effect
+ * list is drawn from this set changes nothing when it resolves — that is a
+ * statement about the DSL, not a judgement about the card — and anything not
+ * listed here is treated as a real effect, so an unfamiliar type makes the
+ * module decline rather than claim the card is worthless.
+ */
+const DECLARATION_ONLY = new Set([
+  'play-flag',
+  'play-window',
+  'play-condition',
+  'play-restriction',
+  'duplication-limit',
+  'deck-restriction',
+  'name-alias',
+]);
 
 /**
  * The constraint that shuts a company to creatures for the turn.
@@ -81,31 +124,77 @@ function fromIncludes(effect: Effect, zone: string): boolean {
   return Array.isArray(from) && from.includes(zone);
 }
 
-/** The corruption a card puts on whoever it is attached to. */
-function attachedCorruption(def: CardDefinition | undefined): number {
-  const fields = def as unknown as {
-    effects?: readonly { type?: string; stat?: string; value?: number }[];
+/**
+ * Whether a card could be what a filter is asking for.
+ *
+ * Deliberately three-valued in effect: an operator or key this does not know
+ * returns `true`, so an unread filter makes the module assume there *is* a
+ * target and decline. The alternative — assuming no target — would let it
+ * announce that a card does nothing on the strength of a filter it could not
+ * read, which is exactly the mistake this replaced.
+ */
+function couldMatch(filter: Filter | undefined, def: CardDefinition | undefined): boolean {
+  if (!filter) return true;
+  const card = def as unknown as {
+    cardType?: string; eventType?: string; keywords?: readonly string[];
   } | undefined;
-  return (fields?.effects ?? [])
-    .filter(effect => effect.type === 'stat-modifier' && effect.stat === 'corruption-points')
-    .reduce((sum, effect) => sum + (effect.value ?? 0), 0);
+  if (!card) return true;
+
+  /** Whether a value the filter names is satisfied by a field on the card. */
+  const satisfies = (expected: unknown, actual: string | undefined): boolean => {
+    if (typeof expected === 'string') return expected === actual;
+    const operators = expected as { $in?: readonly string[] } | null;
+    if (operators && Array.isArray(operators.$in)) return operators.$in.includes(actual ?? '');
+    return true;
+  };
+
+  for (const [key, value] of Object.entries(filter)) {
+    switch (key) {
+      case '$and':
+        if (!(value as Filter[]).every(clause => couldMatch(clause, def))) return false;
+        break;
+      case '$not':
+        if (couldMatch(value as Filter, def)) return false;
+        break;
+      case 'cardType':
+        if (!satisfies(value, card.cardType)) return false;
+        break;
+      case 'eventType':
+        if (!satisfies(value, card.eventType)) return false;
+        break;
+      case 'keywords': {
+        const includes = (value as { $includes?: string } | null)?.$includes;
+        if (typeof includes !== 'string') break;
+        if (!(card.keywords ?? []).includes(includes)) return false;
+        break;
+      }
+      // An operator this does not know: assume it could match, so the caller
+      // declines rather than declaring the card useless.
+      default:
+        break;
+    }
+  }
+  return true;
 }
 
-/** The most corruption any one attached hazard is putting on our characters. */
-function worstAttachedHazard(
-  context: ModuleContext,
-): { characterId: CardInstanceId; corruption: number } | null {
-  let worst: { characterId: CardInstanceId; corruption: number } | null = null;
-  for (const character of Object.values(context.view.self.characters)) {
-    for (const hazard of character.hazards) {
-      const corruption = attachedCorruption(context.cardPool[hazard.definitionId]);
-      if (corruption <= 0) continue;
-      if (!worst || corruption > worst.corruption) {
-        worst = { characterId: character.instanceId, corruption };
+/** Whether anything on the board could be what a removal is aimed at. */
+function hasRemovalTarget(removal: Effect, context: ModuleContext): boolean {
+  const { view, cardPool } = context;
+  const zones = [view.self.cardsInPlay, view.opponent.cardsInPlay];
+  for (const zone of zones) {
+    for (const card of zone) {
+      if (couldMatch(removal.filter, cardPool[card.definitionId])) return true;
+    }
+  }
+  // Hazards attached to characters are in play too, on either side.
+  for (const characters of [view.self.characters, view.opponent.characters]) {
+    for (const character of Object.values(characters)) {
+      for (const hazard of character.hazards) {
+        if (couldMatch(removal.filter, cardPool[hazard.definitionId])) return true;
       }
     }
   }
-  return worst;
+  return false;
 }
 
 /** Every effect the card declares, including the ones nested under `apply`. */
@@ -175,14 +264,19 @@ function gainOf(
     && e.to === 'discard'
     && (fromIncludes(e, 'in-play') || String(e.from ?? '').startsWith('attached')));
   if (removal) {
-    const worst = worstAttachedHazard(context);
-    if (!worst) return null;
-    const relief = computeCharacterValue(context.view, context.cardPool, context.standing, tunables)
-      .corruptionRelief(worst.characterId, worst.corruption);
-    return { tsd: relief.tsd, reason: relief.reason };
+    // With something in play it could reach, what the card is worth is what
+    // *that* card was doing — which is the thing this module cannot price. With
+    // nothing to reach, the play resolves for nothing, and that is a fact.
+    if (hasRemovalTarget(removal, context)) return null;
+    return { tsd: 0, reason: 'there is nothing in play it could discard' };
   }
 
   return null;
+}
+
+/** Whether anything the card declares will change the game when it resolves. */
+function declaresAnEffect(effects: readonly Effect[]): boolean {
+  return flatten(effects).some(effect => !DECLARATION_ONLY.has(effect.type ?? ''));
 }
 
 /**
@@ -202,7 +296,16 @@ export const eventsModule: H2Module = {
 
     const def = context.cardPool[card.definitionId];
     const effects = (def as unknown as { effects?: readonly Effect[] } | undefined)?.effects ?? [];
-    const gain = gainOf(effects, context, action);
+    // A card whose whole effect list declares how it may be played, and nothing
+    // that happens when it resolves, does nothing when it resolves. That is a
+    // reading of the DSL rather than a judgement about the card, and it is the
+    // one case where charging for the card is an opinion rather than a guess.
+    const gain = declaresAnEffect(effects)
+      ? gainOf(effects, context, action)
+      : {
+        tsd: 0,
+        reason: 'the card declares no effect this engine will execute — only how it may be played',
+      };
     // A family this module cannot read is declined, not charged. Charging for
     // the card and crediting nothing would make H2 refuse every event in the
     // game, which is worse than having no opinion about them.
@@ -244,8 +347,11 @@ export const eventsModule: H2Module = {
         + 'also restricts, cancels or enables something is under-valued here',
         'the play is assumed to cost only the card; a tap or discard the event also demands is not '
         + 'charged',
-        'removing an attached hazard is priced against the worst one our characters carry, not '
-        + 'against whichever the card\'s filter would actually reach',
+        'a card whose declared effects only say how it may be played is scored as doing nothing — '
+        + 'true of this engine, and wrong about the printed card whenever the DSL is behind the text',
+        'whether a removal has a target is decided by the filter keys this module reads (card type, '
+        + 'event type, keywords); a filter it cannot read is assumed to have one, so the card is '
+        + 'declined rather than called useless',
       ],
     };
   },

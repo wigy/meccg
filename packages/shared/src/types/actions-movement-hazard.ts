@@ -793,6 +793,30 @@ export interface FlateryAttemptRollAction {
 }
 
 /**
+ * Discard a company item and execute the dice roll for a goodwill attempt
+ * (dm-160 Token of Goodwill).
+ *
+ * Created by the pending-resolution system after the diplomat passes his
+ * corruption check. The player picks which qualifying item to discard;
+ * the discard and the roll (2d6 + unused DI) happen together. If the total
+ * exceeds the threshold, the attack is cancelled.
+ */
+export interface GoodwillAttemptRollAction {
+  /** Action discriminant. */
+  readonly type: 'goodwill-attempt';
+  /** The defending player (who rolls). */
+  readonly player: PlayerId;
+  /** The diplomat making the goodwill attempt. */
+  readonly characterInstanceId: CardInstanceId;
+  /** The company item discarded to enable the roll. */
+  readonly itemInstanceId: CardInstanceId;
+  /** roll >= need means success (already accounts for unused DI). */
+  readonly need: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}
+
+/**
  * Roll 2d6 for the Under-deeps movement check.
  *
  * Required when a company moves from an Under-deeps site to an adjacent

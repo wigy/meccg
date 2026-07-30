@@ -4295,6 +4295,48 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Goodwill-cancel-attack (Token of Goodwill dm-160): when the chain entry
+  // resolves un-negated, enqueue a corruption check on the target diplomat.
+  // If he survives, the `enqueue-goodwill-attempt` onSuccess hook (resolved in
+  // pending-reducers.ts) raises a `goodwill-attempt` resolution for the item
+  // discard + influence roll. Do NOT immediately cancel the attack here.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.combat) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const goodwillEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').GoodwillCancelAttackEffect => e.type === 'goodwill-cancel-attack',
+    );
+    if (goodwillEffect) {
+      const creatureRace = current.combat.creatureRace;
+      const isAgentAttack = current.combat.attackSource.type === 'agent';
+      const matchedEntry = goodwillEffect.thresholds.find(t =>
+        (creatureRace !== undefined && t.races.includes(creatureRace))
+        || (t.matchAnyAgentAttack === true && isAgentAttack));
+      if (matchedEntry) {
+        const defPlayerId = current.combat.defendingPlayerId;
+        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
+        logDetail(`Goodwill-cancel-attack: enqueuing corruption check for diplomat ${entry.payload.targetCharacterId as string} (item ${matchedEntry.itemSubtype}, threshold ${matchedEntry.threshold})`);
+        current = enqueueCorruptionCheck(current, {
+          source: entry.card.instanceId,
+          actor: defPlayerId,
+          scope,
+          characterId: entry.payload.targetCharacterId,
+          reason: cardDef?.name ?? (entry.card.definitionId as string),
+          onSuccess: {
+            type: 'enqueue-goodwill-attempt',
+            companyId: current.combat.companyId,
+            itemSubtype: matchedEntry.itemSubtype,
+            threshold: matchedEntry.threshold,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
+  }
+
   // Counter-cancel-attack-roll (Black Vapour ba-14): when the countering short
   // event resolves un-negated, enqueue a `dice-check` for the attacking (hazard)
   // player: roll 2d6 + the attack's current prowess. On a total greater than the

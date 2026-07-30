@@ -65,7 +65,7 @@ npm run scenarios -w @meccg/sim -- verify
 npm run fit-winprob -w @meccg/sim -- --games 400 [--holdout 0.25] [--out path]
 
 # Check a module's claimed probabilities against the real reducer
-npm run calibrate -w @meccg/sim -- [--module combat] [--rollouts 5000] [--scenario <id>]
+npm run calibrate -w @meccg/sim -- [--module combat,grants] [--rollouts 5000] [--scenario <id>]
 
 # Vary one number and watch a real decision change, or not
 npm run sweep -w @meccg/sim -- --scenario <id> --over tunable:regionCrossingCost --from 0 --to 3
@@ -222,6 +222,31 @@ because the +2 clauses carry `overrides` naming the +1 clauses they replace. A
 modifier whose condition the module cannot read is *dropped* rather than assumed
 to hold, so an unfamiliar gate under-values the card instead of over-valuing it.
 
+**Once it is out, it is simply the numbers.** The first version of that read a
+modifier only at the moment its card was played, which priced the play correctly
+and then went on resolving every bundle behind it as if the card were not there
+— a long event lasts the turn, a permanent one the game. `planFor` now resolves
+every attack with the modifiers the hazard events in play declare, so the
+baseline is the board as it stands and the counterfactual arm is **the board
+with one more card on it**.
+
+That second reading is the whole of Doors of Night. It does nothing to an attack
+itself; what it does is satisfy `inPlay: "Doors of Night"` on the Minions Stir
+already out, turning +1 of each into +2. Pricing it by its own declared effects
+finds nothing and declines; pricing the board with and without it finds the
+upgrade — and says what it found, which in the captured position is that the
+upgrade buys nothing, because the bundle already beats the company:
+
+```text
+play Doors of Night: -1.1%
+  orc attack +1 prowess, +1 strike(s); troll attack +1 prowess, +1 strike(s)
+  becomes orc attack +2 prowess, +2 strike(s); troll attack +1 prowess, +1
+  strike(s) — but the plan has no attack left it would improve
+```
+
+So it is scored at minus the card and refused, rather than declined for want of
+a family. A refusal with that tree behind it is an opinion; silence is not.
+
 Hazard events outside those families are still declined — modelling a company
 restriction means modelling its effect — so the decision is reported as partly
 covered rather than guessed at.
@@ -237,8 +262,8 @@ follower brings 2, not 5.
 outside combat, which is the check that the Heuristics-1 fallback makes
 `h2:<module>` a clean ablation rather than a rewrite.
 
-Four modules are calibrated: `combat` (36 claims), `resources` (3),
-`corruption` (2) and `factions` (1). Two kinds of claim are checked — dice
+Five modules are calibrated, 46 claims in all: `combat` (36), `grants` (4),
+`resources` (3), `corruption` (2) and `factions` (1). Two kinds of claim are checked — dice
 odds against a binomial interval, and *deterministic* marshalling-point
 arithmetic against the engine's own totals, exactly rather than statistically.
 The second is what would catch the doubling rule or the diversity cap being
@@ -299,16 +324,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1614 contested decisions:
+Over 1980 contested decisions:
 
 ```text
-  covered and decisive       1220  75.6%
-  covered but flat             92   5.7%   → H1
-  partial, acted anyway        79   4.9%
-  partial, handed over        211  13.1%   → H1
-  no owner at all              12   0.7%   → H1
+  covered and decisive       1665  84.1%
+  covered but flat            104   5.3%   → H1
+  partial, acted anyway        64   3.2%
+  partial, handed over        146   7.4%   → H1
+  no owner at all               1   0.1%   → H1
 
-  H2 decides 80.5% of contested decisions.
+  H2 decides 87.3% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -446,9 +471,37 @@ definition: 1008 candidates over a few dozen distinct cards, each one otherwise
 resolving a whole attack. Measured on the captured position, 110–580 ms without
 the cache and 29–64 ms with it.
 
-What is left, by decisions blocked: hazard `play-hazard` events at 108,
-`play-short-event` at 80, and the granted-action families `grants` still
-declines at 17. All three need a card's *effect* priced against the opponent
+### "I cannot read this" is not the same as "there is nothing to read"
+
+Declining is the honest answer to a family the module cannot price, and it was
+also being given to two cases where the module can *prove* the play achieves
+nothing. Those are opinions, and worth stating:
+
+- **The card declares no effect this engine will execute.** Twilight's whole
+  effect list is two `play-flag`s — declarations about *how* it may be played,
+  not about what happens when it resolves. Its printed text cancels an
+  environment card; the DSL does not say so, and the engine plays what the DSL
+  declares. It was the second most-offered declined short event, 44 of 122 in
+  three games, and playing it spends a card for nothing. The rule is
+  self-correcting: the day the cancel is written into the DSL, the effect list
+  stops being declaration-only and the module goes back to declining.
+- **A removal with nothing to remove.** Every short event in the pool that
+  discards something from play — Marvels Told, Ancient Secrets, Voices of
+  Malice, The Cock Crows, Wizard's River-horses — targets a *hazard event in
+  play*. With none in play the card resolves for nothing; with one, the module
+  still declines, because what that event was doing is the thing it cannot
+  price.
+
+The second replaced a branch that was simply wrong. It read the same
+`move ... from: "in-play" to: "discard"` and priced it as the corruption relief
+of taking an attached hazard off one of our own characters — a different effect,
+on a different target, that no card in this family has. Whenever one of our
+characters happened to be carrying a corrupting hazard, the module credited a
+benefit the card could not deliver.
+
+What is left, by decisions blocked: `play-short-event` at 102,
+hazard `play-hazard` events at 50, and the granted-action families `grants` still
+declines at 37. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
@@ -547,13 +600,31 @@ change), and it failed modules on the sign of a point estimate.
 ### Falsifiable, where it can be
 
 ```sh
-npm run calibrate -w @meccg/sim -- --module grants --rollouts 4000
+npm run calibrate -w @meccg/sim -- --rollouts 4000
 ```
 
-`combat` (36 claims), `resources` (3), `corruption` (2), `factions` (1) and now
+`combat` (36 claims), `resources` (3), `corruption` (2), `factions` (1) and
 `grants` (4) are checked against the reducer: the harness replays the action
 thousands of times and asserts the observed frequency lies inside a 99% binomial
-interval of the claim.
+interval of the claim. That is **46 claims**, and the command above is the one
+that measures all of them:
+
+```text
+  combat       36/36 matched
+  corruption   2/2 matched
+  factions     1/1 matched
+  grants       4/4 matched
+  resources    3/3 matched
+46/46 claim(s) matched at 4000 rollout(s), 1107 action(s) not modelled
+```
+
+It used to report `36/36` and stop there. `--module` defaulted to `combat`,
+which was right when combat was the only module the harness could classify, and
+stayed after four more classifiers were added — so the bare command measured a
+fifth of what this section claims and said nothing about the rest. A green line
+that silently covers less than it names is worse than a red one, which is why
+the breakdown is per module now: a module the corpus has no position for reports
+"nothing measured" instead of disappearing into the total.
 
 `grants` found a bug on its first run. Two claims of 83.3% in one position, one
 measuring 84.0% and the other 40.4% — the second action carried `noTap: true`,

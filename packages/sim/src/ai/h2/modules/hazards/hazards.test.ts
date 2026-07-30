@@ -348,24 +348,36 @@ describe('a support event that boosts every attack', () => {
   const BOOST = 'movement/support-event-boost';
 
   /** The scenario, its view, and the action that plays the named card. */
-  function boostPosition(inPlay?: string) {
+  function boostPosition(options: { inPlay?: string; playing?: string } = {}) {
+    const { inPlay, playing = 'Minions Stir' } = options;
     const scenario = loadScenario(BOOST);
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
     if (inPlay) {
-      const definitionId = Object.keys(cardPool).find(id =>
-        (cardPool[id] as unknown as { name?: string }).name === inPlay);
       (view.self as unknown as { cardsInPlay: unknown[] }).cardsInPlay = [
-        { instanceId: 'staged', definitionId },
+        { instanceId: 'staged', definitionId: definitionOf(inPlay) },
       ];
+    }
+    // A card the corpus does not happen to hold is staged into the hand by
+    // definition: the module looks a play up by instance, so the action can be
+    // built by hand as long as the hand card exists.
+    const nameOf = (id: string) => (cardPool[id] as unknown as { name?: string }).name;
+    if (!view.self.hand.some(c => nameOf(c.definitionId) === playing)) {
+      (view.self.hand as unknown as { definitionId: string }[])[0].definitionId = definitionOf(playing);
     }
     const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
     const legalActions = viableActions(scenario);
-    const play = legalActions.find(a => {
-      if (a.type !== 'play-hazard') return false;
-      const card = view.self.hand.find(c => c.instanceId === (a as { cardInstanceId?: string }).cardInstanceId);
-      return card && (cardPool[card.definitionId] as unknown as { name?: string }).name === 'Minions Stir';
-    })!;
+    const held = view.self.hand.find(c => nameOf(c.definitionId) === playing)!;
+    const play = legalActions.find(a => a.type === 'play-hazard'
+      && (a as { cardInstanceId?: string }).cardInstanceId === held.instanceId)
+      ?? ({
+        type: 'play-hazard',
+        player: view.self.id,
+        cardInstanceId: held.instanceId,
+        targetCompanyId: view.opponent.companies[0].id,
+      } as unknown as GameAction);
     return {
       play,
       context: { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing },
@@ -393,7 +405,7 @@ describe('a support event that boosts every attack', () => {
   test('Doors of Night in play doubles what it declares, because the card says so', () => {
     // The +2 variants carry `overrides`, naming the +1 variants they replace —
     // which is what keeps the two from being summed.
-    const { play, context } = boostPosition('Doors of Night');
+    const { play, context } = boostPosition({ inPlay: 'Doors of Night' });
     const text = JSON.stringify(hazardsModule.evaluate(play, context)!.rationale);
     expect(text).toContain('orc attack +2 prowess, +2 strike(s)');
     // The Troll clause is not gated on Doors of Night, so it must not move.
@@ -409,5 +421,96 @@ describe('a support event that boosts every attack', () => {
     const evaluation = hazardsModule.evaluate(play, alone)!;
     expect(evaluation.expectedTsd).toBeLessThan(0);
     expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
+  });
+});
+
+describe('a hazard event already in play', () => {
+  /** A position with Orc creatures in hand, from the support-event scenario. */
+  function creaturePosition(inPlay?: string) {
+    const scenario = loadScenario('movement/support-event-boost');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    if (inPlay) {
+      const definitionId = Object.keys(cardPool).find(id =>
+        (cardPool[id] as unknown as { name?: string }).name === inPlay)!;
+      (view.self as unknown as { cardsInPlay: unknown[] }).cardsInPlay = [
+        { instanceId: 'staged', definitionId },
+      ];
+    }
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const legalActions = viableActions(scenario);
+    const creature = legalActions.find(a => {
+      if (a.type !== 'play-hazard') return false;
+      const card = view.self.hand.find(c => c.instanceId === (a as { cardInstanceId?: string }).cardInstanceId);
+      return card && (cardPool[card.definitionId] as unknown as { cardType?: string }).cardType
+        === 'hazard-creature';
+    })!;
+    return { creature, context: { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing } };
+  }
+
+  test('changes what every attack behind it is worth', () => {
+    // A long event lasts the turn and a permanent one the game, so Minions Stir
+    // on the board is not a card waiting to be played — it is a change to the
+    // numbers every bundle from here on is resolved with. Reading it only at
+    // the moment it is played priced that play correctly and then went on
+    // under-valuing every creature behind it.
+    const bare = creaturePosition();
+    const boosted = creaturePosition('Minions Stir');
+    const without = hazardsModule.evaluate(bare.creature, bare.context)!.expectedTsd;
+    const with_ = hazardsModule.evaluate(boosted.creature, boosted.context)!.expectedTsd;
+    expect(with_).toBeGreaterThan(without);
+  });
+});
+
+describe('an event that enables another card rather than acting itself', () => {
+  test('Doors of Night is worth what the Minions Stir already out gains from it', () => {
+    // Doors of Night does nothing to an attack itself. What it does is satisfy
+    // `inPlay: "Doors of Night"` on the Minions Stir already on the board,
+    // turning +1 prowess and +1 strike into +2 of each. Pricing it by its own
+    // declared effects finds nothing; pricing the board with and without it
+    // finds the upgrade.
+    const scenario = loadScenario('movement/support-event-boost');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    (view.self as unknown as { cardsInPlay: unknown[] }).cardsInPlay = [
+      { instanceId: 'staged', definitionId: definitionOf('Minions Stir') },
+    ];
+    (view.self.hand as unknown as { definitionId: string }[])[0].definitionId =
+      definitionOf('Doors of Night');
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const context = { view, cardPool, legalActions: viableActions(scenario), tunables: DEFAULT_TUNABLES, standing };
+    const evaluation = hazardsModule.evaluate({
+      type: 'play-hazard',
+      player: view.self.id,
+      cardInstanceId: view.self.hand[0].instanceId,
+      targetCompanyId: view.opponent.companies[0].id,
+    } as unknown as GameAction, context)!;
+
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation.rationale)).toContain('becomes');
+    expect(JSON.stringify(evaluation.rationale)).toContain('+2 prowess');
+  });
+
+  test('and declines when nothing on the board names it', () => {
+    // No Minions Stir out, so nothing changes about any attack — and its own
+    // effects declare no modifier. Declining leaves the decision honestly
+    // uncovered rather than scoring it at an invented number.
+    const scenario = loadScenario('movement/support-event-boost');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    (view.self.hand as unknown as { definitionId: string }[])[0].definitionId =
+      definitionOf('Doors of Night');
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const context = { view, cardPool, legalActions: viableActions(scenario), tunables: DEFAULT_TUNABLES, standing };
+    expect(hazardsModule.evaluate({
+      type: 'play-hazard',
+      player: view.self.id,
+      cardInstanceId: view.self.hand[0].instanceId,
+      targetCompanyId: view.opponent.companies[0].id,
+    } as unknown as GameAction, context)).toBeNull();
   });
 });
