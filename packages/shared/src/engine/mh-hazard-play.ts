@@ -26,7 +26,7 @@ import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/commo
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
-import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
+import { resetCompanyMHFields } from './mh-phase-state.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
 import { CardStatus, Skill, SiteType, Alignment, Race } from '../types/common.js';
@@ -2037,46 +2037,6 @@ export function gangwaysExtraDestinations(
  * the choice of another Under-deeps movement/hazard phase (`gangways-offer`)
  * rather than finalizing. Otherwise the company is finalized normally.
  */
-/**
- * Reset all per-company movement/hazard fields and return to the select-company
- * step, so the next unhandled company begins its M/H sub-phase from a clean
- * slate. `handledCompanyIds` and `activeCompanyIndex` are taken from the supplied
- * `mhState` unchanged (callers pre-set `handledCompanyIds` when finalizing a
- * completed company). Shared by `finalizeCompanyMH`, the Left Behind
- * lone-character extra-phase path in `advanceAfterCompanyMH`, and the
- * extra-phase offer handlers (`handleGangwaysOffer`, `handleExtraMHMoveOffer`),
- * which override `step`/`siteRevealed` to re-enter at `reveal-new-site`.
- */
-function resetCompanyMHFields(mhState: MovementHazardPhaseState): MovementHazardPhaseState {
-  return {
-    ...mhState,
-    step: 'select-company' as const,
-    movementType: null,
-    declaredRegionPath: [],
-    maxRegionDistance: BASE_MAX_REGION_DISTANCE,
-    hazardsPlayedThisCompany: 0,
-    hazardLimitAtReveal: 0,
-    preRevealHazardLimitConstraintIds: [],
-    resolvedSitePath: [],
-    resolvedSitePathNames: [],
-    destinationSiteType: null,
-    destinationSiteName: null,
-    resourceDrawMax: 0,
-    hazardDrawMax: 0,
-    resourceDrawCount: 0,
-    hazardDrawCount: 0,
-    resourcePlayerPassed: false,
-    hazardPlayerPassed: false,
-    siteRevealed: false,
-    onGuardPlacedThisCompany: false,
-    returnedToOrigin: false,
-    hazardsEncountered: [],
-    spawnReplayUsedSources: [],
-    ahuntAttacksResolved: 0,
-    ahuntGroupOutcomes: [],
-  };
-}
-
 /**
  * Left Behind (td-41): enqueue a `left-behind-rejoin` resolution for each
  * `leftBehind` company of the active player whose original company still exists
