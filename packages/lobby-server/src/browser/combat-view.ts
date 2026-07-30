@@ -33,6 +33,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
+import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
@@ -329,7 +330,7 @@ function renderPhaseBanner(
     phaseText = `Body Check \u2014 ${target}`;
   }
 
-  banner.textContent = phaseText;
+  banner.textContent = withDetainmentSuffix(phaseText, combat.detainment);
 
   // Append roll explanations from legal actions
   const explanations = collectRollExplanations(view.legalActions);
