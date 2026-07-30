@@ -262,15 +262,23 @@ export class GameSession {
         // Any dev command taints the game: mark before handling so a 'save'
         // persists the flag, and again after because 'undo'/'load' replace
         // the current state with one from before the marking.
-        this.markCheated(msg.type);
-        if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
-        else if (msg.type === 'load') this.handleLoad();
-        else if (msg.type === 'reseed') this.handleReseed(ws);
-        else if (msg.type === 'undo') this.handleUndo(ws);
-        else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
-        else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
-        else if (msg.type === 'swap-hand') this.handleSwapHand(ws);
-        this.markCheated(msg.type);
+        {
+          const wasCheated = this.state?.cheated === true;
+          this.markCheated(msg.type);
+          if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
+          else if (msg.type === 'load') this.handleLoad();
+          else if (msg.type === 'reseed') this.handleReseed(ws);
+          else if (msg.type === 'undo') this.handleUndo(ws);
+          else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
+          else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
+          else if (msg.type === 'swap-hand') this.handleSwapHand(ws);
+          const restamped = this.markCheated(msg.type);
+          // Make sure every client sees the flag flip: some dev commands
+          // never broadcast state ('save', 'cheat-roll'), and 'undo'/'load'
+          // broadcast the restored — possibly pre-cheat — state before the
+          // re-stamp above.
+          if (this.state && (!wasCheated || restamped)) this.broadcastStateWithLogs();
+        }
         break;
     }
   }
@@ -942,11 +950,14 @@ export class GameSession {
    * A cheated game's end result is never recorded (per-game record or
    * player histories). The flag lives on {@link GameState} so it survives
    * saves and restores; it is never cleared once set.
+   *
+   * @returns True when the flag was actually flipped by this call.
    */
-  private markCheated(command: string): void {
-    if (!this.state || this.state.cheated) return;
+  private markCheated(command: string): boolean {
+    if (!this.state || this.state.cheated) return false;
     this.state = { ...this.state, cheated: true };
     this.serverLog.log('game-cheated', { gameId: this.state.gameId, command });
+    return true;
   }
 
   /**

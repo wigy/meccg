@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.68.0 — 2026-07-30
+
+More Features
+
+### Game Engine
+
+- **Implemented Reforging (tw-314)** play-time conditions and effects, with a single shared reader for the board's attack modifiers so both players see the same numbers
+- **Implemented the play/storage mechanic for Andúril (tw-192)** and certified the card
+- Certified Echo of All Joy (td-110), which protects an attached resource long-event
+- Fixed company-targeting resource permanent-events being unplayable outside the organization phase (e.g. during the site phase)
+- Fixed hazard short-events swallowing the on-guard placement choice
+- Fixed any-phase granted actions (e.g. Cram's untap-bearer) being unreachable during combat
+- Fixed the Choking Shadows on-guard reveal never being offered or applied (rule 2.V.i)
+- Fixed the -3 stay-untapped modifier being ignored on strike ties
+- Fixed Noble Steed's +2 region bonus not applying in the movement/hazard phase
+- Fixed The White Tree incorrectly enabling character recruiting at Minas Tirith
+- Wired opponent-influence targeting for bearer-less cards in play, so opposing factions can be clicked as influence targets
+
+### Lobby & Web Client
+
+- Added an admin yell broadcast: system API, admin-page button, and update-dev announcements
+- Dev-menu actions now ask for confirmation, and games where cheats were used are never recorded (the confirmation is skipped once a game is already marked cheated)
+- Changed the admin top-up formula to 1.5× consumption rounded up to the nearest 100
+
+### Infrastructure
+
+- Sim hazard-planner iterations 7–9 measured at 58.8% win rate (+62 Elo) over the previous baseline
+- Made the whole-vs-one ablation runnable and used it to reject the draft-value model
+- Added a guided tutorial plan spec
+
 ## 0.67.0 — 2026-07-30
 
 Various Improvements

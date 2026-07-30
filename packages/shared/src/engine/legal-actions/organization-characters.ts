@@ -302,7 +302,7 @@ function findPlayableSites(
     // Fallen-wizard bring characters into play there, just like a printed
     // haven. The conversion installs a `site.type` → haven override, so the
     // effective type already reads as a haven.
-    let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId) === SiteType.Haven;
+    let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId, true) === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
     const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSiteDef(siteDef);

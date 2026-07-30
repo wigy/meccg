@@ -80,7 +80,8 @@ When enabled it adds two extra tools to the toolbar:
 Selecting any of these tools first asks for confirmation: using a developer
 tool marks the game as **cheated**. A cheated game can be played to the end
 normally, but its result is never recorded — it does not appear on the
-scoreboard or in either player's game history.
+scoreboard or in either player's game history. Once the game is already
+marked as cheated, further developer-tool use is not confirmed again.
 
 Settings also contains an **Auto-pass** toggle that automatically takes the only available action after a short delay, which speeds up solo testing.
 

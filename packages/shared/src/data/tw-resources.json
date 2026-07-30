@@ -862,6 +862,7 @@
           "type": "add-constraint",
           "constraint": "site-type-override",
           "overrideType": "haven",
+          "purpose": "healing-and-hazards",
           "scope": "until-cleared"
         }
       }
@@ -2158,8 +2159,65 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage makes a corruption check modified by -3. Keep sage tapped until Andúril is stored at a Haven [{H}]. Once stored, you may discard a stored Reforging and place Andúril with Narsil.In addition to Narsil’s effects, Andúril gives its bearer 4 marshalling points, +4 prowess (to a maximum of 11), +1 direct influence, and one more corruption point. Andúril may be tapped to untap a Dúnadan character in the same company, but its bearer must make a corruption check modified by -1."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "playableResources": {
+            "$includes": "information"
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "sage"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven"
+        ]
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      }
+    ],
+    "text": "Unique. Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage makes a corruption check modified by -3. Keep sage tapped until Andúril is stored at a Haven [{H}]. Once stored, you may discard a stored Reforging and place Andúril with Narsil.In addition to Narsil’s effects, Andúril gives its bearer 4 marshalling points, +4 prowess (to a maximum of 11), +1 direct influence, and one more corruption point. Andúril may be tapped to untap a Dúnadan character in the same company, but its bearer must make a corruption check modified by -1.",
+    "certified": "2026-07-30"
   },
   {
     "cardType": "hero-resource-faction",

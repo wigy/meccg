@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1029 | 1027 | 2 | 99.8% |
+| 1031 | 1029 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 88 | 88 | 100.0% |
 | LE | 290 | 288 | 99.3% |
 | TD | 75 | 75 | 100.0% |
-| TW | 298 | 298 | 100.0% |
+| TW | 300 | 300 | 100.0% |
 | WH | 82 | 82 | 100.0% |
 
 ## Detailed Test Matrix
@@ -645,7 +645,7 @@
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-101 | Bounty of the Hoard | — | 12 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
-| td-105 | Cram | — | 14 | ☑ |
+| td-105 | Cram | — | 15 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 20 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
@@ -686,7 +686,7 @@
 | tw-17 | Brigands | — | 7 | ☑ |
 | tw-18 | Call of Home | — | 8 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
-| tw-021 | — | — | 13 | ☑ |
+| tw-021 | — | — | 15 | ☑ |
 | tw-23 | Corpse-candle | — | 10 | ☑ |
 | tw-024 | — | — | 2 | ☑ |
 | tw-27 | Despair of the Heart | — | 9 | ☑ |
@@ -808,6 +808,7 @@
 | tw-188 | A Chance Meeting | — | 9 | ☑ |
 | tw-189 | A Friend or Three | — | 11 | ☑ |
 | tw-190 | Align Palantír | — | 9 | ☑ |
+| tw-192 | Andúril, the Flame of the West | — | 10 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-198 | Bill the Pony | — | 11 | ☑ |
@@ -824,7 +825,7 @@
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
-| tw-240 | Fellowship | — | 10 | ☑ |
+| tw-240 | Fellowship | — | 11 | ☑ |
 | tw-243 | Gates of Morning | — | 10 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
 | tw-245 | Goldberry | — | 15 | ☑ |
@@ -861,6 +862,7 @@
 | tw-311 | Rangers of the North | — | 2 | ☑ |
 | tw-312 | Red Arrow | — | 7 | ☑ |
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
+| tw-314 | Reforging | — | 10 | ☑ |
 | tw-315 | Rescue Prisoners | — | 16 | ☑ |
 | tw-316 | Return of the King | — | 6 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
@@ -882,7 +884,7 @@
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
 | tw-347 | The One Ring | — | 14 | ☑ |
-| tw-348 | The White Tree | — | 11 | ☑ |
+| tw-348 | The White Tree | — | 12 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
 | tw-350 | Tom Bombadil | — | 7 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |
@@ -994,7 +996,7 @@
 | wh-27 | Nature’s Revenge | — | 12 | ☑ |
 | wh-28 | Power Relinquished to Artifice | — | 11 | ☑ |
 | wh-29 | Rolled down to the Sea | — | 5 | ☑ |
-| wh-33 | Noble Steed | — | 10 | ☑ |
+| wh-33 | Noble Steed | — | 11 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
 | wh-37 | A Panoply of Wings | — | 11 | ☑ |
 | wh-38 | Beasts of the Wood | — | 16 | ☑ |

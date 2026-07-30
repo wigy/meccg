@@ -179,12 +179,20 @@ export function siteNameOf(state: GameState, siteDefinitionId: CardDefinitionId 
  * override, of every printed version of it, or, for a printed-type-scoped
  * override, every site of one printed type at once (Witch-king of Angmar
  * tw-113). The last matching override wins.
+ *
+ * `excludeCharacterPlayOverrides`: when true, skips any override flagged
+ * `excludesCharacterPlay` (The White Tree tw-348: a Haven "for the purposes
+ * of healing and playing hazards" only). Pass this from callers that decide
+ * whether a character may be played/recruited at the site; every other
+ * consumer (hazard keying, movement, item/faction/ally playability, healing)
+ * should omit it so those overrides still apply in full.
  */
 export function getEffectiveSiteType(
   state: GameState,
   siteDefinitionId: CardDefinitionId,
   printedType: SiteType,
   siteInstanceId?: CardInstanceId,
+  excludeCharacterPlayOverrides = false,
 ): SiteType {
   // Roots of the Earth (ba-74): a `site-instance-transform` retypes a specific
   // Under-deeps instance and every other version differently. This is the
@@ -215,6 +223,7 @@ export function getEffectiveSiteType(
     // The general effective type is unchanged, so hazard keying, movement,
     // bring-into-play, and item/faction/ally playability all see the printed type.
     if (c.kind.healingOnly) continue;
+    if (excludeCharacterPlayOverrides && c.kind.excludesCharacterPlay) continue;
     if (!siteConstraintFilterMatches(c.kind.filter, siteDefinitionId, siteNameOf(state, siteDefinitionId), printedType)) continue;
     value = c.kind.value as SiteType;
   }

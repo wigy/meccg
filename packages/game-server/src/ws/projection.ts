@@ -260,6 +260,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     stateSeq: state.stateSeq,
     legalActions: [],
     activeConstraints: state.activeConstraints,
+    cheated: state.cheated,
   };
 }
 
@@ -392,5 +393,6 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     stateSeq: state.stateSeq,
     legalActions,
     activeConstraints: state.activeConstraints,
+    cheated: state.cheated,
   };
 }

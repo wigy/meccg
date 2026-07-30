@@ -43,6 +43,7 @@ import {
 import type {
   CardInstanceId,
   PlayShortEventAction,
+  FreeCouncilPhaseState,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, enqueueResolution } from '../../engine/pending.js';
@@ -476,5 +477,87 @@ describe('Halfling Strength (tw-253)', () => {
 
     const state = dispatch(stateWithCheat, checkActions[0].action);
     expect(state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
+  });
+
+  test('Free Council: corruption-check-boost is offered during the phase\'s own pending check window (CoE 10.3.i)', () => {
+    // Regression: the Free Council endgame corruption-check window tracks its
+    // own `pendingCheck` in phaseState instead of the generic pending-resolution
+    // queue, so reactive short-event scans (which only consulted the queue)
+    // never offered Halfling Strength's boost here even though CoE 10.3.i
+    // explicitly grants "actions that would reduce a character's corruption
+    // point total" during these end-of-game checks.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [BILBO] }], hand: [HALFLING_STRENGTH], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: bilboId,
+        corruptionPoints: 0,
+        corruptionModifier: 0,
+        possessions: [],
+        need: 1,
+        explanation: 'test',
+        supportCount: 0,
+      },
+    };
+    const state = { ...base, phaseState: fcState };
+
+    const boostActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .filter(a => a.optionId === 'corruption-check-boost');
+
+    expect(boostActions).toHaveLength(1);
+    expect(boostActions[0].cardInstanceId).toBe(hsInstance);
+    expect(boostActions[0].targetCharacterId).toBe(bilboId);
+  });
+
+  test('Free Council: declaring a check with no eligible supporter still opens the window for a reactive resource play (regression)', () => {
+    // Regression: handleDeclareCorruptionCheck used to resolve the check
+    // immediately whenever no company mate could tap for +1 support, closing
+    // the window before a lone hobbit's Halfling Strength could ever be played.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [BILBO] }], hand: [HALFLING_STRENGTH], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const state = { ...base, phaseState: fcState };
+
+    const declareAction = computeLegalActions(state, PLAYER_1)
+      .find(ea => ea.viable && ea.action.type === 'corruption-check');
+    expect(declareAction).toBeDefined();
+
+    const afterDeclare = dispatch(state, declareAction!.action);
+    const afterFc = afterDeclare.phaseState as FreeCouncilPhaseState;
+    expect(afterFc.pendingCheck).not.toBeNull();
+    expect(afterFc.pendingCheck?.characterId).toBe(bilboId);
   });
 });

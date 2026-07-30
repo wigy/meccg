@@ -150,6 +150,11 @@ export function buildConstraintKind(
       // Houses of Healing (td-125): `purpose: 'healing'` makes this a
       // healing-only override — `getEffectiveSiteType` skips it, so only the
       // untap-phase haven-healing sweep honours it.
+      // The White Tree (tw-348): `purpose: 'healing-and-hazards'` still lets
+      // every general consumer of `getEffectiveSiteType` see the override
+      // (hazard keying, movement, item/faction/ally playability, healing),
+      // but flags it `excludesCharacterPlay` so character recruiting does not
+      // treat the site as a haven.
       const purpose = (onEvent.apply as { purpose?: string }).purpose;
       // Nature's Revenge (wh-27): "All versions of the site become Ruins &
       // Lairs" — scope the override by printed *name* so the hero, minion,
@@ -168,6 +173,7 @@ export function buildConstraintKind(
           ? { 'site.name': siteName! }
           : { 'site.definitionId': siteDefinitionId as string },
         ...(purpose === 'healing' ? { healingOnly: true } : {}),
+        ...(purpose === 'healing-and-hazards' ? { excludesCharacterPlay: true } : {}),
       };
     }
     case 'region-type-override': {

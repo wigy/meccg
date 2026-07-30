@@ -2077,6 +2077,13 @@ export function buildPlayOptionContext(
   }
   const corruptionCheckTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
+  ) || (
+    // Free Council (CoE 10.3.i) tracks its own pending check outside the
+    // generic pending-resolution queue — mirror it here so reactive plays
+    // like Halfling Strength's +4 corruption-check boost stay usable during
+    // the end-of-game corruption checks, not just mid-game ones.
+    state.phaseState.phase === Phase.FreeCouncil
+    && state.phaseState.pendingCheck?.characterId === char.instanceId
   );
   let inAvatarCompany = false;
   let isRevealedAvatar = false;

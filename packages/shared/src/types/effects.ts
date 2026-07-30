@@ -2352,13 +2352,21 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly overrideType?: string;
   /**
    * For a `site-type-override` add-constraint: restricts the override to a
-   * single game purpose. `'healing'` — the site counts as the overridden type
-   * (a Haven) **only** for the untap-phase healing check; every other purpose
-   * (hazard keying, movement, bring-into-play, item/faction/ally playability)
-   * still sees the printed site type. Houses of Healing (td-125): "Site becomes
-   * a Haven [{H}] for the purposes of healing." Omit for a full type override
-   * that changes the effective site type everywhere (Hold Rebuilt and Repaired
-   * as-88, The White Tree tw-348).
+   * subset of game purposes.
+   * - `'healing'` — the site counts as the overridden type (a Haven) **only**
+   *   for the untap-phase healing check; every other purpose (hazard keying,
+   *   movement, bring-into-play, item/faction/ally playability, character
+   *   recruiting) still sees the printed site type. Houses of Healing
+   *   (td-125): "Site becomes a Haven [{H}] for the purposes of healing."
+   * - `'healing-and-hazards'` — the override applies everywhere *except*
+   *   character recruiting (`getEffectiveSiteType`'s
+   *   `excludeCharacterPlayOverrides` callers skip it). The White Tree
+   *   (tw-348): "Minas Tirith becomes a Haven [{H}] for the purposes of
+   *   healing and playing hazards" — not for playing characters.
+   *
+   * Omit for a full type override that changes the effective site type
+   * everywhere, including character recruiting (Hold Rebuilt and Repaired
+   * as-88).
    */
   readonly purpose?: string;
   /**

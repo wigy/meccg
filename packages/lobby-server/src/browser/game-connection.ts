@@ -344,6 +344,9 @@ export function connect(name: string): void {
   // second-and-later games of a browser session this also hides the previous
   // game's still-rendered board (nothing clears it while `#game` is hidden).
   setLoadingCover(true);
+  // A fresh connection starts clean; a restored cheated game re-flags via
+  // the first 'state' message.
+  appState.gameCheated = false;
   // Re-apply dev-mode UI: a spectator connection forces the debug menu and
   // debug-view toggle off; a player connection restores them per setting.
   window.__meccg?.refreshDevMode?.();
@@ -429,6 +432,9 @@ export function connect(name: string): void {
         await waitForDice();
         clearAwaitingResponse();
         appState.currentStateSeq = msg.view.stateSeq;
+        // Sticky: an undo can briefly broadcast a pre-cheat state, but a
+        // game once marked cheated never becomes clean again.
+        if (msg.view.cheated) appState.gameCheated = true;
         // Update heading to show game ID + seq
         const h = document.getElementById('state-heading');
         if (h && appState.currentGameId) {

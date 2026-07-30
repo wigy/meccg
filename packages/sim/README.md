@@ -316,6 +316,19 @@ npm run gate -w @meccg/sim -- --challenger h2:combat --champion heuristic --game
 npm run gate -w @meccg/sim -- --challenger h2:combat,kill --champion h2:combat --games 400
 ```
 
+The ablation that matters most is the other direction — *everything*, against
+everything but one module — and until recently it could not be run at all. An
+agent spec may contain commas of its own, and `--agents` split the pair on
+commas, so a fifteen-name selector parsed as fifteen agents and the child
+process died. A **semicolon** separates the pair when one is present, and the
+comma keeps working for every spec without one:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:characters,kill,combat,corruption,endgame,events,factions,fetching,grants,hand,hazards,health,resources,travel'
+npm run bench -w @meccg/sim -- --agents 'h2;h2:combat,kill'
+```
+
 The fitted `W` is also available as the leaf evaluator for the determinizing
 PUCT search, which is the experiment `docs/ai-training-system.md` §11 names as
 the immediate one — §8 records that search only ties the bare policy, and §9
@@ -544,6 +557,55 @@ rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
 
+### The opening draft: built, gated, and rejected
+
+The draft has scored **flat** since P0 — every candidate at exactly 0.0% — and
+the reason is not a gap in a module. CoE 10.3 step 4 reduces any source
+contributing more than half a player's total until it is no more than half, and
+that iterates, so at 0–0 a score made of one source cancels itself: three
+character marshalling points alone score zero. `card-price` quotes every
+character in the pool at the same number because the standing has no opinion
+there, and the most consequential decision in the game went to Heuristics 1.
+
+The obvious way out is to stop pricing the draft in marshalling points. What a
+starting character is *for* is that he stands in front of the company all game,
+and that is priced in the flat tempo constants a tap, a wound and an elimination
+cost — which do not vanish at 0–0. So a pick is worth the harm it takes off the
+company: `defence.expectedHarm(drafted, slots)` minus the same with the
+candidate in it, both arms at the limit the company will have *after* the pick,
+so the comparison is between candidates rather than between company sizes.
+
+It ranks exactly as you would hope — Glorfindel II first, Fatty Bolger last —
+and it **loses**:
+
+```text
+h2 vs h2 without the draft module, paired seeds, side-swapped
+  score:     90W-106L-4D (46.0%) over 200 rated games
+  elo diff:  -28 [-77, +20]
+  glicko-2:  -6 [-84, +73]
+```
+
+Not conclusively worse — the interval spans zero — but no evidence of gain and
+the point estimate on the wrong side, and it fails the gate's own criterion. So
+it is not shipped. Two things are worth carrying forward from it.
+
+**The first pick cannot be scored this way at all.** With nothing drafted the
+baseline is a company that does not exist, and a company that does not exist
+cannot be harmed — so every candidate comes out *negative* (−1.7 to −6.3 in the
+corpus position) and `draft-stop` outranks all of them, which would leave the
+player with no company. From the second pick the comparison means something
+(+2.7 to −2.5, and +6.1 by the fourth). The experiment declined the first pick
+for that reason.
+
+**The half that is missing is mind.** Twenty points of general influence across
+the whole starting company is the draft's real budget, and a defence-only
+valuation never trades it off: a mind-8 character who parries well beats two
+mind-4s who would answer better between them, so the pool goes early and the
+company ends up small. Pricing mind needs a rate, and a rate is the hand-tuned
+weight this design exists to remove. The next attempt should start there rather
+than from the defensive number, which is measured and does not carry the
+decision on its own.
+
 ### Does it win?
 
 ```sh
@@ -593,33 +655,45 @@ here: source was edited while it was running, and `gate` spawns `tsx` children
 that read the source at launch, so different games in it played different code.
 The number above is from a stable tree.
 
-#### The one game that did not finish
+#### The one game that did not finish, and the wrong diagnosis of it
 
-Seed 1 ran **508 turns** and hit the decision limit at 0–0. It is not a cycle
-inside a phase — turns advance normally — and it is not the AI's fault:
+Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players
+having lost every character and a companyless player offered nothing but `pass`
+in their organization phase.
 
-```sh
-npm run play -w @meccg/sim -- --agents h2,heuristic --seed 1 --games 1 --max-decisions 6000
-```
+**The explanation recorded here was wrong**, and is corrected rather than
+deleted because the wrong version was acted on. It said there is no
+`play-character` on offer "because every path to playing one runs through an
+existing company". There is such a path: `findPlayableSites` searches the
+player's **site deck** precisely so a character can form a new company. Across
+sixty seeds, a companyless player holding a character was offered a viable
+`play-character` at 65 decisions; where none was offered the reason was a real
+rule — "already played a character this turn", "unique character already in
+play", or a home site the site deck no longer held. The seed-1 stall also no
+longer reproduces: on current master that game completes in 134 turns.
 
-By then **both players have lost every character**, and a player with no
-companies is offered exactly one action in their organization phase:
+What is real, and was the mechanism worth chasing, is that **site cards leak**.
+A companyless player can only reach the sites in their location deck, so a
+player who loses their havens loses the ability to start a new company — and
+sites were going missing. One of the leaks is fixed alongside this note:
+`cleanupEmptyCompanies` sent a dissolved company's *tapped* site to
+`discardPile`, the play deck's discard, where rule 2.07 means the **site**
+discard pile. A site sent there is lost as a site — only `siteDiscardPile` is
+returned to the location deck, by `startDeckExhaust` — and `completeDeckExhaust`
+shuffles that pile into the play deck, so the site card ends up among the cards
+drawn.
+
+That is not the whole leak. Tracking every site instance through twelve games
+shows a company dissolved during the organization phase losing **both** its
+current and its destination site, on master and after this fix alike:
 
 ```text
-turn 507 p2: options=1 [pass]
-    hand: Slayer, Goldberry, Elrond(hero-character), Chill Douser, …
-    discard has characters: true
+seed 1 p2 turn 5 organization: current:Lórien
+seed 1 p2 turn 5 organization: dest:Rivendell
 ```
 
-Elrond is in hand. There is no `play-character` on offer, because every path to
-playing one runs through an existing company, so a player who loses their last
-character can never bring another into play. Neither side can score, no end
-condition fires, and the game runs forever. One game in 200.
-
-Left as a report rather than a fix, on the same grounds as the defect recorded
-below: this is engine rules code, what a company-less player may do is a rules
-question (which sites may a new company be started at, and at whose influence
-cost), and the verification loop for a change here is a 200-game gate.
+That one is located but not diagnosed, and is deliberately left rather than
+guessed at.
 
 What the samples do establish is that H2 plays every game to completion, which
 was not true a week ago. Two self-play games once ran to the decision limit

@@ -20,6 +20,8 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
+import { modifyCorruptionCheckGrantActions } from './legal-actions/organization.js';
+import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
 import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayShortEvent } from './reducer-events.js';
@@ -109,11 +111,12 @@ export function handleFreeCouncil(state: GameState, action: GameAction): Reducer
 
 /**
  * Declares a corruption check — stores it as pending so that other
- * untapped characters in the same company can tap for support before
- * the dice roll resolves.
+ * untapped characters in the same company can tap for support, and so
+ * either player can play resource/character actions that would reduce the
+ * check or prevent a discard (CoE 10.3.i), before the dice roll resolves.
  *
- * If no eligible supporters exist, the check resolves immediately
- * to avoid an unnecessary pass step.
+ * If none of those reactive options are available, the check resolves
+ * immediately to avoid an unnecessary pass step.
  */
 function handleDeclareCorruptionCheck(
   state: GameState,
@@ -155,14 +158,27 @@ function handleDeclareCorruptionCheck(
     }
   }
 
-  if (!hasEligibleSupporter) {
-    // No supporters available — resolve immediately
-    logDetail(`Free Council: no eligible supporters for ${charName} — resolving immediately`);
-    return resolveCorruptionCheck({ ...state, phaseState: newFcState }, newFcState);
+  // CoE 10.3.i: reactive short-event plays (Halfling Strength's +4 modifier
+  // and friends) and in-play grant activations (When I Know Anything td-166)
+  // are also legal in this window — the check must stay open for them even
+  // when no untapped company mate can tap in support. Evaluated against the
+  // state with `newFcState` already applied so `pending.corruptionCheckTargetsMe`
+  // (read from phaseState.pendingCheck, not the generic queue) sees the check.
+  const stateWithPending = { ...state, phaseState: newFcState };
+  const checkedChar = player.characters[action.characterId];
+  const hasReactivePlay = checkedChar
+    ? reactiveCorruptionCheckPlays(stateWithPending, action.player, checkedChar).length > 0
+    : false;
+  const hasModifierGrant = modifyCorruptionCheckGrantActions(stateWithPending, action.player, action.characterId).length > 0;
+
+  if (!hasEligibleSupporter && !hasReactivePlay && !hasModifierGrant) {
+    // No reactive options available — resolve immediately
+    logDetail(`Free Council: no eligible supporters or reactive plays for ${charName} — resolving immediately`);
+    return resolveCorruptionCheck(stateWithPending, newFcState);
   }
 
   logDetail(`Free Council: support window open for ${charName}`);
-  return { state: { ...state, phaseState: newFcState } };
+  return { state: stateWithPending };
 }
 
 /**

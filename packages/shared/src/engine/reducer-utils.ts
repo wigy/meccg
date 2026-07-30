@@ -3513,7 +3513,26 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
 
 /**
  * Removes companies with no characters and returns their site cards
- * to the player's site deck.
+ * to the player's location deck or site discard pile.
+ *
+ * Rule 2.07: the site "must be immediately returned to its player's location
+ * deck if it is untapped, discarded if it is tapped". *Discarded* means the
+ * **site** discard pile — the pile `startDeckExhaust` returns to the location
+ * deck — and not `discardPile`, which is the play deck's.
+ *
+ * Sending a site to the play deck's discard instead lost it twice over: it
+ * could never come back as a site, and `completeDeckExhaust` shuffles that pile
+ * into the play deck, so a site card ended up among the cards drawn.
+ *
+ * Why it matters beyond the tidiness: a player with no companies can only bring
+ * a character into play at a site in their location deck, so every site that
+ * leaks is a site they can never start a new company at — and a player who runs
+ * out of havens cannot recover from losing their last character at all.
+ *
+ * This is not the only leak. Tracking every site instance through twelve
+ * self-play games still shows a company dissolved during the organization phase
+ * losing both its current and its destination site, before and after this fix
+ * alike. That one is located but not diagnosed.
  */
 export function cleanupEmptyCompanies(state: GameState): GameState {
   const newPlayers = state.players.map(player => {
@@ -3554,9 +3573,17 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
       logDetail(`cleanupEmptyCompanies: discarding ${boundToEmpty.length} permanent-event(s) bound to empty company/companies`);
     }
 
-    const newDiscardPile = [...player.discardPile, ...tappedSites, ...boundToEmpty.map(toCardInstance)];
+    const newSiteDiscardPile = [...player.siteDiscardPile, ...tappedSites];
+    const newDiscardPile = [...player.discardPile, ...boundToEmpty.map(toCardInstance)];
 
-    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile, cardsInPlay: remainingCardsInPlay };
+    return {
+      ...player,
+      companies: keptCompanies,
+      siteDeck: newSiteDeck,
+      siteDiscardPile: newSiteDiscardPile,
+      discardPile: newDiscardPile,
+      cardsInPlay: remainingCardsInPlay,
+    };
   });
 
   const cleanedState: GameState = { ...state, players: [newPlayers[0], newPlayers[1]] };

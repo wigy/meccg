@@ -1340,8 +1340,14 @@ function corruptionCheckEntryActions(
  * handles the play via the normal `play-short-event` path; the chosen
  * option's `apply` clause runs through the generic dispatcher. No
  * per-card branches.
+ *
+ * Exported so the Free Council corruption-check window
+ * ({@link module:legal-actions/free-council}) can offer the same reactive
+ * plays — CoE 10.3.i grants both players resource/character actions that
+ * "reduce a character's corruption point total or prevent a character from
+ * being discarded" during those end-of-game checks too.
  */
-function reactiveCorruptionCheckPlays(
+export function reactiveCorruptionCheckPlays(
   state: GameState,
   playerId: PlayerId,
   targetChar: import('../../index.js').CharacterInPlay,

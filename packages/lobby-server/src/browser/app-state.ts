@@ -102,6 +102,12 @@ function createDefaultAppState() {
   currentGameId: null as string | null,
   /** Latest state sequence number (updated on each 'state' message). */
   currentStateSeq: 0,
+  /**
+   * Whether the current game has been marked as cheated (a developer tool
+   * was used). Sticky for the whole game once set — used to skip the cheat
+   * confirmation dialog after the first confirmed use. Reset on connect.
+   */
+  gameCheated: false,
   /** Opponent player name (lobby mode, set on 'game-starting'). */
   opponentName: null as string | null,
 

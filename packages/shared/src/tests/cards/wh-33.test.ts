@@ -31,6 +31,7 @@ import {
   viableActions,
   findCharInstanceId,
   makeSitePhase,
+  makeMHState,
   makeCancelWindowCombat,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
@@ -41,7 +42,7 @@ import {
   actionAs,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, CancelStrikeAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, CancelStrikeAction, MovementHazardPhaseState } from '../../index.js';
 
 const NOBLE_STEED = 'wh-33' as CardDefinitionId;
 // Iron Hill Dwarf-hold (tw-403): Iron Hills region, nearest haven Lórien
@@ -223,6 +224,47 @@ describe('Noble Steed (wh-33)', () => {
     });
 
     expect(destDefIds).not.toContain(IRON_HILL_DWARF_HOLD);
+  });
+
+  test('movement-hazard phase honors the bonus too: declare-path reaches a destination beyond the base max region distance', () => {
+    // Regression: organization-phase plan-movement offered Iron Hill Dwarf-hold
+    // as reachable (regDist=6, within the steed-boosted max), but the M/H
+    // phase's select-company step computed maxRegionDistance from base +
+    // extraRegionDistance only — never adding the passive-movement-bonus. That
+    // left the company's declared destination unreachable at reveal-new-site,
+    // so rule 5.04 silently negated the move and reverted the company to its
+    // origin site (bug report: "the game lets me choose the site but brings me
+    // back to the original site").
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: EDORAS, characters: [ARAGORN, LEGOLAS], destinationSite: IRON_HILL_DWARF_HOLD }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const withAragornSteed = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_STEED);
+    const withBothSteeds = attachAllyToChar(withAragornSteed, RESOURCE_PLAYER, LEGOLAS, NOBLE_STEED);
+    const companyId = withBothSteeds.players[RESOURCE_PLAYER].companies[0].id;
+    const ready = { ...withBothSteeds, phaseState: makeMHState({ step: 'select-company' }) };
+
+    const afterSelect = dispatch(ready, { type: 'select-company', player: PLAYER_1, companyId });
+    const phaseState = afterSelect.phaseState as MovementHazardPhaseState;
+
+    // Base 4 + steed bonus 2 = 6.
+    expect(phaseState.maxRegionDistance).toBe(6);
+
+    const declarePathActions = viableActions(afterSelect, PLAYER_1, 'declare-path');
+    expect(declarePathActions.length).toBeGreaterThanOrEqual(1);
+
+    const afterDeclare = dispatch(afterSelect, declarePathActions[0].action);
+    const company = afterDeclare.players[RESOURCE_PLAYER].companies[0];
+    expect(company.destinationSite?.definitionId).toBe(IRON_HILL_DWARF_HOLD);
   });
 
   // ─── Rule 4: tap to cancel a strike (not from an automatic-attack) ───────────
