@@ -1034,8 +1034,39 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. The prowess of each Elf and Dúnadan is modified by +1 (by +2 if Gates of Morning is in play)."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-characters",
+        "when": {
+          "target.race": {
+            "$in": ["elf", "dunadan"]
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            {
+              "target.race": {
+                "$in": ["elf", "dunadan"]
+              }
+            },
+            {
+              "inPlay": "Gates of Morning"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Environment. The prowess of each Elf and Dúnadan is modified by +1 (by +2 if Gates of Morning is in play).",
+    "certified": "2026-07-30"
   },
   {
     "cardType": "hero-resource-event",
