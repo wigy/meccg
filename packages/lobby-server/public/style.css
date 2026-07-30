@@ -933,6 +933,46 @@ h2 {
   vertical-align: middle;
 }
 
+/* ---- Admin: requests tab ---- */
+
+.admin-req-actions {
+  text-align: right;
+  white-space: nowrap;
+  width: 7rem;
+}
+
+.admin-req-icon-btn {
+  background: none;
+  border: none;
+  padding: 0.15rem;
+  margin-left: 0.35rem;
+  color: #a0a8b0;
+  cursor: pointer;
+  vertical-align: middle;
+  line-height: 0;
+}
+
+.admin-req-icon-btn:hover {
+  color: #f5d98a;
+}
+
+.admin-req-icon-btn--danger:hover {
+  color: #f44336;
+}
+
+.admin-req-empty {
+  color: #6b6b7a;
+  text-align: center;
+}
+
+.admin-older-row td {
+  text-align: center;
+}
+
+.admin-older-btn {
+  margin-bottom: 0;
+}
+
 /* ---- Admin: one user's detail ---- */
 
 .admin-detail-head {
@@ -1522,6 +1562,16 @@ h2 {
 }
 
 .inbox-status--declined {
+  background: rgba(244, 67, 54, 0.25);
+  color: #f44336;
+}
+
+.inbox-status--success {
+  background: rgba(76, 175, 80, 0.25);
+  color: #4caf50;
+}
+
+.inbox-status--failed {
   background: rgba(244, 67, 54, 0.25);
   color: #f44336;
 }
