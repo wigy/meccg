@@ -293,6 +293,33 @@ function findHazardBearerName(
 
 // ---- Disambiguation tooltips ----
 
+/** A labelled choice for how to play (or otherwise dispose of) a short-event card. */
+export interface ShortEventPlayChoice {
+  readonly label: string;
+  readonly action: GameAction;
+}
+
+/**
+ * Append the "Discard" and "Place on-guard" choices to a short event's own
+ * play choices, when the corresponding actions are legal. CoE 2.IV.vii.4 lets
+ * the hazard player place any hand card — including one with its own short-
+ * event play target(s) (e.g. Twilight cancelling an environment, Searching
+ * Eye cancelling a scout effect) — face-down on-guard, so that choice must
+ * never be silently dropped just because the card also has a play target
+ * (the same defect previously fixed for agent and character-targeting hazard
+ * cards; see agent-onguard-choice.test.ts and hazard-onguard-choice.test.ts).
+ */
+export function shortEventPlayChoices(
+  playChoices: readonly ShortEventPlayChoice[],
+  discardAction: GameAction | undefined,
+  onGuardAction: GameAction | undefined,
+): readonly ShortEventPlayChoice[] {
+  const choices = [...playChoices];
+  if (discardAction) choices.push({ label: 'Discard', action: discardAction });
+  if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  return choices;
+}
+
 /**
  * Show a disambiguation tooltip near the clicked short-event card
  * when there are multiple valid targets. Each button names a target
@@ -302,7 +329,8 @@ function findHazardBearerName(
  * Show a disambiguation tooltip for short events with multiple targets or
  * when the player must choose between playing and discarding the card.
  * Each button describes the play option; a "Discard" button is appended
- * when `discardAction` is supplied.
+ * when `discardAction` is supplied, and a "Place on-guard" button when
+ * `onGuardAction` is supplied.
  */
 function showShortEventTargetMenu(
   event: MouseEvent,
@@ -311,9 +339,10 @@ function showShortEventTargetMenu(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
   discardAction?: GameAction,
+  onGuardAction?: GameAction,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const items: TooltipMenuItem[] = [];
+  const playChoices: ShortEventPlayChoice[] = [];
 
   for (const action of actions) {
     if (action.type !== 'play-short-event') continue;
@@ -364,15 +393,14 @@ function showShortEventTargetMenu(
       label = 'Play';
     }
 
-    items.push({ label, onClick: () => onAction(action) });
+    playChoices.push({ label, action });
   }
 
-  // When the card can also be discarded from hand (e.g. during the end-of-turn
-  // discard step), offer that as an explicit choice so the player is not forced
-  // to play the short event just because it is currently playable.
-  if (discardAction) {
-    items.push({ label: 'Discard', onClick: () => onAction(discardAction) });
-  }
+  // Append "Discard" (end-of-turn voluntary discard, CoE 2.VI.i) and
+  // "Place on-guard" (CoE 2.IV.vii.4) when legal, so neither is silently
+  // dropped just because the card also has a short-event play target.
+  const choices = shortEventPlayChoices(playChoices, discardAction, onGuardAction);
+  const items: TooltipMenuItem[] = choices.map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
 
   showCursorTooltipMenu(event, items);
 }
@@ -1033,6 +1061,21 @@ export function renderHand(
         if (onAction) {
           img.addEventListener('click', (e) => {
             showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction, discardAction);
+          });
+        }
+      } else if (onGuardAction) {
+        // A hazard short-event that is not routed through the play-hazard
+        // action type (e.g. Twilight, Searching Eye — environment/skill
+        // cancelers emitted as play-short-event) still qualifies for on-guard
+        // placement under CoE 2.IV.vii.4 ("any one card from their hand").
+        // The two-step highlight flows below only dispatch the short event,
+        // so route through the disambiguation menu instead whenever on-guard
+        // placement is also legal, to avoid silently dropping that choice
+        // (the same defect previously fixed for agent and hazard cards).
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
+          img.addEventListener('click', (e) => {
+            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction, undefined, onGuardAction);
           });
         }
       } else if (hasDiscardTargets && !hasScoutTargets) {
