@@ -13,16 +13,17 @@
 import { describe, test, expect } from 'vitest';
 import type { GameAction } from '@meccg/shared';
 import type { AgentDecision } from '../types.js';
-import { DivergenceCost, preferred, priceOf } from './divergence-cost.js';
+import { DivergenceCost, UNITLESS, preferred, priceOf } from './divergence-cost.js';
 
 const BEST = { type: 'pass' } as unknown as GameAction;
 const WORSE = { type: 'pass' } as unknown as GameAction;
 const UNSEARCHED = { type: 'discard-card' } as unknown as GameAction;
 
-/** A decision that ranked `BEST` at 4 and `WORSE` at 1.5. */
+/** A searched decision that ranked `BEST` at 4 tsd and `WORSE` at 1.5. */
 function decision(): AgentDecision {
   return {
     action: BEST,
+    weightUnit: 'tsd',
     considered: [{ action: BEST, weight: 4 }, { action: WORSE, weight: 1.5 }],
   };
 }
@@ -59,24 +60,46 @@ describe('the cost table', () => {
     const cost = new DivergenceCost();
     cost.record(decision(), WORSE, () => 'x');
     cost.record(decision(), UNSEARCHED, () => 'x');
-    const entry = cost.byType.get('pass')!;
+    const bucket = cost.buckets.get('tsd')!;
+    const entry = bucket.byType.get('pass')!;
     expect(entry.divergences).toBe(2);
     expect(entry.priced).toBe(1);
     expect(entry.unranked).toBe(1);
     expect(entry.total).toBeCloseTo(2.5, 12);
     // An unranked divergence contributes no cost, so it cannot dilute a mean.
-    expect(cost.total()).toBeCloseTo(2.5, 12);
-    expect(cost.priced).toHaveLength(1);
+    expect(bucket.total()).toBeCloseTo(2.5, 12);
+    expect(bucket.priced).toHaveLength(1);
   });
 
   test('ranks action types by total cost, dearest first', () => {
     const cost = new DivergenceCost();
     const cheap: AgentDecision = {
       action: UNSEARCHED,
+      weightUnit: 'tsd',
       considered: [{ action: UNSEARCHED, weight: 1 }, { action: WORSE, weight: 0.9 }],
     };
     cost.record(cheap, WORSE, () => 'x');
     cost.record(decision(), WORSE, () => 'x');
-    expect(cost.ranked().map(([type]) => type)).toEqual(['pass', 'discard-card']);
+    expect(cost.buckets.get('tsd')!.ranked().map(([type]) => type)).toEqual(['pass', 'discard-card']);
+  });
+});
+
+describe('unit systems are never pooled', () => {
+  // `mc` delegates every view it cannot determinize and hands back the
+  // fallback's weights. Adding those to its own mean-TSD numbers would report
+  // H1's weight soup as though it were tournament score.
+  test('a delegated decision lands in its own bucket', () => {
+    const cost = new DivergenceCost();
+    cost.record(decision(), WORSE, () => 'x');
+    cost.record({ action: BEST, considered: decision().considered }, WORSE, () => 'x');
+    expect(cost.buckets.get('tsd')!.total()).toBeCloseTo(2.5, 12);
+    expect(cost.buckets.get(UNITLESS)!.total()).toBeCloseTo(2.5, 12);
+  });
+
+  test('quantified units are reported before unitless ones', () => {
+    const cost = new DivergenceCost();
+    cost.record({ action: BEST, considered: decision().considered }, WORSE, () => 'x');
+    cost.record(decision(), WORSE, () => 'x');
+    expect(cost.units()).toEqual(['tsd', UNITLESS]);
   });
 });

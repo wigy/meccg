@@ -11,10 +11,18 @@
  * `considered` weights, so the gap between what it scored its own pick and what
  * it scored the shadow's is a price for taking the shadow's move instead.
  *
- * Units are the driver's. For `compare`'s default driver they are meaningful:
+ * Units are the driver's, and **the driver does not have one set of units**.
  * `mc` reports each candidate's mean playout TSD above the worst candidate, so
- * a difference of weights is a difference of mean TSD, estimated by playing
- * both moves forward through the real reducer.
+ * a difference of weights is a difference of mean TSD — but only on decisions
+ * it actually searched. It cannot determinize a view in combat, mid-chain, or
+ * with effects pending, and there it hands the decision to its fallback and
+ * returns *that* agent's weights, which are H1's unitless soup. Pooling the two
+ * adds score to sampling weight and calls the sum score.
+ *
+ * So costs are bucketed by `AgentDecision.weightUnit` and reported one table
+ * per bucket. The split is not cosmetic: with `mc` driving it is exactly the
+ * line between the decisions the rollouts have an opinion about and the ones
+ * where "the Monte-Carlo agent" is Heuristics 1 wearing its name.
  *
  * Three things the number is not:
  *
@@ -83,10 +91,37 @@ export function priceOf(
   return driverWeight - shadowWeight;
 }
 
-/** Accumulates the cost table across a run. */
-export class DivergenceCost {
+/** The costs recorded in one unit system. */
+export class CostBucket {
   readonly byType = new Map<string, CostEntry>();
   readonly priced: PricedDivergence[] = [];
+
+  /** Action types by total cost, dearest first. */
+  ranked(): [string, CostEntry][] {
+    return [...this.byType.entries()].sort((a, b) => b[1].total - a[1].total);
+  }
+
+  /** Total cost over every action type in this bucket. */
+  total(): number {
+    let sum = 0;
+    for (const entry of this.byType.values()) sum += entry.total;
+    return sum;
+  }
+
+  /** Divergences recorded, priced or not. */
+  divergences(): number {
+    let sum = 0;
+    for (const entry of this.byType.values()) sum += entry.divergences;
+    return sum;
+  }
+}
+
+/** The label for decisions whose weights carry no declared unit. */
+export const UNITLESS = 'sampling weights';
+
+/** Accumulates cost tables across a run, one per unit system. */
+export class DivergenceCost {
+  readonly buckets = new Map<string, CostBucket>();
 
   /** Record one divergence, priced where the driver ranked both moves. */
   record(
@@ -94,9 +129,12 @@ export class DivergenceCost {
     shadowPick: GameAction,
     describe: (action: GameAction) => string,
   ): void {
+    const unit = decision.weightUnit ?? UNITLESS;
+    const bucket = this.buckets.get(unit) ?? new CostBucket();
+    this.buckets.set(unit, bucket);
     const driverPick = preferred(decision);
     const type = driverPick.type;
-    const entry = this.byType.get(type) ?? { divergences: 0, priced: 0, total: 0, unranked: 0 };
+    const entry = bucket.byType.get(type) ?? { divergences: 0, priced: 0, total: 0, unranked: 0 };
     entry.divergences++;
     const cost = priceOf(decision, driverPick, shadowPick);
     if (cost === null) {
@@ -104,20 +142,13 @@ export class DivergenceCost {
     } else {
       entry.priced++;
       entry.total += cost;
-      this.priced.push({ cost, type, driver: describe(driverPick), shadow: describe(shadowPick) });
+      bucket.priced.push({ cost, type, driver: describe(driverPick), shadow: describe(shadowPick) });
     }
-    this.byType.set(type, entry);
+    bucket.byType.set(type, entry);
   }
 
-  /** Action types by total cost, dearest first. */
-  ranked(): [string, CostEntry][] {
-    return [...this.byType.entries()].sort((a, b) => b[1].total - a[1].total);
-  }
-
-  /** Total cost over every action type. */
-  total(): number {
-    let sum = 0;
-    for (const entry of this.byType.values()) sum += entry.total;
-    return sum;
+  /** Unit systems seen, the quantified ones first — they are the readable ones. */
+  units(): string[] {
+    return [...this.buckets.keys()].sort((a, b) => (a === UNITLESS ? 1 : 0) - (b === UNITLESS ? 1 : 0));
   }
 }

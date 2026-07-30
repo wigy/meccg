@@ -275,6 +275,13 @@ export function createMcAgent(options: McAgentOptions = {}): Agent {
       return {
         action: actions[best],
         considered: buildConsidered(actions, tallies),
+        // These weights are a *quantity*, not a sampling distribution: shifted
+        // mean playout TSD, so differences between them are differences of
+        // expected score. Only the searched path may claim it — the delegated
+        // returns above hand back the fallback's weights in the fallback's
+        // units, and mislabelling those would let a consumer subtract H1's
+        // weight soup as though it were score.
+        weightUnit: 'tsd',
         // The reported weights are TSD *above the worst candidate* (see
         // buildConsidered), not absolute TSD — say so, or a watcher reads
         // the ranking as a score differential it is not.

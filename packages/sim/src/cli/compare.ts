@@ -42,10 +42,18 @@
  * It costs no extra rollouts. The number is already computed; it was being
  * thrown away.
  *
- * Two honesty notes travel with the number. It is the *driver's* estimate, so
+ * The report is split by `AgentDecision.weightUnit`, because one agent does not
+ * have one set of units: `mc` delegates every view it cannot determinize and
+ * returns the fallback's weights, so a combat row and an organization row would
+ * otherwise be added together as though both were score. See
+ * `cli/divergence-cost`.
+ *
+ * Three honesty notes travel with the number. It is the *driver's* estimate, so
  * it inherits whatever the driver is wrong about — against `mc` that is a
  * handful of uniform-random playouts, which §2.3 of the rollout spec is explicit
- * cannot execute a plan. And a shortlisting driver may not have scored the
+ * cannot execute a plan. It is biased in the driver's favour, because the driver
+ * chose the argmax of its own noisy scores; driving with the same agent on both
+ * sides measures that floor. And a shortlisting driver may not have scored the
  * shadow's move at all; those are counted separately as `unranked` rather than
  * priced at zero, because "I did not look at it" is not "it is worth nothing".
  *
@@ -63,6 +71,7 @@ import { playGame } from '../runner.js';
 import { parseCliArgs, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 import type { Agent, AgentContext, AgentDecision } from '../types.js';
 import { DivergenceCost, preferred } from './divergence-cost.js';
+import type { CostBucket } from './divergence-cost.js';
 import { listScenarioIds, loadScenario, scenarioView } from '../ai/h2/scenario-store.js';
 
 /** Flag reference, printed by `--help`. */
@@ -121,12 +130,16 @@ interface Tally {
 
 const cost = new DivergenceCost();
 
-/** Print the cost table and the dearest individual divergences. */
-function reportCost(driverName: string, shadowName: string, top: number, worstCount: number): void {
-  const entries = cost.ranked();
+/** Print one unit system's cost table and its dearest divergences. */
+function reportBucket(
+  unit: string, bucket: CostBucket,
+  driverName: string, shadowName: string, top: number, worstCount: number,
+): void {
+  const entries = bucket.ranked();
   if (entries.length === 0) return;
   console.log('');
-  console.log(`What ${shadowName}'s picks cost, priced by ${driverName}'s own ranking of them:`);
+  console.log(`What ${shadowName}'s picks cost, priced by ${driverName}'s own ranking — `
+    + `${bucket.divergences()} divergence(s) scored in ${unit}:`);
   console.log('');
   console.log(`  ${'action type'.padEnd(28)} ${'diverged'.padStart(8)} ${'priced'.padStart(6)} `
     + `${'total'.padStart(9)} ${'mean'.padStart(7)} ${'unranked'.padStart(8)}`);
@@ -138,28 +151,42 @@ function reportCost(driverName: string, shadowName: string, top: number, worstCo
     );
   }
   console.log('');
-  console.log(`  total cost ${cost.total().toFixed(2)} in ${driverName}'s own units.`);
-  if (driverName.startsWith('mc')) {
-    console.log('  Those are mean playout TSD, so a row reads as "score the shadow gave up,');
-    console.log('  by rollouts through the real reducer".');
+  if (unit === 'tsd') {
+    console.log(`  total ${bucket.total().toFixed(2)} tsd — mean playout tournament-score`);
+    console.log('  differential, so a row reads as "score the shadow gave up, by rollouts');
+    console.log('  through the real reducer".');
   } else {
-    console.log(`  ${driverName} reports unitless weights, so only the ordering means anything —`);
-    console.log('  run with an `mc` driver for a number in TSD.');
+    console.log(`  total ${bucket.total().toFixed(2)} in weights that carry no unit: the driver`);
+    console.log('  published a sampling distribution, so only the *ordering* means anything and');
+    console.log('  these sums are not score. With `mc` driving this bucket is the decisions it');
+    console.log('  could not determinize and delegated — combat, chains, pending effects.');
   }
-  console.log('  It is the driver\'s estimate and inherits whatever the driver is wrong about,');
-  console.log('  and it is biased in the driver\'s favour because the driver picked the argmax');
-  console.log('  of its own noisy scores. Drive with the *same* agent on both sides to measure');
-  console.log('  that floor. `unranked` is a move the driver never scored, not one worth zero.');
 
-  if (worstCount > 0 && cost.priced.length > 0) {
+  if (worstCount > 0 && bucket.priced.length > 0) {
     console.log('');
-    console.log('The dearest single divergences:');
-    for (const item of [...cost.priced].sort((a, b) => b.cost - a.cost).slice(0, worstCount)) {
+    console.log(`  the dearest single divergences (${unit}):`);
+    for (const item of [...bucket.priced].sort((a, b) => b.cost - a.cost).slice(0, worstCount)) {
       console.log(`  ${item.cost.toFixed(2).padStart(8)}  ${item.type}`);
       console.log(`            ${driverName.padEnd(12)} ${item.driver}`);
       console.log(`            ${shadowName.padEnd(12)} ${item.shadow}`);
     }
   }
+}
+
+/** Print a cost table per unit system, quantified ones first. */
+function reportCost(driverName: string, shadowName: string, top: number, worstCount: number): void {
+  const units = cost.units();
+  if (units.length === 0) return;
+  for (const unit of units) {
+    reportBucket(unit, cost.buckets.get(unit)!, driverName, shadowName, top, worstCount);
+  }
+  console.log('');
+  console.log('Every price is the driver\'s own estimate and inherits whatever the driver is');
+  console.log('wrong about, and it is biased in the driver\'s favour: the driver picked the');
+  console.log('argmax of its own noisy scores, so disagreeing with it looks costly even when');
+  console.log('the disagreement is the noise. Drive with the *same* agent on both sides to');
+  console.log('measure that floor. `unranked` is a move the driver never scored, not one');
+  console.log('worth zero.');
 }
 
 /** Print a tally as an agreement report. */
