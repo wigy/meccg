@@ -32,9 +32,15 @@ import type {
   AgentInPlay,
   OpponentAgentView,
 } from '@meccg/shared';
-import { getCoordinates } from './map-coordinates.js';
 import { getMapMode, isOnCurrentLevel } from './map-mode.js';
-import { resolveCardDef } from './company-site.js';
+import {
+  DIM_CLASS,
+  appendSpreadDots,
+  buildMovementLinesLayer,
+  resolveAgentPosition,
+  resolveHomesitePosition,
+  resolveSitePosition,
+} from './map-markers.js';
 
 /** Index into the combined list of all companies (self first, then opponent). */
 export type CompanyIndex = number;
@@ -70,7 +76,7 @@ export function createRadar(
   radar.appendChild(mapBg);
 
   // Movement lines SVG layer (drawn behind the dots)
-  const moveLines = buildRadarMovementLines(view, cardPool);
+  const moveLines = buildMovementLinesLayer(view, cardPool, '1');
   if (moveLines) radar.appendChild(moveLines);
 
   // Dot container — overlaid on the map background
@@ -83,17 +89,13 @@ export function createRadar(
 
   // Render own companies
   view.self.companies.forEach((company, idx) => {
-    const dot = createCompanyDot(company, view, cardPool, idx === activeCompanyIndex ? 'active' : 'own');
-    const dimmed = dot?.classList.contains('map-dot--other-level') ?? false;
-    if (dot) {
-      const siteDef = resolveCardDef(company.currentSite!.instanceId, view, cardPool);
-      const coords = siteDef ? getCoordinates(siteDef.name) : null;
-      if (coords) pendingDots.push({ dot, x: coords[0], y: coords[1] });
-    }
+    const placed = createCompanyDot(company, view, cardPool, idx === activeCompanyIndex ? 'active' : 'own');
+    const dimmed = placed?.dot.classList.contains(DIM_CLASS) ?? false;
+    if (placed) pendingDots.push(placed);
 
     const destDot = createRadarDestinationDot(company, view, cardPool);
     if (destDot) {
-      if (dimmed) destDot.classList.add('map-dot--other-level');
+      if (dimmed) destDot.classList.add(DIM_CLASS);
       dotsLayer.appendChild(destDot);
     }
   });
@@ -101,49 +103,25 @@ export function createRadar(
   // Render opponent companies
   view.opponent.companies.forEach((company, idx) => {
     const role = idx === activeOpponentIndex ? 'opponent-active' : 'opponent';
-    const dot = createCompanyDot(company, view, cardPool, role);
-    const dimmed = dot?.classList.contains('map-dot--other-level') ?? false;
-    if (dot) {
-      const siteDef = resolveCardDef(company.currentSite!.instanceId, view, cardPool);
-      const coords = siteDef ? getCoordinates(siteDef.name) : null;
-      if (coords) pendingDots.push({ dot, x: coords[0], y: coords[1] });
-    }
+    const placed = createCompanyDot(company, view, cardPool, role);
+    const dimmed = placed?.dot.classList.contains(DIM_CLASS) ?? false;
+    if (placed) pendingDots.push(placed);
 
-    if (company.revealedDestinationSite) {
-      const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
-      if (destDef) {
-        const coords = getCoordinates(destDef.name);
-        if (coords) {
-          const destDot = document.createElement('div');
-          destDot.className = 'map-dot map-dot--opponent-destination';
-          destDot.style.left = `${coords[0] * 100}%`;
-          destDot.style.top = `${coords[1] * 100}%`;
-          destDot.title = `→ ${destDef.name}`;
-          if (dimmed) destDot.classList.add('map-dot--other-level');
-          dotsLayer.appendChild(destDot);
-        }
-      }
+    const dest = resolveSitePosition(company.revealedDestinationSite, view, cardPool);
+    if (dest) {
+      const destDot = document.createElement('div');
+      destDot.className = 'map-dot map-dot--opponent-destination';
+      destDot.style.left = `${dest.coords[0] * 100}%`;
+      destDot.style.top = `${dest.coords[1] * 100}%`;
+      destDot.title = `→ ${dest.name}`;
+      if (dimmed) destDot.classList.add(DIM_CLASS);
+      dotsLayer.appendChild(destDot);
     }
   });
 
   // Group company dots sharing the same position and arrange them side by side.
-  const groups = new Map<string, typeof pendingDots>();
-  for (const item of pendingDots) {
-    const key = `${Math.round(item.x * 10000)},${Math.round(item.y * 10000)}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(item);
-  }
   const STEP_PX = 10; // dot width (8px) + 2px gap
-  for (const group of groups.values()) {
-    if (group.length > 1) {
-      const total = group.length;
-      group.forEach(({ dot }, i) => {
-        const dx = (i - (total - 1) / 2) * STEP_PX;
-        dot.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), -50%)`;
-      });
-    }
-    for (const { dot } of group) dotsLayer.appendChild(dot);
-  }
+  appendSpreadDots(dotsLayer, pendingDots, STEP_PX);
 
   // Render own agents as diamond markers (always visible — face-up and face-down)
   for (const agent of view.self.agents) {
@@ -172,7 +150,8 @@ export function createRadar(
 }
 
 /**
- * Create a positioned dot element for one company.
+ * Create a positioned dot element for one company, together with the position
+ * the caller needs to spread co-located dots apart.
  * Returns null if the company has no current site or if the site has no coordinates.
  */
 function createCompanyDot(
@@ -180,26 +159,21 @@ function createCompanyDot(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   role: 'active' | 'own' | 'opponent' | 'opponent-active',
-): HTMLElement | null {
-  if (!company.currentSite) return null;
+): { dot: HTMLElement; x: number; y: number } | null {
+  const site = resolveSitePosition(company.currentSite, view, cardPool);
+  if (!site) return null;
 
-  const siteDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
-  if (!siteDef) return null;
-
-  const coords = getCoordinates(siteDef.name);
-  if (!coords) return null;
-
-  const [x, y] = coords;
+  const [x, y] = site.coords;
 
   const dot = document.createElement('div');
   dot.className = `map-dot map-dot--${role}`;
   dot.style.left = `${x * 100}%`;
   dot.style.top = `${y * 100}%`;
-  dot.title = siteDef.name;
+  dot.title = site.name;
 
-  if (!isOnCurrentLevel(siteDef.name, siteDef as { keywords?: readonly string[] })) dot.classList.add('map-dot--other-level');
+  if (!isOnCurrentLevel(site.name, site.def as { keywords?: readonly string[] })) dot.classList.add(DIM_CLASS);
 
-  return dot;
+  return { dot, x, y };
 }
 
 /**
@@ -234,38 +208,6 @@ function createAgentDiamond(
 }
 
 /**
- * Resolve the map position for an agent.
- * Uses the top of the siteStack when deployed; falls back to the first concrete
- * name in the card's `homesite` field when the agent has not yet been placed.
- */
-function resolveAgentPosition(
-  agent: AgentInPlay,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): { coords: [number, number] | null; siteName: string } {
-  if (agent.siteStack.length > 0) {
-    const currentSite = agent.siteStack[agent.siteStack.length - 1];
-    const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
-    if (!siteDef) return { coords: null, siteName: '' };
-    return { coords: getCoordinates(siteDef.name), siteName: siteDef.name };
-  }
-
-  // Agent not yet deployed — try homesite from card definition
-  const agentDef = cardPool[agent.character.definitionId];
-  const homesite = agentDef && 'homesite' in agentDef ? (agentDef as { homesite: string }).homesite : undefined;
-  if (!homesite) return { coords: null, siteName: '' };
-
-  for (const part of homesite.split(',')) {
-    const name = part.trim();
-    if (name.startsWith('Any ') || name === 'None') continue;
-    const coords = getCoordinates(name);
-    if (coords) return { coords, siteName: `${name} (home)` };
-  }
-
-  return { coords: null, siteName: '' };
-}
-
-/**
  * Create a radar diamond marker for a revealed opponent agent.
  * The agent's homesite is looked up from its card definition.
  * Returns null if coordinates are unavailable.
@@ -275,27 +217,18 @@ function createOpponentAgentDiamond(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement | null {
   const agentDef = agent.characterDefinitionId ? cardPool[agent.characterDefinitionId as string] : undefined;
-  const homesite = agentDef && 'homesite' in agentDef ? (agentDef as { homesite: string }).homesite : undefined;
-  if (!homesite) return null;
+  const home = resolveHomesitePosition(agentDef);
+  if (!home) return null;
 
-  for (const part of homesite.split(',')) {
-    const name = part.trim();
-    if (name.startsWith('Any ') || name === 'None') continue;
-    const coords = getCoordinates(name);
-    if (!coords) continue;
-
-    const [x, y] = coords;
-    const agentName = (agentDef as { name?: string }).name ?? 'Agent';
-    const diamond = document.createElement('div');
-    diamond.className = 'map-agent map-agent--opponent-revealed';
-    diamond.style.left = `${x * 100}%`;
-    diamond.style.top = `${y * 100}%`;
-    diamond.title = `${agentName} — ${name} (home)`;
-    if (!isOnCurrentLevel(name)) diamond.classList.add('map-agent--other-level');
-    return diamond;
-  }
-
-  return null;
+  const [x, y] = home.coords;
+  const agentName = (agentDef as { name?: string }).name ?? 'Agent';
+  const diamond = document.createElement('div');
+  diamond.className = 'map-agent map-agent--opponent-revealed';
+  diamond.style.left = `${x * 100}%`;
+  diamond.style.top = `${y * 100}%`;
+  diamond.title = `${agentName} — ${home.name} (home)`;
+  if (!isOnCurrentLevel(home.name)) diamond.classList.add('map-agent--other-level');
+  return diamond;
 }
 
 /**
@@ -307,21 +240,14 @@ function createRadarDestinationDot(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement | null {
-  if (!company.destinationSite) return null;
-
-  const destDef = resolveCardDef(company.destinationSite.instanceId, view, cardPool);
-  if (!destDef) return null;
-
-  const coords = getCoordinates(destDef.name);
-  if (!coords) return null;
-
-  const [x, y] = coords;
+  const dest = resolveSitePosition(company.destinationSite, view, cardPool);
+  if (!dest) return null;
 
   const dot = document.createElement('div');
   dot.className = 'map-dot map-dot--destination';
-  dot.style.left = `${x * 100}%`;
-  dot.style.top = `${y * 100}%`;
-  dot.title = `→ ${destDef.name}`;
+  dot.style.left = `${dest.coords[0] * 100}%`;
+  dot.style.top = `${dest.coords[1] * 100}%`;
+  dot.title = `→ ${dest.name}`;
 
   return dot;
 }
@@ -347,77 +273,14 @@ export function createCombatMarker(
 
   if (!currentSite) return null;
 
-  const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
-  if (!siteDef) return null;
-
-  const name = (siteDef as { name: string }).name;
-  const coords = getCoordinates(name);
-  if (!coords) return null;
+  const site = resolveSitePosition(currentSite, view, cardPool);
+  if (!site) return null;
 
   const marker = document.createElement('div');
   marker.className = fullMap ? 'map-combat-marker map-combat-marker--full' : 'map-combat-marker';
-  marker.style.left = `${coords[0] * 100}%`;
-  marker.style.top = `${coords[1] * 100}%`;
+  marker.style.left = `${site.coords[0] * 100}%`;
+  marker.style.top = `${site.coords[1] * 100}%`;
   marker.textContent = '⚔';
-  marker.title = `CvCC: ${name}`;
+  marker.title = `CvCC: ${site.name}`;
   return marker;
-}
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-/**
- * Build a miniature SVG layer for the radar showing dashed movement lines
- * from each company's current site to its destination site.
- * Returns null if no companies have a destination.
- */
-function buildRadarMovementLines(
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): SVGSVGElement | null {
-  const lines: Array<{ x1: number; y1: number; x2: number; y2: number; dimmed: boolean }> = [];
-
-  for (const company of view.self.companies) {
-    if (!company.currentSite || !company.destinationSite) continue;
-    const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
-    const destDef = resolveCardDef(company.destinationSite.instanceId, view, cardPool);
-    if (!currentDef || !destDef) continue;
-    const c = getCoordinates(currentDef.name);
-    const d = getCoordinates(destDef.name);
-    if (!c || !d) continue;
-    const dimmed = !isOnCurrentLevel(currentDef.name, currentDef as { keywords?: readonly string[] });
-    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100, dimmed });
-  }
-
-  for (const company of view.opponent.companies) {
-    if (!company.currentSite || !company.revealedDestinationSite) continue;
-    const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
-    const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
-    if (!currentDef || !destDef) continue;
-    const c = getCoordinates(currentDef.name);
-    const d = getCoordinates(destDef.name);
-    if (!c || !d) continue;
-    const dimmed = !isOnCurrentLevel(currentDef.name, currentDef as { keywords?: readonly string[] });
-    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100, dimmed });
-  }
-
-  if (lines.length === 0) return null;
-
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('class', 'map-destination-line');
-  svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('preserveAspectRatio', 'none');
-
-  for (const { x1, y1, x2, y2, dimmed } of lines) {
-    const line = document.createElementNS(SVG_NS, 'line');
-    line.setAttribute('x1', String(x1));
-    line.setAttribute('y1', String(y1));
-    line.setAttribute('x2', String(x2));
-    line.setAttribute('y2', String(y2));
-    line.setAttribute('stroke', 'rgba(0, 0, 0, 0.75)');
-    line.setAttribute('stroke-width', '1');
-    if (dimmed) line.setAttribute('opacity', '0.15');
-    svg.appendChild(line);
-  }
-
-  return svg;
 }
