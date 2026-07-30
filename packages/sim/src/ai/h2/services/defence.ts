@@ -30,11 +30,22 @@
  * said before they have played anything. Which of the two was used is reported,
  * because a number taken from four observed creatures deserves less weight than
  * one taken from twenty.
+ *
+ * **And the board's own modifiers are part of it.** A company facing Orcs while
+ * Minions Stir is out is facing *stronger* Orcs — +1 strike and +1 prowess each,
+ * +2 while Doors of Night is also out — and a typical attack that ignores that
+ * under-states every harm this service reports, which is every company-shape
+ * comparison, every enter-site cost and every Stealth. The modifier is applied
+ * to each sampled creature by its own race *before* the median is taken, so the
+ * answer stays a whole number the dice tables can be indexed by. `hazards`
+ * reads the same declared modifiers from the other side of the table, through
+ * the same service, so the two seats cannot disagree about what an Orc is.
  */
 
 import type { CardDefinition, PlayerView } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import type { Tunables } from '../core/tunables.js';
+import { boostForRace, boostInPlay } from './attack-modifiers.js';
 import type { Standing } from './standing.js';
 import type { StrikeTarget } from './strike/prowess.js';
 import type { AttackProfile } from './strike/sequence.js';
@@ -52,6 +63,11 @@ export interface TypicalAttack {
   readonly seen: number;
   /** True when the opponent has shown none and the card pool supplied it. */
   readonly fromPool: boolean;
+  /**
+   * What the hazard events in play added to it, for the rationale that spends
+   * this number. Zero when the board carries no attack modifier.
+   */
+  readonly boosted: { readonly prowess: number; readonly strikes: number };
 }
 
 /** Expected harm to our own companies. */
@@ -67,6 +83,16 @@ export interface Defence {
    * median creature.
    */
   harmFrom(roster: readonly StrikeTarget[], profiles: readonly AttackProfile[]): number;
+  /**
+   * Expected TSD lost by a roster once one card in play is gone.
+   *
+   * The question a removal asks: taking the opponent's Minions Stir off the
+   * board makes every Orc attack weaker again, and what that is worth is the
+   * harm it stops. Answered here rather than by the module that reads it,
+   * because the typical attack is this service's number and a second copy of it
+   * would be a second opinion.
+   */
+  harmWithout(instanceId: string, roster: readonly StrikeTarget[], slots: number): number;
   /** The attack the harm was computed against when none is named. */
   readonly typical: TypicalAttack;
 }
@@ -76,18 +102,21 @@ interface CreatureStats {
   readonly prowess: number;
   readonly strikes: number;
   readonly body: number | null;
+  /** The race the board's modifiers are keyed to. */
+  readonly race: string | null;
 }
 
 /** A creature definition's stats, or null when it is not a creature. */
 function creatureStats(def: CardDefinition | undefined): CreatureStats | null {
   const fields = def as unknown as {
-    cardType?: string; prowess?: number; strikes?: number; body?: number | null;
+    cardType?: string; prowess?: number; strikes?: number; body?: number | null; race?: string;
   } | undefined;
   if (!fields || fields.cardType !== 'hazard-creature') return null;
   return {
     prowess: fields.prowess ?? 0,
     strikes: fields.strikes ?? 1,
     body: fields.body ?? null,
+    race: fields.race ?? null,
   };
 }
 
@@ -119,6 +148,7 @@ function typicalOf(samples: readonly CreatureStats[]): CreatureStats | null {
     prowess: median(samples.map(s => s.prowess)) ?? 0,
     strikes: Math.max(1, median(samples.map(s => s.strikes)) ?? 1),
     body: median(bodies),
+    race: null,
   };
 }
 
@@ -171,13 +201,43 @@ function buildComputeDefence(
 ): Defence {
   const shown = shownCreatures(view, cardPool);
   const fromPool = shown.length === 0;
-  const stats = typicalOf(shown) ?? typicalOf(poolCreatures(cardPool)) ?? { prowess: 5, strikes: 1, body: 8 };
+  // The modifiers the hazard events in play declare, applied to each creature
+  // by its own race before the median is taken. Boosting the *median* instead
+  // would apply an Orc modifier to a sample that is only part Orc.
+  const boost = boostInPlay(view, cardPool);
+  const withBoard = (samples: readonly CreatureStats[]): CreatureStats[] => samples.map(sample => {
+    const added = boostForRace(boost, sample.race);
+    return {
+      ...sample,
+      prowess: sample.prowess + added.prowess,
+      strikes: sample.strikes + added.strikes,
+    };
+  });
+  const bare = typicalOf(shown) ?? typicalOf(poolCreatures(cardPool))
+    ?? { prowess: 5, strikes: 1, body: 8, race: null };
+  /** The typical attack under a given set of board modifiers. */
+  const typicalUnder = (under: ReturnType<typeof boostInPlay>): CreatureStats => {
+    const applied = (samples: readonly CreatureStats[]): CreatureStats[] => samples.map(sample => {
+      const added = boostForRace(under, sample.race);
+      return {
+        ...sample,
+        prowess: sample.prowess + added.prowess,
+        strikes: sample.strikes + added.strikes,
+      };
+    });
+    return typicalOf(applied(shown)) ?? typicalOf(applied(poolCreatures(cardPool))) ?? bare;
+  };
+  const stats = typicalOf(withBoard(shown)) ?? typicalOf(withBoard(poolCreatures(cardPool))) ?? bare;
   const typical: TypicalAttack = {
     prowess: stats.prowess,
     strikes: stats.strikes,
     body: stats.body,
     seen: fromPool ? 0 : shown.length,
     fromPool,
+    boosted: {
+      prowess: stats.prowess - bare.prowess,
+      strikes: stats.strikes - bare.strikes,
+    },
   };
 
   /** What the marshalling points a character carries are worth, in TSD. */
@@ -200,6 +260,19 @@ function buildComputeDefence(
         strikeProwess: typical.prowess,
         strikes: typical.strikes,
         creatureBody: typical.body,
+        detainment: false,
+        bodyCheckModifier: 0,
+      };
+      return this.harmFrom(roster, new Array(slots).fill(profile));
+    },
+
+    harmWithout(instanceId: string, roster: readonly StrikeTarget[], slots: number): number {
+      if (roster.length === 0 || slots <= 0) return 0;
+      const without = typicalUnder(boostInPlay(view, cardPool, { excluding: instanceId }));
+      const profile: AttackProfile = {
+        strikeProwess: without.prowess,
+        strikes: without.strikes,
+        creatureBody: without.body,
         detainment: false,
         bodyCheckModifier: 0,
       };

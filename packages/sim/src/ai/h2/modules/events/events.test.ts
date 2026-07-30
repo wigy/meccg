@@ -19,10 +19,12 @@
  */
 
 import { describe, expect, test } from 'vitest';
+import { loadCardPool } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { eventsModule } from './events.js';
 
@@ -210,5 +212,58 @@ describe('a card that will do nothing', () => {
       },
     };
     expect(eventsModule.evaluate(play('c-removal'), corrupted)!.expectedTsd).toBeLessThan(0);
+  });
+});
+
+describe('discarding something that was making every attack worse', () => {
+  /**
+   * A real position with our own companies, Orcs in their discard and a hazard
+   * event on the board — the only shape in which a removal has anything this
+   * module can price.
+   */
+  function removalPosition(inPlay?: string) {
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    (view.opponent as unknown as { discardPile: unknown[] }).discardPile = [
+      { instanceId: 'shown-1', definitionId: definitionOf('Orc-warband') },
+      { instanceId: 'shown-2', definitionId: definitionOf('Orc-guard') },
+      { instanceId: 'shown-3', definitionId: definitionOf('Orc-watch') },
+    ];
+    (view.opponent as unknown as { cardsInPlay: unknown[] }).cardsInPlay = inPlay
+      ? [{ instanceId: 'staged', definitionId: definitionOf(inPlay) }]
+      : [];
+    (view.self.hand as unknown as { definitionId: string }[])[0].definitionId =
+      definitionOf('Marvels Told');
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    return {
+      held: view.self.hand[0],
+      context: {
+        view, cardPool, legalActions: [], tunables: DEFAULT_TUNABLES, standing,
+      } as ModuleContext,
+    };
+  }
+
+  test('is worth the harm it stops', () => {
+    // Minions Stir gives every Orc coming at our companies +1 strike and +1
+    // prowess. Taking it off the board is worth exactly the harm that stops,
+    // which `defence` already computes from the other direction.
+    const { held, context } = removalPosition('Minions Stir');
+    const evaluation = eventsModule.evaluate(play(held.instanceId), context)!;
+    expect(evaluation).not.toBeNull();
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('Minions Stir');
+    expect(text).toContain('back to their printed numbers');
+  });
+
+  test('and says the play achieves nothing when the filter reaches nothing', () => {
+    // Doors of Night carries the environment keyword, which this card's filter
+    // excludes, so there is nothing reachable at all — and the module says the
+    // play achieves nothing rather than inventing a value for it.
+    const { held, context } = removalPosition('Doors of Night');
+    const evaluation = eventsModule.evaluate(play(held.instanceId), context)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
   });
 });

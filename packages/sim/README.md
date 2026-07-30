@@ -144,6 +144,35 @@ It is the most expensive thing in the project — an attack sequence resolved pe
 (card, company) pair per round — so it is memoised per position, and an
 instrumented self-play game runs in about 15 seconds rather than 10.
 
+### One reader for the numbers, so the two seats cannot disagree
+
+A company facing Orcs while Minions Stir is out is facing *stronger* Orcs. The
+hazard side learned that first — it prices its own support events by re-running
+the plan with the modifier applied — and the defending side did not, so
+`defence` reported the printed attack and under-stated every harm it is asked
+for: every company-shape comparison, every enter-site cost, every Stealth.
+
+`services/attack-modifiers` is now the one reader of what the hazard events on
+the board declare, and both seats spend it. `defence` applies the modifier to
+each sampled creature *by its own race* before taking the median, so the answer
+stays a whole number the dice tables can be indexed by — and so a modifier keyed
+to Orcs moves the typical attack only against an opponent who actually plays
+Orcs, which is the median doing its job rather than a limitation.
+
+That also makes the removal priceable from the resource seat. Marvels Told
+discards a hazard non-environment permanent or long event, which is exactly what
+Minions Stir is, and what it is worth is the harm that stops:
+
+```text
+discarding Minions Stir takes 8.8 of harm off our companies — the attacks it
+was strengthening go back to their printed numbers
+```
+
+It was the largest single blocker in the game at 149 declined candidates in
+three self-play games. The player picks the target in a later sub-flow, so the
+*best* reachable card is priced rather than a named one; a target whose effect
+this cannot read still leaves the card declined.
+
 `exposure` reports facts and stops there. H1 carries a `REGION_DANGER` table —
 wilderness 2, shadow-land 4, dark-domain 5 — which is a valuation dressed as a
 lookup, tuned by hand and invisible to anyone reading a destination score.
@@ -324,16 +353,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1980 contested decisions:
+Over 1882 contested decisions:
 
 ```text
-  covered and decisive       1665  84.1%
-  covered but flat            104   5.3%   → H1
-  partial, acted anyway        64   3.2%
-  partial, handed over        146   7.4%   → H1
+  covered and decisive       1595  84.8%
+  covered but flat             86   4.6%   → H1
+  partial, acted anyway        61   3.2%
+  partial, handed over        139   7.4%   → H1
   no owner at all               1   0.1%   → H1
 
-  H2 decides 87.3% of contested decisions.
+  H2 decides 88.0% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -499,9 +528,9 @@ on a different target, that no card in this family has. Whenever one of our
 characters happened to be carrying a corrupting hazard, the module credited a
 benefit the card could not deliver.
 
-What is left, by decisions blocked: `play-short-event` at 102,
-hazard `play-hazard` events at 50, and the granted-action families `grants` still
-declines at 37. All three need a card's *effect* priced against the opponent
+What is left, by decisions blocked: hazard `play-hazard` events at 66,
+`play-short-event` at 60, and the granted-action families `grants` still
+declines at 43. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
