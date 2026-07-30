@@ -1,7 +1,7 @@
 /**
  * @module ai/h2/core/baseline
  *
- * Passing, when no module has a reason to say anything about it.
+ * Declining to act, when no module has a reason to say anything about it.
  *
  * `coverage` put this at the top of the work list by a factor of three: `pass`
  * left 476 contested decisions unscored in three games, more than
@@ -31,16 +31,39 @@ import type { GameAction } from '@meccg/shared';
 import type { Evaluation, ModuleContext } from './types.js';
 import { leaf, node } from './rationale.js';
 
-/** Action types the baseline can speak for. */
-export const BASELINE_ACTION_TYPES: readonly string[] = ['pass'];
+/**
+ * Action types the baseline can speak for — the game's spellings of "no".
+ *
+ * `pass` is not the only one. The engine names the same non-act differently
+ * depending on where it is offered, and each spelling this does not know is a
+ * decision the registry reports as only partly covered:
+ *
+ * - `pass-chain-priority` declines to add to an open chain of effects. Every
+ *   other candidate on that decision is a card play, and those *are* scored, so
+ *   the whole decision was going to Heuristics 1 for want of the one candidate
+ *   that means "nothing".
+ * - `draft-stop` ends the character draft. Heuristics 1 has grouped it with
+ *   `pass` since before H2 existed (`PASS_ACTIONS` in `ai/heuristic`), which is
+ *   the same reading of it.
+ *
+ * What this does *not* claim is that stopping is a good idea — only that it is
+ * the zero every alternative is measured against. A draft where every pick also
+ * scores zero is still a tie and still goes to Heuristics 1; covering the
+ * spelling does not invent an opinion about the draft.
+ */
+export const BASELINE_ACTION_TYPES: readonly string[] = [
+  'pass',
+  'pass-chain-priority',
+  'draft-stop',
+];
 
 /** Name reported as the contributor, so a reader can see it was not a module. */
 export const BASELINE_NAME = 'baseline';
 
 /** The assumption the zero rests on. */
 const ASSUMPTIONS: readonly string[] = [
-  'passing is scored at zero because a utility is a change relative to doing nothing, and this is '
-  + 'doing nothing — not because the position was examined',
+  'declining to act is scored at zero because a utility is a change relative to doing nothing, and '
+  + 'this is doing nothing — not because the position was examined',
   'ending a phase is sometimes worth something in itself, to reach a step the player wants; that '
   + 'is not modelled here',
 ];
@@ -62,7 +85,7 @@ export function evaluateBaseline(action: GameAction, _context: ModuleContext): E
     sigmaTsd: 0,
     utility: 0,
     method: 'integrated',
-    rationale: node('pass', 0, [
+    rationale: node(action.type, 0, [
       leaf('change from doing nothing', 0, {
         unit: 'winprob',
         note: 'zero by construction — no module claimed this window',

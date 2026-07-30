@@ -379,7 +379,15 @@ reasoning about it:
   anywhere else, so a site phase offering four scored resource plays and one
   unscored `pass` went to Heuristics 1 entire. It is not a module: a utility is
   a change relative to doing nothing, and passing *is* doing nothing, so the
-  zero is a definition and lives in `core/baseline.ts`.
+  zero is a definition and lives in `core/baseline.ts`. The engine spells the
+  same non-act two other ways — `pass-chain-priority` declines to add to an open
+  chain, `draft-stop` ends the character draft — and each spelling the baseline
+  did not know was a whole decision handed over for want of the one candidate
+  that means "nothing". With all three listed, **no action type in a contested
+  decision is unowned any more**: the "no owner at all" line reads 0.0%, and
+  what is left is modules declining, which is a different and more honest
+  failure. Covering the spelling invents no opinion — a draft whose picks all
+  score zero is still a tie, and still goes to Heuristics 1.
 - **`cancel-movement` and `declare-path`** (262 decisions) were already inside
   `travel`'s model — cancelling is the destination value with the sign flipped.
 - **Sideboard access** (72 decisions) was the largest *flat* decision left: four
