@@ -14,6 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { findCompanyAllies } from './legal-actions/combat.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -887,6 +888,21 @@ function autoAttackAppliesToCompany(aa: AutomaticAttack, covert: boolean): boole
 }
 
 /**
+ * Allies (per CoE 2.V.2.2) that must also face a strike in an "each character
+ * faces 1 strike" automatic attack, excluding those made immune by a
+ * `no-attack` or `no-attack-site-keyed` play-flag (site auto-attacks are
+ * always "at the site", so `no-attack-site-keyed` always applies to them).
+ */
+function facingAlliesFor(state: GameState, player: PlayerState, company: Company): CardInstanceId[] {
+  return findCompanyAllies(player, company.characters)
+    .filter(({ ally }) => {
+      const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      return !hasPlayFlag(allyDef, 'no-attack') && !hasPlayFlag(allyDef, 'no-attack-site-keyed');
+    })
+    .map(({ ally }) => ally.instanceId);
+}
+
+/**
  * Handle the 'automatic-attacks' step: initiate combat for each automatic
  * attack listed on the site card, one at a time.
  *
@@ -1282,11 +1298,19 @@ function handleSiteAutomaticAttacks(
   }
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
-  // "each character faces 1 strike": total = company size, strikes pre-assigned one per character.
-  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+  // "each character faces 1 strike": total = company size, strikes pre-assigned one per
+  // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
+  // they are pre-assigned a strike too (unless a play-flag makes them immune to attacks).
+  const facingAllies = isEachCharacter
+    ? facingAlliesFor(state, state.players[activePlayerIndex], company)
     : [];
-  const strikesTotalValue = isEachCharacter ? company.characters.length : effectiveStrikes;
+  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
+    ? [
+        ...company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+        ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
+      ]
+    : [];
+  const strikesTotalValue = isEachCharacter ? preAssignedStrikes.length : effectiveStrikes;
 
   logDetail(`Site: initiating automatic attack ${resolvedAttackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
 
@@ -1400,12 +1424,19 @@ function buildSiteRepeatedAttackCombat(
     state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
   );
   const protectedSet = new Set((opts.protectedFromStrikeAssignment ?? []).map(id => id as string));
-  // For each-character, only non-protected characters face a strike.
+  // For each-character, only non-protected characters face a strike. Allies
+  // (CoE 2.V.2.2) face a strike too, unless immune or themselves protected.
   const facingChars = company.characters.filter(id => !protectedSet.has(id as string));
-  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+  const facingAllies = isEachCharacter
+    ? facingAlliesFor(state, state.players[activePlayerIndex], company).filter(id => !protectedSet.has(id as string))
     : [];
-  const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
+  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
+    ? [
+        ...facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+        ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
+      ]
+    : [];
+  const strikesTotalValue = isEachCharacter ? facingChars.length + facingAllies.length : effectiveStrikes;
   const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace ?? null,
