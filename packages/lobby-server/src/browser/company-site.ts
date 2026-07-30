@@ -21,7 +21,7 @@ import type {
   DeclareAgentAttackAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
-import { createCardImage, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
 import { showGrantedActionTooltip } from './company-modals.js';
@@ -241,11 +241,8 @@ export function renderSiteArea(
             const strip = document.createElement('div');
             strip.className = 'site-attachments';
             for (const ac of attached) {
-              const acDef = cardPool[ac.definitionId as string];
-              if (!acDef) continue;
-              const acImgPath = cardImageProxyPath(acDef);
-              if (!acImgPath) continue;
-              const acEl = createCardImage(ac.definitionId as string, acDef, acImgPath, 'company-card company-card--item company-card--site-attachment', ac.instanceId as string);
+              const acEl = createCardImageFromDefId(ac.definitionId, cardPool, 'company-card company-card--item company-card--site-attachment', ac.instanceId as string);
+              if (!acEl) continue;
               if (ac.status === CardStatus.Tapped) acEl.classList.add('company-card--tapped');
               strip.appendChild(acEl);
             }
