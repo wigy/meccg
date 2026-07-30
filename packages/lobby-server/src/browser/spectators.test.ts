@@ -4,7 +4,7 @@ import { spectatorBadge, spectatorListText } from './spectators.js';
 /**
  * The watcher badge sits among the other toolbar icons, so an empty list must
  * hide the button outright rather than render a "0" that looks like a broken
- * counter and opens an empty dialog.
+ * counter and offers an empty hover tooltip.
  */
 describe('spectatorBadge', () => {
   it('renders nothing when nobody is watching', () => {

@@ -30,6 +30,8 @@ import {
   makeDetainmentStrikeState,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
+import { isDetainmentAttack } from '../../../engine/detainment.js';
+import { Alignment, Race } from '../../../types/common.js';
 
 describe('Rule 8.34 — Detainment Creature MP', () => {
   beforeEach(() => resetMint());
@@ -82,7 +84,38 @@ describe('Rule 8.34 — Detainment Creature MP', () => {
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
   });
 
-  test.todo('3.II.4 — Nazgûl non-automatic attack vs minion company → detainment (requires minion-company fixtures + cross-alignment combat wiring)');
-  test.todo('3.II.4 — Nazgûl automatic-attack vs minion company → NOT detainment (same wiring required)');
-  test.todo('3.II.4 — Nazgûl attack vs hero/fallen-wizard company → NOT auto-detainment (same wiring required)');
+  // 3.II.4 is a property of the detainment predicate itself, so it is
+  // exercised by direct calls to `isDetainmentAttack` — the same pattern
+  // rule 5.25 uses for the 3.II.2 alignment branches. The nine Nazgûl
+  // hazard creatures are `race: "ringwraith"` cards (e.g. Adûnaphel tw-2)
+  // played through the same hazard combat path as any other creature; a
+  // plain Nazgûl attack carries no keying that would trigger the earlier
+  // 3.II.2.R1/R2 branches, isolating the 3.II.4 branch here.
+
+  test('3.II.4 — a Nazgûl (non-automatic) attack vs a minion company is detainment', () => {
+    const nazgulAttack = { attackRace: Race.Ringwraith };
+    expect(isDetainmentAttack({ ...nazgulAttack, defendingAlignment: Alignment.Ringwraith })).toBe(true);
+    expect(isDetainmentAttack({ ...nazgulAttack, defendingAlignment: Alignment.Balrog })).toBe(true);
+    // Control: a non-Nazgûl creature with the same (empty) keying is not.
+    expect(isDetainmentAttack({ attackRace: Race.Man, defendingAlignment: Alignment.Ringwraith })).toBe(false);
+  });
+
+  test('3.II.4 — a Nazgûl automatic-attack vs a minion company is NOT detainment unless modified by an effect', () => {
+    const auto = { attackRace: Race.Ringwraith, isAutomaticAttack: true };
+    expect(isDetainmentAttack({ ...auto, defendingAlignment: Alignment.Ringwraith })).toBe(false);
+    expect(isDetainmentAttack({ ...auto, defendingAlignment: Alignment.Balrog })).toBe(false);
+    // "unless modified by an effect": a combat-detainment effect on the
+    // attack restores detainment even for the automatic-attack.
+    expect(isDetainmentAttack({
+      ...auto,
+      defendingAlignment: Alignment.Ringwraith,
+      attackEffects: [{ type: 'combat-detainment' }],
+    })).toBe(true);
+  });
+
+  test('3.II.4 — a Nazgûl attack vs a hero or Fallen-wizard company is not auto-detainment', () => {
+    const nazgulAttack = { attackRace: Race.Ringwraith };
+    expect(isDetainmentAttack({ ...nazgulAttack, defendingAlignment: Alignment.Wizard })).toBe(false);
+    expect(isDetainmentAttack({ ...nazgulAttack, defendingAlignment: Alignment.FallenWizard })).toBe(false);
+  });
 });

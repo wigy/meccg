@@ -17,6 +17,7 @@ import {
 } from './common.js';
 import type { CardInstance, ItemInPlay } from './state-cards.js';
 import type { CardEffect, TriggerAttackEntry } from './effects.js';
+import type { CreatureKeyingMatch } from './actions-movement-hazard.js';
 
 // ---- Combat sub-state ----
 
@@ -332,27 +333,35 @@ export interface CombatState {
    */
   readonly creatureRaces?: readonly Race[];
   /**
-   * The region types this attack is keyed to, flattened from the creature's
-   * `keyedTo` restrictions. Used to evaluate cancel-attack conditions like
-   * Stinker's "keyed to Wilderness or Shadow-land". Only populated for
-   * creature hazards; automatic attacks leave this empty.
+   * The region type this attack is keyed to. When the creature was played
+   * with a declared `keyedBy` match (see {@link ChainEntryPayload}), this
+   * reflects only that specific match — e.g. a creature whose `keyedTo`
+   * lists both a region type and a site type as alternatives (Orc-watch:
+   * Shadow/Dark region *or* Shadow-hold/Dark-hold site) is *not* considered
+   * "keyed to Shadow-land" when the actual declared match was the site type.
+   * Falls back to the flattened union of the creature's `keyedTo` region
+   * types when no declared match is available (on-guard reveals, etc.).
+   * Used to evaluate cancel-attack conditions like Stinker's "keyed to
+   * Wilderness or Shadow-land". Only populated for creature hazards;
+   * automatic attacks leave this empty.
    */
   readonly attackKeying?: readonly RegionType[];
   /**
-   * The site types this attack is keyed to, flattened from the creature's
-   * `keyedTo` entries. Used by the `no-attack-site-keyed` play-flag to
-   * determine whether an ally is immune to a given creature attack.
-   * Only populated for creature hazards; automatic attacks leave this absent
-   * (since automatic attacks are always "at the site" and the immunity applies
-   * unconditionally for that case).
+   * The site type this attack is keyed to. Same declared-match precedence
+   * as {@link attackKeying}, but for site types. Used by the
+   * `no-attack-site-keyed` play-flag to determine whether an ally is immune
+   * to a given creature attack. Only populated for creature hazards;
+   * automatic attacks leave this absent (since automatic attacks are always
+   * "at the site" and the immunity applies unconditionally for that case).
    */
   readonly attackSiteKeyingTypes?: readonly SiteType[];
   /**
-   * The specific *region names* this attack is keyed to, flattened from the
-   * creature's `keyedTo` entries (e.g. a creature keyed by name to "Fangorn").
-   * Used to evaluate cancel-attack conditions like Beasts of the Wood wh-38's
-   * "an attack keyed by name to one of the regions listed above". Only
-   * populated for creature hazards; automatic attacks leave this absent.
+   * The specific *region name* this attack is keyed to. Same declared-match
+   * precedence as {@link attackKeying}, but for named regions (e.g. a
+   * creature keyed by name to "Fangorn"). Used to evaluate cancel-attack
+   * conditions like Beasts of the Wood wh-38's "an attack keyed by name to
+   * one of the regions listed above". Only populated for creature hazards;
+   * automatic attacks leave this absent.
    */
   readonly attackKeyingRegionNames?: readonly string[];
   /** The assignment of each strike to a defending character, with resolution status. */
@@ -522,6 +531,19 @@ export interface CombatState {
    * sequence (nextStrikePhase / choose-strike-order → resolve-strike).
    */
   readonly attackerStep1Done?: boolean;
+  /**
+   * CoE rule 3.i / 8.02 — Combat Step 1 (Pre-Assignment Actions). While the
+   * attacker holds a live pre-assignment `modify-attack` option (e.g. an
+   * unrevealed on-guard Unabated in Malice ba-26 on an automatic-attack) and
+   * this flag is false, the attacker holds an exclusive priority window and
+   * the defender may not begin strike assignment — otherwise the defender
+   * could race ahead and foreclose the attacker's chance to modify the
+   * attack as a whole ("continues until both players have finished taking
+   * actions prior to strike assignment"). Flipped to true when the attacker
+   * passes. Only relevant while `assignmentPhase === 'defender'` and no
+   * strikes have been assigned yet.
+   */
+  readonly attackerPreAssignDone?: boolean;
   /**
    * Rule 3.iv.6.1 — Agent Strike Roll.
    * For agent hazard attacks, the attacking player rolls 2d6 and adds the
@@ -867,6 +889,19 @@ export type ChainEntryPayload =
        * discard after this creature's combat resolves.
        */
       readonly reservingCardInstanceId?: CardInstanceId;
+      /**
+       * The specific region/site match the hazard player declared to justify
+       * playing this creature (from `PlayHazardAction.keyedBy` /
+       * `PlayReservedCreatureAction.keyedBy`). When a creature's `keyedTo`
+       * lists several independent ways it can be keyed (e.g. Orc-watch:
+       * region type Shadow/Dark *or* site type Shadow-hold/Dark-hold), only
+       * the declared match determines `CombatState.attackKeying` /
+       * `attackSiteKeyingTypes` / `attackKeyingRegionNames` — not the card's
+       * full `keyedTo` union. Absent for creature plays that bypass keying
+       * declaration entirely (on-guard reveals, play-from-discard effects),
+       * which fall back to the union of the card's `keyedTo`.
+       */
+      readonly keyedBy?: CreatureKeyingMatch;
     }
   | {
       readonly type: 'permanent-event';
@@ -927,6 +962,14 @@ export type ChainEntryPayload =
        * controller's `cardsInPlay` with `attachedTo` set to this value.
        */
       readonly targetFactionInstanceId?: CardInstanceId;
+      /**
+       * For a resource permanent-event played on one of the controller's own
+       * in-play resource long-events (Echo of All Joy td-110), the target
+       * long-event instance. On resolution the chain reducer places the card
+       * into the controller's `cardsInPlay` with `attachedToLongEvent` set to
+       * this value.
+       */
+      readonly targetLongEventInstanceId?: CardInstanceId;
       /**
        * For a `faction-siege` permanent-event (Long Grievous Siege ba-40), the
        * site card instance in the controller's location deck chosen at play

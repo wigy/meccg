@@ -20,7 +20,7 @@ import { connectPseudoAi } from './pseudo-ai.js';
 import { resetCompanyViews } from './company-view.js';
 import { clearDice, restoreDice } from './dice.js';
 import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
-import { initSpectatorsButton, resetSpectators } from './spectators.js';
+import { resetSpectators } from './spectators.js';
 import { renderLog } from './render-log.js';
 import { showConfirm } from './dialog.js';
 
@@ -74,7 +74,6 @@ ns.restoreDice = restoreDice;
 // Called at module load time (after DOMContentLoaded has already fired).
 
 installKeyboardShortcuts();
-initSpectatorsButton();
 
 const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
 const debugView = document.getElementById('debug-view') as HTMLElement;

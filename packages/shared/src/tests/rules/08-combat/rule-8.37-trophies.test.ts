@@ -124,8 +124,9 @@ describe('Rule 8.37 — Trophies', () => {
       creatureDefId: ORC_GUARD,
     });
 
-    // Roll the body check (cheat roll 12 > body 5, creature defeated)
-    const [bodyCheckAction] = viableActions(state, PLAYER_2, 'body-check-roll');
+    // Roll the body check (cheat roll 12 > body 5, creature defeated).
+    // The creature belongs to the attacker, so the defender rolls (CoE 3.I.1).
+    const [bodyCheckAction] = viableActions(state, PLAYER_1, 'body-check-roll');
     const afterBodyCheck = dispatch(state, bodyCheckAction.action);
 
     // Should be in trophy-offer phase now if Orc-guard has kill-MP > 0
@@ -170,7 +171,8 @@ describe('Rule 8.37 — Trophies', () => {
       creatureDefId: ORC_GUARD,
     });
 
-    const [bodyCheckAction] = viableActions(state, PLAYER_2, 'body-check-roll');
+    // The creature belongs to the attacker, so the defender rolls (CoE 3.I.1).
+    const [bodyCheckAction] = viableActions(state, PLAYER_1, 'body-check-roll');
     const afterBodyCheck = dispatch(state, bodyCheckAction.action);
     expect(afterBodyCheck.combat?.phase).toBe('trophy-offer');
 

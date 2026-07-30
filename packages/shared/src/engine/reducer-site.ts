@@ -14,6 +14,8 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { findCompanyAllies } from './legal-actions/combat.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
@@ -24,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -33,6 +35,7 @@ import { shuffle } from '../rng.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
+import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
@@ -814,6 +817,57 @@ function handleRevealOnGuardAttacks(
       return { state: { ...state, players: newPlayers } };
     }
 
+    // Short hazard-events that affect automatic-attacks (rule 2.V.i, e.g.
+    // Choking Shadows tw-21): the company is already at this site, so the
+    // matching `on-event: company-arrives-at-site` mode applies immediately —
+    // a short event never remains on-guard or moves to cardsInPlay, it
+    // resolves straight to the hazard player's discard pile.
+    if (isEvent) {
+      const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+      const onEvents = getOnEventEffects(def, 'company-arrives-at-site')
+        .filter(e => e.apply.type === 'add-constraint');
+      if (siteDef && onEvents.length > 0) {
+        const ctx: Record<string, unknown> = {
+          company: { destinationSiteType: isSiteCard(siteDef) ? siteDef.siteType : undefined },
+          inPlay: buildInPlayNames(state),
+        };
+        for (const onEvent of onEvents) {
+          if (onEvent.when && !matchesCondition(onEvent.when, ctx)) continue;
+          if (onEvent.apply.type !== 'add-constraint') continue;
+          const constraintKind = onEvent.apply.constraint;
+          const scopeName = onEvent.apply.scope;
+          if (!constraintKind || !scopeName) continue;
+          const scope = parseConstraintScope(scopeName, company.id);
+          const kind = buildConstraintKind(state, onEvent, constraintKind);
+          if (!scope || !kind) continue;
+
+          logDetail(`"${def.name}" revealed on-guard → applying ${constraintKind} to company ${company.id as string}`);
+          const newOnGuardCards = [...company.onGuardCards];
+          newOnGuardCards.splice(ogIdx, 1);
+          const newCompanies = [...resourcePlayer.companies];
+          newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+          const stateWithConstraint = addConstraint(state, {
+            source: revealedCard.instanceId,
+            sourceDefinitionId: revealedCard.definitionId,
+            scope,
+            target: { kind: 'company', companyId: company.id },
+            kind,
+          });
+
+          const hazardIndex = getPlayerIndex(stateWithConstraint, action.player);
+          const newPlayers = clonePlayers(stateWithConstraint);
+          newPlayers[activeIndex] = { ...newPlayers[activeIndex], companies: newCompanies };
+          newPlayers[hazardIndex] = {
+            ...newPlayers[hazardIndex],
+            discardPile: [...newPlayers[hazardIndex].discardPile, toCardInstance(revealedCard)],
+          };
+
+          return { state: { ...stateWithConstraint, players: newPlayers } };
+        }
+      }
+    }
+
     // Creatures: mark as revealed (combat happens at Step 4)
     const newOnGuardCards = [...company.onGuardCards];
     newOnGuardCards[ogIdx] = { ...revealedCard, revealed: true };
@@ -883,6 +937,21 @@ function autoAttackAppliesToCompany(aa: AutomaticAttack, covert: boolean): boole
   if (aa.appliesTo === 'covert') return covert;
   if (aa.appliesTo === 'overt') return !covert;
   return true;
+}
+
+/**
+ * Allies (per CoE 2.V.2.2) that must also face a strike in an "each character
+ * faces 1 strike" automatic attack, excluding those made immune by a
+ * `no-attack` or `no-attack-site-keyed` play-flag (site auto-attacks are
+ * always "at the site", so `no-attack-site-keyed` always applies to them).
+ */
+function facingAlliesFor(state: GameState, player: PlayerState, company: Company): CardInstanceId[] {
+  return findCompanyAllies(player, company.characters)
+    .filter(({ ally }) => {
+      const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      return !hasPlayFlag(allyDef, 'no-attack') && !hasPlayFlag(allyDef, 'no-attack-site-keyed');
+    })
+    .map(({ ally }) => ally.instanceId);
 }
 
 /**
@@ -1281,11 +1350,19 @@ function handleSiteAutomaticAttacks(
   }
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
-  // "each character faces 1 strike": total = company size, strikes pre-assigned one per character.
-  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+  // "each character faces 1 strike": total = company size, strikes pre-assigned one per
+  // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
+  // they are pre-assigned a strike too (unless a play-flag makes them immune to attacks).
+  const facingAllies = isEachCharacter
+    ? facingAlliesFor(state, state.players[activePlayerIndex], company)
     : [];
-  const strikesTotalValue = isEachCharacter ? company.characters.length : effectiveStrikes;
+  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
+    ? [
+        ...company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+        ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
+      ]
+    : [];
+  const strikesTotalValue = isEachCharacter ? preAssignedStrikes.length : effectiveStrikes;
 
   logDetail(`Site: initiating automatic attack ${resolvedAttackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
 
@@ -1399,12 +1476,19 @@ function buildSiteRepeatedAttackCombat(
     state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
   );
   const protectedSet = new Set((opts.protectedFromStrikeAssignment ?? []).map(id => id as string));
-  // For each-character, only non-protected characters face a strike.
+  // For each-character, only non-protected characters face a strike. Allies
+  // (CoE 2.V.2.2) face a strike too, unless immune or themselves protected.
   const facingChars = company.characters.filter(id => !protectedSet.has(id as string));
-  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+  const facingAllies = isEachCharacter
+    ? facingAlliesFor(state, state.players[activePlayerIndex], company).filter(id => !protectedSet.has(id as string))
     : [];
-  const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
+  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
+    ? [
+        ...facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+        ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
+      ]
+    : [];
+  const strikesTotalValue = isEachCharacter ? facingChars.length + facingAllies.length : effectiveStrikes;
   const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace ?? null,
@@ -4216,46 +4300,18 @@ function discardInfluencedCard(
 
   // Handle followers — try to place under GI, otherwise discard
   const newCharacters = { ...opponent.characters };
-  for (const followerId of targetChar.followers) {
-    const follower = newCharacters[followerId];
-    if (!follower) continue;
-    const followerDef = defById(state, follower.definitionId);
-    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
-
-    // Check if there's room under GI
-    const currentGIUsed = Object.values(newCharacters)
-      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== pending.targetInstanceId)
-      .reduce((sum, ch) => {
-        const def = defById(state, ch.definitionId);
-        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-
-    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, opponent.id)) {
-      // Move to GI
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
-    } else {
-      // Discard follower and their items/allies/hazards
-      for (const item of follower.items) {
-        newDiscard.push(toCardInstance(item));
-      }
-      for (const ally of follower.allies) {
-        newDiscard.push(toCardInstance(ally));
-      }
-      // Dispatch follower hazards to their owner's discard pile
-      for (const haz of follower.hazards) {
-        const hazOwner = ownerOf(haz.instanceId);
-        let hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
-        if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
-        if (hazOwnerIdx === opponentIndex) newDiscard.push(toCardInstance(haz));
-        else newHazardDiscard.push(toCardInstance(haz));
-        logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched`);
-      }
-      newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId];
-      logDetail(`Follower ${followerId} discarded (no GI room)`);
-    }
-  }
+  freeOrDiscardFollowers(state, newCharacters, targetChar, opponent.id, {
+    discardOwn: card => newDiscard.push(card),
+    // Dispatch follower hazards to their owner's discard pile
+    discardHazard: haz => {
+      const hazOwner = ownerOf(haz.instanceId);
+      let hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+      if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
+      if (hazOwnerIdx === opponentIndex) newDiscard.push(haz);
+      else newHazardDiscard.push(haz);
+      logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched`);
+    },
+  }, 'discardInfluencedCard');
 
   // Remove the target character
   delete newCharacters[pending.targetInstanceId];

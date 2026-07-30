@@ -105,10 +105,28 @@ interface GameSave {
   aiPlayers?: string[];
 }
 
+/**
+ * How long the session tolerates having no human player connected before
+ * reporting itself idle. Long enough to ride out a page reload or the
+ * client's reconnect attempts; short enough that a quit game does not
+ * linger as "in progress" in the lobby. A longer absence is not lost:
+ * an autosave is written on disconnect, and the lobby's rejoin flow
+ * relaunches from it.
+ */
+export const IDLE_EXIT_GRACE_MS = 60_000;
+
 export interface GameSessionOptions {
   /** Enable development-mode operations (undo, save, load, reseed). */
   dev?: boolean;
   playerNames: [string, string];
+  /**
+   * Called once no human player has been connected for
+   * {@link IDLE_EXIT_GRACE_MS} — including when none ever joined. The server
+   * entry uses this to exit the process, which is what tells the lobby the
+   * game is over (it clears busy status and the watchable-game row on child
+   * exit). An AI seat or spectators alone never keep a session alive.
+   */
+  onIdle?: () => void;
 }
 
 /**
@@ -145,16 +163,23 @@ export class GameSession {
    * the player was offered is rejected as stale or illegal.
    */
   private lastLegalActionsPerPlayer: Map<PlayerId, Map<string, GameAction>> = new Map();
+  /** Armed while no human is connected; fires `onIdle` after the grace period. */
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly onIdle?: () => void;
 
   constructor(options: GameSessionOptions) {
     this.dev = options.dev ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
+    this.onIdle = options.onIdle;
     this.cardPool = loadCardPool();
     this.movementMap = buildMovementMap(this.cardPool);
     fs.mkdirSync(SAVE_DIR, { recursive: true });
     this.serverLog = new ServerLog();
     this.gameLog = new GameLog();
     this.serverLog.log('boot', { players: options.playerNames, dev: this.dev });
+    // The grace clock starts at boot: a server whose players never join must
+    // not outlive the grace period either.
+    this.updateIdleTimer();
   }
 
   addConnection(ws: WebSocket): void {
@@ -218,6 +243,7 @@ export class GameSession {
     switch (msg.type) {
       case 'join':
         this.handleJoin(ws, msg);
+        this.updateIdleTimer();
         break;
       case 'action':
         this.handleAction(ws, msg);
@@ -852,6 +878,7 @@ export class GameSession {
     for (const [name, p] of this.pending.entries()) {
       if (p.ws === ws) {
         this.pending.delete(name);
+        this.updateIdleTimer();
         return;
       }
     }
@@ -876,6 +903,38 @@ export class GameSession {
     // Remove the disconnected player but keep the game alive for reconnection
     this.players.delete(disconnectedId);
     this.serverLog.log('player-disconnected', { name: disconnectedName, keepAlive: this.state !== null });
+    this.updateIdleTimer();
+  }
+
+  /** Whether any connected player or pending join is a human. */
+  private hasConnectedHuman(): boolean {
+    for (const { name } of this.players.values()) {
+      if (!this.aiPlayers.has(name.toLowerCase()) && !/^ai-/i.test(name)) return true;
+    }
+    for (const [name, p] of this.pending.entries()) {
+      if (!(p.join.ai ?? /^ai-/i.test(name))) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Arm the idle timer while no human is connected, disarm it when one is.
+   * The timer re-checks before firing, so a human who reconnected and
+   * disconnected again within one grace period cannot race it.
+   */
+  private updateIdleTimer(): void {
+    if (!this.onIdle) return;
+    if (this.hasConnectedHuman()) {
+      if (this.idleTimer) {
+        clearTimeout(this.idleTimer);
+        this.idleTimer = null;
+      }
+      return;
+    }
+    this.idleTimer ??= setTimeout(() => {
+      this.idleTimer = null;
+      if (!this.hasConnectedHuman()) this.onIdle?.();
+    }, IDLE_EXIT_GRACE_MS);
   }
 
   /**

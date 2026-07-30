@@ -7,9 +7,9 @@
  * into one account's full detail (`GET /api/admin/users/:name`): account
  * fields, credit balance history, and completed games. The detail view
  * carries the top-up button. The amount it adds is decided server-side
- * (`POST /api/admin/users/:name/credits/top-up`): everything consumed since
- * the last credit addition, rounded up to the nearest hundred, plus a
- * 200-credit bonus. When nothing was consumed since the last addition there
+ * (`POST /api/admin/users/:name/credits/top-up`): 1.5 times everything
+ * consumed since the last credit addition, rounded up to the nearest
+ * hundred. When nothing was consumed since the last addition there
  * is nothing to add, so pressing the button twice in a row is a no-op the
  * second time.
  *
@@ -216,7 +216,7 @@ function renderTopUp(detail: AdminUserDetail): string {
     <button type="button" class="admin-topup-btn" data-user="${escapeHtml(detail.profile.name)}">
       Add ${detail.pendingTopUp} credits
     </button>
-    <p class="admin-topup-note">Covers all consumption since the last addition, rounded up to the nearest hundred, plus 200 extra.</p>`;
+    <p class="admin-topup-note">Covers 1.5&times; the consumption since the last addition, rounded up to the nearest hundred.</p>`;
 }
 
 /** Show one account's full detail: fields, credit history, games. */

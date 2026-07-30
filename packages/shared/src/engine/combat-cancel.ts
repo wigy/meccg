@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction } from '../index.js';
+import type { GameState, CombatState, GameAction, PlayerState } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -655,6 +655,27 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
 }
 
 /**
+ * Discard the canceled attack's source creature: remove it from the
+ * attacker's cardsInPlay and push it to their discard pile. A canceled
+ * creature never reaches the defender's kill pile (no kill-MP — contrast
+ * the defeat routing in combat-finalize). No-op for non-creature attack
+ * sources or when the creature is not in play (e.g. reveal-sequence
+ * attacks whose creature never left its pile). Mutates `players` in place.
+ */
+function discardCanceledCreature(state: GameState, players: PlayerState[], combat: CombatState): void {
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
+  if (!creatureInstanceId) return;
+  const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const creatureInPlay = findById(players[atkIdx].cardsInPlay, creatureInstanceId);
+  if (!creatureInPlay) return;
+  players[atkIdx] = {
+    ...players[atkIdx],
+    cardsInPlay: players[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
+    discardPile: [...players[atkIdx].discardPile, toCardInstance(creatureInPlay)],
+  };
+}
+
+/**
  * Apply the cancel-attack effect when its chain entry resolves.
  *
  * Called from the chain resolver when a short-event entry with a
@@ -728,18 +749,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
 
   // If this was a creature attack, move creature card from attacker's
   // cardsInPlay to discard.
-  const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
-  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
-  if (creatureInstanceId) {
-    const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
-    if (creatureInPlay) {
-      newPlayers[atkIdx] = {
-        ...newPlayers[atkIdx],
-        cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
-        discardPile: [...newPlayers[atkIdx].discardPile, toCardInstance(creatureInPlay)],
-      };
-    }
-  }
+  discardCanceledCreature(state, newPlayers, combat);
 
   // card-triggered-attack cancelled: the attack never resolved, but the card is
   // still in play — continue the queued sequence or dispose of it, exactly as
@@ -875,18 +885,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     // All wounded-character strikes canceled → the attack is fully canceled.
     if (newAssignmentsW.length === 0) {
       logDetail('All wounded-character strikes canceled — combat ends');
-      const atkIdxW = getPlayerIndex(state, combat.attackingPlayerId);
-      const creatureInstanceIdW = attackSourceCreatureInstanceId(combat);
-      if (creatureInstanceIdW) {
-        const creatureInPlayW = findById(newPlayersW[atkIdxW].cardsInPlay, creatureInstanceIdW);
-        if (creatureInPlayW) {
-          newPlayersW[atkIdxW] = {
-            ...newPlayersW[atkIdxW],
-            cardsInPlay: newPlayersW[atkIdxW].cardsInPlay.filter(c => c.instanceId !== creatureInstanceIdW),
-            discardPile: [...newPlayersW[atkIdxW].discardPile, toCardInstance(creatureInPlayW)],
-          };
-        }
-      }
+      discardCanceledCreature(state, newPlayersW, combat);
       return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayersW, combat: null }) };
     }
 

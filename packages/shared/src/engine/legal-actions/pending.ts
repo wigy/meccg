@@ -32,7 +32,7 @@ import type {
 } from '../../index.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard, printedMind } from '../../types/cards.js';
 import { CardStatus, Skill, SiteType, Race, cardStatusToName } from '../../types/common.js';
 import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -728,6 +728,62 @@ export function flateryAttemptRollActions(
 }
 
 /**
+ * Compute the goodwill-attempt actions for a queued `goodwill-attempt`
+ * resolution (Token of Goodwill, dm-160). One action per company item
+ * matching the queued rank — the player picks which item to discard, and
+ * the roll (2d6 + unused DI) happens as part of the same action. Success if
+ * total > threshold.
+ */
+export function goodwillAttemptRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'goodwill-attempt') return [];
+  const { characterInstanceId, companyId, itemSubtype, threshold } = top.kind;
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) return [];
+
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const unusedDI = availableDI(state, characterInstanceId, player);
+
+  // Success requires: roll + unusedDI > threshold, i.e. roll > threshold - unusedDI
+  const need = threshold - unusedDI + 1;
+  const explanation = `${charName} goodwill: threshold ${threshold}, unused DI ${unusedDI} → need roll >= ${need}`;
+
+  const company = companyById(player.companies, companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company.characters) {
+    const bearer = player.characters[charId];
+    if (!bearer) continue;
+    for (const item of bearer.items) {
+      const itemDef = defById(state, item.definitionId);
+      if (!itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) continue;
+      logDetail(`Pending goodwill-attempt by ${charName}: offering to discard "${itemDef.name}" (${itemSubtype}) — ${explanation}`);
+      actions.push({
+        action: {
+          type: 'goodwill-attempt' as const,
+          player: playerId,
+          characterInstanceId,
+          itemInstanceId: item.instanceId,
+          need,
+          explanation: `${explanation} (discard ${itemDef.name})`,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Compute the single seized-by-terror-roll action that resolves a queued
  * `seized-by-terror-roll` resolution. The character's player rolls 2d6;
  * if roll + character mind < threshold (12), the character splits off into
@@ -752,7 +808,7 @@ export function seizedByTerrorRollActions(
   const hazardDef = defById(state, hazardDefinitionId);
   const hazardName = hazardDef?.name ?? '?';
 
-  const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
+  const mind = printedMind(charDef);
   const need = threshold - mind;
   logDetail(`Pending seized-by-terror-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, mind ${mind})`);
 
@@ -867,7 +923,7 @@ export function opposedRollStat(
   if (!char) return 0;
   const def = defById(state, char.definitionId);
   if (stat === 'mind') {
-    const printed = def && isCharacterCard(def) && def.mind !== null ? def.mind : 0;
+    const printed = printedMind(def);
     return char.effectiveStats.mind ?? printed;
   }
   return char.effectiveStats[stat];

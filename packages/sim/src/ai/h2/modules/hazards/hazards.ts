@@ -36,11 +36,31 @@
  * aimed for — and this module already has the model: it is a denial choice like
  * any other, and the answer is whoever it hurts them most to lose.
  *
- * **What it does not do yet.** Hazard *events* played from hand — Doors of
- * Night, the company restrictions, everything that is not a creature attack —
- * are declined, so a decision containing them is only partly covered and the
- * registry says so. Modelling them means modelling their effects, which is the
- * DSL's job and a separate piece of work. A non-creature placed *on guard* is a
+ * **The board's own modifiers are part of every plan.** Minions Stir gives every
+ * Orc attack +1 strike and +1 prowess, and the modifier is declared against the
+ * same two numbers the strike enumeration runs on. A long event lasts the turn
+ * and a permanent one the game, so once it is out those are simply the numbers —
+ * `planFor` resolves every bundle with the modifiers the hazard events in play
+ * declare. Reading them only at the moment such a card is *played* priced that
+ * play correctly and then went on under-valuing every creature behind it.
+ *
+ * **So a support event is priced by one counterfactual: the board with it.** The
+ * baseline is the plan as it stands; the other arm is the plan as it would be if
+ * this card were in play, which picks up its own modifiers *and* every condition
+ * on the board that names it. The event is worth the difference between the two
+ * best bundles, and worth nothing when the hand holds no attack the modifier
+ * would reach — the answer that keeps it out of an empty plan.
+ *
+ * That second half is the whole of Doors of Night. It does nothing to an attack
+ * itself; what it does is satisfy `inPlay: "Doors of Night"` on the Minions Stir
+ * already out, turning +1 of each into +2. Pricing it by its own declared
+ * effects finds nothing and declines; pricing the board with and without it
+ * finds the upgrade.
+ *
+ * **What it still does not do.** Hazard events outside the families above —
+ * the company restrictions, the cancels, everything whose value is "the opponent
+ * may not do X" — are declined, so a decision containing them is only partly
+ * covered and the registry says so. A non-creature placed *on guard* is a
  * different case and is scored: placement is free, so zero is its floor rather
  * than a guess.
  */
@@ -62,6 +82,10 @@ import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
+import {
+  ALL_RACES, attackBoostOf, boostFor, boostInPlay, mergeBoosts, nameOfDefinition, sameBoost,
+} from '../../services/attack-modifiers.js';
+import type { AttackBoost } from '../../services/attack-modifiers.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'assign-strike', 'pass'] as const;
@@ -140,10 +164,12 @@ function creatureProfile(
 }
 
 /** Every creature in hand the engine is currently offering against a company. */
+
 function candidatesFor(
   context: ModuleContext,
   companyId: string,
   killTsdOf: (killMp: number) => number,
+  boost?: AttackBoost,
 ): Candidate[] {
   const { view, cardPool } = context;
   const seen = new Set<string>();
@@ -158,12 +184,15 @@ function candidatesFor(
     const creature = creatureProfile(cardPool, card.definitionId as string);
     if (!creature) continue;
     seen.add(play.cardInstanceId);
+    const added = boostFor(boost, cardPool, card.definitionId as string);
     candidates.push({
       instanceId: play.cardInstanceId,
       name: creature.name,
       killMp: creature.killMp,
       profile: {
         ...creature.profile,
+        strikeProwess: creature.profile.strikeProwess + added.prowess,
+        strikes: creature.profile.strikes + added.strikes,
         killTsd: killTsdOf(creature.killMp),
         killLabel: `${creature.name} beaten — ${creature.killMp} kill MP to the defender`,
       },
@@ -180,8 +209,16 @@ interface Plan {
   readonly detail: readonly Rationale[];
 }
 
-/** Build the plan: roster, denial context, ranked bundles. */
-function planFor(context: ModuleContext, company: OpponentCompanyView): Plan {
+/**
+ * Build the plan: roster, denial context, ranked bundles.
+ *
+ * Every attack is resolved with the modifiers the hazard events **already in
+ * play** declare, because those are the numbers the engine will use. `boost`
+ * replaces that with the counterfactual arm — the board as it would be if one
+ * more card were played — so an event that makes the other hazards better is
+ * priced by the difference between the two.
+ */
+function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: AttackBoost | null): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
@@ -196,7 +233,9 @@ function planFor(context: ModuleContext, company: OpponentCompanyView): Plan {
   const killTsdOf = (killMp: number): number =>
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
-  const candidates = candidatesFor(context, company.id as string, killTsdOf);
+  const candidates = candidatesFor(
+    context, company.id as string, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
+  );
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
@@ -337,7 +376,7 @@ export const hazardsModule: H2Module = {
       // Not a creature: it may still be an event this module can price, and if
       // it is not, saying nothing is what leaves the decision honestly
       // uncovered.
-      if (!bundle) return evaluateHazardEvent(action, context);
+      if (!bundle) return evaluateHazardEvent(action, context, company);
       return evaluateBundle(action, plan, bundle, context, 1, `play ${bundle.cards[0].name}`);
     }
 
@@ -445,6 +484,63 @@ function evaluateAssignStrike(
 
 
 /**
+ * What an event is worth for the numbers it changes, or null when it changes none.
+ *
+ * One counterfactual answers both halves of this. The baseline is the plan as
+ * the board stands, with the modifiers the hazard events already in play
+ * declare; the other arm is the plan as it would be **if this card were in
+ * play** — which picks up its own modifiers *and* every condition on the board
+ * that names it.
+ *
+ * That second half is the whole of Doors of Night. It does nothing to an attack
+ * itself; what it does is satisfy `inPlay: "Doors of Night"` on the Minions Stir
+ * already out, turning +1 prowess and +1 strike into +2 of each. Pricing it by
+ * its own declared effects finds nothing and declines; pricing the board with
+ * and without it finds the upgrade.
+ *
+ * The counterfactual arm is not memoised: it is one extra beam search, run for
+ * the one candidate that asks, where the baseline is shared by every candidate
+ * on the decision.
+ */
+function boostGain(
+  def: CardDefinition | undefined,
+  definitionId: string,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+): { tsd: number; reason: string } | null {
+  const name = nameOfDefinition(def, definitionId);
+  const current = boostInPlay(context.view, context.cardPool);
+  const hypothetical = mergeBoosts(
+    boostInPlay(context.view, context.cardPool, { hypothetical: name }),
+    attackBoostOf(def, context.view, context.cardPool, name),
+  );
+  // Nothing about the attacks changes, so this is not the family. Saying so
+  // lets the removal and recovery families have their turn.
+  if (sameBoost(current, hypothetical)) return null;
+
+  const before = buildPlan(context.view, context, company).search.bundles[0]?.expectedTsd ?? 0;
+  const after = planFor(context, company, hypothetical).search.bundles[0]?.expectedTsd ?? 0;
+  const describe = (boost: AttackBoost | null): string => [...(boost?.entries() ?? [])]
+    .map(([race, added]) => `${race === ALL_RACES ? 'every' : race} attack `
+      + `${added.prowess >= 0 ? '+' : ''}${added.prowess} prowess, `
+      + `${added.strikes >= 0 ? '+' : ''}${added.strikes} strike(s)`)
+    .join('; ') || 'no modifier at all';
+  const shift = current === null
+    ? describe(hypothetical)
+    : `${describe(current)} becomes ${describe(hypothetical)}`;
+  return {
+    // A boost never makes the plan worse — the unboosted bundle is still
+    // available — so a negative difference is beam noise, not a reason to play
+    // it for a loss.
+    tsd: Math.max(0, after - before),
+    reason: after - before > 0
+      ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to `
+        + `${after.toFixed(1)}`
+      : `${shift} — but the plan has no attack left it would improve`,
+  };
+}
+
+/**
  * Score a hazard *event* — the half of hazard play that is not an attack.
  *
  * Two families can be priced, and they come from different places.
@@ -461,13 +557,23 @@ function evaluateAssignStrike(
  * `events` and `grants` both price, discounted again because a card put back in
  * the deck is further away than one put in hand.
  *
- * Everything else is declined. The largest family by appearances is
- * `stat-modifier` — Minions Stir giving every Orc attack +1 prowess — and its
- * value is entirely "it makes my other hazards better", which is computable
- * from the plan but is a bigger piece of work than tonight: the plan would have
- * to be re-run with the modifier applied and the difference taken.
+ * **What the effects do to the other hazards.** Minions Stir gives every Orc
+ * attack +1 strike and +1 prowess, +2 of each while Doors of Night is in play.
+ * Its whole value is "it makes my other hazards better", and that is not a
+ * guess: the modifier is declared against the same two numbers the strike
+ * enumeration runs on, so the plan is re-run with it applied and the difference
+ * taken. It was the most-declined hazard event in the game — 59 candidates in
+ * three self-play games, against Doors of Night's 46 — and a hazard side that
+ * cannot value its own support events cannot build the Orc engine the deck is
+ * for.
+ *
+ * Everything else is declined.
  */
-function evaluateHazardEvent(action: GameAction, context: ModuleContext): Evaluation | null {
+function evaluateHazardEvent(
+  action: GameAction,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+): Evaluation | null {
   const record = action as unknown as {
     cardInstanceId: string;
     targetFactionInstanceId?: string;
@@ -481,7 +587,9 @@ function evaluateHazardEvent(action: GameAction, context: ModuleContext): Evalua
   } | undefined;
   const name = def?.name ?? (card.definitionId as string);
 
-  const gain = removalGain(record, context) ?? recoveryGain(def?.effects ?? [], tunables);
+  const gain = boostGain(cardPool[card.definitionId], card.definitionId as string, context, company)
+    ?? removalGain(record, context)
+    ?? recoveryGain(def?.effects ?? [], tunables);
   if (!gain) return null;
 
   const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.provisionalCardPrice }, tunables);
@@ -512,6 +620,11 @@ function evaluateHazardEvent(action: GameAction, context: ModuleContext): Evalua
       + 'never by its text: an event that also restricts or enables something is under-valued',
       'the hazard-limit slot it consumes is not charged — what else could have gone in that slot '
       + 'is the bundle planner\'s question, and it does not plan events',
+      'an attack boost is priced against the hazards *in hand now*, and against this company only: '
+      + 'a long event lasts the turn, so what it will be worth to cards not yet drawn and to '
+      + 'companies not yet resolved is not counted',
+      'a modifier whose condition this cannot read is dropped rather than assumed to hold, so an '
+      + 'event gated on something unmodelled is under-valued rather than over-valued',
       ...ASSUMPTIONS,
     ],
   };

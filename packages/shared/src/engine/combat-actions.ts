@@ -35,7 +35,7 @@ import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findAttachment, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findAttachment, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
@@ -605,7 +605,7 @@ function discardCharacterAfterBodyCheck(
     // Combat never happens during the controlling player's organization
     // phase, so the follower's mind subtraction from general influence is
     // deferred to that player's next organization phase (CoE rule 3.13).
-    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateWithRoll, follower) };
   }
   newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
   newPlayers[defPlayerIndex] = newPlayerData;
@@ -654,7 +654,9 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
-  const roller = combat.bodyCheckTarget === 'attacker-character' ? combat.defendingPlayerId : combat.attackingPlayerId;
+  const roller = combat.bodyCheckTarget === 'attacker-character' || combat.bodyCheckTarget === 'creature'
+    ? combat.defendingPlayerId
+    : combat.attackingPlayerId;
   logDetail(`Body check roll: target=${combat.bodyCheckTarget} roller=${roller as string} roll=${roll.die1}+${roll.die2}=${rollTotal} (lastDiceRoll stored on attacker ${combat.attackingPlayerId as string})`);
   const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
   // Broadcast the body-check outcome as a text notification so the result is
@@ -890,7 +892,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         const updatedCharsRW = { ...remainingCharsRW };
         for (const followerId of charData.followers) {
           const follower = updatedCharsRW[followerId];
-          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateWithRoll, follower) };
         }
         newPlayerDataRW.characters = pruneLeaderFollowers(updatedCharsRW, strike.characterId, charData.controlledBy);
         // Record the returned Ringwraith's definition ID for reveal restrictions

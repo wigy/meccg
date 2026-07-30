@@ -22,7 +22,7 @@ import { CardStatus, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { defById, findById, getCardEffects, getOnEventEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findById, getCardEffects, getOnEventEffects, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { isWardedAgainst } from './effects/index.js';
 import { addConstraint } from './pending.js';
 
@@ -327,7 +327,7 @@ function bindPrisoner(
         // Prisoner-taking happens during combat, outside the controlling
         // player's organization phase — defer the freed follower's mind
         // subtraction from general influence (CoE rule 3.13).
-        updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+        updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(state, follower) };
       }
     }
     return { ...p, characters: updatedChars, discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))] };

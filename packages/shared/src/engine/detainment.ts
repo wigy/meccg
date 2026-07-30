@@ -14,11 +14,15 @@
  *     keying (rules 3.II.2.R1-R3 for Ringwraith players, 3.II.2.B1-B3
  *     for Balrog players).
  *
- * Rule 3.II.4 (Nazgûl vs minion company) is not computed here; it
- * applies to cross-alignment site-phase combat (a Ringwraith character
- * attacking another minion player's company), which is initiated on a
- * different code path than the three hazard-style call sites that
- * consume this helper.
+ *  3. Rule 3.II.4 — a Nazgûl attack against a minion company is
+ *     detainment unless it is an automatic-attack. The nine Nazgûl
+ *     hazard creatures are `race: "ringwraith"` cards played through
+ *     the same hazard combat path as any other creature, so the branch
+ *     keys on {@link DetainmentContext.attackRace} plus
+ *     {@link DetainmentContext.isAutomaticAttack}. An automatic-attack
+ *     Nazgûl falls through to the remaining checks, so it is still
+ *     detainment when "modified by an effect" (a `combat-detainment`
+ *     effect on the attack, handled above this branch).
  */
 import type { CardEffect } from '../types/effects.js';
 import type { CreatureKeyRestriction } from '../types/cards-hazards.js';
@@ -264,6 +268,14 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
 
   if (ctx.isAgentHazard) {
     logDetail(`Detainment: agent hazard attack vs ${isMinion ? 'Ringwraith' : 'Balrog'} company (§3.II.2.${tag}3)`);
+    return true;
+  }
+
+  // §3.II.4 — a Nazgûl attack against a minion company is detainment,
+  // unless the attack is an automatic-attack (then it is not detainment
+  // unless modified by an effect — the combat-detainment branch above).
+  if (ctx.attackRace === Race.Ringwraith && !ctx.isAutomaticAttack) {
+    logDetail(`Detainment: Nazgûl attack vs ${isMinion ? 'Ringwraith' : 'Balrog'} company (§3.II.4)`);
     return true;
   }
 

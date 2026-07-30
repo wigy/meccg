@@ -1794,9 +1794,12 @@ export function runCreatureCombat(
   // Resolve strike
   const afterStrike = executeAction(result.state, attacker, 'resolve-strike', strikeRoll, tapToFight);
 
-  // Body check if needed
+  // Body check if needed. Creature/agent body checks are rolled by the
+  // defender's opponent (CoE 3.I.1: the creature belongs to the attacker,
+  // here `attacker`); character body checks are rolled by `defender`.
   if (afterStrike.combat?.phase === 'body-check' && bodyRoll !== null) {
-    return executeAction(afterStrike, defender, 'body-check-roll', bodyRoll);
+    const bodyRoller = afterStrike.combat.bodyCheckTarget === 'creature' ? attacker : defender;
+    return executeAction(afterStrike, bodyRoller, 'body-check-roll', bodyRoll);
   }
 
   return afterStrike;
@@ -2022,9 +2025,12 @@ export function runAutoAttackCombat(
   result = reduce({ ...result.state, cheatRollTotal: strikeRoll }, selectedAction);
   expect(result.error).toBeUndefined();
 
-  // If body check is needed
+  // If body check is needed. Creature/agent body checks are rolled by the
+  // defender's opponent (CoE 3.I.1: the creature belongs to the attacker,
+  // here `attacker`); character body checks are rolled by `defender`.
   if (result.state.combat?.phase === 'body-check' && bodyRoll !== null) {
-    const bodyActions = viableActions(result.state, defender, 'body-check-roll');
+    const bodyRoller = result.state.combat.bodyCheckTarget === 'creature' ? attacker : defender;
+    const bodyActions = viableActions(result.state, bodyRoller, 'body-check-roll');
     expect(bodyActions.length).toBeGreaterThan(0);
     result = reduce({ ...result.state, cheatRollTotal: bodyRoll }, bodyActions[0].action);
     expect(result.error).toBeUndefined();
@@ -2142,7 +2148,11 @@ export function continueAutoAttackCombat(
       const defId = charId ? resolveInstanceId(s, charId) : undefined;
       const sd = defId ? strikeDefs.find(d => d.characterDefId === defId) : undefined;
       const bodyRoll = sd?.bodyRoll ?? 12;
-      const actions = viableActions(s, hazardPlayer, 'body-check-roll');
+      // Creature/agent body checks are rolled by the defender (CoE 3.I.1: the
+      // creature belongs to the attacker); character body checks are rolled
+      // by the attacker.
+      const bodyRoller = s.combat.bodyCheckTarget === 'creature' ? resourcePlayer : hazardPlayer;
+      const actions = viableActions(s, bodyRoller, 'body-check-roll');
       if (actions.length === 0) break;
       const r = reduce({ ...s, cheatRollTotal: bodyRoll }, actions[0].action);
       if (r.error) break;
@@ -2240,11 +2250,15 @@ export function runCardTriggeredAttackCombat(
         ? strikeDefs.find(sd => sd.characterDefId === defId)
         : undefined;
       const bodyRoll = strikeDef?.bodyRoll ?? null;
+      // Creature/agent body checks are rolled by the defender (CoE 3.I.1: the
+      // creature belongs to the attacker); character body checks are rolled
+      // by the attacker.
+      const bodyRoller = s.combat.bodyCheckTarget === 'creature' ? defPlayer : atkPlayer;
       if (bodyRoll !== null) {
-        s = executeAction(s, atkPlayer, 'body-check-roll', bodyRoll);
+        s = executeAction(s, bodyRoller, 'body-check-roll', bodyRoll);
       } else {
         // Skip body check with a safe roll (high number = character survives)
-        s = executeAction(s, atkPlayer, 'body-check-roll', 12);
+        s = executeAction(s, bodyRoller, 'body-check-roll', 12);
       }
     } else if (s.combat.phase === 'item-salvage') {
       s = executeAction(s, defPlayer, 'pass');
@@ -2771,7 +2785,11 @@ export function runAhuntSequence(
     if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
     acts = viableActions(cur, resourcePlayer, 'resolve-strike');
     if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
-    acts = viableActions(cur, hazardPlayer, 'body-check-roll');
+    // Creature/agent body checks are rolled by the defender (CoE 3.I.1: the
+    // creature belongs to the attacker); character body checks are rolled by
+    // the attacker (hazardPlayer).
+    const bodyRoller = c.bodyCheckTarget === 'creature' ? resourcePlayer : hazardPlayer;
+    acts = viableActions(cur, bodyRoller, 'body-check-roll');
     if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
     let stepped = false;
     for (const pid of [resourcePlayer, hazardPlayer]) {

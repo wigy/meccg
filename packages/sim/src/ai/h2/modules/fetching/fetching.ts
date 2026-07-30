@@ -24,6 +24,21 @@
  * sideboard fetches are the only points where a deck is reshaped against what
  * the opponent has turned out to be playing.
  *
+ * **The exchange is the same question asked twice.** When a play deck runs out
+ * the discard pile is shuffled into a new one (`completeDeckExhaust`), and
+ * before that happens the player may swap up to five cards between the discard
+ * pile and the sideboard. So one `exchange-sideboard` moves a card *out* of the
+ * deck about to be built and another *in*, and it is worth the difference
+ * between the two prices — the same `quote` a fetch uses, on both legs.
+ *
+ * It was the largest action type with no owner at all: the engine offers every
+ * (discard, sideboard) pair as its own candidate, 20150 of them in three games,
+ * and every one of those decisions went to Heuristics 1, which has no evaluator
+ * for the type either. A swap chosen at random is not neutral — it is as likely
+ * to send the deck's best remaining card to the sideboard as to fetch one back.
+ * `pass` is the do-nothing baseline here, so a swap is taken only when the
+ * difference is positive, which is exactly the rule the decision wants.
+ *
  * What it does not do: the *strategic* half. Which sources are worth chasing
  * across a game, and therefore which card completes a plan rather than merely
  * scoring, is the acquisition layer's, and it does not exist. So a fetch is
@@ -33,7 +48,7 @@
 import type { CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
-import { namedCard, namedCharacter } from '../../core/action-fields.js';
+import { namedCard, namedCharacter, namedGivenUpCard } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 
 /** Action types this module scores. */
@@ -44,6 +59,7 @@ const OWNED_ACTION_TYPES = [
   'fetch-from-pile',
   'fetch-from-sideboard',
   'fetch-hazard-from-sideboard',
+  'exchange-sideboard',
 ] as const;
 
 /** Assumptions every fetch evaluation rests on. */
@@ -57,6 +73,9 @@ const ASSUMPTIONS: readonly string[] = [
   + 'of its best resource is worse to draw from afterwards',
   'where a card goes is not priced, only which card it is — so every way of assigning the same '
   + 'starting item to a different character ties, and the choice of bearer falls to Heuristics 1',
+  'a deck-exhaust exchange is priced as though both cards were equally likely to be drawn again; '
+  + 'the discard pile becomes the whole new play deck, so that is close, but a five-card swap is '
+  + 'scored one pair at a time and the fifth is priced against the same standing as the first',
 ];
 
 /** A card sitting in a setup pool, wherever that pool keeps it. */
@@ -131,6 +150,63 @@ function chosenCard(action: GameAction, context: ModuleContext): { definitionId:
 }
 
 /**
+ * The deck-exhaust exchange: one card out of the new play deck, one in.
+ *
+ * The discard pile *is* the next play deck (`completeDeckExhaust` shuffles it
+ * whole), so the swap is a difference of two reservation values and nothing
+ * else. Both legs go through the same `quote` a fetch uses, which is the point:
+ * a second opinion about what a card is worth is how the weight soup came about.
+ */
+function evaluateExchange(action: GameAction, context: ModuleContext): Evaluation | null {
+  const { standing, view, cardPool, tunables } = context;
+  const gainedId = namedCard(action);
+  const givenUpId = namedGivenUpCard(action);
+  const gained = view.self.sideboard.find(c => c.instanceId === gainedId);
+  const givenUp = view.self.discardPile.find(c => c.instanceId === givenUpId);
+  if (!gained || !givenUp) return null;
+
+  const prices = computeCardPrices(view, cardPool, standing, tunables);
+  const incoming = prices.quote(gained.definitionId);
+  const outgoing = prices.quote(givenUp.definitionId);
+  const dtsd = incoming.tsd - outgoing.tsd;
+
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: `swap ${outgoing.name} out of the new deck for ${incoming.name}`,
+    dtsd,
+  }];
+  const scored = standing.score(outcomes);
+
+  const detail: Rationale[] = [
+    leaf('into the new deck', incoming.tsd, {
+      unit: 'tsd',
+      tunable: 'potentialDiscount',
+      note: `${incoming.name} — ${incoming.reason}`,
+    }),
+    leaf('out to the sideboard', outgoing.tsd, {
+      unit: 'tsd',
+      tunable: 'potentialDiscount',
+      note: `${outgoing.name} — ${outgoing.reason}`,
+    }),
+  ];
+
+  return {
+    action,
+    module: 'fetching',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`swap ${outgoing.name} for ${incoming.name}`, scored.utility, [
+      node('the exchange', dtsd, detail, { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: ASSUMPTIONS,
+  };
+}
+
+/**
  * The fetching module. No context gate: every one of these action types is a
  * choice between cards wherever it appears.
  */
@@ -140,6 +216,9 @@ export const fetchingModule: H2Module = {
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     if (!OWNED_ACTION_TYPES.includes(action.type as typeof OWNED_ACTION_TYPES[number])) return null;
+    // The one two-legged action here: a swap is a difference of prices, not a
+    // gain. Reading only the card it names would score it as a gift.
+    if (action.type === 'exchange-sideboard') return evaluateExchange(action, context);
     const chosen = chosenCard(action, context);
     if (!chosen) return null;
 

@@ -6,6 +6,11 @@
  * action keeps it — and the one property worth stating out loud: at the opening
  * draft every candidate prices at zero, and that is the tournament scorer
  * talking, not a bug here.
+ *
+ * The exchange gets more than wiring, because it is the one action here with
+ * two legs and the failure mode is silent: read only the card it names and a
+ * swap prices as a gift, so every candidate looks like an improvement and the
+ * module cheerfully trades the deck's best card away.
  */
 
 import { describe, expect, test } from 'vitest';
@@ -14,12 +19,16 @@ import type { MarshallingPointTotals } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import type { ModuleContext } from '../../core/types.js';
 import { computeStanding } from '../../services/standing.js';
+import { computeCardPrices } from '../../services/card-price.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testWinProbModel } from '../../test-support.js';
 import { fetchingModule } from './fetching.js';
 
 /** The opening draft, where the offered characters live on the setup step. */
 const DRAFT = 'setup/draft-pick';
+
+/** A deck run out, with the discard pile about to be shuffled into a new one. */
+const EXCHANGE = 'fetching/deck-exhaust-exchange';
 
 /** A scenario as a module context, with the actions the engine offers. */
 function position(id: string) {
@@ -93,5 +102,95 @@ describe('why the opening draft scores flat', () => {
       .filter(a => a.type === 'draft-pick')
       .map(a => fetchingModule.evaluate(a, context)!.expectedTsd);
     expect(Math.max(...scores)).toBe(Math.min(...scores));
+  });
+});
+
+describe('swapping a card between the discard pile and the sideboard', () => {
+  /** The exchange candidates of the captured position, with their scores. */
+  function exchanges() {
+    const { context, legalActions } = position(EXCHANGE);
+    const actions = legalActions.filter(a => a.type === 'exchange-sideboard');
+    return {
+      context,
+      actions,
+      scored: actions.map(action => ({
+        action: action as unknown as {
+          discardCardInstanceId: string;
+          sideboardCardInstanceId: string;
+        },
+        tsd: fetchingModule.evaluate(action, context)!.expectedTsd,
+      })),
+    };
+  }
+
+  test('the engine offers every pair, and every one of them is scored', () => {
+    // One decision, a thousand candidates: the engine emits the full cross
+    // product of discard pile and sideboard. It was the largest action type
+    // with no owner at all, and a module that declined a single pair would
+    // leave the whole decision partly covered.
+    const { context, actions } = exchanges();
+    expect(actions.length).toBeGreaterThan(100);
+    for (const action of actions) {
+      expect(fetchingModule.evaluate(action, context)).not.toBeNull();
+    }
+  });
+
+  test('a swap is a difference, so it can be worth less than doing nothing', () => {
+    // The failure this pins: priced as a gain rather than a difference, every
+    // candidate would score at or above zero and the module would trade away
+    // whatever the deck's best remaining card happened to be.
+    const { scored } = exchanges();
+    expect(Math.min(...scored.map(s => s.tsd))).toBeLessThan(0);
+    expect(Math.max(...scored.map(s => s.tsd))).toBeGreaterThan(0);
+  });
+
+  test('the card leaving counts against the swap as much as the one arriving', () => {
+    // The two legs enter with opposite signs, so with the incoming card held
+    // fixed the ranking over the outgoing ones is the *reverse* of the price
+    // ranking: the better the card being sent to the sideboard, the worse the
+    // swap. Priced as a gain, this correlation would be flat.
+    const { context, scored } = exchanges();
+    const incoming = scored[0].action.sideboardCardInstanceId;
+    const sameIncoming = scored.filter(s => s.action.sideboardCardInstanceId === incoming);
+    const prices = computeCardPrices(
+      context.view, context.cardPool, context.standing, context.tunables,
+    );
+    const outgoingWorth = (instanceId: string) => prices.quote(
+      context.view.self.discardPile.find(c => c.instanceId === instanceId)!.definitionId,
+    ).tsd;
+
+    const dearest = sameIncoming.reduce((a, b) =>
+      (outgoingWorth(b.action.discardCardInstanceId) > outgoingWorth(a.action.discardCardInstanceId) ? b : a));
+    const cheapest = sameIncoming.reduce((a, b) =>
+      (outgoingWorth(b.action.discardCardInstanceId) < outgoingWorth(a.action.discardCardInstanceId) ? b : a));
+    expect(outgoingWorth(dearest.action.discardCardInstanceId))
+      .toBeGreaterThan(outgoingWorth(cheapest.action.discardCardInstanceId));
+    expect(dearest.tsd).toBeLessThan(cheapest.tsd);
+  });
+
+  test('the rationale names both cards, not only the one arriving', () => {
+    const { context, scored } = exchanges();
+    const best = scored.reduce((a, b) => (b.tsd > a.tsd ? b : a));
+    const evaluation = fetchingModule.evaluate({
+      type: 'exchange-sideboard',
+      player: context.view.self.id,
+      discardCardInstanceId: best.action.discardCardInstanceId,
+      sideboardCardInstanceId: best.action.sideboardCardInstanceId,
+    } as never, context)!;
+    const detail = evaluation.rationale.children![0].children!;
+    expect(detail.map(child => child.label)).toEqual([
+      'into the new deck', 'out to the sideboard',
+    ]);
+    expect(evaluation.outcomes[0].label).not.toMatch(/p\d+-\d+/);
+  });
+
+  test('declines a swap whose cards are not where the action says they are', () => {
+    const { context } = exchanges();
+    expect(fetchingModule.evaluate({
+      type: 'exchange-sideboard',
+      player: context.view.self.id,
+      discardCardInstanceId: 'nowhere',
+      sideboardCardInstanceId: 'nowhere-either',
+    } as never, context)).toBeNull();
   });
 });

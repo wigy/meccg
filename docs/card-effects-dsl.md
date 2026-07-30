@@ -5123,6 +5123,30 @@ Supported targets:
   bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs
   [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus
   Undead and Nazgûl). Cannot be duplicated on a given Dagger."
+- `long-event` — a resource permanent event played "on" one of the active
+  player's own in-play **resource long-events** (any phase, via the chain of
+  effects — not gated to the organization phase). One `play-permanent-event`
+  action is emitted per own in-play `hero-resource-event` with `eventType:
+  "long"` matching the optional `filter` (evaluated against `{ target: { name
+  } }`); the chosen instance rides on `targetLongEventInstanceId`. On
+  resolution the card enters its controller's `cardsInPlay` bound via
+  `CardInPlay.attachedToLongEvent`. While so attached, the target long-event
+  is exempt from the rule 4.01 beginning-of-long-event-phase discard sweep
+  (`isLongEventProtected`, consulted by `handleOrganizationPass` in
+  `reducer-organization.ts`); whichever of the pair leaves play first (its own
+  `discard-self-when` / `play-deck-exhausted` self-discard, or the target
+  being discarded by some other means) takes the other with it
+  (`protected-long-event.ts`: `sweepProtectedLongEventCascade` for the
+  protector-leaves-first direction, `discardOrphanedLongEventAttachedEvents`
+  for the target-leaves-first direction). Used by Echo of All Joy (td-110):
+  "Play on a resource long-event if Doors of Night is not in play. The
+  long-event is not discarded as normal during a long-event phase. Discard
+  Echo of All Joy and target long-event when any play deck is exhausted or
+  when Doors of Night comes into play." — paired with `play-condition
+  requires: "card-not-in-play", cardName: "Doors of Night"` (the play-time
+  gate) and `discard-self-when condition: { "inPlayAnywhere": "Doors of
+  Night" }` (the ongoing trigger, since not every resource long-event carries
+  the `environment` keyword that Doors of Night's own entry sweep checks).
 
 Optional fields:
 

@@ -29,10 +29,11 @@ import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint } from './pending.js';
 import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard, isFactionCard, isItemCard, isAllyCard } from '../types/cards.js';
+import { isCharacterCard, isFactionCard, isItemCard, isAllyCard, printedMind } from '../types/cards.js';
 import { CardStatus, Skill } from '../types/common.js';
 import type { Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
@@ -40,7 +41,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, ringwraithReclaimMark, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -154,7 +155,7 @@ function removeFailedCorruptionCharacter(
   for (const followerId of char.followers) {
     const follower = newCharacters[followerId as string];
     if (follower) {
-      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      newCharacters[followerId as string] = { ...follower, controlledBy: 'general', ...ringwraithReclaimMark(state, follower) };
     }
   }
 
@@ -559,6 +560,24 @@ export function applyCorruptionCheckResolution(
           },
         });
       }
+    }
+    // Token of Goodwill (dm-160): the diplomat survived his corruption check —
+    // raise a `goodwill-attempt` resolution so he can discard a company item
+    // of the listed rank and roll to cancel the attack.
+    if (onSuccess?.type === 'enqueue-goodwill-attempt') {
+      logDetail(`dm-160: ${charName} passed corruption check — enqueuing goodwill-attempt (item ${onSuccess.itemSubtype}, threshold ${onSuccess.threshold})`);
+      stateAfterDequeue = enqueueResolution(stateAfterDequeue, {
+        source: top.source,
+        actor: player.id,
+        scope: top.scope,
+        kind: {
+          type: 'goodwill-attempt',
+          characterInstanceId: characterId,
+          companyId: onSuccess.companyId,
+          itemSubtype: onSuccess.itemSubtype,
+          threshold: onSuccess.threshold,
+        },
+      });
     }
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
@@ -1604,6 +1623,123 @@ export function applyFlateryAttemptResolution(
     logDetail(`Flattery attempt failed: combat continues`);
   }
 
+  // The flattery-attempt resolution paused the chain (needsInput) without
+  // marking the originating Flatter a Foe entry resolved — mirror the
+  // dice-check `continuation: { kind: 'chain-entry' }` path so the chain
+  // actually resumes instead of being left stuck in 'resolving' mode with
+  // no legal actions for either player.
+  return resolveChainEntryAndContinue(postRoll, e => e.card?.instanceId === top.source, [rollEffect]);
+}
+
+/**
+ * Resolve a queued `goodwill-attempt` resolution (Token of Goodwill, dm-160).
+ * The player picks a company item of the queued rank; it is discarded and
+ * the defending diplomat rolls 2d6 + unused DI in the same action (CRF 22:
+ * the discard is the cost that enables the roll, paid regardless of the
+ * outcome). Success (total > threshold) cancels the attack and offers to
+ * fetch one resource card from the play deck or discard pile into hand.
+ */
+export function applyGoodwillAttemptResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'goodwill-attempt', 'goodwill-attempt');
+  if (!g.ok) return g.result;
+  if (action.type !== 'goodwill-attempt') return { state, error: 'Pending goodwill-attempt requires goodwill-attempt action' };
+  const { actorIndex, player, kind } = g;
+  const { characterInstanceId, companyId, itemSubtype, threshold } = kind;
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) {
+    return { state, error: `Goodwill-attempt: character ${characterInstanceId as string} not found` };
+  }
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
+
+  const company = companyById(player.companies, companyId);
+  if (!company) return { state, error: `Goodwill-attempt: company ${companyId as string} not found` };
+
+  const { itemInstanceId } = action;
+  let bearerCharId: CardInstanceId | null = null;
+  let removedItem: CardInstance | null = null;
+  for (const charId of company.characters) {
+    const bearer = player.characters[charId];
+    if (!bearer) continue;
+    const found = bearer.items.find(it => it.instanceId === itemInstanceId);
+    if (found) {
+      bearerCharId = charId;
+      removedItem = toCardInstance(found);
+      break;
+    }
+  }
+  const itemDef = removedItem ? defById(state, removedItem.definitionId) : undefined;
+  if (!bearerCharId || !removedItem || !itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) {
+    return { state, error: `Goodwill-attempt: item ${itemInstanceId as string} of subtype "${itemSubtype}" not found in company ${companyId as string}` };
+  }
+  const itemName = itemDef.name;
+
+  const unusedDI = availableDI(state, characterInstanceId, player);
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + unusedDI;
+  const success = total > threshold;
+
+  logDetail(`Goodwill attempt by ${charName}: discarded "${itemName}" (${itemSubtype}), rolled ${roll.die1}+${roll.die2} + DI ${unusedDI} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+
+  const rollEffect = diceRollEffect(player.name, roll, `Goodwill attempt: ${charName}`);
+
+  // Discard the item regardless of the roll's outcome — the discard is the
+  // cost that enables the roll (CRF 22 erratum), not a reward for success.
+  const newPlayers = clonePlayers(state);
+  const bearer = newPlayers[actorIndex].characters[bearerCharId];
+  newPlayers[actorIndex] = {
+    ...newPlayers[actorIndex],
+    characters: {
+      ...newPlayers[actorIndex].characters,
+      [bearerCharId]: { ...bearer, items: bearer.items.filter(it => it.instanceId !== itemInstanceId) },
+    },
+    discardPile: [...newPlayers[actorIndex].discardPile, removedItem],
+    lastDiceRoll: roll,
+  };
+
+  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+
+  if (success && top.source) {
+    logDetail(`Goodwill attempt succeeded: cancelling attack`);
+    postRoll = resolveCancelAttackEntry(postRoll);
+
+    const fetchEffect = gateDeckSearchFetch(postRoll, player.id, {
+      type: 'fetch-to-deck',
+      source: ['deck', 'discard-pile'],
+      filter: { cardType: { $in: ['hero-resource-item', 'hero-resource-ally', 'hero-resource-faction', 'hero-resource-event'] } },
+      count: 1,
+      shuffle: true,
+      to: 'hand',
+    });
+    if (fetchEffect) {
+      logDetail(`Goodwill attempt: offering play-deck/discard-pile resource fetch to ${player.name}`);
+      postRoll = {
+        ...postRoll,
+        pendingEffects: [
+          ...postRoll.pendingEffects,
+          {
+            type: 'card-effect',
+            cardInstanceId: top.source,
+            actor: player.id,
+            effect: fetchEffect,
+            skipDiscard: true,
+          },
+        ],
+      };
+    }
+  } else if (success) {
+    logDetail(`Goodwill attempt succeeded: cancelling attack (no source card — resource fetch skipped)`);
+    postRoll = resolveCancelAttackEntry(postRoll);
+  } else {
+    logDetail(`Goodwill attempt failed: combat continues`);
+  }
+
   return { state: postRoll, effects: [rollEffect] };
 }
 
@@ -1659,43 +1795,18 @@ export function returnCharacterToHand(
 
   // Handle followers — fall to GI if room, otherwise discard
   const newCharacters = { ...player.characters };
-  for (const followerId of charInPlay.followers) {
-    const follower = newCharacters[followerId];
-    if (!follower) continue;
-    const followerDef = defById(state, follower.definitionId);
-    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
-
-    const currentGIUsed = Object.values(newCharacters)
-      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
-      .reduce((sum, ch) => {
-        const def = defById(state, ch.definitionId);
-        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-
-    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      logDetail(`return-character-to-hand: follower ${followerId as string} falls to GI`);
-    } else {
-      for (const item of follower.items) {
-        newDiscard.push(toCardInstance(item));
+  freeOrDiscardFollowers(state, newCharacters, charInPlay, player.id, {
+    discardOwn: card => newDiscard.push(card),
+    discardHazard: hazard => {
+      logDetail(`return-character-to-hand: discarding hazard ${hazard.instanceId as string} from discarded follower`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      if ((newPlayers[opponentIndex].id as string) === hazOwner) {
+        newOpponentDiscard.push(hazard);
+      } else {
+        newDiscard.push(hazard);
       }
-      for (const ally of follower.allies) {
-        newDiscard.push(toCardInstance(ally));
-      }
-      for (const hazard of follower.hazards) {
-        logDetail(`return-character-to-hand: discarding hazard ${hazard.instanceId as string} from discarded follower`);
-        const hazOwner = ownerOf(hazard.instanceId);
-        if ((newPlayers[opponentIndex].id as string) === hazOwner) {
-          newOpponentDiscard.push(toCardInstance(hazard));
-        } else {
-          newDiscard.push(toCardInstance(hazard));
-        }
-      }
-      newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId];
-      logDetail(`return-character-to-hand: follower ${followerId as string} discarded (no GI room)`);
-    }
-  }
+    },
+  }, 'return-character-to-hand');
 
   // Remove the target character from characters map
   delete newCharacters[characterId];
@@ -1820,27 +1931,10 @@ function discardCharacter(
   }
 
   const newCharacters = { ...player.characters };
-  for (const followerId of charInPlay.followers) {
-    const follower = newCharacters[followerId];
-    if (!follower) continue;
-    const followerDef = defById(state, follower.definitionId);
-    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
-    const currentGIUsed = Object.values(newCharacters)
-      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
-      .reduce((sum, ch) => {
-        const def = defById(state, ch.definitionId);
-        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-    } else {
-      for (const item of follower.items) newDiscard.push(toCardInstance(item));
-      for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
-      for (const hazard of follower.hazards) newOpponentDiscard.push(toCardInstance(hazard));
-      newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId];
-    }
-  }
+  freeOrDiscardFollowers(state, newCharacters, charInPlay, player.id, {
+    discardOwn: card => newDiscard.push(card),
+    discardHazard: hazard => newOpponentDiscard.push(hazard),
+  }, 'discard-character');
 
   const affectedCompanies = player.companies
     .filter(c => c.characters.includes(characterId))
@@ -1999,7 +2093,7 @@ export function applySeizedByTerrorRollResolution(
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
-  const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
+  const mind = printedMind(charDef);
 
   const rolled = rollForResolution(state, actorIndex, `Seized by Terror: ${charName}`);
   const checkValue = rolled.total + mind;

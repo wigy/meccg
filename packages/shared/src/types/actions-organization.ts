@@ -339,6 +339,8 @@ export interface PlayPermanentEventAction {
   readonly targetItemInstanceId?: CardInstanceId;
   /** For faction-targeting permanent events (Long Grievous Siege ba-40), the target in-play faction instance. */
   readonly targetFactionInstanceId?: CardInstanceId;
+  /** For long-event-targeting permanent events (Echo of All Joy td-110), the target in-play resource long-event instance. */
+  readonly targetLongEventInstanceId?: CardInstanceId;
   /**
    * For a `faction-siege` permanent event (Long Grievous Siege ba-40), the site
    * card instance in the player's location deck chosen to be besieged — moved

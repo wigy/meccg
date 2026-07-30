@@ -13,21 +13,21 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
-import { CardStatus, SiteType, Alignment, Race } from '../../types/common.js';
+import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from '../recompute-derived.js';
 import { resolveDef, enemyRaceContext } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect } from './organization.js';
+import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
@@ -39,7 +39,7 @@ import { cvccSides } from '../cvcc-sides.js';
  * Find all allies in a company by iterating over each character's allies array.
  * Returns tuples of [allyInPlay, hostCharacterId] for combat targeting.
  */
-function findCompanyAllies(
+export function findCompanyAllies(
   player: PlayerState,
   companyCharacters: readonly CardInstanceId[],
 ): Array<{ ally: AllyInPlay; hostCharId: CardInstanceId }> {
@@ -105,7 +105,7 @@ export function findItemInCompany(
  * matches the company's effective site (destination during M/H, current
  * during site phase).
  */
-function isAllyImmuneToSiteKeyedAttack(
+export function isAllyImmuneToSiteKeyedAttack(
   state: GameState,
   ally: AllyInPlay,
   combat: CombatState,
@@ -200,6 +200,26 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
+      }
+      // CoE rule 3.i / 8.02 (Pre-Assignment Actions): while the attacker holds
+      // a live pre-assignment modify-attack option (e.g. an unrevealed
+      // on-guard Unabated in Malice ba-26 on an automatic-attack) and hasn't
+      // yet passed, they hold an exclusive priority window — the defender may
+      // not begin strike assignment yet. Mirrors the attackerStep1Done gate
+      // used later in resolve-strike (rule 3.iv.1). CvCC has its own
+      // strike-sequence rules with no pre-assignment hazard window (rule 8.42),
+      // so it is excluded.
+      if (combat.assignmentPhase === 'defender' && !combat.isCvCC && !combat.attackerPreAssignDone) {
+        const attackerModifyOptions = modifyAttackActions(state, combat.attackingPlayerId, combat);
+        if (attackerModifyOptions.length > 0) {
+          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts];
+          if (playerId === combat.attackingPlayerId) {
+            logDetail(`Pre-assignment window: attacker has ${attackerModifyOptions.length} modify-attack option(s) — defender waits`);
+            return [...preAssignActions, { action: { type: 'pass' as const, player: playerId }, viable: true }];
+          }
+          logDetail('Pre-assignment window: defender waits for attacker to reveal or decline a modify-attack option');
+          return preAssignActions;
+        }
       }
       return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
@@ -1433,6 +1453,18 @@ function resolveStrikeActions(
     actions.push(...shortEventsAffectingStrike(state, playerId, combat));
   }
 
+  // Rule 2.1.1 / 3.iv.5: the defending resource player may activate any-phase
+  // grant-actions on their turn — most relevantly Cram's discard-to-untap-bearer,
+  // which lets the character facing the strike shed the already-tapped -1
+  // prowess penalty and regain the "-3 to stay untapped" option (rule 3.iv.3).
+  // `resolveStrikeActions` is entered as a whole-phase dispatch (combat.ts's
+  // `combatActions` switch), not through the general per-phase action list
+  // where `grantedActionActivations` normally runs, so without this the
+  // any-phase grant is silently unreachable for the whole strike sequence.
+  if (playerId === state.activePlayer) {
+    actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+  }
+
   return actions;
 }
 
@@ -1692,10 +1724,13 @@ function bodyCheckActions(
   playerId: PlayerId,
   combat: CombatState,
 ): EvaluatedAction[] {
-  // Body check always belongs to the opponent of the wounded character:
+  // Body check always belongs to the opponent of the entity being checked
+  // (CoE 3.I.1):
   // - defender's character wounded → attacker (opponent) rolls
   // - attacker's character wounded (CvCC) → defender (opponent) rolls
-  const roller = combat.bodyCheckTarget === 'attacker-character'
+  // - creature/agent's strike defeated → the creature/agent is controlled by
+  //   the attacker, so the defender (opponent) rolls
+  const roller = combat.bodyCheckTarget === 'attacker-character' || combat.bodyCheckTarget === 'creature'
     ? combat.defendingPlayerId
     : combat.attackingPlayerId;
   if (playerId !== roller) return [];
@@ -2526,6 +2561,59 @@ function cancelAttackActions(
     // One action per character in the company — player picks who makes the attempt
     for (const charId of company.characters) {
       logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Goodwill-cancel-attack: hand cards with a `goodwill-cancel-attack` effect
+  // (e.g. Token of Goodwill dm-160). Only offered when the facing attack's
+  // race (or, for `matchAnyAgentAttack` entries, an Agent attack source) has
+  // a threshold entry, the target is a diplomat, and the diplomat's company
+  // carries at least one item of the entry's rank to discard.
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const goodwillEffect = getCardEffects(cardDef).find(
+      (e): e is GoodwillCancelAttackEffect => e.type === 'goodwill-cancel-attack',
+    );
+    if (!goodwillEffect) continue;
+
+    const isAgentAttack = combat.attackSource.type === 'agent';
+    const matchedEntry = goodwillEffect.thresholds.find(t =>
+      (combat.creatureRace !== undefined && t.races.includes(combat.creatureRace))
+      || (t.matchAnyAgentAttack === true && isAgentAttack));
+    if (!matchedEntry) {
+      logDetail(`Goodwill-cancel-attack ${handCard.definitionId as string}: no matching race/Agent threshold — skipping`);
+      continue;
+    }
+
+    const hasMatchingItem = company.characters.some(charId => {
+      const bearer = player.characters[charId];
+      if (!bearer) return false;
+      return bearer.items.some(item => {
+        const itemDef = defById(state, item.definitionId);
+        return itemDef && isItemCard(itemDef) && itemDef.subtype === matchedEntry.itemSubtype;
+      });
+    });
+    if (!hasMatchingItem) {
+      logDetail(`Goodwill-cancel-attack ${handCard.definitionId as string}: no ${matchedEntry.itemSubtype} item in company — skipping`);
+      continue;
+    }
+
+    // One action per diplomat in the company — player picks who makes the attempt
+    for (const charId of company.characters) {
+      const charData = player.characters[charId];
+      if (!charData) continue;
+      const charDef = defById(state, charData.definitionId);
+      if (!charDef || !isCharacterCard(charDef) || !charDef.skills.includes(Skill.Diplomat)) continue;
+      logDetail(`Goodwill-cancel-attack ${handCard.definitionId as string}: offering for diplomat ${charId as string}`);
       actions.push({
         action: {
           type: 'cancel-attack',

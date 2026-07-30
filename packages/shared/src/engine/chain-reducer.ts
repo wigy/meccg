@@ -19,7 +19,7 @@ import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceC
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard, printedMind } from '../types/cards.js';
 import { placeCardSetAside } from './set-aside.js';
 import { ownerOf } from '../types/state.js';
 import { CardStatus, cardStatusFromName, SiteType, Race, RegionType } from '../types/common.js';
@@ -2301,6 +2301,19 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }));
       logDetail(`"${def?.name ?? card.definitionId}" attached to faction ${targetFactionId as string}`);
     }
+
+    // Long-event-targeting permanent event (Echo of All Joy td-110): bind the
+    // host to the target resource long-event instance via `attachedToLongEvent`.
+    const targetLongEventId = entry.payload.type === 'permanent-event' ? entry.payload.targetLongEventInstanceId : undefined;
+    if (targetLongEventId) {
+      working = updatePlayer(working, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+          ? { ...c, attachedToLongEvent: targetLongEventId }
+          : c),
+      }));
+      logDetail(`"${def?.name ?? card.definitionId}" attached to long-event ${targetLongEventId as string}`);
+    }
     if (besiegedSiteId) {
       const siteInst = working.players[playerIndex].siteDeck.find(s => s.instanceId === besiegedSiteId);
       const siteDef = siteInst ? defById(working, siteInst.definitionId) : undefined;
@@ -2552,8 +2565,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
       const bearer = bearerPi >= 0 ? newState.players[bearerPi].characters[targetCharId] : undefined;
       const bearerDef = bearer ? defById(newState, bearer.definitionId) : undefined;
-      const printedMind = bearerDef && isCharacterCard(bearerDef) && bearerDef.mind !== null ? bearerDef.mind : 0;
-      const effectiveMind = bearer?.effectiveStats.mind ?? printedMind;
+      const effectiveMind = bearer?.effectiveStats.mind ?? printedMind(bearerDef);
       const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === Race.Wizard;
       const rollBonus = effectiveMind + (isWizard ? rollUntapEffect.wizardBonus : 0);
       logDetail(`"${def?.name ?? '?'}" roll-untap-site: enqueuing dice-check (roll + mind ${effectiveMind}${isWizard ? ` + wizard ${rollUntapEffect.wizardBonus}` : ''} = +${rollBonus} > ${rollUntapEffect.threshold}) on ${targetCharId as string}`);
@@ -3499,15 +3511,32 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       ).length
     : 0;
 
-  const attackKeying = Array.from(new Set(
-    creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
-  ));
-  const attackSiteKeyingTypes = Array.from(new Set(
-    creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
-  ));
-  const attackKeyingRegionNames = Array.from(new Set(
-    creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
-  ));
+  // A creature's `keyedTo` can list several independent ways it may be
+  // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
+  // Shadow-hold/Dark-hold). When the hazard player declared a specific
+  // match to justify this play (`keyedBy`), the attack is keyed *only* to
+  // that match — not to every alternative the card could have used. This
+  // matters for cards like Stinker ("keyed to Wilderness or Shadow-land",
+  // region types only): an Orc-watch played on the strength of its
+  // site-type match alone must not be cancelable as if it were also keyed
+  // to the Shadow-land region type. Falls back to the union of the card's
+  // `keyedTo` when no declared match is available (on-guard reveals, etc.).
+  const declaredKeyedBy = entry.payload.type === 'creature' ? entry.payload.keyedBy : undefined;
+  const attackKeying = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'region-type' ? [declaredKeyedBy.value as RegionType] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
+      ));
+  const attackSiteKeyingTypes = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'site-type' ? [declaredKeyedBy.value as SiteType] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
+      ));
+  const attackKeyingRegionNames = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
+      ));
   // Scan for on-event: creature-attack-begins → offer-char-join-attack
   // (e.g. Alatar). If any pending offers match, force a cancel-window so
   // the defender has an explicit opt-in before strike assignment begins.
@@ -4272,6 +4301,48 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             threshold: matchedEntry.threshold,
             diplomatBonus: flatEffect.diplomatBonus,
             hazardLimitReduction: flatEffect.hazardLimitReduction,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
+  }
+
+  // Goodwill-cancel-attack (Token of Goodwill dm-160): when the chain entry
+  // resolves un-negated, enqueue a corruption check on the target diplomat.
+  // If he survives, the `enqueue-goodwill-attempt` onSuccess hook (resolved in
+  // pending-reducers.ts) raises a `goodwill-attempt` resolution for the item
+  // discard + influence roll. Do NOT immediately cancel the attack here.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.combat) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const goodwillEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').GoodwillCancelAttackEffect => e.type === 'goodwill-cancel-attack',
+    );
+    if (goodwillEffect) {
+      const creatureRace = current.combat.creatureRace;
+      const isAgentAttack = current.combat.attackSource.type === 'agent';
+      const matchedEntry = goodwillEffect.thresholds.find(t =>
+        (creatureRace !== undefined && t.races.includes(creatureRace))
+        || (t.matchAnyAgentAttack === true && isAgentAttack));
+      if (matchedEntry) {
+        const defPlayerId = current.combat.defendingPlayerId;
+        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
+        logDetail(`Goodwill-cancel-attack: enqueuing corruption check for diplomat ${entry.payload.targetCharacterId as string} (item ${matchedEntry.itemSubtype}, threshold ${matchedEntry.threshold})`);
+        current = enqueueCorruptionCheck(current, {
+          source: entry.card.instanceId,
+          actor: defPlayerId,
+          scope,
+          characterId: entry.payload.targetCharacterId,
+          reason: cardDef?.name ?? (entry.card.definitionId as string),
+          onSuccess: {
+            type: 'enqueue-goodwill-attempt',
+            companyId: current.combat.companyId,
+            itemSubtype: matchedEntry.itemSubtype,
+            threshold: matchedEntry.threshold,
           },
         });
         return { state: current, needsInput: true };

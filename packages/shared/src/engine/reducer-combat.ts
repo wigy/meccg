@@ -15,10 +15,12 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
 import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from './combat-strike.js';
-import { findAllyInCompany } from './legal-actions/combat.js';
+import { findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
 import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 
 /**
  * Signature shared by every combat-active action handler. Each handler takes
@@ -71,6 +73,10 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   // handler applies its effects without touching the combat state.
   'play-short-event': handlePlayResourceShortEvent,
   'take-trophy': handleTakeTrophy,
+  // Rule 2.1.1: any-phase grant-actions (e.g. Cram's discard-to-untap-bearer)
+  // remain activatable while combat is active — `handleGrantActionApply` is
+  // combat-agnostic and just ignores the unused `combat` parameter.
+  'activate-granted-action': (state, action) => handleGrantActionApply(state, action),
 };
 
 /**
@@ -327,13 +333,33 @@ function handleApplyAttackerAttackOption(state: GameState, action: GameAction, c
 function autoAssignEachCharacterStrikes(state: GameState, combat: CombatState): ReducerResult | null {
   const defender = playerById(state, combat.defendingPlayerId);
   const company = defender ? companyById(defender.companies, combat.companyId) : null;
-  if (company && combat.strikesTotal < company.characters.length) {
-    logDetail(`Each character faces one strike: only ${combat.strikesTotal} strike(s) left for ${company.characters.length} character(s) — falling back to manual assignment`);
-    return null;
-  }
   const protectedIds = new Set(
     (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
   );
+  // Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
+  // they face one too, unless made immune by a play-flag or protected.
+  const facingAllies = defender && company
+    ? findCompanyAllies(defender, company.characters)
+      .filter(({ ally }) => {
+        if (protectedIds.has(ally.instanceId as string)) {
+          logDetail(`Each character faces one strike: ally ${ally.instanceId as string} is protected from strike assignment — skipping`);
+          return false;
+        }
+        const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        if (hasPlayFlag(allyDef, 'no-attack')) {
+          logDetail(`Each character faces one strike: ally ${ally.instanceId as string} has no-attack — excluded`);
+          return false;
+        }
+        if (isAllyImmuneToSiteKeyedAttack(state, ally, combat)) return false;
+        return true;
+      })
+      .map(({ ally }) => ally.instanceId)
+    : [];
+
+  if (company && combat.strikesTotal < company.characters.length + facingAllies.length) {
+    logDetail(`Each character faces one strike: only ${combat.strikesTotal} strike(s) left for ${company.characters.length} character(s) and ${facingAllies.length} ally/allies — falling back to manual assignment`);
+    return null;
+  }
   const facing = (company?.characters ?? []).filter(charId => {
     if (protectedIds.has(charId as string)) {
       logDetail(`Each character faces one strike: ${charId as string} is protected from strike assignment — skipping`);
@@ -350,7 +376,7 @@ function autoAssignEachCharacterStrikes(state: GameState, combat: CombatState): 
     return true;
   });
 
-  const strikeAssignments: StrikeAssignment[] = facing.map(characterId => ({
+  const strikeAssignments: StrikeAssignment[] = [...facing, ...facingAllies].map(characterId => ({
     characterId,
     excessStrikes: 0,
     resolved: false,
@@ -486,6 +512,25 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     logDetail(`Defender passed cancel window — transitioning to ${next} assignment`);
     return {
       state: { ...state, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined } },
+    };
+  }
+
+  // CoE rule 3.i / 8.02 — attacker declines their pre-assignment window
+  // (modify-attack / cancel / halve / protect options), allowing the
+  // defender to begin strike assignment. Mirrors attackerStep1Done in
+  // resolve-strike (rule 3.iv.1); without this, an attacker holding an
+  // unrevealed on-guard modify-attack card (Unabated in Malice ba-26) could
+  // be raced past by the defender's assign-strike action.
+  if (
+    combat.phase === 'assign-strikes'
+    && combat.assignmentPhase === 'defender'
+    && !combat.isCvCC
+    && action.player === combat.attackingPlayerId
+    && !combat.attackerPreAssignDone
+  ) {
+    logDetail('Attacker passed pre-assignment window — defender may begin strike assignment');
+    return {
+      state: { ...state, combat: { ...combat, attackerPreAssignDone: true } },
     };
   }
 

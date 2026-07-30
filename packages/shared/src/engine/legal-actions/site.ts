@@ -419,7 +419,14 @@ function revealOnGuardAttacksActions(
       // confirms it "can be revealed on-guard".
       const affectsAutoAttacks = 'effects' in def && def.effects?.some(
         e => (e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'))
-          || e.type === 'site-entry-roll-attack',
+          || e.type === 'site-entry-roll-attack'
+          // Rule 2.V.i: an `on-event: company-arrives-at-site → add-constraint`
+          // mode that boosts automatic-attack prowess (e.g. Choking Shadows
+          // tw-21) also "affects the automatic-attack(s) of the site" — eligible
+          // for reveal here even though it is not a `stat-modifier` effect.
+          || (e.type === 'on-event' && e.event === 'company-arrives-at-site'
+            && e.apply.type === 'add-constraint' && e.apply.constraint === 'auto-attack-prowess-boost'
+            && (!siteDef || !isSiteCard(siteDef) || e.apply.siteType === siteDef.siteType)),
       );
       // A site-targeting event is played on the company's site as it is
       // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,
@@ -967,6 +974,23 @@ function playResourcesActions(
         const phaseCond = findPlayConditionEffect(eventDef, 'phase');
         if (phaseCond?.phases && !phaseCond.phases.includes(Phase.Site)) {
           logDetail(`Permanent event ${eventDef.name}: playable only during [${phaseCond.phases.join(', ')}] — not in the site phase`);
+          continue;
+        }
+
+        // play-target: company — company-wide resource permanent-events
+        // (Fellowship tw-240, Great Ship tw-248, Great-road tw-249, An
+        // Unexpected Party dm-114, …) are, without exception, worded "during
+        // the organization phase" on their card text. Their siteType/
+        // memberCount/overt/orcCount filter is only evaluated by the
+        // organization-phase emitter (legal-actions/organization-events.ts);
+        // this site-phase loop has no target: 'company' handling below, so
+        // leave these unevaluated here rather than falling through to the
+        // generic "playable" tail unfiltered.
+        const companyPlayTargetGate = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'company',
+        );
+        if (companyPlayTargetGate) {
+          logDetail(`Permanent event ${eventDef.name}: company-targeting resource — only playable during the organization phase`);
           continue;
         }
         evaluatedInstances.add(cardInstanceId as string);
