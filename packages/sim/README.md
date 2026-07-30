@@ -196,8 +196,35 @@ gift of two, so the module concluded that no hazard in the game was ever worth
 playing. `deniedPlayMp` is the number that fixed it, and it is a *quantity of
 MP* rather than a price, so `standing` still decides what it is worth here.
 
-Hazard **events** are declined — modelling Doors of Night means modelling its
-effect — so the decision is reported as partly covered rather than guessed at.
+A hazard **support event** is priced by running that same plan twice. Minions
+Stir gives every Orc attack +1 strike and +1 prowess, +2 of each while Doors of
+Night is in play, and the modifier is *declared* against the same two numbers
+the strike enumeration already runs on — so the plan is built as it stands and
+again with the modifier applied, and the event is worth the difference between
+the two best bundles:
+
+```text
+play Minions Stir: 1.5%
+├─ the event: +2.4
+│  ├─ what it achieves: +2.4
+│  │    [orc attack +1 prowess, +1 strike(s); troll attack +1 prowess, +1 strike(s)
+│  │     — the best bundle against this company goes from 6.5 to 9.0]
+│  └─ the card it spends: +1.0  {provisionalCardPrice}
+```
+
+It was the most-declined hazard event in the game — 59 candidates in three
+self-play games against Doors of Night's 46 — and a hazard side that cannot
+value its own support events cannot build the Orc engine the deck is for. Two
+properties fall out of the counterfactual rather than being asserted: the event
+is worth **nothing** when the hand holds no attack the modifier would reach, and
+the Doors of Night upgrade arrives only when Doors of Night is actually in play,
+because the +2 clauses carry `overrides` naming the +1 clauses they replace. A
+modifier whose condition the module cannot read is *dropped* rather than assumed
+to hold, so an unfamiliar gate under-values the card instead of over-valuing it.
+
+Hazard events outside those families are still declined — modelling a company
+restriction means modelling its effect — so the decision is reported as partly
+covered rather than guessed at.
 
 That budget line about influence is the one to watch: `reducer-site.ts` requires the influencing
 character to be **untapped**, so a company with none cannot attempt a faction
