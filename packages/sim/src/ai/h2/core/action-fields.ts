@@ -53,6 +53,23 @@ const CHARACTER_FIELDS = [
   'targetInstanceId',
 ] as const;
 
+/**
+ * Fields naming the card an action *gives up*, where an action has two legs.
+ *
+ * Almost every action names one card, which is why {@link namedCard} answers
+ * "the card this is about" and that is enough. `exchange-sideboard` names two:
+ * a sideboard card joining the discard pile that is about to be reshuffled into
+ * the play deck, and a discard card leaving it for the sideboard. Reading only
+ * the first would price a swap as a gift.
+ *
+ * Kept as its own list rather than folded into {@link CARD_FIELDS} because the
+ * two mean opposite things — an action carrying both would otherwise resolve to
+ * whichever spelling happens to come first.
+ */
+const GIVEN_UP_FIELDS = [
+  'discardCardInstanceId',
+] as const;
+
 /** The first of `fields` the action carries, or undefined. */
 function firstOf(action: GameAction, fields: readonly string[]): CardInstanceId | undefined {
   const record = action as unknown as Record<string, unknown>;
@@ -73,8 +90,14 @@ export function namedCharacter(action: GameAction): CardInstanceId | undefined {
   return firstOf(action, CHARACTER_FIELDS);
 }
 
+/** The card an action gives up, for the actions that trade one card for another. */
+export function namedGivenUpCard(action: GameAction): CardInstanceId | undefined {
+  return firstOf(action, GIVEN_UP_FIELDS);
+}
+
 /** Every spelling this module knows, for the test that keeps the list honest. */
 export const KNOWN_FIELDS = {
   card: CARD_FIELDS,
   character: CHARACTER_FIELDS,
+  givenUp: GIVEN_UP_FIELDS,
 } as const;
