@@ -667,8 +667,19 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Playable only on an Orc or Troll. +1 to all rolls required for bearer’s company to move to adjacent Under-deeps sites."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": { "$in": ["orc", "troll"] } }
+      },
+      {
+        "type": "under-deeps-roll-modifier",
+        "value": 1
+      }
+    ],
+    "text": "Playable only on an Orc or Troll. +1 to all rolls required for bearer’s company to move to adjacent Under-deeps sites.",
+    "certified": "2026-07-30"
   },
   {
     "cardType": "minion-resource-item",
