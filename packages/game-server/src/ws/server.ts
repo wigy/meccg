@@ -4,8 +4,10 @@
  * WebSocket server entry point for a single MECCG game.
  *
  * Takes two player names as arguments. Only those names can be players;
- * everyone else is a spectator. Once the game ends, the server exits.
- * In future, a master server will spawn one of these per game.
+ * everyone else is a spectator. The server exits on SIGTERM/SIGINT, or on
+ * its own once no human player has been connected for a grace period —
+ * the lobby watches the child exit to clear busy status and the watchable
+ * game row, so a session must not outlive the humans playing it.
  *
  * Usage: npx tsx src/ws/server.ts <player1> <player2> [--dev]
  */
@@ -29,6 +31,10 @@ const wss = new WebSocketServer({ port: PORT });
 const session = new GameSession({
   dev: DEV,
   playerNames: [PLAYER1_NAME, PLAYER2_NAME],
+  onIdle: () => {
+    console.log('No human players connected — shutting down.');
+    shutdown();
+  },
 });
 
 console.log(`MECCG server listening on port ${PORT}${DEV ? ' (dev mode)' : ''}`);
