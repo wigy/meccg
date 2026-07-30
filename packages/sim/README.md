@@ -28,7 +28,8 @@ npm run replay -w @meccg/sim -- path/to/replay.jsonl [--verify] [--steps] [--qui
 
 Available agents: `random` (uniform over viable actions), `heuristic` (the
 "Smart-AI" strategy, lifted from the text client into `src/ai/`), `h2`
-(Heuristics 2, see below), `bc` and `search` (learned policies).
+(Heuristics 2, see below), `mc` (flat Monte-Carlo rollouts over the real
+reducer, see below), `bc` and `search` (learned policies).
 
 ## Heuristics 2
 
@@ -485,6 +486,100 @@ and the engine applies **-3 to the roll** for not tapping while publishing the
 *unmodified* threshold on both variants. `pAtLeast(5 + 3)` is 41.7%. The module
 was also charging a tap the no-tap variant does not pay, so it preferred the
 tapping variant, which is exactly backwards.
+
+## Flat Monte-Carlo: how long should a playout be?
+
+`mc` is the flat Monte-Carlo agent of
+`specs/2026-07-27-monte-carlo-rollout-agent.md` — no tree, no network, no deck
+lists. It widens its own view with `search/determinize-null`, plays every
+shortlisted candidate forward through the real reducer under a uniform policy,
+and keeps the candidate with the best mean TSD.
+
+```sh
+npm run gate -w @meccg/sim -- --challenger 'mc:rollouts=4/candidates=4/turns=1' \
+  --champion heuristic --pairs 25 --rounds 1 --jobs 12
+```
+
+The obvious knob is `turns`, the playout horizon. Swept against Heuristics 1 at
+a fixed budget of 4 rollouts over 4 candidates, 50 paired side-swapped games per
+point:
+
+| horizon | score | elo diff (95% CI) | wall |
+|---|---|---|---|
+| 1 turn | 82.0% | +263 [+162, +431] | 1.0× |
+| 2 turns | 68.0% | +131 [+35, +251] | 1.8× |
+| 3 turns | 80.0% | +241 [+138, +404] | 1.9× |
+| 4 turns | 71.0% | +156 [+60, +281] | 2.2× |
+| 6 turns | 77.0% | +210 [+111, +354] | 2.7× |
+
+**There is no horizon effect.** The five proportions are homogeneous —
+χ²(4) = 3.83, p = 0.43 — so the zigzag is the sampling noise a 50-game point
+carries and not a curve. `heuristic` gated against *itself* on the same schedule
+scores exactly 50.0% at ±92 Elo, which is the width to read every row against.
+Pooled over all 250 games `mc` scores **75.6% [70.3%, 80.9%]**, and a horizon
+past one turn costs up to 2.7× the wall-clock for none of it.
+
+The headline is not the knob, though. **A four-rollout flat Monte-Carlo agent is
+the strongest thing measured against Heuristics 1 in this package** — H2 sits at
+55.8% / +40 Elo over 320 games (§ *Does it win?*) and `mc` is near +200. That is
+a surprise the rollout spec explicitly did not expect (§7 leaves the strength
+question open with the §2 objections standing) and it wants an independent
+confirmation before it is believed: these 250 games share one deck pair and one
+champion.
+
+### Why depth buys nothing
+
+`gate` cannot say why, so `mc-horizon-probe` measures the estimator directly. It
+replays real self-play positions, rebuilds `mc-agent`'s decision at each one —
+same shortlist, same determinized worlds, same playout seeds — and then runs the
+playout at every horizon **from the same seed**. The policy is uniform over the
+same filtered list and the random stream is identical, so the 8-turn trajectory
+is a prefix-extension of the 1-turn one: the horizons are compared on literally
+the same futures.
+
+```sh
+npm run mc-horizon-probe -w @meccg/sim -- --games 4 --seed 100 \
+  --horizons 1,2,3,4,6,8 --rounds 8 --max-positions 20 [--cycle-limit 200]
+```
+
+The first run found the knob was not even connected. Over 60 positions at the
+default cycle limit, the share of playouts stopping at `cycle` rather than at
+`horizon` ran 18% → 82% from 1 turn to 8, and cost grew only 5× for an 8×
+horizon: past two turns the **cycle guard** was ending the playout, not
+`horizonTurns`. That is why `cycleLimit` is now a `RolloutOptions` parameter —
+the guard is a horizon as much as it is a guard, so a caller asking for a deep
+playout has to be able to say so. The default is unchanged at 12.
+
+Raising it to 200 connects the knob (100% of playouts reach the horizon, cost
+now scales 30 → 338 decisions) and the answer does not change — 45 positions:
+
+```text
+  h   zero   |tsd|  noise  signal      t   flip%   cost
+   1   6.8%  12.92   3.18    1.65   1.47     ref     30
+   2   6.0%  11.77   5.07    2.15   1.20   22.7%     80
+   4   8.1%  10.40   5.95    2.57   1.22   38.6%    172
+   8  11.0%   9.51   6.28    2.86   1.29   36.4%    338
+```
+
+A deeper playout **does** separate the candidates further — `signal`, the spread
+between the best and worst candidate mean, rises 1.65 → 2.86 — but it scatters
+them just as fast, `noise` 3.18 → 6.28, so the discrimination the decision
+actually gets, `t = signal / (noise / √rounds)`, never improves. Meanwhile the
+position's score edge decays: `|tsd|` falls 12.9 → 9.5 and the share of playouts
+returning TSD = 0 rises 6.8% → 11.0%. The argmax flips against the 1-turn choice
+on ~40% of positions, so this is a different decision, not a refined one.
+
+That is §2.3 of the rollout spec — *a random rollout policy cannot execute
+MECCG's plans* — measured rather than argued. Every extra turn of lookahead is
+an extra turn of **both** players playing nonsense, and a uniform random walk
+regresses the differential the estimator reads toward parity. §2.2's rare-event
+worry is not what binds: only ~6% of 1-turn playouts return TSD = 0.
+
+The reading for anyone spending compute here: put it in width, not depth. The
+horizon is the one parameter measured to be worth nothing, and the upgrade the
+spec names — a competent rollout policy in place of the uniform one
+(`RolloutOptions.policy` already accepts it) — is the change that would make
+depth mean something, because it is the drift and not the sampling that costs.
 
 ## Replay format
 
