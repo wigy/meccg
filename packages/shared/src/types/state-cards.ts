@@ -331,6 +331,19 @@ export interface CharacterInPlay {
    */
   readonly influenceUnsubtracted?: boolean;
   /**
+   * Grace-period marker for a Ringwraith follower whose controlling Ringwraith
+   * avatar left play without being eliminated (CoE rule 3.08). A Ringwraith
+   * follower can only be controlled by a Ringwraith avatar — it cannot revert
+   * to general influence like an ordinary follower — so its player has until
+   * the end of their next organization phase to bring a Ringwraith avatar back
+   * into play to re-control it. Set to `'grace'` the moment the controlling
+   * avatar leaves play, promoted to `'due'` when the player's next organization
+   * phase begins, and settled when that phase ends: the flag clears if the
+   * character is once again controlled by a Ringwraith avatar, otherwise the
+   * character is immediately discarded.
+   */
+  readonly ringwraithReclaim?: 'grace' | 'due';
+  /**
    * Items this character's controller has explicitly declared *in use*
    * (CoE 9.16). A character may bear any number of items but only use one
    * weapon, armor, shield and helmet at a time; absent a declaration the

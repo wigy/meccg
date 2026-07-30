@@ -816,6 +816,29 @@ export function characterBearsAttachedEffect(
 }
 
 /**
+ * Extra properties to stamp on a follower whose controlling character left
+ * play. An ordinary follower simply reverts to general influence, but a
+ * Ringwraith follower — an avatar card played as a follower (CoE 2.II.2.1) —
+ * can only ever be controlled by a Ringwraith avatar, so it cannot: per CoE
+ * rule 3.08 it instead enters a grace period, giving its player until the end
+ * of their next organization phase to bring a Ringwraith avatar back into play
+ * to re-control it before it is discarded. Spread the result into the freed
+ * follower alongside `controlledBy: 'general'` at every site that strips
+ * follower control.
+ */
+export function ringwraithReclaimMark(
+  state: GameState,
+  follower: CharacterInPlay,
+): { ringwraithReclaim: 'grace' } | Record<string, never> {
+  const def = defById(state, follower.definitionId);
+  if (def && isCharacterCard(def) && isAvatarCharacter(def)) {
+    logDetail(`Ringwraith follower ${follower.instanceId as string} lost its controlling avatar — a Ringwraith avatar must re-control it by the end of its player's next organization phase or it is discarded (CoE 3.08)`);
+    return { ringwraithReclaim: 'grace' };
+  }
+  return {};
+}
+
+/**
  * True when the player at `playerIndex` has any card in play carrying an
  * `extra-under-deeps-mh-phase` effect (Gangways over the Fire, ba-60). Such a
  * card lets each of the player's moving companies take repeated Under-deeps

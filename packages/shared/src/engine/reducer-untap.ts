@@ -710,6 +710,24 @@ function advanceToOrganization(state: GameState): ReducerResult {
     }
   }
 
+  // Promote Ringwraith-follower reclaim flags on the active player's
+  // characters from 'grace' to 'due': this organization phase is the "next"
+  // one CoE rule 3.08 grants after their controlling Ringwraith avatar left
+  // play. A character still flagged 'due' and not controlled by a Ringwraith
+  // avatar when this phase ends is immediately discarded.
+  {
+    const ap = advanced.players[activeIndex];
+    const pending = Object.entries(ap.characters).filter(([, c]) => c.ringwraithReclaim === 'grace');
+    if (pending.length > 0) {
+      const promoted = { ...ap.characters };
+      for (const [cid, c] of pending) {
+        logDetail(`Organization phase begins: Ringwraith follower ${cid} must be re-controlled by a Ringwraith avatar before this phase ends or be discarded (CoE 3.08)`);
+        promoted[cid as CardInstanceId] = { ...c, ringwraithReclaim: 'due' };
+      }
+      advanced = updatePlayer(advanced, activeIndex, p => ({ ...p, characters: promoted }));
+    }
+  }
+
   // `event-maintenance` with trigger `controller-organization-phase-start`
   // (Balance Between Powers dm-118): "At the start of your organization phase,
   // discard this card or keep it in play by discarding an environment card from

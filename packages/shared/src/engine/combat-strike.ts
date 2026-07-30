@@ -30,7 +30,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
-import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
 import { enemyRaceContext } from './effects/index.js';
@@ -644,7 +644,7 @@ export function eliminateCombatantFromStrike(
     const follower = charsWithFreedFollowers[followerId];
     if (follower) {
       logDetail(`Follower ${followerId as string} of eliminated character reverts to general influence (subtraction deferred, CoE 3.13)`);
-      charsWithFreedFollowers[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+      charsWithFreedFollowers[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(state, follower) };
     }
   }
   const prunedChars = pruneLeaderFollowers(charsWithFreedFollowers, strike.characterId, charData.controlledBy);
