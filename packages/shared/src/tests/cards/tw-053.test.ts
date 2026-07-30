@@ -3,7 +3,8 @@
  *
  * Card test: Lost in Free-domains (tw-53)
  * Type: hazard-event (permanent, company-targeting)
- * Effects: 2 (play-target company, on-event self-enters-play → add-constraint
+ * Effects: 3 (play-condition site-path sitePath.freeCount>=1, play-target
+ *             company, on-event self-enters-play → add-constraint
  *             site-phase-do-nothing scope:company-site-phase)
  *
  * "Playable on a company moving with a Free-domain in its site path.
@@ -12,12 +13,13 @@
  * Engine Support:
  * | # | Feature                                  | Status      | Notes                                  |
  * |---|------------------------------------------|-------------|----------------------------------------|
- * | 1 | Play target = company                    | IMPLEMENTED | play-hazard's mandatory targetCompanyId |
- * | 2 | Adds site-phase-do-nothing constraint    | IMPLEMENTED | on-event self-enters-play apply        |
- * | 3 | Constraint collapses enter-or-skip menu  | IMPLEMENTED | constraint filter (legal-actions/pending) |
- * | 4 | Constraint clears at company-site-end    | IMPLEMENTED | sweepExpired in advanceSiteToNextCompany |
- * | 5 | Constraint does not affect other companies | IMPLEMENTED | constraint filter checks active company |
- * | 6 | Play-from-hand → chain → constraint added | IMPLEMENTED | reduce(play-hazard) end-to-end          |
+ * | 1 | Requires a Free-domain in the site path  | IMPLEMENTED | play-condition site-path sitePath.freeCount>=1 |
+ * | 2 | Play target = company                    | IMPLEMENTED | play-hazard's mandatory targetCompanyId |
+ * | 3 | Adds site-phase-do-nothing constraint    | IMPLEMENTED | on-event self-enters-play apply        |
+ * | 4 | Constraint collapses enter-or-skip menu  | IMPLEMENTED | constraint filter (legal-actions/pending) |
+ * | 5 | Constraint clears at company-site-end    | IMPLEMENTED | sweepExpired in advanceSiteToNextCompany |
+ * | 6 | Constraint does not affect other companies | IMPLEMENTED | constraint filter checks active company |
+ * | 7 | Play-from-hand → chain → constraint added | IMPLEMENTED | reduce(play-hazard) end-to-end          |
  *
  * Certified: 2026-04-08
  */
@@ -33,6 +35,7 @@ import {
   handCardId, companyIdAt, dispatch,
   viableActionTypes, viableActions, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
+import { RegionType } from '../../index.js';
 import type {
   CompanyId, SitePhaseState,
   PlayHazardAction,
@@ -176,7 +179,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const lifdInstance = handCardId(base, HAZARD_PLAYER);
 
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const mhState = makeMHState({ activeCompanyIndex: 0, resolvedSitePath: [RegionType.Free] });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
     const playActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
@@ -188,6 +191,34 @@ describe('Lost in Free-domains (tw-53)', () => {
     // Lost in Free-domains has play-target=company, so the action does
     // *not* carry a per-character target.
     expect(lifdPlay!.targetCharacterId).toBeUndefined();
+  });
+
+  test('NOT offered when the company\'s site path has no Free-domain region', () => {
+    // Regression test: Lost in Free-domains requires "a company moving with
+    // a Free-domain in its site path" (CoE card text). A path made up of
+    // only non-Free-domain region types (e.g. Wilderness/Coastal) must not
+    // make the card playable.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [LOST_IN_FREE_DOMAINS], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const lifdInstance = handCardId(base, HAZARD_PLAYER);
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Coastal, RegionType.Wilderness],
+    });
+    const stateAtPlayHazards = { ...base, phaseState: mhState };
+
+    const playActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction);
+
+    expect(playActions.find(a => a.cardInstanceId === lifdInstance)).toBeUndefined();
   });
 
   test('playing Lost in Free-domains through reduce adds the constraint to the targeted company', () => {
@@ -209,7 +240,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const lifdInstance = handCardId(base, HAZARD_PLAYER);
 
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const mhState = makeMHState({ activeCompanyIndex: 0, resolvedSitePath: [RegionType.Free] });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
     const afterPlay = dispatch(stateAtPlayHazards, {
@@ -263,7 +294,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const lifdInstance = handCardId(base, HAZARD_PLAYER);
 
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const mhState = makeMHState({ activeCompanyIndex: 0, resolvedSitePath: [RegionType.Free] });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
     const afterPlay = dispatch(stateAtPlayHazards, {
