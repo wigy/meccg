@@ -8,7 +8,7 @@
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
 import { parseConstraintScope } from './constraint-kind.js';
-import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
+import { enterMovementHazardPhase } from './mh-phase-state.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { CardStatus, cardStatusFromName, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -275,37 +275,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     return {
       state: {
         ...afterPass,
-        phaseState: {
-          phase: Phase.MovementHazard,
-          step: 'select-company',
-          activeCompanyIndex: 0,
-          handledCompanyIds: [],
-          movementType: null,
-          declaredRegionPath: [],
-          maxRegionDistance: BASE_MAX_REGION_DISTANCE,
-          hazardsPlayedThisCompany: 0,
-          hazardLimitAtReveal: 0,
-          preRevealHazardLimitConstraintIds: [],
-          resolvedSitePath: [],
-          resolvedSitePathNames: [],
-          destinationSiteType: null,
-          destinationSiteName: null,
-          resourceDrawMax: 0,
-          hazardDrawMax: 0,
-          resourceDrawCount: 0,
-          hazardDrawCount: 0,
-          resourcePlayerPassed: false,
-          hazardPlayerPassed: false,
-          siteRevealed: false,
-          onGuardPlacedThisCompany: false,
-          returnedToOrigin: false,
-          hazardsEncountered: [],
-          spawnReplayUsedSources: [],
-          ahuntAttacksResolved: 0,
-          corruptionCardsPlayedPerChar: {},
-          nazgulSideboardDestination: null,
-          nazgulSideboardFetched: 0,
-        },
+        phaseState: enterMovementHazardPhase(),
       },
     };
   }
