@@ -211,6 +211,33 @@ export function readCreditHistory(name: string): CreditHistoryEntry[] {
   }
 }
 
+/**
+ * Credits consumed since the most recent addition: the absolute total of
+ * every negative entry that follows the last positive one. With no addition
+ * on record, the whole history counts — that is the consumption since the
+ * account's opening balance.
+ */
+export function consumptionSinceLastAddition(history: readonly CreditHistoryEntry[]): number {
+  let lastAddition = -1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].amount > 0) { lastAddition = i; break; }
+  }
+  let spent = 0;
+  for (const entry of history.slice(lastAddition + 1)) {
+    if (entry.amount < 0) spent -= entry.amount;
+  }
+  return spent;
+}
+
+/**
+ * The top-up the admin screen offers: consumption since the last addition,
+ * rounded up to the nearest hundred. Zero when nothing has been spent since,
+ * so the button has nothing to add.
+ */
+export function pendingTopUp(history: readonly CreditHistoryEntry[]): number {
+  return Math.ceil(consumptionSinceLastAddition(history) / 100) * 100;
+}
+
 /** Outcome of {@link updateCredits}. */
 export interface CreditUpdateResult {
   /** Balance before the change. */
@@ -300,6 +327,77 @@ export function ensureSystemPlayers(): void {
       updatePlayer(name, { ...existing, displayName });
     }
   }
+}
+
+// ---- Admin listings ----
+
+/** One row of the admin user list. */
+export interface PlayerSummary {
+  readonly name: string;
+  readonly displayName: string;
+  readonly email: string;
+  readonly credits: number;
+  readonly createdAt: string;
+  /** True for the auto-created accounts (ai, server, admin, reviewers). */
+  readonly system: boolean;
+}
+
+/**
+ * A player's full account record for the admin detail view, with the
+ * password hash replaced by a boolean — the admin needs to know whether a
+ * password is set, never what it hashes to.
+ */
+export interface PlayerProfile extends Omit<PlayerRecord, 'passwordHash'> {
+  readonly hasPassword: boolean;
+  readonly system: boolean;
+}
+
+/** Every account on disk, ordered by name. Unreadable records are skipped. */
+export function listPlayers(): PlayerSummary[] {
+  ensureDir();
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const rows: PlayerSummary[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    let record: PlayerRecord;
+    try {
+      record = JSON.parse(fs.readFileSync(path.join(PLAYERS_DIR, entry.name, 'info.json'), 'utf-8')) as PlayerRecord;
+    } catch {
+      continue;
+    }
+    rows.push({
+      name: record.name,
+      displayName: record.displayName ?? record.name,
+      email: record.email,
+      credits: record.credits ?? DEFAULT_CREDITS,
+      createdAt: record.createdAt,
+      system: isSystemPlayer(record.name),
+    });
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** A player's account record without the password hash. Null if unknown. */
+export function getPlayerProfile(name: string): PlayerProfile | null {
+  const player = findPlayer(name);
+  if (!player) return null;
+  const { passwordHash, ...rest } = player;
+  return {
+    ...rest,
+    credits: player.credits ?? DEFAULT_CREDITS,
+    hasPassword: passwordHash !== '',
+    system: isSystemPlayer(player.name),
+  };
+}
+
+/** Whether the name belongs to an auto-created system account. */
+function isSystemPlayer(name: string): boolean {
+  return SYSTEM_PLAYERS.some(p => p.name.toLowerCase() === name.toLowerCase());
 }
 
 /** Save a new player record. Throws if the name is already taken. */

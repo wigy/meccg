@@ -16,6 +16,10 @@
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
  * - GET /api/scoreboard — per-player completed-game tallies, most games first
  * - GET /api/scoreboard/players/:name — every completed game for one player, newest first
+ * - GET /api/admin/users — all accounts with name, display name, email, credits (admin session)
+ * - GET /api/admin/users/:name — one account's full data, credit history, games (admin session)
+ * - POST /api/admin/users/:name/credits/top-up — add consumption-since-last-addition, rounded up to
+ *   the nearest hundred (admin session)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
@@ -39,7 +43,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
-import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
+import { DEV, MASTER_KEY, REVIEWER_PLAYERS, isAdminPlayer } from '../config.js';
 import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
@@ -47,7 +51,7 @@ import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -129,6 +133,30 @@ async function authedRoute(
   const playerName = getSessionPlayer(req);
   if (!playerName) {
     sendJson(res, 401, { error: 'Not logged in' });
+    return;
+  }
+  await tryRoute(res, context, errorMessage, () => handler(playerName));
+}
+
+/**
+ * Run an admin route: 401 without a session, 403 when the session player is
+ * not an admin, otherwise the handler under the {@link tryRoute} scaffold.
+ * The handler receives the acting admin's name, for audit trails.
+ */
+async function adminRoute(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  context: string,
+  errorMessage: string,
+  handler: (adminName: string) => void | Promise<void>,
+): Promise<void> {
+  const playerName = getSessionPlayer(req);
+  if (!playerName) {
+    sendJson(res, 401, { error: 'Not logged in' });
+    return;
+  }
+  if (!isAdminPlayer(playerName)) {
+    sendJson(res, 403, { error: 'Admin access required' });
     return;
   }
   await tryRoute(res, context, errorMessage, () => handler(playerName));
@@ -321,7 +349,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
       const token = signLobbyToken(player.name);
       setSessionCookie(res, token);
-      sendJson(res, 200, { name: player.name, isReviewer: REVIEWER_PLAYERS.includes(player.name), credits: getCredits(player.name) });
+      sendJson(res, 200, { name: player.name, isReviewer: REVIEWER_PLAYERS.includes(player.name), isAdmin: isAdminPlayer(player.name), credits: getCredits(player.name) });
       lobbyLog.log('login', { name: player.name });
     });
     return;
@@ -335,7 +363,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
   if (urlPath === '/api/me' && method === 'GET') {
     await authedRoute(req, res, 'me', 'Failed to load player info', (playerName) => {
-      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isReviewer: REVIEWER_PLAYERS.includes(playerName), credits: getCredits(playerName) });
+      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isReviewer: REVIEWER_PLAYERS.includes(playerName), isAdmin: isAdminPlayer(playerName), credits: getCredits(playerName) });
     });
     return;
   }
@@ -380,6 +408,51 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         return;
       }
       sendJson(res, 200, { name, games: loadPlayerGames(name) });
+    });
+    return;
+  }
+
+  // ---- Admin screen (admin session required) ----
+
+  if (urlPath === '/api/admin/users' && method === 'GET') {
+    await adminRoute(req, res, 'admin-users', 'Failed to load users', () => {
+      sendJson(res, 200, { users: listPlayers() });
+    });
+    return;
+  }
+
+  const adminUserMatch = urlPath.match(/^\/api\/admin\/users\/([^/]+)$/);
+  if (adminUserMatch && method === 'GET') {
+    await adminRoute(req, res, 'admin-user', 'Failed to load user', () => {
+      const name = decodeURIComponent(adminUserMatch[1]);
+      const profile = getPlayerProfile(name);
+      if (!profile) { sendJson(res, 404, { error: 'Player not found' }); return; }
+      const history = readCreditHistory(profile.name);
+      sendJson(res, 200, {
+        profile,
+        history,
+        games: loadPlayerGames(profile.name),
+        pendingTopUp: pendingTopUp(history),
+      });
+    });
+    return;
+  }
+
+  const adminTopUpMatch = urlPath.match(/^\/api\/admin\/users\/([^/]+)\/credits\/top-up$/);
+  if (adminTopUpMatch && method === 'POST') {
+    await adminRoute(req, res, 'admin-top-up', 'Failed to add credits', (adminName) => {
+      const name = decodeURIComponent(adminTopUpMatch[1]);
+      const profile = getPlayerProfile(name);
+      if (!profile) { sendJson(res, 404, { error: 'Player not found' }); return; }
+      const amount = pendingTopUp(readCreditHistory(profile.name));
+      if (amount <= 0) {
+        sendJson(res, 400, { error: 'No credits consumed since the last addition' });
+        return;
+      }
+      const result = updateCredits(profile.name, 'add', amount, `Top-up by ${adminName}`);
+      if (!result) { sendJson(res, 404, { error: 'Player not found' }); return; }
+      lobbyLog.log('admin-top-up', { admin: adminName, player: profile.name, amount, balance: result.balance });
+      sendJson(res, 200, { name: profile.name, ...result });
     });
     return;
   }

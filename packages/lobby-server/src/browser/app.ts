@@ -19,13 +19,14 @@
 import {
   appState, cardPool, LOBBY_MODE,
   VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY, VIEWING_SCOREBOARD_KEY,
-  EDITING_DECK_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
+  VIEWING_ADMIN_KEY, EDITING_DECK_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { savePlayerName, loadPlayerName } from './session.js';
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
 import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
 import { openScoreboardPage, setScoreboardPageCallbacks } from './scoreboard-page.js';
+import { openAdminPage, setAdminPageCallbacks } from './admin-page.js';
 import { showAlert, showConfirm } from './dialog.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
@@ -47,6 +48,7 @@ if (versionEl && window.__MECCG_VERSION) {
 setInboxCallbacks(showScreen);
 setCreditsPageCallbacks(showScreen);
 setScoreboardPageCallbacks(showScreen);
+setAdminPageCallbacks(showScreen);
 
 // ---- UI Setup ----
 
@@ -98,11 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const name = (document.getElementById('login-name') as HTMLInputElement).value.trim();
       const password = (document.getElementById('login-password') as HTMLInputElement).value;
       if (!name || !password) { showAuthError('login-error', 'Name and password are required'); return; }
-      const r = await apiSend<{ name?: string; isReviewer?: boolean; credits?: number }>(
+      const r = await apiSend<{ name?: string; isReviewer?: boolean; isAdmin?: boolean; credits?: number }>(
         '/api/login', 'POST', { name, password });
       if (!r.ok) { showAuthError('login-error', r.error ?? 'Login failed'); return; }
       appState.lobbyPlayerName = r.data.name!;
       appState.lobbyPlayerIsReviewer = r.data.isReviewer ?? false;
+      appState.lobbyPlayerIsAdmin = r.data.isAdmin ?? false;
       appState.lobbyPlayerCredits = r.data.credits ?? 0;
       showScreen('lobby-screen');
       connectLobbyWs();
@@ -119,11 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const email = (document.getElementById('register-email') as HTMLInputElement).value.trim();
       const password = (document.getElementById('register-password') as HTMLInputElement).value;
       if (!name || !email || !password) { showAuthError('register-error', 'All fields are required'); return; }
-      const r = await apiSend<{ name?: string; isReviewer?: boolean; credits?: number }>(
+      const r = await apiSend<{ name?: string; isReviewer?: boolean; isAdmin?: boolean; credits?: number }>(
         '/api/register', 'POST', { name, email, password, ...(displayName ? { displayName } : {}) });
       if (!r.ok) { showAuthError('register-error', r.error ?? 'Registration failed'); return; }
       appState.lobbyPlayerName = r.data.name!;
       appState.lobbyPlayerIsReviewer = r.data.isReviewer ?? false;
+      appState.lobbyPlayerIsAdmin = r.data.isAdmin ?? false;
       appState.lobbyPlayerCredits = r.data.credits ?? 0;
       showScreen('lobby-screen');
       connectLobbyWs();
@@ -137,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const doLogout = () => { void (async () => {
       await apiSend('/api/logout', 'POST');
       appState.lobbyPlayerName = null;
+      appState.lobbyPlayerIsAdmin = false;
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
       sessionStorage.removeItem(MAIL_TAB_KEY);
       sessionStorage.removeItem(MAIL_MSG_KEY);
@@ -144,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
+      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
       if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
       selectRandomAuthHero();
       showAuthTab('login');
@@ -365,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
+      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
       showScreen('lobby-screen');
     });
     document.getElementById('nav-decks')!.addEventListener('click', () => {
@@ -374,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
+      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
       sessionStorage.setItem(VIEWING_DECKS_KEY, '1');
       showScreen('decks-screen');
     });
@@ -382,6 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
+      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
       void openInbox();
     });
     document.getElementById('lobby-credits-badge')!.addEventListener('click', () => {
@@ -391,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
+      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
       sessionStorage.setItem(VIEWING_CREDITS_KEY, '1');
       void openCreditsPage();
     });
@@ -401,8 +411,20 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(VIEWING_CREDITS_KEY);
+      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
       sessionStorage.setItem(VIEWING_SCOREBOARD_KEY, '1');
       void openScoreboardPage();
+    });
+    document.getElementById('nav-admin')!.addEventListener('click', () => {
+      sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      sessionStorage.removeItem(MAIL_TAB_KEY);
+      sessionStorage.removeItem(MAIL_MSG_KEY);
+      sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
+      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
+      sessionStorage.setItem(VIEWING_ADMIN_KEY, '1');
+      void openAdminPage();
     });
 
     // Nav bar bug-report / feature-request icon buttons. Each opens the same
