@@ -280,4 +280,11 @@ export interface PlayerView {
    * Public information — both players can see which restrictions apply.
    */
   readonly activeConstraints: readonly ActiveConstraint[];
+  /**
+   * True once a developer-tools command has been used in this game
+   * (see {@link GameState.cheated}). Lets the client skip the cheat
+   * confirmation dialog once the game is already marked. Optional so
+   * views built before this field existed read as not cheated.
+   */
+  readonly cheated?: boolean;
 }

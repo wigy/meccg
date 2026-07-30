@@ -99,9 +99,12 @@ const SERVER_DEV = window.__MECCG_DEV === true;
 /**
  * Ask the player to confirm a developer-tools action. Any confirmed use
  * marks the game as cheated on the server, and a cheated game's end result
- * is never recorded to the scoreboard or player histories.
+ * is never recorded to the scoreboard or player histories. Once the game
+ * is already marked cheated there is nothing left to protect, so no
+ * further confirmation is asked.
  */
 function confirmCheat(): Promise<boolean> {
+  if (appState.gameCheated) return Promise.resolve(true);
   return showConfirm(
     'Are you sure? Using a developer tool marks this game as cheated, '
     + 'and its result will never be recorded.',
