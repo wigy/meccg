@@ -70,3 +70,16 @@ export const DECK_CATALOG_DIR = path.join(__dirname, '../../../data/decks');
 
 /** Reviewer player names who receive review requests and can approve changes. */
 export const REVIEWER_PLAYERS: readonly string[] = ['admin'];
+
+/**
+ * Player names allowed to use the admin screen (`/api/admin/*`): the user
+ * list, per-user detail, and credit top-ups. Kept separate from
+ * {@link REVIEWER_PLAYERS} because reviewing content and administering
+ * accounts are different privileges, even though one account holds both today.
+ */
+export const ADMIN_PLAYERS: readonly string[] = ['admin'];
+
+/** Whether the named player may use the admin screen. Case-insensitive. */
+export function isAdminPlayer(name: string): boolean {
+  return ADMIN_PLAYERS.includes(name.toLowerCase());
+}

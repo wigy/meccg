@@ -832,6 +832,192 @@ h2 {
   color: #c4a35a;
 }
 
+/* ---- Admin page (user accounts, credits, games) ---- */
+
+.admin-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 2rem;
+}
+
+.admin-page-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  margin: 0 0 0.75rem;
+}
+
+.admin-page-note {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.admin-users-table,
+.admin-games-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  font-size: 0.9rem;
+}
+
+.admin-users-table th,
+.admin-users-table td,
+.admin-games-table th,
+.admin-games-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #2a2a40;
+}
+
+.admin-users-table th,
+.admin-games-table th {
+  background: rgba(196, 163, 90, 0.12);
+  color: #c4a35a;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.admin-users-table tbody tr:hover,
+.admin-games-table tbody tr:hover {
+  background: rgba(196, 163, 90, 0.06);
+}
+
+.admin-col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 6rem;
+}
+
+.admin-user-row {
+  cursor: pointer;
+}
+
+.admin-user-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #c4a35a;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.admin-user-link:hover,
+.admin-user-link:focus-visible {
+  text-decoration: underline solid;
+}
+
+.admin-system-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border: 1px solid #556;
+  border-radius: 3px;
+  color: #a0a8b0;
+  font-size: 0.7rem;
+  vertical-align: middle;
+}
+
+/* ---- Admin: one user's detail ---- */
+
+.admin-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-back {
+  background: none;
+  border: 1px solid #445;
+  border-radius: 3px;
+  padding: 0.25rem 0.6rem;
+  color: #a0a8b0;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admin-back:hover {
+  color: #c4a35a;
+  border-color: #c4a35a;
+}
+
+.admin-detail-name {
+  font-family: 'Cinzel', serif;
+  color: #e8d9a0;
+  margin: 0;
+}
+
+.admin-detail-balance {
+  color: #c4a35a;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-profile {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0 0 1.5rem;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.admin-profile dt {
+  color: #a0a8b0;
+}
+
+.admin-profile dd {
+  margin: 0;
+  color: #d8d8e0;
+  overflow-wrap: anywhere;
+}
+
+.admin-section {
+  margin-bottom: 2rem;
+}
+
+.admin-section-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.admin-topup {
+  margin-bottom: 0.75rem;
+}
+
+.admin-topup-btn {
+  padding: 0.4rem 0.9rem;
+  background: rgba(196, 163, 90, 0.15);
+  border: 1px solid #c4a35a;
+  border-radius: 3px;
+  color: #e8d9a0;
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.admin-topup-btn:hover:not(:disabled) {
+  background: rgba(196, 163, 90, 0.3);
+}
+
+.admin-topup-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.admin-topup-note {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  margin: 0.4rem 0 0;
+}
+
 /* ---- Credit Usage page ---- */
 
 .credits-page {

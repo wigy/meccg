@@ -44,7 +44,7 @@ export interface FullDeck extends DeckSummary {
 // ---- Screen type ----
 
 /** All screen IDs used in the lobby UI. */
-export type ScreenId = 'auth-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'credits-screen' | 'scoreboard-screen' | 'connect-form';
+export type ScreenId = 'auth-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'credits-screen' | 'scoreboard-screen' | 'admin-screen' | 'connect-form';
 
 // ---- Global mutable state ----
 
@@ -70,6 +70,8 @@ function createDefaultAppState() {
   lobbyPlayerName: null as string | null,
   /** Whether the current player has reviewer privileges. */
   lobbyPlayerIsReviewer: false,
+  /** Whether the current player may use the admin screen. */
+  lobbyPlayerIsAdmin: false,
   /** Current player's credit balance. */
   lobbyPlayerCredits: 0,
   /** Name of the player who sent us a challenge (lobby mode). */
@@ -278,6 +280,7 @@ export const VIEWING_INBOX_KEY = 'meccg-viewing-inbox';
 export const VIEWING_DECKS_KEY = 'meccg-viewing-decks';
 export const VIEWING_CREDITS_KEY = 'meccg-viewing-credits';
 export const VIEWING_SCOREBOARD_KEY = 'meccg-viewing-scoreboard';
+export const VIEWING_ADMIN_KEY = 'meccg-viewing-admin';
 export const MAIL_TAB_KEY = 'meccg-mail-tab';
 export const MAIL_MSG_KEY = 'meccg-mail-msg';
 
