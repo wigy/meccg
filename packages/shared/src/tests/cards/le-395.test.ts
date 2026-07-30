@@ -3,10 +3,10 @@
  *
  * Card test: Mount Gundabad (le-395)
  * Type: minion-site (shadow-hold) in Gundabad
- * Effects: 0 (the "detainment against overt company" qualifier is fully
- *   covered by §3.II.2.R1/B1 for its only valid targets — minion companies at
- *   a shadow-hold; FW and hero companies are never overt for detainment, per
- *   rule 2.IV.vii.F1)
+ * Effects: 1 (`site-rule: attacks-not-detainment` gated on `defender.covert`
+ *   — overrides the default §3.II.2.R1/B1 shadow-hold detainment for minion
+ *   and Balrog companies that are covert, since the card text limits
+ *   detainment to *overt* companies only)
  *
  * Text:
  *   "Nearest Darkhaven: Carn Dûm
@@ -33,10 +33,11 @@
  * | 2 | Item playability                | IMPLEMENTED | minor, major via playableResources                           |
  * | 3 | Haven path movement             | IMPLEMENTED | Carn Dûm ↔ Mount Gundabad via starter movement               |
  * | 4 | Auto-attack (each-character)    | IMPLEMENTED | strikesTotal = company.characters.length, pre-assigned       |
- * | 5 | Detainment vs Ringwraith        | IMPLEMENTED | §3.II.2.R1 — shadow-hold → always detainment                 |
- * | 6 | Detainment vs Balrog            | IMPLEMENTED | §3.II.2.B1 — shadow-hold → always detainment                 |
- * | 7 | Not detainment vs fallen-wizard | IMPLEMENTED | FW is a hero company for detainment (rule 2.IV.vii.F1)        |
- * | 8 | Not detainment vs hero          | IMPLEMENTED | default — no matching rule fires                             |
+ * | 5 | Detainment vs overt Ringwraith  | IMPLEMENTED | §3.II.2.R1 — shadow-hold → detainment                        |
+ * | 6 | Detainment vs overt Balrog      | IMPLEMENTED | §3.II.2.B1 — shadow-hold → detainment                        |
+ * | 7 | Not detainment vs covert minion | IMPLEMENTED | attacks-not-detainment overrides R1/B1 when defender.covert  |
+ * | 8 | Not detainment vs fallen-wizard | IMPLEMENTED | FW is a hero company for detainment (rule 2.IV.vii.F1)        |
+ * | 9 | Not detainment vs hero          | IMPLEMENTED | default — no matching rule fires                             |
  *
  * Playable: YES
  * Certified: 2026-06-04
@@ -61,6 +62,7 @@ const MOUNT_GUNDABAD = 'le-395' as CardDefinitionId;
 const CARN_DUM = 'le-359' as CardDefinitionId;
 const LIEUTENANT_OF_MORGUL = 'le-22' as CardDefinitionId;
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
+const HORSEMAN_IN_THE_NIGHT = 'le-16' as CardDefinitionId;
 
 describe('Mount Gundabad (le-395)', () => {
   beforeEach(() => resetMint());
@@ -98,29 +100,62 @@ describe('Mount Gundabad (le-395)', () => {
   // site's type as attackKeyedTo so that §3.II.2.R1/B1 fire correctly for
   // Ringwraith/Balrog companies at shadow-holds and dark-holds.
 
-  test('Ringwraith defender at Mount Gundabad: Orc auto-attack is detainment (§3.II.2.R1 shadow-hold)', () => {
-    // Shadow-hold keying triggers R1 for Ringwraith players.
+  test('overt Ringwraith defender at Mount Gundabad: Orc auto-attack is detainment (§3.II.2.R1 shadow-hold)', () => {
+    // Shadow-hold keying triggers R1 for Ringwraith players; the card's
+    // "against overt company" qualifier does not override an overt defender.
     const siteDef = pool[MOUNT_GUNDABAD as string] as SiteCard;
     const detainment = isDetainmentAttack({
       attackRace: 'orc' as Race,
       attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
       defendingAlignment: Alignment.Ringwraith,
+      defendingCovert: false,
       attackEffects: siteDef.effects,
       defendingSiteEffects: siteDef.effects,
     });
     expect(detainment).toBe(true);
   });
 
-  test('Balrog defender at Mount Gundabad: Orc auto-attack is detainment (§3.II.2.B1 shadow-hold)', () => {
+  test('overt Balrog defender at Mount Gundabad: Orc auto-attack is detainment (§3.II.2.B1 shadow-hold)', () => {
     const siteDef = pool[MOUNT_GUNDABAD as string] as SiteCard;
     const detainment = isDetainmentAttack({
       attackRace: 'orc' as Race,
       attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
       defendingAlignment: Alignment.Balrog,
+      defendingCovert: false,
       attackEffects: siteDef.effects,
       defendingSiteEffects: siteDef.effects,
     });
     expect(detainment).toBe(true);
+  });
+
+  test('covert Ringwraith defender at Mount Gundabad: Orc auto-attack is NOT detainment (card text overrides §3.II.2.R1)', () => {
+    // Bug report: a covert minion company at Mount Gundabad was wrongly
+    // detained. The card text reads "detainment against overt company" —
+    // a covert company must face the attack normally, overriding the
+    // otherwise-unconditional §3.II.2.R1 shadow-hold rule.
+    const siteDef = pool[MOUNT_GUNDABAD as string] as SiteCard;
+    const detainment = isDetainmentAttack({
+      attackRace: 'orc' as Race,
+      attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
+      defendingAlignment: Alignment.Ringwraith,
+      defendingCovert: true,
+      attackEffects: siteDef.effects,
+      defendingSiteEffects: siteDef.effects,
+    });
+    expect(detainment).toBe(false);
+  });
+
+  test('covert Balrog defender at Mount Gundabad: Orc auto-attack is NOT detainment (card text overrides §3.II.2.B1)', () => {
+    const siteDef = pool[MOUNT_GUNDABAD as string] as SiteCard;
+    const detainment = isDetainmentAttack({
+      attackRace: 'orc' as Race,
+      attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
+      defendingAlignment: Alignment.Balrog,
+      defendingCovert: true,
+      attackEffects: siteDef.effects,
+      defendingSiteEffects: siteDef.effects,
+    });
+    expect(detainment).toBe(false);
   });
 
   test('fallen-wizard defender at Mount Gundabad: Orc auto-attack is NOT detainment (FW is hero for detainment, rule 2.IV.vii.F1)', () => {
@@ -225,6 +260,61 @@ describe('Mount Gundabad (le-395)', () => {
     expect(afterAttack.combat!.creatureRace).toBe('orc');
     // Ringwraith defender at shadow-hold → detainment
     expect(afterAttack.combat!.detainment).toBe(true);
+  });
+
+  test('covert Man company at Mount Gundabad: each-character attack is NOT detainment (bug regression)', () => {
+    // Regression for a reported bug: a Ringwraith company of Men (no
+    // Orc/Troll member, so covert by default per isCovertCompany) faced
+    // detainment at Mount Gundabad, though the card text limits detainment
+    // to overt companies.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MOUNT_GUNDABAD, characters: [HORSEMAN_IN_THE_NIGHT] }],
+          hand: [],
+          siteDeck: [CARN_DUM],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'automatic-attacks' as const,
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: false,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const state: GameState = { ...base, phaseState: sitePhaseState };
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat).not.toBeNull();
+    expect(afterAttack.combat!.creatureRace).toBe('orc');
+    // Covert Man company → not detainment, even at a shadow-hold.
+    expect(afterAttack.combat!.detainment).toBe(false);
   });
 
   test('2-character company: each character resolves their own strike independently', () => {

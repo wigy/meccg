@@ -212,11 +212,12 @@ export interface SageTapRingTestSiteRule extends EffectBase {
  * type, or the creature's keying would otherwise make it detainment.
  *
  * The filter is evaluated against the combat context exposing
- * `enemy.race` (the attacking creature's race) and `attack.automatic`
+ * `enemy.race` (the attacking creature's race), `attack.automatic`
  * (true for the site's own listed automatic-attack, static or the
  * dynamically-played `site-rule: dynamic-auto-attack` 2nd attack; false
- * for a hazard creature played normally against the company). A missing
- * filter makes every attack at this site attack normally.
+ * for a hazard creature played normally against the company), and
+ * `defender.covert` (the defending company's covert/overt status). A
+ * missing filter makes every attack at this site attack normally.
  *
  * Example — Moria (le-392): "Non-Nazgûl creatures played at this site
  * attack normally, not as detainment."
@@ -226,6 +227,14 @@ export interface SageTapRingTestSiteRule extends EffectBase {
  * is separately declared detainment via `combat-detainment` — the filter
  * `{ "attack.automatic": false }` excludes the site's own automatic-attack
  * from the override so the two rules coexist.
+ *
+ * Example — Mount Gundabad (le-395): "detainment against overt company."
+ * Its automatic-attack is a Shadow-hold attack against a Ringwraith
+ * company, which the default §3.II.2.R1 rule would always make detainment
+ * regardless of covert status. The filter `{ "defender.covert": true }`
+ * overrides that default back to a normal attack whenever the defending
+ * company is covert, leaving the default rule's detainment result intact
+ * only when the company is overt.
  */
 export interface AttacksNotDetainmentSiteRule extends EffectBase {
   readonly type: 'site-rule';

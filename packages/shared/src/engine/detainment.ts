@@ -181,6 +181,7 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
     const filterContext = {
       enemy: { race: ctx.attackRace ?? null },
       attack: { automatic: ctx.isAutomaticAttack ?? false },
+      defender: { covert: ctx.defendingCovert ?? false },
     };
     if (!filter || matchesCondition(filter, filterContext)) {
       logDetail(

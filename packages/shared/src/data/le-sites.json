@@ -1200,6 +1200,15 @@
         ]
       }
     ],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": {
+          "defender.covert": true
+        }
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 1,
     "unique": true,
