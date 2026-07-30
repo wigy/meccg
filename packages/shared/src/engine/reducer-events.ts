@@ -254,11 +254,16 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       }
     }
 
-    // Reset moved flags on the active player's companies for the new M/H phase
+    // Reset moved flags on the active player's companies for the new M/H phase.
+    // `specialMovement` and `extraRegionDistance` must survive this transition:
+    // they are granted during this turn's organization phase (Gwaihir, Cram) and
+    // consumed by the upcoming M/H phase — rule 2.II.7.ii anchors path legality
+    // at organization-phase declaration time. They are cleared after movement
+    // resolves, at the M/H → Site transition.
     const activeIndex = getPlayerIndex(state, activePlayer);
     afterPass = updatePlayer(afterPass, activeIndex, p => ({
       ...p,
-      companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
+      companies: p.companies.map(c => ({ ...c, moved: false })),
     }));
 
     // Rule 5.28: if the resource player has no companies, skip the M/H phase entirely

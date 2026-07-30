@@ -181,6 +181,39 @@ describe('Cram (td-105)', () => {
     expect(extraActions2.length).toBe(0);
   });
 
+  // ── Bug report (game ms7w6tw6-vw1zk3): the Long-event → Movement/Hazard
+  // transition wiped `extraRegionDistance`, so a 5-region path declared with
+  // Cram's bonus during the organization phase was re-validated against the
+  // base 4-region maximum, negated per rule 5.04, and the company was sent
+  // back to its site of origin. Rule 2.II.7.ii anchors path legality at
+  // organization-phase declaration time — the bonus must survive into the
+  // M/H phase and only reset after movement resolves (M/H → Site).
+  test('extraRegionDistance survives the long-event → movement/hazard transition', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN], destinationSite: LORIEN }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    // Cram was discarded during the organization phase: the company carries
+    // +1 region distance into its declared movement.
+    const withBonus: typeof state = {
+      ...state,
+      players: [
+        { ...state.players[0], companies: [{ ...state.players[0].companies[0], extraRegionDistance: 1 }] },
+        state.players[1],
+      ],
+    };
+
+    const next = dispatch(withBonus, { type: 'pass', player: PLAYER_1 });
+
+    expect(next.phaseState.phase).toBe(Phase.MovementHazard);
+    expect(next.players[0].companies[0].extraRegionDistance).toBe(1);
+    expect(next.players[0].companies[0].destinationSite).not.toBeNull();
+  });
+
   test('untap-bearer grant-action available during end-of-org step', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
