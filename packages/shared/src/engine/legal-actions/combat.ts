@@ -201,6 +201,26 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
+      // CoE rule 3.i / 8.02 (Pre-Assignment Actions): while the attacker holds
+      // a live pre-assignment modify-attack option (e.g. an unrevealed
+      // on-guard Unabated in Malice ba-26 on an automatic-attack) and hasn't
+      // yet passed, they hold an exclusive priority window — the defender may
+      // not begin strike assignment yet. Mirrors the attackerStep1Done gate
+      // used later in resolve-strike (rule 3.iv.1). CvCC has its own
+      // strike-sequence rules with no pre-assignment hazard window (rule 8.42),
+      // so it is excluded.
+      if (combat.assignmentPhase === 'defender' && !combat.isCvCC && !combat.attackerPreAssignDone) {
+        const attackerModifyOptions = modifyAttackActions(state, combat.attackingPlayerId, combat);
+        if (attackerModifyOptions.length > 0) {
+          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts];
+          if (playerId === combat.attackingPlayerId) {
+            logDetail(`Pre-assignment window: attacker has ${attackerModifyOptions.length} modify-attack option(s) — defender waits`);
+            return [...preAssignActions, { action: { type: 'pass' as const, player: playerId }, viable: true }];
+          }
+          logDetail('Pre-assignment window: defender waits for attacker to reveal or decline a modify-attack option');
+          return preAssignActions;
+        }
+      }
       return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping

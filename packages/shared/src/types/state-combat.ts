@@ -523,6 +523,19 @@ export interface CombatState {
    */
   readonly attackerStep1Done?: boolean;
   /**
+   * CoE rule 3.i / 8.02 — Combat Step 1 (Pre-Assignment Actions). While the
+   * attacker holds a live pre-assignment `modify-attack` option (e.g. an
+   * unrevealed on-guard Unabated in Malice ba-26 on an automatic-attack) and
+   * this flag is false, the attacker holds an exclusive priority window and
+   * the defender may not begin strike assignment — otherwise the defender
+   * could race ahead and foreclose the attacker's chance to modify the
+   * attack as a whole ("continues until both players have finished taking
+   * actions prior to strike assignment"). Flipped to true when the attacker
+   * passes. Only relevant while `assignmentPhase === 'defender'` and no
+   * strikes have been assigned yet.
+   */
+  readonly attackerPreAssignDone?: boolean;
+  /**
    * Rule 3.iv.6.1 — Agent Strike Roll.
    * For agent hazard attacks, the attacking player rolls 2d6 and adds the
    * agent's modified prowess before the defender rolls. This field holds
