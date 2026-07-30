@@ -29,8 +29,9 @@ import {
   CardStatus,
   dispatch, expectCharStatus, expectCharItemCount, expectInDiscardPile,
   makeMHState, makeSitePhase, RESOURCE_PLAYER,
+  findCharInstanceId, companyIdAt,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction } from '../../index.js';
+import type { ActivateGrantedAction, CombatState } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -289,6 +290,58 @@ describe('Cram (td-105)', () => {
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
     expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
     expectInDiscardPile(next, RESOURCE_PLAYER, CRAM);
+  });
+
+  // ── Bug report (tw-314-adjacent): untap-bearer while facing an automatic
+  // attack. A character who tapped for their own ability (e.g. Fatty Bolger
+  // tapping to cancel a strike against a fellow Hobbit) and then must resolve
+  // their own strike is stuck facing it already-tapped, unless they can use
+  // Cram to untap first. Combat is a self-contained sub-state machine
+  // (`combatActions` in legal-actions/combat.ts) that bypasses the normal
+  // per-phase action list where `grantedActionActivations` usually runs, so
+  // without wiring untap-bearer into combat's resolve-strike case, this
+  // any-phase grant is silently unreachable for the whole strike sequence.
+  test('untap-bearer available while resolving a strike in combat', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const combat: CombatState = {
+      attackSource: { type: 'creature', instanceId: 'fake-creature' as never },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 5,
+      creatureBody: 5,
+      strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+
+    const ready = { ...state, phaseState: makeMHState(), combat };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer');
+    expect(untapActions.length).toBe(1);
+
+    const next = dispatch(ready, untapActions[0].action);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
+    expectInDiscardPile(next, RESOURCE_PLAYER, CRAM);
+    // Combat itself is untouched by the grant-action activation.
+    expect(next.combat?.phase).toBe('resolve-strike');
   });
 
   test('extra-region-movement NOT available during movement/hazard phase', () => {

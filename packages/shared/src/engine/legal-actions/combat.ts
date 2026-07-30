@@ -27,7 +27,7 @@ import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } fr
 import { resolveDef, enemyRaceContext } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect } from './organization.js';
+import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
@@ -1451,6 +1451,18 @@ function resolveStrikeActions(
   // resolution (e.g. Vilya boosting Elrond's prowess/body).
   if (playerId === state.activePlayer) {
     actions.push(...shortEventsAffectingStrike(state, playerId, combat));
+  }
+
+  // Rule 2.1.1 / 3.iv.5: the defending resource player may activate any-phase
+  // grant-actions on their turn — most relevantly Cram's discard-to-untap-bearer,
+  // which lets the character facing the strike shed the already-tapped -1
+  // prowess penalty and regain the "-3 to stay untapped" option (rule 3.iv.3).
+  // `resolveStrikeActions` is entered as a whole-phase dispatch (combat.ts's
+  // `combatActions` switch), not through the general per-phase action list
+  // where `grantedActionActivations` normally runs, so without this the
+  // any-phase grant is silently unreachable for the whole strike sequence.
+  if (playerId === state.activePlayer) {
+    actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
   }
 
   return actions;

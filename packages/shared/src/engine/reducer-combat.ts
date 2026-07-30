@@ -20,6 +20,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
 import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 
 /**
  * Signature shared by every combat-active action handler. Each handler takes
@@ -72,6 +73,10 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   // handler applies its effects without touching the combat state.
   'play-short-event': handlePlayResourceShortEvent,
   'take-trophy': handleTakeTrophy,
+  // Rule 2.1.1: any-phase grant-actions (e.g. Cram's discard-to-untap-bearer)
+  // remain activatable while combat is active — `handleGrantActionApply` is
+  // combat-agnostic and just ignores the unused `combat` parameter.
+  'activate-granted-action': (state, action) => handleGrantActionApply(state, action),
 };
 
 /**
