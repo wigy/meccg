@@ -77,9 +77,12 @@ async function prePlaySchedule(): Promise<TournamentPlayFn> {
   const argLists: string[][] = [];
   const shardMeta: { arrangement: number; file: string }[] = [];
   for (const arrangement of [0, 1]) {
+    // Semicolon, not comma: an agent spec may be a module *set*
+    // (`h2:combat,kill`), and passing those to the child on a comma made the
+    // child read fifteen agents. See `resolvePair`.
     const agents = arrangement === 0
-      ? `${challengerSpec},${championSpec}`
-      : `${championSpec},${challengerSpec}`;
+      ? `${challengerSpec};${championSpec}`
+      : `${championSpec};${challengerSpec}`;
     for (const slice of slices) {
       const file = path.join(tempDir, `results-${arrangement}-${slice.index}.jsonl`);
       shardMeta.push({ arrangement, file });

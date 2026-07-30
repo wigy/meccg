@@ -208,13 +208,32 @@ export function resolveList(args: CliArgs, name: string, defaults: readonly stri
   return parts.length === 0 ? [...defaults] : parts;
 }
 
-/** Resolve a comma-separated pair flag (e.g. "--agents random,heuristic"). */
+/**
+ * Resolve a pair flag (e.g. `--agents random,heuristic`).
+ *
+ * A comma separates the pair, except that an agent spec may contain commas of
+ * its own: `h2:combat,kill` names a module *set*. That is the ablation the
+ * whole module registry exists for — "everything, against everything but this
+ * one" — and it was unusable from any CLI that takes a pair, because the
+ * fifteen-name selector parsed as fifteen agents. So a semicolon separates the
+ * pair when one is present, and the comma keeps working for every spec that
+ * does not contain one:
+ *
+ * ```sh
+ * --agents 'h2;h2:combat,kill,travel'
+ * ```
+ */
 export function resolvePair(args: CliArgs, name: string, defaults: readonly [string, string]): [string, string] {
   const raw = args.flags[name];
   if (raw === undefined || raw === true) return [defaults[0], defaults[1]];
-  const parts = String(raw).split(',').map(p => p.trim()).filter(p => p.length > 0);
+  const text = String(raw);
+  const separator = text.includes(';') ? ';' : ',';
+  const parts = text.split(separator).map(p => p.trim()).filter(p => p.length > 0);
   if (parts.length === 1) return [parts[0], parts[0]];
-  if (parts.length !== 2) throw new Error(`--${name} expects one or two comma-separated values`);
+  if (parts.length !== 2) {
+    throw new Error(`--${name} expects one or two values separated by "${separator}"`
+      + (separator === ',' ? ' — use ";" when a spec contains a comma, as `h2:combat,kill` does' : ''));
+  }
   return [parts[0], parts[1]];
 }
 
