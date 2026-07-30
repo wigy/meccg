@@ -19,13 +19,19 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1,
-  ARAGORN,
+  ARAGORN, LEGOLAS, GWAIHIR,
   MORIA,
   resetMint,
   buildSitePhaseState, setupAutoAttackStep, runAutoAttackCombat,
   dispatch,
+  attachAllyToChar, findCharInstanceId, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import { BAG_END_LE, ETTENMOORS_HERO } from '../../../card-ids.js';
+import type { CardDefinitionId } from '../../../index.js';
+
+// Mount Gundabad (le-395): single automatic-attack "Orcs — each character
+// faces 1 strike with 7 prowess (detainment against overt company)".
+const MOUNT_GUNDABAD = 'le-395' as CardDefinitionId;
 
 describe('Rule 6.03 — Step 2: Automatic-Attacks', () => {
   beforeEach(() => resetMint());
@@ -93,5 +99,24 @@ describe('Rule 6.03 — Step 2: Automatic-Attacks', () => {
     const afterAllFaced = dispatch(afterSecondResolved, { type: 'pass', player: PLAYER_1 });
     const finalSiteState = afterAllFaced.phaseState as import('../../../index.js').SitePhaseState;
     expect(finalSiteState.siteEntered).toBe(true);
+  });
+
+  test('"Each character faces 1 strike" auto-attack also pre-assigns a strike to an attached ally (CoE 2.V.2.2)', () => {
+    // Mount Gundabad's automatic-attack is "each character faces 1 strike".
+    // Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
+    // Gwaihir (attached to Aragorn) must also be pre-assigned a strike
+    // alongside Aragorn and Legolas — not just the company's 2 characters.
+    const state = buildSitePhaseState({ site: MOUNT_GUNDABAD, characters: [ARAGORN, LEGOLAS] });
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
+    const aragornId = findCharInstanceId(withAlly, RESOURCE_PLAYER, ARAGORN);
+    const allyInstanceId = withAlly.players[RESOURCE_PLAYER].characters[aragornId].allies[0].instanceId;
+
+    const readyState = setupAutoAttackStep(withAlly);
+    const afterPass = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+
+    expect(afterPass.combat).not.toBeNull();
+    expect(afterPass.combat!.strikesTotal).toBe(3);
+    expect(afterPass.combat!.strikeAssignments).toHaveLength(3);
+    expect(afterPass.combat!.strikeAssignments.some(sa => sa.characterId === allyInstanceId)).toBe(true);
   });
 });

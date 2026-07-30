@@ -39,7 +39,7 @@ import { cvccSides } from '../cvcc-sides.js';
  * Find all allies in a company by iterating over each character's allies array.
  * Returns tuples of [allyInPlay, hostCharacterId] for combat targeting.
  */
-function findCompanyAllies(
+export function findCompanyAllies(
   player: PlayerState,
   companyCharacters: readonly CardInstanceId[],
 ): Array<{ ally: AllyInPlay; hostCharId: CardInstanceId }> {
@@ -105,7 +105,7 @@ export function findItemInCompany(
  * matches the company's effective site (destination during M/H, current
  * during site phase).
  */
-function isAllyImmuneToSiteKeyedAttack(
+export function isAllyImmuneToSiteKeyedAttack(
   state: GameState,
   ally: AllyInPlay,
   combat: CombatState,
