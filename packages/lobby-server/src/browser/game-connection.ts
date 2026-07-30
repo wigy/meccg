@@ -37,6 +37,17 @@ export function setLobbyCallbacks(
   connectLobbyWsFn = connectLobbyWs;
 }
 
+/**
+ * Toggle the full-screen "Loading..." cover over the game area. Shown from
+ * connect() until the first complete state has been rendered, so the player
+ * never sees intermediate renders (debug view, a previous game's board).
+ */
+function setLoadingCover(visible: boolean, text = 'Loading...'): void {
+  document.getElementById('game-loading')?.classList.toggle('hidden', !visible);
+  const textEl = document.getElementById('game-loading-text');
+  if (textEl) textEl.textContent = text;
+}
+
 /** Guard flag: true while waiting for the server to respond after sending an action. */
 let awaitingResponse = false;
 
@@ -82,6 +93,10 @@ export function disconnect(): void {
   appState.pseudoAiToken = null;
   if (appState.pseudoAiWs) { appState.pseudoAiWs.close(); appState.pseudoAiWs = null; }
   clearGameSession();
+
+  // Pre-arm the loading cover for the next game: `#game` is about to be
+  // hidden, and when it is next shown the cover must already be up.
+  setLoadingCover(true);
 
   // Reset game state
   document.getElementById('state')!.textContent = '';
@@ -325,6 +340,10 @@ function describeOpponentAction(
 
 /** Connect to the game server via WebSocket. */
 export function connect(name: string): void {
+  // Cover the game area until the first full state renders. In the
+  // second-and-later games of a browser session this also hides the previous
+  // game's still-rendered board (nothing clears it while `#game` is hidden).
+  setLoadingCover(true);
   // Re-apply dev-mode UI: a spectator connection forces the debug menu and
   // debug-view toggle off; a player connection restores them per setting.
   window.__meccg?.refreshDevMode?.();
@@ -401,6 +420,7 @@ export function connect(name: string): void {
       case 'waiting':
         renderLog('Waiting for opponent to connect...');
         showNotification('Waiting for opponent to connect...');
+        setLoadingCover(true, 'Waiting for opponent to connect...');
         break;
 
       case 'state': {
@@ -499,6 +519,8 @@ export function connect(name: string): void {
         renderChainPanel(msg.view, cardPool, sendAction);
         // Animate cards from old positions to new positions
         animateFromSnapshot();
+        // The full state is now rendered — reveal the board.
+        setLoadingCover(false);
         // Show turn notification when entering Untap phase
         if (msg.view.phaseState.phase === 'untap' && appState.lastPhase !== 'untap') {
           const isMine = msg.view.activePlayer === msg.view.self.id;
@@ -615,6 +637,7 @@ export function connect(name: string): void {
         clearEffectLog();
         renderLog(msg.message);
         showNotification(msg.message);
+        setLoadingCover(true);
         resetVisualBoard();
         resetCompanyViews();
         resetDeckPiles();
