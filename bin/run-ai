@@ -11,7 +11,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
   cat <<'EOF'
-Usage: bin/run-ai [<n>]
+Usage: bin/run-ai [--pr-check] [<n>]
        bin/run-ai <request-id> [<request-id>...]
 
 Given one or more request IDs, run-ai works in ONE-SHOT mode: it handles
@@ -33,7 +33,11 @@ first, then feature planning/implementation requests, then anything else
 certification backlog never delays a bug fix. Within one priority tier the
 oldest request goes first.
 
-At the start of every iteration it also sweeps all open PRs: for any PR
+With --pr-check, at the start of every iteration it also sweeps all open
+PRs and finalizes 'processed' messages from their PR's merge/close outcome.
+Without the flag both sweeps are skipped entirely — the worker concentrates
+on handling requests only, and 'processed' messages are left for the lobby
+reviewer (or a later --pr-check run) to resolve. In the sweep, for any PR
 that conflicts with master, has failing CI checks, or carries review
 comments it runs a headless claude to resolve the conflict, fix the CI
 failure, and/or address the comments on that PR's branch. An idle PR is not
@@ -96,10 +100,29 @@ Environment:
                     token (which caused a 401 on every run after the first).
 
 Options:
+  --pr-check      Enable PR status checking in loop mode: the per-iteration
+                  open-PR sweep (conflicts, failing CI, review comments) and
+                  the finalize sweep that resolves 'processed' messages from
+                  their PR's merge/close state. Without this flag both sweeps
+                  are skipped completely and the loop only handles requests.
+                  Ignored in one-shot mode, which never runs the sweeps.
   -h, --help      Show this help message.
 EOF
   exit 0
 fi
+
+# --pr-check opts into the PR sweeps; strip it from the positional arguments
+# first so it can appear anywhere without confusing the shape detection below.
+PR_CHECK=0
+_ARGS=()
+for _arg in "$@"; do
+  if [ "$_arg" = "--pr-check" ]; then
+    PR_CHECK=1
+  else
+    _ARGS+=("$_arg")
+  fi
+done
+set -- "${_ARGS[@]}"
 
 # Two argument shapes share one positional slot, so they must be told apart
 # unambiguously. Message IDs are 16 hex characters (crypto.randomBytes(8)), and
@@ -1039,6 +1062,14 @@ handle_open_prs() {
   return 0
 }
 
+# Say once, up front, whether the PR sweeps are on: a worker silently skipping
+# them looks identical to one whose sweep is broken, so make the mode explicit.
+if [ "$PR_CHECK" -eq 1 ]; then
+  echo "[run-ai] PR status checking enabled (--pr-check): sweeping open PRs and finalizing by PR outcome each iteration." | tee -a "$LOG_FILE"
+else
+  echo "[run-ai] PR status checking disabled: handling requests only (run with --pr-check to enable the PR sweeps)." | tee -a "$LOG_FILE"
+fi
+
 while true; do
   # Refuse to keep looping on a dirty tree. A previous skill that
   # ended without committing would otherwise contaminate the next
@@ -1074,15 +1105,17 @@ while true; do
     continue
   fi
 
-  # Sweep all open PRs before touching mail: resolve merge conflicts and
-  # address review comments on each PR's own branch. Never fatal — handle_open_prs
-  # logs and skips any PR it can't fix, and always returns to master clean.
-  handle_open_prs || true
+  if [ "$PR_CHECK" -eq 1 ]; then
+    # Sweep all open PRs before touching mail: resolve merge conflicts and
+    # address review comments on each PR's own branch. Never fatal — handle_open_prs
+    # logs and skips any PR it can't fix, and always returns to master clean.
+    handle_open_prs || true
 
-  # Finalize any 'processed' messages whose PR has since merged or closed:
-  # deliver the stashed reply + mark 'success', or notify + mark 'failed'. Never
-  # fatal — logs and skips anything it can't resolve, leaving it for a later tick.
-  finalize_processed_messages || true
+    # Finalize any 'processed' messages whose PR has since merged or closed:
+    # deliver the stashed reply + mark 'success', or notify + mark 'failed'. Never
+    # fatal — logs and skips anything it can't resolve, leaving it for a later tick.
+    finalize_processed_messages || true
+  fi
 
   # A failed poll means the lobby is unreachable (down, restarting, or a
   # transient network hiccup) — NOT that there is no work. Treat it like an
