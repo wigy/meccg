@@ -35,6 +35,7 @@ import { shuffle } from '../rng.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
+import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
@@ -814,6 +815,57 @@ function handleRevealOnGuardAttacks(
       };
 
       return { state: { ...state, players: newPlayers } };
+    }
+
+    // Short hazard-events that affect automatic-attacks (rule 2.V.i, e.g.
+    // Choking Shadows tw-21): the company is already at this site, so the
+    // matching `on-event: company-arrives-at-site` mode applies immediately —
+    // a short event never remains on-guard or moves to cardsInPlay, it
+    // resolves straight to the hazard player's discard pile.
+    if (isEvent) {
+      const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+      const onEvents = getOnEventEffects(def, 'company-arrives-at-site')
+        .filter(e => e.apply.type === 'add-constraint');
+      if (siteDef && onEvents.length > 0) {
+        const ctx: Record<string, unknown> = {
+          company: { destinationSiteType: isSiteCard(siteDef) ? siteDef.siteType : undefined },
+          inPlay: buildInPlayNames(state),
+        };
+        for (const onEvent of onEvents) {
+          if (onEvent.when && !matchesCondition(onEvent.when, ctx)) continue;
+          if (onEvent.apply.type !== 'add-constraint') continue;
+          const constraintKind = onEvent.apply.constraint;
+          const scopeName = onEvent.apply.scope;
+          if (!constraintKind || !scopeName) continue;
+          const scope = parseConstraintScope(scopeName, company.id);
+          const kind = buildConstraintKind(state, onEvent, constraintKind);
+          if (!scope || !kind) continue;
+
+          logDetail(`"${def.name}" revealed on-guard → applying ${constraintKind} to company ${company.id as string}`);
+          const newOnGuardCards = [...company.onGuardCards];
+          newOnGuardCards.splice(ogIdx, 1);
+          const newCompanies = [...resourcePlayer.companies];
+          newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+          const stateWithConstraint = addConstraint(state, {
+            source: revealedCard.instanceId,
+            sourceDefinitionId: revealedCard.definitionId,
+            scope,
+            target: { kind: 'company', companyId: company.id },
+            kind,
+          });
+
+          const hazardIndex = getPlayerIndex(stateWithConstraint, action.player);
+          const newPlayers = clonePlayers(stateWithConstraint);
+          newPlayers[activeIndex] = { ...newPlayers[activeIndex], companies: newCompanies };
+          newPlayers[hazardIndex] = {
+            ...newPlayers[hazardIndex],
+            discardPile: [...newPlayers[hazardIndex].discardPile, toCardInstance(revealedCard)],
+          };
+
+          return { state: { ...stateWithConstraint, players: newPlayers } };
+        }
+      }
     }
 
     // Creatures: mark as revealed (combat happens at Step 4)

@@ -419,7 +419,14 @@ function revealOnGuardAttacksActions(
       // confirms it "can be revealed on-guard".
       const affectsAutoAttacks = 'effects' in def && def.effects?.some(
         e => (e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'))
-          || e.type === 'site-entry-roll-attack',
+          || e.type === 'site-entry-roll-attack'
+          // Rule 2.V.i: an `on-event: company-arrives-at-site → add-constraint`
+          // mode that boosts automatic-attack prowess (e.g. Choking Shadows
+          // tw-21) also "affects the automatic-attack(s) of the site" — eligible
+          // for reveal here even though it is not a `stat-modifier` effect.
+          || (e.type === 'on-event' && e.event === 'company-arrives-at-site'
+            && e.apply.type === 'add-constraint' && e.apply.constraint === 'auto-attack-prowess-boost'
+            && (!siteDef || !isSiteCard(siteDef) || e.apply.siteType === siteDef.siteType)),
       );
       // A site-targeting event is played on the company's site as it is
       // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,

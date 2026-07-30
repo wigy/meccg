@@ -30,13 +30,17 @@ import {
   viableActions, makeMHState,
   P1_COMPANY,
   handCardId, dispatch, playHazardAndResolve, HAZARD_PLAYER,
+  makeSitePhase, placeOnGuard, buildSitePhaseTwoPlayer, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
-import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId } from '../../index.js';
+import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId, RevealOnGuardAction } from '../../index.js';
 
 const CHOKING_SHADOWS = 'tw-21' as CardDefinitionId;
 const ORC_GUARD = 'tw-072' as CardDefinitionId;
 const HUORN = 'tw-45' as CardDefinitionId;
+// Glittering Caves: a Ruins & Lairs site with an automatic-attack, used to
+// test Choking Shadows revealed from an on-guard slot (rule 2.V.i).
+const GLITTERING_CAVES = 'tw-397' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -463,6 +467,47 @@ describe('Choking Shadows (tw-21)', () => {
       expect(regionOverride!.kind.op).toBe('override');
       expect(regionOverride!.kind.value).toBe(RegionType.Shadow);
       expect(regionOverride!.kind.filter).toEqual({ 'region.name': 'Western Mirkwood' });
+    }
+  });
+
+  // ─── On-guard reveal (rule 2.V.i) ────────────────────────────────────────
+
+  test('bug regression: placed on-guard at a R&L site with automatic-attacks, is offered for reveal in Step 1', () => {
+    // Bug report: Choking Shadows placed on-guard for the +2 boost on an
+    // automatic-attack could only be revealed after the automatic-attack was
+    // already resolved. Root cause: the reveal-on-guard-attacks eligibility
+    // check only recognized `stat-modifier`/`site-entry-roll-attack` effects,
+    // not Choking Shadows' `on-event: company-arrives-at-site` + add-constraint
+    // shape — so `reveal-on-guard` was never offered for it.
+    const base = buildSitePhaseTwoPlayer({ site: GLITTERING_CAVES, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, CHOKING_SHADOWS);
+    const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(revealActions).toHaveLength(1);
+    expect((revealActions[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
+  });
+
+  test('bug regression: revealing on-guard at Step 1 applies the +2 prowess boost and discards the card', () => {
+    const base = buildSitePhaseTwoPlayer({ site: GLITTERING_CAVES, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, CHOKING_SHADOWS);
+    const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const afterReveal = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+
+    // The card is no longer on-guard, and never enters cardsInPlay (short event).
+    expect(afterReveal.players[0].companies[0].onGuardCards).toHaveLength(0);
+    expect(afterReveal.players[1].cardsInPlay).toHaveLength(0);
+    expect(afterReveal.players[1].discardPile.map(c => c.instanceId)).toContain(ogCard.instanceId);
+
+    const boost = afterReveal.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
+    );
+    expect(boost).toBeDefined();
+    if (boost!.kind.type === 'attribute-modifier') {
+      expect(boost!.kind.op).toBe('add');
+      expect(boost!.kind.value).toBe(2);
+      expect(boost!.kind.filter).toEqual({ 'site.type': SiteType.RuinsAndLairs });
     }
   });
 });
