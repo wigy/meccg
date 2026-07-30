@@ -20,9 +20,9 @@
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 25 | 73.5% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 2 | 100.0% |
-| 08 | [Combat](08-combat/) | 42 | 31 | 73.8% |
+| 08 | [Combat](08-combat/) | 42 | 33 | 78.6% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 29 | 93.5% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 31 | 58.5% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 32 | 60.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
 | — | The Balrog (MEBA) | 1 | 1 | 100.0% |
 | — | The White Hand (MEWH) | 14 | 14 | 100.0% |
