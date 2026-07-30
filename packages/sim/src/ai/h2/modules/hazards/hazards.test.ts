@@ -342,3 +342,72 @@ describe('hazard events', () => {
     }
   });
 });
+
+describe('a support event that boosts every attack', () => {
+  /** A position where Minions Stir is in hand alongside Orc creatures. */
+  const BOOST = 'movement/support-event-boost';
+
+  /** The scenario, its view, and the action that plays the named card. */
+  function boostPosition(inPlay?: string) {
+    const scenario = loadScenario(BOOST);
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    if (inPlay) {
+      const definitionId = Object.keys(cardPool).find(id =>
+        (cardPool[id] as unknown as { name?: string }).name === inPlay);
+      (view.self as unknown as { cardsInPlay: unknown[] }).cardsInPlay = [
+        { instanceId: 'staged', definitionId },
+      ];
+    }
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const legalActions = viableActions(scenario);
+    const play = legalActions.find(a => {
+      if (a.type !== 'play-hazard') return false;
+      const card = view.self.hand.find(c => c.instanceId === (a as { cardInstanceId?: string }).cardInstanceId);
+      return card && (cardPool[card.definitionId] as unknown as { name?: string }).name === 'Minions Stir';
+    })!;
+    return {
+      play,
+      context: { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing },
+    };
+  }
+
+  test('is scored from the plan re-run with it, not declined', () => {
+    // Its whole value is "it makes my other hazards better", and that is not a
+    // guess: the modifier is declared against the same two numbers the strike
+    // enumeration runs on, so the plan is built twice and the difference taken.
+    const { play, context } = boostPosition();
+    const evaluation = hazardsModule.evaluate(play, context)!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('the best bundle against this company goes from');
+  });
+
+  test('and the modifier it names is the one the card declares', () => {
+    const { play, context } = boostPosition();
+    const text = JSON.stringify(hazardsModule.evaluate(play, context)!.rationale);
+    expect(text).toContain('orc attack +1 prowess, +1 strike(s)');
+    expect(text).toContain('troll attack +1 prowess, +1 strike(s)');
+  });
+
+  test('Doors of Night in play doubles what it declares, because the card says so', () => {
+    // The +2 variants carry `overrides`, naming the +1 variants they replace —
+    // which is what keeps the two from being summed.
+    const { play, context } = boostPosition('Doors of Night');
+    const text = JSON.stringify(hazardsModule.evaluate(play, context)!.rationale);
+    expect(text).toContain('orc attack +2 prowess, +2 strike(s)');
+    // The Troll clause is not gated on Doors of Night, so it must not move.
+    expect(text).toContain('troll attack +1 prowess, +1 strike(s)');
+  });
+
+  test('is worth nothing with no attack in hand for it to improve', () => {
+    // The answer that keeps it out of an empty plan: with no creature candidate
+    // the two arms of the counterfactual are the same, so the play is worth
+    // exactly minus the card it spends.
+    const { play, context } = boostPosition();
+    const alone = { ...context, legalActions: [play] };
+    const evaluation = hazardsModule.evaluate(play, alone)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
+  });
+});
