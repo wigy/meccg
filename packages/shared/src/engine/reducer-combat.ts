@@ -489,6 +489,25 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     };
   }
 
+  // CoE rule 3.i / 8.02 — attacker declines their pre-assignment window
+  // (modify-attack / cancel / halve / protect options), allowing the
+  // defender to begin strike assignment. Mirrors attackerStep1Done in
+  // resolve-strike (rule 3.iv.1); without this, an attacker holding an
+  // unrevealed on-guard modify-attack card (Unabated in Malice ba-26) could
+  // be raced past by the defender's assign-strike action.
+  if (
+    combat.phase === 'assign-strikes'
+    && combat.assignmentPhase === 'defender'
+    && !combat.isCvCC
+    && action.player === combat.attackingPlayerId
+    && !combat.attackerPreAssignDone
+  ) {
+    logDetail('Attacker passed pre-assignment window — defender may begin strike assignment');
+    return {
+      state: { ...state, combat: { ...combat, attackerPreAssignDone: true } },
+    };
+  }
+
   // CvCC phase transitions (rule 8.38 three-phase assignment)
   if (combat.isCvCC && combat.phase === 'assign-strikes') {
     if (combat.assignmentPhase === 'defender') {
