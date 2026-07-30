@@ -34,7 +34,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
-import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll, collectPassiveMovementBonus } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -151,9 +151,15 @@ export function handleSelectCompany(
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
 
-  // Compute effective max region distance from base + card effects (e.g. Cram's extra-region-movement),
-  // then apply any game-wide environment reduction (e.g. No Way Forward, dm-75).
-  const baseMaxRegionDistance = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
+  // Compute effective max region distance from base + card effects (e.g. Cram's extra-region-movement)
+  // and passive-movement-bonus allies (e.g. Noble Steed wh-33), hard-capped at base+2 per CoE 3.44 /
+  // MEAS §3, then apply any game-wide environment reduction (e.g. No Way Forward, dm-75). This mirrors
+  // the destination-offering calculation in organization-companies.ts's collectPassiveMovementBonus —
+  // without it, a company offered a bonus-reachable destination during organization would find "no
+  // legal path" here and have its movement negated by rule 5.04, silently reverting it to its origin.
+  const requestedMaxRegionDistance = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0)
+    + collectPassiveMovementBonus(state, company.characters, player);
+  const baseMaxRegionDistance = Math.min(requestedMaxRegionDistance, BASE_MAX_REGION_DISTANCE + 2);
   let maxRegionDistance = applyRegionMovementReduction(state, baseMaxRegionDistance);
   // Company-bound movement restriction (Going Ever Under Dark ba-37): hard cap
   // on region distance ("limited in all cases to N regions maximum").

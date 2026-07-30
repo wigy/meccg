@@ -470,7 +470,7 @@ function ringwraithHasModeCard(
  * whose name is in the effect's `allyNames` list. Duplicate effects (same value
  * + same allyNames) are de-duplicated; the result is the max unique bonus found.
  */
-function collectPassiveMovementBonus(
+export function collectPassiveMovementBonus(
   state: GameState,
   characterIds: readonly CardInstanceId[],
   player: PlayerState,
