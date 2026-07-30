@@ -655,6 +655,35 @@ here: source was edited while it was running, and `gate` spawns `tsx` children
 that read the source at launch, so different games in it played different code.
 The number above is from a stable tree.
 
+#### How far is that from the strongest agent in the package?
+
+Both numbers on this page are against Heuristics 1 — H2 at +62, `mc` at around
++200 (§ *Flat Monte-Carlo*) — and subtracting two gates is not the same as
+playing the match. Played directly, 50 paired side-swapped games:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'mc:rollouts=4/candidates=4/turns=1' --pairs 25 --rounds 1 --jobs 12
+```
+
+```text
+  score:     10W-39L-1D (21.0%) over 50 rated games
+  elo diff:  -230 [-384, -130]     (95% CI, challenger − champion)
+  glicko-2:  -577 [-776, -378]
+  failures:  0
+```
+
+**The modular AI loses four games in five to a four-rollout flat Monte-Carlo
+agent**, and the gap is *wider* than the two H1 gates imply — subtraction
+predicts about −140, the match says −230, and the interval does not reach it.
+Transitivity is not owed to us; what the direct match adds is that the shortfall
+is real and large, and that a paired 50-game run is already enough to see it.
+
+That is the number this section should be read against from here. H2 is stronger
+than the agent it was built to replace and much weaker than the cheapest thing
+that looks one turn ahead, and the honest reading of the two together is that
+pricing decisions well is not yet worth as much as checking them.
+
 #### The one game that did not finish, and the wrong diagnosis of it
 
 Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players
