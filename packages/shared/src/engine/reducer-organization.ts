@@ -27,7 +27,7 @@ import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpir
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { directInfluenceControlAllowed } from './control-cost.js';
+import { directInfluenceControlAllowed, controlCostOf } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
 import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
@@ -150,12 +150,23 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   // below, so a discarded follower's own freed followers are seen by it.
   const afterReclaim = enforceRingwraithReclaim(afterDiscards as GameState, activeIndex);
 
+  // CoE 2.II.2.2.3: a follower whose controller's direct influence dropped
+  // below its mind cost during this organization phase (e.g. Bade to Rule
+  // le-167's -2 direct influence) is released to general influence, deferred,
+  // before the general-influence overflow below is evaluated — the release
+  // must land first so a controller that loses every follower this way is
+  // never charged for them this turn, matching the elimination-triggered
+  // revert paths (combat-finalize.ts et al.). Runs after the Ringwraith
+  // reclaim settlement above so a controller discarded by that deadline is
+  // never evaluated for direct-influence overextension.
+  const afterDIRelease = revertOverextendedDirectInfluenceFollowers(afterReclaim, activePlayer);
+
   // CoE 3.47: the phase ends over general influence → force the excess
   // characters out before anything else happens. Enqueued ahead of the Siege
   // rolls below (both are scoped to the following long-event phase and pending
   // resolutions resolve in queue order) so a company that loses its last
   // character to the overflow never rolls.
-  const afterOverflow = enqueueInfluenceOverflowDiscard(afterReclaim, activePlayer, orgState);
+  const afterOverflow = enqueueInfluenceOverflowDiscard(afterDIRelease, activePlayer, orgState);
 
   // Siege (tw-87): "At the end of its organization phase, a company at a site
   // with Siege on it must make a roll …" Enqueued after the phase transition so
@@ -200,6 +211,75 @@ function enforceRingwraithReclaim(state: GameState, activeIndex: number): GameSt
     }
   }
   return working === state ? state : recomputeDerived(working);
+}
+
+/**
+ * CoE 2.II.2.2.3: releases any of `activePlayer`'s followers whose controller
+ * can no longer afford them — the controller's current
+ * `effectiveStats.directInfluence` (after any permanent-events or other
+ * effects played this organization phase, e.g. Bade to Rule le-167's -2
+ * direct influence) has dropped below the combined mind cost of its
+ * followers. This mirrors the "controlling character eliminated" revert
+ * (combat-finalize.ts et al.): the released follower's `controlledBy` becomes
+ * `'general'` and it is flagged `influenceUnsubtracted` so its mind is not
+ * charged against general influence this turn — the charge, and the CoE 3.47
+ * overflow it may trigger, are deferred to the player's next organization
+ * phase (reducer-untap.ts's `influenceUnsubtracted` sweep).
+ *
+ * When a controller can no longer afford all of its followers, the
+ * most-expensive followers are released first — that clears the shortfall in
+ * the fewest releases. The rules do not specify an order for multiple
+ * followers becoming simultaneously unaffordable.
+ */
+function revertOverextendedDirectInfluenceFollowers(state: GameState, activePlayer: import('../index.js').PlayerId): GameState {
+  const activeIndex = getPlayerIndex(state, activePlayer);
+  const player = state.players[activeIndex];
+  const characters: Record<CardInstanceId, CharacterInPlay> = { ...player.characters };
+  let changed = false;
+
+  for (const controllerId of Object.keys(player.characters) as CardInstanceId[]) {
+    const controller = characters[controllerId];
+    if (!controller || controller.followers.length === 0) continue;
+    const available = controller.effectiveStats.directInfluence;
+
+    const followerCosts = controller.followers
+      .map(followerId => {
+        const follower = characters[followerId];
+        const followerDef = follower ? resolveDef(state, follower.instanceId) : undefined;
+        if (!follower || !isCharacterCard(followerDef) || followerDef.mind === null) return null;
+        const cost = controlCostOf(state, follower, follower.effectiveStats.mind ?? followerDef.mind) ?? 0;
+        return { followerId, cost };
+      })
+      .filter((f): f is { followerId: CardInstanceId; cost: number } => f !== null)
+      .sort((a, b) => b.cost - a.cost);
+
+    let used = followerCosts.reduce((sum, f) => sum + f.cost, 0);
+    if (used <= available) continue;
+
+    const releasedFollowerIds: CardInstanceId[] = [];
+    for (const { followerId, cost } of followerCosts) {
+      if (used <= available) break;
+      releasedFollowerIds.push(followerId);
+      used -= cost;
+    }
+    if (releasedFollowerIds.length === 0) continue;
+
+    changed = true;
+    const controllerDef = resolveDef(state, controller.instanceId);
+    for (const followerId of releasedFollowerIds) {
+      const follower = characters[followerId];
+      const followerDef = resolveDef(state, follower.instanceId);
+      logDetail(`Organization: ${controllerDef?.name ?? controllerId as string}'s direct influence (${available}) no longer covers follower ${followerDef?.name ?? followerId as string} — releasing to general influence, deferred (CoE 2.II.2.2.3)`);
+      characters[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+    }
+    characters[controllerId] = {
+      ...controller,
+      followers: controller.followers.filter(id => !releasedFollowerIds.includes(id)),
+    };
+  }
+
+  if (!changed) return state;
+  return recomputeDerived(updatePlayer(state, activeIndex, p => ({ ...p, characters })));
 }
 
 /**
