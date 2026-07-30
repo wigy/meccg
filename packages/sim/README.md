@@ -272,16 +272,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1418 contested decisions:
+Over 1341 contested decisions:
 
 ```text
-  covered and decisive       1043  73.6%
-  covered but flat            141   9.9%   → H1
-  partial, acted anyway        66   4.7%
-  partial, handed over        157  11.1%   → H1
-  no owner at all              11   0.8%   → H1
+  covered and decisive       1021  76.1%
+  covered but flat            136  10.1%   → H1
+  partial, acted anyway        56   4.2%
+  partial, handed over        126   9.4%   → H1
+  no owner at all               2   0.1%   → H1
 
-  H2 decides 78.2% of contested decisions.
+  H2 decides 80.3% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -410,8 +410,36 @@ definition: 1008 candidates over a few dozen distinct cards, each one otherwise
 resolving a whole attack. Measured on the captured position, 110–580 ms without
 the cache and 29–64 ms with it.
 
-What is left, by decisions blocked: hazard `play-hazard` events at 108,
-`play-short-event` at 80, and the granted-action families `grants` still
+### "I cannot read this" is not the same as "there is nothing to read"
+
+Declining is the honest answer to a family the module cannot price, and it was
+also being given to two cases where the module can *prove* the play achieves
+nothing. Those are opinions, and worth stating:
+
+- **The card declares no effect this engine will execute.** Twilight's whole
+  effect list is two `play-flag`s — declarations about *how* it may be played,
+  not about what happens when it resolves. Its printed text cancels an
+  environment card; the DSL does not say so, and the engine plays what the DSL
+  declares. It was the second most-offered declined short event, 44 of 122 in
+  three games, and playing it spends a card for nothing. The rule is
+  self-correcting: the day the cancel is written into the DSL, the effect list
+  stops being declaration-only and the module goes back to declining.
+- **A removal with nothing to remove.** Every short event in the pool that
+  discards something from play — Marvels Told, Ancient Secrets, Voices of
+  Malice, The Cock Crows, Wizard's River-horses — targets a *hazard event in
+  play*. With none in play the card resolves for nothing; with one, the module
+  still declines, because what that event was doing is the thing it cannot
+  price.
+
+The second replaced a branch that was simply wrong. It read the same
+`move ... from: "in-play" to: "discard"` and priced it as the corruption relief
+of taking an attached hazard off one of our own characters — a different effect,
+on a different target, that no card in this family has. Whenever one of our
+characters happened to be carrying a corrupting hazard, the module credited a
+benefit the card could not deliver.
+
+What is left, by decisions blocked: hazard `play-hazard` events at 86,
+`play-short-event` at 51, and the granted-action families `grants` still
 declines at 17. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target

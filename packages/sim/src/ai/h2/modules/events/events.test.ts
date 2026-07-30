@@ -10,6 +10,12 @@
  * crediting nothing would make H2 refuse to play any event in the game, which
  * is worse than having no opinion — and it is exactly the trap the on-guard
  * pricing fell into until the rules were checked.
+ *
+ * The counterpart is the third group below: two cases where the module can
+ * *prove* the play achieves nothing — a card that declares no effect at all,
+ * and a removal with nothing in play to remove — and refusing is then an
+ * opinion rather than a guess. The line between "cannot read it" and "there is
+ * nothing to read" is the whole of this file's difficulty.
  */
 
 import { describe, expect, test } from 'vitest';
@@ -24,6 +30,14 @@ import { eventsModule } from './events.js';
 const RECOVERY = 'ev-recovery';
 /** An event whose effect this module has no family for. */
 const OPAQUE = 'ev-opaque';
+/** An event that declares only how it may be played — Twilight's shape. */
+const INERT = 'ev-inert';
+/** An event that discards a hazard event from play — Marvels Told's shape. */
+const REMOVAL = 'ev-removal';
+/** A hazard long-event, the thing a removal is actually aimed at. */
+const LONG_HAZARD = 'hz-long';
+/** A corrupting hazard *attached to a character* — a different thing entirely. */
+const ATTACHED_HAZARD = 'hz-attached';
 
 const POOL = {
   [RECOVERY]: {
@@ -39,6 +53,35 @@ const POOL = {
       { type: 'on-event', event: 'something-specific' },
     ],
   },
+  [INERT]: {
+    cardType: 'hazard-event',
+    name: 'Twilight',
+    keywords: ['environment'],
+    effects: [
+      { type: 'play-flag', flag: 'playable-as-resource' },
+      { type: 'play-flag', flag: 'no-hazard-limit' },
+    ],
+  },
+  [REMOVAL]: {
+    cardType: 'hero-resource-event',
+    name: 'Marvels Told',
+    effects: [
+      { type: 'play-target', target: 'character', cost: { tap: 'character' } },
+      {
+        type: 'move',
+        select: 'target',
+        from: 'in-play',
+        to: 'discard',
+        filter: { $and: [{ cardType: 'hazard-event' }, { eventType: { $in: ['permanent', 'long'] } }] },
+      },
+    ],
+  },
+  [LONG_HAZARD]: { cardType: 'hazard-event', name: 'Minions Stir', eventType: 'long', effects: [] },
+  [ATTACHED_HAZARD]: {
+    cardType: 'hazard-creature',
+    name: 'Lure of Nature',
+    effects: [{ type: 'stat-modifier', stat: 'corruption-points', value: 5 }],
+  },
 } as unknown as ModuleContext['cardPool'];
 
 /** A context holding both events in hand. */
@@ -50,6 +93,8 @@ function context(): ModuleContext {
       hand: [
         { instanceId: 'c-recovery', definitionId: RECOVERY },
         { instanceId: 'c-opaque', definitionId: OPAQUE },
+        { instanceId: 'c-inert', definitionId: INERT },
+        { instanceId: 'c-removal', definitionId: REMOVAL },
       ],
       playDeck: [],
       sideboard: [],
@@ -111,5 +156,59 @@ describe('a family it does not', () => {
 
   test('and so is an action naming a card that is not in hand', () => {
     expect(eventsModule.evaluate(play('not-held'), context())).toBeNull();
+  });
+});
+
+describe('a card that will do nothing', () => {
+  test('one whose whole effect list says how it may be played is refused, not declined', () => {
+    // Twilight: two `play-flag`s and no effect at all. Its printed text cancels
+    // an environment card; the DSL does not say so, and the engine plays what
+    // the DSL declares. Spending a card for nothing is worse than passing, and
+    // that is an opinion the module can defend rather than a guess.
+    const evaluation = eventsModule.evaluate(play('c-inert'), context())!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('declares no effect');
+  });
+
+  test('an unfamiliar effect type still counts as an effect, so the card is declined', () => {
+    // The conservative half of the rule: only the listed declaration types are
+    // treated as saying nothing happens. Anything else — including a type this
+    // module has never seen — makes it decline rather than call the card inert.
+    expect(eventsModule.evaluate(play('c-opaque'), context())).toBeNull();
+  });
+
+  test('a removal with nothing in play to remove is refused', () => {
+    // Every short event in the pool that discards something from play targets a
+    // hazard event in play. With none in play the card resolves for nothing.
+    expect(eventsModule.evaluate(play('c-removal'), context())!.expectedTsd).toBeLessThan(0);
+  });
+
+  test('and the same removal is declined once there is something it could reach', () => {
+    // With a target, what the card is worth is what *that* card was doing —
+    // which is the thing this module cannot price, so it says nothing.
+    const withTarget = context();
+    (withTarget.view.opponent as unknown as { cardsInPlay: unknown[] }).cardsInPlay = [
+      { instanceId: 'in-play-1', definitionId: LONG_HAZARD },
+    ];
+    expect(eventsModule.evaluate(play('c-removal'), withTarget)).toBeNull();
+  });
+
+  test('a removal is never priced as corruption relief on our own characters', () => {
+    // The branch this replaced read the same `move from in-play to discard` and
+    // credited the corruption of an attached hazard on one of our characters —
+    // a different effect, on a different target, that no card in this family
+    // has. A corrupted character of ours must not make the card look good.
+    const corrupted = context();
+    (corrupted.view.self as { characters: Record<string, unknown> }).characters = {
+      bearer: {
+        instanceId: 'bearer',
+        definitionId: 'bearer-def',
+        effectiveStats: { corruptionPoints: 5 },
+        items: [], allies: [], followers: [],
+        hazards: [{ instanceId: 'h1', definitionId: ATTACHED_HAZARD }],
+      },
+    };
+    expect(eventsModule.evaluate(play('c-removal'), corrupted)!.expectedTsd).toBeLessThan(0);
   });
 });
