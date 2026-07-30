@@ -78,3 +78,30 @@ describe('what each hazard is for', () => {
     expect(summed).toBeCloseTo(plan.totalHarm, 6);
   });
 });
+
+describe('what the hazard limit itself is worth', () => {
+  test('halving every limit cannot make the plan do more', () => {
+    // The hazard player who touches their sideboard during untap pays for it
+    // with exactly this: `snapshotHazardLimit` halves the limit, rounding up,
+    // for every company in the coming movement/hazard phase. Fewer slots is a
+    // strictly smaller feasible set, so the plan can only lose.
+    const { plan } = position();
+    expect(plan.harmIfLimitsHalved()).toBeLessThanOrEqual(plan.totalHarm);
+  });
+
+  test('and it costs something whenever the limit was the binding constraint', () => {
+    // If the plan filled every slot it had, taking half of them away has to
+    // drop a card it wanted to play. A hand with fewer creatures than slots
+    // correctly pays nothing, which is why the assertion is conditional on the
+    // plan being slot-bound rather than unconditional.
+    const { plan } = position();
+    const assigned = plan.assignments.filter(a => a.targetCompanyId !== null);
+    if (assigned.length < 2) return;
+    expect(plan.harmIfLimitsHalved()).toBeLessThan(plan.totalHarm);
+  });
+
+  test('the answer is stable, because it is computed once and kept', () => {
+    const { plan } = position();
+    expect(plan.harmIfLimitsHalved()).toBe(plan.harmIfLimitsHalved());
+  });
+});

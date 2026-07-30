@@ -25,6 +25,10 @@
  * - **A target.** The assignment itself is worth printing. A hand of hazards
  *   with no company to aim them at is a different position from one where every
  *   card has a job, and until now nothing in the output could tell them apart.
+ * - **The price of the hazard limit itself.** Re-running the allocation with
+ *   every limit halved says what the limit is worth, which is what the hazard
+ *   player pays for touching their sideboard during untap (CoE 2.I). See
+ *   {@link HazardPlan.harmIfLimitsHalved}.
  *
  * The allocation is **greedy and says so**: at each step it takes the
  * (card, company) pair adding the most harm, given what that company has
@@ -80,6 +84,19 @@ export interface HazardPlan {
   marginalFor(definitionId: string): number;
   /** Total TSD the plan expects to deny if it is carried out. */
   readonly totalHarm: number;
+  /**
+   * What the plan is worth if every hazard limit is halved.
+   *
+   * The hazard player who touches their sideboard during untap pays for it with
+   * exactly that: `snapshotHazardLimit` halves the limit, rounding up, for every
+   * company in the coming movement/hazard phase. The difference against
+   * {@link totalHarm} is what the access costs, in the same currency as
+   * everything else the plan says.
+   *
+   * Computed on demand and cached, because this is the most expensive service in
+   * the project and only one decision a turn ever asks.
+   */
+  harmIfLimitsHalved(): number;
 }
 
 /** A creature in hand, with the attack it would make. */
@@ -171,55 +188,77 @@ function buildHazardPlan(
 
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
-  const targets: Target[] = view.opponent.companies.map(company => {
-    const denial = denialContext(view, company, beliefs, standing, tunables);
-    // The engine's snapshot when there is one; the company's own size otherwise.
-    // Outside the movement/hazard phase the limit is not yet fixed, and reading
-    // the zero it reports as "nothing may be spent here" would price every
-    // hazard in hand at nothing all through the organization phase.
-    const published = exposure.hazardLimit(company.id) ?? 0;
-    return {
-      companyId: company.id as string,
-      label: `${company.characters.length}-character company`,
-      roster: rosterOf(company, view.opponent.characters, cardPool),
-      price: denialPricer(cardPool, standing, tunables, denial),
-      assigned: [],
-      slots: published > 0 ? published : company.characters.length,
-      harm: 0,
-    };
-  });
 
-  const assignments = new Map<string, HazardAssignment>();
-  const unassigned = new Set(hazards.map(h => h.instanceId as string));
-
-  // Greedy: repeatedly take the (card, company) pair that adds the most, given
-  // what that company already has. Supermodularity is why the choice is
-  // re-made every round rather than sorted once — a card worth nothing against
-  // a fresh company can be worth a lot behind another one.
-  for (;;) {
-    let best: { hazard: Hazard; target: Target; marginal: number } | null = null;
-    for (const target of targets) {
-      if (target.slots <= 0 || target.roster.length === 0) continue;
-      for (const hazard of hazards) {
-        if (!unassigned.has(hazard.instanceId as string)) continue;
-        const marginal = harmOf(target, cardPool, [...target.assigned, hazard], tunables) - target.harm;
-        if (!best || marginal > best.marginal) best = { hazard, target, marginal };
-      }
-    }
-    if (!best || best.marginal <= 0) break;
-    best.target.assigned.push(best.hazard);
-    best.target.harm += best.marginal;
-    best.target.slots--;
-    unassigned.delete(best.hazard.instanceId as string);
-    assignments.set(best.hazard.instanceId as string, {
-      instanceId: best.hazard.instanceId,
-      name: best.hazard.name,
-      targetCompanyId: best.target.companyId,
-      targetLabel: best.target.label,
-      marginal: best.marginal,
-      order: best.target.assigned.length,
+  /**
+   * The companies the plan may spend against, with `slots` set by `limitOf`.
+   *
+   * A factory rather than a value because a `Target` carries the allocation's
+   * mutable state, so answering "what if the limits were halved?" needs a fresh
+   * set rather than a second pass over the same one.
+   */
+  const makeTargets = (limitOf: (baseLimit: number) => number): Target[] =>
+    view.opponent.companies.map(company => {
+      const denial = denialContext(view, company, beliefs, standing, tunables);
+      // The engine's snapshot when there is one; otherwise the limit the coming
+      // reveal will set. Outside the movement/hazard phase it is not yet fixed,
+      // and reading the zero it reports as "nothing may be spent here" would
+      // price every hazard in hand at nothing all through the organization
+      // phase. `snapshotHazardLimit` floors the base limit at 2, so a company
+      // of one still invites two hazards and predicting its own size understates
+      // the plan.
+      const published = exposure.hazardLimit(company.id) ?? 0;
+      const base = published > 0 ? published : Math.max(company.characters.length, 2);
+      return {
+        companyId: company.id as string,
+        label: `${company.characters.length}-character company`,
+        roster: rosterOf(company, view.opponent.characters, cardPool),
+        price: denialPricer(cardPool, standing, tunables, denial),
+        assigned: [],
+        slots: limitOf(base),
+        harm: 0,
+      };
     });
-  }
+
+  /**
+   * Greedy allocation of the hazards in hand across the companies.
+   *
+   * Repeatedly takes the (card, company) pair that adds the most, given what
+   * that company already has. Supermodularity is why the choice is re-made every
+   * round rather than sorted once — a card worth nothing against a fresh company
+   * can be worth a lot behind another one.
+   */
+  const allocate = (targets: readonly Target[]): Map<string, HazardAssignment> => {
+    const assigned = new Map<string, HazardAssignment>();
+    const unassigned = new Set(hazards.map(h => h.instanceId as string));
+    for (;;) {
+      let best: { hazard: Hazard; target: Target; marginal: number } | null = null;
+      for (const target of targets) {
+        if (target.slots <= 0 || target.roster.length === 0) continue;
+        for (const hazard of hazards) {
+          if (!unassigned.has(hazard.instanceId as string)) continue;
+          const marginal = harmOf(target, cardPool, [...target.assigned, hazard], tunables) - target.harm;
+          if (!best || marginal > best.marginal) best = { hazard, target, marginal };
+        }
+      }
+      if (!best || best.marginal <= 0) break;
+      best.target.assigned.push(best.hazard);
+      best.target.harm += best.marginal;
+      best.target.slots--;
+      unassigned.delete(best.hazard.instanceId as string);
+      assigned.set(best.hazard.instanceId as string, {
+        instanceId: best.hazard.instanceId,
+        name: best.hazard.name,
+        targetCompanyId: best.target.companyId,
+        targetLabel: best.target.label,
+        marginal: best.marginal,
+        order: best.target.assigned.length,
+      });
+    }
+    return assigned;
+  };
+
+  const targets = makeTargets(base => base);
+  const assignments = allocate(targets);
 
   // Everything the plan could not use. Worth nothing to keep *as an attack* —
   // which is a real statement about the hand, not a failure to price it.
@@ -238,10 +277,23 @@ function buildHazardPlan(
   }
 
   const ordered = [...assignments.values()].sort((a, b) => b.marginal - a.marginal);
+  /** The halved-limit total, computed at most once — see `harmIfLimitsHalved`. */
+  let halvedHarm: number | null = null;
   return {
     assignments: ordered,
     totalHarm: targets.reduce((sum, target) => sum + target.harm, 0),
     worth: (instanceId: CardInstanceId) => assignments.get(instanceId as string) ?? null,
+
+    harmIfLimitsHalved(): number {
+      if (halvedHarm !== null) return halvedHarm;
+      // `snapshotHazardLimit` rounds the halving *up*, so a limit of 3 becomes
+      // 2 rather than 1. Mirrored rather than approximated: the whole cost of
+      // touching the sideboard is this number.
+      const halved = makeTargets(base => Math.ceil(base / 2));
+      allocate(halved);
+      halvedHarm = halved.reduce((sum, target) => sum + target.harm, 0);
+      return halvedHarm;
+    },
 
     marginalFor(definitionId: string): number {
       const candidate = hazardOf(
