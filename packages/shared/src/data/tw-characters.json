@@ -2214,8 +2214,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Minas Tirith",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Tower Guard of Minas Tirith faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Tower Guard of Minas Tirith"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Tower Guard of Minas Tirith faction.",
+    "certified": "2026-07-30"
   },
   {
     "cardType": "hero-character",
