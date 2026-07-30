@@ -4307,8 +4307,12 @@ export interface PlayTargetEffect extends EffectBase {
    * items borne by the active player's own characters (e.g. Barrow-blade
    * dm-119, played "with the Dagger" — a permanent event attached to an
    * item whose `stat-modifier` effects flow to the item's bearer).
+   * `long-event` scopes to the active player's own in-play resource
+   * long-events (Echo of All Joy td-110, played "on a resource long-event" —
+   * a permanent event attached via `CardInPlay.attachedToLongEvent` that
+   * exempts the target from the beginning-of-long-event-phase discard sweep).
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event';
   /**
    * Widens a `character` target beyond the default own-characters scope. When
    * `'any-player'`, candidates are drawn from **both** players' characters so a

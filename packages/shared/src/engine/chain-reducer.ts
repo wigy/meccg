@@ -2301,6 +2301,19 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }));
       logDetail(`"${def?.name ?? card.definitionId}" attached to faction ${targetFactionId as string}`);
     }
+
+    // Long-event-targeting permanent event (Echo of All Joy td-110): bind the
+    // host to the target resource long-event instance via `attachedToLongEvent`.
+    const targetLongEventId = entry.payload.type === 'permanent-event' ? entry.payload.targetLongEventInstanceId : undefined;
+    if (targetLongEventId) {
+      working = updatePlayer(working, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+          ? { ...c, attachedToLongEvent: targetLongEventId }
+          : c),
+      }));
+      logDetail(`"${def?.name ?? card.definitionId}" attached to long-event ${targetLongEventId as string}`);
+    }
     if (besiegedSiteId) {
       const siteInst = working.players[playerIndex].siteDeck.find(s => s.instanceId === besiegedSiteId);
       const siteDef = siteInst ? defById(working, siteInst.definitionId) : undefined;

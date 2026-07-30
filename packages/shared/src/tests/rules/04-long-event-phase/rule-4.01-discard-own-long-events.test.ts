@@ -22,7 +22,9 @@ import {
   SUN, GATES_OF_MORNING, EYE_OF_SAURON,
   CardStatus,
 } from '../../test-helpers.js';
-import type { CardInPlay, CardInstanceId } from '../../test-helpers.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../test-helpers.js';
+
+const ECHO_OF_ALL_JOY = 'td-110' as CardDefinitionId;
 
 describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
   beforeEach(() => resetMint());
@@ -198,5 +200,57 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
     const discardIds = nextState.players[0].discardPile.map(c => c.instanceId);
     expect(discardIds).toContain('sun-1' as CardInstanceId);
     expect(discardIds).toContain('sun-2' as CardInstanceId);
+  });
+
+  test('A resource long-event attached to an in-play Echo of All Joy is not discarded (bug regression)', () => {
+    // Echo of All Joy (td-110) is played "on" a resource long-event and
+    // exempts it from this sweep for as long as Echo stays in play. A second,
+    // unprotected Sun instance is still discarded as normal.
+    const protectedSun: CardInPlay = {
+      instanceId: 'sun-protected' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+    const echoInPlay: CardInPlay = {
+      instanceId: 'echo-1' as CardInstanceId,
+      definitionId: ECHO_OF_ALL_JOY,
+      status: CardStatus.Untapped,
+      attachedToLongEvent: 'sun-protected' as CardInstanceId,
+    };
+    const unprotectedSun: CardInPlay = {
+      instanceId: 'sun-unprotected' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          cardsInPlay: [protectedSun, echoInPlay, unprotectedSun],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
+
+    const stillInPlay = nextState.players[0].cardsInPlay.map(c => c.instanceId);
+    expect(stillInPlay).toContain('sun-protected' as CardInstanceId);
+    expect(stillInPlay).toContain('echo-1' as CardInstanceId);
+    expect(stillInPlay).not.toContain('sun-unprotected' as CardInstanceId);
+    expect(nextState.players[0].discardPile.map(c => c.instanceId))
+      .toContain('sun-unprotected' as CardInstanceId);
   });
 });

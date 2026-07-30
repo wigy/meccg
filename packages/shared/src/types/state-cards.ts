@@ -170,6 +170,20 @@ export interface CardInPlay {
    */
   readonly attachedToItem?: CardInstanceId;
   /**
+   * If this permanent event is attached to one of its controller's own
+   * in-play *resource long-events* rather than to a character, item, or
+   * faction — the target long-event's {@link CardInstanceId}. The card lives
+   * in its controller's `cardsInPlay` while so attached, and while it does,
+   * the target long-event is exempt from the beginning-of-long-event-phase
+   * discard sweep ([2.III.1]) that would otherwise remove it. Whichever of
+   * the pair leaves play first takes the other with it. Used by Echo of All
+   * Joy (td-110): "Play on a resource long-event... The long-event is not
+   * discarded as normal during a long-event phase. Discard Echo of All Joy
+   * and target long-event when any play deck is exhausted or when Doors of
+   * Night comes into play."
+   */
+  readonly attachedToLongEvent?: CardInstanceId;
+  /**
    * Instance ID of the card this is linked to via Crown of Flowers pairing
    * (mutual discard). When either linked card is discarded from cardsInPlay,
    * the other is discarded as well.
