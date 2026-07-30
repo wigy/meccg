@@ -195,7 +195,8 @@ function renderOnlineList(): void {
     span.textContent = player.displayName;
     item.appendChild(span);
     if (player.inGame) {
-      // In an AI game (not watchable) — show a muted status, no Challenge.
+      // In a game that is not (yet) in the broadcast games list — e.g. the
+      // game server is still launching. Show a muted status, no Challenge.
       const status = document.createElement('span');
       status.className = 'lobby-player-status';
       status.textContent = 'In game';

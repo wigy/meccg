@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 336 | 283 | 53 | 84.2% |
+| 336 | 286 | 50 | 85.1% |
 
 ## Section Breakdown
 
@@ -125,7 +125,7 @@
 | 3.11 | Organization Phase | [Non Avatar Character Play](03-organization-phase/rule-3.11-non-avatar-character-play.test.ts) | ☑ |
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☑ |
 | 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☑ |
-| 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
+| 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ◐ |
 | 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☑ |
 | 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☑ |
 | 3.17 | Organization Phase | [Fw Orc Troll Restriction](03-organization-phase/rule-3.17-fw-orc-troll-restriction.test.ts) | ☑ |
@@ -221,8 +221,8 @@
 | 7.01 | End-of-Turn Phase | [Eot Steps](07-end-of-turn-phase/rule-7.01-eot-steps.test.ts) | ☑ |
 | 7.02 | End-of-Turn Phase | [Eot Site Replacement](07-end-of-turn-phase/rule-7.02-eot-site-replacement.test.ts) | ☑ |
 | 8.01 | Combat | [Combat Initiation](08-combat/rule-8.01-combat-initiation.test.ts) | ☑ |
-| 8.02 | Combat | [Combat Step1 Pre Assignment](08-combat/rule-8.02-combat-step1-pre-assignment.test.ts) | ☐ |
-| 8.03 | Combat | [Faced Attack](08-combat/rule-8.03-faced-attack.test.ts) | ☐ |
+| 8.02 | Combat | [Combat Step1 Pre Assignment](08-combat/rule-8.02-combat-step1-pre-assignment.test.ts) | ◐ |
+| 8.03 | Combat | [Faced Attack](08-combat/rule-8.03-faced-attack.test.ts) | ☑ |
 | 8.04 | Combat | [Attack Modification Rules](08-combat/rule-8.04-attack-modification-rules.test.ts) | ☐ |
 | 8.05 | Combat | [Multiple Strikes Assignment](08-combat/rule-8.05-multiple-strikes-assignment.test.ts) | ☑ |
 | 8.06 | Combat | [Combat Step2 Defender Assigns](08-combat/rule-8.06-combat-step2-defender-assigns.test.ts) | ☑ |
@@ -253,7 +253,7 @@
 | 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ☑ |
 | 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
 | 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
-| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |
+| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ☑ |
 | 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☑ |
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ◐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☑ |
@@ -322,7 +322,7 @@
 | 10.27 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Targeting Rules](10-corruption-influence-endgame/rule-10.27-fw-targeting-rules.test.ts) | ☐ |
 | 10.28 | Corruption, Influence, Actions/Timing & Ending the Game | [Effects Definition](10-corruption-influence-endgame/rule-10.28-effects-definition.test.ts) | ☐ |
 | 10.29 | Corruption, Influence, Actions/Timing & Ending the Game | [Chain Of Effects](10-corruption-influence-endgame/rule-10.29-chain-of-effects.test.ts) | ◐ |
-| 10.30 | Corruption, Influence, Actions/Timing & Ending the Game | [Multiple Actions On Card](10-corruption-influence-endgame/rule-10.30-multiple-actions-on-card.test.ts) | ☐ |
+| 10.30 | Corruption, Influence, Actions/Timing & Ending the Game | [Multiple Actions On Card](10-corruption-influence-endgame/rule-10.30-multiple-actions-on-card.test.ts) | ☑ |
 | 10.31 | Corruption, Influence, Actions/Timing & Ending the Game | [Passive Conditions](10-corruption-influence-endgame/rule-10.31-passive-conditions.test.ts) | ☐ |
 | 10.32 | Corruption, Influence, Actions/Timing & Ending the Game | [Passive Condition Discard](10-corruption-influence-endgame/rule-10.32-passive-condition-discard.test.ts) | ☐ |
 | 10.33 | Corruption, Influence, Actions/Timing & Ending the Game | [Beginning Of Phase Passives](10-corruption-influence-endgame/rule-10.33-beginning-of-phase-passives.test.ts) | ☐ |

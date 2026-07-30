@@ -223,7 +223,8 @@ describe('Olog-hai (Trolls) (tw-71)', () => {
       } else if (s.combat.phase === 'resolve-strike') {
         s = executeAction(s, PLAYER_1, 'resolve-strike', 12, true);
       } else if (s.combat.phase === 'body-check' && s.combat.bodyCheckTarget === 'creature') {
-        s = executeAction(s, PLAYER_2, 'body-check-roll', 6);
+        // The creature belongs to the attacker, so the defender rolls (CoE 3.I.1).
+        s = executeAction(s, PLAYER_1, 'body-check-roll', 6);
       } else {
         break;
       }

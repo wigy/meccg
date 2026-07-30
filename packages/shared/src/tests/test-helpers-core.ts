@@ -290,6 +290,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     reverseActions: [],
     lastTurnFor: null,
     cheatRollTotal: null,
+    cheated: false,
     revealedInstances: {},
   } as unknown as GameState;
 

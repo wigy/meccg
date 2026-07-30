@@ -251,6 +251,24 @@ describe('GCCG deck import section split', () => {
     ]);
   });
 
+  test('apostrophe-like characters other than curly/straight quotes still match (Wizard’s River-horses)', () => {
+    // Hand-typed decks pick up all sorts of apostrophe look-alikes from
+    // smart-quote autocorrect and non-US keyboard layouts: acute accent,
+    // grave accent, modifier letter apostrophe, prime.
+    const variants = ['´', '`', 'ʼ', '′'];
+    for (const variant of variants) {
+      const text = [
+        '####',
+        'Pool',
+        '####',
+        `1 Wizard${variant}s River-horses`,
+      ].join('\n');
+      const parsed = parseGccgDeck(text, 'fallback');
+      expect(parsed.unmatched).toEqual([]);
+      expect(parsed.pool).toEqual([{ name: 'Wizard’s River-horses', card: 'tw-364', qty: 1 }]);
+    }
+  });
+
   test('without a category the resolved card type decides the section', () => {
     const text = [
       '####',

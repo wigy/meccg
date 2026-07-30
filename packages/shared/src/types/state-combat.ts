@@ -963,6 +963,14 @@ export type ChainEntryPayload =
        */
       readonly targetFactionInstanceId?: CardInstanceId;
       /**
+       * For a resource permanent-event played on one of the controller's own
+       * in-play resource long-events (Echo of All Joy td-110), the target
+       * long-event instance. On resolution the chain reducer places the card
+       * into the controller's `cardsInPlay` with `attachedToLongEvent` set to
+       * this value.
+       */
+      readonly targetLongEventInstanceId?: CardInstanceId;
+      /**
        * For a `faction-siege` permanent-event (Long Grievous Siege ba-40), the
        * site card instance in the controller's location deck chosen at play
        * time. On resolution the chain reducer moves it from the `siteDeck`

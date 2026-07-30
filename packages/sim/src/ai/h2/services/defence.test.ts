@@ -116,3 +116,67 @@ describe('the typical attack', () => {
     expect(defence.typical.fromPool).toBe(defence.typical.seen === 0);
   });
 });
+
+describe('the modifiers the board already carries', () => {
+  /**
+   * The same position with Orcs in their discard, and optionally a hazard event
+   * in play.
+   *
+   * The Orcs matter: the typical attack is a *median*, so a modifier keyed to
+   * one race moves it only when that race is what the opponent actually plays.
+   * That is the median doing its job — against a deck with one Orc in it,
+   * Minions Stir does not change the attack you expect — so a test of the
+   * modifier has to describe an opponent who plays Orcs.
+   */
+  function withInPlay(name?: string) {
+    const scenario = loadScenario(SCENARIO);
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (cardName: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === cardName)!;
+    (view.opponent as unknown as { discardPile: unknown[] }).discardPile = [
+      { instanceId: 'shown-1', definitionId: definitionOf('Orc-warband') },
+      { instanceId: 'shown-2', definitionId: definitionOf('Orc-guard') },
+      { instanceId: 'shown-3', definitionId: definitionOf('Orc-watch') },
+    ];
+    (view.opponent as unknown as { cardsInPlay: unknown[] }).cardsInPlay = name
+      ? [{ instanceId: 'staged', definitionId: definitionOf(name) }]
+      : [];
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const company = [...view.self.companies].sort((a, b) => b.characters.length - a.characters.length)[0];
+    return {
+      defence: computeDefence(view, cardPool, standing, DEFAULT_TUNABLES),
+      roster: rosterOf(company, view.self.characters, cardPool),
+    };
+  }
+
+  test('a company facing Orcs while Minions Stir is out is facing stronger Orcs', () => {
+    // The number this service reports is spent by every company-shape
+    // comparison, every enter-site cost and every Stealth. Ignoring a declared
+    // +1 strike and +1 prowess on every Orc attack under-states all of them.
+    const bare = withInPlay();
+    const boosted = withInPlay('Minions Stir');
+    expect(boosted.defence.typical.strikes).toBeGreaterThan(bare.defence.typical.strikes);
+    expect(boosted.defence.expectedHarm(boosted.roster, 3))
+      .toBeGreaterThan(bare.defence.expectedHarm(bare.roster, 3));
+  });
+
+  test('and it reports how much of that came from the board', () => {
+    const boosted = withInPlay('Minions Stir');
+    expect(boosted.defence.typical.boosted.strikes).toBeGreaterThan(0);
+    expect(withInPlay().defence.typical.boosted.strikes).toBe(0);
+  });
+
+  test('taking that card away puts the attacks back to their printed numbers', () => {
+    // What a removal is worth: `harmWithout` is the same harm computed with one
+    // card in play struck out, so the difference is what discarding it stops.
+    const { defence, roster } = withInPlay('Minions Stir');
+    expect(defence.harmWithout('staged', roster, 3)).toBeLessThan(defence.expectedHarm(roster, 3));
+  });
+
+  test('striking out a card that carries no modifier changes nothing', () => {
+    const { defence, roster } = withInPlay('Minions Stir');
+    expect(defence.harmWithout('not-on-the-board', roster, 3))
+      .toBeCloseTo(defence.expectedHarm(roster, 3), 9);
+  });
+});

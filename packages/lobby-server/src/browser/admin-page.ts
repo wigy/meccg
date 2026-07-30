@@ -7,9 +7,9 @@
  * into one account's full detail (`GET /api/admin/users/:name`): account
  * fields, credit balance history, and completed games. The detail view
  * carries the top-up button. The amount it adds is decided server-side
- * (`POST /api/admin/users/:name/credits/top-up`): everything consumed since
- * the last credit addition, rounded up to the nearest hundred, plus a
- * 200-credit bonus. When nothing was consumed since the last addition there
+ * (`POST /api/admin/users/:name/credits/top-up`): 1.5 times everything
+ * consumed since the last credit addition, rounded up to the nearest
+ * hundred. When nothing was consumed since the last addition there
  * is nothing to add, so pressing the button twice in a row is a no-op the
  * second time.
  *
@@ -18,6 +18,10 @@
  * "Older Requests" row that pages in already-handled requests 50 at a time
  * (`GET /api/admin/requests/old`); those can additionally be renewed —
  * set back to status 'new' — to re-queue them.
+ *
+ * Above the tabs sits the yell bar: a message box whose Yell button
+ * broadcasts the text as a system toast to every player online
+ * (`POST /api/admin/yell`).
  */
 
 import { appState, ADMIN_TAB_KEY, type ScreenId } from './app-state.js';
@@ -216,7 +220,7 @@ function renderTopUp(detail: AdminUserDetail): string {
     <button type="button" class="admin-topup-btn" data-user="${escapeHtml(detail.profile.name)}">
       Add ${detail.pendingTopUp} credits
     </button>
-    <p class="admin-topup-note">Covers all consumption since the last addition, rounded up to the nearest hundred, plus 200 extra.</p>`;
+    <p class="admin-topup-note">Covers 1.5&times; the consumption since the last addition, rounded up to the nearest hundred.</p>`;
 }
 
 /** Show one account's full detail: fields, credit history, games. */
@@ -289,6 +293,38 @@ function storedAdminTab(): AdminTab {
   return sessionStorage.getItem(ADMIN_TAB_KEY) === 'requests' ? 'requests' : 'users';
 }
 
+/** The yell bar: broadcast a message as a toast to every player online. */
+function renderYellBar(): HTMLElement {
+  const bar = document.createElement('div');
+  bar.className = 'admin-yell';
+  bar.innerHTML = `
+    <input type="text" class="admin-yell-input" maxlength="500"
+      placeholder="Message to yell at every player online...">
+    <button type="button" class="admin-yell-btn">Yell</button>
+    <span class="admin-yell-note"></span>`;
+  const input = bar.querySelector<HTMLInputElement>('.admin-yell-input')!;
+  const btn = bar.querySelector<HTMLButtonElement>('.admin-yell-btn')!;
+  const note = bar.querySelector<HTMLElement>('.admin-yell-note')!;
+  const yell = async (): Promise<void> => {
+    const message = input.value.trim();
+    if (!message) return;
+    btn.disabled = true;
+    const r = await apiSend('/api/admin/yell', 'POST', { message });
+    btn.disabled = false;
+    if (!r.ok) {
+      note.textContent = r.error ?? 'Failed to yell';
+      return;
+    }
+    note.textContent = 'Yelled.';
+    input.value = '';
+  };
+  btn.addEventListener('click', () => { void yell(); });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') void yell();
+  });
+  return bar;
+}
+
 /** Render the Users/Requests tab bar. Clicking a tab re-opens the page on it. */
 function renderTabs(active: AdminTab): HTMLElement {
   const tabs = document.createElement('div');
@@ -318,6 +354,7 @@ export async function openAdminPage(tab?: AdminTab): Promise<void> {
   if (note) note.textContent = TAB_NOTES[active];
 
   listEl.innerHTML = '';
+  listEl.appendChild(renderYellBar());
   listEl.appendChild(renderTabs(active));
   const content = document.createElement('div');
   listEl.appendChild(content);

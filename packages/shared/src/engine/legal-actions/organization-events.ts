@@ -777,6 +777,37 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       continue;
     }
 
+    // play-target DSL: long-event-targeting permanent events (Echo of All Joy
+    // td-110) get one action per qualifying own in-play resource long-event.
+    // The chosen instance rides on `targetLongEventInstanceId` and the resolved
+    // card is bound via `CardInPlay.attachedToLongEvent`.
+    if (playTarget?.target === 'long-event') {
+      let anyTarget = false;
+      for (const cip of player.cardsInPlay) {
+        if (isSetAsideCard(cip)) continue;
+        const longEventDef = defById(state, cip.definitionId);
+        if (!longEventDef || longEventDef.cardType !== 'hero-resource-event' || longEventDef.eventType !== 'long') continue;
+        if (playTarget.filter) {
+          const ctx = { target: { name: longEventDef.name } };
+          if (!matchesCondition(playTarget.filter, ctx)) {
+            logDetail(`Permanent event ${def.name}: long-event ${longEventDef.name} does not match play-target filter`);
+            continue;
+          }
+        }
+        anyTarget = true;
+        logDetail(`Permanent event ${def.name}: playable on long-event ${longEventDef.name}`);
+        actions.push({
+          action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetLongEventInstanceId: cip.instanceId },
+          viable: true,
+        });
+      }
+      if (!anyTarget) {
+        logDetail(`Permanent event ${def.name}: no valid long-event target`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid long-event target`));
+      }
+      continue;
+    }
+
     logDetail(`Permanent event ${def.name}: playable`);
     actions.push({
       action: { type: 'play-permanent-event', player: playerId, cardInstanceId },

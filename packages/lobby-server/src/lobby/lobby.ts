@@ -87,7 +87,7 @@ interface OnlinePlayer {
   activeGame: ActiveGameInfo | null;
 }
 
-/** An ongoing human-vs-human game that others can watch. */
+/** An ongoing game (human-vs-human or vs an AI seat) that others can watch. */
 interface WatchableGame {
   readonly port: number;
   readonly player1: string;
@@ -98,8 +98,10 @@ interface WatchableGame {
 const onlinePlayers = new Map<string, OnlinePlayer>();
 
 /**
- * Human-vs-human games in progress, keyed by port. Only these are watchable:
- * AI games have a single human and are not broadcast for spectating.
+ * Games in progress, keyed by port — human-vs-human and AI games alike.
+ * Every entry is broadcast as a "p1 vs. p2" row that non-participants can
+ * watch; the game server seats any non-player join as a spectator, so an
+ * AI seat needs no special handling.
  */
 const watchableGames = new Map<number, WatchableGame>();
 
@@ -506,15 +508,18 @@ async function startAiGame(
       aiDeckId: deckId,
       aiModelFile: modelFile,
     };
+    // Register the game so others see this player as busy — shown as a
+    // "player vs. AI-*" row they can watch instead of a Challenge button.
+    watchableGames.set(result.port, { port: result.port, player1: player.name, player2: aiName });
+
     send(player.ws, { type: 'game-starting', ...player.activeGame });
-    // Others should see this player as busy (no Challenge offered). AI games
-    // are not watchable, so nothing is added to watchableGames.
     broadcastPlayerList();
 
     result.onEnd(() => {
       player.inGame = false;
       player.activeGame = null;
       player.pendingFrom.clear();
+      watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player.name, player2: aiName, ai: true });
     });
@@ -545,6 +550,11 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
       opponent: aiName,
       opponentDisplayName: aiName,
     };
+    // Like real AI games, a pseudo-AI game shows up as a watchable "vs. AI-Pseudo"
+    // row; the spectator projection hides both hands, so it is safe to watch even
+    // though one human controls both seats.
+    watchableGames.set(result.port, { port: result.port, player1: player.name, player2: aiName });
+
     send(player.ws, {
       type: 'game-starting',
       ...player.activeGame,
@@ -557,6 +567,7 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
       player.inGame = false;
       player.activeGame = null;
       player.pendingFrom.clear();
+      watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player.name, player2: aiName, pseudoAi: true });
     });

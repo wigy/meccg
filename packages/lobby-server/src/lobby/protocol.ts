@@ -101,7 +101,7 @@ export interface RejoinGameMessage {
 }
 
 /**
- * Ask to watch an ongoing human-vs-human game as a spectator. The port
+ * Ask to watch an ongoing game as a spectator. The port
  * identifies the game (from the {@link OngoingGameEntry} list); the lobby
  * mints a short-lived spectator token and replies with {@link GameWatchingMessage}.
  */
@@ -137,7 +137,11 @@ export interface OnlinePlayerEntry {
   readonly inGame: boolean;
 }
 
-/** An ongoing human-vs-human game that other players can watch. */
+/**
+ * An ongoing game that other players can watch. AI games are included:
+ * the AI seat appears as its player name (`AI-Heuristic`, `AI-MC`, ...),
+ * so the row itself tells what the busy player is up against.
+ */
 export interface OngoingGameEntry {
   /** Port of the game server, used to request watching. */
   readonly port: number;
@@ -151,7 +155,7 @@ export interface OngoingGameEntry {
 export interface OnlinePlayersMessage {
   readonly type: 'online-players';
   readonly players: readonly OnlinePlayerEntry[];
-  /** Human-vs-human games currently in progress that can be watched. */
+  /** Games currently in progress (including AI games) that can be watched. */
   readonly games: readonly OngoingGameEntry[];
 }
 

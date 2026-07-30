@@ -77,6 +77,11 @@ When enabled it adds two extra tools to the toolbar:
   - *Summon* — add any card directly to your hand
   - *Swap Hand* — swap hands between the two players
 
+Selecting any of these tools first asks for confirmation: using a developer
+tool marks the game as **cheated**. A cheated game can be played to the end
+normally, but its result is never recorded — it does not appear on the
+scoreboard or in either player's game history.
+
 Settings also contains an **Auto-pass** toggle that automatically takes the only available action after a short delay, which speeds up solo testing.
 
 ## Pseudo-AI Mode

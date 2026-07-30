@@ -198,6 +198,7 @@ export function widenView(view: PlayerView, options: WidenOptions): GameState {
     reverseActions: [],
     lastTurnFor: null,
     cheatRollTotal: null,
+    cheated: false,
     revealedInstances: {},
   } as unknown as GameState;
 }
