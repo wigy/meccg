@@ -32,6 +32,7 @@
   --z-preview: 50;            /* card preview panel */
   --z-instruction: 60;        /* instruction text overlay */
   --z-hover: 100;             /* dev toolbar, hovered arcs/rows, tooltips, chain panel */
+  --z-loading: 150;           /* game loading cover (below toasts and toolbar) */
   --z-modal: 200;             /* settings modal, toast, floating dice */
   --z-overlay: 300;           /* site deck modal, dice overlay */
   --z-set-aside: 400;         /* set-aside pile (above modals during draft) */
@@ -2958,6 +2959,27 @@ h2 {
 .pile-toggle:hover {
   background: #345;
   color: #bdf;
+}
+
+/* Full-screen cover shown while joining a game. Opaque so intermediate
+   renders (debug view, leftovers of a previous game) never show through;
+   toasts and the toolbar sit above it so errors stay visible and the
+   disconnect button stays reachable if loading stalls. */
+#game-loading {
+  position: fixed;
+  inset: 0;
+  background: #0b0d12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-loading);
+}
+
+#game-loading-text {
+  color: #8899aa;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
 }
 
 #toolbar {

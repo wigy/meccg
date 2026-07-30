@@ -290,6 +290,12 @@
   </div>
 
   <div id="game" class="hidden">
+    <!-- Full-screen cover while joining: visible by default so nothing
+         (debug view, stale previous-game board) flashes before the first
+         complete game state has been rendered. -->
+    <div id="game-loading">
+      <p id="game-loading-text">Loading...</p>
+    </div>
     <div id="toolbar">
       <div id="toolbar-main">
         <button id="spectators-btn" title="Spectators" class="toolbar-icon-btn" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span id="spectators-count"></span></button>
@@ -356,7 +362,7 @@
       </div>
     </div>
 
-    <div id="debug-view">
+    <div id="debug-view" class="hidden">
       <div id="left-panel">
         <h2 id="state-heading">Game State<button id="copy-game-code-btn" class="hidden" title="Copy game code to clipboard"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></h2>
         <pre id="state"></pre>

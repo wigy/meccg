@@ -167,10 +167,9 @@ export function clearGameBoard(): void {
 
 ns.clearGameBoard = clearGameBoard;
 
-// Restore saved view mode
-if (localStorage.getItem(VIEW_KEY) !== 'debug') {
-  setViewMode(true);
-}
+// Restore saved view mode. Both views start hidden in the HTML (so nothing
+// shows before this bundle runs), so the choice must always be applied.
+setViewMode(localStorage.getItem(VIEW_KEY) !== 'debug');
 
 viewToggleBtn.addEventListener('click', () => {
   setViewMode(!debugView.classList.contains('hidden'));
