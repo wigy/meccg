@@ -14,8 +14,8 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, Race } from '../../../index.js';
-import type { CardInstanceId, CombatState } from '../../../index.js';
+import { Phase, Race, Alignment } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, CombatState } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableActions, executeAction,
   companyIdAt, findCharInstanceId, makeShadowMHState, recomputeDerived,
@@ -23,6 +23,14 @@ import {
   ARAGORN, FARAMIR, LEGOLAS, ELROND, BEREGOND,
   MORIA, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
+
+// Indûr the Ringwraith (5 direct influence) with Bade to Rule (le-167, -2
+// direct influence) attached leaves 3 — no longer enough for Orc Captain
+// (le-31, mind 5), which followed him while his direct influence was still 5.
+const INDUR = 'le-54' as CardDefinitionId;
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
+const BADE_TO_RULE = 'le-167' as CardDefinitionId;
+const MINAS_MORGUL = 'le-390' as CardDefinitionId; // Darkhaven
 
 describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
   beforeEach(() => resetMint());
@@ -96,6 +104,53 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
     // General influence used dropped by Aragorn's contribution and did NOT
     // pick up Faramir's mind.
     expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBeLessThan(giBefore);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(0);
+  });
+
+  test('controller\'s direct influence reduced by an in-play effect: follower released at the end of the organization phase it happened in', () => {
+    // Regression: Orc Captain (mind 5) follows Indûr (5 direct influence).
+    // Bade to Rule then drops Indûr to 3 direct influence — no longer enough
+    // to control Orc Captain. The engine must not let Orc Captain remain his
+    // follower; per CoE 2.II.2.2.3 he is released to general influence
+    // (deferred) by the end of the organization phase the drop happened in,
+    // not left dangling across turns until a player notices and fixes it by
+    // hand (bug report: Ringwraith with only 3 DI still controlling Orc
+    // Captain).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: MINAS_MORGUL,
+            characters: [
+              { defId: INDUR, items: [BADE_TO_RULE] },
+              { defId: ORC_CAPTAIN, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const indurId = findCharInstanceId(base, RESOURCE_PLAYER, INDUR);
+    const orcCaptainId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
+    // Bade to Rule already dropped Indûr's direct influence to 3.
+    expect(base.players[RESOURCE_PLAYER].characters[indurId].effectiveStats.directInfluence).toBe(3);
+    expect(base.players[RESOURCE_PLAYER].characters[orcCaptainId].controlledBy).toBe(indurId);
+
+    const after = dispatch(base, { type: 'pass', player: PLAYER_1 });
+
+    const orcCaptain = after.players[RESOURCE_PLAYER].characters[orcCaptainId];
+    expect(orcCaptain.controlledBy).toBe('general');
+    expect(orcCaptain.influenceUnsubtracted).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].characters[indurId].followers).not.toContain(orcCaptainId);
+    // Deferred — Orc Captain's mind does not count against general influence
+    // this turn.
     expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(0);
   });
 
