@@ -48,7 +48,7 @@ Feature requests are not guaranteed to be implemented, and implementation order 
 
 Your credit balance is visible in the lobby navigation bar. Credits exist solely to cap unintended AI expenses — they are not a payment of any kind. Each bug report or feature request you submit costs a small number of credits when the AI processes it.
 
-If you run out of credits and want to keep contributing, ask the admin for a top-up.
+Credits replenish over time: after you spend them, your balance is topped up again automatically, so you can keep contributing.
 
 ## The Inbox
 
