@@ -103,12 +103,20 @@ export function parseMeccgJsonDeck(text: string): FullDeck | null {
 }
 
 /**
+ * Every apostrophe-like character seen in the wild: the card pool's own
+ * typographic quotes, plus the variants hand-typed decks pick up from
+ * smart-quote autocorrect, non-US keyboard layouts, and other GCCG-adjacent
+ * tools (modifier letter apostrophe, prime, acute/grave accent, fullwidth).
+ */
+const APOSTROPHE_VARIANTS = /[‘’‚‛ʻʼʹ′´`＇]/g;
+
+/**
  * Case-insensitive, unicode-normalized key for card-name matching. GCCG
  * files use ASCII apostrophes while the card pool uses typographic ones
  * (’), so apostrophe variants are unified.
  */
 function nameKey(name: string): string {
-  return name.normalize('NFC').replace(/[‘’]/g, "'").toLowerCase();
+  return name.normalize('NFC').replace(APOSTROPHE_VARIANTS, "'").toLowerCase();
 }
 
 /**
