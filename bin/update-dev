@@ -17,7 +17,7 @@ Update the deployed MECCG dev instance. SSHes into the server and runs:
   ./prod.sh up -d
 
 Environment:
-  METW_SERVER      SSH host to connect to (default: dataplug)
+  METW_SERVER      SSH host to connect to (default: ai-meccg.com)
   METW_PATH        Deployment directory on the server (default: /home/wigy/dataplug)
 
 Options:
