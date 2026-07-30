@@ -30,14 +30,15 @@ import {
   buildSitePhaseState, resetMint, PLAYER_1, PLAYER_2,
   playPermanentEventAndResolve, handCardId,
   attachItemToChar, findCharInstanceId, RESOURCE_PLAYER,
+  viablePlayCharacterActions,
 } from '../test-helpers.js';
 import {
   computeLegalActions, reduce, Phase, CardStatus,
-  ELROND, ARAGORN, LEGOLAS, MINAS_TIRITH, MORIA, LORIEN,
+  ELROND, ARAGORN, LEGOLAS, HALDIR, MINAS_TIRITH, MORIA, LORIEN,
   SAPLING_OF_THE_WHITE_TREE, RIVENDELL,
 } from '../../index.js';
 import type {
-  CardDefinitionId, GameState, CardInstance, PlayPermanentEventAction,
+  CardDefinitionId, GameState, CardInstance, PlayPermanentEventAction, ConstraintId,
 } from '../../index.js';
 import { buildTestState, mint } from '../test-helpers.js';
 
@@ -310,6 +311,62 @@ describe('tw-348 The White Tree', () => {
     const elrondId = findCharInstanceId(result.state, RESOURCE_PLAYER, ELROND);
     const elrond = result.state.players[0].characters[elrondId];
     expect(elrond.status).toBe(CardStatus.Inverted);
+  });
+
+  test('does NOT let a non-Minas Tirith, non-haven character be recruited there (Haven only for healing and hazards)', () => {
+    // Regression for the Gamling bug report (game ms79d5f9-7xs9ad, seq 1741):
+    // Haldir (homesite Lórien, not a sage/avatar) was playable at Minas
+    // Tirith while The White Tree was in play, even though the card text
+    // only makes Minas Tirith a Haven "for the purposes of healing and
+    // playing hazards" — not for playing characters (CoE rule 2.II.2.2).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [HALDIR],
+          siteDeck: [],
+          companies: [{ site: MINAS_TIRITH, characters: [ELROND] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    // Simulate The White Tree already in play, installing its
+    // `healing-and-hazards`-scoped site-type-override to Haven.
+    const whiteTreeInstance = mint();
+    const constraintState: GameState = {
+      ...state,
+      activeConstraints: [
+        ...state.activeConstraints,
+        {
+          id: ('c-1') as ConstraintId,
+          source: whiteTreeInstance,
+          sourceDefinitionId: THE_WHITE_TREE,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'player', playerId: PLAYER_1 },
+          kind: {
+            type: 'attribute-modifier' as const,
+            attribute: 'site.type' as const,
+            op: 'override' as const,
+            value: 'haven' as import('../../index.js').SiteType,
+            filter: { 'site.definitionId': MINAS_TIRITH as unknown as string },
+            excludesCharacterPlay: true,
+          },
+        },
+      ],
+    };
+
+    const minasTirithInst = constraintState.players[0].companies[0].currentSite!.instanceId;
+    const viable = viablePlayCharacterActions(constraintState, PLAYER_1);
+    expect(viable.some(a => a.atSite === minasTirithInst)).toBe(false);
   });
 
   test('unique — not playable if already in play', () => {

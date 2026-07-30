@@ -1416,6 +1416,18 @@ export interface ActiveConstraint {
          */
         readonly healingOnly?: boolean;
         /**
+         * For a `site.type` `override`: when true, this override does not count
+         * toward "is this site a haven" for the purpose of playing (recruiting)
+         * a character there. `getEffectiveSiteType`'s callers that check
+         * haven-for-recruiting pass `excludeCharacterPlayOverrides` to skip it;
+         * every other consumer (hazard keying, movement, bring-into-play,
+         * item/faction/ally playability, healing) still honours the override.
+         * The White Tree (tw-348): "Minas Tirith becomes a Haven [{H}] for the
+         * purposes of healing and playing hazards" — explicitly excluding
+         * character recruiting.
+         */
+        readonly excludesCharacterPlay?: boolean;
+        /**
          * For an `auto-attack.prowess` modifier: when true, the modifier is NOT
          * consumed after being applied to the first automatic-attack. Ordinary
          * one-shot auto-attack prowess boosts (Choking Shadows) are single-use —
