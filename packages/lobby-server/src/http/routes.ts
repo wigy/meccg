@@ -19,8 +19,8 @@
  * - GET /api/scoreboard/players/:name — every completed game for one player, newest first
  * - GET /api/admin/users — all accounts with name, display name, email, credits (admin session)
  * - GET /api/admin/users/:name — one account's full data, credit history, games (admin session)
- * - POST /api/admin/users/:name/credits/top-up — add consumption-since-last-addition, rounded up to
- *   the nearest hundred plus a 200-credit bonus (admin session)
+ * - POST /api/admin/users/:name/credits/top-up — add 1.5× consumption-since-last-addition, rounded
+ *   up to the nearest hundred (admin session)
  * - GET /api/admin/requests — open (status 'new') requests across the AI/admin inboxes (admin session)
  * - GET /api/admin/requests/old?offset=N — handled requests, newest first, 50 per page (admin session)
  * - GET /api/admin/requests/:inbox/:id — one request's full message, without marking it read (admin session)
