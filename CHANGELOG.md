@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.69.0 — 2026-07-31
+
+Changelog etc
+
+### Game Engine
+
+- **Implemented rule 2.07** — a dissolved company's tapped site now goes to the site discard pile
+- Resource plays and support are now offered during Free Council corruption checks
+- Certified World Gnawed by the Nameless (as-110), Denethor II (tw-140), Where There's a Whip (le-254), and Goblin Earth-plumb (as-125)
+- Fixed Thrór's Map untap-site ability missing from the site phase
+- Hazard-event boosts are now sequenced before the creatures they'd strengthen
+- Fixed Shield of Iron-bound Ash (tw-327) missing its 1 corruption point
+- Fixed Cram/Gwaihir movement grants expiring during the long-event phase
+- Fixed the Roll button not appearing for Flatter a Foe's flattery attempt
+- Added an `orderedDecks` flag so scripted games keep the configured deck order
+
+### Guided Tutorial
+
+- Added the guided tutorial module: fixed decks, a 45-step script, state matcher, and driver
+- Wired the tutorial end-to-end: controller, game session, lobby integration, and browser panel
+- Tutorial spec: three-round curriculum (Barrow-downs, Old Forest, Edoras) with implementation notes
+- The lobby's "Play the Tutorial" button is hidden until the tutorial is ready for players
+
+### Lobby & Web Client
+
+- Added a Changelog page to the lobby UI
+- Requests can now be filed without credits; they are parked until the next top-up
+- Fixed the alerting URL
+
 ## 0.68.0 — 2026-07-30
 
 More Features

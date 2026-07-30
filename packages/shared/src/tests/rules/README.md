@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 336 | 286 | 50 | 85.1% |
+| 337 | 287 | 50 | 85.2% |
 
 ## Section Breakdown
 
