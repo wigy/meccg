@@ -417,6 +417,81 @@ describe('Flatter a Foe (td-116)', () => {
     expect(result.state.combat).not.toBeNull();
   });
 
+  test('successful roll: chain fully resolves (not left stuck in "resolving")', () => {
+    // Regression: the flattery-attempt pending resolution paused the chain
+    // (needsInput) without ever marking the Flatter a Foe chain entry
+    // resolved. Since nothing resumed auto-resolution afterward, `chain`
+    // stayed in mode 'resolving' forever with no legal actions for either
+    // player — the game appeared frozen (game ms77xgju-p0ke1j, seq 263:
+    // "reste bloqué à l'étape resolving").
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const s = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1, cardInstanceId: flatCard, targetCharacterId: aragornId,
+    }));
+
+    const flatAction = computeLegalActions(s, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'flattery-attempt',
+    )!;
+
+    // Roll 8: total = 8 + 3 (DI) = 11 > 10 → success
+    const result = reduce({ ...s, cheatRollTotal: 8 }, flatAction.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).toBeNull();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    // The game must not be stuck: someone has a legal action again.
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
+  });
+
+  test('failed roll: chain fully resolves (not left stuck in "resolving")', () => {
+    // Same regression as above, but for the failure branch — the chain must
+    // resume and complete regardless of whether the flattery succeeded.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const s = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1, cardInstanceId: flatCard, targetCharacterId: aragornId,
+    }));
+
+    const flatAction = computeLegalActions(s, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'flattery-attempt',
+    )!;
+
+    // Roll 7: total = 7 + 3 = 10, not > 10 → failure
+    const result = reduce({ ...s, cheatRollTotal: 7 }, flatAction.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).toBeNull();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
+  });
+
   test('failed roll: hazard limit NOT decreased', () => {
     const base = buildTestState({
       phase: Phase.MovementHazard,

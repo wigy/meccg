@@ -20,10 +20,13 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import { Race } from '../../../index.js';
+import type { CardInstanceId, CombatState } from '../../../index.js';
 import type { CardDefinitionId, OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 import {
-  buildTestState, resetMint, dispatch, findCharInstanceId, Phase, Alignment,
-  viablePlayCharacterActions, viableActions, makeSitePhase,
+  buildTestState, resetMint, dispatch, executeAction, findCharInstanceId, Phase, Alignment,
+  viablePlayCharacterActions, viableActions, makeSitePhase, makeShadowMHState,
+  companyIdAt, recomputeDerived,
   PLAYER_1, PLAYER_2,
   ARAGORN, RIVENDELL,
   RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -179,9 +182,178 @@ describe('Rule 3.08 — Ringwraith Follower Rules', () => {
 
   // The 1-DI control cost has no exercising card: the only follower-slots
   // enabler in the pool (The Witch-king le-58) explicitly grants control
-  // "with no influence", overriding the generic 1-DI rule. The grace-period
-  // rule shares the end-of-organization enforcement machinery with rules
-  // 3.13 and 3.47, which does not exist yet.
+  // "with no influence", overriding the generic 1-DI rule.
   test.todo('[MINION] Ringwraith follower requires 1 point of direct influence to control (no card exercises the non-exempt path)');
-  test.todo('[MINION] If the controlling Ringwraith avatar leaves play without being eliminated, followers must be reclaimed by end of next organization phase or are discarded');
+
+  test('[MINION] avatar returned to hand by a failed body check leaves its Ringwraith follower in the reclaim grace period', () => {
+    // The Witch-king controls Adûnaphel as a Ringwraith follower. He faces an
+    // unwinnable strike, is wounded, and his body check rolls an unmodified 7 —
+    // per MELE §8.R1 a Ringwraith returns to hand instead of being eliminated.
+    // That is rule 3.08's trigger: the avatar left play *without* being
+    // eliminated, so Adûnaphel is not discarded on the spot but enters the
+    // grace period ('grace'), awaiting a Ringwraith avatar to re-control her
+    // by the end of her player's next organization phase.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: MINAS_MORGUL,
+            characters: [
+              { defId: WITCH_KING },
+              { defId: ADUNAPHEL, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const witchKingId = findCharInstanceId(base, RESOURCE_PLAYER, WITCH_KING);
+    const adunaphelId = findCharInstanceId(base, RESOURCE_PLAYER, ADUNAPHEL);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    expect(base.players[RESOURCE_PLAYER].characters[adunaphelId].controlledBy).toBe(witchKingId);
+
+    const combat: CombatState = {
+      attackSource: { type: 'creature', instanceId: 'fake-creature' as CardInstanceId },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 99, // unwinnable — the Witch-king is wounded
+      creatureBody: null,
+      creatureRace: Race.Orc,
+      strikeAssignments: [{ characterId: witchKingId, excessStrikes: 0, resolved: false }],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+    const state = { ...base, combat, phaseState: makeShadowMHState() };
+
+    // Fail the strike (roll 2 vs prowess 99) → wounded, body check follows.
+    const [resolveAction] = viableActions({ ...state, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');
+    expect(resolveAction).toBeDefined();
+    const wounded = dispatch({ ...state, cheatRollTotal: 2 }, resolveAction.action);
+
+    // Unmodified body check roll of 7 → the Ringwraith returns to hand.
+    const after = executeAction(wounded, PLAYER_2, 'body-check-roll', 7);
+    expect(after.players[RESOURCE_PLAYER].characters[witchKingId]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === witchKingId)).toBe(true);
+
+    const adunaphel = after.players[RESOURCE_PLAYER].characters[adunaphelId];
+    expect(adunaphel.controlledBy).toBe('general');
+    expect(adunaphel.ringwraithReclaim).toBe('grace');
+  });
+
+  test('[MINION] a Ringwraith follower not re-controlled by the end of the next organization phase is immediately discarded', () => {
+    // Adûnaphel entered the grace period on an earlier turn (her controlling
+    // avatar left play without being eliminated). Reaching the organization
+    // phase promotes the flag to 'due' — this is the "next organization phase"
+    // rule 3.08 grants — and passing out of the phase with no Ringwraith
+    // avatar controlling her discards her immediately, with no player choice.
+    // The plain minion character in the same company is untouched.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [ADUNAPHEL, ASTERNAK] }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const adunaphelId = findCharInstanceId(base, RESOURCE_PLAYER, ADUNAPHEL);
+    const asternakId = findCharInstanceId(base, RESOURCE_PLAYER, ASTERNAK);
+    const flagged = recomputeDerived({
+      ...base,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: true,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: true,
+      } as typeof base.phaseState,
+      players: base.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [adunaphelId as string]: { ...p.characters[adunaphelId], ringwraithReclaim: 'grace' },
+        },
+      }) as unknown as typeof base.players,
+    });
+
+    // Untapping moves the player into their organization phase — the grace
+    // flag promotes to 'due': this phase is the reclaim deadline.
+    const inOrg = dispatch(flagged, { type: 'untap', player: PLAYER_1 });
+    expect(inOrg.phaseState.phase).toBe(Phase.Organization);
+    expect(inOrg.players[RESOURCE_PLAYER].characters[adunaphelId].ringwraithReclaim).toBe('due');
+
+    // Passing out of the phase without a Ringwraith avatar re-controlling her
+    // discards her on the spot — no pending resolution asks anything.
+    const passed = dispatch(inOrg, { type: 'pass', player: PLAYER_1 });
+    expect(passed.players[RESOURCE_PLAYER].characters[adunaphelId]).toBeUndefined();
+    expect(passed.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === adunaphelId)).toBe(true);
+    expect(passed.players[RESOURCE_PLAYER].characters[asternakId]).toBeDefined();
+    expect(passed.pendingResolutions).toHaveLength(0);
+  });
+
+  test('[MINION] a Ringwraith follower re-controlled by a Ringwraith avatar before the deadline stays in play and sheds the flag', () => {
+    // Same deadline turn, but a Ringwraith avatar (the Witch-king) controls
+    // Adûnaphel again when the organization phase ends — the reclaim
+    // succeeded, so the flag clears and nothing is discarded.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: MINAS_MORGUL,
+            characters: [
+              { defId: WITCH_KING },
+              { defId: ADUNAPHEL, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const witchKingId = findCharInstanceId(base, RESOURCE_PLAYER, WITCH_KING);
+    const adunaphelId = findCharInstanceId(base, RESOURCE_PLAYER, ADUNAPHEL);
+    const flagged = recomputeDerived({
+      ...base,
+      players: base.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [adunaphelId as string]: { ...p.characters[adunaphelId], ringwraithReclaim: 'due' },
+        },
+      }) as unknown as typeof base.players,
+    });
+
+    const passed = dispatch(flagged, { type: 'pass', player: PLAYER_1 });
+    expect(passed.phaseState.phase).toBe(Phase.LongEvent);
+    const adunaphel = passed.players[RESOURCE_PLAYER].characters[adunaphelId];
+    expect(adunaphel).toBeDefined();
+    expect(adunaphel.controlledBy).toBe(witchKingId);
+    expect(adunaphel.ringwraithReclaim).toBeUndefined();
+  });
 });

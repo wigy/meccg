@@ -490,6 +490,15 @@
     "eventType": "short",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.freeCount": {
+            "$gte": 1
+          }
+        }
+      },
+      {
         "type": "play-target",
         "target": "company"
       },

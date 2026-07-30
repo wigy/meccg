@@ -30,12 +30,12 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint, resolveChain,
-  viableActions,
+  viableActions, grantedActionsFor, findCharInstanceId, expectCharStatus,
   P1_COMPANY, makeMHState,
   handCardId, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
-import { Phase } from '../../../index.js';
-import type { CardInPlay, CardInstanceId, GameState } from '../../../index.js';
+import { Alignment, Phase } from '../../../index.js';
+import type { CardDefinitionId, CardInPlay, CardInstanceId, GameState } from '../../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -554,10 +554,44 @@ describe('Rule 10.29 — Chain of Effects', () => {
   });
 
   // ── 10.29.4: Multiple actions on card resolve in printed order ────────────
-  //
-  // The DSL currently models a card's resolve effect as a single `apply`
-  // value rather than an ordered list of "separately printed" actions, so
-  // there is no in-pool card whose ordering can be observed from outside.
-  // This will be exercised once a multi-action resolve is supported.
-  test.todo('multiple separate actions on a resolved card execute in printed order');
+
+  test('multiple separate actions on a resolved card execute in printed order', () => {
+    // The DSL models "multiple separate actions" as a `sequence` apply whose
+    // `apps` run in array (= printed) order. Strangling Coils (ba-76) makes
+    // that order observable: "untap all tapped characters in The Balrog's
+    // company. If then untapped, tap The Balrog." — with a tapped Balrog, the
+    // printed order first sweeps him into the company untap and then re-taps
+    // him; the reverse order would leave him untapped. See rule 10.30 for the
+    // full print-order treatment of the same card.
+    const STRANGLING_COILS = 'ba-76' as CardDefinitionId;
+    const THE_BALROG = 'ba-3' as CardDefinitionId;
+    const BARAD_DUR_BA = 'ba-84' as CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{
+            site: BARAD_DUR_BA,
+            characters: [
+              { defId: THE_BALROG, status: CardStatus.Tapped, items: [STRANGLING_COILS] },
+            ],
+          }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+    const balrogId = findCharInstanceId(state, RESOURCE_PLAYER, THE_BALROG);
+
+    const [action] = grantedActionsFor(state, balrogId, 'untap-balrog-company', PLAYER_1);
+    expect(action).toBeDefined();
+    const after = dispatch(state, action);
+    expectCharStatus(after, RESOURCE_PLAYER, THE_BALROG, CardStatus.Tapped);
+  });
 });
