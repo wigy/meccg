@@ -185,7 +185,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     hand: revealedCardPile(player.hand, state.revealedInstances),
     playDeck: hiddenCardPile(player.playDeck),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
-    discardPile: hiddenCardPile(player.discardPile),
+    discardPile: toViewCards(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),

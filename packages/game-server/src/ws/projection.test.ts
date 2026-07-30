@@ -203,3 +203,29 @@ describe('Revealed opponent hand cards (wh-29 Rolled down to the Sea)', () => {
     expect(handById(secret)?.definitionId).toBe(BALIN);
   });
 });
+
+describe('Opponent discard pile visibility (public information)', () => {
+  test('a card in the opponent discard pile keeps its identity, unlike hidden zones', () => {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const base = createGame(config, pool);
+    const discarded = 'p1-discard-1' as CardInstanceId;
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], discardPile: [{ instanceId: discarded, definitionId: ARAGORN }] },
+        base.players[1],
+      ],
+    };
+    const bobView = projectPlayerView(state, BOB);
+    const card = bobView.opponent.discardPile.find(c => c.instanceId === discarded);
+    expect(card?.definitionId).toBe(ARAGORN);
+  });
+});
