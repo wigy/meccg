@@ -65,7 +65,7 @@ npm run scenarios -w @meccg/sim -- verify
 npm run fit-winprob -w @meccg/sim -- --games 400 [--holdout 0.25] [--out path]
 
 # Check a module's claimed probabilities against the real reducer
-npm run calibrate -w @meccg/sim -- [--module combat] [--rollouts 5000] [--scenario <id>]
+npm run calibrate -w @meccg/sim -- [--module combat,grants] [--rollouts 5000] [--scenario <id>]
 
 # Vary one number and watch a real decision change, or not
 npm run sweep -w @meccg/sim -- --scenario <id> --over tunable:regionCrossingCost --from 0 --to 3
@@ -210,8 +210,8 @@ follower brings 2, not 5.
 outside combat, which is the check that the Heuristics-1 fallback makes
 `h2:<module>` a clean ablation rather than a rewrite.
 
-Four modules are calibrated: `combat` (36 claims), `resources` (3),
-`corruption` (2) and `factions` (1). Two kinds of claim are checked — dice
+Five modules are calibrated, 46 claims in all: `combat` (36), `grants` (4),
+`resources` (3), `corruption` (2) and `factions` (1). Two kinds of claim are checked — dice
 odds against a binomial interval, and *deterministic* marshalling-point
 arithmetic against the engine's own totals, exactly rather than statistically.
 The second is what would catch the doubling rule or the diversity cap being
@@ -511,13 +511,31 @@ change), and it failed modules on the sign of a point estimate.
 ### Falsifiable, where it can be
 
 ```sh
-npm run calibrate -w @meccg/sim -- --module grants --rollouts 4000
+npm run calibrate -w @meccg/sim -- --rollouts 4000
 ```
 
-`combat` (36 claims), `resources` (3), `corruption` (2), `factions` (1) and now
+`combat` (36 claims), `resources` (3), `corruption` (2), `factions` (1) and
 `grants` (4) are checked against the reducer: the harness replays the action
 thousands of times and asserts the observed frequency lies inside a 99% binomial
-interval of the claim.
+interval of the claim. That is **46 claims**, and the command above is the one
+that measures all of them:
+
+```text
+  combat       36/36 matched
+  corruption   2/2 matched
+  factions     1/1 matched
+  grants       4/4 matched
+  resources    3/3 matched
+46/46 claim(s) matched at 4000 rollout(s), 1107 action(s) not modelled
+```
+
+It used to report `36/36` and stop there. `--module` defaulted to `combat`,
+which was right when combat was the only module the harness could classify, and
+stayed after four more classifiers were added — so the bare command measured a
+fifth of what this section claims and said nothing about the rest. A green line
+that silently covers less than it names is worse than a red one, which is why
+the breakdown is per module now: a module the corpus has no position for reports
+"nothing measured" instead of disappearing into the total.
 
 `grants` found a bug on its first run. Two claims of 83.3% in one position, one
 measuring 84.0% and the other 40.4% — the second action carried `noTap: true`,
