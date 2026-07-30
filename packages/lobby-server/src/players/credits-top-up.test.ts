@@ -2,8 +2,7 @@
  * @module players/credits-top-up.test
  *
  * Tests for the admin screen's top-up calculation: consumption since the
- * last credit addition, rounded up to the nearest hundred, plus a
- * 200-credit bonus.
+ * last credit addition times 1.5, rounded up to the nearest hundred.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -48,13 +47,13 @@ describe('pendingTopUp', () => {
     expect(pendingTopUp([entry(-40), entry(500, 'Top-up')])).toBe(0);
   });
 
-  test('rounds a partial hundred up and adds the 200 bonus', () => {
-    expect(pendingTopUp([entry(-5)])).toBe(300);
-    expect(pendingTopUp([entry(-117)])).toBe(400);
+  test('rounds 1.5 times the consumption up to the nearest hundred', () => {
+    expect(pendingTopUp([entry(-5)])).toBe(100);
+    expect(pendingTopUp([entry(-117)])).toBe(200);
   });
 
-  test('adds the 200 bonus to an exact hundred', () => {
-    expect(pendingTopUp([entry(-100)])).toBe(300);
-    expect(pendingTopUp([entry(-60), entry(-140)])).toBe(400);
+  test('keeps an exact multiple of a hundred unrounded', () => {
+    expect(pendingTopUp([entry(-200)])).toBe(300);
+    expect(pendingTopUp([entry(-60), entry(-140)])).toBe(300);
   });
 });
