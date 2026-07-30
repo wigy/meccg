@@ -53,7 +53,7 @@ import {
 } from './company-view-state.js';
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
-import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems } from './company-modals.js';
+import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { resolveItemClick } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
@@ -1166,13 +1166,40 @@ export function findTapAltPermanentEventTarget(
 }
 
 /**
+ * Find the viable `opponent-influence-attempt` actions by `selectedInfluencer`
+ * that target this in-play card (a `cardsInPlay` entry with no bearer — most
+ * commonly a faction, the only kind of card an opponent-influence attempt can
+ * target that never sits inside a company block).
+ *
+ * Character/ally/item targets live inside a rendered company block and are
+ * wired by `addOpponentInfluenceTargets` on that block; a bare `cardsInPlay`
+ * permanent has no such block, so the flat cards-in-play row needs its own
+ * lookup to make it a valid second click of the targeting flow.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and
+ * the behaviour can be regression-tested without a full DOM render.
+ */
+export function findOpponentInfluenceTargetActions(
+  actions: readonly GameAction[],
+  selectedInfluencer: CardInstanceId,
+  targetInstanceId: CardInstanceId,
+): OpponentInfluenceAttemptAction[] {
+  return actions.filter(
+    (a): a is OpponentInfluenceAttemptAction =>
+      a.type === 'opponent-influence-attempt'
+      && a.influencingCharacterId === selectedInfluencer
+      && a.targetInstanceId === targetInstanceId,
+  );
+}
+
+/**
  * Render a single in-play permanent (a `cardsInPlay` entry) as a board card
  * image with its interactive affordances wired: short-event discard-target
- * highlighting, dual-mode creature-permanent tap, hazard-limit tap/untap, and
- * discard-for-hazard-limit. Shared by the flat cards-in-play row and the
- * per-company attachments strip so a company-bound permanent keeps the same
- * click behaviour wherever it renders. Returns `null` when the card image
- * cannot be created.
+ * highlighting, opponent-influence targeting, dual-mode creature-permanent
+ * tap, hazard-limit tap/untap, and discard-for-hazard-limit. Shared by the
+ * flat cards-in-play row and the per-company attachments strip so a
+ * company-bound permanent keeps the same click behaviour wherever it renders.
+ * Returns `null` when the card image cannot be created.
  */
 function renderInPlayCardImage(
   card: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status?: string },
@@ -1197,6 +1224,24 @@ function renderInPlayCardImage(
         e.stopPropagation();
         clearShortEventSelection();
         onAction(seAction);
+      });
+    }
+  }
+  else if (onAction && getSelectedInfluencerForOpponent()) {
+    const selectedInfluencer = getSelectedInfluencerForOpponent()!;
+    const oppInfluenceActions = findOpponentInfluenceTargetActions(
+      viableActions(view.legalActions), selectedInfluencer, card.instanceId,
+    );
+    if (oppInfluenceActions.length > 0) {
+      img.classList.add('company-card--influence-target');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (oppInfluenceActions.length === 1) {
+          clearOpponentInfluenceSelection();
+          onAction(oppInfluenceActions[0]);
+        } else {
+          showOpponentInfluenceMenu(e, oppInfluenceActions, onAction);
+        }
       });
     }
   }
