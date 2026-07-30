@@ -147,11 +147,15 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
 
 /**
  * Builds the "opponent" portion of a player's view. Hides the opponent's
- * hand contents, play deck, site deck, and sideboard (represented as arrays
- * of {@link UNKNOWN_INSTANCE}), and redacts planned movement destinations
- * to a boolean `hasPlannedMovement` flag.
- * Public information — characters in play, company locations, discard piles —
- * is passed through.
+ * hand contents, play deck, site deck, sideboard, and discard pile
+ * (represented as arrays of {@link UNKNOWN_INSTANCE}), and redacts planned
+ * movement destinations to a boolean `hasPlannedMovement` flag. Per the
+ * rules glossary, a discard pile is "designated place for cards to be
+ * discarded face-down, and which may be freely perused by its player" —
+ * only the owning player can see into it, so it stays hidden here just like
+ * hand and play deck.
+ * Public information — characters in play, company locations, site discard
+ * pile, kill pile, out-of-play pile — is passed through.
  */
 function buildOpponentView(state: GameState, player: PlayerState): OpponentView {
   const companies: OpponentCompanyView[] = player.companies.map(c => ({
@@ -185,7 +189,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     hand: revealedCardPile(player.hand, state.revealedInstances),
     playDeck: hiddenCardPile(player.playDeck),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
-    discardPile: toViewCards(player.discardPile),
+    discardPile: hiddenCardPile(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),

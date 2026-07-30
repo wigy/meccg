@@ -204,8 +204,11 @@ describe('Revealed opponent hand cards (wh-29 Rolled down to the Sea)', () => {
   });
 });
 
-describe('Opponent discard pile visibility (public information)', () => {
-  test('a card in the opponent discard pile keeps its identity, unlike hidden zones', () => {
+describe('Opponent discard pile visibility (private information)', () => {
+  test('a card in the opponent discard pile stays hidden, like hand and play deck', () => {
+    // Discard piles are face-down and may only be "freely perused by [their]
+    // player" (docs/coe-rules.md glossary), so an opponent's discard pile
+    // must stay redacted just like their hand or play deck.
     const config: GameConfig = {
       players: [
         { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
@@ -226,6 +229,6 @@ describe('Opponent discard pile visibility (public information)', () => {
     };
     const bobView = projectPlayerView(state, BOB);
     const card = bobView.opponent.discardPile.find(c => c.instanceId === discarded);
-    expect(card?.definitionId).toBe(ARAGORN);
+    expect(card?.definitionId).toBe(UNKNOWN_CARD);
   });
 });
