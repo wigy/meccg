@@ -63,6 +63,8 @@ through drafts, movement, combat, corruption, influence, chain of effects"
 | Script location | `@meccg/shared` (`src/tutorial/`) — pure data + matchers, consumed by game-server (gating, rolls) and browser (instruction panel) |
 | Decks | Two checked-in tutorial decks with explicit play-deck order, bundled with the tutorial module (NOT in the `data/decks/` catalog — they must not appear in deck listings); **certified cards only** |
 | Entry point | Lobby "Play tutorial" → `launchGame(player, 'Mentor', { tutorial: true })`; the human's join is built from the fixed tutorial deck automatically |
+| Mentor's hand | Stays hidden (normal projection) — no tutorial-mode exception |
+| Auto-pass | Forced off for the tutorial session, so no narrated step is skipped |
 | CI guard | A sim-based test replays the entire script headless with ScriptAgents on both sides |
 
 ### Why not the alternatives
@@ -92,8 +94,14 @@ Index 0 stays "top of deck" (`playDeck.slice(0, n)` draws), so **the deck
 array in the tutorial deck file is literally the draw order**: cards 1–8 are
 the opening hand, card 9 is the first movement/hazard draw, and so on.
 
-This is a two-site, purely additive change with a unit test
-(`orderedDecks: true` → deck order preserved through setup).
+One placement rule needs pinning: characters added during
+`character-deck-draft` (`add-character-to-deck`) must join the play deck at
+a deterministic position — the **bottom** — when `orderedDecks` is set, so
+the arranged draw order (hand, M/H draws, refills) is unaffected.
+
+This is a small, purely additive change with a unit test
+(`orderedDecks: true` → deck order preserved through setup, deck-draft
+additions land at the bottom).
 
 ---
 
@@ -208,13 +216,20 @@ a suggestion to be verified or substituted.
 
 ### Human draft pool (character draft + item draft)
 
-| # | Role requirement | Candidate | Teaches |
-|---|---|---|---|
-| P1 | Mid-mind warrior character | Thorin II | first draft pick |
-| P2 | Mid-mind warrior/scout | Gimli | second pick |
-| P3 | Low-mind scout | Glóin | third pick, ~19/20 mind total |
-| P4 | Character that would exceed 20 mind | Legolas | mind-limit rejection (`mind-limit` rule) → goes to deck in character-deck-draft |
-| P5–P6 | Two starting minor items | Cram, Miruvor | item draft (`assign-starting-item`, `MAX_STARTING_ITEMS = 2`) |
+The pool is an all-Elf Rivendell company (verified against
+`tw-characters.json`, all certified):
+
+| # | Card (verified) | Teaches |
+|---|---|---|
+| P1 | Glorfindel II (tw-161, mind 8, DI 2) | first draft pick |
+| P2–P3 | Elladan (tw-143, mind 4), Elrohir (tw-144, mind 4) — both "+1 prowess against Orcs" | second/third pick; running total 16 mind. The Orc bonus visibly pays off in the combat lessons |
+| P4 | Elrond (tw-145, mind 10) | mind-limit rejection: 16+10 = 26 > 20 (`mind-limit` rule) → goes to deck in character-deck-draft |
+| P5 | Gildor Inglorion (tw-158, mind 4, "+2 prowess against Orcs") | deliberately left undrafted → character-deck-draft |
+| P6–P7 | Two starting minor items (candidates: Cram, Miruvor) | item draft (`assign-starting-item`, `MAX_STARTING_ITEMS = 2`) |
+
+Stopping at 16 mind is itself part of the lesson: it leaves 4 of the 20
+general influence free, which is exactly what lets Arwen (mind 3) come into
+play in the organization phase.
 
 The Mentor's pool is chosen with **no overlap** with the human's pool so the
 draft-collision rule never fires (it is explained in text only — v1 keeps the
@@ -232,10 +247,11 @@ destination site is locked (see Open questions).
 | 1 | Low-mind character whose **home site is Rivendell** | Arwen (tw-122, mind 3) | Organization: `play-character` (characters come into play at their home site) |
 | 2 | Hazard-phase defensive short-event | Concealment | M/H: shown as "you could respond" (optional play) |
 | 3 | Major item playable at the destination site | Sword of Gondolin (or equivalent) | Site phase: `play-hero-resource` after `enter-site` |
-| 4 | Resource long-event (certified) | *(implementation pick)* | Long-event phase: `play-long-event` |
+| 4 | Resource long-event | **Star of High Hope** (td-154, certified): environment, "+1 prowess to each Elf and Dúnadan (+2 if Gates of Morning is in play)" | Long-event phase: `play-long-event` — buffs the whole company |
 | 5–7 | Inert filler (resources not usable turn 1) | e.g. faction, ally | teaches "not every card is playable now" tooltips |
 | 8 | Dead card | any | End-of-turn: voluntary `discard-card` |
-| 9–10 | M/H draw-step cards (any) | — | M/H `draw-cards` (mandatory first draw) |
+| 9 | Environment permanent event | **Gates of Morning** (tw-243, certified): discards hazard environments; upgrades Star of High Hope to +2 | drawn in the M/H `draw-cards` step, then played immediately in `play-hazards` (resource permanent events are legal there) — teaches drawing into an answer and card synergy |
+| 10 | M/H draw-step filler (any) | — | M/H `draw-cards` (mandatory first draw) |
 | 11+ | **Hazards for the opponent's turn**: one creature keyed to the Mentor's movement path + one on-guard-able hazard event | Wilderness creature (e.g. Wolves) + corruption/event hazard | Part 3: `play-hazard`, `place-on-guard` |
 | … | EOT reset-hand refills | — | draw up to `HAND_SIZE` (8) |
 
@@ -243,7 +259,7 @@ destination site is locked (see Open questions).
 
 | Slot | Role requirement | Used in step |
 |---|---|---|
-| 1 | Creature keyed to the human's movement path (Wilderness) | M/H turn 1: scripted `play-hazard` → combat lesson |
+| 1 | **Orc** creature keyed to the human's Wilderness path (so the Elf company's Orc bonuses visibly apply) | M/H turn 1: scripted `play-hazard` → combat lesson |
 | 2 | Hazard event suitable for `place-on-guard` | placed on-guard at the human's destination |
 | 3+ | Own resources for turn 2: one character, one item playable at its destination | narrated resource play on the opponent's turn |
 
@@ -258,11 +274,11 @@ scripted via `cheatRolls`.
 
 | Step | State | Instruction & expected action |
 |---|---|---|
-| 1 | `character-draft` | What the draft is; general influence = 20 mind budget. **Pick Thorin II** (`draft-pick`). Mentor picks simultaneously (scripted). |
-| 2–3 | `character-draft` | Pick Gimli, then Glóin. Panel shows running mind total. |
-| 4 | `character-draft` | Try Legolas — the panel explains the pick is blocked by the `mind-limit` rule (tooltip shows the reason). **Stop drafting** (`draft-stop`). |
-| 5 | `item-draft` | Starting minor items: **assign Cram and Miruvor** to characters (`assign-starting-item` ×2, max 2). |
-| 6 | `character-deck-draft` | Undrafted characters can join your deck: **add Legolas to the deck** (`add-character-to-deck`), then `pass`. |
+| 1 | `character-draft` | What the draft is; general influence = 20 mind budget. **Pick Glorfindel II** (`draft-pick`). Mentor picks simultaneously (scripted). |
+| 2–3 | `character-draft` | Pick Elladan, then Elrohir (16 mind). Panel shows the running mind total and points out the twins' "+1 prowess against Orcs" — it will matter soon. |
+| 4 | `character-draft` | Try Elrond — the panel explains the pick is blocked by the `mind-limit` rule (26 > 20; tooltip shows the reason). **Stop drafting** (`draft-stop`) — the 4 unused mind stays free as general influence. |
+| 5 | `item-draft` | Starting minor items: **assign the two minor items** to characters (`assign-starting-item` ×2, max 2). |
+| 6 | `character-deck-draft` | Undrafted characters can join your deck: **add Elrond and Gildor Inglorion to the deck** (`add-character-to-deck` ×2), then `pass`. |
 | 7 | `starting-site-selection` | Havens; wizards start at Rivendell. **Select Rivendell** (`select-starting-site`). (Panel notes: two-site avatars — Ringwraiths, Balrog — would next get a `character-placement` step; skipped here.) |
 | 8 | `deck-shuffle` | **Shuffle your deck** (`shuffle-play-deck`) — panel explains this normally randomizes; in the tutorial the order is fixed. |
 | 9 | `initial-draw` | **Draw your opening hand** (`draw-cards`, 8 = `HAND_SIZE`). Panel tours the hand. |
@@ -273,17 +289,17 @@ scripted via `cheatRolls`.
 | Step | State | Instruction & expected action |
 |---|---|---|
 | 11 | `Untap` | Phase order overview (the phase meter is introduced). Nothing is tapped yet — **untap** (`untap`). Mentor silently passes its sideboard option (scripted; explained later in step 24). |
-| 12 | `Organization` | Play characters, form companies, plan movement. **Play Arwen** from hand (`play-character`) — her home site is Rivendell, and characters come into play at their home site; explains direct vs general influence. |
+| 12 | `Organization` | Play characters, form companies, plan movement. **Play Arwen** from hand (`play-character`) — her home site is Rivendell, and characters come into play at their home site; the 4 mind left unused in the draft covers her mind of 3 as general influence (explains direct vs general influence). |
 | 13 | `Organization` | **Declare movement** (`plan-movement`): choose the scripted destination (a 2–3 Wilderness-region journey from Rivendell to a site with an automatic-attack and playable major items — canonical candidate: Moria; see Open questions). Then `pass`. |
-| 14 | `LongEvent` | Long-events last until your next long-event phase. **Play the long-event** from hand (`play-long-event`), then `pass`. |
+| 14 | `LongEvent` | Long-events last until your next long-event phase. **Play Star of High Hope** (`play-long-event`) — an environment that gives every Elf in your company +1 prowess. Then `pass`. |
 | 15 | `MovementHazard` / `select-company` | **Select your company** (`select-company`). |
 | 16 | `reveal-new-site` | **Reveal your destination** (`declare-path`, region movement). Panel shows the region path on the map. |
 | 17 | (auto) `set-hazard-limit` | Watch-only: the hazard limit = max(company size, 2) — here 4+? computed live; panel points at the limit indicator. |
-| 18 | `draw-cards` | Both players draw based on the site's draw numbers. **Draw** (`draw-cards`; first draw is mandatory), then `pass`. |
-| 19 | `play-hazards` | The Mentor plays a creature on your company (scripted `play-hazard`). Combat sub-state: **assign strikes** (`assign-strike`), **resolve** (`resolve-strike`) — cheat-rolled so one character taps and defeats the creature (kill marshalling points explained). Panel mentions your Concealment as the kind of card that could have responded. |
+| 18 | `draw-cards` | Both players draw based on the site's draw numbers. **Draw** (`draw-cards`; first draw is mandatory) — you draw **Gates of Morning**. Then `pass`. |
+| 19 | `play-hazards` | First, **play Gates of Morning** (resource permanent events are legal here): hazard environments are swept away and Star of High Hope now gives +2 — card synergy in action. Then the Mentor plays an **Orc** creature on your company (scripted `play-hazard`). Combat sub-state: **assign strikes** (`assign-strike`), **resolve** (`resolve-strike`) — the panel walks the prowess math (twins' +1 vs Orcs, +2 from Star of High Hope), cheat-rolled so one character taps and defeats the creature (kill marshalling points explained). Panel mentions your Concealment as the kind of card that could have responded. |
 | 20 | `play-hazards` | The Mentor places a card **on guard** at your destination (scripted `place-on-guard`) — face-down, counts against the hazard limit. Mentor passes; **you pass**. |
 | 21 | `reset-hand` | Both hands refill to hand size (`resolveHandSize`); watch-only or `pass`. |
-| 22 | `Site` | **Enter the site** (`select-company`, `enter-site`). The on-guard card is revealed or returned (scripted). Face the site's **automatic-attack**: combat again, this time you resolve strikes yourself with the panel quiet — reinforcement. |
+| 22 | `Site` | **Enter the site** (`select-company`, `enter-site`). The on-guard card is revealed or returned (scripted). Face the site's **automatic-attack** (ideally Orcs, so the same bonuses apply): combat again, this time you resolve strikes yourself with the panel quiet — reinforcement. |
 | 23 | `Site` / `play-resources` | **Play the major item** (`play-hero-resource`): taps a character and the site; item marshalling points explained. Then `pass` — panel explains the site phase ends. |
 | 24 | `EndOfTurn` | `discard`: **discard the dead card** (`discard-card`), `pass`. `reset-hand`: **draw back up to 8** (`draw-cards`). `signal-end`: `pass` — your turn ends; panel explains Free Council exists but is far off. |
 
@@ -375,20 +391,18 @@ actions (roadmap §6).
    be validated against the movement map (`packages/shared/src/movement-map.ts`),
    the site's draw numbers (they fix the deck-order draw budget), and
    certification of its automatic-attack. Any Wilderness-path site with an
-   automatic-attack and item playability works.
-2. **Long-event candidate.** Needs a certified hero resource long-event that
-   is sensible on turn 1; if none fits, step 14 becomes explain-and-pass and
-   the long-event moves to a later chapter.
-3. **Combat outcome for step 19.** Tap-and-defeat is the gentlest first
+   automatic-attack (ideally Orcs, to keep the Elf-bonus theme paying off)
+   and item playability works.
+2. **Combat outcome for step 19.** Tap-and-defeat is the gentlest first
    combat. Should the site-phase automatic-attack (step 22) instead wound a
    character to teach body checks, or is that chapter-2 material?
-4. **Restart granularity.** V1 restarts a step via dev undo (`stateHistory`
+3. **Restart granularity.** V1 restarts a step via dev undo (`stateHistory`
    pop). Is whole-tutorial restart (relaunch) acceptable as the only fallback
    when undo crosses a phase boundary awkwardly?
-5. **Mentor visibility.** During watch-only steps, should the Mentor's hand
-   be revealed to the human (teaching aid) or stay hidden (realism)? Hidden
-   is the default projection; revealing would need a projection exception in
-   tutorial mode.
-6. **Auto-pass interaction.** The existing auto-pass feature
-   (`docs/player-guide.md`) could skip steps the tutorial wants to narrate —
-   the controller should force it off for the tutorial session.
+
+Resolved:
+
+- **Long-event candidate** → Star of High Hope (td-154, certified), paired
+  with Gates of Morning (tw-243) drawn during the first move.
+- **Mentor visibility** → hand stays hidden (normal projection).
+- **Auto-pass** → forced off for the tutorial session.
