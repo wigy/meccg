@@ -286,10 +286,11 @@ at all however much influence it holds — and free direct influence subtracts
 what is already committed to followers, so a 5-DI character holding a mind-3
 follower brings 2, not 5.
 
-`heuristic` vs `h2` over six games: 96.7% agreement on contested decisions,
-87.2% inside combat, ~14 divergences per game — and exactly 100% agreement
-outside combat, which is the check that the Heuristics-1 fallback makes
-`h2:<module>` a clean ablation rather than a rewrite.
+`heuristic` vs `h2` over six games: **54.2% agreement on contested decisions,
+75.8% inside combat, ~202 divergences per game**. It was 96.7% / 87.2% / ~14
+when the modules below covered a third of the game instead of seven eighths, and
+the movement is the point: agreement is a sizing number, so a fall in it is how
+much more there now is for a gate to measure, not a claim about quality.
 
 Five modules are calibrated, 46 claims in all: `combat` (36), `grants` (4),
 `resources` (3), `corruption` (2) and `factions` (1). Two kinds of claim are checked — dice
@@ -339,7 +340,7 @@ Status by phase:
 |---|---|
 | P0 core | shipped — TSD, dice, rationale, tunables, risk oracle, registry, fitted `W`, scenario store, CLIs |
 | P1 `combat` | shipped and calibrated 36/36 against the reducer — strike window, attack window, sequential resolution |
-| P2 services | `standing`, `budget`, `exposure`, `beliefs`, `character-value`, `card-price`, `denial`, `defence`, `strike/*` — printed by `explain` where they are spent |
+| P2 services | `standing`, `budget`, `exposure`, `beliefs`, `character-value`, `card-price`, `denial`, `defence`, `hazard-plan`, `attack-value`, `attack-modifiers`, `strike/*` — printed by `explain` where they are spent |
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
 | P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
@@ -554,27 +555,71 @@ npm run headtohead -w @meccg/sim -- --games 16 --max-decisions 4000
 ```
 
 `gate` is the tool that answers this properly, and `headtohead` exists because a
-run you can watch beats a run you wait on. Over **320 rated games**, paired and
-side-swapped:
+run you can watch beats a run you wait on. Over **200 rated games**, paired and
+side-swapped, on a tree with every module above in it:
 
 ```text
-  score:     175W-138L-6D (55.8%) over 319 rated games
-  elo diff:  +40 [+3, +79]      (95% CI, challenger − champion)
-  glicko-2:  +29 [-40, +98]
-  failures:  1 — seed 599: engine rejected 'pass', "Card not found in hand"
+  score:     111W-76L-12D (58.8%) over 199 rated games
+  elo diff:  +62 [+15, +111]     (95% CI, challenger − champion)
+  glicko-2:  +103 [+25, +182]
+  failures:  1 — seed 1: 508 turns, decision limit reached (see below)
 ```
 
-The two methods disagree about significance: the Elo interval clears zero by
-three points, the Glicko-2 interval does not. Read together with three smaller
-`headtohead` samples — 67.5%, 60.4% and 53.1% on 20, 24 and 32 games — the claim
-the evidence supports is **probably somewhat stronger than Heuristics 1, and
-certainly not weaker**. Not a landslide, and the run technically fails its own
-criterion, because one game in 320 ended in an engine error rather than a result.
+**Both methods now agree the interval clears zero.** The previous run of this
+command — 55.8% over 319 games, +40 [+3, +79] Elo and +29 [-40, +98] Glicko-2 —
+had them disagreeing about significance, and that disagreement was the honest
+reason the claim was only "probably somewhat stronger". It is not the reason any
+more. The two samples are on different seeds and different sizes and their
+intervals overlap heavily, so this is not evidence that H2 gained 22 Elo; what it
+is evidence of is that a fresh, larger-margin sample now separates the two agents
+by both measures.
+
+The other half of the same story is `compare`, which is a sizing number and not
+a verdict:
+
+```text
+  agreement, contested: 54.2%
+  divergences:          ~201.8 per game
+```
+
+That was 96.7% and ~14 per game when the section above was written. H2 now
+decides 88% of contested decisions rather than 66%, so there is an order of
+magnitude more for a gate to measure — and the gate duly measures a wider
+separation. Read the two together: the agreement number says *how much* is being
+measured, the Elo interval says *which way*.
 
 An earlier run of the same command reported +61 [+24, +100]. It is not quoted
 here: source was edited while it was running, and `gate` spawns `tsx` children
 that read the source at launch, so different games in it played different code.
 The number above is from a stable tree.
+
+#### The one game that did not finish
+
+Seed 1 ran **508 turns** and hit the decision limit at 0–0. It is not a cycle
+inside a phase — turns advance normally — and it is not the AI's fault:
+
+```sh
+npm run play -w @meccg/sim -- --agents h2,heuristic --seed 1 --games 1 --max-decisions 6000
+```
+
+By then **both players have lost every character**, and a player with no
+companies is offered exactly one action in their organization phase:
+
+```text
+turn 507 p2: options=1 [pass]
+    hand: Slayer, Goldberry, Elrond(hero-character), Chill Douser, …
+    discard has characters: true
+```
+
+Elrond is in hand. There is no `play-character` on offer, because every path to
+playing one runs through an existing company, so a player who loses their last
+character can never bring another into play. Neither side can score, no end
+condition fires, and the game runs forever. One game in 200.
+
+Left as a report rather than a fix, on the same grounds as the defect recorded
+below: this is engine rules code, what a company-less player may do is a rules
+question (which sites may a new company be started at, and at whose influence
+cost), and the verification loop for a change here is a 200-game gate.
 
 What the samples do establish is that H2 plays every game to completion, which
 was not true a week ago. Two self-play games once ran to the decision limit
@@ -704,7 +749,7 @@ past one turn costs up to 2.7× the wall-clock for none of it.
 
 The headline is not the knob, though. **A four-rollout flat Monte-Carlo agent is
 the strongest thing measured against Heuristics 1 in this package** — H2 sits at
-55.8% / +40 Elo over 320 games (§ *Does it win?*) and `mc` is near +200. That is
+58.8% / +62 Elo over 200 games (§ *Does it win?*) and `mc` is near +200. That is
 a surprise the rollout spec explicitly did not expect (§7 leaves the strength
 question open with the §2 objections standing) and it wants an independent
 confirmation before it is believed: these 250 games share one deck pair and one
