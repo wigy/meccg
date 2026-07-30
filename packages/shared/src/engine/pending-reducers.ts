@@ -1605,7 +1605,12 @@ export function applyFlateryAttemptResolution(
     logDetail(`Flattery attempt failed: combat continues`);
   }
 
-  return { state: postRoll, effects: [rollEffect] };
+  // The flattery-attempt resolution paused the chain (needsInput) without
+  // marking the originating Flatter a Foe entry resolved — mirror the
+  // dice-check `continuation: { kind: 'chain-entry' }` path so the chain
+  // actually resumes instead of being left stuck in 'resolving' mode with
+  // no legal actions for either player.
+  return resolveChainEntryAndContinue(postRoll, e => e.card?.instanceId === top.source, [rollEffect]);
 }
 
 /**
