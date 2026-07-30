@@ -299,8 +299,12 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
     selfSPTooltip = buildDraftSPTooltip(draft.draftState[selfIdx].draftedStageResources.map(c => c.definitionId), cardPool);
     oppSPTooltip = buildDraftSPTooltip(draft.draftState[oppIdx].draftedStageResources.map(c => c.definitionId), cardPool);
   } else {
-    selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
-    oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
+    // view.self/opponent.generalInfluence is the *effective* pool (base 20, or
+    // a Fallen-wizard's white-hand number, plus any in-play bonus such as Bade
+    // to Rule +5 — see effectiveGeneralInfluence). Using the raw GENERAL_INFLUENCE
+    // constant here would silently drop such bonuses from the displayed total.
+    selfGI = view.self.generalInfluence - view.self.generalInfluenceUsed;
+    oppGI = view.opponent.generalInfluence - view.opponent.generalInfluenceUsed;
     selfGITooltip = buildGITooltip(view.self.characters, cardPool);
     oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
     selfSPTooltip = buildSPTooltip(view.self.cardsInPlay, view.self.characters, cardPool);
