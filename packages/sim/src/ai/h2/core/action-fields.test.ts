@@ -90,10 +90,22 @@ describe('the spellings an action uses', () => {
     expect([...unfound.values()]).toEqual([]);
   }, GAME_TIMEOUT);
 
-  test('the two lists are disjoint, so a lookup cannot mean two things', () => {
-    const overlap = KNOWN_FIELDS.card.filter(field =>
-      (KNOWN_FIELDS.character as readonly string[]).includes(field));
-    expect(overlap).toEqual([]);
+  test('the lists are disjoint, so a lookup cannot mean two things', () => {
+    // The given-up list matters most here: it names the card an action trades
+    // *away*, and a spelling appearing in both it and the card list would make
+    // a two-legged action resolve to whichever came first — which is how a swap
+    // ends up priced as a gift.
+    const lists = Object.entries(KNOWN_FIELDS);
+    const overlaps: string[] = [];
+    for (const [name, fields] of lists) {
+      for (const [otherName, others] of lists) {
+        if (name === otherName) continue;
+        for (const field of fields) {
+          if ((others as readonly string[]).includes(field)) overlaps.push(`${name}/${otherName}: ${field}`);
+        }
+      }
+    }
+    expect(overlaps).toEqual([]);
   });
 
   test('an action naming nothing yields nothing, rather than an empty string', () => {

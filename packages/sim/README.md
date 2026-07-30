@@ -272,16 +272,16 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1575 contested decisions:
+Over 1418 contested decisions:
 
 ```text
-  covered and decisive        907  57.6%
-  covered but flat            120   7.6%   → H1
-  partial, acted anyway       138   8.8%
-  partial, handed over        367  23.3%   → H1
-  no owner at all              43   2.7%   → H1
+  covered and decisive       1043  73.6%
+  covered but flat            141   9.9%   → H1
+  partial, acted anyway        66   4.7%
+  partial, handed over        157  11.1%   → H1
+  no owner at all              11   0.8%   → H1
 
-  H2 decides 66.3% of contested decisions.
+  H2 decides 78.2% of contested decisions.
 ```
 
 That is up from 33.1% at the start of the coverage work. It reads lower than
@@ -371,9 +371,48 @@ It declines to try, for a reason no flat tap cost could reach: shedding two
 corruption is worth 1.7, and tapping Glorfindel forfeits a faction attempt worth
 2.1.
 
-What is left, by decisions blocked: hazard `play-hazard` events at 146,
-`play-short-event` at 130, and the granted-action families `grants` still
-declines at 64. All three need a card's *effect* priced against the opponent
+### The cheapest decision to own: a swap is a difference
+
+`exchange-sideboard` was the last action type with **no owner at all**, and by
+candidate count the largest thing in the game: when a play deck runs out the
+discard pile becomes the new one, and before it is shuffled the player may swap
+up to five cards between the pile and the sideboard — so the engine offers every
+(discard, sideboard) *pair*, 20150 of them in three games. Heuristics 1 has no
+evaluator for the type either, so every one of those decisions was a coin flip
+across a thousand candidates, as likely to send the deck's best remaining card
+to the sideboard as to fetch one back.
+
+It needed no model. `fetching` already answers "which card would you rather
+have" by asking `card-price` for a quote, and a swap is that question with a
+second leg: what arrives minus what leaves. `pass` is the do-nothing baseline
+here, so a swap happens only when the difference is positive.
+
+```text
+RANKED (modules baseline + fetching)
+  1. Exchange Ioreth (discard) ↔ The White Tree (sideboard)
+     U = +4.90% win   E[Δtsd] +2.5  σ 0.0  (integrated)
+  ...
+  1008. Exchange Orc-guard (discard) ↔ Riders of Rohan (sideboard)
+     U = -11.89% win  E[Δtsd] -6.8  σ 0.0  (integrated)
+```
+
+The failure mode it has to avoid is silent: read only the card the action names
+— `namedCard` finds `sideboardCardInstanceId` quite happily — and a swap prices
+as a gift, every candidate scores at or above zero, and the module trades away
+whatever the deck's best card happened to be. The card *given up* therefore has
+its own spelling list in `core/action-fields`, disjoint from the card list by a
+test, and the module's test pins that the ranking over outgoing cards is the
+reverse of the price ranking.
+
+A thousand candidates is also the only decision in the game where the
+per-decision budget is at risk, and it is what forced `quote` to be cached by
+definition: 1008 candidates over a few dozen distinct cards, each one otherwise
+resolving a whole attack. Measured on the captured position, 110–580 ms without
+the cache and 29–64 ms with it.
+
+What is left, by decisions blocked: hazard `play-hazard` events at 108,
+`play-short-event` at 80, and the granted-action families `grants` still
+declines at 17. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
