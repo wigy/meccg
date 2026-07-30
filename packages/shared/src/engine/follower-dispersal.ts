@@ -38,7 +38,11 @@ export interface FollowerDispersalSinks {
  * Disperse the followers of a character leaving play: each follower falls to
  * the controller's general influence when its printed mind still fits under
  * {@link generalInfluenceControlLimit}, and is otherwise discarded through
- * the caller-supplied sinks together with its items, allies, and hazards.
+ * the caller-supplied sinks together with its items, allies, and hazards. A
+ * follower that falls to general influence is also stamped via
+ * {@link ringwraithReclaimMark} — a Ringwraith avatar played as a follower
+ * cannot actually be controlled by general influence (CoE 3.08), so this
+ * starts its reclaim grace period instead.
  *
  * `characters` is the caller's *working copy* of the player's character map
  * (still containing `removedCharacter`, which is excluded from the GI total)
@@ -63,9 +67,6 @@ export function freeOrDiscardFollowers(
       .reduce((sum, ch) => sum + printedMind(defById(state, ch.definitionId)), 0);
 
     if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, controllerId)) {
-      // A Ringwraith follower cannot really fall to general influence — it
-      // enters the CoE 3.08 reclaim grace period instead (its mind is null,
-      // so it always takes this branch rather than being discarded).
       characters[followerId] = { ...follower, controlledBy: 'general', ...ringwraithReclaimMark(state, follower) };
       logDetail(`${logPrefix}: follower ${followerId as string} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
     } else {
