@@ -196,13 +196,18 @@ master_key() {
   return 1
 }
 
-# PUT a status on an ai-inbox message.  $1=msg-id  $2=status
-set_message_status() {
-  curl -sf -X PUT "$BASE_URL/api/system/mail/ai/$1" \
+# PUT a status on a message in any inbox.  $1=inbox  $2=msg-id  $3=status
+set_inbox_message_status() {
+  curl -sf -X PUT "$BASE_URL/api/system/mail/$1/$2" \
     -H "Authorization: Bearer $(master_key)" \
     -H 'Content-Type: application/json' \
-    -d "{\"status\":\"$2\"}" >/dev/null 2>&1 \
-    || echo "[run-ai] WARNING: failed to set message $1 -> $2" | tee -a "$LOG_FILE"
+    -d "{\"status\":\"$3\"}" >/dev/null 2>&1 \
+    || echo "[run-ai] WARNING: failed to set $1 message $2 -> $3" | tee -a "$LOG_FILE"
+}
+
+# PUT a status on an ai-inbox message.  $1=msg-id  $2=status
+set_message_status() {
+  set_inbox_message_status ai "$1" "$2"
 }
 
 # Print the current status of an ai-inbox message.  $1=msg-id
@@ -731,8 +736,10 @@ run_pr_fix() {
 # handler finished and opened a PR, and stamped the PR URL (`prUrl`) plus the
 # stashed requestor reply (`pendingReplyJson`) onto the message's keywords. Once
 # per loop we resolve each such message from its PR's merge/close state:
-#   - PR merged            → deliver the stashed reply, mark 'success'
-#   - PR closed (unmerged) → notify the requestor it was declined, mark 'failed'
+#   - PR merged            → deliver the stashed reply, mark 'success', and mark
+#                            the reviewer's review-request 'approved'
+#   - PR closed (unmerged) → notify the requestor it was declined, mark 'failed',
+#                            and mark the reviewer's review-request 'declined'
 #   - PR still open        → leave 'processed' for a later tick
 #   - no PR link           → mark 'failed' (a new-flow parked message should
 #                            always carry one)
@@ -756,6 +763,51 @@ finalize_send_mail() {
     -H 'Content-Type: application/json' \
     -d "$1" >/dev/null 2>&1 \
     || echo "[run-ai] WARNING: failed to send finalize mail" | tee -a "$LOG_FILE"
+}
+
+# Resolve the reviewer's copy of a review-request from its PR's outcome.
+#
+# The PR decision IS the reviewer's verdict: a merge is an implicit approval, a
+# close-without-merge an implicit decline. The finalize sweep below already
+# delivers (or retracts) the stashed reply and moves the original request to
+# 'success'/'failed', but the review-request sitting in the reviewer's inbox
+# stayed 'waiting' forever — nobody clicked Approve or Decline, so their inbox
+# kept showing an unread review for work that had already shipped or been
+# abandoned. Stamp the matching verdict here so both resolution paths (lobby
+# buttons, PR outcome) leave the same inbox state.
+#
+# Note this only records the status; unlike the lobby's Decline button it does
+# NOT send a review-fix-request. A closed PR means the change was dropped, not
+# that the AI should rework it — and the requestor already got the "declined,
+# please re-submit" mail from the sweep.
+#
+# $1 = the ai-requests response the sweep already fetched (covers the ai AND
+#      reviewer inboxes, so this needs no extra call)
+# $2 = the original ai-inbox message id  $3 = the PR's URL
+# $4 = 'approved' (PR merged) or 'declined' (PR closed unmerged)
+resolve_review_requests() {
+  local resp="$1" original_id="$2" pr_url="$3" verdict="$4"
+  local row rid rinbox
+  # A review-request matches when the reply it stashed points back at the
+  # original message, or (belt and braces) when it carries the same PR URL.
+  # Only 'waiting' ones are touched, so an already-resolved review keeps the
+  # reviewer's own verdict.
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    rid=$(jq -r '.id' <<<"$row" 2>/dev/null || echo "")
+    rinbox=$(jq -r '.inbox' <<<"$row" 2>/dev/null || echo "")
+    [ -n "$rid" ] && [ -n "$rinbox" ] || continue
+    echo "=== Finalize: marking review-request $rid in $rinbox inbox as $verdict (PR $pr_url) ===" | tee -a "$LOG_FILE"
+    set_inbox_message_status "$rinbox" "$rid" "$verdict"
+  done < <(jq -c --arg id "$original_id" --arg pr "$pr_url" '
+    .requests[]
+    | select(.topic == "review-request")
+    | select(.inbox != "ai")
+    | select(.status == "waiting")
+    | select(
+        (((.keywords.pendingReplyJson // "") | fromjson? // {} | .replyTo // "") == $id)
+        or (($pr != "") and ((.keywords.prUrl // "") == $pr))
+      )' <<<"$resp" 2>/dev/null)
 }
 
 finalize_processed_messages() {
@@ -811,6 +863,7 @@ finalize_processed_messages() {
             replyTo: ($p.replyTo // null), sentBy: "ai"}')"
       fi
       set_message_status "$id" success
+      resolve_review_requests "$resp" "$id" "$pr_url" approved
     elif [ "$state" = "CLOSED" ]; then
       echo "=== Finalize: $id PR closed unmerged -> failed (notifying) ===" | tee -a "$LOG_FILE"
       if [ -n "$pending" ]; then
@@ -821,6 +874,7 @@ finalize_processed_messages() {
             keywords: ($p.keywords // {}), replyTo: ($p.replyTo // null), sentBy: "ai"}')"
       fi
       set_message_status "$id" failed
+      resolve_review_requests "$resp" "$id" "$pr_url" declined
     fi
     # OPEN (or a merge not yet reflected) — leave 'processed' for a later tick.
   done < <(jq -c '.[]' <<<"$processed")
