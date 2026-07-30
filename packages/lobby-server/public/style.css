@@ -387,11 +387,22 @@ h2 {
 }
 
 .lobby-nav-version {
+  font-family: inherit;
   font-size: 0.65rem;
   font-weight: 500;
   color: rgba(196, 163, 90, 0.7);
   letter-spacing: 0.05em;
   margin-left: 0.35rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s, text-shadow 0.15s;
+}
+
+.lobby-nav-version:hover {
+  color: #d4b36a;
+  text-shadow: 0 0 10px rgba(196,163,90,0.4);
 }
 
 .lobby-nav-divider {
@@ -1176,6 +1187,132 @@ h2 {
   text-align: right;
   font-variant-numeric: tabular-nums;
   width: 6rem;
+}
+
+/* ---- Changelog page ---- */
+
+.changelog-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 2rem;
+}
+
+.changelog-page-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  margin: 0 0 0.75rem;
+}
+
+.changelog-page-note {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.changelog-release {
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  border-radius: 6px;
+  padding: 1rem 1.25rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.changelog-release-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  border-bottom: 1px solid rgba(196,163,90,0.25);
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.changelog-release-version {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.changelog-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0b0d12;
+  background: linear-gradient(180deg, #f5d98a 0%, #c4a35a 100%);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  align-self: center;
+}
+
+.changelog-release-date {
+  margin-left: auto;
+  color: #8a8a98;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.changelog-tagline {
+  color: #a0a8b0;
+  font-style: italic;
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.changelog-section-title {
+  font-family: 'Cinzel', serif;
+  color: #e8d9a0;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  margin: 0.85rem 0 0.35rem;
+}
+
+.changelog-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #c8ccd4;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.changelog-list li {
+  margin-bottom: 0.25rem;
+}
+
+.changelog-list li::marker {
+  color: rgba(196, 163, 90, 0.6);
+}
+
+.changelog-list strong {
+  color: #e8d9a0;
+}
+
+.changelog-list code {
+  background: rgba(196, 163, 90, 0.1);
+  border: 1px solid rgba(196, 163, 90, 0.2);
+  border-radius: 3px;
+  padding: 0 0.25rem;
+  font-size: 0.82rem;
+}
+
+.changelog-more-btn {
+  display: block;
+  margin: 0.25rem auto 0;
+  padding: 0.55rem 1.5rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1e1e2a 100%);
+  color: #d4b36a;
+  border: 1px solid #5a4a2a;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: filter 0.15s, border-color 0.15s;
+}
+
+.changelog-more-btn:hover {
+  filter: brightness(1.2);
+  border-color: #c4a35a;
 }
 
 .credits-amount-pos {

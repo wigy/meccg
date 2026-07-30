@@ -15,6 +15,7 @@
  * - GET /api/mail/inbox/:id — read a message (marks as read)
  * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
+ * - GET /api/changelog — the repository CHANGELOG.md as markdown (any session)
  * - GET /api/scoreboard — per-player completed-game tallies, most games first
  * - GET /api/scoreboard/players/:name — every completed game for one player, newest first
  * - GET /api/admin/users — all accounts with name, display name, email, credits (admin session)
@@ -67,6 +68,7 @@ const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const GAME_LOG_DIR = path.join(os.homedir(), '.meccg', 'logs', 'games');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
+const CHANGELOG_PATH = path.join(__dirname, '../../../../CHANGELOG.md');
 
 const LOBBY_VERSION: string = (() => {
   try {
@@ -400,6 +402,13 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
       setDisplayName(playerName, body.displayName);
       sendJson(res, 200, { ok: true, displayName: body.displayName });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/changelog' && method === 'GET') {
+    await authedRoute(req, res, 'changelog', 'Failed to load changelog', () => {
+      sendJson(res, 200, { markdown: fs.readFileSync(CHANGELOG_PATH, 'utf-8') });
     });
     return;
   }
