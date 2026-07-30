@@ -224,6 +224,19 @@ function sumDraftedMind(drafted: readonly CardDefinitionId[], cardPool: Readonly
 }
 
 /**
+ * Remaining general influence for a player, once in play: the effective pool
+ * (`generalInfluence` — 20 for most players, or a revealed Fallen-wizard
+ * avatar's white-hand value, already folding in any in-play bonus such as
+ * *Bade to Rule* le-167's +5, CoE 1.12.R1) minus GI committed to controlling
+ * characters (`generalInfluenceUsed`). Reading the raw `GENERAL_INFLUENCE`
+ * constant here instead of `generalInfluence` would silently drop any such
+ * bonus from the displayed total.
+ */
+export function remainingGeneralInfluence(player: { generalInfluence: number; generalInfluenceUsed: number }): number {
+  return player.generalInfluence - player.generalInfluenceUsed;
+}
+
+/**
  * Return movement/hazard limit text once the snapshot has been computed.
  *
  * The displayed limit must reflect the *effective* limit for the active
@@ -299,8 +312,8 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
     selfSPTooltip = buildDraftSPTooltip(draft.draftState[selfIdx].draftedStageResources.map(c => c.definitionId), cardPool);
     oppSPTooltip = buildDraftSPTooltip(draft.draftState[oppIdx].draftedStageResources.map(c => c.definitionId), cardPool);
   } else {
-    selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
-    oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
+    selfGI = remainingGeneralInfluence(view.self);
+    oppGI = remainingGeneralInfluence(view.opponent);
     selfGITooltip = buildGITooltip(view.self.characters, cardPool);
     oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
     selfSPTooltip = buildSPTooltip(view.self.cardsInPlay, view.self.characters, cardPool);
