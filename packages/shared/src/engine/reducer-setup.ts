@@ -12,7 +12,7 @@ import { getAlignmentRules } from '../alignment-rules.js';
 import { shuffle } from '../rng.js';
 import { MAX_STARTING_ITEMS } from '../rules/definitions/item-draft.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard, isHalfOrc } from '../types/cards.js';
+import { isCharacterCard, isHalfOrc, printedMind } from '../types/cards.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
@@ -311,7 +311,7 @@ function handleCharacterDraft(
 
         const currentMind = playerDraft.drafted.reduce((sum, card) => {
           const def = defById(state, card.definitionId);
-          return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+          return sum + printedMind(def);
         }, 0);
         if (charDef.mind !== null && currentMind + charDef.mind > 20) {
           return { state, error: 'Would exceed mind limit of 20' };
@@ -471,7 +471,7 @@ function resolveDraftRound(
       }
       const mind = newDraft[i].drafted.reduce((sum, card) => {
         const def = defById(state, card.definitionId);
-        return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+        return sum + printedMind(def);
       }, 0);
       const { maxStartingCompanySize: max } = getAlignmentRules(state.players[i].alignment);
       if (newDraft[i].drafted.length >= max || newDraft[i].pool.length === 0 || mind >= 20) {

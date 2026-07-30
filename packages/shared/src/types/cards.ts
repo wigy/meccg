@@ -102,6 +102,16 @@ export function isCharacterCard(card: CardDefinition | undefined): card is Chara
 }
 
 /**
+ * Printed mind value of a definition, treating non-characters and characters
+ * with no mind cost (avatars) as 0. This is the canonical collapse of the
+ * `def && isCharacterCard(def) && def.mind !== null ? def.mind : 0` idiom
+ * used wherever mind totals are summed (general influence, draft limits).
+ */
+export function printedMind(card: CardDefinition | undefined): number {
+  return isCharacterCard(card) && card.mind !== null ? card.mind : 0;
+}
+
+/**
  * Returns true if the definition is a character with no mind cost — i.e. an
  * avatar (wizard, ringwraith, balrog, or fallen-wizard). Avatars are the only
  * characters allowed to have `mind === null`, so this doubles as the canonical
