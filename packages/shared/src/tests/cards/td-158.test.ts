@@ -28,6 +28,7 @@ import {
   dispatch, expectCharItemCount, expectInDiscardPile,
   RESOURCE_PLAYER,
   withSiteTapped,
+  buildSitePhaseState,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
@@ -102,5 +103,19 @@ describe("Thrór's Map (td-158)", () => {
     expect(next.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
     expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
     expectInDiscardPile(next, RESOURCE_PLAYER, THROORS_MAP);
+  });
+
+  test('untap-site is offered during the site phase play-resources step (bug: could not untap to play a second item)', () => {
+    const state = withSiteTapped(buildSitePhaseState({
+      site: CAVES_OF_ULUND,
+      characters: [{ defId: ARAGORN, items: [THROORS_MAP] }],
+    }));
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-site');
+    expect(untapActions.length).toBe(1);
+
+    const next = dispatch(state, untapActions[0].action);
+    expect(next.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
   });
 });
