@@ -3290,12 +3290,44 @@ grants the defending player a **turn-scoped `free-attack-cancel` constraint**
 (installed when the cancel resolves on the chain, in `apply-dispatcher.ts`).
 While the grant is active, `cancelAttackActions` offers a costless
 `cancel-attack` with `mode: "free-later-cancel"` during any *later* combat this
-turn whose defending company contains The Balrog (the constraint's
-`restrictToBalrogCompany`); dispatching it consumes one grant and cancels the
-attack immediately (no card played, no chain). Used by Darkness Wielded (ba-55):
-"cancel this attack and a latter attack of your choice against his company this
-turn." — a costless `cancel-attack` (`alsoCancelLaterAttack`) gated on
-`defender.companyContainsBalrog` + `defender.inPlay $includes "Great Shadow"`.
+turn that the grant's restrictions allow; dispatching it consumes one grant and
+cancels the attack immediately (no card played, no chain). Three optional
+sibling flags on the `cancel-attack` effect control which restrictions the
+installed constraint carries:
+
+- `alsoCancelLaterAttackRestrictToBalrogCompany` — the later attack must be
+  against a company containing The Balrog avatar ("against his company"). Used
+  by Darkness Wielded (ba-55): "cancel this attack and a latter attack of your
+  choice against his company this turn." — a costless `cancel-attack`
+  (`alsoCancelLaterAttack` + `alsoCancelLaterAttackRestrictToBalrogCompany`)
+  gated on `defender.companyContainsBalrog` + `defender.inPlay $includes
+  "Great Shadow"`.
+- `alsoCancelLaterAttackSameCompanyOnly` — the later attack must be against the
+  *same* company that played this card (captured from `combat.companyId` at
+  grant time as `restrictToCompanyId`).
+- `alsoCancelLaterAttackRequireNonUnique` — the later attack must be sourced
+  from a non-unique hazard creature (`enemy.unique !== true`).
+
+Used together by Fifteen Birds in Five Firtrees (dm-129): "all attacks of the
+next non-unique hazard creature the company faces this turn are also
+canceled" — `alsoCancelLaterAttackSameCompanyOnly` +
+`alsoCancelLaterAttackRequireNonUnique`, no Balrog restriction.
+
+**Tap-on-strike-assignment (`installsTapOnStrikeAssignment`).** When a
+`cancel-attack` effect carries `"installsTapOnStrikeAssignment": true`,
+cancelling this attack also installs a **turn-scoped `tap-on-strike-assignment`
+constraint** on the defending company. For the rest of the turn, whenever the
+`assign-strike` reducer (`reducer-combat.ts`) assigns a *new* (not excess)
+strike to a defending character during a hazard-creature-sourced combat
+(`attack.source` in `creature` / `on-guard-creature` / `played-auto-attack`)
+against that company, the assigned character is tapped in place if it was
+untapped — `applyTapOnStrikeAssignment`, called from both the normal
+assignment branch and the force-single-target (multi-attack) branch. A no-op
+constraint from the legal-action layer's point of view (`applyOneConstraint`
+passes it straight through) — it only affects the reducer's state mutation on
+assignment, never which actions are offered. Used by Fifteen Birds in Five
+Firtrees (dm-129): "An untapped character in the company must tap to face any
+strike from a subsequent hazard creature attack for the rest of the turn."
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
@@ -11618,6 +11650,47 @@ must do nothing during its site phase this turn." — a `play-target: "company"`
 whose filter is `$and[ $or[ target.siteType == ruins-and-lairs,
 target.siteKeywords $includes under-deeps ], target.moreSpawnThanCompany ]`, plus
 the `company-site-phase-do-nothing` effect.
+
+**Optional `unless` and `escape`.** Two optional fields extend the effect for
+cards whose restriction has exceptions:
+
+- `unless` — a `Condition` evaluated against the same `company.*` context
+  {@link buildTargetCompanyConditionContext} builds for `company-return-to-origin`
+  (`company.homeSites`, `company.characterNames`, `company.maxUntappedWarriorProwess`,
+  `company.containsWizard`, `company.alignment`). When it matches, the restriction
+  is skipped entirely — no constraint is installed at all.
+- `escape` — a `GrantedActionConstraintPayload` (`action`, optional `phase`/`window`,
+  `cost`, optional `when`, `apply`). When present, a companion `granted-action`
+  constraint is installed alongside `site-phase-do-nothing`, sourced from the same
+  card instance — the same two-constraint pattern River (tw-84/le-95) uses for its
+  ranger-tap escape (`remove-constraint` with `select: "constraint-source"` clears
+  both together). Unlike River's `on-event`-triggered pair, this pair installs
+  directly on the short event's own chain resolution.
+
+Used by **Fifteen Birds in Five Firtrees (dm-129)**: "The company can do nothing
+during its site phase unless it contains a Wizard or you discard Eagle-mounts from
+your hand."
+
+```json
+{
+  "type": "company-site-phase-do-nothing",
+  "unless": { "company.containsWizard": true },
+  "escape": {
+    "action": "discard-eagle-mounts-for-site-phase",
+    "cost": { "discard": "named-card", "discardCardName": "Eagle-mounts" },
+    "apply": { "type": "remove-constraint", "select": "constraint-source" }
+  }
+}
+```
+
+The `discard: "named-card"` cost (a new `ActionCost.discard` variant, alongside
+`"discardCardName"`) discards a card matching that name from the acting player's
+hand — no character actor is tapped or otherwise required, unlike every other
+`ActionCost` variant. Because `canPayCost` only gates on tap status, both
+granted-action legal-action paths (`granted-action-constraints.ts`'s
+window-specific emitter and `legal-actions/pending.ts`'s generic constraint
+pass-through) additionally check hand presence for this cost variant before
+offering the action at all.
 
 ### 56c. `creature-alt-event` permanent-event mode + `tap-character`
 

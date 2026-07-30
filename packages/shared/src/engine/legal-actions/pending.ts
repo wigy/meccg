@@ -1646,6 +1646,11 @@ function applyOneConstraint(
       // central return/discard helpers in `pending-reducers.ts` via
       // `isCharacterRemovalProtected` — no broad legal-action filtering here.
       return base;
+    case 'tap-on-strike-assignment':
+      // Fifteen Birds in Five Firtrees (dm-129): consumed directly by
+      // `applyTapOnStrikeAssignment` in `reducer-combat.ts`'s `assign-strike`
+      // handler — no broad legal-action filtering needed here.
+      return base;
   }
 }
 
@@ -1703,6 +1708,15 @@ function applyGrantedActionConstraint(
 
   // Skip if the constraint declares a specific phase and we're not in it.
   if (kind.phase !== undefined && kind.phase !== phaseStr) return base;
+
+  // `discard: "named-card"` costs (Fifteen Birds in Five Firtrees dm-129:
+  // "or you discard Eagle-mounts from your hand") aren't tied to any
+  // character — `canPayCost` only gates on tap status, so check hand
+  // presence once here before offering the constraint to anyone.
+  if (kind.cost.discard === 'named-card') {
+    const hasCard = player.hand.some(c => cardName(state, c.definitionId, '') === kind.cost.discardCardName);
+    if (!hasCard) return base;
+  }
 
   const result = [...base];
   for (const charId of company.characters) {
