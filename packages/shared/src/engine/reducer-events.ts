@@ -1829,6 +1829,73 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // Where There's a Whip (le-254): the target (an untapped Orc/Troll bearing
+    // a Whip) disciplines his own company. Every other tapped character with a
+    // mind and lower prowess makes a body check (modifier added to the roll);
+    // per CoE 3.I.3 a failing Orc/Troll is discarded instead of wounded, every
+    // other race is wounded instead of eliminated. Members excluded from the
+    // check (untapped, no mind, or prowess not lower than the bearer's) are
+    // untapped immediately since their outcome never depended on a roll.
+    if (onEvent.apply.type === 'whip-discipline') {
+      const bearerId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      const bearer = bearerId ? state.players[playerIndex].characters[bearerId] : undefined;
+      const bearerDef = bearer ? defById(state, bearer.definitionId) : undefined;
+      const company = bearerId ? findCharacterCompany(state.players[playerIndex].companies, bearerId) : undefined;
+      if (!bearerId || !bearer || !bearerDef || !isCharacterCard(bearerDef) || !company) {
+        logDetail(`"${def.name}": whip-discipline — bearer or company not found — fizzle`);
+        continue;
+      }
+      const bearerProwess = bearer.effectiveStats.prowess;
+      const modifier = onEvent.apply.modifier;
+      const toCheck: CardInstanceId[] = [];
+      for (const charId of company.characters) {
+        const char = state.players[playerIndex].characters[charId];
+        const charDef = char ? defById(state, char.definitionId) : undefined;
+        if (!char || !charDef || !isCharacterCard(charDef)) continue;
+        const mind = char.effectiveStats.mind ?? charDef.mind;
+        const eligible = char.status === CardStatus.Tapped
+          && mind != null && mind > 0
+          && char.effectiveStats.prowess < bearerProwess;
+        if (eligible) {
+          toCheck.push(charId);
+        } else if (char.status !== CardStatus.Inverted) {
+          // Not disciplined this round (excluded, or already untapped) —
+          // unwounded, so untap immediately; its fate never depended on a roll.
+          state = updatePlayer(state, playerIndex, p => updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Untapped })));
+        }
+      }
+      logDetail(`"${def.name}" played on ${bearerDef.name} (prowess ${bearerProwess}) — disciplining ${toCheck.length} follower(s)`);
+      for (const charId of toCheck) {
+        const char = state.players[playerIndex].characters[charId];
+        const charDef = defById(state, char.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        const isOrcTroll = charDef.race === Race.Orc || charDef.race === Race.Troll;
+        const discardValues = isOrcTroll && charDef.cardType === 'minion-character' && charDef.discardBodyCheck != null
+          ? charDef.discardBodyCheck
+          : [];
+        const threshold = discardValues.length > 0 ? Math.min(...discardValues) : char.effectiveStats.body;
+        logDetail(`"${def.name}": ${charDef.name} makes a body check (threshold ${threshold}, roll modifier ${modifier})`);
+        state = enqueueResolution(state, {
+          source: handCard.instanceId,
+          actor: state.players[playerIndex].id,
+          scope: { kind: 'phase', phase: state.phaseState.phase },
+          kind: {
+            type: 'dice-check',
+            label: `Body check (${def.name}): ${charDef.name}`,
+            modifiers: [{ kind: 'constant', value: modifier }],
+            threshold,
+            comparison: 'gt',
+            onPass: isOrcTroll ? { type: 'discard-character' } : { type: 'set-character-status', status: 'inverted' },
+            onFail: { type: 'set-character-status', status: 'untapped' },
+            continuation: { kind: 'dequeue-only' },
+            requireTargetPresent: true,
+            targetCharacterId: charId,
+          },
+        });
+      }
+      continue;
+    }
+
     // A Malady Without Healing (le-159): the target (possibly an opponent's
     // character) makes a corruption check (-1) then, if it survives, a body
     // check (+1 if tapped); a hero eliminated by either credits the caster his
