@@ -10855,6 +10855,53 @@ second move also lands on a qualifying site. A company that moved elsewhere — 
 did not move at all — leaves the constraint in place, inert, until the turn-end
 sweep.
 
+### 52b-iii. `ally-tap-extra-mh-phase`
+
+Carried by an **in-play ally** attached to a character in the company (not the
+short-event/constraint-bound cards `52b-i`/`52b-ii` above); grants the tap
+option at the same end-of-M/H-phase decision point, but only while a
+company-composition `condition` holds and the ally is untapped (Shadowfax
+tw-326: "If his company has only one character or one character and a Hobbit
+at the end of the movement/hazard phase, tap Shadowfax to allow his company to
+immediately move again; an additional site card may be played and an
+additional movement/hazard phase follows for that company.").
+
+```json
+{
+  "type": "ally-tap-extra-mh-phase",
+  "counts": [
+    { "as": "hobbit", "filter": { "character.race": "hobbit" } }
+  ],
+  "condition": {
+    "$or": [
+      { "company.characterCount": 1 },
+      { "$and": [{ "company.characterCount": 2 }, { "count.hobbit": 1 }] }
+    ]
+  }
+}
+```
+
+- `condition` (required) — evaluated against the same
+  {@link CompanyCharacterCount}-shaped context `discard-self-when-company`
+  uses (`company.characterCount` plus one `count.<as>` headcount per declared
+  `counts` filter), built by `buildCompanyCompositionContext`
+  (`company-composition.ts`, exported for reuse here).
+- `counts` (optional) — named per-character filtered headcounts published to
+  `condition` as `count.<as>`.
+
+Behaviour: at the end of a company's movement/hazard phase,
+`advanceAfterCompanyMH` (`mh-hazard-play.ts`) calls `findAllyTapExtraMHPhase`,
+which walks the company's characters' `allies` for an untapped card carrying
+this effect whose `condition` currently holds; a match routes to the dedicated
+`ally-tap-mh-offer` step instead of falling through to `finalizeCompanyMH`.
+`allyTapExtraMHOfferActions` (`legal-actions/movement-hazard.ts`) re-derives
+the same match and offers one `ally-tap-extra-mh-phase` action per qualifying
+ally, plus `pass`. Accepting (`handleAllyTapExtraMHOffer`) taps the ally
+(`updateAttachment`) and — unlike `grant-extra-mh-phase`, which sets a flag —
+simply switches the step straight to the shared `extra-mh-move-offer`, so the
+destination choice and the fresh `reveal-new-site` re-entry reuse that
+machinery unchanged. Passing finalizes the company without tapping the ally.
+
 ### 52c. `surface-region-adjacency`
 
 Carried by a Balrog **permanent-event** played on an Under-deeps site during the

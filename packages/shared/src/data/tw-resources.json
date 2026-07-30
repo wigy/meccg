@@ -58,7 +58,30 @@
         "site": "Dunharrow"
       }
     ],
-    "text": "Unique. Playable at Edoras or Dunharrow. If his company has only one character or one character and a Hobbit at the end of the movement/hazard phase, tap Shadowfax to allow his company to immediately move again; an additional site card may be played and an additional movement/hazard phase follows for that company."
+    "text": "Unique. Playable at Edoras or Dunharrow. If his company has only one character or one character and a Hobbit at the end of the movement/hazard phase, tap Shadowfax to allow his company to immediately move again; an additional site card may be played and an additional movement/hazard phase follows for that company.",
+    "effects": [
+      {
+        "type": "ally-tap-extra-mh-phase",
+        "counts": [
+          {
+            "as": "hobbit",
+            "filter": { "character.race": "hobbit" }
+          }
+        ],
+        "condition": {
+          "$or": [
+            { "company.characterCount": 1 },
+            {
+              "$and": [
+                { "company.characterCount": 2 },
+                { "count.hobbit": 1 }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-30"
   },
   {
     "cardType": "hero-resource-faction",

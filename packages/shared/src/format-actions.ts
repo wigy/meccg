@@ -611,6 +611,8 @@ export function describeAction(
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'extra-mh-move':
       return `${playerName(action.player)} sends company ${action.companyId} on another movement to ${instName(action.destinationSite)} (extra movement/hazard phase)`;
+    case 'ally-tap-extra-mh-phase':
+      return `${playerName(action.player)} taps ${instName(action.allyInstanceId)} to send company ${action.companyId} on another movement/hazard phase (Shadowfax)`;
     case 'apply-attacker-attack-option':
       return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
     case 'voluntary-discard-in-play':
