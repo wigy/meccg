@@ -2,7 +2,9 @@
 # Update the deployed MECCG dev instance on the remote server.
 #
 # Connects over SSH and, in the deployment directory, pulls the latest
-# dataplug/meccg-dev:latest image and restarts the stack.
+# dataplug/meccg-dev:latest image and restarts the stack. Players online
+# are warned with a broadcast toast before the update starts, and told
+# to refresh their browser once the stack is back up.
 #
 # Usage: bin/update-dev
 set -euo pipefail
@@ -15,6 +17,10 @@ Update the deployed MECCG dev instance. SSHes into the server and runs:
 
   docker pull dataplug/meccg-dev:latest
   ./prod.sh up -d
+
+Around the update, every player online is notified through the lobby's
+/api/system/notify broadcast: a warning toast when the update starts and
+a "refresh your browser" toast once the stack is back up.
 
 Environment:
   METW_SERVER      SSH host to connect to (default: ai-meccg.com)
@@ -33,11 +39,33 @@ log() { echo "[update-dev] $*"; }
 
 log "Updating $METW_SERVER:$METW_PATH..."
 
-ssh "$METW_SERVER" bash -s <<EOF
+ssh "$METW_SERVER" bash -s -- "$METW_PATH" <<'EOF'
 set -euo pipefail
-cd "$METW_PATH"
+cd "$1"
+
+# Broadcast a toast to every player online via the lobby's system API.
+yell() {
+  curl -s -X POST "http://localhost:8080/api/system/notify" \
+    -H "Authorization: Bearer $(jq -r .masterKey "$HOME/.meccg/secrets.json")" \
+    -H 'Content-Type: application/json' \
+    -d "{\"message\": \"$1\"}" > /dev/null
+}
+
+yell "We are updating the server. Stay still..." || true
+
 docker pull dataplug/meccg-dev:latest
 ./prod.sh up -d
+
+# The restart takes the lobby server down briefly. Wait until it answers
+# again, then give browsers a moment to reconnect their websockets so the
+# closing yell actually reaches them.
+for _ in $(seq 1 30); do
+  curl -sf -o /dev/null "http://localhost:8080/api/models" && break
+  sleep 2
+done
+sleep 5
+yell "Update over. Refresh your browser." \
+  || echo "warning: could not reach the lobby server to announce the update" >&2
 EOF
 
 log "Done."

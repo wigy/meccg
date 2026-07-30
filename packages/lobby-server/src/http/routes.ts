@@ -26,6 +26,7 @@
  * - GET /api/admin/requests/:inbox/:id — one request's full message, without marking it read (admin session)
  * - DELETE /api/admin/requests/:inbox/:id — delete a request (admin session)
  * - POST /api/admin/requests/:inbox/:id/renew — set a request back to 'new', re-queueing it (admin session)
+ * - POST /api/admin/yell — broadcast a message toast to every player online (admin session)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
@@ -518,6 +519,18 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       if (!updated) { sendJson(res, 404, { error: 'Request not found' }); return; }
       lobbyLog.log('admin-request-renew', { admin: adminName, inbox, msgId });
       sendJson(res, 200, { ok: true, message: updated });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/admin/yell' && method === 'POST') {
+    await adminRoute(req, res, 'admin-yell', 'Failed to yell', async (adminName) => {
+      const body = JSON.parse(await readBody(req)) as { message?: string };
+      const message = body.message?.trim();
+      if (!message) { sendJson(res, 400, { error: 'message is required' }); return; }
+      broadcastNotification(message);
+      lobbyLog.log('admin-yell', { admin: adminName, message });
+      sendJson(res, 200, { ok: true });
     });
     return;
   }
