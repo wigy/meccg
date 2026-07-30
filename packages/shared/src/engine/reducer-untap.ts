@@ -10,7 +10,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isCharacterCard, printedMind } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -488,7 +488,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
     // "If this ally's controlling character is not The Balrog …".
     const hostDef = defById(state, char.definitionId);
     const hostName = hostDef && isCharacterCard(hostDef) ? hostDef.name : undefined;
-    const hostMind = hostDef && isCharacterCard(hostDef) && hostDef.mind !== null ? hostDef.mind : 0;
+    const hostMind = printedMind(hostDef);
     // Context for `organization-phase-start` self-discard conditions that also
     // care about company size, e.g. So You've Come Back (le-138): "Discard …
     // if target character is in a company by himself and at a Haven [{H}]."

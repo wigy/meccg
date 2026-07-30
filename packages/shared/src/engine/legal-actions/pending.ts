@@ -32,7 +32,7 @@ import type {
 } from '../../index.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard, printedMind } from '../../types/cards.js';
 import { CardStatus, Skill, SiteType, Race, cardStatusToName } from '../../types/common.js';
 import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -752,7 +752,7 @@ export function seizedByTerrorRollActions(
   const hazardDef = defById(state, hazardDefinitionId);
   const hazardName = hazardDef?.name ?? '?';
 
-  const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
+  const mind = printedMind(charDef);
   const need = threshold - mind;
   logDetail(`Pending seized-by-terror-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, mind ${mind})`);
 
@@ -867,7 +867,7 @@ export function opposedRollStat(
   if (!char) return 0;
   const def = defById(state, char.definitionId);
   if (stat === 'mind') {
-    const printed = def && isCharacterCard(def) && def.mind !== null ? def.mind : 0;
+    const printed = printedMind(def);
     return char.effectiveStats.mind ?? printed;
   }
   return char.effectiveStats[stat];

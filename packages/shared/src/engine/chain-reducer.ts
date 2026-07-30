@@ -19,7 +19,7 @@ import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceC
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard, printedMind } from '../types/cards.js';
 import { placeCardSetAside } from './set-aside.js';
 import { ownerOf } from '../types/state.js';
 import { CardStatus, cardStatusFromName, SiteType, Race, RegionType } from '../types/common.js';
@@ -2552,8 +2552,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
       const bearer = bearerPi >= 0 ? newState.players[bearerPi].characters[targetCharId] : undefined;
       const bearerDef = bearer ? defById(newState, bearer.definitionId) : undefined;
-      const printedMind = bearerDef && isCharacterCard(bearerDef) && bearerDef.mind !== null ? bearerDef.mind : 0;
-      const effectiveMind = bearer?.effectiveStats.mind ?? printedMind;
+      const effectiveMind = bearer?.effectiveStats.mind ?? printedMind(bearerDef);
       const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === Race.Wizard;
       const rollBonus = effectiveMind + (isWizard ? rollUntapEffect.wizardBonus : 0);
       logDetail(`"${def?.name ?? '?'}" roll-untap-site: enqueuing dice-check (roll + mind ${effectiveMind}${isWizard ? ` + wizard ${rollUntapEffect.wizardBonus}` : ''} = +${rollBonus} > ${rollUntapEffect.threshold}) on ${targetCharId as string}`);

@@ -29,10 +29,11 @@ import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint } from './pending.js';
 import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard, isFactionCard, isItemCard, isAllyCard } from '../types/cards.js';
+import { isCharacterCard, isFactionCard, isItemCard, isAllyCard, printedMind } from '../types/cards.js';
 import { CardStatus, Skill } from '../types/common.js';
 import type { Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
@@ -40,7 +41,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -1659,43 +1660,18 @@ export function returnCharacterToHand(
 
   // Handle followers — fall to GI if room, otherwise discard
   const newCharacters = { ...player.characters };
-  for (const followerId of charInPlay.followers) {
-    const follower = newCharacters[followerId];
-    if (!follower) continue;
-    const followerDef = defById(state, follower.definitionId);
-    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
-
-    const currentGIUsed = Object.values(newCharacters)
-      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
-      .reduce((sum, ch) => {
-        const def = defById(state, ch.definitionId);
-        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-
-    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      logDetail(`return-character-to-hand: follower ${followerId as string} falls to GI`);
-    } else {
-      for (const item of follower.items) {
-        newDiscard.push(toCardInstance(item));
+  freeOrDiscardFollowers(state, newCharacters, charInPlay, player.id, {
+    discardOwn: card => newDiscard.push(card),
+    discardHazard: hazard => {
+      logDetail(`return-character-to-hand: discarding hazard ${hazard.instanceId as string} from discarded follower`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      if ((newPlayers[opponentIndex].id as string) === hazOwner) {
+        newOpponentDiscard.push(hazard);
+      } else {
+        newDiscard.push(hazard);
       }
-      for (const ally of follower.allies) {
-        newDiscard.push(toCardInstance(ally));
-      }
-      for (const hazard of follower.hazards) {
-        logDetail(`return-character-to-hand: discarding hazard ${hazard.instanceId as string} from discarded follower`);
-        const hazOwner = ownerOf(hazard.instanceId);
-        if ((newPlayers[opponentIndex].id as string) === hazOwner) {
-          newOpponentDiscard.push(toCardInstance(hazard));
-        } else {
-          newDiscard.push(toCardInstance(hazard));
-        }
-      }
-      newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId];
-      logDetail(`return-character-to-hand: follower ${followerId as string} discarded (no GI room)`);
-    }
-  }
+    },
+  }, 'return-character-to-hand');
 
   // Remove the target character from characters map
   delete newCharacters[characterId];
@@ -1820,27 +1796,10 @@ function discardCharacter(
   }
 
   const newCharacters = { ...player.characters };
-  for (const followerId of charInPlay.followers) {
-    const follower = newCharacters[followerId];
-    if (!follower) continue;
-    const followerDef = defById(state, follower.definitionId);
-    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
-    const currentGIUsed = Object.values(newCharacters)
-      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
-      .reduce((sum, ch) => {
-        const def = defById(state, ch.definitionId);
-        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-    } else {
-      for (const item of follower.items) newDiscard.push(toCardInstance(item));
-      for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
-      for (const hazard of follower.hazards) newOpponentDiscard.push(toCardInstance(hazard));
-      newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId];
-    }
-  }
+  freeOrDiscardFollowers(state, newCharacters, charInPlay, player.id, {
+    discardOwn: card => newDiscard.push(card),
+    discardHazard: hazard => newOpponentDiscard.push(hazard),
+  }, 'discard-character');
 
   const affectedCompanies = player.companies
     .filter(c => c.characters.includes(characterId))
@@ -1999,7 +1958,7 @@ export function applySeizedByTerrorRollResolution(
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
-  const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
+  const mind = printedMind(charDef);
 
   const rolled = rollForResolution(state, actorIndex, `Seized by Terror: ${charName}`);
   const checkValue = rolled.total + mind;
