@@ -1338,6 +1338,11 @@ h2 {
   color: #e0d8c8;
 }
 
+.inbox-requests-nofunds {
+  font-size: 0.78rem;
+  color: #e57373;
+}
+
 .inbox-requests-item {
   display: flex;
   justify-content: space-between;

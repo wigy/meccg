@@ -920,10 +920,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'subject and body are required' });
         return;
       }
-      if (getCredits(playerName) <= 0) {
-        sendJson(res, 403, { error: 'No credits available' });
-        return;
-      }
+      // No credit gate: filing is always allowed. An out-of-funds requestor's
+      // report simply waits in the AI queue (run-ai skips it) until a top-up.
       const id = sendMail(['ai'], {
         from: playerName,
         sender: 'player',
