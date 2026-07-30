@@ -6,7 +6,7 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, RegionType } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType } from '@meccg/shared';
 import { cardImageProxyPath } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
@@ -137,10 +137,34 @@ export function appendItemCards(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
   for (const item of char.items) {
-    const itemDef = cardPool[item.definitionId as string];
-    if (!itemDef) continue;
-    const itemImg = cardImageProxyPath(itemDef);
-    if (!itemImg) continue;
-    container.appendChild(createCardImage(item.definitionId as string, itemDef, itemImg, 'drafted-card drafted-item', item.instanceId as string));
+    const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'drafted-card drafted-item', item.instanceId as string);
+    if (itemEl) container.appendChild(itemEl);
   }
+}
+
+/**
+ * Append a "+" toggle that reveals the raw JSON of an action, for debugging
+ * what the engine actually offered.
+ *
+ * Shared by the human action list (`render-actions.ts`) and the pseudo-AI
+ * action list (`pseudo-ai.ts`), which had byte-identical copies — one nested
+ * inside its renderer, one at module scope.
+ */
+export function addJsonToggle(container: HTMLElement, action: GameAction): void {
+  const toggle = document.createElement('span');
+  toggle.className = 'action-json-toggle';
+  toggle.textContent = '+';
+  toggle.title = 'Show JSON';
+  const pre = document.createElement('pre');
+  pre.className = 'action-json hidden';
+  pre.textContent = JSON.stringify(action, null, 2);
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pre.classList.toggle('hidden');
+    const nowVisible = !pre.classList.contains('hidden');
+    toggle.textContent = nowVisible ? '−' : '+';
+    toggle.title = nowVisible ? 'Hide JSON' : 'Show JSON';
+  });
+  container.appendChild(toggle);
+  container.appendChild(pre);
 }
