@@ -4,10 +4,10 @@
 
 A scripted, fully deterministic teaching game in the browser UI. A new player
 presses **Play tutorial** in the lobby and is walked step by step through one
-complete game opening: the pre-game setup (character draft → initiative roll),
-their own first turn (untap → end-of-turn), and the opponent's first turn —
-where they learn the hazard-player role. The tutorial ends when the opponent's
-turn ends.
+complete game opening: the pre-game setup (character draft → initiative roll)
+and three full rounds of play — acting as resource player on their own turns
+and as hazard player on the Mentor's. The tutorial ends at the end of the
+Mentor's third turn.
 
 Both players' draft pools, deck order, and hands are **pre-arranged** so the
 script knows exactly which cards are available at every step. Each step shows
@@ -76,8 +76,8 @@ through drafts, movement, combat, corruption, influence, chain of effects"
   script. Server-side filtering keeps the game on rails no matter what the
   client sends, and the reason string doubles as UI feedback.
 - **Pseudo-AI mode** (human plays both sides): teaching two seats at once is
-  confusing for a first game; the hazard-player role is taught properly in
-  Part 3 on the opponent's turn instead.
+  confusing for a first game; the hazard-player role is taught properly on
+  the Mentor's turns instead.
 
 ---
 
@@ -222,46 +222,77 @@ The pool is an all-Elf Rivendell company (verified against
 | # | Card (verified) | Teaches |
 |---|---|---|
 | P1 | Glorfindel II (tw-161, mind 8, DI 2) | first draft pick |
-| P2–P3 | Elladan (tw-143, mind 4), Elrohir (tw-144, mind 4) — both "+1 prowess against Orcs" | second/third pick; running total 16 mind. The Orc bonus visibly pays off in the combat lessons |
+| P2–P3 | Elladan (tw-143, mind 4), Elrohir (tw-144, mind 4) — warriors, body 8 | second/third pick; running total 16 mind. One twin takes the tutorial's scripted wound and recovers |
 | P4 | Elrond (tw-145, mind 10) | mind-limit rejection: 16+10 = 26 > 20 (`mind-limit` rule) → goes to deck in character-deck-draft |
 | P5 | Gildor Inglorion (tw-158, mind 4, "+2 prowess against Orcs") | deliberately left undrafted → character-deck-draft |
-| P6–P7 | Two starting minor items (candidates: Cram, Miruvor) | item draft (`assign-starting-item`, `MAX_STARTING_ITEMS = 2`) |
+| P6–P7 | Two starting minor items: Dagger of Westernesse (tw-206, +1 prowess), Shield of Iron-bound Ash (tw-327, +1 body) — both certified | item draft (`assign-starting-item`, `MAX_STARTING_ITEMS = 2`). NOT Star-glass (tw-330): it cancels Undead attacks and would defuse the Barrow-downs lesson |
 
 Stopping at 16 mind is itself part of the lesson: it leaves 4 of the 20
 general influence free, which is exactly what lets Arwen (mind 3) come into
-play in the organization phase.
+play in the organization phase. The company's skills are load-bearing:
+Glorfindel II and Arwen are **sages** (Marvels Told in round 3 requires
+one), and the twins are warriors with body 8 (the scripted wound is
+survivable).
 
 The Mentor's pool is chosen with **no overlap** with the human's pool so the
 draft-collision rule never fires (it is explained in text only — v1 keeps the
 happy path).
 
-### Human play deck, in order
+### The game plan (three rounds)
 
-Opening hand = cards 1–8. Draw counts at each later point are fixed by the
-chosen sites' light/dark box numbers; the table shows the *purpose* each slot
-must serve — exact counts are finalized at implementation once the
-destination site is locked (see Open questions).
+Verified against card data and the region adjacency graph:
 
-| Slot | Role requirement | Candidate | Used in step |
-|---|---|---|---|
-| 1 | Low-mind character whose **home site is Rivendell** | Arwen (tw-122, mind 3) | Organization: `play-character` (characters come into play at their home site) |
-| 2 | Hazard-phase defensive short-event | Concealment | M/H: shown as "you could respond" (optional play) |
-| 3 | Major item playable at the destination site | Sword of Gondolin (or equivalent) | Site phase: `play-hero-resource` after `enter-site` |
-| 4 | Resource long-event | **Star of High Hope** (td-154, certified): environment, "+1 prowess to each Elf and Dúnadan (+2 if Gates of Morning is in play)" | Long-event phase: `play-long-event` — buffs the whole company |
-| 5–7 | Inert filler (resources not usable turn 1) | e.g. faction, ally | teaches "not every card is playable now" tooltips |
-| 8 | Dead card | any | End-of-turn: voluntary `discard-card` |
-| 9 | Environment permanent event | **Gates of Morning** (tw-243, certified): discards hazard environments; upgrades Star of High Hope to +2 | drawn in the M/H `draw-cards` step, then played immediately in `play-hazards` (resource permanent events are legal there) — teaches drawing into an answer and card synergy |
-| 10 | M/H draw-step filler (any) | — | M/H `draw-cards` (mandatory first draw) |
-| 11+ | **Hazards for the opponent's turn**: one creature keyed to the Mentor's movement path + one on-guard-able hazard event | Wilderness creature (e.g. Wolves) + corruption/event hazard | Part 3: `play-hazard`, `place-on-guard` |
-| … | EOT reset-hand refills | — | draw up to `HAND_SIZE` (8) |
+- **Round 1** — Rivendell → **Barrow-downs** (Rhudaur → Cardolan, 2 regions):
+  play a major item; the Undead automatic-attack (1 strike, 8 prowess)
+  wounds Elladan, who then makes a body check and Barrow-downs' forced
+  corruption check. On the Mentor's turn: play a hazard creature.
+- **Round 2** — **split the company**: wounded Elladan travels home to
+  Rivendell; the rest go to the **Old Forest** (same region) and play the
+  ally **Goldberry** ("Playable at Old Forest"). On the Mentor's turn: play
+  a corruption card and a hazard long-event.
+- **Round 3** — Elladan **heals at Rivendell during untap**; the main
+  company travels Old Forest → **Edoras** (Cardolan → Enedhwaith → Gap of
+  Isen → Rohan — exactly 4 regions, the region-movement maximum) and plays
+  the faction **Riders of Rohan** (influence check > 9); the Mentor reveals
+  on-guard **Foolish Words** (-4); the player responds with **Marvels Told**
+  (sage ritual) — the chain of effects. On the Mentor's turn: play **River**
+  so its site phase does nothing.
 
-### Mentor play deck, in order
+### Human deck: what must be in hand, when
 
-| Slot | Role requirement | Used in step |
+With `orderedDecks`, the deck array is the draw order: opening hand = cards
+1–8, then M/H draw steps and end-of-turn refills consume the deck in
+sequence. Exact slot indices depend on the sites' light/dark draw numbers
+and are finalized at implementation; what is fixed is **when each key card
+must be in hand**. Filler slots are inert resources that demonstrate the
+"not playable now" tooltips, plus one dead card for the voluntary-discard
+lesson.
+
+All key cards verified certified:
+
+| Card | Must be in hand by | Role |
 |---|---|---|
-| 1 | **Orc** creature keyed to the human's Wilderness path (so the Elf company's Orc bonuses visibly apply) | M/H turn 1: scripted `play-hazard` → combat lesson |
-| 2 | Hazard event suitable for `place-on-guard` | placed on-guard at the human's destination |
-| 3+ | Own resources for turn 2: one character, one item playable at its destination | narrated resource play on the opponent's turn |
+| Arwen (tw-122) | opening hand | organization: character play at her home site Rivendell |
+| Star of High Hope (td-154) | opening hand | long-event: environment, +1 prowess to Elves (+2 with Gates of Morning) |
+| Sword of Gondolin (tw-336) | opening hand | major item at Barrow-downs (warrior only, +2 prowess, 2 MP) |
+| Orc-guard (tw-072) or similar creature | Mentor's turn-1 M/H | your first hazard: creature keyed to the Mentor's path |
+| Gates of Morning (tw-243) | drawn in the turn-1 M/H draw step | played immediately: sweeps hazard environments, Star of High Hope → +2 |
+| Goldberry (tw-245) | turn-2 site phase | ally at Old Forest |
+| Lure of the Senses (tw-60) | Mentor's turn-2 M/H | corruption: 2 CP on a Mentor character, check at its next untap |
+| Minions Stir (tw-61) | Mentor's turn-2 M/H | hazard long-event (non-environment — your own Gates of Morning does not cancel it) |
+| Riders of Rohan (tw-317) | turn-3 site phase | faction at Edoras, influence check > 9 |
+| Marvels Told (td-134) | turn-3 site phase | response: tap a sage to discard Foolish Words (ritual corruption check) |
+| River (tw-84) | Mentor's turn-3 M/H | site hazard: the Mentor's company must do nothing during its site phase |
+
+### Mentor deck constraints
+
+| Requirement | Why |
+|---|---|
+| Foolish Words (td-25) in hand by the human's turn-3 M/H | placed on-guard at Edoras; revealed on the influence attempt (-4) |
+| Company contains **no ranger** | a ranger could tap to cancel River — it must stick |
+| A non-Ringwraith character | legal target for Lure of the Senses |
+| A character able to defeat the human's Orc creature | round-1 combat resolves with a Mentor kill (both sides score MP) |
+| Characters, movement and one item for three narrated turns | the watch-only organization/site beats |
 
 ---
 
@@ -275,7 +306,7 @@ scripted via `cheatRolls`.
 | Step | State | Instruction & expected action |
 |---|---|---|
 | 1 | `character-draft` | What the draft is; general influence = 20 mind budget. **Pick Glorfindel II** (`draft-pick`). Mentor picks simultaneously (scripted). |
-| 2–3 | `character-draft` | Pick Elladan, then Elrohir (16 mind). Panel shows the running mind total and points out the twins' "+1 prowess against Orcs" — it will matter soon. |
+| 2–3 | `character-draft` | Pick Elladan, then Elrohir (16 mind). Panel shows the running mind total. |
 | 4 | `character-draft` | Try Elrond — the panel explains the pick is blocked by the `mind-limit` rule (26 > 20; tooltip shows the reason). **Stop drafting** (`draft-stop`) — the 4 unused mind stays free as general influence. |
 | 5 | `item-draft` | Starting minor items: **assign the two minor items** to characters (`assign-starting-item` ×2, max 2). |
 | 6 | `character-deck-draft` | Undrafted characters can join your deck: **add Elrond and Gildor Inglorion to the deck** (`add-character-to-deck` ×2), then `pass`. |
@@ -284,41 +315,83 @@ scripted via `cheatRolls`.
 | 9 | `initial-draw` | **Draw your opening hand** (`draw-cards`, 8 = `HAND_SIZE`). Panel tours the hand. |
 | 10 | `initiative-roll` | Both roll 2d6 (`roll-initiative`); cheat rolls make **you win and go first**. |
 
-### Part 2 — Your turn (turn 1, you are the *resource player*)
+### Part 2 — Round 1: wounds happen
+
+**Your turn — journey to the Barrow-downs:**
 
 | Step | State | Instruction & expected action |
 |---|---|---|
 | 11 | `Untap` | Phase order overview (the phase meter is introduced). Nothing is tapped yet — **untap** (`untap`). Mentor silently passes its sideboard option (scripted; explained later in step 24). |
 | 12 | `Organization` | Play characters, form companies, plan movement. **Play Arwen** from hand (`play-character`) — her home site is Rivendell, and characters come into play at their home site; the 4 mind left unused in the draft covers her mind of 3 as general influence (explains direct vs general influence). |
-| 13 | `Organization` | **Declare movement** (`plan-movement`): choose the scripted destination (a 2–3 Wilderness-region journey from Rivendell to a site with an automatic-attack and playable major items — canonical candidate: Moria; see Open questions). Then `pass`. |
+| 13 | `Organization` | **Declare movement** (`plan-movement`) to **Barrow-downs** — a two-region journey (Rhudaur → Cardolan); region movement and site paths explained. Then `pass`. |
 | 14 | `LongEvent` | Long-events last until your next long-event phase. **Play Star of High Hope** (`play-long-event`) — an environment that gives every Elf in your company +1 prowess. Then `pass`. |
 | 15 | `MovementHazard` / `select-company` | **Select your company** (`select-company`). |
 | 16 | `reveal-new-site` | **Reveal your destination** (`declare-path`, region movement). Panel shows the region path on the map. |
-| 17 | (auto) `set-hazard-limit` | Watch-only: the hazard limit = max(company size, 2) — here 4+? computed live; panel points at the limit indicator. |
+| 17 | (auto) `set-hazard-limit` | Watch-only: the hazard limit = max(company size, 2) — here 4; panel points at the limit indicator. |
 | 18 | `draw-cards` | Both players draw based on the site's draw numbers. **Draw** (`draw-cards`; first draw is mandatory) — you draw **Gates of Morning**. Then `pass`. |
-| 19 | `play-hazards` | First, **play Gates of Morning** (resource permanent events are legal here): hazard environments are swept away and Star of High Hope now gives +2 — card synergy in action. Then the Mentor plays an **Orc** creature on your company (scripted `play-hazard`). Combat sub-state: **assign strikes** (`assign-strike`), **resolve** (`resolve-strike`) — the panel walks the prowess math (twins' +1 vs Orcs, +2 from Star of High Hope), cheat-rolled so one character taps and defeats the creature (kill marshalling points explained). Panel mentions your Concealment as the kind of card that could have responded. |
-| 20 | `play-hazards` | The Mentor places a card **on guard** at your destination (scripted `place-on-guard`) — face-down, counts against the hazard limit. Mentor passes; **you pass**. |
-| 21 | `reset-hand` | Both hands refill to hand size (`resolveHandSize`); watch-only or `pass`. |
-| 22 | `Site` | **Enter the site** (`select-company`, `enter-site`). The on-guard card is revealed or returned (scripted). Face the site's **automatic-attack** (ideally Orcs, so the same bonuses apply): combat again, this time you resolve strikes yourself with the panel quiet — reinforcement. |
-| 23 | `Site` / `play-resources` | **Play the major item** (`play-hero-resource`): taps a character and the site; item marshalling points explained. Then `pass` — panel explains the site phase ends. |
-| 24 | `EndOfTurn` | `discard`: **discard the dead card** (`discard-card`), `pass`. `reset-hand`: **draw back up to 8** (`draw-cards`). `signal-end`: `pass` — your turn ends; panel explains Free Council exists but is far off. |
+| 19 | `play-hazards` | **Play Gates of Morning** (resource permanent events are legal here): hazard environments are swept away and Star of High Hope now gives +2 — card synergy in action. The Mentor passes: a quiet first journey. **Pass.** |
+| 20 | `reset-hand` | Both hands refill to hand size (`resolveHandSize`); watch-only or `pass`. |
+| 21 | `Site` | **Enter Barrow-downs** (`select-company`, `enter-site`) and face its automatic-attack: **Undead, 1 strike of 8 prowess**. **Assign the strike to Elladan** (`assign-strike`; his prowess is 5 + 2 = 7) and **resolve** (`resolve-strike`) — cheat-rolled to fail: Elladan is **wounded**, makes his **body check** (body 8; cheat-rolled: wounded, not eliminated), and Barrow-downs then forces a **corruption check** on him (cheat-rolled: passes). Tapping, wounding, body checks and a first glimpse of corruption in one fight. |
+| 22 | `Site` / `play-resources` | **Play Sword of Gondolin on Elrohir** (`play-hero-resource`): taps Elrohir and the site; item marshalling points explained. Then `pass` — the site phase ends. |
+| 23 | `EndOfTurn` | `discard`: **discard the dead card** (`discard-card`), `pass`. `reset-hand`: **draw back up to 8** (`draw-cards`). `signal-end`: `pass` — your turn ends; panel explains Free Council exists but is far off. |
 
-### Part 3 — Opponent's turn (turn 2, you are the *hazard player*)
+**The Mentor's turn — your first hazard play:**
 
 | Step | State | Instruction & expected action |
 |---|---|---|
-| 25 | `Untap` | Roles swap: the Mentor untaps (scripted). **Your hazard-player option**: fetching from your sideboard now would halve your hazard limit all turn — decline (`pass`). |
-| 26 | `Organization`/`LongEvent` | Watch-only, narrated: the Mentor plays a character and declares movement. You have no actions in these phases. |
-| 27 | `MovementHazard` | Mentor reveals its path. **You draw** (`draw-cards`), then **play your creature** on the Mentor's company (`play-hazard`) — keying to regions explained. Combat resolves (Mentor defends, scripted rolls — its character taps). |
-| 28 | `play-hazards` | **Place your hazard on guard** at the Mentor's destination (`place-on-guard`). Note the hazard-limit count (2 of N used). Then **pass**. |
-| 29 | `Site` | The Mentor enters its site. **Reveal your on-guard card** (`reveal-on-guard`) when prompted — or the panel explains why it whiffs if the keying doesn't apply. Mentor plays an item (narrated). |
-| 30 | `EndOfTurn` | Both reset hands (`draw-cards`/`pass`). Turn passes back to you. |
-| 31 | — | **Tutorial complete.** Summary panel: marshalling-point totals, the three ways to win, pointers to `docs/player-guide.md` and a real game against the AI. |
+| 24 | `Untap` | Roles swap: the Mentor untaps (scripted). **Your hazard-player option**: fetching from your sideboard now would halve your hazard limit all turn — decline (`pass`). |
+| 25 | `Organization`/`LongEvent` | Watch-only, narrated: the Mentor plays a character and declares movement. You have no actions in these phases. |
+| 26 | `MovementHazard` | Mentor reveals its path. **You draw** (`draw-cards`), then **play your Orc creature** on the Mentor's company (`play-hazard`) — creature keying to regions explained. The Mentor defends (scripted rolls): its character taps and defeats the Orc, and the Mentor takes the **kill marshalling points** — both sides score in this game. |
+| 27 | `play-hazards` | Note the hazard-limit count (1 used). **Pass**; hands reset. |
+| 28 | `Site` | Watch-only: the Mentor enters its site and plays an item (narrated). |
+| 29 | `EndOfTurn` | Both reset hands. Round 1 ends. |
 
-Not covered (deliberately, keeps v1 focused): corruption checks, influence
-attempts, factions/allies, agents, CvCC, Free Council, deck exhaustion,
-draft collisions, under-deeps. Each is one sentence of "you'll meet this
-later" in the relevant panel.
+### Part 3 — Round 2: heal, split, allies
+
+**Your turn:**
+
+| Step | State | Instruction & expected action |
+|---|---|---|
+| 30 | `Untap` | **Untap** — but Elladan stays wounded: healing happens at Havens during untap. Time to send him home. |
+| 31 | `Organization` | **Split the company** (`split-company`): Elladan alone toward Rivendell; Glorfindel II, Elrohir and Arwen toward the Old Forest. **Declare movement for both companies** (`plan-movement` ×2 — Old Forest is in the same region; Rivendell is two regions back). Multi-company play explained. Then `pass`. |
+| 32 | `LongEvent` | Star of High Hope is **discarded now** — long-events last exactly until your next long-event phase. `pass`. |
+| 33 | `MovementHazard` | Each company runs the M/H steps in turn (`select-company`, `declare-path`, draws, `pass`). The Mentor passes on both — but the panel notes a lone wounded character is exactly what hazard players prey on: escorts matter. |
+| 34 | `Site` | Old Forest company: **enter and play Goldberry** (`play-hero-resource`) — allies, ally marshalling points, and Old Forest's "healing effects affect all characters" text. Elladan at Rivendell: nothing to do (`pass`). |
+| 35 | `EndOfTurn` | Reset hand; `pass`. |
+
+**The Mentor's turn — corruption and long-events:**
+
+| Step | State | Instruction & expected action |
+|---|---|---|
+| 36 | `Untap`–`LongEvent` | Watch-only: the Mentor untaps and moves out again. |
+| 37 | `MovementHazard` | **Draw**, then **play Lure of the Senses** on a Mentor character (`play-hazard`) — 2 corruption points; the check comes due at the end of its next untap phase. Then **play Minions Stir** (`play-hazard`) — a hazard long-event; note your own Gates of Morning doesn't touch it (it is not an environment). Hazard limit: 2 used. **Pass.** |
+| 38 | `Site`/`EndOfTurn` | Watch-only: the Mentor's site phase and end of turn. |
+
+### Part 4 — Round 3: factions and the chain of effects
+
+**Your turn — the capstone:**
+
+| Step | State | Instruction & expected action |
+|---|---|---|
+| 39 | `Untap` | **Untap** — Elladan, at a Haven, **heals** during your untap phase. The round trip pays off. |
+| 40 | `Organization` | **Declare movement** Old Forest → **Edoras**: Cardolan → Enedhwaith → Gap of Isen → Rohan — exactly four regions, the region-movement maximum. Elladan stays at Rivendell. Then `pass`. |
+| 41 | `LongEvent`/`MovementHazard` | `pass`, then run the M/H steps. During `play-hazards` the Mentor **places a card on-guard** at Edoras (scripted `place-on-guard`) — face-down, counts against the hazard limit; you'll meet it soon. **Pass.** |
+| 42 | `Site` | **Enter Edoras** and **attempt the Riders of Rohan** (faction influence attempt: tap Glorfindel II; needs a check greater than 9). The Mentor **reveals Foolish Words** (`reveal-on-guard`): the attempt would take -4. **Respond with Marvels Told** — the chain of effects: tap the sage Arwen to force Foolish Words' discard; she makes the ritual's corruption check (cheat-rolled: passes). The influence roll (cheat-rolled 8, + 2 direct influence = 10) succeeds: the faction joins and scores faction marshalling points. On-guard cards, responses and influence in one scene. |
+| 43 | `EndOfTurn` | Reset hand; `pass`. |
+
+**The Mentor's turn — hazards that aren't creatures:**
+
+| Step | State | Instruction & expected action |
+|---|---|---|
+| 44 | `Untap` | Watch-only: the corruption check from Lure of the Senses comes due (cheat-rolled: the Mentor passes it — the panel explains what failure would have meant). |
+| 45 | `MovementHazard` | **Draw**, then **play River on the Mentor's destination site** (`play-hazard`) — its company must do nothing during its site phase. A ranger could tap to cancel it; the Mentor has none. **Pass.** |
+| 46 | `Site` | Watch-only: the Mentor enters its site… and does nothing (River). Hazards need not kill to hurt. |
+| 47 | `EndOfTurn` | Both reset hands. **Tutorial complete.** Summary panel: your marshalling points (item + ally + faction) vs the Mentor's (kill), the three ways to win, pointers to `docs/player-guide.md` and a real game against the AI. |
+
+Not covered (deliberately, keeps v1 focused): character-vs-character
+influence, agents, CvCC, gold rings and the One Ring, Free Council, deck
+exhaustion, draft collisions, under-deeps. Each is one sentence of "you'll
+meet this later" in the relevant panel.
 
 ---
 
@@ -334,7 +407,7 @@ later" in the relevant panel.
    step's expected action for the human — asserting every expected action is
    viable when its step activates and the game reaches the final step. This
    keeps the curriculum legal as the engine evolves; it runs in the normal
-   suite (fast: one ~2-turn game).
+   suite (fast: one six-turn game).
 4. **Deck lint**: a test asserting every card in both tutorial decks is
    certified (reads the card data; fails the build if a card loses
    certification).
@@ -386,22 +459,26 @@ actions (roadmap §6).
 
 ## Open questions
 
-1. **Destination site.** Moria is the canonical Rivendell-reachable teaching
-   site (automatic-attack + major items playable), but the final choice must
-   be validated against the movement map (`packages/shared/src/movement-map.ts`),
-   the site's draw numbers (they fix the deck-order draw budget), and
-   certification of its automatic-attack. Any Wilderness-path site with an
-   automatic-attack (ideally Orcs, to keep the Elf-bonus theme paying off)
-   and item playability works.
-2. **Combat outcome for step 19.** Tap-and-defeat is the gentlest first
-   combat. Should the site-phase automatic-attack (step 22) instead wound a
-   character to teach body checks, or is that chapter-2 material?
-3. **Restart granularity.** V1 restarts a step via dev undo (`stateHistory`
+1. **Restart granularity.** V1 restarts a step via dev undo (`stateHistory`
    pop). Is whole-tutorial restart (relaunch) acceptable as the only fallback
    when undo crosses a phase boundary awkwardly?
+2. **Mentor route and company.** The Mentor's exact characters, sites and
+   creature-keying regions are chosen at implementation under the "Mentor
+   deck constraints" table (no ranger, a Lure target, a path the human's
+   Orc creature can key to).
 
 Resolved:
 
+- **Destination sites** → Barrow-downs (round 1: minor/major items, Undead
+  automatic-attack that wounds and forces a corruption check), Old Forest
+  (round 2: Goldberry, healing text), Edoras (round 3: Riders of Rohan).
+  Region geometry verified against the adjacency data: Rivendell →
+  Barrow-downs = 2 regions; Barrow-downs → Old Forest same region;
+  Barrow-downs → Rivendell = 2 regions; Old Forest → Edoras = 4 regions
+  (the maximum).
+- **Combat outcome** → the Barrow-downs Undead wounds Elladan in round 1
+  (body check + corruption check taught immediately; healing taught in
+  rounds 2–3).
 - **Long-event candidate** → Star of High Hope (td-154, certified), paired
   with Gates of Morning (tw-243) drawn during the first move.
 - **Mentor visibility** → hand stays hidden (normal projection).
