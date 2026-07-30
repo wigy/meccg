@@ -3227,6 +3227,14 @@ A `when` condition filters which attacks qualify, evaluated against a
 combat context that includes:
 
 - `enemy.race` — the attacking creature's lowercase race (e.g. `"orc"`).
+- `enemy.unique` — the attacking creature's printed uniqueness, resolved
+  from its CardDefinition. Only populated for creature-sourced attacks
+  (`attack.source` of `"creature"`, `"on-guard-creature"`, or
+  `"played-auto-attack"`); absent for site automatic-attacks and other
+  sources, which have no creature card. Used by *Fifteen Birds in Five
+  Firtrees* (dm-129): "Playable on a moving company facing a non-unique
+  hazard creature if Gates of Morning is in play" →
+  `"when": { "$and": [ { "attack.source": { "$in": ["creature", "on-guard-creature", "played-auto-attack"] } }, { "enemy.unique": { "$ne": true } }, { "defender.inPlay": { "$includes": "Gates of Morning" } } ] }`.
 - `attack.keying` — array of region types the creature is keyed to
   (e.g. `["wilderness", "shadow"]`); only populated for creature hazards.
 - `attack.source` — discriminates where the attack originated:

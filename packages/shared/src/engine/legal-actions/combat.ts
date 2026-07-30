@@ -2111,8 +2111,17 @@ function cancelAttackActions(
 
   const whenContext = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = {};
-    if (combat.creatureRace) {
-      ctx['enemy'] = { race: combat.creatureRace };
+    // `enemy.unique` — the attacking creature's printed uniqueness, resolved
+    // from its CardDefinition. Only known for creature-sourced attacks
+    // (played hazard creatures, on-guard reveals, and played-auto-attacks);
+    // absent for site automatic-attacks and other sources, which have no
+    // creature card. Lets a card gate on "a non-unique hazard creature"
+    // (Fifteen Birds in Five Firtrees dm-129).
+    const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
+    const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(state, enemyCreatureInstanceId) : undefined;
+    const creatureUnique = (enemyCreatureDef as { unique?: boolean } | undefined)?.unique;
+    if (combat.creatureRace || creatureUnique !== undefined) {
+      ctx['enemy'] = { race: combat.creatureRace, unique: creatureUnique };
     }
     // Always expose `attack.source` (the AttackSource discriminator) so
     // cards can distinguish M/H creatures from on-guard reveals and site
@@ -2409,6 +2418,17 @@ function cancelAttackActions(
       const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= cancelAttackDupLimit.max) {
         logDetail(`Cancel-attack ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${cancelAttackDupLimit.max})`);
+        continue;
+      }
+    }
+
+    // Turn-scoped duplication check: "Cannot be duplicated on a given turn"
+    // (Fifteen Birds in Five Firtrees dm-129).
+    const cancelTurnDupLimit = findDuplicationLimitEffect(cardDef, 'turn');
+    if (cancelTurnDupLimit) {
+      const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'turn');
+      if (prior >= cancelTurnDupLimit.max) {
+        logDetail(`Cancel-attack ${handCard.definitionId as string}: turn duplication limit reached (${prior}/${cancelTurnDupLimit.max})`);
         continue;
       }
     }

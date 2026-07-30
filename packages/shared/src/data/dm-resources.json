@@ -674,7 +674,19 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "when": {
+          "$and": [
+            { "attack.source": { "$in": ["creature", "on-guard-creature", "played-auto-attack"] } },
+            { "enemy.unique": { "$ne": true } },
+            { "defender.inPlay": { "$includes": "Gates of Morning" } }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 }
+    ],
     "text": "Playable on a moving company facing a non-unique hazard creature if Gates of Morning is in play. All attacks of the creature are cancelled and all attacks of the next non-unique hazard creature the company faces this turn are also canceled. An untapped character in the company must tap to face any strike from a subsequent hazard creature attack for the rest of the turn. The company can do nothing during its site phase unless it contains a Wizard or you discard Eagle-mounts from your hand. Cannot be duplicated on a given turn."
   },
   {
