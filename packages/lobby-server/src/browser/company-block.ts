@@ -32,6 +32,7 @@ import type {
   OpponentInfluenceAttemptAction,
   InfluenceAttemptAction,
   PlayShortEventAction,
+  PlayPermanentEventAction,
   SelectCardBearerAction,
   DeclareAgentAttackAction,
   TapAltPermanentEventAction,
@@ -39,7 +40,7 @@ import type {
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId } from './render-utils.js';
-import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
+import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,
@@ -1242,6 +1243,28 @@ function renderInPlayCardImage(
         } else {
           showOpponentInfluenceMenu(e, oppInfluenceActions, onAction);
         }
+      });
+    }
+  }
+  else if (onAction && getSelectedPermanentEventForLongEventTarget()) {
+    // Long-event-targeting permanent event selected from hand (Echo of All
+    // Joy td-110): highlight own in-play resource long-events this specific
+    // action can attach to, and dispatch on click. Without this the player
+    // had no way to pick which long-event a second protector attached to —
+    // it silently bound to whichever instance the engine listed first (bug
+    // e1b9f49abb624834).
+    const selectedHandCard = getSelectedPermanentEventForLongEventTarget()!;
+    const targetAction = viableActions(view.legalActions).find(
+      (a): a is PlayPermanentEventAction => a.type === 'play-permanent-event'
+        && a.cardInstanceId === selectedHandCard
+        && a.targetLongEventInstanceId === card.instanceId,
+    );
+    if (targetAction) {
+      img.classList.add('company-card--influence-target');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearPermanentEventLongEventTargetSelection();
+        onAction(targetAction);
       });
     }
   }

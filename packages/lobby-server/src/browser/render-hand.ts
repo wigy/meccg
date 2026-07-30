@@ -32,6 +32,8 @@ import {
   getCancelAttackRenderCache, setCancelAttackRenderCache,
   getSelectedPermanentEventForPlay, setSelectedPermanentEventForPlay,
   getPermanentEventPlayRenderCache, setPermanentEventPlayRenderCache,
+  getSelectedPermanentEventForLongEventTarget, setSelectedPermanentEventForLongEventTarget,
+  getPermanentEventLongEventTargetRenderCache, setPermanentEventLongEventTargetRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -171,6 +173,24 @@ function findPermanentEventCharTargetActions(
       && a.cardInstanceId === instanceId
       && 'targetCharacterId' in a
       && !!a.targetCharacterId,
+  );
+}
+
+/**
+ * Find all play-permanent-event actions with a long-event target for a given
+ * instance. Long-event-targeting permanent events (Echo of All Joy td-110)
+ * produce one action per eligible own in-play resource long-event.
+ */
+export function findPermanentEventLongEventTargetActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-permanent-event'
+      && a.cardInstanceId === instanceId
+      && 'targetLongEventInstanceId' in a
+      && !!a.targetLongEventInstanceId,
   );
 }
 
@@ -657,6 +677,15 @@ function reRenderPermanentEventTarget(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/** Re-render hand and company views using cached state (for permanent-event long-event targeting flow). */
+function reRenderPermanentEventLongEventTarget(): void {
+  const cache = getPermanentEventLongEventTargetRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 // ---- Main hand rendering ----
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -833,6 +862,35 @@ export function renderHand(
     setPermanentEventPlayRenderCache(null);
   }
 
+  // Cache render state for permanent-event long-event-targeting re-rendering
+  // (Echo of All Joy td-110): a card played "on" one of the player's own
+  // in-play resource long-events must let the player pick which one when more
+  // than one qualifies, instead of always attaching to the first (bug
+  // e1b9f49abb624834 — a second Echo silently attached to the same already-
+  // protected long-event, leaving a sibling copy undefended and discarded).
+  const hasLongEventTargetPermanentEventActions = viable.some(
+    a => a.type === 'play-permanent-event' && 'targetLongEventInstanceId' in a && a.targetLongEventInstanceId,
+  );
+  if (onAction && hasLongEventTargetPermanentEventActions) {
+    setPermanentEventLongEventTargetRenderCache({ view, cardPool, onAction });
+    const selectedLongEventTargetId = getSelectedPermanentEventForLongEventTarget();
+    if (selectedLongEventTargetId) {
+      const stillViable = viable.some(
+        a => a.type === 'play-permanent-event'
+          && a.cardInstanceId === selectedLongEventTargetId
+          && 'targetLongEventInstanceId' in a && a.targetLongEventInstanceId,
+      );
+      if (!stillViable) {
+        setSelectedPermanentEventForLongEventTarget(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasLongEventTargetPermanentEventActions) {
+    if (getSelectedPermanentEventForLongEventTarget()) setTargetingInstruction(null);
+    setSelectedPermanentEventForLongEventTarget(null);
+    setPermanentEventLongEventTargetRenderCache(null);
+  }
+
   // Cache render state for hazard character-targeting re-rendering
   const hasCharTargetHazardActions = viable.some(
     a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
@@ -959,6 +1017,8 @@ export function renderHand(
     const isResource = resourceActions.length > 0;
     const permanentEventCharTargetActions = findPermanentEventCharTargetActions(cardInstanceId, viable);
     const isPermanentEventWithCharTarget = permanentEventCharTargetActions.length > 1;
+    const permanentEventLongEventTargetActions = findPermanentEventLongEventTargetActions(cardInstanceId, viable);
+    const isPermanentEventWithLongEventTarget = permanentEventLongEventTargetActions.length > 1;
     const influenceActions = findInfluenceActions(cardInstanceId, viable);
     const isInfluence = influenceActions.length > 0;
     const cancelAttackActions = findCancelAttackActions(cardInstanceId, viable);
@@ -968,7 +1028,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -998,6 +1058,11 @@ export function renderHand(
     const isPermanentEventSelected = selectedPermEventId !== null
       && cardInstanceId !== null
       && selectedPermEventId === cardInstanceId;
+
+    const selectedLongEventTargetId = getSelectedPermanentEventForLongEventTarget();
+    const isLongEventTargetSelected = selectedLongEventTargetId !== null
+      && cardInstanceId !== null
+      && selectedLongEventTargetId === cardInstanceId;
 
     const selectedHazardInstanceId = getSelectedHazardForPlay();
     const isHazardSelected = selectedHazardInstanceId !== null
@@ -1297,6 +1362,22 @@ export function renderHand(
             getSelectedPermanentEventForPlay() ? `Click a character to attach ${def.name}` : null,
           );
           reRenderPermanentEventTarget();
+        });
+      }
+    } else if (isPermanentEventWithLongEventTarget) {
+      // Permanent-event long-event targeting (Echo of All Joy td-110):
+      // two-step flow (click card, then click a target long-event in play)
+      img.className = isLongEventTargetSelected
+        ? 'hand-card hand-card-selected'
+        : 'hand-card hand-card-playable';
+      if (onAction && cardInstanceId) {
+        const instId = cardInstanceId;
+        img.addEventListener('click', () => {
+          setSelectedPermanentEventForLongEventTarget(isLongEventTargetSelected ? null : instId);
+          setTargetingInstruction(
+            getSelectedPermanentEventForLongEventTarget() ? `Click a highlighted long-event to attach ${def.name}` : null,
+          );
+          reRenderPermanentEventLongEventTarget();
         });
       }
     } else if (isStrikeEvent) {
