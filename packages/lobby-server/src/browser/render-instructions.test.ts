@@ -96,3 +96,54 @@ describe('renderPassButton', () => {
     expect(sent).toEqual(resolveDiceCheck.action);
   });
 });
+
+/**
+ * Regression test for bug report 9bf99530666bb317 (game ms6gbt8d-5na91m, seq
+ * 1300): "I must choose a character. Once selected, show Roll button." CoE
+ * rule 10.3.i lets the player check their Free Council characters "in the
+ * order of that player's choosing." {@link renderPassButton}'s pass-like
+ * whitelist matched `corruption-check` unconditionally, so with several
+ * unchecked characters it grabbed the first one returned by
+ * `legalActions.find` and rendered it as a generic "Roll" button — silently
+ * picking a character for the player instead of letting them click one
+ * (see company-block.ts's per-character `corruptionCheckActions` map).
+ * `corruption-check` is now only treated as a generic roll action when it is
+ * the sole viable option.
+ */
+const corruptionCheckFor = (characterId: string): EvaluatedAction => ({
+  action: {
+    type: 'corruption-check',
+    player: 'p1',
+    characterId,
+    corruptionPoints: 0,
+    corruptionModifier: 0,
+    possessions: [],
+    need: 1,
+    explanation: 'Need roll > 0 (CP 0)',
+  },
+  viable: true,
+} as unknown as EvaluatedAction);
+
+describe('renderPassButton — Free Council corruption-check declare step', () => {
+  test('hides the bottom button when several characters are eligible, letting the player pick one', () => {
+    renderPassButton(
+      viewWith([corruptionCheckFor('p1-4'), corruptionCheckFor('p1-106')]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('shows a Roll button when only one character remains to be checked', () => {
+    let sent: unknown = null;
+    const onlyCheck = corruptionCheckFor('p1-4');
+    renderPassButton(viewWith([onlyCheck]), action => { sent = action; });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+
+    passBtn.onclick?.();
+    expect(sent).toEqual(onlyCheck.action);
+  });
+});

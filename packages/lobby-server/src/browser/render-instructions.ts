@@ -33,11 +33,19 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     return;
   }
 
+  // A corruption-check action only belongs on the generic bottom button when
+  // it is the sole option: when several characters are simultaneously
+  // eligible (e.g. Free Council's declare step, or Ren the Unclean's
+  // selectable order), the player must choose which character checks by
+  // clicking their portrait (see company-block.ts) — surfacing an arbitrary
+  // one here as a "Roll" button would silently bypass that choice.
+  const corruptionCheckCount = view.legalActions.filter(ea => ea.viable && ea.action.type === 'corruption-check').length;
+
   // Find a viable pass-like or single-step action (including chain priority pass)
   const passEval = view.legalActions.find(ea =>
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
-    || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
+    || ea.action.type === 'roll-initiative' || (ea.action.type === 'corruption-check' && corruptionCheckCount === 1)
     || ea.action.type === 'faction-influence-roll' || ea.action.type === 'under-deeps-roll'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
     || ea.action.type === 'finished' || ea.action.type === 'untap'
