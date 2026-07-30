@@ -45,13 +45,13 @@ const REWARDS: H2Module = {
 };
 
 /** A decision context carrying only what the H2 path reads. */
-function decisionContext(legalActions: readonly GameAction[]): AgentContext {
+function decisionContext(legalActions: readonly GameAction[], random: () => number = () => 0): AgentContext {
   return {
     view: testStandingView({ character: 4 }, { character: 4 }, 12),
     cardPool: {},
     legalActions,
     evaluated: [],
-    random: () => 0,
+    random,
   } as unknown as AgentContext;
 }
 
@@ -77,6 +77,35 @@ describe('module-owned decisions', () => {
     const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B]));
     expect(decision.note).toContain('stub');
     expect(decision.note).toContain('ΔP(win)');
+  });
+});
+
+describe('what is reported and what is played', () => {
+  // The distribution and the move answer different questions. At the shipped
+  // temperature a candidate half a percent of win probability behind still
+  // carries weight ~0.44, so sampling it is not a rounding error.
+  const model = testWinProbModel();
+
+  test('plays the argmax even where the reported distribution is nearly flat', () => {
+    const agent = createHeuristic2Agent({ available: [REWARDS], model });
+    // A stream that returns ~1 lands in the last bucket, so a sampling agent
+    // would take the *worse* candidate here.
+    const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B], () => 0.999999));
+    expect(decision.action).toBe(PASS_B);
+    // …and the distribution is still reported, unsharpened, for training.
+    const weights = decision.considered!.map(c => c.weight);
+    expect(weights.reduce((sum, w) => sum + w, 0)).toBeCloseTo(1, 12);
+    expect(Math.max(...weights)).toBeLessThan(1);
+  });
+
+  test('samples when asked to explore, and says so in its name', () => {
+    const agent = createHeuristic2Agent({ available: [REWARDS], model, sample: true, temperature: 1 });
+    expect(agent.name).toBe('h2@1');
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B], () => 0.999999)).action).toBe(PASS_A);
+  });
+
+  test('argmax play is not named after a temperature it does not use', () => {
+    expect(createHeuristic2Agent({ available: [REWARDS], model, temperature: 1 }).name).toBe('h2');
   });
 });
 

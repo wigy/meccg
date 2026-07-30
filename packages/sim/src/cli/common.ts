@@ -134,17 +134,21 @@ export function resolveAgent(spec: string): Agent {
     }
     case 'h2': {
       // Heuristics 2 with a module selector for ablation gates:
-      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`,
-      // `h2:all@0.5` (softmax temperature 0.5). Decisions no enabled module
-      // claims fall through to Heuristics 1, so `h2:<module>` isolates
-      // exactly that module's contribution.
+      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`. Decisions no
+      // enabled module claims fall through to Heuristics 1, so `h2:<module>`
+      // isolates exactly that module's contribution.
+      //
+      // `@T` asks for *sampled* play at softmax temperature T. Without it the
+      // agent plays its argmax and still reports the distribution, which is
+      // what a gate wants; `@T` is for generating exploratory self-play data,
+      // where position coverage matters more than winning.
       const at = param === undefined ? -1 : param.lastIndexOf('@');
       const modules = param === undefined ? undefined : at > 0 ? param.slice(0, at) : param;
       const temperature = at > 0 ? Number(param!.slice(at + 1)) : undefined;
       if (temperature !== undefined && !Number.isFinite(temperature)) {
         throw new Error(`h2 expects a numeric temperature after "@", got "${param!.slice(at + 1)}"`);
       }
-      return createHeuristic2Agent({ modules, temperature });
+      return createHeuristic2Agent({ modules, temperature, sample: temperature !== undefined });
     }
     case 'search-h2': {
       // Search with the fitted win-probability model as the leaf evaluator
