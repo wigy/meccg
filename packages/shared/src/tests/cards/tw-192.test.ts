@@ -24,8 +24,7 @@
  * Reforging tw-314, itself fixed for an identical empty-effects bug). The
  * "once stored, combine with Narsil into a single bearer-boosting item"
  * clause is a separate, much larger mechanic (no reforging/combination
- * primitive exists in the engine at all) and is left for a follow-up
- * certification pass.
+ * primitive exists in the engine at all) and is left for a follow-up pass.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
