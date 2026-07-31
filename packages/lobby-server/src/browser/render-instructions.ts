@@ -51,7 +51,12 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'finished' || ea.action.type === 'untap'
     || ea.action.type === 'opponent-influence-defend' || ea.action.type === 'resolve-dice-check'
     || ea.action.type === 'flattery-attempt'));
-  const passAction = passEval?.action;
+  // Fall back to a viable 'enter-site' when 'pass' itself is not viable (the
+  // guided tutorial gates 'pass' to non-viable for the enter-or-skip beat,
+  // leaving 'enter-site' as the only option) so the button isn't hidden below.
+  const enterSiteFallback = passEval ? undefined
+    : view.legalActions.find(ea => ea.viable && ea.action.type === 'enter-site');
+  const passAction = passEval?.action ?? enterSiteFallback?.action;
   const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
     btn.classList.add('hidden');
@@ -228,12 +233,19 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       btn.textContent = 'Enter';
       btn.onclick = () => onAction(enterEval.action);
 
-      const skipBtn = document.createElement('button');
-      skipBtn.id = 'enter-site-btn';
-      skipBtn.className = 'enter-site-btn';
-      skipBtn.textContent = 'Skip';
-      skipBtn.onclick = () => onAction(passAction);
-      panel?.appendChild(skipBtn);
+      // Skip fires the distinct 'pass' action, not whatever passAction now
+      // holds — passAction may itself be the enter-site action above (e.g.
+      // the guided tutorial gates 'pass' to non-viable for this beat), so
+      // reusing it here would silently rewire Skip to enter the site too.
+      const skipEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'pass');
+      if (skipEval) {
+        const skipBtn = document.createElement('button');
+        skipBtn.id = 'enter-site-btn';
+        skipBtn.className = 'enter-site-btn';
+        skipBtn.textContent = 'Skip';
+        skipBtn.onclick = () => onAction(skipEval.action);
+        panel?.appendChild(skipBtn);
+      }
     }
   }
 }
