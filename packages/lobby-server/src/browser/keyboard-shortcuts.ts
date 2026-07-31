@@ -162,6 +162,16 @@ function isSpectating(): boolean {
 }
 
 /**
+ * True during a tutorial game (see the 'in-tutorial' body class set in
+ * game-connection.ts). The key-hint overlays are suppressed there: the
+ * tutorial gates most actions to one prescribed step, so labelling every
+ * clickable target would only distract from the instruction panel.
+ */
+function isTutorial(): boolean {
+  return document.body.classList.contains('in-tutorial');
+}
+
+/**
  * Click an element with a brief flash for feedback. Dispatches a real
  * `MouseEvent` with `clientX/clientY` at the element's visible center —
  * some click handlers (e.g. the hand-card hazard-keying popup) position
@@ -243,7 +253,7 @@ function armTab(): void {
 
 /** Place labels on the five piles addressable by Tab+letter. */
 function showPileLabelsOnly(): void {
-  if (isSpectating()) return;
+  if (isSpectating() || isTutorial()) return;
   clearShortcutLabels();
   for (const { key, id } of TAB_PILE_BINDINGS) {
     const el = document.getElementById(id);
@@ -325,7 +335,7 @@ function placeLabel(el: HTMLElement, text: string): void {
 
 /** Show shortcut-key labels on every clickable target currently in the DOM. */
 function showShortcutLabels(): void {
-  if (isSpectating()) return;
+  if (isSpectating() || isTutorial()) return;
   clearShortcutLabels();
   shiftLabelsShown = true;
 

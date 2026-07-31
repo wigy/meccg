@@ -98,6 +98,10 @@ export function showScreen(id: ScreenId): void {
     document.getElementById('real-ai-options')?.classList.add('hidden');
     const startRealBtn = document.getElementById('start-real-ai-btn') as HTMLButtonElement | null;
     if (startRealBtn) { startRealBtn.textContent = 'Start'; startRealBtn.disabled = false; }
+    // Same for the tutorial chapter picker.
+    document.getElementById('tutorial-options')?.classList.add('hidden');
+    const startTutorialBtn = document.getElementById('start-tutorial-btn') as HTMLButtonElement | null;
+    if (startTutorialBtn) { startTutorialBtn.textContent = 'Start'; startTutorialBtn.disabled = false; }
     const mcBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
     if (mcBtn) { mcBtn.textContent = 'Play vs MC-AI (experimental)'; mcBtn.disabled = false; }
     const modularBtn = document.getElementById('play-modular-ai-btn') as HTMLButtonElement | null;

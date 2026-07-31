@@ -103,6 +103,11 @@ function createDefaultAppState() {
   /** Latest state sequence number (updated on each 'state' message). */
   currentStateSeq: 0,
   /**
+   * Tutorial progress line for bug reports ("step 5/42 (item-draft)"), from
+   * the latest state broadcast. Null outside tutorial games.
+   */
+  currentTutorialStep: null as string | null,
+  /**
    * Whether the current game has been marked as cheated (a developer tool
    * was used). Sticky for the whole game once set — used to skip the cheat
    * confirmation dialog after the first confirmed use. Reset on connect.

@@ -376,6 +376,9 @@ export function setupStepPrompt(
  */
 function renderSetupBanner(view: PlayerView): void {
   document.getElementById('setup-banner')?.remove();
+  // Tutorial games: the tutorial panel already tells the player what to do at
+  // every step, so the generic setup prompt would be a confusing duplicate.
+  if (view.tutorial) return;
   const prompt = setupStepPrompt(view);
   if (!prompt) return;
   const board = document.getElementById('visual-board');

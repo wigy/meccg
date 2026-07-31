@@ -19,8 +19,8 @@ const did = (id: string): CardDefinitionId => id as CardDefinitionId;
 
 /** Arwen — mind 3, sage, home site Rivendell; played in the organization phase. */
 export const ARWEN = did('tw-122');
-/** Elladan — mind 4, warrior, body 8; takes the scripted Barrow-downs wound. */
-export const ELLADAN = did('tw-143');
+/** Annalena — Elf, mind 3, scout/sage; Glorfindel II's follower (his +1 DI vs Elves), takes the scripted Barrow-downs wound. */
+export const ANNALENA = did('tw-119');
 /** Elrohir — mind 4, warrior; bears Sword of Gondolin. */
 export const ELROHIR = did('tw-144');
 /** Gildor Inglorion — mind 4; deliberately left undrafted → character-deck-draft. */
