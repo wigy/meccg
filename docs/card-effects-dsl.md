@@ -11646,8 +11646,9 @@ hazard short-event — including a dual-mode creature played as a short-event (s
 
 - `unless` (optional) — a DSL condition evaluated against the target company
   (context from `buildTargetCompanyConditionContext`: `company.alignment`,
-  `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When it
-  matches, the return is **skipped** and the card resolves with no effect.
+  `company.characterNames`, `company.maxUntappedWarriorProwess`,
+  `company.covert` (`isCovertCompany` — `true` covert, `false` overt), …). When
+  it matches, the return is **skipped** and the card resolves with no effect.
 
 The resolution lives in `applyCompanyReturnToOrigin` (`chain-reducer.ts`), which
 sets `MovementHazardPhaseState.returnedToOrigin` (honoured by `endCompanyMH`)
