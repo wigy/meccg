@@ -2034,8 +2034,34 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "effects": [],
-    "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions."
+    "keywords": [
+      "leader"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      }
+    ],
+    "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions.",
+    "certified": "2026-08-01",
+    "discardBodyCheck": [
+      8
+    ]
   },
   {
     "cardType": "minion-character",
