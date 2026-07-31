@@ -959,12 +959,14 @@ export function renderHand(
     setShortEventRenderCache(null);
   }
 
-  // Cache render state for cancel-attack scout targeting (e.g. Concealment → scout).
-  // Activates whenever any legal action is a cancel-attack that names a scout to tap,
-  // including the single-scout case — so the player always sees the scout highlighted
-  // before committing the action.
+  // Cache render state for cancel-attack character targeting: a scout to tap
+  // (e.g. Concealment → scout) or a named target character (e.g. Flatter a
+  // Foe's influence-check maker, Escape's character to wound). Activates
+  // whenever any legal action is a cancel-attack that names such a character,
+  // including the single-candidate case — so the player always sees the
+  // character highlighted before committing the action.
   const hasCancelAttackWithScout = viable.some(
-    a => a.type === 'cancel-attack' && a.scoutInstanceId,
+    a => a.type === 'cancel-attack' && (a.scoutInstanceId || a.targetCharacterId),
   );
   if (onAction && hasCancelAttackWithScout) {
     setCancelAttackRenderCache({ view, cardPool, onAction });
@@ -1325,25 +1327,32 @@ export function renderHand(
       const hasScoutTarget = cancelAttackActions.some(
         (a): a is CancelAttackAction => a.type === 'cancel-attack' && !!a.scoutInstanceId,
       );
-      if (!hasScoutTarget) {
-        // Costless cancel-attack (no scout tap required): single-step dispatch
+      const hasCharacterTarget = cancelAttackActions.some(
+        (a): a is CancelAttackAction => a.type === 'cancel-attack' && !!a.targetCharacterId,
+      );
+      if (!hasScoutTarget && !hasCharacterTarget) {
+        // Costless untargeted cancel-attack (e.g. Dark Quarrels): single-step dispatch
         img.className = 'hand-card hand-card-playable';
         if (onAction) {
           img.addEventListener('click', () => onAction(cancelAttackActions[0]));
         }
       } else {
-        // Two-step scout targeting flow: click card to select, then click highlighted scout in combat view.
-        // Used for all cancel-attacks that require tapping a scout, including the single-scout case,
-        // so the player always sees which character will be tapped before committing.
+        // Two-step character targeting flow: click card to select, then click the
+        // highlighted character in the combat view. Used for all cancel-attacks that
+        // tap a scout (e.g. Concealment) or name a target character (e.g. Flatter a
+        // Foe's influence-check maker, Escape's character to wound), including the
+        // single-candidate case, so the player always sees — and chooses — which
+        // character the card is played on before committing.
         const selectedCA = getSelectedCancelAttack();
         const isCASelected = selectedCA === cardInstanceId;
         img.className = isCASelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';
         if (onAction && cardInstanceId) {
           const instId = cardInstanceId;
+          const noun = hasScoutTarget ? 'scout' : 'character';
           img.addEventListener('click', () => {
             setSelectedCancelAttack(isCASelected ? null : instId);
             setTargetingInstruction(
-              getSelectedCancelAttack() ? `Click a highlighted scout to play ${def.name}` : null,
+              getSelectedCancelAttack() ? `Click a highlighted ${noun} to play ${def.name}` : null,
             );
             reRenderCancelAttackTarget();
           });

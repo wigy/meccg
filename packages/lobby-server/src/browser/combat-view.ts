@@ -605,7 +605,9 @@ function renderDefenderRow(
     cancelStrikeMap.set(a.cancellerInstanceId as string, a);
   }
 
-  // Build a map of scout character ID → cancel-attack actions for the selected card.
+  // Build a map of character ID → cancel-attack actions for the selected card:
+  // the scout to tap (Concealment) or the named target character (Flatter a
+  // Foe, Escape). Clicking the highlighted character commits that action.
   const selectedCancelAttack = getSelectedCancelAttack();
   const cancelAttackScoutMap = selectedCancelAttack
     ? groupCancelAttackActionsByScout(cancelAttackActions, selectedCancelAttack)

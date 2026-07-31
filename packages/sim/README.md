@@ -924,20 +924,30 @@ npm run gate -w @meccg/sim -- --challenger 'h2>mc:rollouts=4/candidates=4/turns=
 ```
 
 ```text
-  score:     60W-36L-2D (62.2%) over 98 rated games
-  elo diff:  +87 [+19, +162]
-  glicko-2:  +249 [+105, +393]
-  failures:  2 — decision limit, seeds 15 and 41
+  score:     53W-45L-1D (54.0%) over 99 rated games
+  elo diff:  +28 [-40, +99]
+  glicko-2:  +82 [-61, +225]
+  failures:  1 — a `move-to-company` defect fixed on another branch
 ```
 
-**H2 is now stronger than the agent this section spent its length chasing.**
+**H2 now beats the agent this section spent its length chasing**, though by how
+much is not pinned down: the interval includes zero.
 Against the same champion, on the same decks, the progression is:
 
 | agent | score vs `mc:4/4/1` | elo diff |
 |---|---|---|
 | `h2` | 21.0% | −230 [−384, −130] |
 | `h2:combat,kill,hand,fetching+mc` | 46.5% | −24 [−94, +43] |
-| `h2>mc` | **62.2%** | **+87 [+19, +162]** |
+| `h2>mc` | **54.0%** | **+28 [−40, +99]** |
+
+An earlier build of `>` measured 62.2% / +87 [+19, +162] and is not the number
+quoted, because it **stalled**: two of its 98 games ran to the decision limit
+cycling `split-company → plan-movement → merge-companies`, the loop § *Does it
+win?* records as fixed. Excluding company-shape decisions from the yield (below)
+ends the stall, and the table row is that build. The two samples are ~100 games
+each and their intervals overlap heavily, so the drop from +87 to +28 is not
+resolvable here — what is certain is that the +87 was measured on an agent that
+does not finish every game.
 
 The middle row is the same idea done by hand — name the modules whose windows
 `mc` cannot search and let it decide the rest — and it is worth recording
@@ -952,8 +962,24 @@ fifth of the game where `mc` was never searching in the first place — where it
 answer was Heuristics 1 all along, and the modules beat Heuristics 1. The two
 agents were never really rivals on the same ground.
 
-Two games hit the decision limit rather than finishing, both under this
-composition. That is a stall worth a look and is not diagnosed here.
+##### What must never be yielded, and one broader rule that failed
+
+`split-company`, `merge-companies` and `move-to-company` are kept whatever the
+fallback says. Company shape is priced by `defence` as a difference of **one**
+potential, `Σ harm(company)` over the whole board, exactly so that a shape
+change and its undo cannot both come out positive. A one-turn rollout cannot see
+that: `mc` scores splitting a company and merging it straight back at the same
+mean TSD to the decimal, and the argmax of that tie oscillates. The engine's
+`regress` flag does not catch it, because the planned destination alternates
+between two sites and every lap is therefore a state it has not seen.
+
+The obvious general form of that rule was tried first and **is wrong**: hand
+back every decision the fallback scored flat, on the grounds that a tie is not
+an opinion. It ends the stall and costs the whole gain — **38.9%, about −79 Elo
+over 90 games**. At four rollouts with common random numbers `mc` reports
+exactly equal means on a large share of *all* decisions, so that rule is not a
+tie-break but a policy change back toward plain `h2`, which is the −230 agent.
+The exclusion is deliberately the narrow family that demonstrably cycles.
 
 #### The one game that did not finish, and the wrong diagnosis of it
 
