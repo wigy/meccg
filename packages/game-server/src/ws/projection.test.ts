@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD,
+  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD, CardStatus, PALLANDO,
 } from '@meccg/shared';
 import type {
   GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, ViewCard,
@@ -201,5 +201,88 @@ describe('Revealed opponent hand cards (wh-29 Rolled down to the Sea)', () => {
       aliceView.self.hand.find(c => c.instanceId === id);
     expect(handById(known)?.definitionId).toBe(ARAGORN);
     expect(handById(secret)?.definitionId).toBe(BALIN);
+  });
+});
+
+/**
+ * A bare two-player game with Bob's discard pile holding two cards (an
+ * earlier-discarded one, buried, and a most-recently-discarded one, on top).
+ * Alice optionally controls Pallando (tw-175), whose CRF 22 errata reveals
+ * only the top card of an opponent's discard pile.
+ */
+function gameWithBobDiscardPile(aliceControlsPallando: boolean): {
+  state: GameState;
+  buried: CardInstanceId;
+  top: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [PALLANDO], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const buried = 'p2-discard-buried' as CardInstanceId;
+  const top = 'p2-discard-top' as CardInstanceId;
+  const pallandoInstance = 'p1-pallando' as CardInstanceId;
+  const state: GameState = {
+    ...base,
+    players: [
+      aliceControlsPallando
+        ? {
+          ...base.players[0],
+          characters: {
+            ...base.players[0].characters,
+            [pallandoInstance]: {
+              instanceId: pallandoInstance,
+              definitionId: PALLANDO,
+              status: CardStatus.Untapped,
+              items: [],
+              allies: [],
+              hazards: [],
+              followers: [],
+              controlledBy: 'general',
+            },
+          },
+        }
+        : base.players[0],
+      { ...base.players[1], discardPile: [
+        { instanceId: buried, definitionId: ARAGORN },
+        { instanceId: top, definitionId: BALIN },
+      ] },
+    ],
+  };
+  return { state, buried, top };
+}
+
+describe("Pallando reveals the top of an opponent's discard pile (CRF 22)", () => {
+  test('controlling Pallando reveals only the most recently discarded card', () => {
+    const { state, buried, top } = gameWithBobDiscardPile(true);
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    expect(pileById(top)?.definitionId).toBe(BALIN);
+    expect(pileById(buried)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test('without Pallando in play, the opponent discard pile stays fully hidden', () => {
+    const { state, buried, top } = gameWithBobDiscardPile(false);
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    expect(pileById(top)?.definitionId).toBe(UNKNOWN_CARD);
+    expect(pileById(buried)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test("Bob still sees his own discard pile in full (unchanged)", () => {
+    const { state, buried, top } = gameWithBobDiscardPile(true);
+    const bobView = projectPlayerView(state, BOB);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      bobView.self.discardPile.find(c => c.instanceId === id);
+    expect(pileById(top)?.definitionId).toBe(BALIN);
+    expect(pileById(buried)?.definitionId).toBe(ARAGORN);
   });
 });

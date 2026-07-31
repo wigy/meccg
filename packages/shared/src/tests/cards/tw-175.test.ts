@@ -9,15 +9,18 @@
  *  Opponent must discard his cards face-up."
  *
  * Effect analysis:
- * | # | Effect Type        | Status | Notes                                              |
- * |---|--------------------|--------|----------------------------------------------------|
- * | 1 | hand-size-modifier | OK     | +1 hand size unconditionally while Pallando in play |
- * | 2 | face-up discard    | OK     | Satisfied by engine: discard piles are always public|
+ * | # | Effect Type        | Status | Notes                                                     |
+ * |---|--------------------|--------|-------------------------------------------------------------|
+ * | 1 | hand-size-modifier | OK     | +1 hand size unconditionally while Pallando in play          |
+ * | 2 | face-up discard    | OK     | Handled in the player-view projection, not the DSL (see below)|
  *
- * The "opponent must discard face-up" rule requires no DSL effect because the
- * engine's player-view projection already exposes all discard piles as public
- * information to both players — discarded cards are visible regardless of which
- * wizard is in play.
+ * The "opponent must discard face-up" rule (CRF 22: "Can only see the top
+ * card of an opponent's discard pile") has no DSL effect — discard piles are
+ * otherwise hidden to the opponent (cards are discarded face-down per the CoE
+ * glossary). `projectPlayerView` in `@meccg/game-server`'s `projection.ts`
+ * special-cases Pallando to reveal just the top card of the opponent's
+ * discard pile; see `packages/game-server/src/ws/projection.test.ts` for the
+ * projection-level regression tests.
  *
  * Tests:
  * 1. hand size is HAND_SIZE + 1 when Pallando is in play

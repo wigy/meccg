@@ -10,7 +10,10 @@
  *
  * - Your own hand contents are visible; opponent's hand is an array of
  *   {@link UNKNOWN_INSTANCE} (size visible, identities hidden).
- * - Discard piles are public (face-up); deck contents are hidden (unknown instances).
+ * - Discard piles are discarded face-down (CoE glossary): your own is fully
+ *   visible to you, but the opponent's identities are hidden (unknown
+ *   instances) — except the top card, which is revealed to you while you
+ *   control Pallando (tw-175, CRF 22). Deck contents are always hidden.
  * - Opponent's planned movement destination is hidden until movement resolves.
  * - Site decks are visible to their owner but hidden from the opponent.
  *
@@ -113,7 +116,11 @@ export interface OpponentView {
   readonly playDeck: readonly ViewCard[];
   /** Cards in the opponent's site deck (hidden — each has `UNKNOWN_SITE` definition, use `.length` for count). */
   readonly siteDeck: readonly ViewCard[];
-  /** The opponent's face-up discard pile (public information). */
+  /**
+   * The opponent's discard pile: identities hidden (`UNKNOWN_CARD`) by
+   * default since cards are discarded face-down, except the top card, which
+   * is revealed while you control Pallando (tw-175, CRF 22).
+   */
   readonly discardPile: readonly ViewCard[];
   /** The opponent's face-up site discard pile (public information). */
   readonly siteDiscardPile: readonly ViewCard[];
