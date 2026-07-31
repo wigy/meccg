@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1035 | 1033 | 2 | 99.8% |
+| 1040 | 1037 | 3 | 99.7% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 102 | 102 | 100.0% |
 | BA | 96 | 96 | 100.0% |
-| DM | 88 | 88 | 100.0% |
+| DM | 90 | 90 | 100.0% |
 | LE | 291 | 289 | 99.3% |
 | TD | 75 | 75 | 100.0% |
-| TW | 301 | 301 | 100.0% |
+| TW | 304 | 303 | 99.7% |
 | WH | 82 | 82 | 100.0% |
 
 ## Detailed Test Matrix
@@ -54,7 +54,7 @@
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-51 | No Strangers at this Time | — | 14 | ☑ |
-| as-54 | Safe from the Shadow | — | 8 | ☑ |
+| as-54 | Safe from the Shadow | — | 10 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-63 | Haradrim | — | 8 | ☑ |
@@ -286,9 +286,11 @@
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 8 | ☑ |
+| dm-120 | Choice of Lúthien | — | 12 | ☑ |
 | dm-121 | Crown of Flowers | — | 6 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 7 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
+| dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
 | dm-130 | Fireworks | — | 12 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
 | dm-134 | Hall of Fire | — | 11 | ☑ |
@@ -747,7 +749,7 @@
 | tw-113 | Witch-king of Angmar | — | 16 | ☑ |
 | tw-114 | Wolves | — | 3 | ☑ |
 | tw-116 | Adrazar | — | 3 | ☑ |
-| tw-117 | Alatar | — | 15 | ☑ |
+| tw-117 | Alatar | — | 16 | ☑ |
 | tw-118 | Anborn | — | 3 | ☑ |
 | tw-119 | Annalena | — | 2 | ☑ |
 | tw-120 | Aragorn II | — | 3 | ☑ |
@@ -830,6 +832,7 @@
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
 | tw-240 | Fellowship | — | 11 | ☑ |
+| tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 10 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
 | tw-245 | Goldberry | — | 15 | ☑ |
@@ -841,6 +844,7 @@
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-253 | Halfling Strength | — | 14 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
+| tw-255 | Healing Herbs | — | 6 | ◐ |
 | tw-256 | Hiding | — | 9 | ☑ |
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
@@ -860,6 +864,7 @@
 | tw-295 | Orcrist | — | 5 | ☑ |
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
+| tw-302 | Paths of the Dead | — | 6 | ☑ |
 | tw-306 | Precious Gold Ring | — | 21 | ☑ |
 | tw-307 | Quickbeam | — | 7 | ☑ |
 | tw-310 | Rangers of Ithilien | — | 2 | ☑ |
@@ -867,7 +872,7 @@
 | tw-312 | Red Arrow | — | 7 | ☑ |
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
 | tw-314 | Reforging | — | 10 | ☑ |
-| tw-315 | Rescue Prisoners | — | 16 | ☑ |
+| tw-315 | Rescue Prisoners | — | 17 | ☑ |
 | tw-316 | Return of the King | — | 6 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 7 | ☑ |
@@ -888,7 +893,7 @@
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
 | tw-347 | The One Ring | — | 14 | ☑ |
-| tw-348 | The White Tree | — | 12 | ☑ |
+| tw-348 | The White Tree | — | 13 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
 | tw-350 | Tom Bombadil | — | 7 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |
