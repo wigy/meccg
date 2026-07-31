@@ -4,10 +4,10 @@
  * Regression test for bug report 5299d73969e80265 (game ms8y3wig-1bg5qc, seq
  * 53): a player found the "Pass Priority" button inconvenient because it sat
  * in the fixed bottom-right action panel, far from the chain-of-effects
- * window it actually resolves. The button is now rendered inside the chain
- * panel itself (see render-chain.ts), and the bottom-right button hides
- * whenever a chain-priority pass is the active pass-like action (see
- * render-instructions.ts).
+ * window it actually resolves. The button is now also rendered inside the
+ * chain panel itself (see render-chain.ts), alongside the existing
+ * bottom-right button (see render-instructions.ts), so the action is
+ * available in both places.
  *
  * Uses the hand-rolled DOM stub pattern of `company-attachments-render.test.ts`
  * (the package runs vitest in the default node environment, with no jsdom).
@@ -112,12 +112,13 @@ describe('renderChainPanel — Pass Priority button', () => {
 });
 
 describe('renderPassButton — pass-chain-priority', () => {
-  test('hides the bottom-right button (the panel button handles it instead)', () => {
+  test('also shows the bottom-right button, labeled Pass Priority', () => {
     renderPassButton(
       { phaseState: { phase: 'movement-hazard', step: null }, legalActions: [passChainPriority], self: { id: 'p1' }, activePlayer: 'p1' } as unknown as PlayerView,
       () => { /* no-op */ },
     );
 
-    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Pass Priority');
   });
 });

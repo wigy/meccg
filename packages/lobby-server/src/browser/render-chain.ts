@@ -104,11 +104,10 @@ export function renderChainPanel(
     panel.appendChild(nested);
   }
 
-  // Pass Priority button, integrated here rather than in the far-away
-  // bottom-right action panel: the chain panel is where the player is
-  // already looking to decide whether to respond, so the action to stop
-  // responding belongs next to it (see render-instructions.ts, which hides
-  // its floating button while this one is showing).
+  // Pass Priority button, duplicated here alongside the bottom-right action
+  // panel button (see render-instructions.ts): the chain panel is where the
+  // player is already looking to decide whether to respond, so a copy of
+  // the action to stop responding belongs next to it too.
   if (isSelfPriority) {
     const passEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'pass-chain-priority');
     if (passEval) {

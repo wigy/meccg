@@ -61,14 +61,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   }
   waitingEl?.classList.add('hidden');
 
-  // A chain-priority pass is rendered inside the chain-of-effects panel
-  // instead (see render-chain.ts) — the button belongs next to the panel
-  // describing what it resolves, not in the far corner of the screen.
-  if (passAction.type === 'pass-chain-priority') {
-    btn.classList.add('hidden');
-    return;
-  }
-
   // Choose label based on action type and phase
   let label = 'Done';
   if (passAction.type === 'draft-stop') {
@@ -97,6 +89,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Roll';
   } else if (passAction.type === 'flattery-attempt') {
     label = 'Roll';
+  } else if (passAction.type === 'pass-chain-priority') {
+    label = 'Pass Priority';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Pass';
   } else if (view.phaseState.phase === Phase.Organization) {
