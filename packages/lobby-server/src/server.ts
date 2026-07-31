@@ -13,7 +13,7 @@ import * as net from 'net';
 import type { Duplex } from 'stream';
 import { WebSocketServer } from 'ws';
 import { LOBBY_PORT, DEV } from './config.js';
-import { handleRequest } from './http/routes.js';
+import { closeLiveReloadStreams, handleRequest } from './http/routes.js';
 import { playerConnected } from './lobby/lobby.js';
 import { getPayloadFromCookie } from './auth/session.js';
 import { isActiveGamePort, shutdownAllGames } from './games/launcher.js';
@@ -117,17 +117,27 @@ server.listen(LOBBY_PORT, () => {
   lobbyLog.log('boot', { port: LOBBY_PORT, dev: DEV });
 });
 
-// Graceful shutdown
+// Graceful shutdown. Must release the port FAST: on a nodemon restart the
+// next instance starts binding within a couple of seconds, and a lingering
+// close (held open by SSE streams) ends in EADDRINUSE and a crashed dev
+// server. Ending the reload streams lets server.close() complete promptly;
+// the fallback exit is a short safety net, not the normal path.
 function shutdown(): void {
   lobbyLog.log('shutdown');
   shutdownAllGames();
+  closeLiveReloadStreams();
   wss.close();
   server.close(() => {
     lobbyLog.close();
     process.exit(0);
   });
-  setTimeout(() => process.exit(0), 3000);
+  setTimeout(() => process.exit(0), 500);
 }
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
+// nodemon restarts the dev server with SIGUSR2; without a handler Node dies
+// immediately, shutdownAllGames() never runs, and spawned game-server
+// children survive the restart — still serving the OLD code to any game the
+// browser then resumes, which makes dev changes look like they never arrive.
+process.on('SIGUSR2', shutdown);

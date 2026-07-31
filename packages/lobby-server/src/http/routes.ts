@@ -249,14 +249,41 @@ async function handleImageRequest(urlPath: string, res: http.ServerResponse): Pr
 /** Connected SSE clients waiting for reload signals. */
 const reloadClients = new Set<http.ServerResponse>();
 
-/** Script injected before </head> to expose server config to the browser. */
-const CONFIG_SCRIPT = `<script>window.__MECCG_DEV=${DEV};window.__LOBBY=true;window.__MECCG_VERSION=${JSON.stringify(LOBBY_VERSION)};</script>`;
+/**
+ * Identifies this server process. Baked into every served HTML page and
+ * announced on each livereload SSE (re)connect: after a dev-server restart
+ * (nodemon), the reconnecting page sees a boot id different from the one it
+ * was served with and reloads itself — the restart killed the old process
+ * before it could push a 'reload' event, so without this handshake the
+ * browser would silently keep the stale page.
+ */
+const BOOT_ID = String(Date.now());
 
-/** SSE script for auto-reload in dev mode. */
+/** Script injected before </head> to expose server config to the browser. */
+const CONFIG_SCRIPT = `<script>window.__MECCG_DEV=${DEV};window.__LOBBY=true;window.__MECCG_VERSION=${JSON.stringify(LOBBY_VERSION)};window.__MECCG_BOOT=${JSON.stringify(BOOT_ID)};</script>`;
+
+/**
+ * SSE script for auto-reload in dev mode. A bare EventSource is NOT enough:
+ * a failed reconnection attempt (connection refused while the restarting
+ * server is still rebuilding) closes it permanently per spec, leaving the
+ * page silently stale. The wrapper recreates the stream on every error, so
+ * the page always finds the new server eventually and the boot-id check
+ * reloads it.
+ */
 const RELOAD_SCRIPT = `<script>
 (function() {
-  var es = new EventSource('/__livereload');
-  es.onmessage = function(e) { if (e.data === 'reload') location.reload(); };
+  function connect() {
+    var es = new EventSource('/__livereload');
+    es.onmessage = function(e) {
+      if (e.data === 'reload') location.reload();
+      else if (e.data.indexOf('boot:') === 0 && e.data.slice(5) !== window.__MECCG_BOOT) location.reload();
+    };
+    es.onerror = function() {
+      es.close();
+      setTimeout(connect, 2000);
+    };
+  }
+  connect();
 })();
 </script>`;
 
@@ -272,6 +299,20 @@ if (DEV) {
       }
     }, 100);
   });
+}
+
+/**
+ * End all live-reload SSE streams. Open SSE responses keep the HTTP server's
+ * `close()` from ever completing, which makes a shutting-down dev server
+ * linger on the port until a fallback timeout — long enough for nodemon's
+ * next instance to crash with EADDRINUSE. Called from shutdown so the port
+ * frees immediately.
+ */
+export function closeLiveReloadStreams(): void {
+  for (const client of reloadClients) {
+    client.end();
+  }
+  reloadClients.clear();
 }
 
 /** Notify SSE clients to reload (called after game events too). */
@@ -290,7 +331,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   // Live reload SSE
   if (DEV && urlPath === '/__livereload') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-    res.write('data: connected\n\n');
+    // Announce which server process this is; a page served by an earlier
+    // process reloads itself on seeing a different boot id (see BOOT_ID).
+    res.write(`data: boot:${BOOT_ID}\n\n`);
     reloadClients.add(res);
     req.on('close', () => reloadClients.delete(res));
     return;

@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "build": "tsc && npm run build:browser",
-    "build:browser": "esbuild src/browser/app.ts src/browser/game-entry.ts src/browser/deck-editor-entry.ts --bundle --outdir=public --entry-names=[name] --format=iife --platform=browser && mv public/app.js public/bundle.js && mv public/game-entry.js public/game-bundle.js && mv public/deck-editor-entry.js public/deck-editor-bundle.js",
+    "build:browser": "esbuild src/browser/bundle.ts src/browser/game-bundle.ts src/browser/deck-editor-bundle.ts --bundle --outdir=public --entry-names=[name] --format=iife --platform=browser",
     "check": "tsc --noEmit",
     "test": "vitest run",
     "start": "npm run build:browser && npx tsx src/server.ts",
-    "dev": "nodemon --watch src --watch ../shared/src --watch public/index.html --watch public/style.css --ext ts,json,html,css --exec 'npm run build:browser && npx tsx src/server.ts --dev'"
+    "dev": "npm run build:browser -- --watch=forever & npx tsc --build --watch --preserveWatchOutput tsconfig.json & npx tsx watch --clear-screen=false --include ../shared/dist src/server.ts --dev"
   },
   "dependencies": {
     "@meccg/shared": "*",
