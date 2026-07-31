@@ -88,7 +88,7 @@ export function showScreen(id: ScreenId): void {
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const tutorialBtn = document.getElementById('play-tutorial-btn') as HTMLButtonElement | null;
-    if (tutorialBtn) { tutorialBtn.textContent = 'Play the Tutorial'; tutorialBtn.disabled = false; }
+    if (tutorialBtn) { tutorialBtn.textContent = 'Play the Tutorial (Not finished yet)'; tutorialBtn.disabled = false; }
     const heuristicBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement | null;
     if (heuristicBtn) { heuristicBtn.textContent = 'Play vs Heuristic-AI'; heuristicBtn.disabled = false; }
     const realBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
