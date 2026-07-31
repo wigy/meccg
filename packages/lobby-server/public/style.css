@@ -864,14 +864,16 @@ h2 {
   margin: 0 0 1rem;
 }
 
-.admin-yell {
+.admin-yell,
+.admin-req-search {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0 0 1rem;
 }
 
-.admin-yell-input {
+.admin-yell-input,
+.admin-req-search-input {
   flex: 1;
   padding: 0.4rem 0.6rem;
   background: rgba(20, 20, 36, 0.6);
@@ -881,7 +883,13 @@ h2 {
   font-size: 0.9rem;
 }
 
-.admin-yell-btn {
+.admin-req-search-input {
+  flex: 0 1 22rem;
+  font-family: monospace;
+}
+
+.admin-yell-btn,
+.admin-req-search-btn {
   padding: 0.4rem 0.9rem;
   background: rgba(196, 163, 90, 0.15);
   border: 1px solid #c4a35a;
@@ -892,16 +900,19 @@ h2 {
   cursor: pointer;
 }
 
-.admin-yell-btn:hover:not(:disabled) {
+.admin-yell-btn:hover:not(:disabled),
+.admin-req-search-btn:hover:not(:disabled) {
   background: rgba(196, 163, 90, 0.3);
 }
 
-.admin-yell-btn:disabled {
+.admin-yell-btn:disabled,
+.admin-req-search-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.admin-yell-note {
+.admin-yell-note,
+.admin-req-search-note {
   color: #a0a8b0;
   font-size: 0.85rem;
   white-space: nowrap;
