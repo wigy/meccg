@@ -2604,9 +2604,16 @@ export interface DiscardTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-target-character';
 }
 
-/** `force-discard-one-company-item` — force the wounded character's company to discard one item (type-only marker). */
+/** `force-discard-one-company-item` — force the wounded character's company to discard one item. */
 export interface ForceDiscardOneCompanyItemAction extends TriggeredActionBase {
   readonly type: 'force-discard-one-company-item';
+  /**
+   * Who picks the item to discard. Defaults to `'defender'` (Brigands
+   * tw-17/le-64, Pirates le-88: "the company must … discard one item").
+   * Were-worm (td-80) is `'attacker'`: "the defending company must discard
+   * one item of attacker's choice".
+   */
+  readonly chooser?: 'attacker' | 'defender';
 }
 
 /**
