@@ -1922,12 +1922,18 @@ function tapDiscardAttachedHazardActions(
  * CRF 22 ruling) or out-of-play pile. The source card itself is never a
  * candidate (a hazard short-event is already in its own discard pile when the
  * emitter runs).
+ *
+ * `opponent-in-play` backs Many Sorrows Befall (td-46): "Forces the discard
+ * of one resource long-event" — the candidate pool is the *opponent's*
+ * `cardsInPlay` (the resource player's in-play resource long-events), not the
+ * playing (hazard) player's own.
  */
 function untargetedOptionCandidates(
   state: GameState,
   player: PlayerState,
   opt: import('../../types/effects.js').PlayOptionEffect,
   sourceInstanceId: CardInstanceId,
+  opponentPlayer?: PlayerState,
 ): readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] {
   const apply = opt.apply;
   const filter: import('../../types/effects.js').Condition | undefined =
@@ -1945,6 +1951,9 @@ function untargetedOptionCandidates(
       return player.discardPile.filter(matches);
     case 'own-in-play':
       return player.cardsInPlay.filter(matches)
+        .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+    case 'opponent-in-play':
+      return (opponentPlayer?.cardsInPlay ?? []).filter(matches)
         .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
     case 'eliminated': {
       const found: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
@@ -2321,7 +2330,7 @@ function playHazardsActions(
         );
         if (instanceOptions.length > 0 && !getCardEffects(def).some(e => e.type === 'play-target')) {
           for (const opt of instanceOptions) {
-            const candidates = untargetedOptionCandidates(state, player, opt, cardInstId);
+            const candidates = untargetedOptionCandidates(state, player, opt, cardInstId, resourcePlayer);
             if (candidates.length === 0) {
               logDetail(`Hazard short-event "${def.name}": option "${opt.id}" has no candidate card (pool ${opt.candidates})`);
               actions.push({

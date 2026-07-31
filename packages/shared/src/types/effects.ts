@@ -3107,11 +3107,13 @@ export interface PlayOptionEffect extends EffectBase {
    * - `own-discard` — the playing player's discard pile.
    * - `own-in-play` — the playing player's `cardsInPlay` (e.g. a hazard creature
    *   currently in play in its permanent-event mode).
+   * - `opponent-in-play` — the opponent's `cardsInPlay` (e.g. a resource
+   *   long-event the hazard player forces to be discarded).
    * - `eliminated` — every terminal off-board pile of both players: each
    *   player's marshalling-point pile (`killPile`, i.e. trophies) and
    *   `outOfPlayPile`.
    */
-  readonly candidates?: 'own-discard' | 'own-in-play' | 'eliminated';
+  readonly candidates?: 'own-discard' | 'own-in-play' | 'opponent-in-play' | 'eliminated';
   /**
    * The event mode this option is played as, when it differs from the card's
    * printed `eventType`. Returned Beyond All Hope (as-35) is a short-event whose
