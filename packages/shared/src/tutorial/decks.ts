@@ -95,7 +95,7 @@ export const TUTORIAL_HERO_DECK: TutorialDeck = {
     RIVER,
     RIVER,
   ],
-  siteDeck: [RIVENDELL, BARROW_DOWNS, OLD_FOREST, EDORAS, LORIEN],
+  siteDeck: [RIVENDELL, BARROW_DOWNS, OLD_FOREST, EDORAS],
   sideboard: [],
 };
 
