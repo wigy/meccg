@@ -173,6 +173,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
       { term: 'Corruption', explanation: 'The lure of power and treasure weighing on a character’s heart. Rings, treasures and certain hazards add corruption points (CP) — the more a character carries, the harder it is to stay true.' },
       { term: 'Corruption check', explanation: 'Roll two dice against the character’s corruption point total: roll higher and they resist. Equal or one less, a hero forsakes the quest and is discarded; lower still, the character is eliminated.' },
     ] },
+  { id: 'site-aftermath', title: 'The mound falls silent', body: 'The fight is over and Elrohir’s wound is the price paid. Nothing more stands between you and the site’s treasure — press [[Pass]] until the spoils are within reach.' },
   { id: 'site-sword', title: 'Claim the prize', body: 'A tapped site yields its treasure: play Sword of Gondolin on Glorfindel II — the wounded Elrohir cannot bear it. It taps Glorfindel and the site, and is worth 2 marshalling points.',
     concepts: [
       { term: 'Marshalling points (MP)', explanation: 'Victory points. Items, factions, allies and slain foes all score them; the player with the most marshalling points wins the endgame council.' },
@@ -286,9 +287,9 @@ export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   // must be read at the player's own pace before the roll lands.
   b('site-bodycheck', 'mentor', { type: 'body-check-roll' }, 5, true),
   b('site-wounded', 'human', { type: 'corruption-check', cardDef: ELROHIR }, 7),
-  b('site-wounded', 'human', { type: 'pass' }),
-  b('site-wounded', 'mentor', { type: 'pass' }),
-  b('site-wounded', 'human', { type: 'pass' }),
+  b('site-aftermath', 'human', { type: 'pass' }),
+  b('site-aftermath', 'mentor', { type: 'pass' }),
+  b('site-aftermath', 'human', { type: 'pass' }),
   b('site-sword', 'human', { type: 'play-hero-resource', cardDef: SWORD_OF_GONDOLIN, alsoRefs: [GLORFINDEL_II] }),
   b('site-sword', 'human', { type: 'pass' }),
   b('eot-1', 'human', { type: 'discard-card', cardDef: SWORD_OF_GONDOLIN }),
