@@ -20,7 +20,7 @@ import { getCachedInstanceLookup } from './render-text-format.js';
 export function renderChainPanel(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  _onAction: (action: GameAction) => void,
+  onAction: (action: GameAction) => void,
 ): void {
   const panel = document.getElementById('chain-panel');
   if (!panel) return;
@@ -102,6 +102,22 @@ export function renderChainPanel(
     nested.className = 'chain-nested';
     nested.textContent = `Sub-chain (${chain.restriction})`;
     panel.appendChild(nested);
+  }
+
+  // Pass Priority button, duplicated here alongside the bottom-right action
+  // panel button (see render-instructions.ts): the chain panel is where the
+  // player is already looking to decide whether to respond, so a copy of
+  // the action to stop responding belongs next to it too.
+  if (isSelfPriority) {
+    const passEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'pass-chain-priority');
+    if (passEval) {
+      const passBtn = document.createElement('button');
+      passBtn.id = 'chain-pass-btn';
+      passBtn.className = 'chain-pass-btn';
+      passBtn.textContent = 'Pass Priority';
+      passBtn.onclick = () => onAction(passEval.action);
+      panel.appendChild(passBtn);
+    }
   }
 }
 
