@@ -26,12 +26,23 @@ import {
 import type { TutorialBeat } from '@meccg/shared';
 
 export class TutorialController {
-  private cursor = 0;
+  private cursor: number;
 
   constructor(
     readonly humanId: PlayerId,
     readonly mentorId: PlayerId,
-  ) {}
+    initialCursor = 0,
+  ) {
+    this.cursor = initialCursor;
+  }
+
+  /**
+   * Script position for saves: the index of the next beat to perform.
+   * Persisted in the game save so a relaunched tutorial resumes on rails.
+   */
+  get cursorIndex(): number {
+    return this.cursor;
+  }
 
   /** The beat awaiting performance, or null when the script is finished. */
   currentBeat(): TutorialBeat | null {
@@ -111,6 +122,10 @@ export class TutorialController {
       stepCount: TUTORIAL_STEPS.length,
       yourTurn: beat !== null && beat.actor === 'human',
       done,
+      concepts: info.concepts,
+      pointers: info.pointers,
+      card: info.card,
+      footer: info.footer,
     };
   }
 }

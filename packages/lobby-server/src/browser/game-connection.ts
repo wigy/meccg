@@ -433,6 +433,12 @@ export function connect(name: string): void {
         await waitForDice();
         clearAwaitingResponse();
         appState.currentStateSeq = msg.view.stateSeq;
+        appState.currentTutorialStep = msg.view.tutorial
+          ? `step ${msg.view.tutorial.stepIndex + 1}/${msg.view.tutorial.stepCount} (${msg.view.tutorial.stepId})`
+          : null;
+        // Body marker for tutorial games (mirrors the 'spectating' class):
+        // e.g. keyboard-shortcut hint overlays are suppressed in the tutorial.
+        document.body.classList.toggle('in-tutorial', msg.view.tutorial !== undefined);
         // Sticky: an undo can briefly broadcast a pre-cheat state, but a
         // game once marked cheated never becomes clean again.
         if (msg.view.cheated) appState.gameCheated = true;
@@ -524,7 +530,7 @@ export function connect(name: string): void {
         renderCompanyViews(msg.view, cardPool, sendAction);
         renderGameOverView(msg.view, cardPool);
         renderChainPanel(msg.view, cardPool, sendAction);
-        renderTutorialPanel(msg.view);
+        renderTutorialPanel(msg.view, cardPool);
         // Animate cards from old positions to new positions
         animateFromSnapshot();
         // The full state is now rendered — reveal the board.

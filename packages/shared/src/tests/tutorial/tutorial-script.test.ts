@@ -21,7 +21,7 @@ import {
 } from '../../index.js';
 import type { GameConfig, CardDefinitionId } from '../../index.js';
 
-const ELLADAN = 'tw-143' as CardDefinitionId;
+const ANNALENA = 'tw-119' as CardDefinitionId;
 const GLORFINDEL_II = 'tw-161' as CardDefinitionId;
 
 describe('guided tutorial script', () => {
@@ -55,9 +55,11 @@ describe('guided tutorial script', () => {
       expect(mentor.marshallingPoints.kill).toBe(1);    // defeated the Orc-lieutenant
       expect(mentor.marshallingPoints.item).toBe(2);    // Glamdring
 
-      // Elladan was wounded at the Barrow-downs and healed at Rivendell.
-      const elladan = Object.values(human.characters).find(c => c.definitionId === ELLADAN);
-      expect(elladan?.status).toBe('tapped');
+      // Annalena was wounded at the Barrow-downs and healed at Rivendell
+      // (after her spell as Glorfindel's follower ended with the turn-2 split).
+      const annalena = Object.values(human.characters).find(c => c.definitionId === ANNALENA);
+      expect(annalena?.status).toBe('tapped');
+      expect(annalena?.controlledBy).toBe('general');
 
       // Marvels Told discarded Foolish Words: nothing is stuck on Glorfindel.
       const glorfindel = Object.values(human.characters).find(c => c.definitionId === GLORFINDEL_II);

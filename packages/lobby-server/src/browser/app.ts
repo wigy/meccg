@@ -174,13 +174,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ---- Guided tutorial ----
+    // The button expands a chapter picker (one chapter today, more planned);
+    // Start launches the chosen chapter. No deck selection: tutorial decks
+    // are fixed, and an unfinished chapter resumes from its autosave.
     const playTutorialBtn = document.getElementById('play-tutorial-btn') as HTMLButtonElement | null;
+    const tutorialOptions = document.getElementById('tutorial-options');
+    const startTutorialBtn = document.getElementById('start-tutorial-btn') as HTMLButtonElement | null;
     playTutorialBtn?.addEventListener('click', () => {
-      // No deck selection and no save check: tutorial decks are fixed and
-      // tutorial games are never saved — each run starts from the draft.
+      tutorialOptions?.classList.toggle('hidden');
+    });
+    startTutorialBtn?.addEventListener('click', () => {
       if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
-        appState.lobbyWs.send(JSON.stringify({ type: 'play-tutorial' }));
-        playTutorialBtn.textContent = 'Starting...';
+        const chapterSelect = document.getElementById('tutorial-chapter-select') as HTMLSelectElement | null;
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-tutorial', chapter: Number(chapterSelect?.value ?? 1) }));
+        startTutorialBtn.textContent = 'Starting...';
         setLobbyPlayButtonsDisabled(true);
       }
     });
@@ -533,8 +540,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // reference lines (Game ID / sequence number) — there is no save to point
     // the AI at. In-game reports keep them so the captured state can be found.
     const inGame = brModal.dataset.context !== 'lobby' && appState.currentGameId !== null;
+    const tutorialLine = appState.currentTutorialStep !== null
+      ? `\nTutorial step: ${appState.currentTutorialStep}`
+      : '';
     const fullBody = inGame
-      ? `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}\n\n${text}`
+      ? `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}${tutorialLine}\n\n${text}`
       : text;
     void (async () => {
       const r = await apiSend('/api/mail/bug-report', 'POST', {

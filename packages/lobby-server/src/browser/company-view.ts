@@ -424,7 +424,13 @@ export function renderCompanyViews(
   const inFreeCouncil = view.phaseState.phase === Phase.FreeCouncil;
 
   const board = $('visual-board');
+  // The guided-tutorial panel is rendered by tutorial-panel.ts only on state
+  // broadcasts, but this renderer also runs on local interactions (company
+  // nav arrows, map toggle, modal flows) that rebuild the board from scratch
+  // — carry the panel across, or it vanishes until the next broadcast.
+  const tutorialPanel = document.getElementById('tutorial-panel');
   board.innerHTML = '';
+  if (tutorialPanel) board.prepend(tutorialPanel);
 
   // Combat view takes over entirely when combat is active, unless the player
   // has toggled to the all-companies overview (allCompaniesOverride).

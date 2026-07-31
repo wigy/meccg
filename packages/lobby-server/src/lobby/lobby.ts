@@ -7,7 +7,9 @@
  * game launches when both players agree.
  */
 
+import * as fs from 'fs';
 import * as os from 'os';
+import * as path from 'path';
 import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
@@ -312,6 +314,10 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
         return;
       }
+      // The Start button always begins a fresh run at step 1: drop any
+      // autosaved mid-tutorial progress. Only the reload/rejoin flow
+      // ('rejoin-game' with the Mentor) resumes a saved tutorial.
+      deleteTutorialSaves(from.name);
       void startTutorialGame(from);
       break;
     }
@@ -374,9 +380,9 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       from.activeGame = null;
 
       if (opponentName === 'Mentor') {
-        // A tutorial's script cursor dies with its process — restart the
-        // tutorial from the beginning rather than seating a normal game
-        // against a "Mentor" who would never join.
+        // Relaunch the tutorial server; it restores the autosaved tutorial
+        // (state + script cursor) and resumes at the same step. The Mentor
+        // seat is played server-side, so a normal rejoin would never seat.
         void startTutorialGame(from);
       } else if (opponentName === 'AI-Pseudo') {
         void startPseudoAiGame(from);
@@ -543,6 +549,25 @@ async function startAiGame(
     player.activeGame = null;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });
     broadcastPlayerList();
+  }
+}
+
+/** Save directory shared with the game servers (same default as game-session). */
+const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
+
+/**
+ * Delete a player's tutorial save files, so the next tutorial launch starts
+ * a fresh run at step 1 instead of restoring the autosaved cursor.
+ */
+function deleteTutorialSaves(playerName: string): void {
+  const key = [playerName.toLowerCase(), 'mentor'].sort().join('_vs_');
+  for (const suffix of ['.json', '-autosave.json']) {
+    const savePath = path.join(SAVE_DIR, `${key}${suffix}`);
+    try {
+      if (fs.existsSync(savePath)) fs.unlinkSync(savePath);
+    } catch (err) {
+      lobbyLog.log('error', { context: 'tutorial-save-delete', error: String(err) });
+    }
   }
 }
 

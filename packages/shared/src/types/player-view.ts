@@ -23,6 +23,7 @@
 
 import {
   PlayerId,
+  CardDefinitionId,
   CardInstanceId,
   CompanyId,
   WizardName,
@@ -304,6 +305,60 @@ export interface PlayerView {
 }
 
 /**
+ * Well-known UI element a tutorial pointer bubble attaches to. Abstract names
+ * keep the shared script independent of the browser's DOM: the tutorial panel
+ * maps each anchor to a concrete element id and skips anchors whose element
+ * is absent or hidden in the current layout.
+ */
+export type TutorialAnchorId =
+  | 'general-influence'
+  | 'marshalling-points'
+  | 'score-box'
+  | 'phase-meter'
+  | 'hand'
+  | 'play-deck'
+  | 'discard-pile'
+  | 'sideboard'
+  | 'site-deck'
+  | 'dice'
+  | 'hazard-limit';
+
+/**
+ * A short game-term explanation rendered under a tutorial step's
+ * instruction — the glossary entry for a concept the step introduces.
+ */
+export interface TutorialConcept {
+  /** The game term being explained (e.g. "General influence"). */
+  readonly term: string;
+  /** One- or two-sentence plain-language explanation of the term. */
+  readonly explanation: string;
+}
+
+/**
+ * A card shown beside a tutorial step's instruction, optionally with a
+ * highlight circle drawn over the card image to call out one attribute
+ * (e.g. the mind icon). Coordinates are fractions of the card image's
+ * width/height so the circle scales with the rendered size.
+ */
+export interface TutorialCardIllustration {
+  /** Card definition whose image is shown. */
+  readonly cardDefId: CardDefinitionId;
+  /** Highlight circle: center and radius as fractions of the image size (radius of width). */
+  readonly highlight?: { readonly x: number; readonly y: number; readonly r: number };
+}
+
+/**
+ * A callout bubble pointing at the UI element where a concept the step
+ * introduces lives on screen (e.g. the general-influence counter).
+ */
+export interface TutorialPointer {
+  /** Which UI element the bubble attaches to. */
+  readonly anchor: TutorialAnchorId;
+  /** Short bubble text naming what the element shows. */
+  readonly label: string;
+}
+
+/**
  * Snapshot of the guided tutorial's progress attached to the human player's
  * view (see specs/2026-07-30-tutorial-plan.md).
  */
@@ -322,4 +377,12 @@ export interface TutorialProgress {
   readonly yourTurn: boolean;
   /** True once every beat has been performed — the tutorial is complete. */
   readonly done: boolean;
+  /** Game-term explanations rendered under the step's instruction. */
+  readonly concepts?: readonly TutorialConcept[];
+  /** Callout bubbles pointing at UI elements related to the step. */
+  readonly pointers?: readonly TutorialPointer[];
+  /** Card illustrated beside the instruction, with an optional attribute highlight. */
+  readonly card?: TutorialCardIllustration;
+  /** Emphasized closing line rendered under the step content (e.g. "TO BE CONTINUED…"). */
+  readonly footer?: string;
 }
