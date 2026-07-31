@@ -250,4 +250,24 @@ describe('Gandalf (tw-156)', () => {
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
     expect(actions.length).toBe(1);
   });
+
+  test('test-gold-ring available during untap phase', () => {
+    const state = buildTestState({
+      phase: Phase.Untap,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
+    expect(actions.length).toBe(1);
+  });
 });

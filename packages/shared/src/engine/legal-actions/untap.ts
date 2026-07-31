@@ -17,6 +17,7 @@ import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
+import { grantedActionActivations } from './organization.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
 const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
@@ -109,6 +110,11 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
     // Already untapped — waiting for hazard player to pass
     logDetail('Untap phase: resource player already untapped, waiting for hazard player');
   }
+
+  // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g.
+  // Gandalf tapping to test a gold ring in his company, tw-156) during any
+  // phase of their own turn, including the untap phase.
+  actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
 
   for (const handCard of player.hand) {
     actions.push(notPlayable(playerId, handCard.instanceId, 'Cards cannot be played during the untap phase'));
