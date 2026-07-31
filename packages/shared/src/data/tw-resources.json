@@ -2540,6 +2540,18 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "new-hand",
+        "handSize": 8
+      },
+      {
+        "type": "play-flag",
+        "flag": "remove-from-game"
+      },
+      {
         "type": "deck-restriction",
         "rule": "excluded-from-deck",
         "when": {
@@ -2548,7 +2560,8 @@
         "reason": "rule 1.18"
       }
     ],
-    "text": "Unique. Playable during your organization phase. Shuffle your hand and your discard pile into your play deck (site cards remain in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar from the game.Cannot be included in a Fallen-wizard's deck."
+    "text": "Unique. Playable during your organization phase. Shuffle your hand and your discard pile into your play deck (site cards remain in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar from the game.Cannot be included in a Fallen-wizard's deck.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hero-resource-event",

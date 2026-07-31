@@ -3945,6 +3945,46 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // new-hand (Favor of the Valar tw-239): a resource short event that shuffles
+  // the declaring player's hand and discard pile into their play deck and
+  // draws a fresh hand of `handSize` cards. Routes through the chain (see
+  // handlePlayResourceShortEvent) and resolves here once both players pass
+  // priority. Site cards are structurally unaffected — they live in the
+  // separate siteDeck/siteDiscardPile zones, never in the play-deck discard
+  // pile. The spent event card rode on the chain entry (it left the hand at
+  // play time), so it is never swept into the deck; it lands in the discard
+  // pile AFTER the shuffle, where the `play-flag: remove-from-game` branch
+  // below relocates it to the out-of-play pile. This card-driven reshuffle is
+  // not a rule-1.31 deck exhaustion (deckExhaustionCount is untouched).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const newHandEffect = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').NewHandEffect => e.type === 'new-hand',
+    );
+    if (newHandEffect) {
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      const player = current.players[declaringIndex];
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const pooled = [...player.playDeck, ...player.hand, ...player.discardPile];
+      const [shuffledDeck, nextRng] = shuffle(pooled, current.rng);
+      const drawCount = Math.min(newHandEffect.handSize, shuffledDeck.length);
+      logDetail(`${cardName}: chain resolves new-hand — shuffling hand (${player.hand.length}) and discard pile (${player.discardPile.length}) into play deck (${player.playDeck.length} → ${shuffledDeck.length}), drawing a new hand of ${drawCount}/${newHandEffect.handSize}`);
+      if (drawCount < newHandEffect.handSize) {
+        logDetail(`${cardName}: play deck exhausted — new hand is only ${drawCount} card(s)`);
+      }
+      const spentCard = toCardInstance(entry.card);
+      current = {
+        ...updatePlayer(current, declaringIndex, p => ({
+          ...p,
+          hand: shuffledDeck.slice(0, drawCount),
+          playDeck: shuffledDeck.slice(drawCount),
+          discardPile: [spentCard],
+        })),
+        rng: nextRng,
+      };
+    }
+  }
+
   // Resource short events that discard a card in play (Voices of Malice
   // le-250, Marvels Told td-134, Ancient Secrets ba-36, The Cock Crows
   // tw-342) ride the chain from the player's hand (see

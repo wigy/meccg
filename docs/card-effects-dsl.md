@@ -1702,6 +1702,33 @@ short-event, you may choose any Orc and Troll factions from your discard pile
 and shuffle them into your play deck." (`scope: "self"`, filter minion
 Orc/Troll factions).
 
+### 6d-bis. `new-hand`
+
+Carried by a resource short-event. On chain resolution (the play is declared
+on the chain of effects per CoE 9.4/9.5, like `draw-cards`), shuffles the
+playing player's entire hand and discard pile into their play deck, then draws
+a fresh hand of `handSize` cards from the top. Site cards are structurally
+unaffected — they live in the separate `siteDeck`/`siteDiscardPile` zones,
+never in the play-deck discard pile — so "site cards remain in the discard
+pile" needs no filter. Drawing stops at deck exhaustion (no card instance is
+conjured or lost), and the card-driven reshuffle does not count as a rule-1.31
+deck exhaustion (`deckExhaustionCount` is untouched). The spent event card rode
+on the chain entry, so it is never swept into the deck; it lands in the discard
+pile after the shuffle — pair with `play-flag: "remove-from-game"` (§15e-bis)
+when the text also removes the card from the game. Resolved in `resolveEntry`
+(`chain-reducer.ts`); play routed through the chain by
+`handlePlayResourceShortEvent` (`reducer-events.ts`).
+
+```json
+{ "type": "new-hand", "handSize": 8 }
+```
+
+Used by Favor of the Valar (tw-239): "Playable during your organization phase.
+Shuffle your hand and your discard pile into your play deck (site cards remain
+in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar
+from the game." — with `play-window` phase `organization` and `play-flag:
+"remove-from-game"`.
+
 ### 6e. `force-opponent-discard`
 
 Hazard short-event effect that forces the card-player's **opponent** (the
