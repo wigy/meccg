@@ -7,7 +7,7 @@
  * placement interactions.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CharacterInPlay, SiteInPlay, ViewCard } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CharacterInPlay, SiteInPlay, ViewCard, Alignment } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { getCachedInstanceLookup } from './render-text-format.js';
@@ -135,6 +135,7 @@ function renderCharactersWithItems(
   view: PlayerView,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  bearerAlignment: Alignment,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
   for (const charInstId of charInstIds) {
@@ -154,7 +155,7 @@ function renderCharactersWithItems(
     const group = document.createElement('div');
     group.className = 'drafted-card-group';
     group.appendChild(img);
-    appendItemCards(group, char, cardPool);
+    appendItemCards(group, char, cardPool, view, bearerAlignment);
     el.appendChild(group);
   }
 }
@@ -166,6 +167,7 @@ function renderCompanies(
   view: PlayerView,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  bearerAlignment: Alignment,
 ): void {
   for (let i = 0; i < companies.length; i++) {
     const company = companies[i];
@@ -175,7 +177,7 @@ function renderCompanies(
       spacer.className = 'drafted-spacer';
       el.appendChild(spacer);
     }
-    renderSitesAndCharacters(el, sites, company.characters, view, characters, cardPool);
+    renderSitesAndCharacters(el, sites, company.characters, view, characters, cardPool, bearerAlignment);
   }
 }
 
@@ -225,7 +227,7 @@ function renderPlacementCompanies(
 
       if (group && char) {
         group.appendChild(img);
-        appendItemCards(group, char, cardPool);
+        appendItemCards(group, char, cardPool, view, view.self.alignment);
         el.appendChild(group);
       } else {
         el.appendChild(img);
@@ -247,6 +249,7 @@ function renderSitesAndCharacters(
   view: PlayerView,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  bearerAlignment: Alignment,
   separateSites = false,
 ): void {
   for (const site of sites) {
@@ -259,7 +262,7 @@ function renderSitesAndCharacters(
     spacer.className = 'drafted-spacer';
     el.appendChild(spacer);
   }
-  renderCharactersWithItems(el, charInstIds, view, characters, cardPool);
+  renderCharactersWithItems(el, charInstIds, view, characters, cardPool, bearerAlignment);
 }
 
 /**
@@ -310,7 +313,7 @@ function renderItemDraftTargets(
 
     if (group && char) {
       group.appendChild(img);
-      appendItemCards(group, char, cardPool);
+      appendItemCards(group, char, cardPool, view, view.self.alignment);
       el.appendChild(group);
     } else {
       el.appendChild(img);
@@ -489,17 +492,17 @@ export function renderDrafted(
     renderItemDraftTargets(selfEl, view, selfCharIds, cardPool, onAction);
 
     const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
-    renderCharactersWithItems(oppEl, oppCharIds, view, view.opponent.characters, cardPool);
+    renderCharactersWithItems(oppEl, oppCharIds, view, view.opponent.characters, cardPool, view.opponent.alignment);
     return;
   }
 
   // During character-deck-draft, show company characters on the table
   if (step === 'character-deck-draft') {
     const selfCharIds = view.self.companies.flatMap(c => c.characters);
-    renderCharactersWithItems(selfEl, selfCharIds, view, view.self.characters, cardPool);
+    renderCharactersWithItems(selfEl, selfCharIds, view, view.self.characters, cardPool, view.self.alignment);
 
     const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
-    renderCharactersWithItems(oppEl, oppCharIds, view, view.opponent.characters, cardPool);
+    renderCharactersWithItems(oppEl, oppCharIds, view, view.opponent.characters, cardPool, view.opponent.alignment);
   }
 
   // During site selection, show selected sites then a gap then company characters
@@ -509,9 +512,9 @@ export function renderDrafted(
     const oppIdx = 1 - selfIdx;
 
     const selfChars = view.self.companies.flatMap(c => c.characters);
-    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, view.self.characters, cardPool, true);
+    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, view.self.characters, cardPool, view.self.alignment, true);
     const oppChars = view.opponent.companies.flatMap(c => c.characters);
-    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, view.opponent.characters, cardPool, true);
+    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, view.opponent.characters, cardPool, view.opponent.alignment, true);
   }
 
   // During character placement, show companies with clickable characters
@@ -519,14 +522,14 @@ export function renderDrafted(
     if (view.self.companies.length > 1 && onAction) {
       renderPlacementCompanies(selfEl, view, cardPool, onAction);
     } else {
-      renderCompanies(selfEl, view.self.companies, view, view.self.characters, cardPool);
+      renderCompanies(selfEl, view.self.companies, view, view.self.characters, cardPool, view.self.alignment);
     }
-    renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool);
+    renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool, view.opponent.alignment);
   }
 
   // During deck shuffle and initial draw, show companies on the table
   if (step === 'deck-shuffle' || step === 'initial-draw') {
-    renderCompanies(selfEl, view.self.companies, view, view.self.characters, cardPool);
-    renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool);
+    renderCompanies(selfEl, view.self.companies, view, view.self.characters, cardPool, view.self.alignment);
+    renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool, view.opponent.alignment);
   }
 }

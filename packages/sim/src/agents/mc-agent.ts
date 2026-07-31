@@ -179,6 +179,14 @@ export function createMcAgent(options: McAgentOptions = {}): Agent {
   return {
     name: options.name ?? `mc:${rounds}@${horizonTurns}t${jobs > 1 ? `x${jobs}` : ''}`,
 
+    // The same test `chooseAction` uses below to decide whether to search at
+    // all. Publishing it lets a composing agent tell "the rollouts looked at
+    // this" apart from "the rollouts handed it to Heuristics 1", which are
+    // very different answers wearing the same name.
+    canDecide(context: AgentContext): boolean {
+      return isDeterminizableView(context.view);
+    },
+
     chooseAction(context: AgentContext): AgentDecision {
       if (context.legalActions.length === 1) return { action: context.legalActions[0], note: 'forced' };
       if (!isDeterminizableView(context.view)) return fallback.chooseAction(context);

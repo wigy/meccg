@@ -905,6 +905,56 @@ agent hands over **71.3%** of contested decisions and is mostly its own
 fallback, which is a different agent wearing H2's name rather than a better H2.
 The value gated here is deliberately small.
 
+#### Asking the fallback what it can actually search
+
+The knob above is a proxy for confidence. There is a better question, and the
+divergence bucketing already answered it: `mc` **cannot determinize a view in
+combat, mid-chain, or with effects pending**, and there it silently hands the
+decision to Heuristics 1. So "ask `mc`" means two different things depending on
+the position, and the seam never said which.
+
+`Agent.canDecide(context)` says which. `mc` answers with the same
+`isDeterminizableView` test its own `chooseAction` uses, and `h2` gains a
+composition operator that routes on it: `>` is `+` that also defers every
+decision the fallback reports it can search for itself.
+
+```sh
+npm run gate -w @meccg/sim -- --challenger 'h2>mc:rollouts=4/candidates=4/turns=1' \
+  --champion 'mc:rollouts=4/candidates=4/turns=1' --pairs 50 --rounds 1 --jobs 12
+```
+
+```text
+  score:     60W-36L-2D (62.2%) over 98 rated games
+  elo diff:  +87 [+19, +162]
+  glicko-2:  +249 [+105, +393]
+  failures:  2 — decision limit, seeds 15 and 41
+```
+
+**H2 is now stronger than the agent this section spent its length chasing.**
+Against the same champion, on the same decks, the progression is:
+
+| agent | score vs `mc:4/4/1` | elo diff |
+|---|---|---|
+| `h2` | 21.0% | −230 [−384, −130] |
+| `h2:combat,kill,hand,fetching+mc` | 46.5% | −24 [−94, +43] |
+| `h2>mc` | **62.2%** | **+87 [+19, +162]** |
+
+The middle row is the same idea done by hand — name the modules whose windows
+`mc` cannot search and let it decide the rest — and it is worth recording
+because it is what suggested the general form. Naming modules is the wrong
+granularity, though: whether the rollouts can search a decision is a property
+of the *position*, not of the action type, which is why asking per decision
+beats a hand-picked list by another 111 Elo.
+
+None of this makes the modules better. It makes them stop competing where they
+lose: `>` defers **80.3%** of contested decisions, and what H2 keeps is the
+fifth of the game where `mc` was never searching in the first place — where its
+answer was Heuristics 1 all along, and the modules beat Heuristics 1. The two
+agents were never really rivals on the same ground.
+
+Two games hit the decision limit rather than finishing, both under this
+composition. That is a stall worth a look and is not diagnosed here.
+
 #### The one game that did not finish, and the wrong diagnosis of it
 
 Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players

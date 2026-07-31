@@ -199,6 +199,64 @@ function stubFallback(pick: GameAction): Agent & { calls: AgentContext[] } {
   };
 }
 
+describe('yielding to a fallback that can search', () => {
+  const model = testWinProbModel();
+
+  test('defers a decision the fallback says it can search itself', () => {
+    // Where `mc` can determinize the view its rollouts beat the modules;
+    // where it cannot, the modules are the only opinion there is. The line is
+    // a property of the position, so it is asked per decision.
+    const searcher = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model, temperature: 0.0001,
+      fallback: { ...searcher, canDecide: () => true },
+      yieldWhenFallbackCanSearch: true,
+    });
+    const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B]));
+    expect(decision.action).toBe(PASS_A);
+    expect(decision.note).toContain('stub-fallback fallback');
+  });
+
+  test('keeps a decision the fallback says it cannot', () => {
+    const searcher = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model, temperature: 0.0001,
+      fallback: { ...searcher, canDecide: () => false },
+      yieldWhenFallbackCanSearch: true,
+    });
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
+  });
+
+  test('is off by default, so a searching fallback changes nothing', () => {
+    const searcher = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model, temperature: 0.0001,
+      fallback: { ...searcher, canDecide: () => true },
+    });
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
+  });
+
+  test('a fallback that does not implement canDecide is never yielded to', () => {
+    // Absent means "draws no distinction", not "yes". Reading it the other way
+    // would be dangerous: Heuristics 1 does not implement it, and defaulting to
+    // yes would hand the weight soup every decision in the game.
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model, temperature: 0.0001,
+      fallback: stubFallback(PASS_A), yieldWhenFallbackCanSearch: true,
+    });
+    // Absent `canDecide` is not `=== true`, so the module tree keeps it.
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
+  });
+
+  test('records the yield in its name, so a replay says which composition played', () => {
+    const agent = createHeuristic2Agent({
+      available: [REWARDS], model,
+      fallback: stubFallback(PASS_A), yieldWhenFallbackCanSearch: true,
+    });
+    expect(agent.name).toBe('h2>stub-fallback');
+  });
+});
+
 describe('the fallback seam', () => {
   const model = testWinProbModel();
   /** An action type no module owns. */

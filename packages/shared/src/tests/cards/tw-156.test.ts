@@ -28,6 +28,7 @@ import {
   findCharInstanceId, viableActions,
   enqueueTransferCorruptionCheck,
   getCharacter, dispatch, dispatchResult, expectCharStatus, expectCharItemCount, expectInDiscardPile, RESOURCE_PLAYER,
+  makeSitePhase,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { CorruptionCheckAction, ActivateGrantedAction } from '../../index.js';
@@ -221,5 +222,32 @@ describe('Gandalf (tw-156)', () => {
     expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
     expectCharItemCount(nextState, RESOURCE_PLAYER, GANDALF, 0);
     expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
+  });
+
+  // ── Rule 2.1.1: any-phase availability ───────────────────────────────────
+  // Bug report: player could not tap Gandalf to test a gold ring outside the
+  // organization phase. Gandalf's card text doesn't restrict the ability to
+  // a specific phase, so per CRF 2.1.1 it should be usable during any phase
+  // of his controller's turn (mirrors Healing Herbs, tw-255).
+
+  test('test-gold-ring available during site phase', () => {
+    const state = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeSitePhase() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
+    expect(actions.length).toBe(1);
   });
 });

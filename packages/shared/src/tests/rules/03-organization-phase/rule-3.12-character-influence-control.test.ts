@@ -18,12 +18,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, viablePlayCharacterActions, findCharInstanceId, Phase,
+  buildTestState, resetMint, viablePlayCharacterActions, findCharInstanceId, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, ADRAZAR, KILI, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../../test-helpers.js';
+import type { GameState } from '../../../index.js';
 describe('Rule 3.12 — Character Influence Control', () => {
   beforeEach(() => resetMint());
 
@@ -98,5 +99,69 @@ describe('Rule 3.12 — Character Influence Control', () => {
     expect(kiliPlays.some(a => a.controlledBy === aragornId)).toBe(false);
     // GI play is still an option (mind 3 fits within remaining GI)
     expect(kiliPlays.some(a => a.controlledBy === 'general')).toBe(true);
+  });
+
+  test('DI follower joins the controller\'s own company when two companies share a site', () => {
+    // Kíli's company and Aragorn's company both stand at Rivendell (as happens
+    // after a split-company). Adrazar is played under Aragorn's DI. Regression
+    // test: the reducer used to pick "the first company at this site" without
+    // checking which company the controller was actually in — with Kíli's
+    // company listed first, it planted the follower there instead of in
+    // Aragorn's company, leaving it looking like a member of both.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: RIVENDELL, characters: [KILI] },
+            { site: RIVENDELL, characters: [ARAGORN] },
+          ],
+          hand: [ADRAZAR],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    // Force both companies onto the same site instance.
+    const sharedSite = state.players[0].companies[0].currentSite!;
+    const sharedState: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          companies: state.players[0].companies.map(c => ({ ...c, currentSite: sharedSite })),
+        },
+        state.players[1],
+      ],
+    };
+
+    const aragornId = findCharInstanceId(sharedState, RESOURCE_PLAYER, ARAGORN);
+    const kiliId = findCharInstanceId(sharedState, RESOURCE_PLAYER, KILI);
+    const adrInstId = sharedState.players[RESOURCE_PLAYER].hand.find(
+      c => c.definitionId === ADRAZAR,
+    )!.instanceId;
+
+    const after = dispatch(sharedState, {
+      type: 'play-character',
+      player: PLAYER_1,
+      characterInstanceId: adrInstId,
+      atSite: sharedSite.instanceId,
+      controlledBy: aragornId,
+    });
+
+    const aragornCompany = after.players[0].companies.find(c => c.characters.includes(aragornId))!;
+    const kiliCompany = after.players[0].companies.find(c => c.characters.includes(kiliId))!;
+
+    expect(aragornCompany.characters).toContain(adrInstId);
+    expect(kiliCompany.characters).not.toContain(adrInstId);
   });
 });

@@ -40,7 +40,8 @@
         },
         "apply": {
           "type": "enqueue-gold-ring-test"
-        }
+        },
+        "anyPhase": true
       }
     ],
     "text": "Unique. +1 to all of his corruption checks. Gandalf may tap to test a gold ring in his company.",

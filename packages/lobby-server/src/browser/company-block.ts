@@ -39,7 +39,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
@@ -58,22 +58,6 @@ import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGranted
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { resolveItemClick } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
-
-/**
- * The card definitions of every card in play, both players'. Game-wide effects
- * carried by a permanent event reach cards of either side (an
- * `in-play-item-modifier` raises the corruption points of *all* matching items,
- * not only its controller's), so renderers that need them must consult both
- * `cardsInPlay` lists. Unknown definitions (redacted cards) are skipped.
- */
-export function inPlayCardDefs(
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): CardDefinition[] {
-  return [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
-    .map(c => cardPool[c.definitionId as string])
-    .filter((d): d is CardDefinition => d != null);
-}
 
 /**
  * All viable influence-attempt actions for a given (faction, character) pair.
