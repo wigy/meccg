@@ -17,7 +17,7 @@ import { clearGameSession, clearPlayerName, saveGameSession } from './session.js
 import { connectPseudoAi } from './pseudo-ai.js';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
-import { renderTutorialPanel } from './tutorial-panel.js';
+import { clearTutorialPanel, renderTutorialPanel } from './tutorial-panel.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
@@ -114,6 +114,7 @@ export function disconnect(): void {
     document.getElementById('pseudo-ai-actions')!.innerHTML = '';
   }
   clearDice();
+  clearTutorialPanel();
   resetVisualBoard();
   resetCompanyViews();
   for (const id of ['self-deck-box', 'opponent-deck-box']) {

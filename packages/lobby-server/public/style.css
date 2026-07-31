@@ -6575,12 +6575,19 @@ body.all-companies-mode:has(#debug-view.hidden) {
   max-width: 34rem;
 }
 
-/* Guided tutorial instruction panel (rendered from PlayerView.tutorial). */
+/* Guided tutorial instruction panel (rendered from PlayerView.tutorial).
+   A fixed overlay on document.body, docked on the LEFT below the opponent's
+   compact deck box — detached from the board flow so its height never pushes
+   the companies around, and clear of the game log panel on the right. Scrolls
+   internally when a long step outgrows the viewport. */
 .tutorial-panel {
-  flex: 0 0 100%;
-  max-width: 44rem;
-  margin: 0 auto 0.5rem;
-  position: relative;
+  position: fixed;
+  top: 8rem;
+  left: 0.5rem;
+  width: 24rem;
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
   /* Above the hover layer: hovered drafted rows / arcs (--z-hover) must not
      cover the tutorial instructions. */
   z-index: calc(var(--z-hover) + 10);
@@ -6593,6 +6600,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
 
 .tutorial-panel--done {
   border-color: rgba(140, 220, 140, 0.6);
+}
+
+/* An explicitly expanded opponent deck box (top-left) may reach down into the
+   tutorial panel's area; the expansion is a deliberate click, so let it show
+   above the panel until collapsed again. */
+.deck-box--opponent:not(.deck-box--compact) {
+  z-index: calc(var(--z-hover) + 11);
 }
 
 .tutorial-panel-header {

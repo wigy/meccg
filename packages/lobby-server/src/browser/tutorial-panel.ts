@@ -6,8 +6,10 @@
  * Renders entirely from {@link PlayerView.tutorial}, which the game-server's
  * TutorialController attaches to every state broadcast of a tutorial game —
  * the browser never tracks the script cursor itself. The panel is a managed
- * `#tutorial-panel` element rebuilt on every render (same pattern as the
- * setup banner) and absent outside tutorial games.
+ * `#tutorial-panel` element rebuilt on every render and absent outside
+ * tutorial games. It lives on `document.body` as a fixed overlay (docked on
+ * the left below the opponent deck box by CSS), deliberately outside
+ * `#visual-board` so its size never reflows the company layout.
  *
  * Besides the instruction, a step may carry glossary entries (rendered under
  * the instruction body) and UI pointers — callout bubbles attached to the
@@ -58,8 +60,8 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
     renderBubbles([]);
     return;
   }
-  const board = document.getElementById('visual-board');
-  if (!board) return;
+  // Only render inside a game screen (the board is the marker element).
+  if (!document.getElementById('visual-board')) return;
 
   const panel = document.createElement('div');
   panel.id = 'tutorial-panel';
@@ -156,9 +158,19 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
     text.appendChild(footer);
   }
 
-  board.prepend(panel);
+  document.body.appendChild(panel);
 
   renderBubbles(progress.done ? [] : progress.pointers ?? []);
+}
+
+/**
+ * Remove the panel and its pointer bubbles. Both live on `document.body`,
+ * outside the game screen, so leaving a game must clear them explicitly —
+ * hiding `#game` or wiping the board no longer takes them along.
+ */
+export function clearTutorialPanel(): void {
+  document.getElementById('tutorial-panel')?.remove();
+  document.getElementById('tutorial-bubbles')?.remove();
 }
 
 /**
