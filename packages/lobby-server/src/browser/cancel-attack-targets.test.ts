@@ -13,6 +13,15 @@
  * `groupCancelAttackActionsByScout` now collects every action for a scout
  * into a list instead of collapsing to one, so the combat view can offer all
  * of them.
+ *
+ * Also covers bug report 5e858fb065b0c227 (game ms8y3wig-1bg5qc, seq 140):
+ * "Ne demande pas sur quel personnage il doit être joué" — Flatter a Foe
+ * (td-116) emits one `cancel-attack` action per company character carrying
+ * `targetCharacterId` (no scout tap), but the hand renderer treated every
+ * scoutless cancel-attack as untargeted and silently dispatched the first
+ * action, so the player was never asked which character makes the influence
+ * check. The grouping helper now also keys by `targetCharacterId` so those
+ * cards go through the same click-the-character targeting flow.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -20,6 +29,7 @@ import type { CardInstanceId } from '@meccg/shared';
 import { groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 
 const TORMENTED_EARTH = 'p1-31' as CardInstanceId;
+const FLATTER_A_FOE = 'p1-10' as CardInstanceId;
 const OTHER_CARD = 'p1-32' as CardInstanceId;
 const SCOUT = 'p1-98' as CardInstanceId;
 const OTHER_SCOUT = 'p1-99' as CardInstanceId;
@@ -27,6 +37,7 @@ const OTHER_SCOUT = 'p1-99' as CardInstanceId;
 interface FakeCancelAttackAction {
   readonly cardInstanceId: CardInstanceId;
   readonly scoutInstanceId?: CardInstanceId;
+  readonly targetCharacterId?: CardInstanceId;
   readonly mode?: 'reduce-prowess';
 }
 
@@ -53,12 +64,39 @@ describe('groupCancelAttackActionsByScout', () => {
     expect(map.get(SCOUT as string)).toEqual([selected]);
   });
 
-  test('ignores costless cancel-attack actions with no scout', () => {
+  test('ignores costless cancel-attack actions with no scout and no target character', () => {
     const costless: FakeCancelAttackAction = { cardInstanceId: TORMENTED_EARTH };
 
     const map = groupCancelAttackActionsByScout([costless], TORMENTED_EARTH);
 
     expect(map.size).toBe(0);
+  });
+
+  test('groups character-targeted actions (Flatter a Foe) by targetCharacterId', () => {
+    // Bug 5e858fb065b0c227: one action per company character, no scout tap —
+    // each must land under its own character so the player picks who makes
+    // the influence check instead of the first action firing silently.
+    const forScout: FakeCancelAttackAction = { cardInstanceId: FLATTER_A_FOE, targetCharacterId: SCOUT };
+    const forOtherScout: FakeCancelAttackAction = { cardInstanceId: FLATTER_A_FOE, targetCharacterId: OTHER_SCOUT };
+
+    const map = groupCancelAttackActionsByScout([forScout, forOtherScout], FLATTER_A_FOE);
+
+    expect(map.get(SCOUT as string)).toEqual([forScout]);
+    expect(map.get(OTHER_SCOUT as string)).toEqual([forOtherScout]);
+  });
+
+  test('keys by the scout when an action names both a scout and a target character', () => {
+    // The scout is what the player clicks to pay the cost; the target rides along.
+    const both: FakeCancelAttackAction = {
+      cardInstanceId: FLATTER_A_FOE,
+      scoutInstanceId: SCOUT,
+      targetCharacterId: OTHER_SCOUT,
+    };
+
+    const map = groupCancelAttackActionsByScout([both], FLATTER_A_FOE);
+
+    expect(map.get(SCOUT as string)).toEqual([both]);
+    expect(map.has(OTHER_SCOUT as string)).toBe(false);
   });
 
   test('keeps separate scouts in separate groups', () => {
