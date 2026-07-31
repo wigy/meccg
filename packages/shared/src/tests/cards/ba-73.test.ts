@@ -239,19 +239,20 @@ describe('Roam the Waste (ba-73)', () => {
   });
 
   test('the reduction denies keying a creature that could only key to the removed Wilderness', () => {
-    // Path is one Wilderness + one Shadow-land; a Giant keys only to Wilderness.
+    // Path is two Wildernesses + one Shadow-land; a Giant keys only to two
+    // Wildernesses ({w}{w}).
     const declarePath = (s: GameState) => dispatch(s, {
       type: 'declare-path', player: PLAYER_1, movementType: MovementType.Region,
-      regionPath: [HOLLIN, IMLAD_MORGUL],
+      regionPath: [HOLLIN, REDHORN_GATE, IMLAD_MORGUL],
     });
-    // Baseline: the Wilderness token is present → Giant is keyable.
+    // Baseline: both Wilderness tokens are present → Giant is keyable.
     const baseState = declarePath(movingBalrogCompany());
     const baseMh = baseState.phaseState as MovementHazardPhaseState;
     const giantDef = baseState.cardPool[GIANT] as CreatureCard;
     expect(checkCreatureKeying(baseState, giantDef, baseMh)).toBeUndefined();
 
-    // With Roam the Waste: the sole Wilderness token is removed → Giant cannot
-    // be keyed to this company's (now empty) site path.
+    // With Roam the Waste: one Wilderness token is removed, leaving only one →
+    // Giant cannot be keyed to this company's site path.
     const reducedState = declarePath(withReduction(movingBalrogCompany()));
     const reducedMh = reducedState.phaseState as MovementHazardPhaseState;
     expect(checkCreatureKeying(reducedState, giantDef, reducedMh)).toBeDefined();

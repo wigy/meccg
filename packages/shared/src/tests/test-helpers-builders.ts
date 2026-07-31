@@ -1186,6 +1186,23 @@ export function makeDoubleWildernessMHState(
   });
 }
 
+/**
+ * MH state describing arrival at Ruins-and-Lairs "Moria" via a path of three
+ * wilderness regions. For creatures keyed `{w}{w}{w}` (Were-worm, Winged
+ * Cold-drake, True Fire-drake's base keying).
+ */
+export function makeTripleWildernessMHState(
+  overrides?: Partial<MovementHazardPhaseState>,
+): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness, RegionType.Wilderness],
+    resolvedSitePathNames: ['Rhudaur', 'Arthedain', 'Cardolan'],
+    destinationSiteType: SiteType.RuinsAndLairs,
+    destinationSiteName: 'Moria',
+    ...overrides,
+  });
+}
+
 /** Build a SitePhaseState at the play-resources step. */
 export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseState {
   return {

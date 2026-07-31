@@ -23,7 +23,7 @@
  * keyedTo:
  * | # | Entry                   | When                        | Notes                         |
  * |---|-------------------------|-----------------------------|-------------------------------|
- * | 1 | wilderness / border     | always                      | base keying {w}{w}{b}         |
+ * | 1 | wilderness ×2 / border  | always                      | base keying {w}{w}{b}         |
  * | 2 | free                    | Doors of Night NOT in play  | conditional alt keying        |
  *
  * Playable: YES
@@ -36,7 +36,7 @@ import {
   DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  makeMHState, makeWildernessMHState,
+  makeMHState, makeDoubleWildernessMHState,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, findCharInstanceId,
   viableActions,
@@ -82,7 +82,7 @@ describe('Wandering Eldar (le-97)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const creatureId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -118,7 +118,7 @@ describe('Wandering Eldar (le-97)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const creatureId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -153,7 +153,7 @@ describe('Wandering Eldar (le-97)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const creatureId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -195,7 +195,7 @@ describe('Wandering Eldar (le-97)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const creatureId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -251,7 +251,7 @@ describe('Wandering Eldar (le-97)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const creatureId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -286,7 +286,7 @@ describe('Wandering Eldar (le-97)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const creatureId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -301,7 +301,7 @@ describe('Wandering Eldar (le-97)', () => {
 
   // ─── Keying ──────────────────────────────────────────────────────────────
 
-  test('keyable to Wilderness (base keying, always)', () => {
+  test('keyable to Wilderness on a two-wilderness path (base keying, always)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -322,7 +322,7 @@ describe('Wandering Eldar (le-97)', () => {
         },
       ],
     });
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
 
     const plays = viableActions(ready, PLAYER_2, 'play-hazard');
     expect(plays.some(p => {

@@ -669,6 +669,7 @@
       {
         "regionTypes": [
           "wilderness",
+          "wilderness",
           "border"
         ]
       },
@@ -1011,6 +1012,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ]
       }
@@ -1092,6 +1094,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness",
           "border",
           "shadow"
@@ -1221,7 +1224,7 @@
       {
         "regionTypes": [
           "wilderness",
-          "coastal-sea"
+          "coastal"
         ],
         "siteTypes": [
           "ruins-and-lairs"
@@ -1260,6 +1263,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ]
       }

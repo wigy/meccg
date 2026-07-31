@@ -336,6 +336,7 @@
       {
         "regionTypes": [
           "wilderness",
+          "wilderness",
           "shadow"
         ]
       }
@@ -399,6 +400,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ]
       }
@@ -533,7 +535,7 @@
     "keyedTo": [
       {
         "regionTypes": [
-          "coastal-sea"
+          "coastal"
         ]
       }
     ],
@@ -554,6 +556,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ]
       }
@@ -608,6 +611,8 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
+          "wilderness",
           "wilderness"
         ]
       }
@@ -663,6 +668,8 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
+          "wilderness",
           "wilderness"
         ]
       }
@@ -685,6 +692,9 @@
       {
         "regionTypes": [
           "wilderness",
+          "wilderness",
+          "wilderness",
+          "shadow",
           "shadow"
         ]
       }
