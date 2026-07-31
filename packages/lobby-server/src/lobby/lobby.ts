@@ -87,6 +87,14 @@ interface OnlinePlayer {
   inGame: boolean;
   /** Active game connection info, kept for rejoin after server restart. */
   activeGame: ActiveGameInfo | null;
+  /**
+   * Whether a `rejoin-game` launch is currently in flight for this player.
+   * Guards against a duplicate `rejoin-game` message (e.g. a client retry
+   * firing before the first game-server has finished spawning) launching a
+   * second game-server process that restores the same save and races the
+   * first one's actions.
+   */
+  rejoining: boolean;
 }
 
 /** An ongoing game (human-vs-human or vs an AI seat) that others can watch. */
@@ -189,7 +197,7 @@ export function playerConnected(name: string, ws: WebSocket): void {
     existing.ws = ws;
   }
 
-  const player: OnlinePlayer = existing ?? { name, ws, pendingFrom: new Set(), inGame: false, activeGame: null };
+  const player: OnlinePlayer = existing ?? { name, ws, pendingFrom: new Set(), inGame: false, activeGame: null, rejoining: false };
   if (!existing) onlinePlayers.set(name, player);
   lobbyLog.log('connect', { name, online: onlinePlayers.size });
   broadcastPlayerList();
@@ -371,6 +379,18 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         break;
       }
 
+      // A relaunch is already in flight for this player (e.g. the client's
+      // rejoin-retry timer fired again before the first game-server finished
+      // spawning). Launching a second one would leave two live game-server
+      // processes restoring the same save and racing each other's actions —
+      // the AI seat then looks like it is fighting itself (e.g. transferring
+      // an item back and forth forever). Drop the duplicate instead; the
+      // in-flight launch will answer with 'game-starting' when it is done.
+      if (from.rejoining) {
+        lobbyLog.log('rejoin-ignored', { name: fromName, opponent: opponentName, reason: 'launch already in progress' });
+        break;
+      }
+
       // Capture AI deck and model before clearing state, so the rejoin can reuse them
       const storedAiDeckId = from.activeGame?.aiDeckId;
       const storedAiModelFile = from.activeGame?.aiModelFile;
@@ -378,14 +398,16 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       // Clear stale inGame state from the dead game
       from.inGame = false;
       from.activeGame = null;
+      from.rejoining = true;
+      const clearRejoining = (): void => { from.rejoining = false; };
 
       if (opponentName === 'Mentor') {
         // Relaunch the tutorial server; it restores the autosaved tutorial
         // (state + script cursor) and resumes at the same step. The Mentor
         // seat is played server-side, so a normal rejoin would never seat.
-        void startTutorialGame(from);
+        void startTutorialGame(from).finally(clearRejoining);
       } else if (opponentName === 'AI-Pseudo') {
-        void startPseudoAiGame(from);
+        void startPseudoAiGame(from).finally(clearRejoining);
       } else if (isAi) {
         // Preserve which AI it was: relaunching 'AI-MC' without the spec
         // would silently seat the heuristic instead, so a reconnect would
@@ -398,19 +420,21 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         // to relaunch: seating the heuristic would swap the opponent and move
         // the game onto a different save key, so refuse instead.
         if (opponentName === 'AI-Real' && storedAiModelFile === undefined) {
+          clearRejoining();
           send(from.ws, { type: 'error', message: 'Cannot rejoin: the Real-AI model for this game is no longer known' });
           return;
         }
-        void startAiGame(from, storedAiDeckId, storedAiModelFile, rejoinSpec);
+        void startAiGame(from, storedAiDeckId, storedAiModelFile, rejoinSpec).finally(clearRejoining);
       } else {
         const opponent = onlinePlayers.get(opponentName);
         if (!opponent) {
+          clearRejoining();
           send(from.ws, { type: 'error', message: `${opponentName} is no longer online` });
           return;
         }
         opponent.inGame = false;
         opponent.activeGame = null;
-        void startGame(from, opponent);
+        void startGame(from, opponent).finally(clearRejoining);
       }
       break;
     }
