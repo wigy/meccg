@@ -1412,6 +1412,10 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
       characterId: fromCharId,
       reason: 'Transfer',
       transferredItemId: itemInstId,
+      // CoE 7.1.1: any corruption check declared but not yet resolved may be
+      // supported by tapping other characters in the same company for +1
+      // each — not just checks from cards that explicitly grant it.
+      allowSupport: true,
     }),
   };
 }
@@ -1543,6 +1547,10 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
+    // CoE 7.1.1: any corruption check declared but not yet resolved may be
+    // supported by tapping other characters in the same company for +1
+    // each — not just checks from cards that explicitly grant it.
+    allowSupport: true,
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.

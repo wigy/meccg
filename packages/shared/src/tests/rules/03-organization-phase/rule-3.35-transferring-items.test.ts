@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viableFor, findCharInstanceId, Phase, Alignment,
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS, FRODO,
   DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   RESOURCE_PLAYER,
@@ -25,6 +25,7 @@ import {
 import { reduce } from '../../../index.js';
 import type { CardDefinitionId } from '../../../index.js';
 import type { TransferItemAction } from '../../../types/actions-organization.js';
+import type { SupportCorruptionCheckAction } from '../../../types/actions-universal.js';
 
 /** Open to the Summons — a permanent resource-event placed *with* an agent, not an item. */
 const OPEN_TO_THE_SUMMONS = 'wh-46' as CardDefinitionId;
@@ -172,5 +173,54 @@ describe('Rule 3.35 — Transferring Items', () => {
       fromCharacterId: fernyId,
       toCharacterId: trackerId,
     }).error).toBeDefined();
+  });
+
+  test('Other company mates may tap in support (+1 each) of the transfer corruption check (CoE 7.1.1)', () => {
+    // Reproduces game ms8r75ta-8kkqyo (seq 1017-1018): Aragorn II transfers
+    // the Sword of Gondolin to Annalena. The corruption check declared for
+    // Aragorn (the item's initial bearer, per rule 3.35) is still unresolved,
+    // so Frodo — untapped in the same company — must be offered as a
+    // tap-in-support option for +1 to the roll, per the general rule 7.1.1.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [DAGGER_OF_WESTERNESSE] }, BILBO, FRODO] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const frodoId = findCharInstanceId(state, RESOURCE_PLAYER, FRODO);
+    const daggerInstId = state.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+
+    const afterTransfer = reduce(state, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: daggerInstId,
+      fromCharacterId: aragornId,
+      toCharacterId: bilboId,
+    });
+    expect(afterTransfer.error).toBeUndefined();
+
+    const supports = viableFor(afterTransfer.state, PLAYER_1)
+      .filter(a => a.action.type === 'support-corruption-check') as { action: SupportCorruptionCheckAction }[];
+
+    expect(supports.some(a =>
+      a.action.supportingCharacterId === frodoId &&
+      a.action.targetCharacterId === aragornId,
+    )).toBe(true);
   });
 });
