@@ -575,10 +575,72 @@
     "name": "Choice of Lúthien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ChoiceofLuthien.jpg",
     "unique": true,
+    "certified": "2026-07-31",
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Arwen"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.name": "Minas Tirith"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$not": {
+            "destination.region": {
+              "$in": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"]
+            }
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "choice-of-luthien-fetch",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile", "deck"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "fetchTo": "hand",
+          "playableAtBearerSite": true,
+          "filter": {
+            "cardType": {
+              "$in": ["hero-resource-item", "hero-resource-ally", "hero-resource-faction"]
+            }
+          }
+        }
+      }
+    ],
     "text": "Unique. Playable on Arwen in Minas Tirith. She receives +2 direct influence and her mind increases by 2. Discard if Arwen moves to a site not in Anórien, Lebennin, Lamedon, Belfalas, or Anfalas. Tap Arwen to take one item, ally, or faction playable at her current site from your play deck or discard pile into your hand (reshuffle play deck if searched)."
   },
   {
