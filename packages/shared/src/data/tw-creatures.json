@@ -446,10 +446,28 @@
     "body": 9,
     "killMarshallingPoints": 4,
     "race": "dragon",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "siteNames": [
+          "Caves of Ûlund"
+        ]
+      },
+      {
+        "regionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
+    ],
     "effects": [],
     "text": "Unique. May be played at Caves of Ûlund. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
-    "manifestId": "tw-3"
+    "manifestId": "tw-3",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hazard-creature",
