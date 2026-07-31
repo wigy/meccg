@@ -139,6 +139,29 @@ export function runSimpleDraft(config?: GameConfig): GameState {
 }
 
 /**
+ * Builds the pass-through actions for the starting-site-selection step,
+ * picking each not-yet-done player's first site-deck card and passing.
+ * Players the engine already auto-completed (a forced single-choice site
+ * deck, or a Hidden Haven pre-placement) are skipped — dispatching a
+ * selection for a `done` player would error.
+ */
+function siteSelectionCatchUpActions(state: GameState): GameAction[] {
+  if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'starting-site-selection') {
+    return [];
+  }
+  const siteSelectionState = state.phaseState.setupStep.siteSelectionState;
+  const actions: GameAction[] = [];
+  const players: [PlayerId, PlayerId] = [PLAYER_1, PLAYER_2];
+  for (let i = 0; i < 2; i++) {
+    if (siteSelectionState[i].done) continue;
+    const siteInstanceId = state.players[i].siteDeck[0].instanceId;
+    actions.push({ type: 'select-starting-site', player: players[i], siteInstanceId });
+    actions.push({ type: 'pass', player: players[i] });
+  }
+  return actions;
+}
+
+/**
  * Run through the entire setup from draft to Untap, including item assignment,
  * deck draft, site selection, placement, shuffle, draw, and initiative roll.
  * Returns the state at the start of turn 1 (Untap phase).
@@ -173,16 +196,10 @@ export function runFullSetup(config?: GameConfig): GameState {
     ]);
   }
 
-  // Site selection: pick first available site
+  // Site selection: pick first available site (skipping any player already
+  // auto-completed by the engine, e.g. a forced single-choice site deck).
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'starting-site-selection') {
-    const p1Site = state.players[0].siteDeck[0].instanceId;
-    const p2Site = state.players[1].siteDeck[0].instanceId;
-    state = runActions(state, [
-      { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site },
-      { type: 'pass', player: PLAYER_1 },
-      { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site },
-      { type: 'pass', player: PLAYER_2 },
-    ]);
+    state = runActions(state, siteSelectionCatchUpActions(state));
   }
 
   // Character placement: pass (if needed)
@@ -260,14 +277,7 @@ export function runSetupToInitiativeRoll(config?: GameConfig): GameState {
   }
 
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'starting-site-selection') {
-    const p1Site = state.players[0].siteDeck[0].instanceId;
-    const p2Site = state.players[1].siteDeck[0].instanceId;
-    state = runActions(state, [
-      { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site },
-      { type: 'pass', player: PLAYER_1 },
-      { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site },
-      { type: 'pass', player: PLAYER_2 },
-    ]);
+    state = runActions(state, siteSelectionCatchUpActions(state));
   }
 
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-placement') {

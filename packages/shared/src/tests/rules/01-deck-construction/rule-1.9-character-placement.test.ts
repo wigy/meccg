@@ -23,7 +23,7 @@ import {
   createGame,
 } from '../../test-helpers.js';
 import { computeLegalActions, reduce } from '../../../index.js';
-import type { GameConfig, CardDefinitionId, GameState } from '../../../index.js';
+import type { GameConfig, CardDefinitionId, GameState, GameAction } from '../../../index.js';
 
 const AZOG = 'ba-2' as CardDefinitionId;
 const BOLG = 'ba-4' as CardDefinitionId;
@@ -91,16 +91,25 @@ describe('Rule 1.9 — Character Placement is monotonic (no endless shuffling)',
     }
 
     // P1 (Balrog) declares two starting companies at Moria and the Under-gates;
-    // P2 (Wizard) declares Rivendell (single company).
+    // P2 (Wizard) declares Rivendell (single company). P2's site deck holds
+    // only Rivendell, so the engine auto-selects it as soon as the step is
+    // entered — skip the redundant manual pick in that case.
     const moriaInst = state.players[0].siteDeck.find(c => c.definitionId === MORIA_BALROG)!.instanceId;
     const underGatesInst = state.players[0].siteDeck.find(c => c.definitionId === THE_UNDER_GATES)!.instanceId;
-    const rivendellInst = state.players[1].siteDeck.find(c => c.definitionId === RIVENDELL)!.instanceId;
+    const p2Actions: GameAction[] = [];
+    if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'starting-site-selection'
+      && !state.phaseState.setupStep.siteSelectionState[1].done) {
+      const rivendellInst = state.players[1].siteDeck.find(c => c.definitionId === RIVENDELL)!.instanceId;
+      p2Actions.push(
+        { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: rivendellInst },
+        { type: 'pass', player: PLAYER_2 },
+      );
+    }
     state = runActions(state, [
       { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: moriaInst },
       { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: underGatesInst },
       { type: 'pass', player: PLAYER_1 },
-      { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: rivendellInst },
-      { type: 'pass', player: PLAYER_2 },
+      ...p2Actions,
     ]);
 
     // Now at character placement — P1 has two companies and three characters

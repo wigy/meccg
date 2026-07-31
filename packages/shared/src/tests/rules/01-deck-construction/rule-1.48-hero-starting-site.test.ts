@@ -15,15 +15,24 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  runSimpleDraft, runActions,
+  runSimpleDraft, runActions, makeDraftConfig,
   PLAYER_1, PLAYER_2, RIVENDELL,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 
 describe('Rule 1.48 — Hero Starting Site', () => {
   test('[HERO] Wizard player starting company can only begin at Rivendell', () => {
+    // Two Rivendell copies keep this a genuine choice — with only one legal
+    // site, the engine auto-resolves the pick instead of listing options
+    // (see the Rule 1.47 auto-resolve test).
+    const base = makeDraftConfig();
+    const config = {
+      ...base,
+      players: [{ ...base.players[0], siteDeck: [RIVENDELL, ...base.players[0].siteDeck] }, base.players[1]] as typeof base.players,
+    };
+
     // Start from the character-draft result and advance to starting-site-selection.
-    let state = runSimpleDraft();
+    let state = runSimpleDraft(config);
 
     // Skip item-draft: both players pass (no items assigned)
     state = runActions(state, [
@@ -42,23 +51,23 @@ describe('Rule 1.48 — Hero Starting Site', () => {
     const step = (state.phaseState as { phase: 'setup'; setupStep: { step: string } }).setupStep;
     expect(step.step).toBe('starting-site-selection');
 
-    // PLAYER_1's site deck has [RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM].
+    // PLAYER_1's site deck has [RIVENDELL, RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM].
     // The wizard alignment rule restricts starting sites to Rivendell only.
     const actions = computeLegalActions(state, PLAYER_1);
     const siteSel = actions.filter(ea => ea.action.type === 'select-starting-site');
 
-    // Find the Rivendell instance and check it's viable
-    const rivendellInst = state.players[0].siteDeck.find(
-      c => c.definitionId === (RIVENDELL),
-    )!.instanceId;
-    const rivendellAction = siteSel.find(
-      ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === rivendellInst,
+    const rivendellInstIds = new Set(
+      state.players[0].siteDeck.filter(c => c.definitionId === RIVENDELL).map(c => c.instanceId as string),
     );
-    expect(rivendellAction?.viable).toBe(true);
+    const rivendellActions = siteSel.filter(
+      ea => rivendellInstIds.has((ea.action as { siteInstanceId?: string }).siteInstanceId ?? ''),
+    );
+    expect(rivendellActions.length).toBe(2);
+    expect(rivendellActions.every(ea => ea.viable)).toBe(true);
 
     // All other sites should be non-viable (not an allowed starting site)
     const nonRivendell = siteSel.filter(
-      ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId !== rivendellInst,
+      ea => !rivendellInstIds.has((ea.action as { siteInstanceId?: string }).siteInstanceId ?? ''),
     );
     expect(nonRivendell.length).toBeGreaterThan(0);
     expect(nonRivendell.every(ea => !ea.viable)).toBe(true);

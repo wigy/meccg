@@ -684,13 +684,16 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
     // The paired Hidden Haven site IS the Fallen-wizard's starting site
     // (rule 1.10.F1 / CRF 22), so they must not be prompted to choose one again —
     // the starting-site-selection step is skipped for them, while the opponent
-    // (whose site is not pre-placed) still selects normally.
+    // (whose site is not pre-placed) still selects normally. The opponent's site
+    // deck carries two Rivendell copies so their pick remains a genuine choice
+    // (a single legal site would instead be auto-resolved — see wh-75's
+    // sibling test coverage in rule-1.47-starting-sites.test.ts).
     const config: GameConfig = {
       players: [
         { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
           draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
         { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
-          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL, RIVENDELL], sideboard: [] },
       ],
       seed: 42,
     };
