@@ -6,8 +6,8 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType } from '@meccg/shared';
-import { cardImageProxyPath } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, Alignment } from '@meccg/shared';
+import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
 export function $(id: string): HTMLElement {
@@ -130,15 +130,53 @@ export function createRegionTypeIcon(regionType: RegionType, size = 16): HTMLEle
   return el;
 }
 
-/** Render item cards attached to a character inside a group container. */
+/**
+ * The card definitions of every card in play, both players'. Game-wide effects
+ * carried by a permanent event reach cards of either side (an
+ * `in-play-item-modifier` raises the corruption points of *all* matching items,
+ * not only its controller's), so renderers that need them must consult both
+ * `cardsInPlay` lists. Unknown definitions (redacted cards) are skipped.
+ */
+export function inPlayCardDefs(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CardDefinition[] {
+  return [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
+    .map(c => cardPool[c.definitionId as string])
+    .filter((d): d is CardDefinition => d != null);
+}
+
+/**
+ * Render item cards attached to a character inside a group container, each
+ * wrapped with its corruption-point badge (matching `renderCharacterColumn`'s
+ * in-play item rendering) so a starting item's CP is visible as soon as it is
+ * assigned during setup, not only once play has advanced to the company view.
+ */
 export function appendItemCards(
   container: HTMLElement,
   char: CharacterInPlay,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  view: PlayerView,
+  bearerAlignment?: Alignment,
 ): void {
+  const inPlayDefs = inPlayCardDefs(view, cardPool);
   for (const item of char.items) {
+    const itemDef = cardPool[item.definitionId as string];
     const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'drafted-card drafted-item', item.instanceId as string);
-    if (itemEl) container.appendChild(itemEl);
+    if (!itemEl) continue;
+    const itemCp = itemDef && isItemCard(itemDef) ? effectiveItemCorruptionPoints(itemDef, inPlayDefs, bearerAlignment) : 0;
+    if (itemCp > 0) {
+      const itemWrap = document.createElement('div');
+      itemWrap.className = 'item-card-wrap';
+      itemWrap.appendChild(itemEl);
+      const cpBadge = document.createElement('div');
+      cpBadge.className = 'item-cp-badge';
+      cpBadge.textContent = `${itemCp} CP`;
+      itemWrap.appendChild(cpBadge);
+      container.appendChild(itemWrap);
+    } else {
+      container.appendChild(itemEl);
+    }
   }
 }
 
