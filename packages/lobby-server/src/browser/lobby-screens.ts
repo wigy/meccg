@@ -88,7 +88,7 @@ export function showScreen(id: ScreenId): void {
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const tutorialBtn = document.getElementById('play-tutorial-btn') as HTMLButtonElement | null;
-    if (tutorialBtn) { tutorialBtn.textContent = 'Play the Tutorial'; tutorialBtn.disabled = false; }
+    if (tutorialBtn) { tutorialBtn.textContent = 'Play the Tutorial (Not finished yet)'; tutorialBtn.disabled = false; }
     const heuristicBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement | null;
     if (heuristicBtn) { heuristicBtn.textContent = 'Play vs Heuristic-AI'; heuristicBtn.disabled = false; }
     const realBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
@@ -98,6 +98,10 @@ export function showScreen(id: ScreenId): void {
     document.getElementById('real-ai-options')?.classList.add('hidden');
     const startRealBtn = document.getElementById('start-real-ai-btn') as HTMLButtonElement | null;
     if (startRealBtn) { startRealBtn.textContent = 'Start'; startRealBtn.disabled = false; }
+    // Same for the tutorial chapter picker.
+    document.getElementById('tutorial-options')?.classList.add('hidden');
+    const startTutorialBtn = document.getElementById('start-tutorial-btn') as HTMLButtonElement | null;
+    if (startTutorialBtn) { startTutorialBtn.textContent = 'Start'; startTutorialBtn.disabled = false; }
     const mcBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
     if (mcBtn) { mcBtn.textContent = 'Play vs MC-AI (experimental)'; mcBtn.disabled = false; }
     const modularBtn = document.getElementById('play-modular-ai-btn') as HTMLButtonElement | null;

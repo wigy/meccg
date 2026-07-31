@@ -86,6 +86,12 @@ export interface PlayModularAiMessage {
  */
 export interface PlayTutorialMessage {
   readonly type: 'play-tutorial';
+  /**
+   * Which tutorial chapter to play. Only chapter 1 ("Starting the journey")
+   * exists today; the field readies the protocol for future chapters.
+   * Absent (old clients) means chapter 1.
+   */
+  readonly chapter?: number;
 }
 
 /** Start a game against the pseudo-AI (human controls both sides). */

@@ -17,6 +17,7 @@
 
 import type { GameState } from '../types/state.js';
 import type { GameAction } from '../types/actions.js';
+import type { TutorialCardIllustration, TutorialConcept, TutorialPointer } from '../types/player-view.js';
 import type { EvaluatedAction, PlayerId } from '../index.js';
 import type { CardDefinitionId, CardInstanceId } from '../types/common.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -71,6 +72,14 @@ export interface TutorialStepInfo {
   readonly id: string;
   readonly title: string;
   readonly body: string;
+  /** Glossary entries for game terms this step introduces, shown under the instruction. */
+  readonly concepts?: readonly TutorialConcept[];
+  /** Callout bubbles pointing at UI elements related to this step. */
+  readonly pointers?: readonly TutorialPointer[];
+  /** Card illustrated beside the instruction, with an optional attribute highlight. */
+  readonly card?: TutorialCardIllustration;
+  /** Emphasized closing line rendered under the step content (e.g. "TO BE CONTINUED…"). */
+  readonly footer?: string;
 }
 
 /** True when `action` references `def` through any of its id-bearing fields. */

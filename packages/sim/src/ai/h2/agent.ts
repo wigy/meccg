@@ -6,10 +6,27 @@
  * the weighted distribution the rest of the harness already speaks.
  *
  * Two seams are preserved deliberately. First, H2 returns *utilities* and the
- * agent converts them with a softmax rather than playing the argmax, because
- * the behavioural-cloning pipeline consumes the weight distribution as soft
- * targets and the noisy-heuristic variants sample from it. Second, decisions
- * H2 cannot speak to are delegated to Heuristics 1 unchanged.
+ * agent converts them into a softmax distribution, because the
+ * behavioural-cloning pipeline consumes that distribution as soft targets.
+ * Second, decisions H2 cannot speak to are delegated to Heuristics 1
+ * unchanged.
+ *
+ * It *reports* that distribution and *plays* the argmax. Those are different
+ * questions and were once answered by the same number, which meant the agent
+ * spent every decision sampling a move its own model rated worse. At
+ * `softmaxTemperature` 0.02 against utilities that are win-probability deltas
+ * of a few thousandths, that is not a rounding error: a candidate 0.5% worse
+ * in win probability came out at weight 0.44 against the best one's 0.56, so
+ * "draw a card" versus "pass" was close to a coin flip in a position where the
+ * agent knew which it preferred. `compare` had already written the principle
+ * down — the sampling temperature belongs to the harness, not to the opinion,
+ * which is why it polls both agents at their argmax. This makes the agent obey
+ * it too.
+ *
+ * Sampled play is still available (`Heuristic2Options.sample`, or an explicit
+ * `@T` on the CLI spec) because exploration is what generates diverse
+ * self-play data. It is a data-collection mode, not how the agent plays when
+ * it is trying to win.
  *
  * The interesting case is a decision H2 can speak to only *partly*. Measured
  * over four self-play games, a dozen action types still have no owner, so
@@ -92,6 +109,15 @@ export interface Heuristic2Options {
    */
   readonly yieldWhenFallbackCanSearch?: boolean;
   /**
+   * Sample the reported distribution instead of playing its argmax.
+   *
+   * Off by default: sampling a move the agent's own model ranks below another
+   * is a self-inflicted error, and the distribution is reported either way, so
+   * nothing downstream needs it. Turn it on to generate exploratory self-play
+   * data, where the point is coverage of positions rather than winning.
+   */
+  readonly sample?: boolean;
+  /**
    * Agent asked for the decisions H2 cannot speak to — an unowned candidate
    * it dare not rank blind, or a covered ranking that came out flat.
    *
@@ -157,11 +183,14 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   // plain `h2` for two different constant sets cannot be read afterwards —
   // which is exactly the failure a tunable gate would produce.
   const base = `${selector}${describeTunableOverrides(tunables)}`;
-  // The fallback is part of what the agent *is* — a run that reports `h2` for
-  // two differently-composed agents cannot be read afterwards.
+  // Sampled play and the fallback are each a different agent from plain argmax
+  // play — a run that reports `h2` for differently-configured agents cannot be
+  // read afterwards. The fallback's connector records whether the agent yields
+  // outright (`>`) or only on what its own modules cannot price (`+`).
+  const sampled = options.sample ? `${base}@${temperature}` : base;
   const label = options.fallback
-    ? `${base}${yieldToFallback ? '>' : '+'}${fallback.name}`
-    : base;
+    ? `${sampled}${yieldToFallback ? '>' : '+'}${fallback.name}`
+    : sampled;
 
   return {
     name: label,
@@ -247,7 +276,9 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         action: e.action,
         weight: probabilities[i],
       }));
-      const action = sampleWeighted(considered, context.random);
+      // `evaluations` is ranked, so `best` is the argmax. Sampling it instead
+      // is exploration, and exploration is a data-collection setting.
+      const action = options.sample ? sampleWeighted(considered, context.random) : best.action;
       return {
         action,
         considered,

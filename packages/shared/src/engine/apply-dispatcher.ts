@@ -83,9 +83,12 @@ export function applyEffect(
     // Combat cancel fired from chain resolution (e.g. Concealment,
     // Vanishment, Dark Quarrels, Many Turns and Doublings).
     logDetail(`applyEffect: cancel-attack dispatched for ${ctx.sourceCardId as string}`);
-    // Capture the defending player before the cancel clears combat — needed to
-    // target the deferred free-cancel grant (Darkness Wielded ba-55).
+    // Capture the defending player/company before the cancel clears combat —
+    // needed to target the deferred free-cancel grant (Darkness Wielded
+    // ba-55) and the tap-on-strike-assignment constraint (Fifteen Birds in
+    // Five Firtrees dm-129).
     const defendingPlayerId = state.combat?.defendingPlayerId;
+    const defendingCompanyId = state.combat?.companyId;
     let next = resolveCancelAttackEntry(state);
     if (effect.alsoCancelLaterAttack && defendingPlayerId) {
       const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
@@ -95,9 +98,29 @@ export function applyEffect(
           sourceDefinitionId,
           scope: { kind: 'turn' },
           target: { kind: 'player', playerId: defendingPlayerId },
-          kind: { type: 'free-attack-cancel', restrictToBalrogCompany: true },
+          kind: {
+            type: 'free-attack-cancel',
+            restrictToBalrogCompany: !!effect.alsoCancelLaterAttackRestrictToBalrogCompany,
+            ...(effect.alsoCancelLaterAttackSameCompanyOnly && defendingCompanyId
+              ? { restrictToCompanyId: defendingCompanyId }
+              : {}),
+            ...(effect.alsoCancelLaterAttackRequireNonUnique ? { requireNonUniqueCreature: true } : {}),
+          },
         });
-        logDetail(`applyEffect: cancel-attack granted a deferred free cancellation this turn to ${defendingPlayerId as string} (Darkness Wielded)`);
+        logDetail(`applyEffect: cancel-attack granted a deferred free cancellation this turn to ${defendingPlayerId as string} (source: ${sourceDefinitionId as string})`);
+      }
+    }
+    if (effect.installsTapOnStrikeAssignment && defendingCompanyId) {
+      const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
+      if (sourceDefinitionId) {
+        next = addConstraint(next, {
+          source: ctx.sourceCardId,
+          sourceDefinitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'company', companyId: defendingCompanyId },
+          kind: { type: 'tap-on-strike-assignment' },
+        });
+        logDetail(`applyEffect: cancel-attack installed tap-on-strike-assignment on company ${defendingCompanyId as string} for the rest of the turn (source: ${sourceDefinitionId as string})`);
       }
     }
     return { state: next };

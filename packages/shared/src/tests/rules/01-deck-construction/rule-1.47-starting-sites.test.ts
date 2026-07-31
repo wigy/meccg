@@ -15,14 +15,22 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  runSimpleDraft, runActions, PLAYER_1, PLAYER_2,
+  runSimpleDraft, runActions, makeDraftConfig, RIVENDELL, PLAYER_1, PLAYER_2,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 
 describe('Rule 1.47 — Starting Sites', () => {
   test('Each player must declare starting site(s) by placing cards from location deck with starting company', () => {
+    // Two Rivendell copies keep this a genuine choice — with only one legal
+    // site, the engine now auto-resolves the pick (see Rule 1.47 auto-resolve test).
+    const base = makeDraftConfig();
+    const config = {
+      ...base,
+      players: [{ ...base.players[0], siteDeck: [RIVENDELL, ...base.players[0].siteDeck] }, base.players[1]] as typeof base.players,
+    };
+
     // After the character draft, navigate to starting-site-selection.
-    let state = runSimpleDraft();
+    let state = runSimpleDraft(config);
 
     // Skip item-draft: both players pass
     state = runActions(state, [
@@ -57,5 +65,35 @@ describe('Rule 1.47 — Starting Sites', () => {
     // select-starting-site actions are offered for all sites in the deck (viable or not)
     const p1AllSiteSel = p1Actions.filter(ea => ea.action.type === 'select-starting-site');
     expect(p1AllSiteSel.length).toBe(state.players[0].siteDeck.length);
+  });
+
+  test('a lone legal starting site is auto-selected instead of forcing a no-choice pick', () => {
+    // Bug report: a wizard whose site deck holds a single Rivendell (the only
+    // legal wizard starting site) had to manually pick it even though no other
+    // choice was ever possible. The engine now applies it automatically.
+    let state = runSimpleDraft();
+
+    state = runActions(state, [
+      { type: 'pass', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+    state = runActions(state, [
+      { type: 'pass', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+
+    // PLAYER_1's default site deck [RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM]
+    // has exactly one legal wizard starting site — Rivendell is auto-selected
+    // and the player is marked done without any action from them.
+    expect(state.phaseState.phase).toBe('setup');
+    const step = (state.phaseState as { phase: 'setup'; setupStep: { step: string; siteSelectionState: readonly { done: boolean; selectedSites: readonly { definitionId: string }[] }[] } }).setupStep;
+    expect(step.step).toBe('starting-site-selection');
+    expect(step.siteSelectionState[0].done).toBe(true);
+    expect(step.siteSelectionState[0].selectedSites.map(s => s.definitionId)).toEqual([RIVENDELL]);
+
+    // Rivendell was removed from the site deck and no legal actions remain for
+    // that player — the step is not offering them anything more to decide.
+    expect(state.players[0].siteDeck.some(c => c.definitionId === RIVENDELL)).toBe(false);
+    expect(computeLegalActions(state, PLAYER_1)).toHaveLength(0);
   });
 });

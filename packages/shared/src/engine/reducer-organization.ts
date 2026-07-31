@@ -16,6 +16,7 @@ import { CardStatus, SiteType, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { targetConditionalDIBonus } from './legal-actions/organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
@@ -255,7 +256,12 @@ function revertOverextendedDirectInfluenceFollowers(state: GameState, activePlay
         const follower = characters[followerId];
         const followerDef = follower ? resolveDef(state, follower.instanceId) : undefined;
         if (!follower || !isCharacterCard(followerDef) || followerDef.mind === null) return null;
-        const cost = controlCostOf(state, follower, follower.effectiveStats.mind ?? followerDef.mind) ?? 0;
+        const baseCost = controlCostOf(state, follower, follower.effectiveStats.mind ?? followerDef.mind) ?? 0;
+        // Credit target-conditional DI (Glorfindel II "+1 DI against Elves")
+        // against this follower's cost — the same bonus `availableDI` applied
+        // when the follower was admitted, so admission and this release check
+        // agree (else a legal follower would be released the same phase).
+        const cost = Math.max(0, baseCost - targetConditionalDIBonus(state, controller, followerDef));
         return { followerId, cost };
       })
       .filter((f): f is { followerId: CardInstanceId; cost: number } => f !== null)

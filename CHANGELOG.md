@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.70.0 — 2026-07-31
+
+Nightly Build
+
+### Game Engine
+
+- **Certified Fog (tw-241)** and fixed the Balance Between Powers (dm-118) test broken by Fog's new play-condition
+- **Certified Choice of Lúthien (dm-120)** — implemented its missing effects plus the remaining discard-on-move and tap-fetch clauses
+- **Certified Fifteen Birds in Five Firtrees (dm-129)** — implemented cancel-attack and the remaining clauses
+- Implemented Paths of the Dead (tw-302) special movement and hazard restriction
+- Implemented Pallando's top-of-discard-pile reveal (CRF 22)
+- Wired up Healing Herbs' heal-company-character grant-action
+- Starting-site selection now auto-resolves when only one legal site exists
+- Fixed move-to-company offering moves the reducer then refused, including moves that would empty the source company
+- Fixed Rescue Prisoners checking the site-duplication limit against the bearer's current site instead of the play site
+- Fixed The White Tree being playable outside the site phase
+- Fixed Safe from the Shadow's storing window being restricted to the active player only
+- Fixed Echo of All Joy silently attaching to the wrong long-event
+
+### Guided Tutorial
+
+- Tutorial chapter 1: concepts, UI bubbles, direct-influence lesson, resume support, and a chapter picker
+- Re-enabled the play-tutorial lobby button and moved it to the top of the Begin a Quest panel, marked as unfinished
+- Fixed the tutorial script for auto-resolved starting-site selection
+
+### Lobby & Web Client
+
+- Added search by message ID to the admin requests tab
+- Keyboard-shortcut hints are now suppressed while spectating
+
+### AI & Simulation
+
+- The modular AI's fallback is now a parameter (including the Monte-Carlo agent), with near-ties handed to the fallback via a decisive-margin threshold
+- Divergences from the fallback are now priced (bucketed by unit) instead of only counted, with the noise floor measured
+- Gates can now vary a tunable; gated tapTempoCost
+- The modular AI plays its argmax and reports its distribution and head-to-head gap to the Monte-Carlo agent
+
+### Documentation
+
+- Added a link to the dev server in the README
+- Refreshed project status metrics in the README
+
 ## 0.69.0 — 2026-07-31
 
 Changelog etc

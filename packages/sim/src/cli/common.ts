@@ -180,10 +180,14 @@ export function resolveAgent(spec: string): Agent {
     }
     case 'h2': {
       // Heuristics 2 with a module selector for ablation gates:
-      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`,
-      // `h2:all@0.5` (softmax temperature 0.5). Decisions no enabled module
-      // claims fall through to the fallback agent, so `h2:<module>` isolates
-      // exactly that module's contribution.
+      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`. Decisions no
+      // enabled module claims fall through to the fallback agent, so
+      // `h2:<module>` isolates exactly that module's contribution.
+      //
+      // `@T` asks for *sampled* play at softmax temperature T. Without it the
+      // agent plays its argmax and still reports the distribution, which is
+      // what a gate wants; `@T` is for generating exploratory self-play data,
+      // where position coverage matters more than winning.
       //
       // `+<spec>` names that fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`.
       // `>` is the same composition, plus: defer every decision the fallback
@@ -220,6 +224,7 @@ export function resolveAgent(spec: string): Agent {
         modules,
         temperature,
         tunables,
+        sample: temperature !== undefined,
         fallback: fallbackSpec === undefined ? undefined : resolveAgent(fallbackSpec),
         yieldWhenFallbackCanSearch: yields,
       });

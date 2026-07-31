@@ -1194,6 +1194,17 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Paths of the Dead (tw-302): while active, the opponent may only play
+         * hazard creatures of the given race against the target company ("The
+         * only hazard creatures that may be played on this company are Undead,
+         * but any Undead may be played on the company").
+         */
+        readonly type: 'only-race-creatures-on-company';
+        /** The only race whose hazard creatures may be played against the company. */
+        readonly race: Race;
+      }
+    | {
+        /**
          * Master of Esgaroth (td-135): the target company "can take a second
          * movement/hazard phase immediately following its first" — the
          * standing, destination-gated counterpart of the one-shot
@@ -2049,6 +2060,20 @@ export interface ActiveConstraint {
          * company that contains The Balrog avatar ("against his company").
          */
         readonly restrictToBalrogCompany: boolean;
+        /**
+         * When set, the free cancel may only be used against an attack on this
+         * specific company ("the next … attack the company faces this turn" —
+         * Fifteen Birds in Five Firtrees dm-129, as opposed to ba-55's
+         * player-wide "his company" match on Balrog membership).
+         */
+        readonly restrictToCompanyId?: CompanyId;
+        /**
+         * When true, the free cancel may only be used against an attack sourced
+         * from a non-unique hazard creature (`enemy.unique !== true`), mirroring
+         * the granting card's own gate. Used by Fifteen Birds in Five Firtrees
+         * (dm-129).
+         */
+        readonly requireNonUniqueCreature?: boolean;
       }
     | {
         /**
@@ -2063,6 +2088,20 @@ export interface ActiveConstraint {
          * (`engine/removal-protection.ts`). Auto-swept at turn end.
          */
         readonly type: 'character-removal-protected';
+      }
+    | {
+        /**
+         * Fifteen Birds in Five Firtrees (dm-129): "An untapped character in
+         * the company must tap to face any strike from a subsequent hazard
+         * creature attack for the rest of the turn." Turn-scoped, targeted at
+         * the company that played the card. The `assign-strike` reducer
+         * (`reducer-combat.ts`) checks this constraint whenever a *new* (not
+         * excess) strike is assigned during a hazard-creature-sourced combat
+         * (`attack.source` in creature / on-guard-creature / played-auto-attack)
+         * against the target company, and taps the assigned character in
+         * place when it was untapped.
+         */
+        readonly type: 'tap-on-strike-assignment';
       };
 }
 

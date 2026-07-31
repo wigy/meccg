@@ -17,7 +17,9 @@
  * request across the ai/admin inboxes with view and delete actions, plus an
  * "Older Requests" row that pages in already-handled requests 50 at a time
  * (`GET /api/admin/requests/old`); those can additionally be renewed —
- * set back to status 'new' — to re-queue them.
+ * set back to status 'new' — to re-queue them. A search bar above the list
+ * jumps straight to a request by its message ID, probing each request inbox
+ * with the detail route.
  *
  * Above the tabs sits the yell bar: a message box whose Yell button
  * broadcasts the text as a system toast to every player online
@@ -285,7 +287,7 @@ type AdminTab = 'users' | 'requests';
 /** The explanatory note under the page title, per tab. */
 const TAB_NOTES: Record<AdminTab, string> = {
   users: 'Every registered account. Click a user to see their full record, credit history, and games played.',
-  requests: 'Open requests in the AI work queue. Older Requests pages in the already-handled ones, which can be renewed back into the queue.',
+  requests: 'Open requests in the AI work queue. Older Requests pages in the already-handled ones, which can be renewed back into the queue. The search box jumps to a request by its message ID.',
 };
 
 /** The tab restored on reload: the last one viewed, defaulting to users. */
@@ -461,6 +463,47 @@ const VIEW_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" s
 const DELETE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
 const RENEW_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
 
+/** Inboxes that hold work-queue requests. Mirrors REQUEST_INBOXES in http/routes.ts. */
+const REQUEST_INBOXES = ['ai', 'admin'];
+
+/**
+ * The request search bar: entering a message ID opens that request's detail
+ * page. The detail route needs the inbox, which the ID alone doesn't tell,
+ * so each request inbox is probed in turn until one has the message.
+ */
+function renderRequestSearch(): HTMLElement {
+  const bar = document.createElement('div');
+  bar.className = 'admin-req-search';
+  bar.innerHTML = `
+    <input type="text" class="admin-req-search-input" maxlength="64"
+      placeholder="Message ID...">
+    <button type="button" class="admin-req-search-btn">Find</button>
+    <span class="admin-req-search-note"></span>`;
+  const input = bar.querySelector<HTMLInputElement>('.admin-req-search-input')!;
+  const btn = bar.querySelector<HTMLButtonElement>('.admin-req-search-btn')!;
+  const note = bar.querySelector<HTMLElement>('.admin-req-search-note')!;
+  const search = async (): Promise<void> => {
+    const id = input.value.trim().toLowerCase();
+    if (!id) return;
+    btn.disabled = true;
+    note.textContent = '';
+    for (const inbox of REQUEST_INBOXES) {
+      const r = await apiGet<AdminRequestDetail>(`/api/admin/requests/${inbox}/${encodeURIComponent(id)}`);
+      if (r.ok) {
+        await openAdminRequestPage(inbox, id);
+        return;
+      }
+    }
+    btn.disabled = false;
+    note.textContent = 'No request with that ID.';
+  };
+  btn.addEventListener('click', () => { void search(); });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') void search();
+  });
+  return bar;
+}
+
 /** Who filed the request: the keyword the creating route stamped, or the display name. */
 function requestor(request: AdminRequest): string {
   return request.keywords.userName ?? request.keywords.reportedBy ?? request.from;
@@ -579,6 +622,7 @@ async function renderRequestsTab(listEl: HTMLElement): Promise<void> {
   })(); });
 
   listEl.innerHTML = '';
+  listEl.appendChild(renderRequestSearch());
   listEl.appendChild(totalEl);
   listEl.appendChild(table);
 }

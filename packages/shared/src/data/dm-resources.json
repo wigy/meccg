@@ -575,10 +575,72 @@
     "name": "Choice of Lúthien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ChoiceofLuthien.jpg",
     "unique": true,
+    "certified": "2026-07-31",
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Arwen"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.name": "Minas Tirith"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$not": {
+            "destination.region": {
+              "$in": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"]
+            }
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "choice-of-luthien-fetch",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile", "deck"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "fetchTo": "hand",
+          "playableAtBearerSite": true,
+          "filter": {
+            "cardType": {
+              "$in": ["hero-resource-item", "hero-resource-ally", "hero-resource-faction"]
+            }
+          }
+        }
+      }
+    ],
     "text": "Unique. Playable on Arwen in Minas Tirith. She receives +2 direct influence and her mind increases by 2. Discard if Arwen moves to a site not in Anórien, Lebennin, Lamedon, Belfalas, or Anfalas. Tap Arwen to take one item, ally, or faction playable at her current site from your play deck or discard pile into your hand (reshuffle play deck if searched)."
   },
   {
@@ -674,8 +736,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a moving company facing a non-unique hazard creature if Gates of Morning is in play. All attacks of the creature are cancelled and all attacks of the next non-unique hazard creature the company faces this turn are also canceled. An untapped character in the company must tap to face any strike from a subsequent hazard creature attack for the rest of the turn. The company can do nothing during its site phase unless it contains a Wizard or you discard Eagle-mounts from your hand. Cannot be duplicated on a given turn."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "alsoCancelLaterAttack": true,
+        "alsoCancelLaterAttackSameCompanyOnly": true,
+        "alsoCancelLaterAttackRequireNonUnique": true,
+        "installsTapOnStrikeAssignment": true,
+        "when": {
+          "$and": [
+            { "attack.source": { "$in": ["creature", "on-guard-creature", "played-auto-attack"] } },
+            { "enemy.unique": { "$ne": true } },
+            { "defender.inPlay": { "$includes": "Gates of Morning" } }
+          ]
+        }
+      },
+      {
+        "type": "company-site-phase-do-nothing",
+        "unless": { "company.containsWizard": true },
+        "escape": {
+          "action": "discard-eagle-mounts-for-site-phase",
+          "cost": { "discard": "named-card", "discardCardName": "Eagle-mounts" },
+          "apply": { "type": "remove-constraint", "select": "constraint-source" }
+        }
+      },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 }
+    ],
+    "text": "Playable on a moving company facing a non-unique hazard creature if Gates of Morning is in play. All attacks of the creature are cancelled and all attacks of the next non-unique hazard creature the company faces this turn are also canceled. An untapped character in the company must tap to face any strike from a subsequent hazard creature attack for the rest of the turn. The company can do nothing during its site phase unless it contains a Wizard or you discard Eagle-mounts from your hand. Cannot be duplicated on a given turn.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hero-resource-event",

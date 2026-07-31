@@ -55,8 +55,14 @@ import type { CardDefinitionId, CardInstanceId, EndOfTurnPhaseState, GameState, 
 
 const BALANCE = 'dm-118' as CardDefinitionId;
 
-/** Environment resource long-event with no other rules — the "cannot be played" probe. */
+/** Environment resource long-event, used to pay the upkeep/counter-chain costs below. */
 const FOG = 'tw-241' as CardDefinitionId;
+/**
+ * Unconditionally playable environment resource long-event — the "cannot be
+ * played" probe. Unlike Fog (tw-241), Sun has no `card-in-play` play-condition,
+ * so it stays a valid stand-in for "any plain environment".
+ */
+const SUN = 'tw-335' as CardDefinitionId;
 /** A second plain environment resource long-event, so a 2-card counter is payable. */
 const CLEAR_SKIES = 'tw-203' as CardDefinitionId;
 /** Environment resource short-event — a third distinct environment for hand payments. */
@@ -146,7 +152,7 @@ describe('Balance Between Powers (dm-118)', () => {
         activePlayer: PLAYER_1,
         phase: Phase.LongEvent,
         players: [
-          { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [FOG, ELF_SONG], siteDeck: [MORIA] },
+          { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SUN, ELF_SONG], siteDeck: [MORIA] },
           { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
         ],
       });
@@ -163,8 +169,8 @@ describe('Balance Between Powers (dm-118)', () => {
       const state = longEventState(true);
       const playable = viableActions(state, PLAYER_1, 'play-long-event')
         .map(ea => (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId);
-      const fogId = handCardOf(state, RESOURCE_PLAYER, FOG);
-      expect(playable).not.toContain(fogId);
+      const sunId = handCardOf(state, RESOURCE_PLAYER, SUN);
+      expect(playable).not.toContain(sunId);
     });
 
     test('non-environment resource events stay playable', () => {
@@ -176,9 +182,9 @@ describe('Balance Between Powers (dm-118)', () => {
 
     test('the prohibited environment is reported as not-playable, once', () => {
       const state = longEventState(true);
-      const fogId = handCardOf(state, RESOURCE_PLAYER, FOG);
+      const sunId = handCardOf(state, RESOURCE_PLAYER, SUN);
       const dimmed = nonViableOfType(computeLegalActions(state, PLAYER_1), 'not-playable')
-        .filter(ea => (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === fogId);
+        .filter(ea => (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === sunId);
       expect(dimmed).toHaveLength(1);
       expect(dimmed[0].reason).toContain('prohibited');
     });

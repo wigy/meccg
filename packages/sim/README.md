@@ -86,6 +86,38 @@ read at their argmax — the sampling temperature belongs to the harness, not to
 the opinion. Forced decisions are reported separately because agreement is
 free where there is one legal action, and that is 53% of them.
 
+### The distribution is reported; the argmax is played
+
+Those are two questions, and H2 used to answer both with one number. The
+behavioural-cloning pipeline wants a distribution over candidates as soft
+targets, so the agent softmaxes its utilities — and it then *sampled* that
+distribution to pick its move. Utilities are win-probability deltas of a few
+thousandths and `softmaxTemperature` is 0.02, so the distribution is broad by
+construction: a candidate half a percent of win probability behind still comes
+out at weight 0.44 against the best one's 0.56. In transcripts that reads
+
+```text
+#798 h2 (2 options): Draw 1 card
+   → w=  0.56  Draw 1 card
+     w=  0.44  Pass (end your actions this phase)
+```
+
+— a position where the agent's own model prefers drawing, and it passes two
+times in five. `compare` had already written the principle down one paragraph
+above: the sampling temperature belongs to the harness, not to the opinion.
+
+So `h2` now plays its argmax and reports the distribution unchanged. Sampled
+play is still reachable as `h2:all@0.02`, an explicit request for exploration
+when the point is covering positions rather than winning; the agent names
+itself `h2@0.02` there, because a replay has to say which of the two played.
+
+Over 599 games in two independent samples, argmax play beats sampled play by
++17 Elo [−30, +65] on 200 games from seed 1 and +10 [−24, +44] on 400 from seed
+1001 — **the same direction twice and significant neither time**. This is not a
+change that closes the gap to `mc`; it is one that stops paying for noise the
+design never asked for. The honest summary is that it is worth something small
+and positive, and that 599 paired games cannot say how small.
+
 ### Services
 
 Modules never call each other — a number one module owns reaches another as a
@@ -450,6 +482,89 @@ could not serve:
   because harm to that company is the thing being aimed for. It now gates on the
   company being ours, and `hazards` takes the window — it is a denial choice
   like any other.
+
+### The other work list: what a divergence costs
+
+`coverage` ranks action types by how often they come up. That is the right
+ordering for "which module to write next" and the wrong one for "where is the
+strength going" — a type that appears two hundred times and costs nothing
+outranks one that appears twenty times and loses the game.
+
+`compare` can answer the second question and was throwing the answer away. The
+driver has already ranked the candidates and publishes that ranking as
+`considered` weights, so the gap between what it scored its own pick and what it
+scored the shadow's is a **price** for taking the shadow's move. With `mc`
+driving, those weights are mean playout TSD, so the price is score — measured by
+playing both moves forward through the real reducer. It costs no extra rollouts.
+
+```sh
+npm run compare -w @meccg/sim -- --agents 'mc:rollouts=16/candidates=6/turns=1;h2' --games 2
+```
+
+Two things had to be got right before the number meant anything, and both were
+wrong in the first version of this table.
+
+**Units are per decision, not per agent.** `mc` cannot determinize a view in
+combat, mid-chain, or with effects pending; there it delegates and returns the
+*fallback's* weights, which are H1's unitless soup. The first table added those
+to mean playout TSD and printed the sum as score — which is how
+`resolve-strike` came to be reported at "8.95 TSD" when no rollout had ever
+looked at it. Costs are now bucketed by `AgentDecision.weightUnit` and reported
+one table per bucket. The split is not cosmetic: with `mc` driving it is exactly
+the line between the decisions the rollouts have an opinion about and the ones
+where the Monte-Carlo agent *is* Heuristics 1 wearing its name.
+
+**The price is biased in the driver's favour**, because the driver chose the
+argmax of its own noisy estimates, so disagreeing with it looks costly even when
+the disagreement is the noise. The floor is measurable: drive with the same
+agent on both sides. Two games each, `candidates=6/turns=1`:
+
+| driver | shadow | divergences/game | priced | total tsd | per divergence |
+|---|---|---|---|---|---|
+| `mc:4` | `h2` | 248.5 | 270 | 314.50 | 1.16 |
+| `mc:4` | `mc:4` | 88.0 | 166 | 297.75 | **1.79** |
+| `mc:16` | `h2` | 237.5 | 242 | 101.75 | 0.42 |
+| `mc:16` | `mc:16` | 81.0 | 149 | 111.06 | **0.75** |
+
+**At both budgets the noise floor is higher per divergence than H2's actual
+disagreements**, and the whole table shrinks by roughly √4 when the rollout
+count goes up by 4 — which is what it should do if most of it is sampling error.
+Read the control before reading the table; without it the 4-rollout run says H2
+gives up 314 TSD across two games, and what it actually says is that a
+four-rollout mean cannot tell H2's choices apart from its own variance.
+
+What survives that subtraction is one row:
+
+| action type | vs `h2` | floor | excess |
+|---|---|---|---|
+| **`pass`** | **58.75** | **17.38** | **+41.4** |
+| `play-hazard` | 12.50 | 7.31 | +5.2 |
+| `place-on-guard` | 6.50 | 10.13 | −3.6 |
+| `play-short-event` | 1.00 | 11.88 | −10.9 |
+| `plan-movement` | 7.13 | 19.44 | −12.3 |
+| `activate-granted-action` | 5.31 | 22.88 | −17.6 |
+
+`pass` is 58% of the total cost and the only type clearly above its own floor;
+everything else H2 does differently is worth less than `mc` disagreeing with
+itself. The divergences read the same way one after another — `mc` passes, H2
+taps a character to activate something:
+
+```text
+   9.00  pass
+         mc     Pass (end your actions this phase)
+         h2     Activate remove-self-on-roll on Lure of Nature (Peath taps)
+```
+
+**H2 does not know how to do nothing**, and that is a consequence of the design
+rather than an accident. A module prices an action *relative to doing nothing*,
+`core/baseline.ts` owns `pass` at a flat zero, and the agent takes the argmax —
+so any module returning +0.1% outranks passing, every time, and the tap it spent
+is never charged against the turn it might have been wanted for.
+
+Note also what this reorders. The coverage work list is led by
+`play-short-event` and `play-hazard`; priced by rollouts and net of the floor
+they are +5.2 and −10.9. The two lists are not measuring the same thing, and
+only one of them is measuring strength.
 
 ### Pricing a card's ability without knowing the card
 

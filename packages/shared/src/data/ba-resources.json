@@ -924,6 +924,7 @@
       {
         "type": "cancel-attack",
         "alsoCancelLaterAttack": true,
+        "alsoCancelLaterAttackRestrictToBalrogCompany": true,
         "when": {
           "$and": [
             { "defender.companyContainsBalrog": true },

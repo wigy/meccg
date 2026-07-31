@@ -983,13 +983,25 @@ function finalizeSiteSelection(
 }
 
 /**
- * Auto-completes the starting-site-selection step for any player whose starting
- * site is already determined by a Hidden Haven (wh-75) draft pairing: that
- * player's company already sits at the brought-out site (CRF 22, rule 1.10.F1),
- * so there is nothing for them to select and the step is skipped for them. If
- * BOTH players are so determined, the step is skipped entirely (finalised at
- * once). A no-op unless `state` is in the starting-site-selection step — so it is
- * safe to wrap around any transition that may or may not land there.
+ * Auto-completes the starting-site-selection step for any player who has no
+ * real decision left to make:
+ *
+ * - Their starting site is already determined by a Hidden Haven (wh-75)
+ *   draft pairing: that player's company already sits at the brought-out
+ *   site (CRF 22, rule 1.10.F1), so there is nothing for them to select.
+ * - Their alignment only ever declares a single starting site (wizard,
+ *   fallen-wizard — `maxStartingSites === 1`) and their site deck holds
+ *   exactly one alignment-legal site (typically a lone Rivendell). Forcing a
+ *   manual click through a one-option picker adds nothing, so the selection
+ *   is applied directly. Alignments that may split across two starting
+ *   companies (ringwraith, balrog) are left alone even when only one legal
+ *   site remains, since stopping at one company there is a genuine choice,
+ *   not a forced default.
+ *
+ * If BOTH players are so determined, the step is skipped entirely
+ * (finalised at once). A no-op unless `state` is in the starting-site-selection
+ * step — so it is safe to wrap around any transition that may or may not land
+ * there.
  */
 function applySiteSelectionAutoSkip(state: GameState): GameState {
   if (state.phaseState.phase !== Phase.Setup
@@ -998,20 +1010,45 @@ function applySiteSelectionAutoSkip(state: GameState): GameState {
   }
   const step = state.phaseState.setupStep;
   const newSel = [...step.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
+  let workingState = state;
   let changed = false;
   for (let i = 0; i < 2; i++) {
-    const hasPrePlacedSite = state.players[i].companies.some(c => c.currentSite != null);
-    if (hasPrePlacedSite && !newSel[i].done) {
+    if (newSel[i].done) continue;
+
+    const hasPrePlacedSite = workingState.players[i].companies.some(c => c.currentSite != null);
+    if (hasPrePlacedSite) {
       newSel[i] = { ...newSel[i], done: true };
       changed = true;
       logDetail(`Player ${i}'s starting site is set by a Hidden Haven pairing — skipping site selection`);
+      continue;
     }
+
+    if (newSel[i].selectedSites.length > 0) continue;
+
+    const player = workingState.players[i];
+    const { defaultStartingSites, maxStartingSites } = getAlignmentRules(player.alignment);
+    if (maxStartingSites !== 1) continue;
+
+    const allowedDefIds = new Set(defaultStartingSites.map(id => id as string));
+    const viableSites = player.siteDeck.filter(c => allowedDefIds.has(c.definitionId));
+    if (viableSites.length !== 1) continue;
+
+    const siteCard = viableSites[0];
+    const newSiteDeck = player.siteDeck.filter(c => c.instanceId !== siteCard.instanceId);
+    workingState = updatePlayer(workingState, i, p => ({ ...p, siteDeck: newSiteDeck }));
+    newSel[i] = {
+      ...newSel[i],
+      selectedSites: [{ instanceId: siteCard.instanceId, definitionId: siteCard.definitionId }],
+      done: true,
+    };
+    changed = true;
+    logDetail(`Player ${i}'s site deck holds exactly one legal starting site (${siteCard.definitionId}) — auto-selecting instead of forcing a no-choice pick`);
   }
-  if (!changed) return state;
+  if (!changed) return workingState;
   if (newSel[0].done && newSel[1].done) {
-    return finalizeSiteSelection(state, newSel);
+    return finalizeSiteSelection(workingState, newSel);
   }
-  return { ...state, phaseState: setupPhase({ ...step, siteSelectionState: newSel }) };
+  return { ...workingState, phaseState: setupPhase({ ...step, siteSelectionState: newSel }) };
 }
 
 /**

@@ -32,7 +32,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence } from '@meccg/shared';
+import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, PALLANDO } from '@meccg/shared';
 import { computeLegalActions, stampActionIds } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
@@ -60,6 +60,20 @@ function revealedCardPile(
 ): readonly ViewCard[] {
   return pile.map(c =>
     revealed[c.instanceId] !== undefined
+      ? { instanceId: c.instanceId, definitionId: c.definitionId }
+      : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
+  );
+}
+
+/**
+ * Redacts a discard pile like {@link hiddenCardPile}, but keeps the true
+ * identity of the top (most recently discarded) card. Used when the viewing
+ * player controls Pallando (tw-175): CRF 22 rules that Pallando "can only see
+ * the top card of an opponent's discard pile" — not the whole pile.
+ */
+function hiddenPileRevealTop(pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[]): readonly ViewCard[] {
+  return pile.map((c, i) =>
+    i === pile.length - 1
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
   );
@@ -147,11 +161,14 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
 
 /**
  * Builds the "opponent" portion of a player's view. Hides the opponent's
- * hand contents, play deck, site deck, and sideboard (represented as arrays
- * of {@link UNKNOWN_INSTANCE}), and redacts planned movement destinations
- * to a boolean `hasPlannedMovement` flag.
- * Public information — characters in play, company locations, discard piles —
- * is passed through.
+ * hand contents, play deck, site deck, sideboard, and discard pile
+ * (represented as arrays of {@link UNKNOWN_INSTANCE} / {@link UNKNOWN_CARD}
+ * — cards are discarded face-down per the CoE glossary), and redacts planned
+ * movement destinations to a boolean `hasPlannedMovement` flag.
+ * Public information — characters in play, company locations — is passed
+ * through. {@link projectPlayerView} layers on top of this for exceptions
+ * that depend on the *viewing* player's own state, such as Pallando's
+ * top-of-discard-pile visibility.
  */
 function buildOpponentView(state: GameState, player: PlayerState): OpponentView {
   const companies: OpponentCompanyView[] = player.companies.map(c => ({
@@ -374,6 +391,12 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
         })),
       };
     }
+  }
+
+  // Pallando (tw-175, CRF 22): the controlling player can see the top card
+  // of the opponent's discard pile.
+  if (Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
+    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
   }
 
   const legalActions = stampActionIds(computeLegalActions(state, playerId));

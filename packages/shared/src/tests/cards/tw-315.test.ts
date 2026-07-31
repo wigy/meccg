@@ -27,6 +27,7 @@ import {
   buildSitePhaseState, resetMint,
   viableActions,
   attachItemToChar,
+  addCardToHand,
   playPermanentEventAndResolve,
   buildTestState, makePlayDeck,
   mint, addToPile, makeSitePhase,
@@ -196,6 +197,58 @@ describe('Rescue Prisoners (tw-315)', () => {
 
     const actions = viableActions(stateAtMountDoom, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBeGreaterThan(0);
+  });
+
+  test('IS playable at a different site after the bearer carrying the first copy travels there', () => {
+    // Regression: the site-scoped duplication-limit must key off the site
+    // where the first Rescue Prisoners was *played*, not wherever its bearer
+    // currently stands. Play copy #1 at Moria, select a bearer, then move
+    // that same company (with the bearer still carrying the item) to Mount
+    // Doom — a different shadow-hold — and confirm a second copy is playable
+    // there.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      siteStatus: CardStatus.Tapped,
+      hand: [RESCUE_PRISONERS],
+      characters: [ARAGORN, GIMLI, LEGOLAS],
+    });
+
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, (actions[0].action as PlayPermanentEventAction).cardInstanceId);
+
+    // Aragorn and Gimli take the two Spider strikes; Legolas stays untapped and becomes bearer.
+    const afterCombat = runCardTriggeredAttackCombat(afterPlay, [
+      { characterDefId: ARAGORN, roll: 1 },
+      { characterDefId: GIMLI, roll: 1 },
+    ]);
+    const bearerActions = viableActions(afterCombat, PLAYER_1, 'select-card-bearer');
+    const legolasAction = bearerActions.find(
+      ea => (ea.action as SelectCardBearerAction).characterId === legolasId,
+    )!;
+    const afterBearerSelect = dispatch(afterCombat, legolasAction.action);
+    expect(afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId].items.some(
+      i => i.definitionId === RESCUE_PRISONERS,
+    )).toBe(true);
+
+    // Move the company (still carrying Legolas + the Rescue Prisoners item) to Mount Doom, tapped.
+    const company = afterBearerSelect.players[RESOURCE_PLAYER].companies[0];
+    const mountDoomSite = { instanceId: mint(), definitionId: MOUNT_DOOM, status: CardStatus.Tapped };
+    const movedState = {
+      ...afterBearerSelect,
+      players: [
+        {
+          ...afterBearerSelect.players[RESOURCE_PLAYER],
+          companies: [{ ...company, currentSite: mountDoomSite }],
+        },
+        afterBearerSelect.players[1],
+      ] as typeof afterBearerSelect.players,
+    };
+    const stateAtMountDoom = addCardToHand(movedState, RESOURCE_PLAYER, RESCUE_PRISONERS);
+
+    const secondCopyActions = viableActions(stateAtMountDoom, PLAYER_1, 'play-permanent-event');
+    expect(secondCopyActions.length).toBeGreaterThan(0);
   });
 
   // ── Storable-at: can be stored at haven during organization ──
