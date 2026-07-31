@@ -39,6 +39,13 @@ import type { PlayerDeckInfo } from './game-record.js';
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
 
+/**
+ * Default delay between the tutorial Mentor's scripted actions: long enough
+ * to register each move, short enough not to drag the pace. A beat can
+ * override it via {@link TutorialBeat.delayMs} for dramatic holds.
+ */
+const MENTOR_ACTION_DELAY_MS = 800;
+
 /** Deck-editor alignment key for each card alignment, for rebuilding a DeckList. */
 const DECK_ALIGNMENTS: Record<Alignment, DeckList['alignment']> = {
   [Alignment.Wizard]: 'hero',
@@ -173,6 +180,8 @@ export class GameSession {
   private gameLog: GameLog;
   /** History of previous states for undo support. */
   private stateHistory: GameState[] = [];
+  /** Pending timer of the paced tutorial Mentor pump (null when idle). */
+  private mentorTimer: ReturnType<typeof setTimeout> | null = null;
   /** Precomputed movement map for region/starter movement queries. */
   private movementMap: MovementMap;
   /**
@@ -223,6 +232,7 @@ export class GameSession {
 
   gracefulShutdown(): void {
     this.serverLog.log('shutdown');
+    if (this.mentorTimer) { clearTimeout(this.mentorTimer); this.mentorTimer = null; }
     // Tutorial saves carry the script cursor, so they restore on rails too.
     if (this.state && !this.isFullyFinished()) {
       this.writeSave(this.autosaveFilePath());
@@ -276,9 +286,12 @@ export class GameSession {
       case 'cheat-roll':
       case 'summon-card':
       case 'swap-hand':
-        if (this.tutorialMode) {
+        if (this.tutorialMode && msg.type !== 'save' && msg.type !== 'load') {
           // The script owns the dice and the state; any of these would
-          // desynchronize the tutorial cursor.
+          // desynchronize the tutorial cursor. Save/load are the exception:
+          // saves carry the script cursor, and load funnels through the
+          // tutorial restore path (reconnect → restoreTutorialGame), which
+          // re-seats the cursor — nothing off-script can be smuggled in.
           this.send(ws, { type: 'error', message: `'${msg.type}' is not available in the tutorial` });
           break;
         }
@@ -288,10 +301,12 @@ export class GameSession {
         }
         // Any dev command taints the game: mark before handling so a 'save'
         // persists the flag, and again after because 'undo'/'load' replace
-        // the current state with one from before the marking.
+        // the current state with one from before the marking. Tutorial
+        // save/load are exempt from the stamp — they cannot alter outcomes.
         {
+          const stamp = !this.tutorialMode;
           const wasCheated = this.state?.cheated === true;
-          this.markCheated(msg.type);
+          if (stamp) this.markCheated(msg.type);
           if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
           else if (msg.type === 'load') this.handleLoad();
           else if (msg.type === 'reseed') this.handleReseed(ws);
@@ -299,12 +314,12 @@ export class GameSession {
           else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
           else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
           else if (msg.type === 'swap-hand') this.handleSwapHand(ws);
-          const restamped = this.markCheated(msg.type);
+          const restamped = stamp ? this.markCheated(msg.type) : false;
           // Make sure every client sees the flag flip: some dev commands
           // never broadcast state ('save', 'cheat-roll'), and 'undo'/'load'
           // broadcast the restored — possibly pre-cheat — state before the
           // re-stamp above.
-          if (this.state && (!wasCheated || restamped)) this.broadcastStateWithLogs();
+          if (this.state && stamp && (!wasCheated || restamped)) this.broadcastStateWithLogs();
         }
         break;
     }
@@ -551,6 +566,8 @@ export class GameSession {
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: humanName, player2: 'Mentor' });
 
     this.broadcastStateWithLogs();
+    // A save taken mid-Mentor-beat must continue on its own after restore.
+    this.runTutorialMentor();
   }
 
   private startNewGame(p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
@@ -864,48 +881,72 @@ export class GameSession {
 
   /**
    * Play the Mentor's scripted beats (and chain-priority passes) until the
-   * script waits on the human again. Each Mentor action is applied and
-   * broadcast individually so the player watches the Mentor "move". Finally
-   * arms the scripted dice for the human's next beat.
+   * script waits on the human again — PACED: one action per timer tick with
+   * a readable delay before each, so the player can follow the Mentor
+   * "move" and the tutorial panel's step for that beat stays on screen long
+   * enough to read (an instant roll used to flash by). The scripted dice
+   * for the human's next beat are armed immediately, never on the timer:
+   * the human may act on the freshly broadcast legal actions before the
+   * first tick fires.
    */
   private runTutorialMentor(): void {
     if (!this.tutorial || !this.state) return;
+    this.state = this.tutorial.armCheat(this.state);
+    if (this.mentorTimer !== null) return; // a paced run is already underway
+    if (this.tutorial.mentorAction(this.state) === null) return;
+    this.mentorTimer = setTimeout(() => this.mentorStep(0), this.mentorDelay());
+  }
 
-    for (let guard = 0; guard < 64; guard++) {
-      this.state = this.tutorial.armCheat(this.state);
-      const action = this.tutorial.mentorAction(this.state);
-      if (!action) break;
+  /**
+   * Delay before the Mentor's next action: the pending beat's own pacing
+   * override when it is the Mentor's beat, the default otherwise (e.g.
+   * chain-priority passes).
+   */
+  private mentorDelay(): number {
+    const beat = this.tutorial?.currentBeat();
+    return beat?.actor === 'mentor' && beat.delayMs !== undefined
+      ? beat.delayMs
+      : MENTOR_ACTION_DELAY_MS;
+  }
 
-      const result = reduce(this.state, action);
-      if (result.error) {
-        // A script/engine divergence — a tutorial bug, never a user error.
-        this.serverLog.log('tutorial-mentor-error', { action, error: result.error });
-        break;
-      }
+  /** One tick of the paced Mentor pump: apply a single action, reschedule. */
+  private mentorStep(count: number): void {
+    this.mentorTimer = null;
+    if (!this.tutorial || !this.state) return;
+    this.state = this.tutorial.armCheat(this.state);
+    const action = this.tutorial.mentorAction(this.state);
+    // The 64-step guard mirrors the old loop bound — a runaway-script backstop.
+    if (!action || count >= 64) return;
 
-      const wasGameOver = this.state.phaseState.phase === Phase.GameOver;
-      this.tutorial.noteApplied(this.state, action, this.tutorial.mentorId);
-      this.stateHistory.push(this.state);
-      this.state = result.state;
-      this.serverLog.log('action', { action, tutorialMentor: true });
-      this.logState(action.type, action as unknown as Record<string, unknown>);
-      if (!wasGameOver && this.state.phaseState.phase === Phase.GameOver) {
-        this.recordCompletedGame();
-      }
-
-      if (result.effects && result.effects.length > 0) {
-        for (const effect of result.effects) {
-          this.broadcastToAll({ type: 'effect', effect });
-        }
-      }
-      this.broadcastStateWithLogs(action);
+    const result = reduce(this.state, action);
+    if (result.error) {
+      // A script/engine divergence — a tutorial bug, never a user error.
+      this.serverLog.log('tutorial-mentor-error', { action, error: result.error });
+      return;
     }
 
-    // The dice for the human's next scripted roll must be armed before the
-    // human acts on the freshly broadcast legal actions.
-    const armed = this.tutorial.armCheat(this.state);
-    if (armed !== this.state) {
-      this.state = armed;
+    const wasGameOver = this.state.phaseState.phase === Phase.GameOver;
+    this.tutorial.noteApplied(this.state, action, this.tutorial.mentorId);
+    this.stateHistory.push(this.state);
+    this.state = result.state;
+    this.serverLog.log('action', { action, tutorialMentor: true });
+    this.logState(action.type, action as unknown as Record<string, unknown>);
+    if (!wasGameOver && this.state.phaseState.phase === Phase.GameOver) {
+      this.recordCompletedGame();
+    }
+
+    if (result.effects && result.effects.length > 0) {
+      for (const effect of result.effects) {
+        this.broadcastToAll({ type: 'effect', effect });
+      }
+    }
+    this.broadcastStateWithLogs(action);
+
+    // Arm the human's dice right away in case the script now waits on them,
+    // then pace the Mentor's next move.
+    this.state = this.tutorial.armCheat(this.state);
+    if (this.tutorial.mentorAction(this.state) !== null) {
+      this.mentorTimer = setTimeout(() => this.mentorStep(count + 1), this.mentorDelay());
     }
   }
 
@@ -947,6 +988,9 @@ export class GameSession {
         stateSeq: this.state.stateSeq,
         reason,
         ...(action ? { action } : {}),
+        // Script position per snapshot: indispensable when debugging why the
+        // tutorial panel and the game state appear to disagree.
+        ...(this.tutorial ? { tutorialCursor: this.tutorial.cursorIndex } : {}),
         turn: this.state.turnNumber,
         phase: this.state.phaseState.phase,
         step: this.state.phaseState.phase === 'setup' ? this.state.phaseState.setupStep.step : null,
