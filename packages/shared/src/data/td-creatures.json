@@ -195,10 +195,28 @@
     "body": 8,
     "killMarshallingPoints": 6,
     "race": "dragon",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "siteNames": [
+          "Gold Hill"
+        ]
+      },
+      {
+        "regionNames": [
+          "Withered Heath",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Grey Mountain Narrows"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
+    ],
     "effects": [],
     "text": "Unique. May be played at Gold Hill. Dragon. Three strikes. If Doors of Night is in play, may also be played keyed to Withered Heath, Iron Hills, Northern Rhovanion, Grey Mountain Narrows; may also be played at sites in these regions.",
-    "manifestId": "td-36"
+    "manifestId": "td-36",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hazard-creature",
