@@ -480,10 +480,32 @@
     "body": 8,
     "killMarshallingPoints": 4,
     "race": "dragon",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "siteNames": [
+          "Dancing Spire"
+        ]
+      },
+      {
+        "regionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
     "text": "Unique. May be played at Dancing Spire. Dragon. Three strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
-    "manifestId": "tw-26"
+    "manifestId": "tw-26",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hazard-creature",
