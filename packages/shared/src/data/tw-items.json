@@ -1697,8 +1697,71 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. +3 to bearer’s direct influence against Dwarves and Dwarf factions. If held by a Dwarf, The Arkenstone gives 5 marshalling points and 4 corruption points.The Arkenstone may be tapped to untap a Dwarf character in the same company, but target Dwarf must make a corruption check modified by -2."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "dwarf"
+        }
+      },
+      {
+        "type": "mp-modifier",
+        "value": 3,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-company-dwarf",
+        "cost": {
+          "tap": "self"
+        },
+        "targets": {
+          "scope": "company-characters",
+          "filter": {
+            "race": "dwarf"
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "set-character-status",
+              "target": "target-character",
+              "status": "untapped"
+            },
+            {
+              "type": "enqueue-corruption-check",
+              "target": "target-character",
+              "modifier": -2
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. +3 to bearer’s direct influence against Dwarves and Dwarf factions. If held by a Dwarf, The Arkenstone gives 5 marshalling points and 4 corruption points.The Arkenstone may be tapped to untap a Dwarf character in the same company, but target Dwarf must make a corruption check modified by -2.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hero-resource-item",
