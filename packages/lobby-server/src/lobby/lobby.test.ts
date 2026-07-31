@@ -144,3 +144,40 @@ describe('lobby AI games in the watchable list', () => {
     dave.emit('close');
   });
 });
+
+describe('rejoin-game deduplication', () => {
+  test('a second rejoin-game arriving before the first launch finishes is dropped', async () => {
+    launchGame.mockClear();
+    let resolveLaunch: ((result: unknown) => void) | undefined;
+    launchGame.mockImplementationOnce(() => new Promise(resolve => { resolveLaunch = resolve; }));
+
+    const alice = fakeWs();
+    const bob = fakeWs();
+    playerConnected('Alice', alice.ws);
+    playerConnected('Bob', bob.ws);
+
+    // Two rejoin-game messages for the same opponent arrive back-to-back —
+    // e.g. the client's rejoin-retry timer firing again before the first
+    // game-server has finished spawning. Only the first should launch a
+    // server; a second live process restoring the same save would race the
+    // first one's actions (reported as the AI seat endlessly re-transferring
+    // an item between characters).
+    say(alice, { type: 'rejoin-game', opponent: 'Bob' });
+    say(alice, { type: 'rejoin-game', opponent: 'Bob' });
+    await settle();
+
+    expect(launchGame).toHaveBeenCalledTimes(1);
+
+    resolveLaunch!({
+      port: 9003,
+      tokens: ['tok-alice', 'tok-bob'],
+      onEnd: () => undefined,
+    });
+    await settle();
+
+    expect(alice.sent.filter(m => m.type === 'game-starting')).toHaveLength(1);
+
+    alice.emit('close');
+    bob.emit('close');
+  });
+});
