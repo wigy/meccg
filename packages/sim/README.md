@@ -86,6 +86,38 @@ read at their argmax — the sampling temperature belongs to the harness, not to
 the opinion. Forced decisions are reported separately because agreement is
 free where there is one legal action, and that is 53% of them.
 
+### The distribution is reported; the argmax is played
+
+Those are two questions, and H2 used to answer both with one number. The
+behavioural-cloning pipeline wants a distribution over candidates as soft
+targets, so the agent softmaxes its utilities — and it then *sampled* that
+distribution to pick its move. Utilities are win-probability deltas of a few
+thousandths and `softmaxTemperature` is 0.02, so the distribution is broad by
+construction: a candidate half a percent of win probability behind still comes
+out at weight 0.44 against the best one's 0.56. In transcripts that reads
+
+```text
+#798 h2 (2 options): Draw 1 card
+   → w=  0.56  Draw 1 card
+     w=  0.44  Pass (end your actions this phase)
+```
+
+— a position where the agent's own model prefers drawing, and it passes two
+times in five. `compare` had already written the principle down one paragraph
+above: the sampling temperature belongs to the harness, not to the opinion.
+
+So `h2` now plays its argmax and reports the distribution unchanged. Sampled
+play is still reachable as `h2:all@0.02`, an explicit request for exploration
+when the point is covering positions rather than winning; the agent names
+itself `h2@0.02` there, because a replay has to say which of the two played.
+
+Over 599 games in two independent samples, argmax play beats sampled play by
++17 Elo [−30, +65] on 200 games from seed 1 and +10 [−24, +44] on 400 from seed
+1001 — **the same direction twice and significant neither time**. This is not a
+change that closes the gap to `mc`; it is one that stops paying for noise the
+design never asked for. The honest summary is that it is worth something small
+and positive, and that 599 paired games cannot say how small.
+
 ### Services
 
 Modules never call each other — a number one module owns reaches another as a

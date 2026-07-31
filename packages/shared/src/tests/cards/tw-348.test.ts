@@ -369,6 +369,44 @@ describe('tw-348 The White Tree', () => {
     expect(viable.some(a => a.atSite === minasTirithInst)).toBe(false);
   });
 
+  test('playable during the organization phase (not restricted to the site phase)', () => {
+    // Regression for the KakitaBen bug report (game ms7zrew8-h6uhu5, seq 857):
+    // a company was already sitting at Minas Tirith with a sage (Arwen) when
+    // the player reached the organization phase, and wanted to play The White
+    // Tree there. The card's text declares no site-phase timing ("Sage only
+    // at Minas Tirith. Playable only if you discard a Sapling…"), so per CoE
+    // rule 2.1.1 a resource permanent-event with no such restriction must be
+    // playable during any phase of the turn — not just the site phase.
+    let state: GameState = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MINAS_TIRITH, characters: [ELROND] }],
+          hand: [THE_WHITE_TREE],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const playActions = actions
+      .filter(a => a.viable && a.action.type === 'play-permanent-event');
+    expect(playActions).toHaveLength(1);
+
+    const action = playActions[0].action as PlayPermanentEventAction;
+    expect(action.discardCardInstanceId).toBeDefined();
+    expect(action.targetSiteDefinitionId).toBe(MINAS_TIRITH);
+  });
+
   test('unique — not playable if already in play', () => {
     let state: GameState = buildSitePhaseState({
       site: MINAS_TIRITH,

@@ -2945,8 +2945,45 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable only at the end of the organization phase on a company containing Aragorn II at Dunharrow. The company may move to the Vale of Erech site. The only hazard creatures that may be played on this company are Undead, but any Undead may be played on the company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.name": "Aragorn II" },
+            { "company.siteName": "Dunharrow" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "paths-of-the-dead"
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "only-race-creatures-on-company",
+          "scope": "turn",
+          "race": "undead"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable only at the end of the organization phase on a company containing Aragorn II at Dunharrow. The company may move to the Vale of Erech site. The only hazard creatures that may be played on this company are Undead, but any Undead may be played on the company.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hero-resource-event",

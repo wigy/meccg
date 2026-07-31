@@ -2090,6 +2090,7 @@ export function buildPlayOptionContext(
   let hasFactionInHand = false;
   let isInfluencing = false;
   let companySiteType: string | null = null;
+  let companySiteName: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
   if (player) {
@@ -2129,6 +2130,7 @@ export function buildPlayOptionContext(
     if (charCompany?.currentSite) {
       const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
+      if (siteDef) companySiteName = siteDef.name;
     }
     if (charCompany) {
       containsDiplomat = charCompany.characters.some(memberId => {
@@ -2191,6 +2193,7 @@ export function buildPlayOptionContext(
     },
     company: {
       siteType: companySiteType,
+      siteName: companySiteName,
       containsDiplomat,
       moving: companyMoving,
       destinationSiteType,

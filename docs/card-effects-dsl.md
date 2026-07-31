@@ -5014,7 +5014,7 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name, mind, inAvatarCompany, itemKeywords, itemSubtypes, possessions }, company: { skills, siteType, moving, hasShadowMagicUser } }` (`target.mind` is the character's printed mind, null for avatars — e.g. Awaiting the Call le-165 filters `{ "target.mind": { "$lte": 6 } }`; `target.itemKeywords`/`target.itemSubtypes` aggregate the keywords/subtypes of every item the character bears, and `target.possessions` their names — e.g. The Roving Eye le-135 gates on bearing a Palantír (`itemKeywords $includes "palantir"`), a greater item (`itemSubtypes $includes "greater"`), or a non-gold ring (`itemKeywords $includes "ring"` and `$not itemSubtypes $includes "gold-ring"`)), so there are no
+`{ target: { race, status, skills, name, mind, inAvatarCompany, itemKeywords, itemSubtypes, possessions }, company: { skills, siteType, siteName, moving, hasShadowMagicUser } }` (`company.siteName` is the candidate's company's current site's printed name, `null` when the company has no current site — e.g. Paths of the Dead tw-302 gates on `{ "company.siteName": "Dunharrow" }` alongside `{ "target.name": "Aragorn II" }`; `target.mind` is the character's printed mind, null for avatars — e.g. Awaiting the Call le-165 filters `{ "target.mind": { "$lte": 6 } }`; `target.itemKeywords`/`target.itemSubtypes` aggregate the keywords/subtypes of every item the character bears, and `target.possessions` their names — e.g. The Roving Eye le-135 gates on bearing a Palantír (`itemKeywords $includes "palantir"`), a greater item (`itemSubtypes $includes "greater"`), or a non-gold ring (`itemKeywords $includes "ring"` and `$not itemSubtypes $includes "gold-ring"`)), so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 
@@ -7850,6 +7850,40 @@ the dm-98 test). le-181's `play-target` is a `company` filtered by
 `{ "company.moving": true }` ("on a moving company") — the org-phase company
 filter context exposes `company.moving` (the company has a declared destination
 or special movement this org phase) alongside `company.atHaven`.
+
+`set-company-special-movement` (§ "Actions" above, previously only reachable
+via a grant-action apply — e.g. Gwaihir's `gwaihir-special-movement`) is also
+supported directly on a **resource short-event's** `on-event: self-enters-play`
+(`reducer-events.ts` `applyShortEventOnEntersPlay`), resolving the target
+company from the play-target character (`action.targetScoutInstanceId ??
+action.targetCharacterId`) rather than a grant-action bearer. Used by *Paths of
+the Dead* (tw-302) with `specialMovement: "paths-of-the-dead"`: the org-phase
+movement planner (`organization-companies.ts` `planMovementActions`) offers a
+direct `plan-movement` to a site card named "Vale of Erech" regardless of
+region adjacency, and the M/H `reveal-new-site` step
+(`legal-actions/movement-hazard.ts`) declares the path as
+`MovementType.Special` with no traversed regions — the same "no path traversed"
+handling as `'gwaihir'`.
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-company-special-movement", "specialMovement": "paths-of-the-dead" },
+  "target": "target-company" }
+```
+
+The `only-race-creatures-on-company` constraint (added by *Paths of the Dead*
+tw-302 via `on-event: self-enters-play` → `add-constraint`, carrying a `race`
+field) restricts the opponent to playing only hazard creatures of the given
+race against the target company; every other hazard-creature play is dropped
+(`legal-actions/pending.ts` `applyOnlyRaceCreaturesOnCompany`, matching
+`def.race` or `def.additionalRaces`). Used by tw-302: "The only hazard
+creatures that may be played on this company are Undead, but any Undead may be
+played on the company."
+
+```json
+{ "type": "add-constraint", "constraint": "only-race-creatures-on-company",
+  "scope": "turn", "race": "undead" }
+```
 
 ### 37. `cancel-chain-return-to-origin`
 
