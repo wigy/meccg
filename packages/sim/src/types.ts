@@ -61,6 +61,22 @@ export interface AgentDecision {
   readonly action: GameAction;
   /** All candidates the agent weighed, for the decision transcript. */
   readonly considered?: readonly ConsideredAction[];
+  /**
+   * What the reported weights *mean*, when they mean something.
+   *
+   * Most agents publish sampling weights, which are comparable within one
+   * decision and nowhere else. Some publish a quantity: `mc` reports each
+   * candidate's mean playout tournament-score differential, so a difference of
+   * two weights is a difference of expected score. A consumer that wants to
+   * subtract weights has to know which it is holding — and an agent that
+   * *delegates* a decision returns the other agent's weights, in the other
+   * agent's units, so this cannot be a property of the agent rather than of
+   * the decision.
+   *
+   * `'tsd'` is the only unit in use. Absent means "sampling weights; the
+   * ordering is meaningful and the differences are not".
+   */
+  readonly weightUnit?: 'tsd';
   /** Optional free-form remark about the reasoning (shown in transcripts). */
   readonly note?: string;
 }
