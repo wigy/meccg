@@ -153,6 +153,32 @@ function softmax(utilities: readonly number[], temperature: number): number[] {
 }
 
 /**
+ * Action types whose value is a property of the whole board, not of a turn.
+ *
+ * Company shape is the case: `defence` prices it as a difference of one
+ * potential, `Σ harm(company)` over every company, precisely so that a shape
+ * change and its undo cannot both score positively. A one-turn rollout cannot
+ * see that — `mc` values splitting a company and merging it straight back at
+ * exactly the same mean TSD — and taking the argmax of that tie oscillates:
+ * `h2>mc` ran split → move → merge → split to the decision limit on two of 98
+ * gate games (seeds 15 and 41). The engine's regress flag does not catch it
+ * because the planned destination alternates, so every lap is a state it has
+ * not seen.
+ *
+ * So these are never yielded, however well the fallback can search the rest of
+ * the position. Keeping the exclusion to the family that demonstrably cycles
+ * matters: handing back *every* decision the fallback scored flat also works,
+ * and costs the whole gain — at four rollouts `mc` reports equal means far too
+ * often for that to be a tie-break rather than a policy change (38.9% against
+ * `mc`, where yielding scores 62.2%).
+ */
+const NEVER_YIELDED_ACTION_TYPES: readonly string[] = [
+  'split-company',
+  'merge-companies',
+  'move-to-company',
+];
+
+/**
  * The tunables that differ from the shipped set, as a spec-shaped suffix.
  *
  * Empty for the defaults, so the common case still reports plain `h2`.
@@ -245,16 +271,20 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // modules; where it cannot, the modules are the only opinion there is.
       // Asking the fallback per decision is what `yieldWhenFallbackCanSearch`
       // does, and it beats naming the modules by hand because the line is a
-      // property of the *position*, not of the action type.
-      const yielded = yieldToFallback && fallback.canDecide?.(context) === true;
+      // property of the *position*, not of the action type — except for the
+      // handful of types whose value is a property of the whole board, which
+      // no one-turn rollout can see. See `NEVER_YIELDED_ACTION_TYPES`.
+      const yielded = yieldToFallback
+        && fallback.canDecide?.(context) === true
+        && !legalActions.some(a => NEVER_YIELDED_ACTION_TYPES.includes(a.type));
       const speaks = !yielded && evaluations.length > 0
         && (complete ? (discriminates || best.utility > TIE_EPSILON) && decisive
           : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {
-        // No H2 owner: the fallback handles the decision in its own units.
-        // It sees the *forward* candidate list rather than the raw one, so a
-        // fallback cannot pick a move H2 had already ruled out as an undo.
+        // The fallback handles the decision in its own units. It sees the
+        // *forward* candidate list rather than the raw one, so a fallback
+        // cannot pick a move H2 had already ruled out as an undo.
         const decision = fallback.chooseAction({ ...context, legalActions });
         return { ...decision, note: `${fallback.name} fallback${decision.note ? `: ${decision.note}` : ''}` };
       }
