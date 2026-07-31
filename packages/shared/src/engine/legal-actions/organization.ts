@@ -1401,6 +1401,24 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // Generic per-candidate enumeration for an item-borne grant (e.g.
+        // `"company-characters"` — The Arkenstone tw-341): one activation per
+        // matching card in the declared scope, carried on `targetCardId`.
+        // Mirrors the character-definition grant-action loop's fallback above.
+        if (effect.targets) {
+          const candidates = enumerateGrantActionTargets(state, player, charId, effect.targets);
+          if (candidates.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no targets in scope '${effect.targets.scope}'`);
+            continue;
+          }
+          for (const target of candidates) {
+            const targetDef = defById(state, target.definitionId);
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to target ${targetDef?.name ?? '?'}`);
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: target.instanceId }));
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push(grantedActionFor(playerId, charId, item, effect));
@@ -1795,6 +1813,24 @@ function enumerateGrantActionTargets(
           matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
         }
       }
+    }
+  }
+
+  if (targets.scope === 'company-characters') {
+    // The Arkenstone (tw-341): "tapped to untap a Dwarf character in the same
+    // company" — enumerate the bearer's own company (including the bearer),
+    // skipping already-untapped members (mirrors `characters-at-site`).
+    const company = findCharacterCompany(player.companies, charId);
+    if (!company) return [];
+    for (const memberId of company.characters) {
+      const member = player.characters[memberId];
+      if (!member) continue;
+      if (member.status === CardStatus.Untapped) continue;
+      if (targets.filter) {
+        const memberDef = defById(state, member.definitionId);
+        if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+      }
+      matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
     }
   }
 

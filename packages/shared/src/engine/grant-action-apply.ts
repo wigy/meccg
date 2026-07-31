@@ -329,7 +329,21 @@ function runGrantApply(
 
   if (apply.type === 'enqueue-corruption-check') {
     const modifier = apply.modifier ?? 0;
-    const characterId = ctx.action.characterId;
+    // `target: 'target-character'` (The Arkenstone tw-341): the check is made
+    // by the activation's chosen `targetCardId` — the untapped Dwarf
+    // company-mate — rather than the bearer activating the item.
+    let characterId = ctx.action.characterId;
+    let checkedName = ctx.charName;
+    if (apply.target === 'target-character') {
+      const targetCardId = ctx.action.targetCardId;
+      if (!targetCardId) {
+        return { error: `enqueue-corruption-check target-character: action has no targetCardId on ${ctx.sourceName}` };
+      }
+      characterId = targetCardId;
+      const targetChar = newPlayers[ctx.playerIndex].characters[targetCardId];
+      const targetDef = targetChar ? defById(state, targetChar.definitionId) : undefined;
+      checkedName = targetDef?.name ?? String(targetCardId);
+    }
     const actor = ctx.action.player;
     const sourceId = ctx.action.sourceCardId;
     const reason = ctx.sourceName;
@@ -340,7 +354,7 @@ function runGrantApply(
     // may fire during the owner's Site phase, the opponent's Site
     // phase, or the Free Council) the current phase is correct.
     const currentPhase = state.phaseState.phase;
-    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing corruption check on ${ctx.charName} (reason: ${reason}, modifier ${modifier}, phase: ${currentPhase})`);
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing corruption check on ${checkedName} (reason: ${reason}, modifier ${modifier}, phase: ${currentPhase})`);
     return {
       updatedChar: char,
       effects: [],

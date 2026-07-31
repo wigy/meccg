@@ -2387,8 +2387,27 @@ one activation per matching card, each carrying the candidate's
 - `scope` — zone to enumerate relative to the bearer. Supported:
   - `"company-items"` — items borne by any character in the bearer's
     company.
+  - `"company-characters"` — characters in the bearer's own company
+    (including the bearer). Already-untapped candidates are skipped
+    (untapping one is pointless).
 - `filter` — optional DSL `Condition` matched against each candidate's
   card definition; candidates that fail the filter are skipped.
+
+Example (The Arkenstone tw-341 — tap to untap a Dwarf company-mate, who
+then makes a corruption check modified -2; `enqueue-corruption-check`'s
+`target: "target-character"` reads the chosen candidate instead of the
+bearer):
+
+```json
+{ "type": "grant-action", "action": "untap-company-dwarf",
+  "cost": { "tap": "self" },
+  "targets": { "scope": "company-characters",
+               "filter": { "race": "dwarf" } },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "set-character-status", "target": "target-character", "status": "untapped" },
+    { "type": "enqueue-corruption-check", "target": "target-character", "modifier": -2 }
+  ] } }
+```
 
 Example (Gandalf's gold-ring test):
 

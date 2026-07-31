@@ -1825,6 +1825,11 @@ export interface GrantActionEffect extends EffectBase {
  * - `"company-items"` — items borne by any character in the bearer's company.
  * - `"characters-at-site"` — characters at the same site as the bearer.
  *   Optionally restricted to specific definition IDs via `definitionIds`.
+ * - `"company-characters"` — characters in the bearer's own company
+ *   (including the bearer). Excludes already-untapped characters, since
+ *   untapping one is pointless — mirroring `"characters-at-site"`. Used by
+ *   The Arkenstone (tw-341): "tapped to untap a Dwarf character in the same
+ *   company" (`filter: { "race": "dwarf" }`).
  * - `"player-companies"` — all companies owned by the bearer's player.
  *   Each company produces one activation carrying `targetCompanyId`.
  * - `"opponent-cards-in-play"` — cards in the opponent's `cardsInPlay`
@@ -1835,7 +1840,7 @@ export interface GrantActionEffect extends EffectBase {
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'player-companies' | 'opponent-cards-in-play';
+  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -2088,6 +2093,12 @@ export interface EnqueueCorruptionCheckAction extends TriggeredActionBase {
    * character's company whose definition matches `filter` (no match → no
    * check). Omitted — the attached character makes the check. (Well-preserved
    * as-108 targets the company's non-Ringwraith shadow-magic user this way.)
+   *
+   * `'target-character'` — as a `grant-action` apply, the check is made by
+   * the activation's chosen `targetCardId` rather than the activating
+   * (bearer) character. Used by The Arkenstone (tw-341): untapping a
+   * Dwarf company-mate forces *that* Dwarf's corruption check, not the
+   * item bearer's.
    */
   readonly target?: string;
   /**
