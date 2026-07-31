@@ -28,6 +28,8 @@ const did = (s: string) => s as CardDefinitionId;
 
 /** Gandalf — wizard character, the most powerful hero with high mind cost. */
 export const GANDALF = did('tw-156');
+/** Pallando — wizard character; opponent must discard face-up (CRF 22: top card of opponent's discard pile visible). */
+export const PALLANDO = did('tw-175');
 /** Aragorn (Strider) — ranger, strong prowess/body, warrior and ranger skills. */
 export const ARAGORN = did('tw-120');
 /** Legolas — elf, scout skill, solid archer and warrior. */

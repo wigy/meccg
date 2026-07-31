@@ -1451,6 +1451,8 @@ function applyOneConstraint(
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
+    case 'only-race-creatures-on-company':
+      return applyOnlyRaceCreaturesOnCompany(state, playerId, base, constraint);
     case 'extra-mh-phase':
       // Master of Esgaroth (td-135): consumed directly by
       // `advanceAfterCompanyMH` (mh-hazard-play.ts) once the company's
@@ -1646,6 +1648,11 @@ function applyOneConstraint(
       // central return/discard helpers in `pending-reducers.ts` via
       // `isCharacterRemovalProtected` — no broad legal-action filtering here.
       return base;
+    case 'tap-on-strike-assignment':
+      // Fifteen Birds in Five Firtrees (dm-129): consumed directly by
+      // `applyTapOnStrikeAssignment` in `reducer-combat.ts`'s `assign-strike`
+      // handler — no broad legal-action filtering needed here.
+      return base;
   }
 }
 
@@ -1703,6 +1710,15 @@ function applyGrantedActionConstraint(
 
   // Skip if the constraint declares a specific phase and we're not in it.
   if (kind.phase !== undefined && kind.phase !== phaseStr) return base;
+
+  // `discard: "named-card"` costs (Fifteen Birds in Five Firtrees dm-129:
+  // "or you discard Eagle-mounts from your hand") aren't tied to any
+  // character — `canPayCost` only gates on tap status, so check hand
+  // presence once here before offering the constraint to anyone.
+  if (kind.cost.discard === 'named-card') {
+    const hasCard = player.hand.some(c => cardName(state, c.definitionId, '') === kind.cost.discardCardName);
+    if (!hasCard) return base;
+  }
 
   const result = [...base];
   for (const charId of company.characters) {
@@ -1846,6 +1862,40 @@ function applyOnlyCreaturesKeyedToSite(
       return true;
     }
     logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Paths of the Dead (tw-302): drop every play-hazard action whose target
+ * company matches the constraint *and* whose card is a hazard creature not of
+ * the constraint's race. "The only hazard creatures that may be played on
+ * this company are Undead, but any Undead may be played on the company."
+ */
+function applyOnlyRaceCreaturesOnCompany(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  if (constraint.kind.type !== 'only-race-creatures-on-company') return base;
+  const protectedCompany = constraint.target.companyId;
+  const race = constraint.kind.race;
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
+    if (targetCompanyId !== protectedCompany) return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    if (def.race === race || def.additionalRaces?.includes(race)) {
+      logDetail(`Constraint ${constraint.id as string} (only-race-creatures-on-company): "${def.name}" is ${race} — allowed`);
+      return true;
+    }
+    logDetail(`Constraint ${constraint.id as string} (only-race-creatures-on-company): dropping non-${race} creature "${def.name}" against company ${protectedCompany as string}`);
     return false;
   });
 }

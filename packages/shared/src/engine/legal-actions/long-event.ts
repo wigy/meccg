@@ -27,7 +27,7 @@ import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -98,6 +98,18 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
           && !matchesCondition(longPlayerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
         logDetail(`${def.name}: play-condition player-state not satisfied`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
+        continue;
+      }
+
+      // play-condition requires: "card-in-play" — a named card must already be
+      // in play for the playing player, mirroring the resource short-event /
+      // permanent-event paths (organization.ts, organization-events.ts). Used
+      // by Fog (tw-241): "Playable only if Gates of Morning is in play."
+      const longCardInPlayCondition = findPlayConditionEffect(def, 'card-in-play');
+      if (longCardInPlayCondition?.cardName
+          && !isCardNameInPlayForPlayer(state, player, longCardInPlayCondition.cardName)) {
+        logDetail(`${def.name}: play-condition card-in-play requires ${longCardInPlayCondition.cardName} in play`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires ${longCardInPlayCondition.cardName} in play`));
         continue;
       }
 

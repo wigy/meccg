@@ -1367,12 +1367,23 @@ function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameSt
  * turn. Unlike {@link applyCompanyReturnToOrigin} the company keeps its
  * destination site (its movement is unaffected — only the site phase is
  * blocked). Used by Darkness Made by Malice (ba-15).
+ *
+ * The optional `unless` company condition (evaluated the same way as
+ * {@link applyCompanyReturnToOrigin}'s) skips the restriction entirely when it
+ * matches. The optional `escape` grant installs a companion `granted-action`
+ * constraint sourced from the same card — same pattern River (tw-84/le-95)
+ * uses for its ranger-tap cancel — so `remove-constraint` (`select:
+ * "constraint-source"`) clears both together when the escape is paid. Used by
+ * Fifteen Birds in Five Firtrees (dm-129): "unless it contains a Wizard or you
+ * discard Eagle-mounts from your hand."
  */
 function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(e => e.type === 'company-site-phase-do-nothing');
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').CompanySitePhaseDoNothingEffect => e.type === 'company-site-phase-do-nothing',
+  );
   if (!effect) return state;
 
   if (state.phaseState.phase !== Phase.MovementHazard) return state;
@@ -1392,14 +1403,45 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
     return state;
   }
 
-  logDetail(`${def?.name ?? 'card'}: company ${company.id as string} must do nothing during its site phase this turn (ba-15)`);
-  return addConstraint(state, {
+  if (effect.unless) {
+    const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, company);
+    if (matchesCondition(effect.unless, ctx)) {
+      logDetail(`${def?.name ?? 'card'}: site-phase-do-nothing skipped — company meets the exception`);
+      return state;
+    }
+  }
+
+  logDetail(`${def?.name ?? 'card'}: company ${company.id as string} must do nothing during its site phase this turn`);
+  const scope = { kind: 'company-site-phase' as const, companyId: company.id };
+  const target = { kind: 'company' as const, companyId: company.id };
+  let next = addConstraint(state, {
     source: card.instanceId,
     sourceDefinitionId: card.definitionId,
-    scope: { kind: 'company-site-phase', companyId: company.id },
-    target: { kind: 'company', companyId: company.id },
+    scope,
+    target,
     kind: { type: 'site-phase-do-nothing' },
   });
+
+  if (effect.escape) {
+    logDetail(`${def?.name ?? 'card'}: installing escape grant "${effect.escape.action}" alongside site-phase-do-nothing`);
+    next = addConstraint(next, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope,
+      target,
+      kind: {
+        type: 'granted-action',
+        action: effect.escape.action,
+        phase: effect.escape.phase as import('../types/state-phases.js').Phase | undefined,
+        window: effect.escape.window,
+        cost: effect.escape.cost,
+        when: effect.escape.when,
+        apply: effect.escape.apply,
+      },
+    });
+  }
+
+  return next;
 }
 
 /**

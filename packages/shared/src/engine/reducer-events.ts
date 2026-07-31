@@ -2047,6 +2047,31 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // set-company-special-movement: flag the target character's company for
+    // special movement (e.g. Paths of the Dead: "The company may move to the
+    // Vale of Erech site").
+    if (onEvent.apply.type === 'set-company-special-movement') {
+      const characterId = action.type === 'play-short-event'
+        ? (action.targetScoutInstanceId ?? action.targetCharacterId)
+        : undefined;
+      const specialMovement = onEvent.apply.specialMovement;
+      if (!characterId || !specialMovement) {
+        logDetail(`"${def.name}": set-company-special-movement — no target character or specialMovement — fizzle`);
+        continue;
+      }
+      const company = findCharacterCompany(state.players[playerIndex].companies, characterId);
+      if (!company) {
+        logDetail(`"${def.name}": set-company-special-movement — target character not in a company — fizzle`);
+        continue;
+      }
+      logDetail(`"${def.name}" played — company ${company.id as string} → specialMovement=${specialMovement}`);
+      state = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        companies: p.companies.map(c => (c.id === company.id ? { ...c, specialMovement } : c)),
+      }));
+      continue;
+    }
+
     if (onEvent.apply.type === 'add-constraint') {
       const constraintKind = onEvent.apply.constraint;
       const scopeName = onEvent.apply.scope;
@@ -2233,6 +2258,15 @@ function applyShortEventOnEntersPlay(
         case 'only-creatures-keyed-to-site-at-ruins-lairs':
           kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
           break;
+        case 'only-race-creatures-on-company': {
+          const race = onEvent.apply.race;
+          if (!race) {
+            logDetail(`add-constraint(only-race-creatures-on-company): missing race — fizzle`);
+            continue;
+          }
+          kind = { type: 'only-race-creatures-on-company', race };
+          break;
+        }
         case 'extra-mh-phase': {
           // Master of Esgaroth (td-135): "Playable at the end of the
           // organization phase on a moving company. If the company moves to a

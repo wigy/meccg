@@ -221,38 +221,55 @@ export function availableDI(
   // When checking DI for a specific target, resolve conditional DI bonuses
   // (e.g. Glorfindel II "+1 DI against Elves" uses reason: "influence-check")
   if (targetDef) {
-    const ctrlDef = resolveDef(state, controller.instanceId);
-    if (ctrlDef && isCharacterCard(ctrlDef)) {
-      const resolverCtx: ResolverContext = {
-        reason: 'influence-check',
-        // Effective prowess so stat-comparing conditions (Whip le-348:
-        // "prowess less than the bearer's") see the live value, not the
-        // printed one.
-        bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
-        target: {
-          name: targetDef.name,
-          race: targetDef.race,
-          homesite: parseHomesiteNames(targetDef.homesite ?? ''),
-          keywords: targetDef.keywords ?? [],
-          // Printed stats — the target is a definition, not yet in play here.
-          // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
-          ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
-          prowess: targetDef.prowess,
-        },
-      };
-      // Only target-conditional modifiers: anything gated on the bearer alone
-      // (or ungated) is already inside `effectiveStats.directInfluence` above,
-      // so folding it in again would double it (see `checkConditionalEffects`).
-      const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
-      const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
-      if (conditionalDI !== 0) {
-        logDetail(`  DI bonus from influence-check effects: ${formatSignedNumber(conditionalDI)} against ${targetDef.name} (${targetDef.race})`);
-      }
-      baseDI += conditionalDI;
-    }
+    baseDI += targetConditionalDIBonus(state, controller, targetDef);
   }
 
   return baseDI - usedDI;
+}
+
+/**
+ * Resolves a controller's target-conditional direct-influence bonus against a
+ * specific character (e.g. Glorfindel II's "+1 DI against Elves", modeled as a
+ * `stat-modifier` gated on `reason: "influence-check"`). Only target-gated
+ * modifiers count: anything gated on the bearer alone (or ungated) is already
+ * inside `effectiveStats.directInfluence`, so folding it in again would double
+ * it (see `checkConditionalEffects`).
+ *
+ * Used both when admitting a follower ({@link availableDI}) and when the
+ * organization phase ends and over-extended followers are released — the two
+ * checks must agree, or a legally admitted follower would be released again
+ * at the end of the same phase.
+ */
+export function targetConditionalDIBonus(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  targetDef: CharacterCard,
+): number {
+  const ctrlDef = resolveDef(state, controller.instanceId);
+  if (!ctrlDef || !isCharacterCard(ctrlDef)) return 0;
+  const resolverCtx: ResolverContext = {
+    reason: 'influence-check',
+    // Effective prowess so stat-comparing conditions (Whip le-348:
+    // "prowess less than the bearer's") see the live value, not the
+    // printed one.
+    bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
+    target: {
+      name: targetDef.name,
+      race: targetDef.race,
+      homesite: parseHomesiteNames(targetDef.homesite ?? ''),
+      keywords: targetDef.keywords ?? [],
+      // Printed stats — the target is a definition, not yet in play here.
+      // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
+      ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
+      prowess: targetDef.prowess,
+    },
+  };
+  const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
+  const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+  if (conditionalDI !== 0) {
+    logDetail(`  DI bonus from influence-check effects: ${formatSignedNumber(conditionalDI)} against ${targetDef.name} (${targetDef.race})`);
+  }
+  return conditionalDI;
 }
 
 /**
@@ -2090,6 +2107,7 @@ export function buildPlayOptionContext(
   let hasFactionInHand = false;
   let isInfluencing = false;
   let companySiteType: string | null = null;
+  let companySiteName: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
   if (player) {
@@ -2129,6 +2147,7 @@ export function buildPlayOptionContext(
     if (charCompany?.currentSite) {
       const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
+      if (siteDef) companySiteName = siteDef.name;
     }
     if (charCompany) {
       containsDiplomat = charCompany.characters.some(memberId => {
@@ -2191,6 +2210,7 @@ export function buildPlayOptionContext(
     },
     company: {
       siteType: companySiteType,
+      siteName: companySiteName,
       containsDiplomat,
       moving: companyMoving,
       destinationSiteType,

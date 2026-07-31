@@ -385,6 +385,94 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // during the site phase") are handled by the site phase instead.
       const isCavernsUnchoked = def.effects?.some(e => e.type === 'surface-region-adjacency') ?? false;
       const orgPhaseSiteTiming = isStageResource || isCavernsUnchoked;
+
+      // The White Tree (tw-348) is the sole card combining a site play-target
+      // with a `discard-named-card` play-condition: "Sage only at Minas
+      // Tirith. Playable only if you discard a Sapling of the White Tree…"
+      // Unlike the site-tapping / attack-triggering events handled below (and
+      // by legal-actions/site.ts), its text declares no site-phase timing, so
+      // under rule 2.1.1 it is playable during any phase — it is evaluated
+      // directly here rather than deferred to the site phase.
+      const discardNamedCardCond = findPlayConditionEffect(def, 'discard-named-card');
+      if (!orgPhaseSiteTiming && discardNamedCardCond?.cardName) {
+        const targetCardName = discardNamedCardCond.cardName;
+        const sources = discardNamedCardCond.sources ?? ['character-items'];
+        const charPlayTarget = def.effects?.find(
+          (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+        );
+        let anyPlayable = false;
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          const siteDef = defById(state, siteDefId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (sitePlayTarget.filter) {
+            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          const charFilter = charPlayTarget?.filter;
+          if (charFilter) {
+            const hasEligibleChar = company.characters.some(charId => {
+              const ch = player.characters[charId];
+              const charDef = ch && defById(state, ch.definitionId);
+              if (!ch || !charDef || !isCharacterCard(charDef)) return false;
+              const ctx = { target: { skills: getEffectiveSkills(state, ch, charDef) } };
+              return matchesCondition(charFilter, ctx);
+            });
+            if (!hasEligibleChar) {
+              logDetail(`Permanent event ${def.name}: no eligible character at ${siteDef.name}`);
+              continue;
+            }
+          }
+
+          const discardCandidates: { instanceId: CardInstanceId; source: string }[] = [];
+          for (const source of sources) {
+            if (source === 'character-items') {
+              for (const charId of company.characters) {
+                const ch = player.characters[charId];
+                if (!ch) continue;
+                for (const item of ch.items) {
+                  const itemDef = defById(state, item.definitionId);
+                  if (itemDef && itemDef.name === targetCardName) {
+                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
+                  }
+                }
+              }
+            } else if (source === 'kill-pile') {
+              for (const card of player.killPile) {
+                const cardDef = defById(state, card.definitionId);
+                if (cardDef && cardDef.name === targetCardName) {
+                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
+                }
+              }
+            }
+          }
+          if (discardCandidates.length === 0) {
+            logDetail(`Permanent event ${def.name}: no ${targetCardName} available to discard at ${siteDef.name}`);
+            continue;
+          }
+          anyPlayable = true;
+          for (const dc of discardCandidates) {
+            logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (discard ${dc.instanceId as string} from ${dc.source})`);
+            actions.push({
+              action: {
+                type: 'play-permanent-event', player: playerId, cardInstanceId,
+                targetSiteDefinitionId: siteDefId,
+                discardCardInstanceId: dc.instanceId,
+              },
+              viable: true,
+            });
+          }
+        }
+        if (!anyPlayable) {
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site/character or no ${targetCardName} to discard`));
+        }
+        continue;
+      }
+
       if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));

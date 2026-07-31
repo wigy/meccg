@@ -22,7 +22,7 @@ import {
   RIVENDELL, BARROW_DOWNS, OLD_FOREST, EDORAS, MORIA, LORIEN,
 } from '../card-ids.js';
 import {
-  ARWEN, ELLADAN, ELROHIR, GILDOR_INGLORION,
+  ARWEN, ANNALENA, ELROHIR, GILDOR_INGLORION,
   STAR_OF_HIGH_HOPE, SWORD_OF_GONDOLIN, GOLDBERRY, SHIELD_OF_IRON_BOUND_ASH,
   ORC_LIEUTENANT, MINIONS_STIR,
   THORIN_II, GLOIN, DIMRILL_DALE,
@@ -44,15 +44,16 @@ export interface TutorialDeck {
 /**
  * The human player's deck: an all-Elf Rivendell company.
  *
- * Draft: Glorfindel II + the twins (16 mind), Elrond as the blocked
- * mind-limit pick, Gildor left for the character-deck-draft, and two
- * starting minor items.
+ * Draft: Glorfindel II + Annalena + Elrohir (15 mind — Annalena later moves
+ * under Glorfindel's direct influence, his +1 DI vs Elves covering her mind 3),
+ * Elrond as the blocked mind-limit pick, Gildor left for the
+ * character-deck-draft, and two starting minor items.
  */
 export const TUTORIAL_HERO_DECK: TutorialDeck = {
   alignment: Alignment.Wizard,
   draftPool: [
     GLORFINDEL_II,
-    ELLADAN,
+    ANNALENA,
     ELROHIR,
     ELROND,
     GILDOR_INGLORION,

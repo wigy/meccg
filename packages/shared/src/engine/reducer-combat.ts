@@ -7,10 +7,11 @@
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, CardInstanceId } from '../index.js';
 import { isAvatarCharacter } from '../types/cards.js';
+import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, playerById, toCardInstance, updatePlayer, wrongActionType, defById, getCardEffects } from './reducer-utils.js';
+import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects } from './reducer-utils.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
@@ -111,6 +112,39 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 }
 
 /** Assign a strike to a defending character. */
+/**
+ * Fifteen Birds in Five Firtrees (dm-129): "An untapped character in the
+ * company must tap to face any strike from a subsequent hazard creature
+ * attack for the rest of the turn." Called whenever a *new* (not excess)
+ * strike is assigned to a defending character. Taps the character in place
+ * when a turn-scoped `tap-on-strike-assignment` constraint targets the
+ * defending company and the attack is hazard-creature-sourced (a played
+ * creature, an on-guard reveal, or a played-auto-attack — never a site
+ * automatic attack or CvCC, which never install this constraint's source
+ * card in the first place, but the source check keeps this helper honest).
+ * A no-op when the character is already tapped or no such constraint applies.
+ */
+function applyTapOnStrikeAssignment(state: GameState, combat: CombatState, characterId: CardInstanceId): GameState {
+  const hazardSourced = combat.attackSource.type === 'creature'
+    || combat.attackSource.type === 'on-guard-creature'
+    || combat.attackSource.type === 'played-auto-attack';
+  if (!hazardSourced) return state;
+
+  const constrained = state.activeConstraints.some(c =>
+    c.kind.type === 'tap-on-strike-assignment'
+    && c.target.kind === 'company' && c.target.companyId === combat.companyId,
+  );
+  if (!constrained) return state;
+
+  const playerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const player = state.players[playerIndex];
+  const char = player.characters[characterId];
+  if (!char || char.status !== CardStatus.Untapped) return state;
+
+  logDetail(`Tap-on-strike-assignment: ${characterId as string} taps to face a strike (Fifteen Birds in Five Firtrees)`);
+  return updatePlayer(state, playerIndex, p => updateCharacter(p, characterId, c => ({ ...c, status: CardStatus.Tapped })));
+}
+
 function handleAssignStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'assign-strike') return wrongActionType(state, action, 'assign-strike');
 
@@ -130,19 +164,20 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     }
     logDetail(`Multi-attack: all ${combat.strikesTotal} strikes auto-assigned to ${action.characterId as string}`);
 
+    const tappedState = applyTapOnStrikeAssignment(state, combat, action.characterId);
     let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments };
 
     // If cancel-by-tap is available, transition to cancel-by-tap sub-phase
     if (combat.cancelByTapRemaining && combat.cancelByTapRemaining > 0) {
       logDetail(`Cancel-by-tap window: defender may cancel up to ${combat.cancelByTapRemaining} attack(s)`);
       newCombatState = { ...newCombatState, assignmentPhase: 'cancel-by-tap' };
-      return { state: { ...state, combat: newCombatState } };
+      return { state: { ...tappedState, combat: newCombatState } };
     }
 
     // Otherwise proceed to strike resolution
     const next = nextStrikePhase(newCombatState);
     newCombatState = { ...newCombatState, assignmentPhase: 'done', ...next };
-    return { state: { ...state, combat: newCombatState } };
+    return { state: { ...tappedState, combat: newCombatState } };
   }
 
   // CvCC assignment: no excess strikes — each attacker character backs one strike
@@ -183,6 +218,7 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     return { state: { ...state, combat: newCombatState } };
   }
 
+  let tappedState = state;
   if (existingIdx >= 0) {
     newAssignments = combat.strikeAssignments.map((a, i) =>
       i === existingIdx ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,
@@ -196,6 +232,7 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
       resolved: false,
     }];
     logDetail(`Strike assigned to ${action.characterId as string} (${newAssignments.length}/${combat.strikesTotal})`);
+    tappedState = applyTapOnStrikeAssignment(state, combat, action.characterId);
   }
 
   const newTotalAllocated = newAssignments.length
@@ -208,7 +245,7 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     newCombatState = { ...newCombatState, assignmentPhase: 'done', ...next };
   }
 
-  return { state: { ...state, combat: newCombatState } };
+  return { state: { ...tappedState, combat: newCombatState } };
 }
 
 /**

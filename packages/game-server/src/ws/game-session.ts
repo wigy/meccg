@@ -29,7 +29,7 @@ import type {
 } from '@meccg/shared';
 import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
-import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK } from '@meccg/shared';
+import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK, TUTORIAL_BEATS } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { TutorialController } from './tutorial-controller.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -105,6 +105,11 @@ interface GameSave {
   deckInfo?: Record<string, PlayerDeckInfo>;
   /** Lowercase names of AI-controlled seats; absent in saves from old code. */
   aiPlayers?: string[];
+  /**
+   * Tutorial script cursor (index of the next beat); present only in saves
+   * of tutorial games. Its presence marks the save as a tutorial save.
+   */
+  tutorialCursor?: number;
 }
 
 /**
@@ -218,9 +223,8 @@ export class GameSession {
 
   gracefulShutdown(): void {
     this.serverLog.log('shutdown');
-    // Tutorial games are never saved: the script cursor lives only in this
-    // process, so a restored save could not be continued on rails.
-    if (this.state && !this.isFullyFinished() && !this.tutorialMode) {
+    // Tutorial saves carry the script cursor, so they restore on rails too.
+    if (this.state && !this.isFullyFinished()) {
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -452,9 +456,23 @@ export class GameSession {
    * human in seat 0 and the server-driven Mentor in seat 1.
    */
   private startTutorialGame(p: PendingPlayer, humanName: string): void {
+    const mentorName = 'Mentor';
+
+    // A saved tutorial carries its script cursor, so a relaunch (reload,
+    // idle exit, lobby restart) resumes at the same step instead of
+    // starting over. Non-tutorial saves have no cursor and are ignored, as
+    // are saves of finished tutorials (script complete or game over) —
+    // those start a fresh run.
+    const save = this.loadSave(humanName.toLowerCase(), mentorName.toLowerCase());
+    if (save && save.tutorialCursor !== undefined
+      && save.tutorialCursor < TUTORIAL_BEATS.length
+      && save.state.phaseState.phase !== Phase.GameOver) {
+      this.restoreTutorialGame(save, p, humanName);
+      return;
+    }
+
     const humanId = `p${++this.playerCounter}` as PlayerId;
     const mentorId = `p${++this.playerCounter}` as PlayerId;
-    const mentorName = 'Mentor';
 
     this.nameToPlayerId = {
       [humanName.toLowerCase()]: humanId as string,
@@ -488,6 +506,50 @@ export class GameSession {
       this.state,
     );
     this.logState('new-game');
+    this.broadcastStateWithLogs();
+  }
+
+  /**
+   * Resume a saved tutorial: restore the game state and re-seat the script
+   * cursor exactly where the save left off, so a reload or relaunch returns
+   * the player to the same step. The state broadcast at the end re-enters
+   * the Mentor pump, so a save taken mid-Mentor-beat continues on its own.
+   */
+  private restoreTutorialGame(save: GameSave, p: PendingPlayer, humanName: string): void {
+    this.state = {
+      ...save.state,
+      chain: save.state.chain ?? null,
+      combat: save.state.combat ?? null,
+      players: save.state.players.map(pl => ({ ...pl, agents: pl.agents ?? [] })) as unknown as typeof save.state.players,
+    };
+    const normalizedMap: Record<string, string> = {};
+    for (const [k, v] of Object.entries(save.nameToPlayerId)) {
+      normalizedMap[k.toLowerCase()] = v;
+    }
+    this.nameToPlayerId = normalizedMap;
+
+    const humanId = normalizedMap[humanName.toLowerCase()] as PlayerId;
+    const mentorId = normalizedMap['mentor'] as PlayerId;
+    this.tutorial = new TutorialController(humanId, mentorId, save.tutorialCursor ?? 0);
+    this.state = this.tutorial.armCheat(this.state);
+
+    this.players.set(humanId as string, { ws: p.ws, playerId: humanId, name: humanName });
+    this.pending.clear();
+    this.send(p.ws, { type: 'assigned', playerId: humanId, gameId: this.state.gameId });
+    this.broadcastSpectators();
+
+    this.serverLog.log('restore', {
+      gameId: this.state.gameId, stateSeq: this.state.stateSeq,
+      player1: humanName, player2: 'Mentor', tutorial: true, tutorialCursor: this.tutorial.cursorIndex,
+    });
+    this.gameLog.open(this.state.gameId);
+    this.gameLog.writeStaticData(
+      this.state.cardPool as unknown as Record<string, unknown>,
+      this.state,
+    );
+    this.gameLog.truncateAfterSeq(this.state.stateSeq);
+    this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: humanName, player2: 'Mentor' });
+
     this.broadcastStateWithLogs();
   }
 
@@ -1029,7 +1091,7 @@ export class GameSession {
 
     if (!disconnectedId || !disconnectedName) return;
 
-    if (this.state && !this.isFullyFinished() && !this.tutorialMode) {
+    if (this.state && !this.isFullyFinished()) {
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -1227,6 +1289,7 @@ export class GameSession {
       nameToPlayerId: this.nameToPlayerId,
       deckInfo: this.deckInfo,
       aiPlayers: [...this.aiPlayers],
+      ...(this.tutorial ? { tutorialCursor: this.tutorial.cursorIndex } : {}),
     };
 
     fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
