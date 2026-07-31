@@ -188,8 +188,17 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // margin and went to H1 every turn of every game.
       const discriminates = evaluations.length > 0
         && best.utility - worst.utility > TIE_EPSILON;
+      // …and a *near* tie is only a tie worth keeping when the fallback is
+      // weaker than the module tree. It is a parameter now, so this is too:
+      // `decisiveMargin` is how far the best candidate must beat its runner-up
+      // before H2 claims a decision it fully covers. At the shipped zero the
+      // clause cannot fire and the rule above is unchanged.
+      const runnerUp = evaluations[1];
+      const decisive = tunables.decisiveMargin <= 0
+        || runnerUp === undefined
+        || best.utility - runnerUp.utility > tunables.decisiveMargin;
       const speaks = evaluations.length > 0
-        && (complete ? discriminates || best.utility > TIE_EPSILON
+        && (complete ? (discriminates || best.utility > TIE_EPSILON) && decisive
           : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {
