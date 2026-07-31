@@ -725,6 +725,71 @@ point of the design is the modules and not the search. The seam is what the
 measurement needed, and the number above is what it bought: a third of the
 −230 gap, from changing what happens when the modules say nothing.
 
+#### What is left of the gap, and where it lives
+
+The +76 above is measured against plain `h2`. Measured against the thing the
+gap is *to*, `h2+mc` is still behind:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger 'h2+mc:rollouts=8/candidates=8/turns=1' \
+  --champion 'mc:rollouts=8/candidates=8/turns=1' --pairs 50 --rounds 1 --jobs 10
+```
+
+```text
+  score:     33W-66L-0D (33.3%) over 99 rated games
+  elo diff:  -120 [-200, -52]
+  glicko-2:  -339 [-482, -196]
+```
+
+Read against the −230 of the direct match, the fallback bought about half the
+gap and **120 Elo remain**. The shape of what remains is the uncomfortable part:
+in `h2+mc` the modules decide about 84% of contested decisions and `mc` decides
+the sixth they decline, while plain `mc` decides all of them — and plain `mc` is
+120 Elo better. **H2's own decisions are, in aggregate, worse than asking the
+rollouts.** That is not an argument for another module.
+
+#### Speaking only when it has something to say
+
+So the near-tie rule is worth revisiting, because the fallback is a parameter
+now. H2 hands over a *flat* ranking — every candidate identical — and keeps
+everything else, however thin the margin. That was right when the fallback was
+Heuristics 1: a thin opinion beats the weight soup. Against a rollout search it
+is backwards, and it is not a rare case. Of the decisions H2 keeps on a complete
+view, measured over three self-play games:
+
+| top-two gap ≤ | decisions | of those kept |
+|---|---|---|
+| 0.001 | 291 | 31.5% |
+| 0.005 | 438 | 47.4% |
+| 0.01 | 578 | 62.6% |
+
+**Nearly a third of what H2 decides is settled by less than a thousandth of win
+probability** — a coin flip its own numbers cannot call. `decisiveMargin` is how
+far the best candidate must beat its runner-up before H2 keeps a decision it
+fully covers; at the shipped 0 the clause cannot fire and nothing changes.
+
+```sh
+npm run gate -w @meccg/sim -- \
+  --challenger 'h2:all/decisiveMargin=0.002+mc:rollouts=8/candidates=8/turns=1' \
+  --champion 'h2+mc:rollouts=8/candidates=8/turns=1' --pairs 50 --rounds 1 --jobs 8
+```
+
+```text
+  score:     59W-38L-2D (60.6%) over 99 rated games
+  elo diff:  +75 [+8, +148]
+  glicko-2:  +216 [+72, +359]
+```
+
+**Both methods clear zero**, for deferring about a quarter of the decisions H2
+was keeping. It is the second-largest gain measured here and it agrees with the
+section above: the marginal opinion is the one that is wrong, and the cheapest
+way to stop being wrong is to stop having it.
+
+A caution on the knob. It is not monotone-safe — at `decisiveMargin=0.01` the
+agent hands over **71.3%** of contested decisions and is mostly its own
+fallback, which is a different agent wearing H2's name rather than a better H2.
+The value gated here is deliberately small.
+
 #### The one game that did not finish, and the wrong diagnosis of it
 
 Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players
