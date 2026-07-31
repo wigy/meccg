@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1047 | 1044 | 3 | 99.7% |
+| 1048 | 1045 | 3 | 99.7% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 96 | 96 | 100.0% |
 | DM | 90 | 90 | 100.0% |
 | LE | 291 | 289 | 99.3% |
-| TD | 77 | 77 | 100.0% |
+| TD | 78 | 78 | 100.0% |
 | TW | 309 | 308 | 99.7% |
 | WH | 82 | 82 | 100.0% |
 
@@ -623,6 +623,7 @@
 | td-38 | Itangast at Home | — | 8 | ☑ |
 | td-41 | Left Behind | — | 10 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
+| td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
 | td-57 | Rain-drake | — | 10 | ☑ |

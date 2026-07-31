@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.73.0 — 2026-07-31
+
+Nightly Build
+
+### Game Engine
+
+- Fixed Gandalf being unable to tap to test a gold ring during the untap phase
+- Engine now survives a company being eliminated during order-effects resolution
+
+### Web Client
+
+- Moved the Pass Priority button into the chain-of-effects panel, while keeping the bottom-right Pass Priority button alongside it
+
+### Cards
+
+- Certified Many Sorrows Befall (td-46)
+
 ## 0.72.0 — 2026-07-31
 
 Nightly Build
