@@ -2833,11 +2833,11 @@ export interface SiteEntryAttackAction extends TriggeredActionBase {
   readonly attack: SiteEntryAttackSpec;
 }
 
-/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight) on the bearer's company. */
+/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight, Paths of the Dead) on the target company. */
 export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly type: 'set-company-special-movement';
   /** The special-movement mode. */
-  readonly specialMovement?: 'gwaihir';
+  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead';
 }
 
 /** `shuffle-deck-top` — shuffle the top `count` cards of a player's play deck in place. */

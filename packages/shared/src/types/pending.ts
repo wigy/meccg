@@ -1194,6 +1194,17 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Paths of the Dead (tw-302): while active, the opponent may only play
+         * hazard creatures of the given race against the target company ("The
+         * only hazard creatures that may be played on this company are Undead,
+         * but any Undead may be played on the company").
+         */
+        readonly type: 'only-race-creatures-on-company';
+        /** The only race whose hazard creatures may be played against the company. */
+        readonly race: Race;
+      }
+    | {
+        /**
          * Master of Esgaroth (td-135): the target company "can take a second
          * movement/hazard phase immediately following its first" — the
          * standing, destination-gated counterpart of the one-shot

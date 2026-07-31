@@ -445,12 +445,14 @@ export interface Company {
   /** Hazard cards targeting this company as a whole (not a specific character). */
   readonly hazards: readonly CardInPlay[];
   /**
-   * Special movement granted by a card effect (e.g. Gwaihir).
+   * Special movement granted by a card effect (e.g. Gwaihir, Paths of the Dead).
    * When set, the company uses special movement rules during planning and M/H phase:
    * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site.
    *   Only site-keyed hazard creatures may be played. No region path is traversed.
+   * - `'paths-of-the-dead'`: Can move directly to the Vale of Erech site (CoE IE
+   *   2018 erratum, tw-302). No region path is traversed.
    */
-  readonly specialMovement?: 'gwaihir' | undefined;
+  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead' | undefined;
   /**
    * Extra region distance granted by a card effect (e.g. Cram).
    * Added to {@link BASE_MAX_REGION_DISTANCE} when computing maximum region
