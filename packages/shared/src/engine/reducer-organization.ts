@@ -723,9 +723,16 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   const newDiscardPileBase = charSource === 'discard' ? removeById(player.discardPile, charInstId) : player.discardPile;
   const newSideboard = charSource === 'sideboard' ? removeById(player.sideboard, charInstId) : player.sideboard;
 
-  // Find existing company at the target site
+  // Find existing company at the target site. A direct-influence follower
+  // must join the specific company its controller already stands in (CoE
+  // 2.II.2.2) — when two companies share a site, matching by site alone picks
+  // whichever company happens to be first, which can plant the follower in
+  // the wrong one and leave it appearing to belong to both.
   const companies = [...player.companies];
-  const existingCompanyIdx = companies.findIndex(c => c.currentSite?.instanceId === action.atSite);
+  const controllerId = action.controlledBy !== 'general' ? action.controlledBy : undefined;
+  const existingCompanyIdx = controllerId !== undefined
+    ? companies.findIndex(c => c.currentSite?.instanceId === action.atSite && c.characters.includes(controllerId))
+    : companies.findIndex(c => c.currentSite?.instanceId === action.atSite);
 
   // Update or create company
   let newSiteDeck = player.siteDeck;
