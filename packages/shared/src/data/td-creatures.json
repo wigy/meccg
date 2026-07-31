@@ -707,8 +707,13 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Drake. Two strikes. Attacker chooses defending characters."
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
+    "text": "Drake. Two strikes. Attacker chooses defending characters.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hazard-creature",
