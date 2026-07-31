@@ -142,6 +142,18 @@ function softmax(utilities: readonly number[], temperature: number): number[] {
 }
 
 /**
+ * The tunables that differ from the shipped set, as a spec-shaped suffix.
+ *
+ * Empty for the defaults, so the common case still reports plain `h2`.
+ */
+function describeTunableOverrides(tunables: Tunables): string {
+  const changed = (Object.keys(DEFAULT_TUNABLES) as (keyof Tunables)[])
+    .filter(name => tunables[name] !== DEFAULT_TUNABLES[name])
+    .map(name => `/${name}=${tunables[name]}`);
+  return changed.join('');
+}
+
+/**
  * Create the Heuristics-2 agent.
  *
  * The win-probability model is resolved once at construction: an agent without
@@ -154,7 +166,11 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   const model = options.model ?? loadWinProbModel();
   const temperature = options.temperature ?? tunables.softmaxTemperature;
   const fallback = options.fallback ?? createHeuristicAgent();
-  const base = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
+  const selector = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
+  // A tunable override changes how every module scores, so a run that reports
+  // plain `h2` for two different constant sets cannot be read afterwards —
+  // which is exactly the failure a tunable gate would produce.
+  const base = `${selector}${describeTunableOverrides(tunables)}`;
   // Sampled play and the fallback are each a different agent from plain argmax
   // play — a run that reports `h2` for differently-configured agents cannot be
   // read afterwards.
@@ -200,8 +216,17 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // margin and went to H1 every turn of every game.
       const discriminates = evaluations.length > 0
         && best.utility - worst.utility > TIE_EPSILON;
+      // …and a *near* tie is only a tie worth keeping when the fallback is
+      // weaker than the module tree. It is a parameter now, so this is too:
+      // `decisiveMargin` is how far the best candidate must beat its runner-up
+      // before H2 claims a decision it fully covers. At the shipped zero the
+      // clause cannot fire and the rule above is unchanged.
+      const runnerUp = evaluations[1];
+      const decisive = tunables.decisiveMargin <= 0
+        || runnerUp === undefined
+        || best.utility - runnerUp.utility > tunables.decisiveMargin;
       const speaks = evaluations.length > 0
-        && (complete ? discriminates || best.utility > TIE_EPSILON
+        && (complete ? (discriminates || best.utility > TIE_EPSILON) && decisive
           : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {

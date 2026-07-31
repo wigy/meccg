@@ -840,6 +840,71 @@ point of the design is the modules and not the search. The seam is what the
 measurement needed, and the number above is what it bought: a third of the
 −230 gap, from changing what happens when the modules say nothing.
 
+#### What is left of the gap, and where it lives
+
+The +76 above is measured against plain `h2`. Measured against the thing the
+gap is *to*, `h2+mc` is still behind:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger 'h2+mc:rollouts=8/candidates=8/turns=1' \
+  --champion 'mc:rollouts=8/candidates=8/turns=1' --pairs 50 --rounds 1 --jobs 10
+```
+
+```text
+  score:     33W-66L-0D (33.3%) over 99 rated games
+  elo diff:  -120 [-200, -52]
+  glicko-2:  -339 [-482, -196]
+```
+
+Read against the −230 of the direct match, the fallback bought about half the
+gap and **120 Elo remain**. The shape of what remains is the uncomfortable part:
+in `h2+mc` the modules decide about 84% of contested decisions and `mc` decides
+the sixth they decline, while plain `mc` decides all of them — and plain `mc` is
+120 Elo better. **H2's own decisions are, in aggregate, worse than asking the
+rollouts.** That is not an argument for another module.
+
+#### Speaking only when it has something to say
+
+So the near-tie rule is worth revisiting, because the fallback is a parameter
+now. H2 hands over a *flat* ranking — every candidate identical — and keeps
+everything else, however thin the margin. That was right when the fallback was
+Heuristics 1: a thin opinion beats the weight soup. Against a rollout search it
+is backwards, and it is not a rare case. Of the decisions H2 keeps on a complete
+view, measured over three self-play games:
+
+| top-two gap ≤ | decisions | of those kept |
+|---|---|---|
+| 0.001 | 291 | 31.5% |
+| 0.005 | 438 | 47.4% |
+| 0.01 | 578 | 62.6% |
+
+**Nearly a third of what H2 decides is settled by less than a thousandth of win
+probability** — a coin flip its own numbers cannot call. `decisiveMargin` is how
+far the best candidate must beat its runner-up before H2 keeps a decision it
+fully covers; at the shipped 0 the clause cannot fire and nothing changes.
+
+```sh
+npm run gate -w @meccg/sim -- \
+  --challenger 'h2:all/decisiveMargin=0.002+mc:rollouts=8/candidates=8/turns=1' \
+  --champion 'h2+mc:rollouts=8/candidates=8/turns=1' --pairs 50 --rounds 1 --jobs 8
+```
+
+```text
+  score:     59W-38L-2D (60.6%) over 99 rated games
+  elo diff:  +75 [+8, +148]
+  glicko-2:  +216 [+72, +359]
+```
+
+**Both methods clear zero**, for deferring about a quarter of the decisions H2
+was keeping. It is the second-largest gain measured here and it agrees with the
+section above: the marginal opinion is the one that is wrong, and the cheapest
+way to stop being wrong is to stop having it.
+
+A caution on the knob. It is not monotone-safe — at `decisiveMargin=0.01` the
+agent hands over **71.3%** of contested decisions and is mostly its own
+fallback, which is a different agent wearing H2's name rather than a better H2.
+The value gated here is deliberately small.
+
 #### The one game that did not finish, and the wrong diagnosis of it
 
 Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players
@@ -937,6 +1002,59 @@ Two earlier fixes were needed before the test said anything at all: it
 correlated single *decisions* (16 games put every module indistinguishable from
 zero out to n=2689 — one action among hundreds in a turn cannot explain a score
 change), and it failed modules on the sign of a point estimate.
+
+### Gating a constant, not just a decision
+
+`sweep` varies a tunable on **one scenario** and prints where the ranking
+changes. That answers "is this number on a decision boundary" and cannot answer
+"does the number matter", because a constant that flips a decision here and
+there may still leave the agent exactly as strong. The second question needs a
+strength gate, and a gate could not ask it: `gate` spawns `tsx` children and
+hands each one an agent *spec*, so anything it varies has to survive being
+written as a string.
+
+So the `h2` spec grammar carries the constants now:
+
+```text
+h2[:<modules>][@<temperature>][/<tunable>=<value>...][+<fallback agent>]
+```
+
+```sh
+npm run gate -w @meccg/sim -- --challenger 'h2:all/tapTempoCost=0.6' \
+  --champion h2 --pairs 100 --rounds 1 --jobs 10
+```
+
+An unknown name throws at launch rather than being ignored — a dropped
+parameter would rate the shipped defaults against themselves and report a dead
+heat, which is indistinguishable from a real answer. The overrides are part of
+the agent's name (`h2/tapTempoCost=0.6`) for the same reason.
+
+The first constant put through it was `tapTempoCost`, because two separate
+things pointed at it: the tunable's own documentation calls 0.3 a value sitting
+on a decision boundary, and pricing H2's disagreements with `mc` by `mc`'s own
+rollouts leaves `pass` as the one action type clearly above the estimator's
+noise floor — H2 spends a tap, the rollouts decline. Four points, 200 paired
+side-swapped games each, all against the shipped 0.3:
+
+| `tapTempoCost` | score | elo diff (95% CI) |
+|---|---|---|
+| 0.15 (½×) | 48.5% | −10 [−59, +37] |
+| 0.3 | — | reference |
+| 0.6 (2×) | 49.8% | −2 [−50, +46] |
+| 1.2 (4×) | 48.0% | −14 [−62, +34] |
+
+**Nothing moves across an 8× range.** Every interval contains zero; pooled over
+all 600 games the challengers score 48.8%, which is about −8 Elo and still not
+separable from parity. The three point estimates all sitting a little below the
+reference is the only hint of structure, and it is far too weak to read as 0.3
+being optimal — what it does rule out is the value being badly wrong in either
+direction.
+
+So the decision-boundary worry is true and does not matter: the constant flips
+individual decisions and does not change who wins. And the `pass` excess is
+**not** an under-charged tap. If the cost is right, what is left is the gain —
+which is the same place § *Does any of it predict anything?* ends up, from a
+different direction.
 
 ### Falsifiable, where it can be
 

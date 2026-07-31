@@ -125,6 +125,23 @@ export interface Tunables {
    */
   readonly partialCoverageMargin: number;
   /**
+   * How far H2's best candidate must beat its runner-up, in win probability,
+   * before H2 keeps a decision it *completely* covers.
+   *
+   * A different question from `partialCoverageMargin`, which asks how sure H2
+   * must be to act blind to candidates it could not score. This one asks
+   * whether there is a decision here at all: two candidates a thousandth of a
+   * win probability apart are a coin flip dressed as an opinion, and the module
+   * tree has no more claim on that coin flip than the fallback does.
+   *
+   * It matters because the fallback is a parameter now. Handing a near-tie to
+   * Heuristics 1 would be giving it away; handing it to a rollout search is
+   * asking a stronger agent to break the tie, and the search only pays for the
+   * decisions that reach it. Zero — the shipped value — keeps the old rule
+   * exactly: any strict preference is acted on, however small.
+   */
+  readonly decisiveMargin: number;
+  /**
    * What one resource card drawn is worth, in TSD.
    *
    * Cards drawn are not marshalling points, but they are what the points are
@@ -198,6 +215,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   influenceTapCost: 0.6,
   revertedMindCost: 0.15,
   partialCoverageMargin: 0.005,
+  decisiveMargin: 0,
   resourceDrawValue: 0.35,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,

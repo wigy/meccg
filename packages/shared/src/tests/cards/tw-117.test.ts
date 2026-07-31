@@ -284,6 +284,28 @@ describe('Alatar (tw-117)', () => {
     expect(actions).toHaveLength(0);
   });
 
+  test('no haven-join-attack action once a company named by the offer is gone', () => {
+    // The offer names both companies it would move the joiner between, and
+    // the reducer refuses when either has gone. An offer outlives the attack
+    // that raised it and a company can dissolve in between, so "the character
+    // is still in play" is not the reducer's condition. Offering the action
+    // anyway made the engine reject a move it had just published, aborting one
+    // of 100 games in a gate run (seed 28).
+    const state = combatWithHavenJumpOffer(baseTwoCompanyState());
+    const dissolved: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[RESOURCE_PLAYER],
+          // Drop the attacked company; Alatar stays in play at the haven.
+          companies: state.players[RESOURCE_PLAYER].companies.slice(1),
+        },
+        state.players[HAZARD_PLAYER],
+      ] as typeof state.players,
+    };
+    expect(viableActions(dissolved, PLAYER_1, 'haven-join-attack')).toHaveLength(0);
+  });
+
   // ── Effect 2: accept offer — Alatar moves, allies discarded, strike forced ──
 
   test('accepting the offer moves Alatar into the attacked company', () => {

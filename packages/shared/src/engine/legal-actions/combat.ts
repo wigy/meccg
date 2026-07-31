@@ -370,8 +370,21 @@ function havenJoinAttackActions(
   const actions: EvaluatedAction[] = [];
   for (const offer of offers) {
     if (offer.bearerPlayerId !== playerId) continue;
-    const charInPlay = playerById(state, playerId)?.characters[offer.characterId];
+    const player = playerById(state, playerId);
+    const charInPlay = player?.characters[offer.characterId];
     if (!charInPlay) continue;
+    // The offer names the companies it moves the joiner between, and the
+    // reducer refuses when either has gone. An offer outlives the attack that
+    // created it, and a company can dissolve in between — the origin empties
+    // when its last character is taken — so the character still being in play
+    // is not enough. Mirror the reducer's own condition rather than a proxy
+    // for it, as `splitCompanyActions` and `moveToCompanyActions` do; offering
+    // this aborted one of 100 games in a gate run (seed 28).
+    if (!companyById(player.companies, offer.originCompanyId)
+      || !companyById(player.companies, offer.targetCompanyId)) {
+      logDetail(`  → skip: haven-join for ${offer.characterId as string} — a company named by the offer is gone`);
+      continue;
+    }
     logDetail(`Defender may accept haven-join for ${offer.characterId as string}`);
     actions.push({
       action: { type: 'haven-join-attack', player: playerId, characterId: offer.characterId },
