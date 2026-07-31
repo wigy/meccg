@@ -98,6 +98,17 @@ export interface Heuristic2Options {
   /** Module set override, for tests that register a stub module. */
   readonly available?: readonly H2Module[];
   /**
+   * Defer every decision the fallback says it can search itself.
+   *
+   * Off by default. On, and with a fallback that publishes `canDecide`, the
+   * module tree keeps only the positions the fallback would have delegated —
+   * for `mc` that is combat, mid-chain and pending effects, the windows its
+   * determinizer refuses. It is the automatic form of naming the modules by
+   * hand, and more precise, because whether the rollouts can search a decision
+   * is a property of the position rather than of the action type.
+   */
+  readonly yieldWhenFallbackCanSearch?: boolean;
+  /**
    * Sample the reported distribution instead of playing its argmax.
    *
    * Off by default: sampling a move the agent's own model ranks below another
@@ -166,6 +177,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   const model = options.model ?? loadWinProbModel();
   const temperature = options.temperature ?? tunables.softmaxTemperature;
   const fallback = options.fallback ?? createHeuristicAgent();
+  const yieldToFallback = options.yieldWhenFallbackCanSearch === true;
   const selector = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
   // A tunable override changes how every module scores, so a run that reports
   // plain `h2` for two different constant sets cannot be read afterwards —
@@ -173,9 +185,12 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   const base = `${selector}${describeTunableOverrides(tunables)}`;
   // Sampled play and the fallback are each a different agent from plain argmax
   // play — a run that reports `h2` for differently-configured agents cannot be
-  // read afterwards.
+  // read afterwards. The fallback's connector records whether the agent yields
+  // outright (`>`) or only on what its own modules cannot price (`+`).
   const sampled = options.sample ? `${base}@${temperature}` : base;
-  const label = options.fallback ? `${sampled}+${fallback.name}` : sampled;
+  const label = options.fallback
+    ? `${sampled}${yieldToFallback ? '>' : '+'}${fallback.name}`
+    : sampled;
 
   return {
     name: label,
@@ -225,7 +240,14 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       const decisive = tunables.decisiveMargin <= 0
         || runnerUp === undefined
         || best.utility - runnerUp.utility > tunables.decisiveMargin;
-      const speaks = evaluations.length > 0
+      // …and none of that matters on a decision the fallback can search for
+      // itself. Where `mc` can determinize the view its rollouts beat the
+      // modules; where it cannot, the modules are the only opinion there is.
+      // Asking the fallback per decision is what `yieldWhenFallbackCanSearch`
+      // does, and it beats naming the modules by hand because the line is a
+      // property of the *position*, not of the action type.
+      const yielded = yieldToFallback && fallback.canDecide?.(context) === true;
+      const speaks = !yielded && evaluations.length > 0
         && (complete ? (discriminates || best.utility > TIE_EPSILON) && decisive
           : best.utility > tunables.partialCoverageMargin);
 

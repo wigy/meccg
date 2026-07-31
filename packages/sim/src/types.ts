@@ -97,6 +97,26 @@ export interface Agent {
    * unreproducible on its own.
    */
   startGame?(): void;
+  /**
+   * Whether this agent can bring its *own* machinery to bear on this decision,
+   * as opposed to answering it by delegating in turn.
+   *
+   * Only agents that sometimes cannot need to implement it. `mc` is the case
+   * that motivates it: it cannot determinize a view in combat, mid-chain, or
+   * with effects pending, and there it hands the decision to its own fallback
+   * — so "ask `mc`" silently means "ask Heuristics 1" on a large minority of
+   * decisions, and nothing in the seam said so.
+   *
+   * A composing agent uses this to route: see `ai/h2/agent`, where the module
+   * tree keeps the decisions its fallback cannot search and defers the rest.
+   *
+   * Absent means the agent does not draw the distinction, **not** "always" —
+   * a router must therefore require an explicit `true` before yielding. Read
+   * the other way it would be actively dangerous: Heuristics 1 does not
+   * implement this, and defaulting it to "yes, I can search that" would hand
+   * it every decision in the game.
+   */
+  canDecide?(context: AgentContext): boolean;
 }
 
 // ---- Replay records ----

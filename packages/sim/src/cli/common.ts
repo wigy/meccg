@@ -166,9 +166,9 @@ export function resolveAgent(spec: string): Agent {
   // `h2+mc` is `h2:all+mc` — the composition operator without a module
   // selector in front of it. Normalising here keeps the h2 parser to one
   // grammar instead of two.
-  if (name.includes('+')) {
-    const plus = name.indexOf('+');
-    return resolveAgent(`${name.slice(0, plus)}:all${name.slice(plus)}${param === undefined ? '' : `:${param}`}`);
+  if (name.includes('+') || name.includes('>')) {
+    const op = Math.min(...[name.indexOf('+'), name.indexOf('>')].filter(i => i >= 0));
+    return resolveAgent(`${name.slice(0, op)}:all${name.slice(op)}${param === undefined ? '' : `:${param}`}`);
   }
   switch (name) {
     case 'random': return createRandomAgent();
@@ -189,18 +189,26 @@ export function resolveAgent(spec: string): Agent {
       // what a gate wants; `@T` is for generating exploratory self-play data,
       // where position coverage matters more than winning.
       //
-      // `+<spec>` names the fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`. It
-      // is the last `+` because a nested spec may contain none, and the
-      // module selector never does.
+      // `+<spec>` names that fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`.
+      // `>` is the same composition, plus: defer every decision the fallback
+      // reports it can search on its own (`Agent.canDecide`). `h2>mc` is the
+      // measured configuration — the modules keep the windows `mc` cannot
+      // determinize and `mc` decides the rest.
       //
       // `/name=value` overrides a tunable: `h2:all/tapTempoCost=0.6`. Without
       // it a constant can only be swept on a single scenario, and every
       // question of the form "is this number right" needs a strength gate —
       // which spawns children that receive an agent *spec* and nothing else.
-      const plus = param === undefined ? -1 : param.indexOf('+');
+      const opIndexes = param === undefined
+        ? []
+        : [param.indexOf('+'), param.indexOf('>')].filter(i => i >= 0);
+      const plus = opIndexes.length === 0 ? -1 : Math.min(...opIndexes);
+      // `>` is `+` that also yields: the module tree keeps only the decisions
+      // the fallback says it cannot search itself.
+      const yields = plus >= 0 && param![plus] === '>';
       const fallbackSpec = plus >= 0 ? param!.slice(plus + 1) : undefined;
       if (fallbackSpec !== undefined && fallbackSpec.length === 0) {
-        throw new Error('h2 expects an agent spec after "+", as in `h2+mc`');
+        throw new Error('h2 expects an agent spec after "+" or ">", as in `h2+mc` or `h2>mc`');
       }
       const beforeFallback = plus >= 0 ? param!.slice(0, plus) : param;
       const slash = beforeFallback === undefined ? -1 : beforeFallback.indexOf('/');
@@ -218,6 +226,7 @@ export function resolveAgent(spec: string): Agent {
         tunables,
         sample: temperature !== undefined,
         fallback: fallbackSpec === undefined ? undefined : resolveAgent(fallbackSpec),
+        yieldWhenFallbackCanSearch: yields,
       });
     }
     case 'search-h2': {
