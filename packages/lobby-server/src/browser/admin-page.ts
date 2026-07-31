@@ -17,9 +17,10 @@
  * request across the ai/admin inboxes with view and delete actions, plus an
  * "Older Requests" row that pages in already-handled requests 50 at a time
  * (`GET /api/admin/requests/old`); those can additionally be renewed —
- * set back to status 'new' — to re-queue them. A search bar above the list
- * jumps straight to a request by its message ID, probing each request inbox
- * with the detail route.
+ * set back to status 'new' — to re-queue them. The single-request detail
+ * view carries the same delete and renew actions. A search bar above the
+ * list jumps straight to a request by its message ID, probing each request
+ * inbox with the detail route.
  *
  * Above the tabs sits the yell bar: a message box whose Yell button
  * broadcasts the text as a system toast to every player online
@@ -658,10 +659,19 @@ export async function openAdminRequestPage(inbox: string, id: string): Promise<v
   const keywordRows = Object.entries(detail.keywords)
     .map(([key, value]) => [escapeHtml(key), escapeHtml(value)] as [string, string]);
 
+  // Renewing a request that is already 'new' would be a no-op, so the
+  // renew action only appears on already-handled requests, as in the list.
+  const renewBtn = detail.status !== 'new'
+    ? `<button type="button" class="admin-req-icon-btn" data-action="renew" title="Renew — put back into the queue">${RENEW_ICON}</button>`
+    : '';
   listEl.innerHTML = `
     <div class="admin-detail-head">
       <button type="button" class="admin-back">&larr; Back to requests</button>
       <h3 class="admin-detail-name">${escapeHtml(detail.subject)}</h3>
+      <span class="admin-req-actions">
+        ${renewBtn}
+        <button type="button" class="admin-req-icon-btn admin-req-icon-btn--danger" data-action="delete" title="Delete request">${DELETE_ICON}</button>
+      </span>
     </div>
     <dl class="admin-profile">${metaRows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
     ${keywordRows.length > 0 ? `
@@ -678,4 +688,17 @@ export async function openAdminRequestPage(inbox: string, id: string): Promise<v
   listEl.querySelector('.admin-back')?.addEventListener('click', () => {
     void openAdminPage('requests');
   });
+
+  listEl.querySelector('[data-action="renew"]')?.addEventListener('click', () => { void (async () => {
+    const post = await apiSend(`/api/admin/requests/${encodeURIComponent(detail.inbox)}/${encodeURIComponent(detail.id)}/renew`, 'POST');
+    // Reload the detail so the status badge shows 'new' and the renew
+    // button disappears.
+    if (post.ok) await openAdminRequestPage(detail.inbox, detail.id);
+  })(); });
+
+  listEl.querySelector('[data-action="delete"]')?.addEventListener('click', () => { void (async () => {
+    if (!await showConfirm(`Delete request "${detail.subject}"?`, { okLabel: 'Delete' })) return;
+    const post = await apiSend(`/api/admin/requests/${encodeURIComponent(detail.inbox)}/${encodeURIComponent(detail.id)}`, 'DELETE');
+    if (post.ok) await openAdminPage('requests');
+  })(); });
 }
