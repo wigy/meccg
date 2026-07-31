@@ -28,7 +28,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   makeBorderMHState,
   playCreatureHazardAndResolve,
