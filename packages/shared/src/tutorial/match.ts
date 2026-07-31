@@ -65,6 +65,13 @@ export interface TutorialBeat {
    * reproducible.
    */
   readonly cheatRoll?: number;
+  /**
+   * Mentor beats only: pacing override in milliseconds — how long the
+   * server's Mentor pump waits before performing this beat, replacing its
+   * default delay. Used to hold dramatic moments (e.g. the body check
+   * against a struck-down character) on screen long enough to read.
+   */
+  readonly delayMs?: number;
 }
 
 /** Presentation metadata for one curriculum step (a group of beats). */

@@ -36,6 +36,8 @@ export const SWORD_OF_GONDOLIN = did('tw-336');
 export const GOLDBERRY = did('tw-245');
 /** Shield of Iron-bound Ash — starting minor item, +1 body. */
 export const SHIELD_OF_IRON_BOUND_ASH = did('tw-327');
+/** Horn of Anor — item, +2 DI against factions; play-deck filler, one discarded at the turn-5 hand reset. */
+export const HORN_OF_ANOR = did('tw-259');
 
 // ---- The player's hazards (played on the Mentor's turns) ----
 

@@ -23,6 +23,7 @@ import type { GameConfig, CardDefinitionId } from '../../index.js';
 
 const ANNALENA = 'tw-119' as CardDefinitionId;
 const GLORFINDEL_II = 'tw-161' as CardDefinitionId;
+const ELROHIR = 'tw-144' as CardDefinitionId;
 
 describe('guided tutorial script', () => {
   beforeEach(() => resetMint());
@@ -55,10 +56,14 @@ describe('guided tutorial script', () => {
       expect(mentor.marshallingPoints.kill).toBe(1);    // defeated the Orc-lieutenant
       expect(mentor.marshallingPoints.item).toBe(2);    // Glamdring
 
-      // Annalena was wounded at the Barrow-downs and healed at Rivendell
-      // (after her spell as Glorfindel's follower ended with the turn-2 split).
+      // Elrohir was wounded at the Barrow-downs (bold untapped resolve, snake
+      // eyes) and sent home to heal at Rivendell on the turn-2 split.
+      const elrohir = Object.values(human.characters).find(c => c.definitionId === ELROHIR);
+      expect(elrohir?.status).not.toBe('wounded');
+
+      // Annalena's spell as Glorfindel's follower ended with the turn-2 split,
+      // freeing his influence for the Riders of Rohan attempt.
       const annalena = Object.values(human.characters).find(c => c.definitionId === ANNALENA);
-      expect(annalena?.status).toBe('tapped');
       expect(annalena?.controlledBy).toBe('general');
 
       // Marvels Told discarded Foolish Words: nothing is stuck on Glorfindel.

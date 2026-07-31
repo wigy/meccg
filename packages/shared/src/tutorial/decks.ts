@@ -24,7 +24,7 @@ import {
 import {
   ARWEN, ANNALENA, ELROHIR, GILDOR_INGLORION,
   STAR_OF_HIGH_HOPE, SWORD_OF_GONDOLIN, GOLDBERRY, SHIELD_OF_IRON_BOUND_ASH,
-  ORC_LIEUTENANT, MINIONS_STIR,
+  HORN_OF_ANOR, ORC_LIEUTENANT, MINIONS_STIR,
   THORIN_II, GLOIN, DIMRILL_DALE,
 } from './ids.js';
 
@@ -70,7 +70,7 @@ export const TUTORIAL_HERO_DECK: TutorialDeck = {
     ORC_LIEUTENANT,        // Mentor's turn 1: your first creature
     LURE_OF_THE_SENSES,    // Mentor's turn 2: corruption
     GOLDBERRY,             // turn 2 site phase at Old Forest
-    SUN,                   // the "dead card": discarded at end of turn 1
+    SWORD_OF_GONDOLIN,     // the "dead card": a spare sword, discarded at end of turn 1
     MINIONS_STIR,          // Mentor's turn 2: hazard long-event
     // ---- draws ----
     GATES_OF_MORNING,      // turn 1 M/H draw: played immediately
@@ -82,11 +82,11 @@ export const TUTORIAL_HERO_DECK: TutorialDeck = {
     CAVE_DRAKE,
     DAGGER_OF_WESTERNESSE,
     CAVE_DRAKE,
-    SUN,
+    HORN_OF_ANOR,
     CAVE_DRAKE,
     DAGGER_OF_WESTERNESSE,
     ORC_LIEUTENANT,
-    SUN,
+    HORN_OF_ANOR,
     ORC_LIEUTENANT,
     MINIONS_STIR,
     LURE_OF_THE_SENSES,
