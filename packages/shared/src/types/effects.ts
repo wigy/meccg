@@ -1868,9 +1868,18 @@ export interface ActionCost {
   readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-and-scout-in-company' | 'self-and-bearer';
   /**
    * The entity to discard. "self" discards the source card from its bearer.
-   * "bearer" and "character" are reserved for future use.
+   * "bearer" and "character" are reserved for future use. "named-card"
+   * discards a card matching {@link discardCardName} from the acting
+   * player's hand — no character actor is tapped or otherwise required
+   * (Fifteen Birds in Five Firtrees dm-129: "or you discard Eagle-mounts
+   * from your hand").
    */
-  readonly discard?: 'self' | 'bearer' | 'character';
+  readonly discard?: 'self' | 'bearer' | 'character' | 'named-card';
+  /**
+   * For `discard: "named-card"` — the card definition name to find and
+   * discard from the acting player's hand.
+   */
+  readonly discardCardName?: string;
   /**
    * The entity to wound (set to Inverted). "bearer" wounds the character
    * carrying the source; "character" wounds the targeted character; "self"
@@ -4692,6 +4701,38 @@ export interface CancelAttackEffect extends EffectBase {
    * (ba-55).
    */
   readonly alsoCancelLaterAttack?: true;
+  /**
+   * Restricts the {@link alsoCancelLaterAttack} deferred free cancellation to
+   * a later attack against a company containing The Balrog avatar ("against
+   * his company"). Used by Darkness Wielded (ba-55). Mutually exclusive in
+   * practice with {@link alsoCancelLaterAttackSameCompanyOnly}, which scopes
+   * to "the company" that played the card instead.
+   */
+  readonly alsoCancelLaterAttackRestrictToBalrogCompany?: true;
+  /**
+   * Restricts the {@link alsoCancelLaterAttack} deferred free cancellation to
+   * a later attack against the *same* company that played this card ("the
+   * next non-unique hazard creature the company faces this turn"). Used by
+   * Fifteen Birds in Five Firtrees (dm-129).
+   */
+  readonly alsoCancelLaterAttackSameCompanyOnly?: true;
+  /**
+   * Restricts the {@link alsoCancelLaterAttack} deferred free cancellation to
+   * an attack sourced from a non-unique hazard creature (`enemy.unique !==
+   * true`), mirroring this effect's own `enemy.unique` gate. Used by Fifteen
+   * Birds in Five Firtrees (dm-129).
+   */
+  readonly alsoCancelLaterAttackRequireNonUnique?: true;
+  /**
+   * When true, cancelling this attack additionally installs a turn-scoped
+   * `tap-on-strike-assignment` constraint on the defending company: "An
+   * untapped character in the company must tap to face any strike from a
+   * subsequent hazard creature attack for the rest of the turn." The
+   * `assign-strike` reducer taps the assigned character in place whenever the
+   * constraint is present and the attack is hazard-creature-sourced. Used by
+   * Fifteen Birds in Five Firtrees (dm-129).
+   */
+  readonly installsTapOnStrikeAssignment?: true;
   /**
    * When true, the cancel is only available against a company-vs-company
    * combat (`combat.isCvCC`) — "an attack against them by an opponent's
@@ -7805,6 +7846,27 @@ export interface RunHomeToHavenEffect extends EffectBase {
  */
 export interface CompanySitePhaseDoNothingEffect extends EffectBase {
   readonly type: 'company-site-phase-do-nothing';
+  /**
+   * When this condition matches the target company (evaluated against the
+   * {@link buildTargetCompanyConditionContext} `company.*` fields, same as
+   * {@link CompanyReturnToOriginEffect.unless}), the restriction is skipped
+   * entirely — no constraint is installed. Used by Fifteen Birds in Five
+   * Firtrees (dm-129): "unless it contains a Wizard" (`company.containsWizard`).
+   */
+  readonly unless?: Condition;
+  /**
+   * Optional companion escape hatch installed alongside the
+   * `site-phase-do-nothing` constraint, sourced from the same card so
+   * `remove-constraint` (`select: "constraint-source"`) clears both at once —
+   * the same two-constraint pattern River (tw-84/le-95) uses for its
+   * ranger-tap escape, but declared directly rather than via an `on-event`
+   * wrapper (this effect fires on the short event's own resolution, not a
+   * later triggered event). Used by Fifteen Birds in Five Firtrees (dm-129):
+   * "or you discard Eagle-mounts from your hand" — a `cost: { discard:
+   * "named-card", discardCardName: "Eagle-mounts" }` grant with no character
+   * actor required.
+   */
+  readonly escape?: GrantedActionConstraintPayload;
 }
 
 /**

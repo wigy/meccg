@@ -2109,10 +2109,21 @@ function cancelAttackActions(
     && !!(d as { keywords?: readonly string[] }).keywords?.includes('under-deeps');
   const atUnderDeeps = hasUnderDeeps(siteDef) || hasUnderDeeps(destSiteDef);
 
+  // `enemy.unique` — the attacking creature's printed uniqueness, resolved
+  // from its CardDefinition. Only known for creature-sourced attacks (played
+  // hazard creatures, on-guard reveals, and played-auto-attacks); absent for
+  // site automatic-attacks and other sources, which have no creature card.
+  // Lets a card gate on "a non-unique hazard creature" (Fifteen Birds in Five
+  // Firtrees dm-129) — hoisted above `whenContext` so the deferred
+  // free-attack-cancel offering below can reuse it without recomputing.
+  const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
+  const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(state, enemyCreatureInstanceId) : undefined;
+  const creatureUnique = (enemyCreatureDef as { unique?: boolean } | undefined)?.unique;
+
   const whenContext = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = {};
-    if (combat.creatureRace) {
-      ctx['enemy'] = { race: combat.creatureRace };
+    if (combat.creatureRace || creatureUnique !== undefined) {
+      ctx['enemy'] = { race: combat.creatureRace, unique: creatureUnique };
     }
     // Always expose `attack.source` (the AttackSource discriminator) so
     // cards can distinguish M/H creatures from on-guard reveals and site
@@ -2413,6 +2424,17 @@ function cancelAttackActions(
       }
     }
 
+    // Turn-scoped duplication check: "Cannot be duplicated on a given turn"
+    // (Fifteen Birds in Five Firtrees dm-129).
+    const cancelTurnDupLimit = findDuplicationLimitEffect(cardDef, 'turn');
+    if (cancelTurnDupLimit) {
+      const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'turn');
+      if (prior >= cancelTurnDupLimit.max) {
+        logDetail(`Cancel-attack ${handCard.definitionId as string}: turn duplication limit reached (${prior}/${cancelTurnDupLimit.max})`);
+        continue;
+      }
+    }
+
     // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
       logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
@@ -2626,15 +2648,24 @@ function cancelAttackActions(
     }
   }
 
-  // Deferred free cancellation (Darkness Wielded ba-55): a `free-attack-cancel`
-  // constraint granted earlier this turn lets the defending player cancel one
-  // later attack against The Balrog's company at no cost. Offered once per
-  // available constraint while the defending company qualifies.
+  // Deferred free cancellation (Darkness Wielded ba-55; Fifteen Birds in Five
+  // Firtrees dm-129): a `free-attack-cancel` constraint granted earlier this
+  // turn lets the defending player cancel one later attack at no cost.
+  // Offered once per available constraint while the defending company/attack
+  // qualifies.
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'free-attack-cancel') continue;
     if (constraint.target.kind !== 'player' || constraint.target.playerId !== playerId) continue;
     if (constraint.kind.restrictToBalrogCompany && !companyContainsBalrogAvatar(state, player, company)) {
       logDetail(`Free-later-cancel (${constraint.sourceDefinitionId as string}): defending company has no Balrog — not offered`);
+      continue;
+    }
+    if (constraint.kind.restrictToCompanyId && constraint.kind.restrictToCompanyId !== company.id) {
+      logDetail(`Free-later-cancel (${constraint.sourceDefinitionId as string}): granted to a different company — not offered`);
+      continue;
+    }
+    if (constraint.kind.requireNonUniqueCreature && creatureUnique === true) {
+      logDetail(`Free-later-cancel (${constraint.sourceDefinitionId as string}): attacking creature is unique — not offered`);
       continue;
     }
     logDetail(`Free-later-cancel available: ${constraint.sourceDefinitionId as string} grants a free cancellation of this attack`);

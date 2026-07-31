@@ -645,6 +645,9 @@ export function siteRuleAllowsCreatureByRace(
  * - `maxUntappedWarriorProwess` — the highest effective prowess among the
  *   company's *untapped Warriors* (0 if none), for "unless the company contains
  *   an untapped warrior with prowess greater than N" clauses.
+ * - `containsWizard` — true if any character in the company has `race ===
+ *   "wizard"`, for "unless it contains a Wizard" clauses (Fifteen Birds in
+ *   Five Firtrees dm-129).
  *
  * Shared by the creature/short-event targeting checks (`legal-actions/
  * movement-hazard.ts`) and short-event resolution (`chain-reducer.ts`) so both
@@ -660,6 +663,7 @@ export function buildTargetCompanyConditionContext(
   const homeSites: string[] = [];
   const characterNames: string[] = [];
   let maxUntappedWarriorProwess = 0;
+  let containsWizard = false;
   for (const charInstId of company.characters) {
     const inPlay = owner.characters[charInstId];
     const defId = inPlay?.definitionId ?? resolveInstanceId(state, charInstId);
@@ -674,9 +678,10 @@ export function buildTargetCompanyConditionContext(
       const prowess = inPlay.effectiveStats.prowess;
       if (prowess > maxUntappedWarriorProwess) maxUntappedWarriorProwess = prowess;
     }
+    if (charDef.race === Race.Wizard) containsWizard = true;
   }
   return {
-    company: { homeSites, characterNames, maxUntappedWarriorProwess, alignment: alignment ?? null },
+    company: { homeSites, characterNames, maxUntappedWarriorProwess, containsWizard, alignment: alignment ?? null },
   };
 }
 

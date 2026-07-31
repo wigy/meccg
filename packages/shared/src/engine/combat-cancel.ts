@@ -631,6 +631,23 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: added attack-card-played marker (cancel-attack duplication-limit scope attack)`);
   }
 
+  // Turn-scoped duplication limit: record this play as a constraint so the
+  // legal-action scanner can block a second copy this turn ("Cannot be
+  // duplicated on a given turn" — Fifteen Birds in Five Firtrees dm-129).
+  const cancelTurnDupLimit = getCardEffects(cardDef).find(
+    e => e.type === 'duplication-limit' && (e as { scope: string }).scope === 'turn',
+  );
+  if (cancelTurnDupLimit) {
+    resultState = addConstraint(resultState, {
+      source: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'attack-card-played' },
+    });
+    logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: added turn-scoped duplication marker (cannot be duplicated on a given turn)`);
+  }
+
   // Dual-mode "reduce prowess" variant (e.g. The Tormented Earth): instead of
   // cancelling, lower the attack's strike prowess uniformly. Like halve-strikes
   // and modify-attack, this is a direct combat modification applied immediately

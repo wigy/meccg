@@ -65,6 +65,18 @@ export function emitGrantedActionConstraintActions(
     const kind = constraint.kind;
     const sourceName = cardName(state, constraint.sourceDefinitionId, '?');
 
+    // `discard: "named-card"` costs (Fifteen Birds in Five Firtrees dm-129:
+    // "or you discard Eagle-mounts from your hand") aren't tied to any
+    // character — `canPayCost` only gates on tap status, so check hand
+    // presence once per constraint here before offering it to anyone.
+    if (kind.cost.discard === 'named-card') {
+      const hasCard = player.hand.some(c => cardName(state, c.definitionId, '') === kind.cost.discardCardName);
+      if (!hasCard) {
+        logDetail(`granted-action "${kind.action}" on ${sourceName}: no "${kind.cost.discardCardName ?? '?'}" in hand — not offered`);
+        continue;
+      }
+    }
+
     for (const charInstId of company.characters) {
       const charId: CardInstanceId = charInstId;
       const char = player.characters[charId];

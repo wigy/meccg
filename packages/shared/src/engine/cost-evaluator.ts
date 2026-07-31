@@ -18,7 +18,7 @@ import { CardStatus } from '../types/common.js';
 import type { ActionCost } from '../types/effects.js';
 import type { CardDefinitionId, CompanyId } from '../types/common.js';
 import { logDetail } from './legal-actions/log.js';
-import { updatePlayer, removeById, updateAttachment } from './reducer-utils.js';
+import { updatePlayer, removeById, updateAttachment, cardName } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 
 // ---- Public API ----
@@ -154,6 +154,24 @@ export function applyCost(
     const actor = player.characters[actorId];
     if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
     return applyDiscardSelf(state, actor, actorId, sourceCardId, sourceCardDefId, playerIndex, label);
+  }
+
+  if (cost.discard === 'named-card') {
+    if (!cost.discardCardName) {
+      return { error: `applyCost: discard named-card requires discardCardName` };
+    }
+    const handIdx = player.hand.findIndex(c => cardName(state, c.definitionId, '') === cost.discardCardName);
+    if (handIdx < 0) {
+      return { error: `applyCost: no "${cost.discardCardName}" in hand to discard` };
+    }
+    const discarded = player.hand[handIdx];
+    const newState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: p.hand.filter((_, i) => i !== handIdx),
+      discardPile: [...p.discardPile, discarded],
+    }));
+    logDetail(`Cost (${label}): discarded "${cost.discardCardName}" from hand`);
+    return { state: newState };
   }
 
   if (cost.check === 'corruption') {
