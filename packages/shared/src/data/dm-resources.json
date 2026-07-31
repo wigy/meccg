@@ -578,7 +578,32 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Arwen"
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": "Minas Tirith"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 2
+      }
+    ],
     "text": "Unique. Playable on Arwen in Minas Tirith. She receives +2 direct influence and her mind increases by 2. Discard if Arwen moves to a site not in Anórien, Lebennin, Lamedon, Belfalas, or Anfalas. Tap Arwen to take one item, ally, or faction playable at her current site from your play deck or discard pile into your hand (reshuffle play deck if searched)."
   },
   {
