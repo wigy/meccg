@@ -267,6 +267,38 @@ describe('Gates of Morning (tw-243)', () => {
     expect(s.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
   });
 
+  test('cannot declare a second Gates of Morning while the first is still unresolved on the chain', () => {
+    // Regression: game ms7oxskb-o8u5ur, seq 34-36. P2 played Gates of Morning;
+    // P1 passed chain priority; the engine then wrongly still offered P2 a
+    // second Gates of Morning from hand, because the first copy hadn't
+    // resolved into cardsInPlay yet and so wasn't counted by the
+    // duplication-limit check. CoE g.cbd.1: "cannot be duplicated" is checked
+    // against the state at the end of the chain resolving — a copy still
+    // pending on the chain (and not itself targeted for removal) must count
+    // just like an in-play copy. Both copies ended up in play.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING, GATES_OF_MORNING], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const firstGomId = handCardId(state, RESOURCE_PLAYER);
+    let s = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: firstGomId });
+    expect(s.chain).not.toBeNull();
+    expect(s.chain!.priority).toBe(PLAYER_2);
+
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(s.chain!.priority).toBe(PLAYER_1);
+
+    // The second Gates of Morning is still in P1's hand — must be blocked
+    // while the first is unresolved on the chain.
+    const actions = viableActions(s, PLAYER_1, 'play-permanent-event');
+    expect(actions).toHaveLength(0);
+  });
+
   test('no opposing environments to discard is a no-op', () => {
     const state = buildTestState({
       phase: Phase.Organization,

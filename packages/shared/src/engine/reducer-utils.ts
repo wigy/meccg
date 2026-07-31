@@ -2495,6 +2495,39 @@ export function countCopiesInPlayTargetedForDiscard(state: GameState, name: stri
 }
 
 /**
+ * Count declared-but-unresolved `permanent-event` chain entries named `name`
+ * that are not targeted for discard (i.e. genuinely on track to enter play).
+ *
+ * A permanent-event card leaves the hand and sits on the chain the moment it
+ * is played; it only lands in `cardsInPlay` once its chain entry resolves
+ * (see `handlePlayPermanentEvent` / `chain-reducer.ts`). CoE rule g.cbd.1:
+ * "cannot be duplicated" is checked against the state *at the end of the
+ * chain resolving" — a second copy may be played mid-chain only if the first
+ * is itself targeted for removal before it would resolve (the Twilight vs.
+ * Gates of Morning case, see {@link countCopiesInPlayTargetedForDiscard}).
+ * Without this count, `countCopiesInPlay` misses a first copy still pending
+ * on the chain, letting a second copy of the same "cannot be duplicated"
+ * card be declared before the first resolves — both then enter play.
+ *
+ * Optionally restrict to entries declared by a specific player, for
+ * `duplication-limit` checks with `scope: "player"`.
+ */
+export function countCopiesDeclaredOnChain(state: GameState, name: string, declaredBy?: PlayerId): number {
+  const chain = state.chain;
+  if (!chain) return 0;
+  let count = 0;
+  for (const entry of chain.entries) {
+    if (entry.resolved || entry.negated) continue;
+    if (entry.payload.type !== 'permanent-event') continue;
+    if (declaredBy !== undefined && entry.declaredBy !== declaredBy) continue;
+    if (!entry.card) continue;
+    if (defById(state, entry.card.definitionId)?.name !== name) continue;
+    count += 1;
+  }
+  return count;
+}
+
+/**
  * True when the card definition `defId` carries the given (lowercased) keyword.
  * Keyword matching is case-insensitive so `"Spawn"` in card data matches
  * `"spawn"`.

@@ -27,7 +27,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredOnChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -206,9 +206,14 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // CRF 22 Annotation 11: an in-play copy that is currently being targeted
       // for discard by an unresolved chain entry (e.g. a Twilight canceling this
       // player's Gates of Morning) does not count — the replacement copy may be
-      // played in response.
+      // played in response. Conversely, a copy of this same card already
+      // declared on the chain but not yet resolved (CoE g.cbd.1: duplication is
+      // checked "at the end of the chain of effects resolving") DOES count —
+      // otherwise two copies could be declared back-to-back before either
+      // resolves, and both would end up in play.
       const copiesInPlay = countCopiesInPlay(state, def.name)
-        - countCopiesInPlayTargetedForDiscard(state, def.name);
+        - countCopiesInPlayTargetedForDiscard(state, def.name)
+        + countCopiesDeclaredOnChain(state, def.name);
       if (copiesInPlay >= dupLimit.max) {
         logDetail(`Permanent event ${def.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated`));
@@ -219,7 +224,8 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // Check duplication-limit with scope "player": each player independently limited
     const playerDupLimit = findDuplicationLimitEffect(def, 'player');
     if (playerDupLimit) {
-      const copiesOwned = countPlayerHeldCopies(state, player, def.name);
+      const copiesOwned = countPlayerHeldCopies(state, player, def.name)
+        + countCopiesDeclaredOnChain(state, def.name, playerId);
       if (copiesOwned >= playerDupLimit.max) {
         logDetail(`Permanent event ${def.name}: player duplication limit reached (${copiesOwned}/${playerDupLimit.max})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated by a given player`));
