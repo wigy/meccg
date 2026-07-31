@@ -21,6 +21,7 @@
  * | 4 | Bonus clears after the attack ends (attack scope)           | IMPLEMENTED |
  * | 5 | Cannot be duplicated against a given attack                 | IMPLEMENTED |
  * | 6 | Not offered when defending company has no Dwarves           | IMPLEMENTED |
+ * | 7 | Not offered as a generic short-event outside combat         | IMPLEMENTED |
  *
  * Playable: YES
  * Certified: 2026-05-10
@@ -38,10 +39,10 @@ import {
   playCreatureHazardAndResolve,
   resolveChain,
   viableActions, handCardId, companyIdAt, dispatch,
-  findCharInstanceId,
+  findCharInstanceId, actionAs,
 } from '../test-helpers.js';
-import type { CardDefinitionId } from '../../index.js';
-import { RegionType, SiteType } from '../../index.js';
+import type { CardDefinitionId, PlayShortEventAction, NotPlayableAction } from '../../index.js';
+import { computeLegalActions, RegionType, SiteType } from '../../index.js';
 
 const DWARVES_ARE_UPON_YOU = 'dm-124' as CardDefinitionId;
 
@@ -297,5 +298,50 @@ describe('The Dwarves Are upon You! (dm-124)', () => {
     // Second copy must be blocked (duplication limit reached for this attack)
     const secondActions = viableActions(afterFirst, PLAYER_1, 'play-short-event');
     expect(secondActions).toHaveLength(0);
+  });
+
+  // ── Regression: not offered as a generic short-event outside combat ──────
+  // Bug report: player was unable to play the card before an automatic
+  // attack or during the strike sequence because both copies had already
+  // been consumed with no effect during the organization phase (no attack
+  // in progress, so the company-combat-boost effect is a no-op per
+  // CoE 5.1.2). The card is combat-only and must never be offered outside
+  // the pre-assignment window of an actual attack.
+
+  test('not playable as a short event during organization (combat-only)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [GIMLI] }],
+          hand: [DWARVES_ARE_UPON_YOU],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const cardInstanceId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    const shortEvent = actions.find(
+      a => a.viable && a.action.type === 'play-short-event' &&
+        actionAs<PlayShortEventAction>(a.action).cardInstanceId === cardInstanceId,
+    );
+    expect(shortEvent).toBeUndefined();
+
+    const notPlayable = actions.find(
+      a => !a.viable && a.action.type === 'not-playable' &&
+        actionAs<NotPlayableAction>(a.action).cardInstanceId === cardInstanceId,
+    );
+    expect(notPlayable).toBeDefined();
   });
 });
