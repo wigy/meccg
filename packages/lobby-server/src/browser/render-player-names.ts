@@ -62,19 +62,28 @@ function bearsGeneralInfluenceExempt(
 }
 
 /**
- * Build the HTML for the General Influence tooltip table.
- * Shows each character under general influence with the cost actually counted
- * against GI. A `control-restriction` override (e.g. Wizard's Myrmidon, which
- * makes its bearer require only 3 influence to control) replaces the bearer's
- * mind — matching the engine's GI accounting. Otherwise the effective mind is
- * used. When the counted cost differs from the printed mind (a stat-modifier or
- * a control-restriction override), it is shown with the printed mind in
- * parentheses — mirroring the MP breakdown's `adjusted (raw)` format — so the
- * tooltip total matches the engine's GI calculation. A character bearing
+ * Build the HTML for the General Influence tooltip table, as a ledger:
+ * the first row is the player's GI pool, one `−mind` row follows per
+ * character under general influence, and the last row is the free GI left —
+ * matching the GI number shown in the metric box.
+ *
+ * The pool is the engine-computed `generalInfluence` from the player view —
+ * 20 for most players, a revealed Fallen-wizard avatar's white-hand value
+ * (which grows with stage resources, MEWH §1), already folding any in-play
+ * bonus such as *Bade to Rule* le-167's +5 — never the raw constant.
+ *
+ * Each character row shows the cost actually counted against GI. A
+ * `control-restriction` override (e.g. Wizard's Myrmidon, which makes its
+ * bearer require only 3 influence to control) replaces the bearer's mind —
+ * matching the engine's GI accounting. Otherwise the effective mind is used.
+ * When the counted cost differs from the printed mind (a stat-modifier or a
+ * control-restriction override), the printed mind is shown in parentheses —
+ * mirroring the MP breakdown's `adjusted (raw)` format. A character bearing
  * *Await the Advent of Allies* (dm-117) "does not count against general
  * influence" (CRF 22) and is omitted entirely, matching the engine.
  */
 export function buildGITooltip(
+  giPool: number,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
@@ -91,17 +100,27 @@ export function buildGITooltip(
     entries.push({ name: def.name, mind, raw: def.mind });
   }
   entries.sort((a, b) => b.mind - a.mind);
+  return buildGILedger(giPool, entries);
+}
 
-  if (entries.length === 0) return '<div class="gi-tooltip-empty">No characters under GI</div>';
-  let rows = '';
+/**
+ * Render the GI ledger table shared by the in-play and draft tooltips:
+ * pool row, one `−cost` row per entry (printed value in parentheses when it
+ * differs), and a closing "Free" row of what remains.
+ */
+function buildGILedger(
+  giPool: number,
+  entries: readonly { name: string; mind: number; raw?: number }[],
+): string {
+  let rows = `<tr><td class="mp-label">General influence</td><td class="mp-value">${giPool}</td></tr>`;
   for (const e of entries) {
-    const value = e.mind !== e.raw ? `${e.mind} (${e.raw})` : `${e.mind}`;
+    const value = e.raw !== undefined && e.mind !== e.raw ? `−${e.mind} (${e.raw})` : `−${e.mind}`;
     rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${value}</td></tr>`;
   }
-  const total = entries.reduce((sum, e) => sum + e.mind, 0);
+  const used = entries.reduce((sum, e) => sum + e.mind, 0);
   return `<table class="mp-tooltip-table">
     <tbody>${rows}</tbody>
-    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${total}</td></tr></tfoot>
+    <tfoot><tr><td class="mp-label">Free</td><td class="mp-value mp-total">${giPool - used}</td></tr></tfoot>
   </table>`;
 }
 
@@ -190,8 +209,11 @@ function buildDraftSPTooltip(
 }
 
 /**
- * Build the GI tooltip for the character draft phase.
- * Uses drafted character definition IDs instead of in-play characters.
+ * Build the GI tooltip for the character draft phase, in the same ledger
+ * format as {@link buildGITooltip}: pool first, `−mind` per drafted
+ * character, free GI last. Uses drafted character definition IDs instead of
+ * in-play characters; during the draft the pool is always the base constant
+ * (no avatar or stage resources are revealed yet).
  */
 function buildDraftGITooltip(
   drafted: readonly CardDefinitionId[],
@@ -203,16 +225,7 @@ function buildDraftGITooltip(
     if (!def || !isCharacterCard(def)) continue;
     entries.push({ name: def.name, mind: def.mind ?? 0 });
   }
-  if (entries.length === 0) return 'No characters drafted';
-  let rows = '';
-  for (const e of entries) {
-    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${e.mind}</td></tr>`;
-  }
-  const total = entries.reduce((sum, e) => sum + e.mind, 0);
-  return `<table class="mp-tooltip-table">
-    <tbody>${rows}</tbody>
-    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${total}</td></tr></tfoot>
-  </table>`;
+  return buildGILedger(GENERAL_INFLUENCE, entries);
 }
 
 /** Sum the mind values of drafted characters for GI calculation. */
@@ -314,8 +327,8 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   } else {
     selfGI = remainingGeneralInfluence(view.self);
     oppGI = remainingGeneralInfluence(view.opponent);
-    selfGITooltip = buildGITooltip(view.self.characters, cardPool);
-    oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
+    selfGITooltip = buildGITooltip(view.self.generalInfluence, view.self.characters, cardPool);
+    oppGITooltip = buildGITooltip(view.opponent.generalInfluence, view.opponent.characters, cardPool);
     selfSPTooltip = buildSPTooltip(view.self.cardsInPlay, view.self.characters, cardPool);
     oppSPTooltip = buildSPTooltip(view.opponent.cardsInPlay, view.opponent.characters, cardPool);
   }

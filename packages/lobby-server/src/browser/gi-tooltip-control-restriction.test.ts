@@ -52,22 +52,25 @@ describe('GI tooltip honours control-restriction cost (Wizard\'s Myrmidon)', () 
       'p1-94': generalChar(TROLL_CHIEF, 'p1-94', { items: [WIZARDS_MYRMIDON] }),
       'p1-103': generalChar(ANNALENA, 'p1-103'),
     };
-    const html = buildGITooltip(characters, pool);
+    const html = buildGITooltip(20, characters, pool);
 
-    // Troll-chief shows the override cost (3) with the printed mind (6) in parens.
-    expect(html).toContain('3 (6)');
-    // Total = 3 (Troll-chief override) + 3 (Annalena) = 6. Without the fix the
-    // Troll-chief would be counted as its mind (6), giving a total of 9.
-    expect(html).toContain('mp-total">6<');
+    // The ledger opens with the pool.
+    expect(html).toContain('General influence</td><td class="mp-value">20<');
+    // Troll-chief shows the override cost (−3) with the printed mind (6) in parens.
+    expect(html).toContain('−3 (6)');
+    // Free = 20 − 3 (Troll-chief override) − 3 (Annalena) = 14. Without the fix
+    // the Troll-chief would be counted as its mind (6), leaving 11.
+    expect(html).toContain('mp-total">14<');
   });
 
   test('without the restriction the printed mind is counted', () => {
     const characters: Record<string, CharacterInPlay> = {
       'p1-94': generalChar(TROLL_CHIEF, 'p1-94'),
     };
-    const html = buildGITooltip(characters, pool);
-    // No override -> printed mind 6 is the counted cost and the total.
-    expect(html).toContain('mp-total">6<');
+    const html = buildGITooltip(20, characters, pool);
+    // No override -> printed mind 6 is subtracted: free = 20 − 6.
+    expect(html).toContain('−6');
+    expect(html).toContain('mp-total">14<');
   });
 });
 
@@ -82,20 +85,32 @@ describe('GI tooltip omits characters bearing Await the Advent of Allies (dm-117
       'p1-99': generalChar(ROBIN, 'p1-99', { items: [AWAIT_ADVENT] }),
       'p1-103': generalChar(ANNALENA, 'p1-103'),
     };
-    const html = buildGITooltip(characters, pool);
+    const html = buildGITooltip(20, characters, pool);
     // Robin is exempt and omitted entirely.
     expect(html).not.toContain('Robin Smallburrow');
-    // Total = 3 (Annalena only); without the fix it would be 6 (Robin's mind counted).
-    expect(html).toContain('mp-total">3<');
+    // Free = 20 − 3 (Annalena only); without the fix Robin's mind would also
+    // be subtracted, leaving 14.
+    expect(html).toContain('mp-total">17<');
   });
 
   test('the same character with no Await the Advent of Allies still counts', () => {
     const characters: Record<string, CharacterInPlay> = {
       'p1-99': generalChar(ROBIN, 'p1-99'),
     };
-    const html = buildGITooltip(characters, pool);
+    const html = buildGITooltip(20, characters, pool);
     // Without the exempting card, Robin's mind (3) is counted normally.
     expect(html).toContain('Robin Smallburrow');
-    expect(html).toContain('mp-total">3<');
+    expect(html).toContain('mp-total">17<');
+  });
+});
+
+describe('GI ledger reflects a stage-resource/bonus-adjusted pool', () => {
+  test('a 25-point pool (e.g. Bade to Rule +5) opens the ledger and feeds Free', () => {
+    const characters: Record<string, CharacterInPlay> = {
+      'p1-103': generalChar(ANNALENA, 'p1-103'),
+    };
+    const html = buildGITooltip(25, characters, pool);
+    expect(html).toContain('General influence</td><td class="mp-value">25<');
+    expect(html).toContain('mp-total">22<');
   });
 });
