@@ -32,6 +32,13 @@ describe('h2 tunable overrides', () => {
       .toBe('h2/tapTempoCost=0.6+mc:rollouts=4/turns=1');
   });
 
+  test('compose with the yielding operator', () => {
+    // `>` is `+` that also defers every decision the fallback can search.
+    expect(resolveAgent('h2>mc:rollouts=4/turns=1').name).toBe('h2>mc:rollouts=4/turns=1');
+    expect(resolveAgent('h2:combat,kill/tapTempoCost=0.6>mc').name)
+      .toBe('h2:combat,kill/tapTempoCost=0.6>mc');
+  });
+
   test('reject an unknown name rather than quietly rating the defaults', () => {
     expect(() => resolveAgent('h2:all/tapTemp=0.6')).toThrow(/Unknown tunable/);
   });
