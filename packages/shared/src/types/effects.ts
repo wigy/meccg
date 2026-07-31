@@ -1400,6 +1400,32 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
 }
 
 /**
+ * Shuffles the playing player's entire hand and discard pile into their play
+ * deck, then draws a fresh hand of `handSize` cards from the top.
+ *
+ * Carried by a resource short-event and resolved on the chain of effects
+ * (CoE 9.4/9.5) once both players pass priority, like {@link DrawCardsEffect}.
+ * Site cards are unaffected structurally: they live in the separate
+ * `siteDeck`/`siteDiscardPile` zones, never in the play-deck discard pile, so
+ * "site cards remain in the discard pile" needs no filter. Drawing stops at
+ * deck exhaustion (no card instance is conjured or lost), and the reshuffle
+ * does not count as a rule-1.31 deck exhaustion (`deckExhaustionCount` is
+ * untouched — only the deck-exhaust action increments it).
+ *
+ * The spent event card lands in the discard pile *after* the shuffle, so it is
+ * never swept into the deck; pair with `play-flag: "remove-from-game"` when
+ * the card text also removes it from the game (Favor of the Valar tw-239:
+ * "Shuffle your hand and your discard pile into your play deck (site cards
+ * remain in the discard pile). Draw a new hand of 8 cards. Remove Favor of
+ * the Valar from the game.").
+ */
+export interface NewHandEffect extends EffectBase {
+  readonly type: 'new-hand';
+  /** Number of cards drawn from the top of the reshuffled deck as the new hand. */
+  readonly handSize: number;
+}
+
+/**
  * Forces the card-player's opponent to discard one or more cards of a named
  * category, chosen by the opponent, or — if none is available — reveal their
  * hand.
@@ -7323,6 +7349,7 @@ export type CardEffect =
   | DrawModifierEffect
   | DrawCardsEffect
   | ReshuffleFromDiscardEffect
+  | NewHandEffect
   | ForceOpponentDiscardEffect
   | CycleHandEffect
   | RevealChooseShuffleEffect

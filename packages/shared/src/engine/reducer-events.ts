@@ -396,6 +396,27 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: chained };
   }
 
+  // new-hand (Favor of the Valar tw-239): shuffle the player's hand and discard
+  // pile into their play deck and draw a fresh hand. Like draw-cards above, the
+  // play must be declared on the chain of effects (CoE 9.4/9.5) so the opponent
+  // has a chance to respond before the reshuffle resolves. The card leaves the
+  // hand and rides on the chain entry; `resolveEntry` (chain-reducer) applies
+  // the shuffle + draw once both players pass priority.
+  const newHandEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').NewHandEffect => e.type === 'new-hand',
+  );
+  if (newHandEffect) {
+    const revealed = revealInstances(state, [handCard]);
+    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+    }));
+    logDetail(`${def.name} → chain of effects (new hand resolves on chain resolution)`);
+    const payload: ChainEntryPayload = { type: 'short-event' };
+    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
+    return { state: chained };
+  }
+
   // Pure fetch-to-deck short event (e.g. Smoke Rings dm-159, Weigh All Things
   // to a Nicety le-253): a resource short event whose only effect is bringing a
   // card from the sideboard/discard into the play deck. Like draw-cards above,
