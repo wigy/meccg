@@ -20,6 +20,7 @@ import type {
   Company,
   OpponentCompanyView,
   AssignStrikeAction,
+  ResolveStrikeAction,
   SupportStrikeAction,
   ChooseStrikeOrderAction,
   CancelByTapAction,
@@ -31,14 +32,14 @@ import type {
   EvaluatedAction,
   CardEffect,
 } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup, effectiveItemCorruptionPoints, isItemCard } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
 import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection, getSelectedCvCCAttacker, setSelectedCvCCAttacker, clearSelectedCvCCAttacker, getSelectedCvCCDefender, setSelectedCvCCDefender, clearSelectedCvCCDefender } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
@@ -49,6 +50,31 @@ import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } fr
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
+
+/**
+ * Corruption points per attached-card instance (items via the effective-CP
+ * helper, corruption hazards via their printed CP), rebuilt each render.
+ * Drives the CP badges on the battle screen so the stakes of a coming
+ * corruption check are visible mid-combat.
+ */
+let cachedItemCp: Map<string, number> = new Map();
+
+/**
+ * Wrap an attachment card with its CP badge (same look as the company
+ * view's item badges) when the instance carries corruption points.
+ */
+function withItemCpBadge(itemEl: HTMLElement, instanceId: string): HTMLElement {
+  const cp = cachedItemCp.get(instanceId);
+  if (!cp) return itemEl;
+  const wrap = document.createElement('div');
+  wrap.className = 'item-card-wrap';
+  wrap.appendChild(itemEl);
+  const badge = document.createElement('div');
+  badge.className = 'item-cp-badge';
+  badge.textContent = `${cp} CP`;
+  wrap.appendChild(badge);
+  return wrap;
+}
 
 /** Remove any combat action buttons from the bottom-right corner. */
 export function clearCombatButtons(): void {
@@ -69,6 +95,29 @@ export function renderCombatView(
   if (!combat) return;
 
   cachedInstanceLookup = buildInstanceLookup(view);
+
+  // CP badges for every attached card on the arena: items use the same
+  // effective-CP computation as the company view; permanent corruption
+  // hazards (e.g. Lure of the Senses) use their printed CP.
+  cachedItemCp = new Map();
+  const inPlayDefs = inPlayCardDefs(view, cardPool);
+  for (const player of [view.self, view.opponent]) {
+    for (const char of Object.values(player.characters)) {
+      for (const item of char.items) {
+        const def = cardPool[item.definitionId as string];
+        if (def && isItemCard(def)) {
+          const cp = effectiveItemCorruptionPoints(def, inPlayDefs, player.alignment);
+          if (cp > 0) cachedItemCp.set(item.instanceId as string, cp);
+        }
+      }
+      for (const hazard of char.hazards) {
+        const def = cardPool[hazard.definitionId as string] as { corruptionPoints?: number } | undefined;
+        if (def?.corruptionPoints && def.corruptionPoints > 0) {
+          cachedItemCp.set(hazard.instanceId as string, def.corruptionPoints);
+        }
+      }
+    }
+  }
 
   const arena = document.createElement('div');
   arena.className = 'combat-arena';
@@ -195,7 +244,7 @@ export function renderCombatView(
   }
 
   // Render combat action buttons in the bottom-right corner (same area as pass button)
-  renderCombatActionButtons(viable, cardPool, onAction);
+  renderCombatActionButtons(viable, view.legalActions, onAction);
 
   // Draw arrows after DOM layout is computed (double-rAF to ensure layout is settled)
   requestAnimationFrame(() => {
@@ -783,10 +832,16 @@ function renderCombatCharacterColumn(
 
   inner.appendChild(img);
 
-  // Stats badge — prowess/body
+  // Stats badge — prowess/body. One-off bonuses against the current strike
+  // (e.g. a tapped Shield of Iron-bound Ash) live on the strike assignment,
+  // not in effectiveStats — fold them in for the character facing it, so
+  // raising the shield visibly changes the number.
+  const strikeBonus = strike && !strike.assignment.resolved
+    ? ((strike.assignment as { strikeProwessBonus?: number }).strikeProwessBonus ?? 0)
+    : 0;
   const badge = document.createElement('div');
   badge.className = 'char-stats-badge';
-  badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
+  badge.textContent = `${char.effectiveStats.prowess + strikeBonus}/${char.effectiveStats.body}`;
   inner.appendChild(badge);
 
   // Excess strikes indicator
@@ -833,7 +888,7 @@ function renderCombatCharacterColumn(
 
       // Hazards are display-only in combat — skip combat click handlers and strike styling.
       if (hazardIds.has(item.instanceId as string)) {
-        attachments.appendChild(itemEl);
+        attachments.appendChild(withItemCpBadge(itemEl, item.instanceId as string));
         continue;
       }
 
@@ -928,7 +983,7 @@ function renderCombatCharacterColumn(
         }
       }
 
-      attachments.appendChild(itemEl);
+      attachments.appendChild(withItemCpBadge(itemEl, allyIdStr));
     }
     col.appendChild(attachments);
   }
@@ -1097,7 +1152,7 @@ function renderCvCCAttackerCharacterColumn(
       const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'company-card company-card--item', item.instanceId as string);
       if (!itemEl) continue;
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
-      attachments.appendChild(itemEl);
+      attachments.appendChild(withItemCpBadge(itemEl, item.instanceId as string));
     }
     col.appendChild(attachments);
   }
@@ -1213,16 +1268,23 @@ const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent
 /**
  * Render combat action buttons stacked above the pass button in the
  * bottom-right corner, reusing the existing enter-site-btn styling.
+ *
+ * Besides the viable actions, tutorial-gated button actions are rendered
+ * too — disabled, with the gate's reason as tooltip — so the player sees
+ * the normal choice (e.g. tap vs. stay untapped) even when the script
+ * prescribes one side of it.
  */
 function renderCombatActionButtons(
   viable: GameAction[],
-  cardPool: Readonly<Record<string, CardDefinition>>,
+  evaluated: readonly EvaluatedAction[],
   onAction: (action: GameAction) => void,
 ): void {
   // Remove any previously rendered combat action buttons
   for (const old of document.querySelectorAll('.combat-visual-btn')) old.remove();
 
-  const buttonActions = viable.filter(a => BUTTON_ACTION_TYPES.has(a.type));
+  const buttonEvals = evaluated.filter(ea => BUTTON_ACTION_TYPES.has(ea.action.type)
+    && (ea.viable === true
+      || ('reason' in ea && typeof ea.reason === 'string' && ea.reason.startsWith('Tutorial'))));
   const passBtn = document.getElementById('pass-btn');
   const parent = passBtn?.parentElement;
   if (!parent) return;
@@ -1232,15 +1294,20 @@ function renderCombatActionButtons(
   // untapped and the tap-to-fight option genuinely taps it; when it is absent
   // the character is already tapped/wounded and cannot tap, so labels must
   // reflect that. Compute this once from the full action set.
-  const hasStayUntappedOption = buttonActions.some(
+  const hasStayUntappedOption = viable.some(
     a => a.type === 'resolve-strike' && !a.tapToFight,
-  );
+  ) || buttonEvals.some(ea => ea.action.type === 'resolve-strike' && !(ea.action as ResolveStrikeAction).tapToFight);
 
-  for (const action of buttonActions) {
+  for (const ea of buttonEvals) {
     const btn = document.createElement('button');
     btn.className = 'enter-site-btn combat-visual-btn';
-    btn.textContent = combatButtonLabel(action, hasStayUntappedOption);
-    btn.addEventListener('click', () => onAction(action));
+    btn.textContent = combatButtonLabel(ea.action, hasStayUntappedOption);
+    if (ea.viable === true) {
+      btn.addEventListener('click', () => onAction(ea.action));
+    } else {
+      btn.disabled = true;
+      if ('reason' in ea && typeof ea.reason === 'string') btn.title = ea.reason;
+    }
     parent.appendChild(btn);
   }
 }

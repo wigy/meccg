@@ -19,8 +19,9 @@
  * is absent or hidden in the current layout.
  */
 
-import type { CardDefinition, PlayerView, TutorialAnchorId, TutorialPointer } from '@meccg/shared';
+import type { CardDefinition, PlayerView, RegionType, TutorialAnchorId, TutorialPointer } from '@meccg/shared';
 import { cardImageProxyPath } from '@meccg/shared';
+import { createRegionTypeIcon } from './render-utils.js';
 
 /** Concrete element id each abstract pointer anchor attaches to. */
 const ANCHOR_ELEMENT_IDS: Record<TutorialAnchorId, string> = {
@@ -34,7 +35,12 @@ const ANCHOR_ELEMENT_IDS: Record<TutorialAnchorId, string> = {
   'sideboard': 'self-sideboard-pile',
   'site-deck': 'self-site-pile',
   'dice': 'self-dice-tray',
+  'opponent-dice': 'opponent-dice-tray',
   'hazard-limit': 'opponent-hazard-limit',
+  'player-name': 'self-name',
+  'map': 'map-radar',
+  'text-log': 'game-log-panel',
+  'view-toggle': 'company-view-toggle',
 };
 
 /**
@@ -47,9 +53,9 @@ let repositionListenersRegistered = false;
 /**
  * Render (or remove) the tutorial panel for the current view. Shows the
  * active step's title and instruction, glossary entries for concepts the
- * step introduces, overall progress, and — when the script is waiting on
- * the Mentor — a watching note instead of a prompt. Also renders the step's
- * pointer bubbles over the UI elements they reference, and — when the step
+ * step introduces, and overall progress (steps narrate the Mentor's turns
+ * in their own body text — "Watch: …"). Also renders the step's pointer
+ * bubbles over the UI elements they reference, and — when the step
  * illustrates a card — the card image beside the instruction with a red
  * circle over the highlighted attribute.
  */
@@ -125,7 +131,7 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
 
   const body = document.createElement('div');
   body.className = 'tutorial-panel-body';
-  body.textContent = progress.body;
+  renderBodyText(body, progress.body);
   text.appendChild(body);
 
   if (progress.concepts?.length) {
@@ -138,17 +144,11 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
       term.className = 'tutorial-concept-term';
       term.textContent = concept.term;
       entry.appendChild(term);
-      entry.appendChild(document.createTextNode(` — ${concept.explanation}`));
+      entry.appendChild(document.createTextNode(' — '));
+      renderBodyText(entry, concept.explanation);
       concepts.appendChild(entry);
     }
     text.appendChild(concepts);
-  }
-
-  if (!progress.done && !progress.yourTurn) {
-    const waiting = document.createElement('div');
-    waiting.className = 'tutorial-panel-waiting';
-    waiting.textContent = 'Watch — the Mentor is acting…';
-    text.appendChild(waiting);
   }
 
   if (progress.footer) {
@@ -161,6 +161,38 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
   document.body.appendChild(panel);
 
   renderBubbles(progress.done ? [] : progress.pointers ?? []);
+}
+
+/** Region types the `{{...}}` icon token accepts. */
+const REGION_TOKEN_TYPES = new Set(['wilderness', 'shadow', 'dark', 'coastal', 'free', 'border']);
+
+/**
+ * Render a step's instruction text into `parent`. Plain text except for two
+ * inline tokens: `[[Label]]` names an on-screen button the step asks the
+ * player to press (e.g. "Press [[Done]].") and renders as a chip styled like
+ * the real button, and `{{region-type}}` (e.g. `{{wilderness}}`) renders the
+ * original MECCG region symbol icon inline.
+ */
+function renderBodyText(parent: HTMLElement, text: string): void {
+  const parts = text.split(/\[\[(.+?)\]\]|\{\{(.+?)\}\}/);
+  // split() with two capture groups cycles [text, button, region, text, …];
+  // the group that did not match is undefined.
+  parts.forEach((part, i) => {
+    if (part === undefined) return;
+    const kind = i % 3;
+    if (kind === 0) {
+      if (part) parent.appendChild(document.createTextNode(part));
+    } else if (kind === 1) {
+      const chip = document.createElement('span');
+      chip.className = 'tutorial-inline-button';
+      chip.textContent = part;
+      parent.appendChild(chip);
+    } else if (REGION_TOKEN_TYPES.has(part)) {
+      parent.appendChild(createRegionTypeIcon(part as RegionType, 14));
+    } else {
+      parent.appendChild(document.createTextNode(part));
+    }
+  });
 }
 
 /**
@@ -188,12 +220,17 @@ function renderBubbles(pointers: readonly TutorialPointer[]): void {
   for (const pointer of pointers) {
     const bubble = document.createElement('div');
     bubble.className = 'tutorial-bubble';
-    bubble.dataset.anchor = ANCHOR_ELEMENT_IDS[pointer.anchor];
+    if (pointer.anchor) bubble.dataset.anchor = ANCHOR_ELEMENT_IDS[pointer.anchor];
+    if (pointer.cardDefId) bubble.dataset.cardDef = pointer.cardDefId as string;
+    if (pointer.side) bubble.dataset.side = pointer.side;
     bubble.textContent = pointer.label;
     container.appendChild(bubble);
   }
   document.body.appendChild(container);
   requestAnimationFrame(positionBubbles);
+  // Cards may still be mid-FLIP (up to ~800ms) when the first pass measures
+  // them; a settle pass re-anchors bubbles at the cards' final positions.
+  setTimeout(positionBubbles, 900);
 
   if (!repositionListenersRegistered) {
     repositionListenersRegistered = true;
@@ -202,12 +239,39 @@ function renderBubbles(pointers: readonly TutorialPointer[]): void {
   }
 }
 
+/**
+ * The largest on-screen card image with the given definition id, or null
+ * when none is visible in the viewport.
+ */
+function largestVisibleCard(defId: string): HTMLElement | null {
+  let best: HTMLElement | null = null;
+  let bestArea = 0;
+  for (const el of document.querySelectorAll<HTMLElement>(`img[data-card-id="${defId}"]`)) {
+    const r = el.getBoundingClientRect();
+    const onScreen = r.width > 0 && r.height > 0
+      && r.bottom > 0 && r.top < window.innerHeight
+      && r.right > 0 && r.left < window.innerWidth;
+    const area = r.width * r.height;
+    if (onScreen && area > bestArea) {
+      best = el;
+      bestArea = area;
+    }
+  }
+  return best;
+}
+
 /** Place every current bubble beside its anchor; hide those without one. */
 function positionBubbles(): void {
   const container = document.getElementById('tutorial-bubbles');
   if (!container) return;
   for (const bubble of container.querySelectorAll<HTMLElement>('.tutorial-bubble')) {
-    const target = document.getElementById(bubble.dataset.anchor ?? '');
+    // Card-anchored bubbles pick the LARGEST on-screen card image with the
+    // definition id — the same card may also appear as a small thumbnail in
+    // piles, the log, or the hand arc, and DOM order would pick arbitrarily.
+    // Element-anchored bubbles resolve their fixed id.
+    const target = bubble.dataset.cardDef !== undefined
+      ? largestVisibleCard(bubble.dataset.cardDef)
+      : document.getElementById(bubble.dataset.anchor ?? '');
     const rect = target?.getBoundingClientRect();
     const visible = target !== null && target !== undefined
       && !target.classList.contains('hidden')
@@ -216,11 +280,30 @@ function positionBubbles(): void {
       bubble.classList.remove('tutorial-bubble--visible');
       continue;
     }
-    // Prefer sitting above the anchor (arrow pointing down at it); flip
-    // below when the anchor hugs the top of the viewport.
     const bubbleRect = bubble.getBoundingClientRect();
+
+    // A 'right'/'left' placement hint sits the bubble beside the anchor
+    // (arrow on the edge facing it), leaving the space above free for the
+    // anchor's own hover tooltip (e.g. the GI breakdown) or fitting anchors
+    // that hug a screen edge (e.g. the map radar).
+    if (bubble.dataset.side === 'right' || bubble.dataset.side === 'left') {
+      const toRight = bubble.dataset.side === 'right';
+      bubble.classList.remove('tutorial-bubble--above', 'tutorial-bubble--below');
+      bubble.classList.toggle('tutorial-bubble--right', toRight);
+      bubble.classList.toggle('tutorial-bubble--left', !toRight);
+      const top = rect.top + rect.height / 2 - bubbleRect.height / 2;
+      bubble.style.top = `${Math.max(8, Math.min(top, window.innerHeight - bubbleRect.height - 8))}px`;
+      const left = toRight ? rect.right + 14 : rect.left - bubbleRect.width - 14;
+      bubble.style.left = `${Math.max(8, Math.min(left, window.innerWidth - bubbleRect.width - 8))}px`;
+      bubble.classList.add('tutorial-bubble--visible');
+      continue;
+    }
+
+    // Prefer sitting above the anchor (arrow pointing down at it); flip
+    // below when the anchor hugs the top of the viewport, or always when
+    // the pointer carries a 'below' placement hint.
     const above = rect.top - bubbleRect.height - 14;
-    const placeAbove = above >= 8;
+    const placeAbove = bubble.dataset.side !== 'below' && above >= 8;
     bubble.classList.toggle('tutorial-bubble--above', placeAbove);
     bubble.classList.toggle('tutorial-bubble--below', !placeAbove);
     bubble.style.top = `${placeAbove ? above : rect.bottom + 14}px`;

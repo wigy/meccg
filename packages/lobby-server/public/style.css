@@ -5978,6 +5978,17 @@ body.all-companies-mode:has(#debug-view.hidden) {
   display: inline-block;
 }
 
+/* A tapped item inside a CP-badge wrap: rotate the whole wrap so the badge
+   stays glued to the card face's corner, and neutralize the inner card's
+   own rotation so it doesn't turn twice. */
+.item-card-wrap:has(> .company-card--tapped) {
+  transform: rotate(90deg);
+}
+
+.item-card-wrap > .company-card--tapped {
+  transform: none;
+}
+
 /* Item corruption points badge */
 .item-cp-badge {
   position: absolute;
@@ -6638,11 +6649,25 @@ body.all-companies-mode:has(#debug-view.hidden) {
   line-height: 1.4;
 }
 
-.tutorial-panel-waiting {
-  font-size: 0.85rem;
-  font-style: italic;
-  margin-top: 6px;
-  color: rgba(200, 190, 160, 0.9);
+/* Inline reference to an on-screen button ("Press [[Done]]"): same face as
+   #pass-btn (font, colors, border) scaled down to sit in a sentence. */
+.tutorial-inline-button {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.95em;
+  color: rgba(220, 200, 140, 0.9);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  border-radius: 5px;
+  padding: 0 0.45em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+/* A tutorial-gated site-phase Skip: visible so the normal controls stay
+   familiar, but not clickable while the script demands entering. */
+.enter-site-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* Emphasized closing line of a tutorial step ("TO BE CONTINUED...."). */
@@ -6752,6 +6777,26 @@ body.all-companies-mode:has(#debug-view.hidden) {
 .tutorial-bubble--below::after {
   bottom: 100%;
   border-bottom-color: rgba(235, 215, 160, 0.8);
+}
+
+/* Side placement: bubble to the right of its anchor, arrow on the left edge
+   pointing back at it (used when the anchor's own hover tooltip needs the
+   space above, e.g. the GI breakdown). */
+.tutorial-bubble--right::after {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  top: 50%;
+  margin-top: -6px;
+  border-right-color: rgba(235, 215, 160, 0.8);
+}
+
+.tutorial-bubble--left::after {
+  left: 100%;
+  margin-left: 0;
+  top: 50%;
+  margin-top: -6px;
+  border-left-color: rgba(235, 215, 160, 0.8);
 }
 
 /* Combat character highlights */

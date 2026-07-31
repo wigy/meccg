@@ -67,6 +67,8 @@ export function createRadar(
   const mode = getMapMode();
 
   const radar = document.createElement('div');
+  // Stable id: the guided tutorial's 'map' pointer anchor attaches here.
+  radar.id = 'map-radar';
   radar.className = mode === 'under-deeps' ? 'map-radar map-radar--under-deeps-mode' : 'map-radar';
   radar.title = 'Click to open full map';
 

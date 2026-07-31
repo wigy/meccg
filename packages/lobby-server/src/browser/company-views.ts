@@ -435,6 +435,8 @@ export function renderViewToggle(
   inCombat = false,
 ): void {
   const btn = document.createElement('button');
+  // Stable id: the guided tutorial's 'view-toggle' pointer anchor attaches here.
+  btn.id = 'company-view-toggle';
 
   if (inCombat) {
     // In all-companies view during combat: red sword icon returns to combat view

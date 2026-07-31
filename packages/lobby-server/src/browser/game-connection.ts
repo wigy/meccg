@@ -47,6 +47,11 @@ function setLoadingCover(visible: boolean, text = 'Loading...'): void {
   document.getElementById('game-loading')?.classList.toggle('hidden', !visible);
   const textEl = document.getElementById('game-loading-text');
   if (textEl) textEl.textContent = text;
+  // The tutorial panel and its pointer bubbles are fixed overlays on
+  // document.body — the cover cannot hide them, so clear them explicitly or
+  // stale instructions float above the loading screen. They re-render from
+  // the first state broadcast after the cover drops.
+  if (visible) clearTutorialPanel();
 }
 
 /** Guard flag: true while waiting for the server to respond after sending an action. */
@@ -515,6 +520,11 @@ export function connect(name: string): void {
         }
         // Snapshot card positions before clearing DOM for FLIP animation
         snapshotPositions();
+        // The tutorial panel renders FIRST: it depends only on the view, and
+        // rendering it before the board keeps the instructions current even
+        // if a later renderer throws mid-pass (its bubbles position in a rAF
+        // after the pass, so anchor elements are final by then).
+        renderTutorialPanel(msg.view, cardPool);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
         renderMHInfo(msg.view, cardPool, appState.lastCompanyNames);
@@ -531,7 +541,6 @@ export function connect(name: string): void {
         renderCompanyViews(msg.view, cardPool, sendAction);
         renderGameOverView(msg.view, cardPool);
         renderChainPanel(msg.view, cardPool, sendAction);
-        renderTutorialPanel(msg.view, cardPool);
         // Animate cards from old positions to new positions
         animateFromSnapshot();
         // The full state is now rendered — reveal the board.

@@ -321,7 +321,12 @@ export type TutorialAnchorId =
   | 'sideboard'
   | 'site-deck'
   | 'dice'
-  | 'hazard-limit';
+  | 'opponent-dice'
+  | 'hazard-limit'
+  | 'player-name'
+  | 'map'
+  | 'text-log'
+  | 'view-toggle';
 
 /**
  * A short game-term explanation rendered under a tutorial step's
@@ -352,10 +357,25 @@ export interface TutorialCardIllustration {
  * introduces lives on screen (e.g. the general-influence counter).
  */
 export interface TutorialPointer {
-  /** Which UI element the bubble attaches to. */
-  readonly anchor: TutorialAnchorId;
+  /** Which UI element the bubble attaches to (omit when using `cardDefId`). */
+  readonly anchor?: TutorialAnchorId;
+  /**
+   * Anchor to the on-screen card image with this definition id instead of a
+   * fixed UI element — e.g. point at a character in the company view. The
+   * bubble hides when no such card is visible.
+   */
+  readonly cardDefId?: CardDefinitionId;
   /** Short bubble text naming what the element shows. */
   readonly label: string;
+  /**
+   * Placement hint overriding the default above-the-anchor position:
+   * `'right'`/`'left'` put the bubble beside the anchor (used when the
+   * anchor also opens a hover tooltip above itself, e.g. the GI box, or
+   * hugs a screen edge, e.g. the map radar); `'below'` forces the bubble
+   * under the anchor (used for tall top-anchored elements like the text
+   * log).
+   */
+  readonly side?: 'right' | 'left' | 'below';
 }
 
 /**

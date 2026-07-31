@@ -54,6 +54,28 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const passAction = passEval?.action;
   const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
+    // Tutorial enter-or-skip: the script demands entering the site, so the
+    // gate demoted the normal Skip (pass) to non-viable — which would hide
+    // the whole button pair. Show the familiar Enter/Skip controls anyway:
+    // Enter live, Skip disabled with the tutorial reason as its tooltip.
+    if (view.tutorial && view.phaseState.phase === Phase.Site && view.phaseState.step === 'enter-or-skip') {
+      const enterEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'enter-site');
+      const gatedSkip = view.legalActions.find(ea => !ea.viable && ea.action.type === 'pass');
+      if (enterEval && gatedSkip) {
+        btn.classList.remove('hidden');
+        btn.textContent = 'Enter';
+        btn.onclick = () => onAction(enterEval.action);
+        const skipBtn = document.createElement('button');
+        skipBtn.id = 'enter-site-btn';
+        skipBtn.className = 'enter-site-btn';
+        skipBtn.textContent = 'Skip';
+        skipBtn.disabled = true;
+        skipBtn.title = 'reason' in gatedSkip && typeof gatedSkip.reason === 'string' ? gatedSkip.reason : '';
+        document.getElementById('visual-panel')?.appendChild(skipBtn);
+        waitingEl?.classList.add('hidden');
+        return;
+      }
+    }
     btn.classList.add('hidden');
     const hasViable = view.legalActions.some(ea => ea.viable);
     waitingEl?.classList.toggle('hidden', hasViable);
