@@ -12,7 +12,7 @@
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 9 | 9 | 100.0% |
+| 00 | [Engine](00-engine/) | 10 | 10 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 60 | 58 | 96.7% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
@@ -36,6 +36,7 @@
 | — | Engine | [Card Image Urls](00-engine/card-image-urls.test.ts) | ☑ |
 | — | Engine | [Combat Zero Strike Fizzle](00-engine/combat-zero-strike-fizzle.test.ts) | ☑ |
 | — | Engine | [Last Action Card Defs](00-engine/last-action-card-defs.test.ts) | ☑ |
+| — | Engine | [Ordered Decks](00-engine/ordered-decks.test.ts) | ☑ |
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
 | — | Engine | [Race Vocabulary](00-engine/race-vocabulary.test.ts) | ☑ |
 | — | Engine | [Site Dissolved Company Exit](00-engine/site-dissolved-company-exit.test.ts) | ☑ |
@@ -367,3 +368,6 @@
 | MEWH | The White Hand (MEWH) | [Stage Resources](rule-mewh-stage-resources.test.ts) | ☑ |
 | MEWH | The White Hand (MEWH) | [Wizard Leaves Play](rule-mewh-wizard-leaves-play.test.ts) | ☑ |
 | MEWH | The White Hand (MEWH) | [Wizardhavens](rule-mewh-wizardhavens.test.ts) | ☑ |
+
+---
+*Legend: ☐ = todo, ☑ = implemented, ◐ = partial*

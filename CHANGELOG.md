@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.71.0 — 2026-07-31
+
+Tutorial Draft Phase
+
+### Guided Tutorial
+
+- Tutorial script: finer-grained steps, a rewritten battle lesson, rules fixes, and an aftermath step after the corruption check
+- Tutorial browser UI: richer Mentor bubbles, inline card/token rendering, and better combat visibility
+- Tutorial panel detached from the board flow into a left-docked fixed overlay
+- Dramatic Mentor beats now wait behind a continue gate, with uniform one-second pacing
+- Game session: paced Mentor message pump, tutorial save/load support, and a cursor in the game log
+- Removed unused Lórien from the tutorial hero site deck
+
+### Game Engine
+
+- Fixed Flatter a Foe not asking which character makes the influence check
+- Fixed The Dwarves Are upon You! being playable outside combat
+- Gandalf can now test a gold ring during any phase, not just organization
+- Fixed play-character joining the wrong company when two companies share a site
+
+### Lobby & Web Client
+
+- General influence is now shown as a ledger: pool first, per-character costs, free GI last
+- Corruption-point badges are now shown on starting items during setup
+- Added delete and renew buttons to the admin request detail view
+- Fixed a duplicate rejoin-game launching two game-server processes
+- Game-server message-handler exceptions are now logged instead of reported as "Invalid message format"
+
+### AI & Simulation
+
+- The modular AI never yields company-shape decisions to the fallback, and its `>` divergence numbers were corrected
+- Modules can now yield to a fallback agent that can actually search
+
+### Infrastructure
+
+- Rebuilt the dev loop: watches the real import graph and reloads reliably
+- Dev runtime resolves @meccg/shared from source instead of dist, eliminating stale-build ghosts
+- Fixed the server URL in bin/update-dev
+
 ## 0.70.0 — 2026-07-31
 
 Nightly Build
