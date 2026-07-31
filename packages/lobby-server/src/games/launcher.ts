@@ -18,6 +18,14 @@ import { lobbyLog } from '../lobby-log.js';
 
 const GAME_SERVER_ENTRY = path.join(__dirname, '../../../game-server/src/ws/server.ts');
 
+/**
+ * tsx tsconfig for spawned game servers: maps @meccg/shared onto its SOURCE
+ * instead of the package's built dist. The children run TypeScript via tsx
+ * anyway, and resolving dist made them hostage to stale/mid-edit compiler
+ * output (a half-emitted tutorial script once crashed every broadcast).
+ */
+const GAME_SERVER_TSCONFIG = path.join(__dirname, '../../../game-server/tsconfig.dev.json');
+
 /** Next available port for game servers. */
 let nextPort = GAME_PORT_BASE;
 
@@ -127,7 +135,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     DEV: DEV ? '1' : '',
   };
 
-  const serverArgs = ['tsx', GAME_SERVER_ENTRY, player1, player2, '--dev'];
+  const serverArgs = ['tsx', '--tsconfig', GAME_SERVER_TSCONFIG, GAME_SERVER_ENTRY, player1, player2, '--dev'];
   if (options?.tutorial) serverArgs.push('--tutorial');
   const child = spawn('npx', serverArgs, {
     env,

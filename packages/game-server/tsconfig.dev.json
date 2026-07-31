@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@meccg/shared": ["../shared/src/index.ts"],
+      "@meccg/shared/*": ["../shared/src/*"]
+    }
+  }
+}

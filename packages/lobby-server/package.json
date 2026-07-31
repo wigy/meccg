@@ -8,7 +8,7 @@
     "check": "tsc --noEmit",
     "test": "vitest run",
     "start": "npm run build:browser && npx tsx src/server.ts",
-    "dev": "npm run build:browser -- --watch=forever & npx tsc --build --watch --preserveWatchOutput tsconfig.json & npx tsx watch --clear-screen=false --include ../shared/dist src/server.ts --dev"
+    "dev": "npm run build:browser -- --watch=forever & npx tsx watch --clear-screen=false --tsconfig tsconfig.dev.json src/server.ts --dev"
   },
   "dependencies": {
     "@meccg/shared": "*",
