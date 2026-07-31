@@ -1129,8 +1129,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ManySorrowsBefall.jpg",
     "unique": true,
     "eventType": "short",
-    "effects": [],
-    "text": "Unique. Forces the discard of one resource long-event.Alternatively, can target and cancel one resource short-event declared earlier in the same chain of effects (i. e., before the resource short-event resolves)."
+    "effects": [
+      {
+        "type": "play-option",
+        "id": "discard-resource-long-event",
+        "untargeted": true,
+        "candidates": "opponent-in-play",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "in-play",
+          "to": "discard",
+          "filter": {
+            "$and": [
+              { "cardType": { "$in": ["hero-resource-event", "minion-resource-event"] } },
+              { "eventType": "long" }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "filter": {
+            "target.cardType": { "$in": ["hero-resource-event", "minion-resource-event"] },
+            "target.eventType": "short"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Forces the discard of one resource long-event.Alternatively, can target and cancel one resource short-event declared earlier in the same chain of effects (i. e., before the resource short-event resolves).",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hazard-event",
