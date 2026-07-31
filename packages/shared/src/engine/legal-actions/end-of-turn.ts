@@ -105,12 +105,17 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
     for (const a of runHomeActions(state, playerId)) {
       actions.push(a);
     }
-    // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
-    if (allowStoreEot(state, playerIndex)) {
-      logDetail(`End-of-Turn discard: allow-store-eot in play for ${player.name} — adding store-item actions`);
-      for (const ea of storeItemActions(state, playerId)) {
-        actions.push(ea.action);
-      }
+  }
+
+  // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay.
+  // Unlike the grant-actions above, this is not restricted to the active
+  // (resource) player — the card's text ("during the end-of-turn phase") grants
+  // its bearer's owner a storing window on every end-of-turn phase, including
+  // the opponent's turn (CoE 2.VI: "either player" acts during this phase).
+  if (allowStoreEot(state, playerIndex)) {
+    logDetail(`End-of-Turn discard: allow-store-eot in play for ${player.name} — adding store-item actions`);
+    for (const ea of storeItemActions(state, playerId)) {
+      actions.push(ea.action);
     }
   }
 
@@ -175,12 +180,23 @@ function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[
 
 /**
  * Step 3: Resource player signals end of turn. May also call the Free Council.
- * Only the active (resource) player has actions here.
+ * Per CoE 2.VI.iii, "no other action can be taken during this step unless it
+ * is specifically allowed" — Safe from the Shadow's storing window is such an
+ * allowance, so the non-active player only gets store-item actions here.
  */
 function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[] {
+  const playerIndex = getPlayerIndex(state, playerId);
   if (state.activePlayer !== playerId) {
-    logDetail(`End-of-Turn signal-end: not the resource player, no actions`);
-    return [];
+    logDetail(`End-of-Turn signal-end: not the resource player`);
+    const nonActiveActions: GameAction[] = [];
+    if (allowStoreEot(state, playerIndex)) {
+      const player = state.players[playerIndex];
+      logDetail(`End-of-Turn signal-end: allow-store-eot in play for ${player.name} — adding store-item actions`);
+      for (const ea of storeItemActions(state, playerId)) {
+        nonActiveActions.push(ea.action);
+      }
+    }
+    return nonActiveActions;
   }
 
   const actions: GameAction[] = [];
@@ -188,7 +204,6 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
   // Offer call-free-council if eligible (Short game rules).
   // Per CoE rule 10.41, Ringwraith and Balrog players cannot freely call —
   // they must play Sudden Call instead.
-  const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   if (!player.freeCouncilCalled && state.lastTurnFor === null) {
     if (isMinionOrBalrog(player)) {

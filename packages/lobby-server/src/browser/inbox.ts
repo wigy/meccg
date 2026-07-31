@@ -57,7 +57,11 @@ function openRequestNote(req: OpenRequest): string {
 
 /** Fetch the player's open requests and fill the box; it stays hidden when there are none. */
 async function loadOpenRequests(box: HTMLElement): Promise<void> {
-  const r = await apiGet<{ requests: OpenRequest[] }>('/api/mail/requests');
+  const [r, me] = await Promise.all([
+    apiGet<{ requests: OpenRequest[] }>('/api/mail/requests'),
+    apiGet<{ credits?: number }>('/api/me'),
+  ]);
+  if (me.ok) appState.lobbyPlayerCredits = me.data.credits ?? 0;
   if (!r.ok || r.data.requests.length === 0) return;
   const requests = r.data.requests;
 
@@ -66,15 +70,25 @@ async function loadOpenRequests(box: HTMLElement): Promise<void> {
   title.textContent = `Open requests (${requests.length})`;
   box.appendChild(title);
 
-  // Summary line: how far the player's next request is from being handled.
-  // The list arrives in handling order, so the first entry is the next one.
-  const summary = document.createElement('div');
-  summary.className = 'inbox-requests-summary';
-  const ahead = requests[0].ahead;
-  summary.textContent = ahead === 0
-    ? 'Your next request is first in the queue.'
-    : `${ahead} request${ahead === 1 ? '' : 's'} ahead of your next one.`;
-  box.appendChild(summary);
+  if (appState.lobbyPlayerCredits <= 0) {
+    // Filing is always allowed, but the AI worker skips requests from players
+    // with no balance — say so instead of showing a queue position that will
+    // never advance.
+    const warning = document.createElement('div');
+    warning.className = 'inbox-requests-nofunds';
+    warning.textContent = 'You are out of credits — your requests will not progress until your balance is topped up.';
+    box.appendChild(warning);
+  } else {
+    // Summary line: how far the player's next request is from being handled.
+    // The list arrives in handling order, so the first entry is the next one.
+    const summary = document.createElement('div');
+    summary.className = 'inbox-requests-summary';
+    const ahead = requests[0].ahead;
+    summary.textContent = ahead === 0
+      ? 'Your next request is first in the queue.'
+      : `${ahead} request${ahead === 1 ? '' : 's'} ahead of your next one.`;
+    box.appendChild(summary);
+  }
 
   for (const req of requests) {
     const row = document.createElement('div');

@@ -153,6 +153,15 @@ function isGameActive(): boolean {
 }
 
 /**
+ * True while spectating (see `document.body.classList.toggle('spectating', ...)`
+ * in game-connection.ts). Spectators can't submit actions, so the key-hint
+ * overlay would just label targets nobody is allowed to click.
+ */
+function isSpectating(): boolean {
+  return document.body.classList.contains('spectating');
+}
+
+/**
  * Click an element with a brief flash for feedback. Dispatches a real
  * `MouseEvent` with `clientX/clientY` at the element's visible center —
  * some click handlers (e.g. the hand-card hazard-keying popup) position
@@ -234,6 +243,7 @@ function armTab(): void {
 
 /** Place labels on the five piles addressable by Tab+letter. */
 function showPileLabelsOnly(): void {
+  if (isSpectating()) return;
   clearShortcutLabels();
   for (const { key, id } of TAB_PILE_BINDINGS) {
     const el = document.getElementById(id);
@@ -315,6 +325,7 @@ function placeLabel(el: HTMLElement, text: string): void {
 
 /** Show shortcut-key labels on every clickable target currently in the DOM. */
 function showShortcutLabels(): void {
+  if (isSpectating()) return;
   clearShortcutLabels();
   shiftLabelsShown = true;
 

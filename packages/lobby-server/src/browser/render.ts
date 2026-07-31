@@ -29,6 +29,8 @@ export {
   clearShortEventSelection,
   getSelectedPermanentEventForPlay,
   clearPermanentEventPlaySelection,
+  getSelectedPermanentEventForLongEventTarget,
+  clearPermanentEventLongEventTargetSelection,
   getSelectedTapAltPermanentEvent,
   setSelectedTapAltPermanentEvent,
   clearTapAltPermanentEventSelection,

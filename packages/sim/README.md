@@ -687,6 +687,76 @@ here: source was edited while it was running, and `gate` spawns `tsx` children
 that read the source at launch, so different games in it played different code.
 The number above is from a stable tree.
 
+#### How far is that from the strongest agent in the package?
+
+Both numbers on this page are against Heuristics 1 — H2 at +62, `mc` at around
++200 (§ *Flat Monte-Carlo*) — and subtracting two gates is not the same as
+playing the match. Played directly, 50 paired side-swapped games:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'mc:rollouts=4/candidates=4/turns=1' --pairs 25 --rounds 1 --jobs 12
+```
+
+```text
+  score:     10W-39L-1D (21.0%) over 50 rated games
+  elo diff:  -230 [-384, -130]     (95% CI, challenger − champion)
+  glicko-2:  -577 [-776, -378]
+  failures:  0
+```
+
+**The modular AI loses four games in five to a four-rollout flat Monte-Carlo
+agent**, and the gap is *wider* than the two H1 gates imply — subtraction
+predicts about −140, the match says −230, and the interval does not reach it.
+Transitivity is not owed to us; what the direct match adds is that the shortfall
+is real and large, and that a paired 50-game run is already enough to see it.
+
+That is the number this section should be read against from here. H2 is stronger
+than the agent it was built to replace and much weaker than the cheapest thing
+that looks one turn ahead, and the honest reading of the two together is that
+pricing decisions well is not yet worth as much as checking them.
+
+#### The first third of that gap: stop falling back to the weakest agent
+
+H2 hands the decisions it cannot price to Heuristics 1. Measured over three
+self-play games, that is **16.0% of contested decisions** — a covered ranking
+that came out flat, or a partial view whose covered opinion did not clear
+`partialCoverageMargin` — and **63.5% of those are views `mc` can determinize**,
+so a rollout agent could actually search them rather than defer again.
+
+The fallback was hard-wired. It is now `Heuristic2Options.fallback`, and the
+CLI spec composes with `+`:
+
+```sh
+# the module tree, with a rollout search behind it instead of Heuristics 1
+npm run gate -w @meccg/sim -- --challenger 'h2+mc:rollouts=8/candidates=8/turns=1' \
+  --champion h2 --pairs 100 --rounds 1 --jobs 8
+```
+
+```text
+  score:     121W-78L-1D (60.8%) over 200 rated games
+  elo diff:  +76 [+28, +127]      (95% CI, challenger − champion)
+  glicko-2:  +221 [+120, +322]
+  failures:  0
+```
+
+**Both methods clear zero.** A 50-game run at a quarter of that budget
+(`rollouts=4/candidates=4`) put it at +28 [−67, +127] — the same direction, and
+the reason the budget is worth spending: the search only ever runs on the one
+contested decision in six that reaches it, so a fallback can afford eight
+rollouts where a whole-game agent has to ration them.
+
+The two agents' blind spots turn out to be close to complementary. `mc` cannot
+determinize a view in combat, mid-chain, or with effects pending, and defers
+there — which is exactly where H2's modules are strongest. What each does badly,
+the other declines to do at all.
+
+`h2+mc` is **not** the default. `h2` still means the module tree with H1 behind
+it, because every tool on this page depends on it being cheap, and because the
+point of the design is the modules and not the search. The seam is what the
+measurement needed, and the number above is what it bought: a third of the
+−230 gap, from changing what happens when the modules say nothing.
+
 #### The one game that did not finish, and the wrong diagnosis of it
 
 Seed 1 ran **508 turns** and hit the decision limit at 0–0, with both players

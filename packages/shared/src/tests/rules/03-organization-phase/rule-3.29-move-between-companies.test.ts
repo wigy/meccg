@@ -19,7 +19,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO, BILBO,
   LORIEN, MORIA, MINAS_TIRITH, RIVENDELL,
-  viableActions,
+  viableActions, charIdAt, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { GameState, MoveToCompanyAction } from '../../../index.js';
 
@@ -149,15 +149,14 @@ describe('Rule 3.29 — Move Between Companies', () => {
     expect(wouldEmpty).toBeUndefined();
   });
 
-  test('cannot move a character that would take every other character with it', () => {
+  test('cannot move a character that would take every other character in the source with it', () => {
     // A character whose control has reverted to general influence can still be
-    // listed in its former controller's followers. The source then holds two
-    // general-influence characters — enough for the "at least two" proxy — but
-    // moving the controller takes the follower along and empties the source,
-    // and the reducer refuses. `splitCompanyActions` already mirrors the
-    // reducer's own rule for exactly this reason; this is the same fault in
-    // `moveToCompanyActions`, and it aborted one of 400 games in a gate run
-    // (seed 1117).
+    // listed in its former controller's followers. The company then holds two
+    // general-influence characters — enough for the old "at least two" guard —
+    // but moving the controller takes the follower along and empties the
+    // source. The legal-action computer must apply the reducer's own rule
+    // rather than a proxy for it; offering the move aborted a gate run on
+    // seed 1117.
     const built = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -176,8 +175,8 @@ describe('Rule 3.29 — Move Between Companies', () => {
     });
 
     const sharedMoria = built.players[0].companies[0].currentSite!;
-    const aragornInstId = built.players[0].companies[0].characters[0];
-    const frodoInstId = built.players[0].companies[0].characters[1];
+    const aragorn = charIdAt(built, RESOURCE_PLAYER, 0, 0);
+    const frodo = charIdAt(built, RESOURCE_PLAYER, 0, 1);
     const state: GameState = {
       ...built,
       players: [
@@ -188,24 +187,26 @@ describe('Rule 3.29 — Move Between Companies', () => {
           ),
           characters: {
             ...built.players[0].characters,
-            [aragornInstId as string]: {
-              ...built.players[0].characters[aragornInstId],
-              followers: [frodoInstId],
-            },
+            [aragorn as string]: { ...built.players[0].characters[aragorn], followers: [frodo] },
           },
         },
         built.players[1],
       ],
     };
 
+    const sourceCompanyId = state.players[0].companies[0].id;
+
     const moves = viableActions(state, PLAYER_1, 'move-to-company')
       .map(ea => ea.action as MoveToCompanyAction);
-    const sourceCompanyId = state.players[0].companies[0].id;
-    const fromSource = moves.filter(a => a.sourceCompanyId === sourceCompanyId);
+    const wouldEmpty = moves.find(a =>
+      a.characterInstanceId === aragorn && a.sourceCompanyId === sourceCompanyId,
+    );
+    expect(wouldEmpty).toBeUndefined();
 
-    // Moving Frodo alone still leaves Aragorn behind, so exactly one option
-    // survives — the guard must remove the emptying move, not every move.
-    expect(fromSource).toHaveLength(1);
-    expect(fromSource[0].characterInstanceId).toBe(frodoInstId);
+    // Moving Frodo alone still leaves Aragorn behind, so that move survives.
+    const stillViable = moves.find(a =>
+      a.characterInstanceId === frodo && a.sourceCompanyId === sourceCompanyId,
+    );
+    expect(stillViable).toBeDefined();
   });
 });

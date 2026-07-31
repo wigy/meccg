@@ -1318,14 +1318,12 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
       const charDef = resolveDef(state, char.instanceId);
       if (!isCharacterCard(charDef)) continue;
 
-      // The reducer moves the character *and their followers*, and refuses a
-      // move that empties the source company. Mirror that exactly rather than
-      // relying on the "two general-influence characters" proxy above, for the
-      // same reason `splitCompanyActions` does: a character whose control has
-      // reverted to general influence can still be listed in its former
-      // controller's followers, so both are counted as staying and then both
-      // leave together. Offering a move the reducer rejects aborted one of 400
-      // games in a gate run (seed 1117).
+      // The reducer moves the mover *and its followers*, and refuses a move
+      // that empties the source company. Mirror that exactly rather than
+      // relying on the "two general-influence characters" proxy above: a
+      // character whose control has reverted to general influence can still
+      // be listed in its former controller's followers, and then both leave
+      // together — see the identical guard in splitCompanyActions above.
       const leaving = new Set<string>([charInstId as string, ...char.followers.map(f => f as string)]);
       if (company.characters.every(c => leaving.has(c as string))) {
         logDetail(`  → skip: moving ${charDef.name} with ${char.followers.length} follower(s) would empty ${company.id as string}`);

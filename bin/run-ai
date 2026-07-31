@@ -31,7 +31,9 @@ Requests are served by topic priority rather than arrival order: bug reports
 first, then feature planning/implementation requests, then anything else
 (card requests, review fixes), and certification requests last — so a large
 certification backlog never delays a bug fix. Within one priority tier the
-oldest request goes first.
+oldest request goes first. A request whose requestor has no credits left is
+skipped (left 'new', so it resumes automatically after a top-up) and the
+queue moves on to the next eligible request.
 
 With --pr-check, at the start of every iteration it also sweeps all open
 PRs and finalizes 'processed' messages from their PR's merge/close outcome.
@@ -219,6 +221,26 @@ master_key() {
   return 1
 }
 
+# Normalize a player name to its on-disk directory name. Mirrors the
+# toDirName logic in packages/lobby-server/src/players/store.ts (and
+# handle-mail's to_dir_name).
+to_dir_name() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g'
+}
+
+# Read a player's current credit balance via the lobby system API. Unknown
+# players (the endpoint's 404) and unreadable responses count as 0, matching
+# handle-mail's get_player_credits. Prints the integer balance.
+requestor_credits() {
+  local dir resp credits
+  dir=$(to_dir_name "$1")
+  resp=$(curl -sf -X GET "$BASE_URL/api/system/players/$dir/credits" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null) || resp=""
+  credits=$(jq -r '.credits // 0' <<<"$resp" 2>/dev/null)
+  if [ -z "$credits" ] || [ "$credits" = "null" ]; then credits=0; fi
+  echo "$credits"
+}
+
 # PUT a status on a message in any inbox.  $1=inbox  $2=msg-id  $3=status
 set_inbox_message_status() {
   curl -sf -X PUT "$BASE_URL/api/system/mail/$1/$2" \
@@ -360,6 +382,15 @@ force_failed_if_unresolved() {
 # Within a tier the lobby's own order (oldest first) is preserved, because
 # jq's sort_by is stable.
 #
+# A request whose requestor has a zero/negative credit balance is SKIPPED, not
+# served: it stays 'new' (so it resumes by itself once the player tops up) and
+# the queue moves on to the next eligible request. Without this skip the
+# highest-priority credit-blocked message would be re-picked every tick and
+# starve everything behind it (handle-mail's own credit gate leaves the message
+# 'new'). The billed account is resolved exactly like handle-mail's Step 2b:
+# keywords.originalRequestor, then keywords.userName, then the message's from;
+# system accounts (ai/admin/server) are never billed and never gated.
+#
 # Returns non-zero if the lobby could not be reached (curl failure). The caller
 # MUST distinguish this from an empty result: under `set -eo pipefail` a bare
 # `MSG_ID=$(next_request_id)` would otherwise abort the whole loop silently the
@@ -370,7 +401,8 @@ next_request_id() {
   local resp
   resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
     -H "Authorization: Bearer $(master_key)" 2>/dev/null) || return 1
-  jq -r '
+  local candidates
+  candidates=$(jq -r '
     def priority:
       if   . == "bug-report" then 0
       elif . == "feature-planning-request" or . == "feature-implementation-request" then 1
@@ -378,8 +410,26 @@ next_request_id() {
       else 2 end;
     [.requests[] | select(.topic != "feature-request")]
       | sort_by(.topic | priority)
-      | .[0].id // empty
-  ' <<<"$resp" 2>/dev/null
+      | .[]
+      | [.id, (.keywords.originalRequestor // .keywords.userName // .from // "")]
+      | @tsv
+  ' <<<"$resp" 2>/dev/null)
+  local id requestor credits
+  while IFS=$'\t' read -r id requestor; do
+    [ -n "$id" ] || continue
+    case "$requestor" in
+      ai|admin|server|"") echo "$id"; return 0 ;;
+    esac
+    credits=$(requestor_credits "$requestor")
+    if [ "$credits" -gt 0 ] 2>/dev/null; then
+      echo "$id"
+      return 0
+    fi
+    # tee's stdout must not leak into the captured result — send it to stderr.
+    echo "[run-ai] Skipping $id: requestor '$requestor' has $credits credits; it stays queued until they top up." | tee -a "$LOG_FILE" >&2
+  done <<<"$candidates"
+  # No eligible request (queue empty or everything credit-blocked) — idle tick.
+  return 0
 }
 
 # Resolve the long-lived headless-claude OAuth token the same way handle-mail

@@ -17,6 +17,11 @@
  *    deck exhaust completes (during EOT reset-hand).
  * 4. duplication-limit scope:game max:1: cannot be played while a copy is
  *    already in cardsInPlay.
+ * 5. play-flag allow-store-eot: the non-active player's own storing window is
+ *    not restricted to their own turn — it appears during the opponent's
+ *    end-of-turn phase too (discard and signal-end steps), since the card's
+ *    text grants the window "during the end-of-turn phase" generally, not
+ *    only during one's own organization phase.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -27,7 +32,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   eotState, addCardInPlay, attachItemToChar,
   dispatch,
-  RESOURCE_PLAYER,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
   expectInDiscardPile,
   SAPLING_OF_THE_WHITE_TREE,
 } from '../test-helpers.js';
@@ -247,5 +252,44 @@ describe('Safe from the Shadow (as-54)', () => {
       .filter(a => a.viable && a.action.type === 'play-permanent-event');
 
     expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  test('store-item action offered to the non-active player during the opponent\'s EOT discard step', () => {
+    // P1 is the active (resource) player for this turn; P2 (hazard/non-active)
+    // holds Safe from the Shadow and an item at their own Haven. Bug report:
+    // the non-active player never got a store-item option during the other
+    // player's end-of-turn phase, even with the card in play.
+    const base = eotState();
+    const withItem = attachItemToChar(base, HAZARD_PLAYER, LEGOLAS, RED_BOOK_OF_WESTMARCH);
+    const withEvent = addCardInPlay(withItem, HAZARD_PLAYER, SAFE_FROM_THE_SHADOW);
+
+    const actions = computeLegalActions(withEvent, PLAYER_2);
+    const storeActions = actions
+      .filter(a => a.viable && a.action.type === 'store-item')
+      .map(a => a.action as StoreItemAction);
+
+    expect(storeActions.length).toBeGreaterThan(0);
+  });
+
+  test('store-item action offered to the non-active player during the opponent\'s EOT signal-end step', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withSignalEnd = {
+      ...base,
+      phaseState: { ...(base.phaseState as EndOfTurnPhaseState), step: 'signal-end' as const, discardDone: [true, true] as [boolean, boolean], resetHandDone: [true, true] as [boolean, boolean] } as EndOfTurnPhaseState,
+    };
+    const withItem = attachItemToChar(withSignalEnd, HAZARD_PLAYER, LEGOLAS, RED_BOOK_OF_WESTMARCH);
+    const withEvent = addCardInPlay(withItem, HAZARD_PLAYER, SAFE_FROM_THE_SHADOW);
+
+    const actions = computeLegalActions(withEvent, PLAYER_2);
+    const storeActions = actions.filter(a => a.viable && a.action.type === 'store-item');
+
+    expect(storeActions.length).toBeGreaterThan(0);
   });
 });
