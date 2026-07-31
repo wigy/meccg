@@ -3207,7 +3207,15 @@ export function applySelectCardBearerResolution(
     `select-card-bearer: "${cardLabel}" assigned to ${characterId as string} — tapping character, adding constraint`,
   );
 
-  // Remove card from cardsInPlay, attach to character's items, tap character
+  // Remove card from cardsInPlay, attach to character's items, tap character.
+  // Stamp the company's current site as `playedAtSiteDefId` so a site-scoped
+  // `duplication-limit` (e.g. Rescue Prisoners tw-315) is checked against
+  // where the card was played, not wherever the bearer later travels.
+  const bearerCompany = defPlayer.companies.find(co => co.id === companyId);
+  const playedAtSiteDefId = bearerCompany?.currentSite
+    ? resolveInstanceId(state, bearerCompany.currentSite.instanceId)
+    : undefined;
+
   let s = updatePlayer(state, cardOwnerIdx, p => ({
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
@@ -3217,7 +3225,12 @@ export function applySelectCardBearerResolution(
     status: CardStatus.Tapped,
     items: [
       ...ch.items,
-      { instanceId: cardInPlay.instanceId, definitionId: cardInPlay.definitionId, status: CardStatus.Untapped },
+      {
+        instanceId: cardInPlay.instanceId,
+        definitionId: cardInPlay.definitionId,
+        status: CardStatus.Untapped,
+        ...(playedAtSiteDefId ? { playedAtSiteDefId } : {}),
+      },
     ],
   })));
 
