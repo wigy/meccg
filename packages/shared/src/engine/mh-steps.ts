@@ -1110,14 +1110,24 @@ function applyDrawModifier(base: number, mod: { adjustment: number; min: number 
  *
  * The resource player may only draw if the company contains an avatar
  * (wizard/ringwraith with mind null) or a character with mind ≥ 3.
+ *
+ * The company may also be **gone**. An ahunt attack resolved during
+ * order-effects can eliminate every character in the moving company, and the
+ * company is removed with its last character — so by the time the step
+ * advances, `activeCompanyIndex` addresses nothing. `handleOrderEffects` has
+ * always known this: its `if (!company)` guard chose *this function* as the
+ * recovery. It just could not survive being handed the condition it was called
+ * to handle. A company that no longer exists is not moving, so it takes the
+ * same branch a stationary one does, which is what that guard meant to reach.
  */
 export function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const player = playerById(state, state.activePlayer)!;
   const company = player.companies[mhState.activeCompanyIndex];
 
-  // Non-moving company: skip draws entirely
-  if (!company.destinationSite) {
-    logDetail(`Movement/Hazard: company not moving — skipping draw-cards → play-hazards`);
+  // Non-moving company — or no company left at all: skip draws entirely.
+  if (!company?.destinationSite) {
+    logDetail(`Movement/Hazard: ${company ? 'company not moving' : 'no active company'} `
+      + `— skipping draw-cards → play-hazards`);
     return {
       state: {
         ...state,

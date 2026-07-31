@@ -106,4 +106,37 @@ describe('Rule 5.13 — Step 5: Draw Cards', () => {
     // Hazard player always draws regardless of resource company composition
     expect(mhStateEowyn.hazardDrawMax).toBe(3);
   });
+
+  test('A company eliminated during step 4 draws nothing and the phase continues to hazards', () => {
+    // There is no company left to draw "based on the new site", because there
+    // is no new site and no one to arrive at it. An ahunt attack resolved in
+    // step 4 can kill every character in the moving company, and the company
+    // goes with its last character — so step 5 opens addressing a company that
+    // is not there. It is not moving, so it draws nothing, exactly as a
+    // stationary company does, and the phase carries on to step 7.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA, MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    // The company was moving to Moria when it was wiped out; `activeCompanyIndex`
+    // still addresses slot 0, which no longer exists.
+    const eliminated = {
+      ...base,
+      phaseState: makeMHState({ step: 'order-effects', activeCompanyIndex: 0 }),
+      players: [
+        { ...base.players[RESOURCE_PLAYER], companies: [] },
+        base.players[1],
+      ] as typeof base.players,
+    };
+
+    const after = dispatch(eliminated, { type: 'pass', player: PLAYER_1 });
+    const mhState = after.phaseState as MovementHazardPhaseState;
+
+    expect(mhState.step).toBe('play-hazards');
+  });
 });
