@@ -6423,6 +6423,27 @@ body.all-companies-mode:has(#debug-view.hidden) {
   font-style: italic;
 }
 
+.chain-pass-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.6rem;
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1.2rem;
+  color: rgba(220, 200, 140, 0.9);
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(196, 163, 90, 0.5);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.chain-pass-btn:hover {
+  background: rgba(196, 163, 90, 0.3);
+  border-color: rgba(196, 163, 90, 0.8);
+}
+
 /* Short-event target tooltip (reuses char-action-tooltip styling) */
 .chain-target-backdrop {
   position: fixed;
