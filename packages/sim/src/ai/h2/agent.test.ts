@@ -219,6 +219,37 @@ describe('yielding to a fallback that can search', () => {
     expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
   });
 
+  test('never yields a company-shape decision, however well the fallback searches', () => {
+    // `defence` prices company shape as a difference of one potential over the
+    // whole board, so a shape change and its undo cannot both score positively.
+    // A one-turn rollout cannot see that: `mc` scores splitting a company and
+    // merging it straight back identically, and the argmax of that tie ran
+    // split -> move -> merge -> split to the decision limit.
+    const SPLIT = { type: 'split-company', id: 's' } as unknown as GameAction;
+    const shapeAware: H2Module = {
+      name: 'shape',
+      ownedActionTypes: ['split-company', 'pass'],
+      evaluate: action => ({
+        action, module: 'shape',
+        outcomes: [{ p: 1, label: 'shape', dtsd: action === SPLIT ? -4 : 0 }],
+        expectedTsd: action === SPLIT ? -4 : 0, sigmaTsd: 0,
+        utility: action === SPLIT ? -0.04 : 0,
+        method: 'integrated', rationale: leaf('shape', 0), assumptions: [],
+      }),
+    };
+    const searcher: Agent = {
+      name: 'searcher',
+      canDecide: () => true,
+      chooseAction: () => ({ action: SPLIT, considered: [{ action: SPLIT, weight: 9 }] }),
+    };
+    const agent = createHeuristic2Agent({
+      available: [shapeAware], model, temperature: 0.0001,
+      fallback: searcher, yieldWhenFallbackCanSearch: true,
+    });
+    // The searcher would split; the module says splitting costs 4 tsd and wins.
+    expect(agent.chooseAction(decisionContext([SPLIT, PASS_A])).action).toBe(PASS_A);
+  });
+
   test('records the yield in its name, so a replay says which composition played', () => {
     const agent = createHeuristic2Agent({
       available: [REWARDS], model,
