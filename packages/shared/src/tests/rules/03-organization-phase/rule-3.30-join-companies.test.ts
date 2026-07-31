@@ -75,6 +75,49 @@ describe('Rule 3.30 — Join Companies', () => {
     expect(survivor.siteCardOwned).toBe(true);
   });
 
+  test('companies at two different physical instances of the same haven can be merged (rule g.site.1 / 2.II.3.5.2)', () => {
+    // Regression: a player who drew two separate copies of the same haven
+    // (e.g. two Lórien site cards, each anchoring its own company) had no way
+    // to reform a single party — groupCompaniesBySite keyed strictly by the
+    // site's card instance ID, so the two haven instances were never
+    // recognized as "the same site" and mergeCompaniesActions offered nothing.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: LORIEN, characters: [ARAGORN] },
+            { site: LORIEN, characters: [LEGOLAS, FRODO] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const sourceCompany = state.players[0].companies[0];
+    const targetCompany = state.players[0].companies[1];
+    // Each company minted its own distinct Lórien instance.
+    expect(sourceCompany.currentSite!.instanceId).not.toBe(targetCompany.currentSite!.instanceId);
+
+    const merges = viableActions(state, PLAYER_1, 'merge-companies')
+      .map(ea => ea.action as MergeCompaniesAction);
+    const merge = merges.find(a => a.sourceCompanyId === sourceCompany.id && a.targetCompanyId === targetCompany.id);
+    expect(merge).toBeDefined();
+
+    const after = dispatch(state, merge!);
+    expect(after.players[0].companies).toHaveLength(1);
+    const survivor = after.players[0].companies[0];
+    expect(survivor.id).toBe(targetCompany.id);
+    expect(survivor.characters).toHaveLength(3);
+    // The now-redundant Lórien instance returns to the site deck instead of
+    // vanishing from the game.
+    expect(after.players[0].siteDeck.some(s => s.instanceId === sourceCompany.currentSite!.instanceId)).toBe(true);
+  });
+
   test('companies at different sites cannot be merged', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
