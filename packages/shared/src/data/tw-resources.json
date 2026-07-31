@@ -3041,6 +3041,7 @@
     "unique": true,
     "prowess": 6,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
@@ -3048,8 +3049,14 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      }
+    ],
+    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hero-resource-event",
