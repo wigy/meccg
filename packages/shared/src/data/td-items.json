@@ -232,9 +232,19 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 1
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1
       }
     ],
-    "text": "Unique. Hoard item. Bearer receives +1 to all of his corruption checks. You may keep one more card than normal in your hand. This item is considered a source of 0 corruption points."
+    "text": "Unique. Hoard item. Bearer receives +1 to all of his corruption checks. You may keep one more card than normal in your hand. This item is considered a source of 0 corruption points.",
+    "certified": "2026-07-31"
   },
   {
     "cardType": "hero-resource-item",
