@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.72.0 — 2026-07-31
+
+Nightly Build
+
+### Cards
+
+- Certified dragons Itangast (td-36) and Agburanar (tw-3), and Daelomin (tw-26) with site-name keying
+- Certified Favor of the Valar (tw-239) with a new new-hand DSL effect
+- Certified The Arkenstone (tw-341) and Emerald of the Mariner (td-113)
+- Certified Quickbeam (tw-308), the alternate-art printing of tw-307
+
 ## 0.71.0 — 2026-07-31
 
 Tutorial Draft Phase
