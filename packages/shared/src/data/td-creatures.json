@@ -630,7 +630,11 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
     "text": "Drake. One strike. Attacker chooses defending characters. Defending company must discard one item of attacker’s choice for each character wounded by Were-worm."
   },
   {
