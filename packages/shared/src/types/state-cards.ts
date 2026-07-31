@@ -85,6 +85,16 @@ export interface ItemInPlay {
   readonly definitionId: CardDefinitionId;
   /** Current state of this item — untapped, tapped, or inverted. */
   readonly status: CardStatus;
+  /**
+   * The site definition ID where this item entered play, for permanent
+   * events with a site-scoped `duplication-limit` that then attach to a
+   * bearer via `select-card-bearer` (e.g. Rescue Prisoners tw-315). Once
+   * attached, the item travels with its bearer, so the site it was played
+   * at must be recorded separately from the bearer's current location —
+   * `countPermanentEventCopiesAtSite` checks this field rather than the
+   * bearer's company's `currentSite`.
+   */
+  readonly playedAtSiteDefId?: CardDefinitionId;
 }
 
 /**

@@ -466,7 +466,13 @@ export function protectSiteForPlayer(
   });
 }
 
-/** Attach an item (or permanent resource event) to a character and return the updated GameState. */
+/**
+ * Attach an item (or permanent resource event) to a character and return the
+ * updated GameState. Stamps `playedAtSiteDefId` from the character's
+ * company's `currentSite`, matching what `select-card-bearer` resolution
+ * records for site-scoped `duplication-limit` checks (e.g. Rescue Prisoners
+ * tw-315).
+ */
 export function attachItemToChar(
   state: GameState,
   playerIdx: number,
@@ -474,7 +480,13 @@ export function attachItemToChar(
   itemDefId: CardDefinitionId,
 ): GameState {
   const charId = findCharInstanceId(state, playerIdx, charDefId);
-  const itemInPlay = { instanceId: mint(), definitionId: itemDefId, status: CardStatus.Untapped };
+  const bearerCompany = state.players[playerIdx].companies.find(co => co.characters.includes(charId));
+  const itemInPlay = {
+    instanceId: mint(),
+    definitionId: itemDefId,
+    status: CardStatus.Untapped,
+    ...(bearerCompany?.currentSite ? { playedAtSiteDefId: bearerCompany.currentSite.definitionId } : {}),
+  };
   const char = state.players[playerIdx].characters[charId];
   const updatedChar = { ...char, items: [...char.items, itemInPlay] };
   const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
