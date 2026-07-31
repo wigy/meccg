@@ -147,13 +147,17 @@ export function resolveAgent(spec: string): Agent {
     }
     case 'h2': {
       // Heuristics 2 with a module selector for ablation gates:
-      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`,
-      // `h2:all@0.5` (softmax temperature 0.5). Decisions no enabled module
-      // claims fall through to the fallback agent, so `h2:<module>` isolates
-      // exactly that module's contribution.
+      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`. Decisions no
+      // enabled module claims fall through to the fallback agent, so
+      // `h2:<module>` isolates exactly that module's contribution.
       //
-      // `+<spec>` names that fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`.
-      // It is the last `+` because a nested spec may contain none, and the
+      // `@T` asks for *sampled* play at softmax temperature T. Without it the
+      // agent plays its argmax and still reports the distribution, which is
+      // what a gate wants; `@T` is for generating exploratory self-play data,
+      // where position coverage matters more than winning.
+      //
+      // `+<spec>` names the fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`. It
+      // is the last `+` because a nested spec may contain none, and the
       // module selector never does.
       const plus = param === undefined ? -1 : param.indexOf('+');
       const fallbackSpec = plus >= 0 ? param!.slice(plus + 1) : undefined;
@@ -170,6 +174,7 @@ export function resolveAgent(spec: string): Agent {
       return createHeuristic2Agent({
         modules,
         temperature,
+        sample: temperature !== undefined,
         fallback: fallbackSpec === undefined ? undefined : resolveAgent(fallbackSpec),
       });
     }
