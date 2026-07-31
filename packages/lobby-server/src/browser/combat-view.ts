@@ -20,7 +20,6 @@ import type {
   Company,
   OpponentCompanyView,
   AssignStrikeAction,
-  ResolveStrikeAction,
   SupportStrikeAction,
   ChooseStrikeOrderAction,
   CancelByTapAction,
@@ -1296,7 +1295,7 @@ function renderCombatActionButtons(
   // reflect that. Compute this once from the full action set.
   const hasStayUntappedOption = viable.some(
     a => a.type === 'resolve-strike' && !a.tapToFight,
-  ) || buttonEvals.some(ea => ea.action.type === 'resolve-strike' && !(ea.action as ResolveStrikeAction).tapToFight);
+  ) || buttonEvals.some(ea => ea.action.type === 'resolve-strike' && !ea.action.tapToFight);
 
   for (const ea of buttonEvals) {
     const btn = document.createElement('button');

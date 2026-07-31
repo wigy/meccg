@@ -174,7 +174,16 @@ export interface SwapHandMessage {
   readonly type: 'swap-hand';
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | SwapHandMessage;
+/**
+ * Tutorial games only: the player acknowledges a continue-gated Mentor beat
+ * (see TutorialBeat.waitForContinue) — the paused Mentor pump resumes.
+ */
+export interface TutorialContinueMessage {
+  /** Message type discriminant. */
+  readonly type: 'tutorial-continue';
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | SwapHandMessage | TutorialContinueMessage;
 
 // ---- Server → Client ----
 

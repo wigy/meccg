@@ -405,4 +405,10 @@ export interface TutorialProgress {
   readonly card?: TutorialCardIllustration;
   /** Emphasized closing line rendered under the step content (e.g. "TO BE CONTINUED…"). */
   readonly footer?: string;
+  /**
+   * True while the script is holding a continue-gated Mentor beat: the
+   * browser dims the board and shows the panel's Continue button, and the
+   * Mentor acts only after the player sends 'tutorial-continue'.
+   */
+  readonly awaitingContinue?: boolean;
 }

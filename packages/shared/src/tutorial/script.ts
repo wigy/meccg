@@ -29,11 +29,11 @@ import {
 import type { ActionMatcher, TutorialActor, TutorialBeat, TutorialStepInfo } from './match.js';
 
 /** Shorthand beat constructor keeping the script table readable. */
-function b(stepId: string, actor: TutorialActor, match: ActionMatcher, cheatRoll?: number, delayMs?: number): TutorialBeat {
+function b(stepId: string, actor: TutorialActor, match: ActionMatcher, cheatRoll?: number, waitForContinue?: boolean): TutorialBeat {
   return {
     stepId, actor, match,
     ...(cheatRoll === undefined ? {} : { cheatRoll }),
-    ...(delayMs === undefined ? {} : { delayMs }),
+    ...(waitForContinue === undefined ? {} : { waitForContinue }),
   };
 }
 
@@ -282,9 +282,9 @@ export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   b('site-assign', 'human', { type: 'assign-strike', cardDef: ELROHIR }),
   b('site-shield', 'human', { type: 'tap-item-for-strike', cardDef: SHIELD_OF_IRON_BOUND_ASH }),
   b('site-resolve', 'human', { type: 'resolve-strike', fields: { tapToFight: false } }, 2),
-  // 5s hold: the "Watch — the Mentor rolls the body check" step must be
-  // readable before the roll lands.
-  b('site-bodycheck', 'mentor', { type: 'body-check-roll' }, 5, 5000),
+  // Continue-gated: the "Watch — the Mentor rolls the body check" narration
+  // must be read at the player's own pace before the roll lands.
+  b('site-bodycheck', 'mentor', { type: 'body-check-roll' }, 5, true),
   b('site-wounded', 'human', { type: 'corruption-check', cardDef: ELROHIR }, 7),
   b('site-wounded', 'human', { type: 'pass' }),
   b('site-wounded', 'mentor', { type: 'pass' }),

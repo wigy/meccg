@@ -28,12 +28,32 @@ import type { TutorialBeat } from '@meccg/shared';
 export class TutorialController {
   private cursor: number;
 
+  /**
+   * Cursor index whose continue gate the player has acknowledged. A
+   * continue-gated Mentor beat (waitForContinue) holds the pump until the
+   * player clicks the panel's Continue button; the ack is per-cursor so a
+   * later gated beat pauses again.
+   */
+  private continueAckedAt = -1;
+
   constructor(
     readonly humanId: PlayerId,
     readonly mentorId: PlayerId,
     initialCursor = 0,
   ) {
     this.cursor = initialCursor;
+  }
+
+  /** True while the current beat is a continue-gated Mentor beat awaiting the player's ack. */
+  needsContinue(): boolean {
+    const beat = this.currentBeat();
+    return beat !== null && beat.actor === 'mentor' && beat.waitForContinue === true
+      && this.continueAckedAt !== this.cursor;
+  }
+
+  /** Record the player's ack for the current continue gate. */
+  acknowledgeContinue(): void {
+    this.continueAckedAt = this.cursor;
   }
 
   /**
@@ -126,6 +146,7 @@ export class TutorialController {
       pointers: info.pointers,
       card: info.card,
       footer: info.footer,
+      ...(this.needsContinue() ? { awaitingContinue: true } : {}),
     };
   }
 }

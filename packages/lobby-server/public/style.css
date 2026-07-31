@@ -6670,6 +6670,34 @@ body.all-companies-mode:has(#debug-view.hidden) {
   cursor: default;
 }
 
+/* Continue gate: dims the board while the script holds a dramatic Mentor
+   beat, leaving the tutorial panel (one layer above) fully lit. */
+#tutorial-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.55);
+  z-index: calc(var(--z-hover) + 9);
+}
+
+/* The panel's own Continue button for the gate — deliberately styled like
+   the tutorial panel, not like the game's pass button. */
+.tutorial-continue-btn {
+  display: block;
+  margin: 10px auto 2px;
+  padding: 6px 22px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: rgba(220, 230, 245, 0.95);
+  background: rgba(50, 80, 120, 0.9);
+  border: 1px solid rgba(120, 170, 230, 0.8);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tutorial-continue-btn:hover {
+  background: rgba(70, 110, 160, 0.95);
+}
+
 /* Emphasized closing line of a tutorial step ("TO BE CONTINUED...."). */
 .tutorial-panel-footer {
   margin-top: 8px;

@@ -66,12 +66,13 @@ export interface TutorialBeat {
    */
   readonly cheatRoll?: number;
   /**
-   * Mentor beats only: pacing override in milliseconds — how long the
-   * server's Mentor pump waits before performing this beat, replacing its
-   * default delay. Used to hold dramatic moments (e.g. the body check
-   * against a struck-down character) on screen long enough to read.
+   * Mentor beats only: hold this beat until the player explicitly clicks
+   * the tutorial panel's Continue button. The server pauses the Mentor pump,
+   * the view carries {@link TutorialProgress.awaitingContinue}, and the
+   * browser dims the board — so a dramatic narration (e.g. the body check
+   * against a struck-down character) can be read at the player's own pace.
    */
-  readonly delayMs?: number;
+  readonly waitForContinue?: boolean;
 }
 
 /** Presentation metadata for one curriculum step (a group of beats). */

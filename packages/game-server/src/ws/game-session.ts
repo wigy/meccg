@@ -40,11 +40,11 @@ const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'save
 const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
 
 /**
- * Default delay between the tutorial Mentor's scripted actions: long enough
- * to register each move, short enough not to drag the pace. A beat can
- * override it via {@link TutorialBeat.delayMs} for dramatic holds.
+ * Delay between the tutorial Mentor's scripted actions: long enough to
+ * register each move, short enough not to drag the pace. Dramatic holds use
+ * a continue gate (TutorialBeat.waitForContinue) instead of longer delays.
  */
-const MENTOR_ACTION_DELAY_MS = 800;
+const MENTOR_ACTION_DELAY_MS = 1000;
 
 /** Deck-editor alignment key for each card alignment, for rebuilding a DeckList. */
 const DECK_ALIGNMENTS: Record<Alignment, DeckList['alignment']> = {
@@ -278,6 +278,15 @@ export class GameSession {
         break;
       case 'action':
         this.handleAction(ws, msg);
+        break;
+      case 'tutorial-continue':
+        // The player acknowledged a continue-gated Mentor beat: resume the
+        // paused pump. Broadcast first so the dim/button clears immediately.
+        if (this.tutorial && this.tutorial.needsContinue()) {
+          this.tutorial.acknowledgeContinue();
+          this.broadcastStateWithLogs();
+          this.runTutorialMentor();
+        }
         break;
       case 'save':
       case 'load':
@@ -893,20 +902,9 @@ export class GameSession {
     if (!this.tutorial || !this.state) return;
     this.state = this.tutorial.armCheat(this.state);
     if (this.mentorTimer !== null) return; // a paced run is already underway
+    if (this.tutorial.needsContinue()) return; // paused until 'tutorial-continue'
     if (this.tutorial.mentorAction(this.state) === null) return;
-    this.mentorTimer = setTimeout(() => this.mentorStep(0), this.mentorDelay());
-  }
-
-  /**
-   * Delay before the Mentor's next action: the pending beat's own pacing
-   * override when it is the Mentor's beat, the default otherwise (e.g.
-   * chain-priority passes).
-   */
-  private mentorDelay(): number {
-    const beat = this.tutorial?.currentBeat();
-    return beat?.actor === 'mentor' && beat.delayMs !== undefined
-      ? beat.delayMs
-      : MENTOR_ACTION_DELAY_MS;
+    this.mentorTimer = setTimeout(() => this.mentorStep(0), MENTOR_ACTION_DELAY_MS);
   }
 
   /** One tick of the paced Mentor pump: apply a single action, reschedule. */
@@ -945,8 +943,9 @@ export class GameSession {
     // Arm the human's dice right away in case the script now waits on them,
     // then pace the Mentor's next move.
     this.state = this.tutorial.armCheat(this.state);
+    if (this.tutorial.needsContinue()) return; // paused until 'tutorial-continue'
     if (this.tutorial.mentorAction(this.state) !== null) {
-      this.mentorTimer = setTimeout(() => this.mentorStep(count + 1), this.mentorDelay());
+      this.mentorTimer = setTimeout(() => this.mentorStep(count + 1), MENTOR_ACTION_DELAY_MS);
     }
   }
 

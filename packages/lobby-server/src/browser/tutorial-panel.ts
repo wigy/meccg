@@ -19,9 +19,10 @@
  * is absent or hidden in the current layout.
  */
 
-import type { CardDefinition, PlayerView, RegionType, TutorialAnchorId, TutorialPointer } from '@meccg/shared';
+import type { CardDefinition, ClientMessage, PlayerView, RegionType, TutorialAnchorId, TutorialPointer } from '@meccg/shared';
 import { cardImageProxyPath } from '@meccg/shared';
 import { createRegionTypeIcon } from './render-utils.js';
+import { appState } from './app-state.js';
 
 /** Concrete element id each abstract pointer anchor attaches to. */
 const ANCHOR_ELEMENT_IDS: Record<TutorialAnchorId, string> = {
@@ -158,6 +159,26 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
     text.appendChild(footer);
   }
 
+  // Continue gate: the script is holding a dramatic Mentor beat. Dim the
+  // board and offer the panel's own Continue button — the Mentor acts only
+  // once the player has read the step and clicked.
+  document.getElementById('tutorial-dim')?.remove();
+  if (progress.awaitingContinue) {
+    const dim = document.createElement('div');
+    dim.id = 'tutorial-dim';
+    document.body.appendChild(dim);
+
+    const cont = document.createElement('button');
+    cont.type = 'button';
+    cont.className = 'tutorial-continue-btn';
+    cont.textContent = 'Continue ➜';
+    cont.addEventListener('click', () => {
+      const msg: ClientMessage = { type: 'tutorial-continue' };
+      appState.ws?.send(JSON.stringify(msg));
+    });
+    panel.appendChild(cont);
+  }
+
   document.body.appendChild(panel);
 
   renderBubbles(progress.done ? [] : progress.pointers ?? []);
@@ -203,6 +224,7 @@ function renderBodyText(parent: HTMLElement, text: string): void {
 export function clearTutorialPanel(): void {
   document.getElementById('tutorial-panel')?.remove();
   document.getElementById('tutorial-bubbles')?.remove();
+  document.getElementById('tutorial-dim')?.remove();
 }
 
 /**
