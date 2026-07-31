@@ -45,7 +45,7 @@ cd "$1"
 
 # Broadcast a toast to every player online via the lobby's system API.
 yell() {
-  curl -s -X POST "http://ai-meccg.com/api/system/notify" \
+  curl -s -X POST "https://ai-meccg.com/api/system/notify" \
     -H "Authorization: Bearer $(jq -r .masterKey "$HOME/.meccg/secrets.json")" \
     -H 'Content-Type: application/json' \
     -d "{\"message\": \"$1\"}" > /dev/null
@@ -60,7 +60,7 @@ docker pull dataplug/meccg-dev:latest
 # again, then give browsers a moment to reconnect their websockets so the
 # closing yell actually reaches them.
 for _ in $(seq 1 30); do
-  curl -sf -o /dev/null "http://localhost:8080/api/models" && break
+  curl -sf -o /dev/null "https://ai-meccg.com/api/models" && break
   sleep 2
 done
 sleep 5
