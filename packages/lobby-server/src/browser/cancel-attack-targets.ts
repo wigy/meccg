@@ -45,23 +45,36 @@ export function inPlayCancelAttackIds(
 }
 
 /**
- * Group the selected hand card's `cancel-attack` actions by scout character
- * instance ID. A dual-mode card (e.g. The Tormented Earth: "Cancels the
- * attack or gives the attack -3 prowess, your choice") is offered as two
- * separate actions naming the same scout — one per mode. Grouping into a list
- * (rather than keeping only the last action seen per scout) preserves every
- * mode so the combat view can let the player choose, instead of one mode
- * silently overwriting the other in a single-action map.
+ * Group the selected hand card's `cancel-attack` actions by the character the
+ * player must click to commit them: the scout being tapped to pay the cost
+ * (e.g. Concealment), or — for costless cards that instead name a target
+ * character — the `targetCharacterId` (e.g. Flatter a Foe's influence-check
+ * maker, Token of Goodwill's diplomat, Escape's character to wound). Actions
+ * with neither (fully costless, untargeted cards like Dark Quarrels) are
+ * excluded; those dispatch straight from the hand click.
+ *
+ * A dual-mode card (e.g. The Tormented Earth: "Cancels the attack or gives
+ * the attack -3 prowess, your choice") is offered as two separate actions
+ * naming the same scout — one per mode. Grouping into a list (rather than
+ * keeping only the last action seen per character) preserves every mode so
+ * the combat view can let the player choose, instead of one mode silently
+ * overwriting the other in a single-action map.
  */
 export function groupCancelAttackActionsByScout<
-  T extends { readonly cardInstanceId: CardInstanceId; readonly scoutInstanceId?: CardInstanceId },
+  T extends {
+    readonly cardInstanceId: CardInstanceId;
+    readonly scoutInstanceId?: CardInstanceId;
+    readonly targetCharacterId?: CardInstanceId;
+  },
 >(actions: readonly T[], selectedCardInstanceId: CardInstanceId): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const action of actions) {
-    if (action.cardInstanceId !== selectedCardInstanceId || !action.scoutInstanceId) continue;
-    const list = map.get(action.scoutInstanceId as string) ?? [];
+    if (action.cardInstanceId !== selectedCardInstanceId) continue;
+    const clickTarget = action.scoutInstanceId ?? action.targetCharacterId;
+    if (!clickTarget) continue;
+    const list = map.get(clickTarget as string) ?? [];
     list.push(action);
-    map.set(action.scoutInstanceId as string, list);
+    map.set(clickTarget as string, list);
   }
   return map;
 }
