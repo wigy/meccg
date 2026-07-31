@@ -215,13 +215,25 @@ export class GameSession {
     this.serverLog.log('connect');
 
     ws.on('message', (raw: Buffer) => {
+      let msg: ClientMessage;
       try {
-        const data = raw.toString();
-        const msg: ClientMessage = JSON.parse(data) as ClientMessage;
-        this.serverLog.log('msg-in', { msgType: msg.type, from: this.identifyWs(ws), msg });
-        this.handleMessage(ws, msg);
+        msg = JSON.parse(raw.toString()) as ClientMessage;
       } catch {
         this.send(ws, { type: 'error', message: 'Invalid message format' });
+        return;
+      }
+      this.serverLog.log('msg-in', { msgType: msg.type, from: this.identifyWs(ws), msg });
+      try {
+        this.handleMessage(ws, msg);
+      } catch (err) {
+        // A handler exception is a server bug, not a client formatting
+        // problem — log the stack (the old shared catch reported these as
+        // "Invalid message format" and swallowed the evidence).
+        this.serverLog.log('msg-handling-error', {
+          msgType: msg.type,
+          error: err instanceof Error ? err.stack ?? err.message : String(err),
+        });
+        this.send(ws, { type: 'error', message: `Internal error handling '${msg.type}'` });
       }
     });
 
