@@ -961,10 +961,13 @@ function collectCreatureAttackBoostEffects(
       continue;
     }
     if (ctx.creatureInstanceId && constraint.source === ctx.creatureInstanceId) continue;
-    const boostedRaces = Array.isArray(constraint.kind.race)
-      ? constraint.kind.race
-      : [constraint.kind.race as Race];
-    if (creatureRace && !boostedRaces.includes(creatureRace)) continue;
+    // An absent `race` (Wizard's Flame tw-361) matches every attack race.
+    const boostedRaces = constraint.kind.race === undefined
+      ? undefined
+      : Array.isArray(constraint.kind.race)
+        ? constraint.kind.race
+        : [constraint.kind.race as Race];
+    if (creatureRace && boostedRaces && !boostedRaces.includes(creatureRace)) continue;
     const value = stat === 'prowess' ? constraint.kind.prowess : constraint.kind.strikes;
     if (value === 0) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];

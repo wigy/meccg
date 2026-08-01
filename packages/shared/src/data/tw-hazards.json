@@ -1141,7 +1141,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenDenizens.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "multiply",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": { "site.siteType": { "$in": ["ruins-and-lairs"] } }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-08-01",
     "text": "The number of strikes for each automatic-attack at a Ruins & Lairs [{R}] site is doubled.Cannot be duplicated."
   },
   {

@@ -578,16 +578,21 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     // Card should be attached before the merge
     expect(getItemsOn(state, RESOURCE_PLAYER, GRISHNAKH).some(i => i.definitionId === BY_THE_RINGWRAITHS_WORD)).toBe(true);
 
-    // Merge Gorbag's company into Grishnákh's company (havens exempt from leader/race restrictions)
+    // Merge Gorbag's company into Grishnákh's company (havens exempt from leader/race restrictions).
+    // All three companies now share the same haven definition (rule g.site.1 / 2.II.3.5.2), so
+    // merges are also legal between the other pairs — match the exact Gorbag/Grishnákh pair.
     const mergeActions = viableActions(state, PLAYER_1, 'merge-companies');
     expect(mergeActions.length).toBeGreaterThan(0);
+    const gorbagCompany = state.players[0].companies.find(c =>
+      c.characters.includes(findCharInstanceId(state, RESOURCE_PLAYER, GORBAG)),
+    )!;
+    const grishnakhCompany = state.players[0].companies.find(c =>
+      c.characters.includes(findCharInstanceId(state, RESOURCE_PLAYER, GRISHNAKH)),
+    )!;
     const mergeAction = mergeActions.find(ea => {
-      // Pick the action that merges Gorbag's company into Grishnákh's company
       const a = ea.action as { sourceCompanyId: string; targetCompanyId: string };
-      const gorbagCompany = state.players[0].companies.find(c =>
-        c.characters.includes(findCharInstanceId(state, RESOURCE_PLAYER, GORBAG)),
-      );
-      return a.sourceCompanyId === gorbagCompany?.id || a.targetCompanyId === gorbagCompany?.id;
+      return (a.sourceCompanyId === gorbagCompany.id && a.targetCompanyId === grishnakhCompany.id)
+        || (a.sourceCompanyId === grishnakhCompany.id && a.targetCompanyId === gorbagCompany.id);
     })!;
     const afterMerge = dispatch(state, mergeAction.action);
 

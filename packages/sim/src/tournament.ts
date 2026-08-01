@@ -45,7 +45,8 @@ export function scoreToEloDiff(score: number): number {
  * Estimates the Elo difference implied by a win/draw/loss record. The 95%
  * interval comes from the per-game score variance under a normal
  * approximation; with paired seeds it is conservative (pairing reduces the
- * true variance).
+ * true variance) — see {@link estimatePairedEloDiff}, which spends the pairing
+ * the schedule already paid for.
  */
 export function estimateEloDiff(wins: number, draws: number, losses: number): EloEstimate {
   const games = wins + draws + losses;
@@ -57,6 +58,75 @@ export function estimateEloDiff(wins: number, draws: number, losses: number): El
   const margin = 1.96 * Math.sqrt(variance / games);
   return {
     games,
+    score,
+    diff: scoreToEloDiff(score),
+    low: scoreToEloDiff(score - margin),
+    high: scoreToEloDiff(score + margin),
+  };
+}
+
+/**
+ * Fewest complete pairs worth quoting a paired interval from.
+ *
+ * The normal approximation behind the margin needs a sample; below this the
+ * unpaired estimate over every completed game is the more honest number even
+ * though it is wider.
+ */
+export const MIN_PAIRS_FOR_INTERVAL = 20;
+
+/**
+ * The same estimate, but spending the pairing the schedule already paid for.
+ *
+ * A gate plays every seed twice, once per seating, from one RNG stream — the
+ * `seed` on {@link TournamentGameRecord} is shared by both games of a pair.
+ * Treating those 2N games as N independent trials is conservative, and
+ * {@link estimateEloDiff} says so, but it throws the design away: whatever the
+ * seed and the seating are worth is common to both games of a pair and cancels
+ * inside it. What is left is the agent difference, which is the only thing a
+ * gate is trying to resolve. It is the same argument `agents/mc-agent` already
+ * makes for common random numbers across its own candidates.
+ *
+ * Measured on a real gate (87 completed games, 38 intact pairs): the per-game
+ * reading is −86 [−166, −13] and the paired one −84 [−158, −17], so **about 8%**
+ * off the width for no extra play. Not a transformation — the per-pair variance
+ * came out 0.088 against the 0.118 two independent seatings would give, so the
+ * seating effect being cancelled is only about a quarter of it. The gain is
+ * larger the more the seating decides, and that run lost 12 of 50 pairs to
+ * non-completed games; a clean run keeps them all.
+ *
+ * Only seeds whose *both* seatings completed can be paired, so a run with
+ * non-completed games loses whole pairs. When fewer than
+ * {@link MIN_PAIRS_FOR_INTERVAL} survive, this returns null and the caller
+ * should stay with the unpaired estimate rather than quote a tighter interval
+ * off a handful of pairs.
+ */
+export function estimatePairedEloDiff(
+  games: readonly TournamentGameRecord[],
+  challengerName: string,
+): EloEstimate | null {
+  // Score the challenger's completed games, keyed by the seed the pair shares.
+  const bySeed = new Map<number, number[]>();
+  for (const game of games) {
+    if (game.outcome !== 'completed') continue;
+    if (!game.seats.includes(challengerName)) continue;
+    const score = game.winner === null ? 0.5 : game.winner === challengerName ? 1 : 0;
+    const scores = bySeed.get(game.seed);
+    if (scores) scores.push(score); else bySeed.set(game.seed, [score]);
+  }
+
+  // A pair is a seed both of whose seatings completed. One-sided seeds carry
+  // the seating effect uncancelled, which is the bias this exists to remove.
+  const pairs: number[] = [];
+  for (const scores of bySeed.values()) {
+    if (scores.length === 2) pairs.push((scores[0] + scores[1]) / 2);
+  }
+  if (pairs.length < MIN_PAIRS_FOR_INTERVAL) return null;
+
+  const score = pairs.reduce((sum, p) => sum + p, 0) / pairs.length;
+  const variance = pairs.reduce((sum, p) => sum + (p - score) ** 2, 0) / pairs.length;
+  const margin = 1.96 * Math.sqrt(variance / pairs.length);
+  return {
+    games: pairs.length * 2,
     score,
     diff: scoreToEloDiff(score),
     low: scoreToEloDiff(score - margin),

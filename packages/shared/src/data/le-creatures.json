@@ -1093,12 +1093,26 @@
       {
         "regionTypes": [
           "wilderness",
+          "wilderness",
           "border",
           "shadow"
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "company.alignment": { "$ne": "hero" },
+          "company.covert": false
+        }
+      },
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
+    "certified": "2026-07-31",
     "text": "Unique. Animal. Two strikes (playable only against an overt minion company). Attacker chooses defending characters."
   },
   {
