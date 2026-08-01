@@ -24,6 +24,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.getElementById('call-council-btn')?.remove();
   document.getElementById('skip-cvcc-btn')?.remove();
   document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
+  document.querySelectorAll('.gold-ring-choice-btn').forEach(b => b.remove());
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
   // (which would otherwise show permanently, since they have no legal actions).
@@ -54,6 +55,29 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const passAction = passEval?.action;
   const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
+    // Wizard's Test (tw-365) makes two rolls, then the player chooses which
+    // rolled total the ring's test uses — `choose-gold-ring-test-roll` has no
+    // "default" pick (like the Free Council corruption-check case below), so
+    // it is deliberately absent from the pass-like whitelist above rather
+    // than having the generic button silently grab one option. Render one
+    // button per rolled total instead of hiding the whole panel.
+    const chooseTotalEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'choose-gold-ring-test-roll');
+    if (chooseTotalEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of chooseTotalEvals) {
+        const chooseAction = ea.action;
+        if (chooseAction.type !== 'choose-gold-ring-test-roll') continue;
+        const chooseBtn = document.createElement('button');
+        chooseBtn.className = 'enter-site-btn gold-ring-choice-btn';
+        chooseBtn.textContent = `Use ${chooseAction.rollTotal}`;
+        chooseBtn.title = chooseAction.explanation;
+        chooseBtn.onclick = () => onAction(chooseAction);
+        document.getElementById('visual-panel')?.appendChild(chooseBtn);
+      }
+      return;
+    }
+
     // Tutorial enter-or-skip: the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:
