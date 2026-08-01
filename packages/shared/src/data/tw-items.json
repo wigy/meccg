@@ -1171,8 +1171,78 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Dwarven Ring. Playable only with a gold ring and after a test indicates a Dwarven Ring. Values in parentheses and brackets apply to a Dwarf bearer. Tap a Dwarf bearer to untap the site he is currently at. Bearer makes a corruption check modified by +2."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "id": "tw216-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "overrides": "tw216-prowess",
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "id": "tw216-direct-influence"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 7,
+        "overrides": "tw216-direct-influence",
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "mp-modifier",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-site",
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "bearer.race": "dwarf",
+          "site.isTapped": true
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "untap-site"
+            },
+            {
+              "type": "enqueue-corruption-check",
+              "modifier": 2
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Dwarven Ring. Playable only with a gold ring and after a test indicates a Dwarven Ring. Values in parentheses and brackets apply to a Dwarf bearer. Tap a Dwarf bearer to untap the site he is currently at. Bearer makes a corruption check modified by +2.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hero-resource-item",
