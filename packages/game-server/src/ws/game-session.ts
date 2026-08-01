@@ -1009,6 +1009,12 @@ export class GameSession {
         legalActions,
         state: stateWithoutStatic,
       });
+      // Keep the autosave current after every applied action — not just on
+      // disconnect/shutdown — so an unclean process exit (crash, SIGKILL, an
+      // uncaught exception) never resumes from a stale snapshot that predates
+      // already-applied actions (e.g. mid-resolution pending state silently
+      // reverted and re-diverged on the next input).
+      this.writeSave(this.autosaveFilePath());
     }
   }
 
