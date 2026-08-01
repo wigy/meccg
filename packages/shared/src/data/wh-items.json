@@ -143,14 +143,38 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/LiquidFire.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "Technology"
+    ],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "allowTapped": true,
+        "filter": {
+          "$or": [
+            {
+              "site.siteType": {
+                "$in": [
+                  "shadow-hold",
+                  "dark-hold"
+                ]
+              }
+            },
+            {
+              "site.autoAttackRaces": {
+                "$includes": "dwarf"
+              }
+            }
+          ]
+        }
+      }
+    ],
     "text": "Technology. Playable at a tapped or untapped Shadow-hold [{S}], Dark-hold [{D}], or a site with a Dwarf automatic-attack. Discard to cause all strikes from all attacks of a non-Dragon, non-Nazgûl, non-Balrog creature keyed to a site to fail (resulting body checks for the creature are modified by -2)."
   },
   {
