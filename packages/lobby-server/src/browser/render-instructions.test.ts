@@ -42,13 +42,16 @@ class StubEl {
 
 let passBtn: StubEl;
 let waitingEl: StubEl;
+let visualPanel: StubEl;
 
 beforeEach(() => {
   passBtn = new StubEl('button');
   waitingEl = new StubEl('div');
+  visualPanel = new StubEl('div');
   const byId: Record<string, StubEl | null> = {
     'pass-btn': passBtn,
     'waiting-indicator': waitingEl,
+    'visual-panel': visualPanel,
   };
   (globalThis as unknown as { document: unknown }).document = {
     createElement: (tag: string) => new StubEl(tag),
@@ -242,6 +245,60 @@ describe('renderPassButton — gold-ring-test-roll (Gandalf test-gold-ring)', ()
     passBtn.onclick?.();
 
     expect(sent).toEqual(goldRingTestRoll.action);
+  });
+});
+
+/**
+ * Regression test for bug report 4a124a06991d909f (game ms9n2c5y-pfdcdr, seq
+ * 532): "Game state is frozen — there is no further action available" right
+ * after playing Wizard's Test (tw-365) via Saruman to test Bilbo's Precious
+ * Gold Ring. Wizard's Test makes two rolls and offers the player a choice
+ * between the totals (`choose-gold-ring-test-roll`, one action per distinct
+ * rolled total). That action type was entirely absent from
+ * {@link renderPassButton}'s pass-like whitelist, so once both rolls were in,
+ * `passEval` found nothing, the roll button hid, and (since viable actions
+ * did exist) the "Waiting…" indicator was suppressed too — no control on
+ * screen let the player make the choice. Unlike the single-roll cases above,
+ * `choose-gold-ring-test-roll` has no safe "default" pick (picking one would
+ * silently choose the ring's fate for the player), so it renders one button
+ * per option instead of joining the generic whitelist.
+ */
+const chooseGoldRingTestRoll = (rollTotal: number, explanation: string): EvaluatedAction => ({
+  action: {
+    type: 'choose-gold-ring-test-roll',
+    player: 'p1',
+    goldRingInstanceId: 'p1-5',
+    rollTotal,
+    explanation,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — choose-gold-ring-test-roll (Wizard\'s Test)', () => {
+  test('renders one button per rolled total instead of hiding the panel', () => {
+    renderPassButton(
+      viewWith([
+        chooseGoldRingTestRoll(9, 'Precious Gold Ring tests as lesser-ring, dwarven-ring on a 9'),
+        chooseGoldRingTestRoll(12, 'Precious Gold Ring tests as lesser-ring, dwarven-ring, the-one-ring on a 12'),
+      ]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(visualPanel.children).toHaveLength(2);
+    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Use 9', 'Use 12']);
+  });
+
+  test('clicking a choice button sends that total\'s action', () => {
+    let sent: unknown = null;
+    const nine = chooseGoldRingTestRoll(9, 'Precious Gold Ring tests as lesser-ring, dwarven-ring on a 9');
+    const twelve = chooseGoldRingTestRoll(12, 'Precious Gold Ring tests as lesser-ring, dwarven-ring, the-one-ring on a 12');
+    renderPassButton(viewWith([nine, twelve]), action => { sent = action; });
+
+    visualPanel.children[1].onclick?.();
+
+    expect(sent).toEqual(twelve.action);
   });
 });
 
