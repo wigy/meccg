@@ -44,6 +44,7 @@ import { computeLegalActions } from '../../../index.js';
 import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource (recruitment vehicle)
+const GLOVE_OF_RADAGAST = 'wh-111' as CardDefinitionId;  // Stage resource (unique, Radagast specific)
 const GIMLI = 'tw-159' as CardDefinitionId;              // hero character, mind 6
 const BALIN = 'tw-123' as CardDefinitionId;              // hero character, mind 5
 
@@ -310,5 +311,51 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(items).toContain(THRALL_OF_THE_VOICE);
     expect(items).toContain(DAGGER_OF_WESTERNESSE);
     expect(items).toContain(HORN_OF_ANOR);
+  });
+
+  test('[FALLEN-WIZARD] Glove of Radagast is draftable as a Stage resource (regression for bug report f5b68841a24ffeb4)', () => {
+    // Report: a Fallen-wizard (Radagast) drafting from a pool containing Glove
+    // of Radagast (wh-111) found it not offered as a Stage resource pick and
+    // never placed into the starting deck. Root cause: wh-111 was missing the
+    // `starting-item` keyword that every other Fallen-wizard Stage resource
+    // (Thrall of the Voice, Hidden Haven, Bad Company, Open to the Summons)
+    // carries — `isStageResourceCard` never recognised it, so it fell through
+    // to ordinary (non-character) draft evaluation and was always rejected.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [GLOVE_OF_RADAGAST, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    expect(draftOffered(state, PLAYER_1, 0, GLOVE_OF_RADAGAST)).toBe(true);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GLOVE_OF_RADAGAST) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+
+    // Drafted straight into the Stage resources, not the starting-character
+    // slots — it costs no character and is now on its way into the deck.
+    expect(draftStep(state).draftState[0].draftedStageResources).toHaveLength(1);
+    expect(draftStep(state).draftState[0].drafted).toHaveLength(0);
   });
 });

@@ -2494,7 +2494,7 @@
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-111",
-    "keywords": ["radagast-specific"],
+    "keywords": ["radagast-specific", "starting-item"],
     "name": "Glove of Radagast",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GloveofRadagast.jpg",
     "unique": true,
