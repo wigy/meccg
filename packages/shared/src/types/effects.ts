@@ -5066,7 +5066,7 @@ export interface StrikeModifierEffect extends EffectBase {
   readonly prowessBonus?: number;
   /** Body modifier applied on the body check (typically negative). */
   readonly bodyPenalty?: number;
-  /** Optional skill the struck character must have (default and reroll modes). */
+  /** Optional skill the struck character must have (default and dodge modes). */
   readonly requiredSkill?: string;
   /** Filter condition on the strike target character (reroll mode). */
   readonly filter?: Condition;

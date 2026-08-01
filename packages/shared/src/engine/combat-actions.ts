@@ -384,6 +384,13 @@ export function handlePlayStrikeEvent(state: GameState, action: GameAction, comb
 
   if (strikeEffect.dodge) {
     // Dodge mode: initiate chain so opponent may respond; resolution applies the dodge effect.
+    // Set requiredSkillEventPlayed at declaration time (CoE 3.iv.5), same as default mode.
+    if (strikeEffect.requiredSkill) {
+      const newAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex ? { ...a, requiredSkillEventPlayed: true } : a,
+      );
+      resultState = { ...resultState, combat: { ...combat, strikeAssignments: newAssignments } };
+    }
     const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
     resultState = initiateOrPushChain(resultState, action.player, handCard, payload);
     return { state: resultState };
