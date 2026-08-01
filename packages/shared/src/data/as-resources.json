@@ -1316,7 +1316,11 @@
     "mind": 3,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": [],
+    "playableAt": [
+      {
+        "site": "Barad-dûr"
+      }
+    ],
     "effects": [
       {
         "type": "deck-restriction",
@@ -1325,6 +1329,10 @@
           "deck.alignment": "balrog"
         },
         "reason": "rule 1.23"
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
       }
     ],
     "text": "Unique. Playable on your Ringwraith at a tapped or untapped Barad-dûr (does not tap the site). Its controlling character's company is overt. Your Ringwraith receives +2 prowess. If your Ringwraith is the only character in his company and there are not other allies, the company is in Fell Rider mode and may move freely (using starter movement). Tap this ally to: cancel a strike against your Ringwraith or to assign your Ringwraith’s strikes against a hero company as you choose before hero strikes are assigned. Return your Ringwraith to your hand if this ally leaves active play. Cannot be included in a Balrog's deck."
