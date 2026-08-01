@@ -50,7 +50,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
     || ea.action.type === 'finished' || ea.action.type === 'untap'
     || ea.action.type === 'opponent-influence-defend' || ea.action.type === 'resolve-dice-check'
-    || ea.action.type === 'flattery-attempt'));
+    || ea.action.type === 'flattery-attempt' || ea.action.type === 'gold-ring-test-roll'));
   const passAction = passEval?.action;
   const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
@@ -110,6 +110,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   } else if (passAction.type === 'resolve-dice-check') {
     label = 'Roll';
   } else if (passAction.type === 'flattery-attempt') {
+    label = 'Roll';
+  } else if (passAction.type === 'gold-ring-test-roll') {
     label = 'Roll';
   } else if (passAction.type === 'pass-chain-priority') {
     label = 'Pass Priority';
