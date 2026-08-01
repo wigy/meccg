@@ -19,6 +19,10 @@
  *    check fails at the effective threshold; stays in play when it passes.
  * 2. stat-modifier: +3 DI during influence-check when target race is orc
  * 3. stat-modifier: +3 DI during faction-influence-check when faction race is orc
+ * 4. "leader" keyword: offered the leader-control influence variant on
+ *    leader-control factions (e.g. Orcs of Gorgoroth, le-275) — this is the
+ *    reported bug: without the keyword, no option was offered to place the
+ *    faction under the Chieftain's control and leave the site untapped.
  *
  * Fixture alignment: minion-character (ringwraith), so tests use minion sites
  * (LE) and minion candidate characters (LE/AS).
@@ -27,9 +31,9 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   pool, PLAYER_1, PLAYER_2,
-  buildTestState, buildSitePhaseState, resetMint,
+  buildTestState, buildSitePhaseState, buildMinionSitePhaseState, resetMint,
   makeMHState, P1_COMPANY,
-  findCharInstanceId, handCardId, dispatch, viablePlayCharacterActions,
+  findCharInstanceId, handCardId, dispatch, viablePlayCharacterActions, viableActions,
   getCharacter, RESOURCE_PLAYER, HAZARD_PLAYER,
   expectCharInPlay, expectCharNotInPlay,
 } from '../test-helpers.js';
@@ -57,6 +61,7 @@ const EDORAS_LE = 'le-372' as CardDefinitionId;    // free-hold; site path has W
 
 // Minion orc faction with positive influenceNumber
 const GOBLINS_OF_GOBLIN_GATE = 'le-265' as CardDefinitionId; // orc, influence# 9
+const ORCS_OF_GORGOROTH = 'le-275' as CardDefinitionId;      // orc, leader-control, playable at Barad-dûr
 
 /** Build an MH state with a Wilderness in the site path (Veils Flung Away condition). */
 function makeWildernessMH(overrides?: Partial<MovementHazardPhaseState>): MovementHazardPhaseState {
@@ -237,5 +242,21 @@ describe('Orc Chieftain (le-32)', () => {
 
     // influenceNumber(9) - baseDI(0) - diBonusVsOrcFaction(3) = 6
     expect(chieftainAttempt!.need).toBe(6);
+  });
+
+  // ─── Keyword "leader": leader-control influence variant ──────────────────────
+
+  test('Orc Chieftain (leader) is offered the leader-control influence variant on Orcs of Gorgoroth', () => {
+    // Bug report: influencing a leader-control faction (Orcs of Gorgoroth,
+    // le-275) with Orc Chieftain did not offer the option to place the
+    // faction under his control and leave the site untapped, because the
+    // card data was missing the "leader" keyword required by the faction's
+    // leader-control effect (requiresKeyword: "leader").
+    const state = buildMinionSitePhaseState({ site: BARAD_DUR, characters: [ORC_CHIEFTAIN], hand: [ORCS_OF_GORGOROTH] });
+    const chieftainId = findCharInstanceId(state, RESOURCE_PLAYER, ORC_CHIEFTAIN);
+    const attempts = viableActions(state, PLAYER_1, 'influence-attempt')
+      .map(a => a.action as InfluenceAttemptAction)
+      .filter(a => a.influencingCharacterId === chieftainId);
+    expect(attempts.some(a => a.placeUnderLeaderControl === true)).toBe(true);
   });
 });
