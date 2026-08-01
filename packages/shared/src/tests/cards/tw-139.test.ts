@@ -46,9 +46,10 @@ describe('Damrod (tw-139)', () => {
   beforeEach(() => resetMint());
 
   test('+2 DI bonus applies when Damrod influences the Men of Lamedon faction', () => {
-    // Damrod (dúnadan, base DI 0) influences Men of Lamedon (inf# 8, no standard
-    // modification implemented) at Vale of Erech.
-    // need = influenceNumber(8) - DI(0) - damrodBonus(2) = 6.
+    // Damrod (dúnadan, base DI 0) influences Men of Lamedon (inf# 8). Men of
+    // Lamedon's Dúnedain (+1) standard modification also applies since Damrod
+    // is a dúnadan, and stacks with Damrod's own +2 bonus.
+    // need = influenceNumber(8) - DI(0) - damrodBonus(2) - dúnadanCheckMod(1) = 5.
     const state = buildSitePhaseState({
       characters: [DAMROD],
       site: VALE_OF_ERECH,
@@ -62,7 +63,7 @@ describe('Damrod (tw-139)', () => {
 
     const damrodAttempt = influenceActions.find(a => a.influencingCharacterId === damrodId);
     expect(damrodAttempt).toBeDefined();
-    expect(damrodAttempt!.need).toBe(6);
+    expect(damrodAttempt!.need).toBe(5);
   });
 
   test('+2 DI bonus does NOT apply to a different faction (Rangers of the North)', () => {

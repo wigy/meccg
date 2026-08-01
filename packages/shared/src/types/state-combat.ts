@@ -604,6 +604,26 @@ export interface CombatState {
    */
   readonly bodyCheckModifier?: number;
   /**
+   * When true, every strike of this attack automatically resolves as
+   * defeated (as if parried), regardless of the roll — set at combat
+   * initiation from a consumed `defeat-attack-strikes` constraint (Liquid
+   * Fire wh-52: "cause all strikes from all attacks of a … creature keyed to
+   * a site to fail"). Each defeated strike still triggers the normal
+   * creature body check when the creature has body ({@link creatureBody}),
+   * so the defending company may still kill it — just at
+   * {@link forcedDefeatBodyCheckModifier} odds. Consumed in
+   * `combat-strike.ts`'s `resolveStrikeCore`.
+   */
+  readonly forcedStrikeDefeat?: boolean;
+  /**
+   * Amount added to the creature body check (`bodyCheckTarget === 'creature'`)
+   * produced by a {@link forcedStrikeDefeat} strike — Liquid Fire (wh-52):
+   * "resulting body checks for the creature are modified by -2." Read
+   * alongside the wounded-agent bonus and bearer-combat modifier in
+   * `handleBodyCheckRoll`.
+   */
+  readonly forcedDefeatBodyCheckModifier?: number;
+  /**
    * When true, any character (or ally) this attack wounds is immediately
    * eliminated instead of merely wounded — no body check is rolled.
    * Set by the `wound-eliminates` auto-attack combat rule (e.g. the Spider

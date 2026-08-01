@@ -657,7 +657,7 @@ export function siteRuleAllowsCreatureByRace(
 export function buildTargetCompanyConditionContext(
   state: GameState,
   owner: PlayerState,
-  company: { readonly characters: readonly CardInstanceId[] },
+  company: { readonly characters: readonly CardInstanceId[]; readonly id?: CompanyId },
   alignment?: string,
 ): Record<string, unknown> {
   const homeSites: string[] = [];
@@ -680,8 +680,9 @@ export function buildTargetCompanyConditionContext(
     }
     if (charDef.race === Race.Wizard) containsWizard = true;
   }
+  const covert = isCovertCompany(company, owner, state);
   return {
-    company: { homeSites, characterNames, maxUntappedWarriorProwess, containsWizard, alignment: alignment ?? null },
+    company: { homeSites, characterNames, maxUntappedWarriorProwess, containsWizard, alignment: alignment ?? null, covert },
   };
 }
 

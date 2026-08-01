@@ -22,3 +22,4 @@ EPICS
 Tournaments
 Super Good AI
 Tutorial
+Scenarios

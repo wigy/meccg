@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.74.0 — 2026-08-01
+
+Nightly Build
+
+### Game Engine
+
+- Fixed Were-worm (td-80) not forcing an item discard when it wounds a character
+- Fixed Winged Fire-drake (td-84) so the attacker chooses the defending characters
+- Fixed merging companies when different instances of the same haven site are in play
+
+### Web Client
+
+- Fixed character self-granted actions being invisible on the board
+
+### AI / Simulation
+
+- AI now plays boost hazard events before the creatures they improve, and values them by the full plan instead of the marginal sliver
+- Sim gate scheduler reuses the pairing it has already paid for
+
+### Cards
+
+- Certified Liquid Fire (wh-52), Men of Lamedon (tw-279), Block (tw-199), Wizard's Flame (tw-361) and Awaken Denizens (tw-9)
+- Certified Vygavril (tw-186), Orc Chieftain (le-32) and Landroval (le-81)
+
 ## 0.73.0 — 2026-07-31
 
 Nightly Build
