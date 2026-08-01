@@ -1643,6 +1643,11 @@ function applyOneConstraint(
       // initiation in `reducer-site.ts` (adds prowess / marks the attack
       // uncancelable) — no broad legal-action filtering needed here.
       return base;
+    case 'defeat-attack-strikes':
+      // Liquid Fire (wh-52): consumed directly by the site auto-attack
+      // initiation in `reducer-site.ts` (forces every strike of a qualifying
+      // attack to fail) — no broad legal-action filtering needed here.
+      return base;
     case 'character-removal-protected':
       // Tookish Blood (tw-104) resource mode: consulted directly by the
       // central return/discard helpers in `pending-reducers.ts` via

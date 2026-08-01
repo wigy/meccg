@@ -2368,6 +2368,22 @@ function applyShortEventOnEntersPlay(
           };
           break;
         }
+        // Wizard's Flame (tw-361): "All attacks against Wizard's company
+        // suffer a -2 modification to prowess for the rest of the turn."
+        // The `race` field is omitted — collectCreatureAttackBoostEffects
+        // treats an absent race as "matches every attack", unlike the
+        // race-filtered use on Chill Douser (dm-106) / Dwar of Waw (tw-31).
+        case 'creature-attack-boost': {
+          const prowess = onEvent.apply.prowess ?? 0;
+          const strikes = onEvent.apply.strikes ?? 0;
+          kind = {
+            type: 'creature-attack-boost',
+            ...(onEvent.apply.race ? { race: onEvent.apply.race } : {}),
+            prowess,
+            strikes,
+          };
+          break;
+        }
         default:
           logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
           continue;

@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1048 | 1045 | 3 | 99.7% |
+| 1058 | 1055 | 3 | 99.7% |
 
 ## Category Breakdown
 
@@ -15,10 +15,10 @@
 | AS | 102 | 102 | 100.0% |
 | BA | 96 | 96 | 100.0% |
 | DM | 90 | 90 | 100.0% |
-| LE | 291 | 289 | 99.3% |
-| TD | 78 | 78 | 100.0% |
-| TW | 309 | 308 | 99.7% |
-| WH | 82 | 82 | 100.0% |
+| LE | 293 | 291 | 99.3% |
+| TD | 80 | 80 | 100.0% |
+| TW | 314 | 313 | 99.7% |
+| WH | 83 | 83 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -340,6 +340,7 @@
 | le-29 | Old Troll | — | 8 | ☑ |
 | le-30 | Orc Brawler | — | 5 | ☑ |
 | le-31 | Orc Captain | — | 4 | ☑ |
+| le-32 | Orc Chieftain | — | 6 | ☑ |
 | le-34 | Orc Tracker | — | 5 | ☑ |
 | le-35 | Orc Veteran | — | 3 | ☑ |
 | le-36 | Ostisen | — | 3 | ☑ |
@@ -377,6 +378,7 @@
 | le-75 | Giant Spiders | — | 8 | ☑ |
 | le-77 | Hobgoblins | — | 4 | ☑ |
 | le-78 | Horse-lords | — | 6 | ☑ |
+| le-81 | Landroval | — | 5 | ☑ |
 | le-82 | Lawless Men | — | 6 | ☑ |
 | le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
@@ -640,7 +642,9 @@
 | td-76 | Times Are Evil | — | 5 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
 | td-78 | True Fire-drake | — | 8 | ☑ |
+| td-80 | Were-worm | — | 5 | ☑ |
 | td-81 | Wild Fell Beast | — | 8 | ☑ |
+| td-84 | Winged Fire-drake | — | 2 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
 | td-91 | Fram Framson | — | 2 | ☑ |
@@ -687,6 +691,7 @@
 | tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
 | tw-008 | — | — | 10 | ☑ |
+| tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
 | tw-13 | Bane of the Ithil-stone | — | 15 | ☑ |
@@ -788,7 +793,7 @@
 | tw-150 | Fíli | — | 5 | ☑ |
 | tw-151 | Forlong | — | 2 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
-| tw-156 | Gandalf | — | 8 | ☑ |
+| tw-156 | Gandalf | — | 9 | ☑ |
 | tw-158 | Gildor Inglorion | — | 2 | ☑ |
 | tw-159 | Gimli | — | 8 | ☑ |
 | tw-160 | Glóin | — | 7 | ☑ |
@@ -815,6 +820,7 @@
 | tw-183 | Thorin II | — | 7 | ☑ |
 | tw-184 | Thranduil | — | 2 | ☑ |
 | tw-185 | Vôteli | — | 9 | ☑ |
+| tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
 | tw-188 | A Chance Meeting | — | 9 | ☑ |
 | tw-189 | A Friend or Three | — | 11 | ☑ |
@@ -823,6 +829,7 @@
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-198 | Bill the Pony | — | 11 | ☑ |
+| tw-199 | Block | — | 7 | ☑ |
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
 | tw-204 | Concealment | — | 11 | ☑ |
@@ -862,6 +869,7 @@
 | tw-276 | Men of Anfalas | — | 2 | ☑ |
 | tw-277 | Men of Anórien | — | 2 | ☑ |
 | tw-278 | Men of Dorwinion | — | 2 | ☑ |
+| tw-279 | Men of Lamedon | — | 2 | ☑ |
 | tw-280 | Men of Lebennin | — | 2 | ☑ |
 | tw-282 | Mirror of Galadriel | — | 14 | ☑ |
 | tw-288 | Muster | — | 11 | ☑ |
@@ -910,6 +918,7 @@
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-357 | Variags of Khand | — | 5 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
+| tw-361 | Wizard’s Flame | — | 7 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
@@ -1022,6 +1031,7 @@
 | wh-46 | Open to the Summons | — | 11 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
 | wh-51 | Blasting Fire | — | 9 | ☑ |
+| wh-52 | Liquid Fire | — | 10 | ☑ |
 | wh-53 | Mechanical Bow | — | 8 | ☑ |
 | wh-54 | Vile Fumes | — | 12 | ☑ |
 | wh-55 | Deep Mines | — | 14 | ☑ |

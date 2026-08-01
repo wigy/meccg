@@ -478,10 +478,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         stateAfterCombat = discardWoundedItems(stateAfterCombat, combat, woundedCharIds, sourceName, filter);
       } else if (woundEvent.apply.type === 'force-discard-one-company-item') {
         // Brigands: fires once per attack (not per wound). Company must discard one item.
-        const actor = combat.defendingPlayerId;
+        // Were-worm (td-80) sets chooser: 'attacker' — "of attacker's choice" — and has
+        // only one strike, so "once per attack" and "once per wound" coincide for it.
+        const actor = woundEvent.apply.chooser === 'attacker' ? combat.attackingPlayerId : combat.defendingPlayerId;
         const companyId = combat.companyId;
-        const actorIndex = getPlayerIndex(stateAfterCombat, actor);
-        const defPlayer = stateAfterCombat.players[actorIndex];
+        const defendingIndex = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+        const defPlayer = stateAfterCombat.players[defendingIndex];
         const company = companyById(defPlayer?.companies ?? [], companyId);
         const hasItems = (company?.characters ?? []).some(charId => {
           const ch = defPlayer.characters[charId];

@@ -2193,8 +2193,12 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   const targetCompany = companyById(player.companies, action.targetCompanyId);
   if (!targetCompany) return { state, error: 'Target company not found' };
 
-  // Validate same site
-  if (sourceCompany.currentSite?.instanceId !== targetCompany.currentSite?.instanceId) {
+  // Validate same site. Rule g.site.1 lets a player hold multiple physical
+  // instances of the same haven in play at once, so "the same site" (rule
+  // 2.II.3.5) is judged by site definition, not raw card instance.
+  const sourceSiteDefId = sourceCompany.currentSite ? resolveInstanceId(state, sourceCompany.currentSite.instanceId) : undefined;
+  const targetSiteDefId = targetCompany.currentSite ? resolveInstanceId(state, targetCompany.currentSite.instanceId) : undefined;
+  if (!sourceSiteDefId || !targetSiteDefId || sourceSiteDefId !== targetSiteDefId) {
     return { state, error: 'Companies must be at the same site' };
   }
 
@@ -2217,11 +2221,30 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
       return c;
     });
 
+  let siteDeck = player.siteDeck;
+
+  // Rule 2.II.3.5.2: if the source and target each held their own physical
+  // instance of the same haven, only one instance stays in play — the
+  // now-redundant source instance returns to the site deck (unless another
+  // company still references that exact card instance).
+  if (sourceCompany.currentSite && sourceCompany.currentSite.instanceId !== targetCompany.currentSite?.instanceId) {
+    const srcSiteId = sourceCompany.currentSite.instanceId;
+    const anotherCompanyHasIt = player.companies.some(
+      c => c.id !== action.sourceCompanyId
+        && (c.currentSite?.instanceId === srcSiteId || c.destinationSite?.instanceId === srcSiteId),
+    );
+    if (anotherCompanyHasIt) {
+      logDetail(`Merge companies: source company's haven instance ${srcSiteId as string} is still in play at another company — not returning to site deck`);
+    } else {
+      logDetail(`Merge companies: returning redundant haven site card ${srcSiteId as string} to the site deck`);
+      siteDeck = [...siteDeck, toCardInstance(sourceCompany.currentSite)];
+    }
+  }
+
   // If the source company had a planned destination, that site card was pulled from
   // the site deck when plan-movement was executed. Merging cancels the source's
   // planned movement, so return the site card to the deck — unless the same card
   // instance is still referenced by another company (rules 3.37 / 3.39).
-  let siteDeck = player.siteDeck;
   if (sourceCompany.destinationSite) {
     const srcDestId = sourceCompany.destinationSite.instanceId;
     const anotherCompanyHasIt = player.companies.some(
@@ -2232,7 +2255,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
       logDetail(`Merge companies: source company had destination ${srcDestId as string} but it is still in play at another company — not returning to site deck`);
     } else {
       logDetail(`Merge companies: source company had destination ${srcDestId as string} — returning to site deck`);
-      siteDeck = [...player.siteDeck, toCardInstance(sourceCompany.destinationSite)];
+      siteDeck = [...siteDeck, toCardInstance(sourceCompany.destinationSite)];
     }
   }
 

@@ -9,16 +9,17 @@
  *  against Orcs and Orc factions."
  *
  * Card shape (non-unique, race orc, prowess 4, body 8, mind 4, DI 0,
- * keyword Leader, homesite "Any Dark-hold") is documented here rather
- * than asserted in tests — verifying JSON against itself would prove
- * nothing. "leader" is a descriptive keyword referenced by other cards;
- * "Discard on a body check result of 8" is the standard semantic of
- * body 8 and needs no card-specific logic.
+ * keyword Leader, discardBodyCheck [8], homesite "Any Dark-hold") is
+ * documented here rather than asserted in tests — verifying JSON against
+ * itself would prove nothing. "leader" is a descriptive keyword referenced
+ * by other cards.
  *
  * Effects tested:
- * 1. stat-modifier: +3 DI during influence-check when target race is orc
- * 2. stat-modifier: +3 DI during faction-influence-check when faction race is orc
- * 3. "leader" keyword: offered the leader-control influence variant on
+ * 1. discardBodyCheck [8]: discarded (not eliminated) when a mass body
+ *    check fails at the effective threshold; stays in play when it passes.
+ * 2. stat-modifier: +3 DI during influence-check when target race is orc
+ * 3. stat-modifier: +3 DI during faction-influence-check when faction race is orc
+ * 4. "leader" keyword: offered the leader-control influence variant on
  *    leader-control factions (e.g. Orcs of Gorgoroth, le-275) — this is the
  *    reported bug: without the keyword, no option was offered to place the
  *    faction under the Chieftain's control and leave the site untapped.
@@ -31,30 +32,115 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   pool, PLAYER_1, PLAYER_2,
   buildTestState, buildSitePhaseState, buildMinionSitePhaseState, resetMint,
-  findCharInstanceId, viablePlayCharacterActions, viableActions,
-  getCharacter, RESOURCE_PLAYER,
+  makeMHState, P1_COMPANY,
+  findCharInstanceId, handCardId, dispatch, viablePlayCharacterActions, viableActions,
+  getCharacter, RESOURCE_PLAYER, HAZARD_PLAYER,
+  expectCharInPlay, expectCharNotInPlay,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
-import { computeLegalActions, Phase } from '../../index.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import type {
+  CardDefinitionId, CharacterCard, InfluenceAttemptAction,
+  GameState, MovementHazardPhaseState, ResolveDiceCheckAction,
+} from '../../index.js';
+import { Phase, RegionType } from '../../index.js';
 
 const ORC_CHIEFTAIN = 'le-32' as CardDefinitionId;
+const VEILS_FLUNG_AWAY = 'le-146' as CardDefinitionId; // hazard short event; body check modifier -1
 
 // Minion candidate characters for influence-check tests
 const GRISHNAKH = 'le-12' as CardDefinitionId;   // orc, mind 3
 const LUITPRAND = 'le-23' as CardDefinitionId;   // man, mind 1, no effects
+const LAGDUF = 'le-18' as CardDefinitionId;      // minion orc (opponent filler)
 
 // Minion sites
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // haven
 const MORIA_MINION = 'le-392' as CardDefinitionId; // shadow-hold
 const BARAD_DUR = 'le-352' as CardDefinitionId;    // dark-hold
 const GOBLIN_GATE = 'le-378' as CardDefinitionId;  // shadow-hold (Goblins of Goblin-gate's site)
+const EDORAS_LE = 'le-372' as CardDefinitionId;    // free-hold; site path has Wilderness
 
 // Minion orc faction with positive influenceNumber
 const GOBLINS_OF_GOBLIN_GATE = 'le-265' as CardDefinitionId; // orc, influence# 9
 const ORCS_OF_GORGOROTH = 'le-275' as CardDefinitionId;      // orc, leader-control, playable at Barad-dûr
 
+/** Build an MH state with a Wilderness in the site path (Veils Flung Away condition). */
+function makeWildernessMH(overrides?: Partial<MovementHazardPhaseState>): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Wilderness],
+    resolvedSitePathNames: ['Rohan'],
+    ...overrides,
+  });
+}
+
 describe('Orc Chieftain (le-32)', () => {
   beforeEach(() => resetMint());
+
+  // ─── discardBodyCheck [8]: fail → discard to discard pile ────────────────
+
+  test('Orc Chieftain is discarded to discard pile when mass body check fails', () => {
+    // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
+    // Roll 6 (< 7) → fail → Orc Chieftain discarded to resource player's discard pile.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [ORC_CHIEFTAIN] }], hand: [], siteDeck: [EDORAS_LE] },
+        { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LAGDUF] }], hand: [VEILS_FLUNG_AWAY], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    let s: GameState = { ...state, phaseState: makeWildernessMH() };
+    const chieftainId = findCharInstanceId(s, RESOURCE_PLAYER, ORC_CHIEFTAIN);
+    const veilId = handCardId(s, HAZARD_PLAYER);
+
+    s = dispatch(s, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: veilId, targetCompanyId: P1_COMPANY });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === chieftainId);
+    expect(dc).toBeDefined();
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.threshold).toBe(7);
+    }
+
+    s = { ...s, cheatRollTotal: 6 };
+    const rollActions = computeLegalActions(s, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
+    expect(rollActions).toHaveLength(1);
+    s = dispatch(s, rollActions[0].action as ResolveDiceCheckAction);
+
+    expectCharNotInPlay(s, RESOURCE_PLAYER, chieftainId);
+    const discardDefIds = s.players[RESOURCE_PLAYER].discardPile.map(c => c.definitionId);
+    expect(discardDefIds).toContain(ORC_CHIEFTAIN);
+    const oopDefIds = s.players[RESOURCE_PLAYER].outOfPlayPile.map(c => c.definitionId);
+    expect(oopDefIds).not.toContain(ORC_CHIEFTAIN);
+  });
+
+  test('Orc Chieftain stays in play when mass body check passes', () => {
+    // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
+    // Roll 7 (= threshold) → pass → Orc Chieftain remains in play.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [ORC_CHIEFTAIN] }], hand: [], siteDeck: [EDORAS_LE] },
+        { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LAGDUF] }], hand: [VEILS_FLUNG_AWAY], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    let s: GameState = { ...state, phaseState: makeWildernessMH() };
+    const chieftainId = findCharInstanceId(s, RESOURCE_PLAYER, ORC_CHIEFTAIN);
+    const veilId = handCardId(s, HAZARD_PLAYER);
+
+    s = dispatch(s, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: veilId, targetCompanyId: P1_COMPANY });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    s = { ...s, cheatRollTotal: 7 };
+    const rollActions = computeLegalActions(s, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
+    s = dispatch(s, rollActions[0].action);
+
+    expectCharInPlay(s, RESOURCE_PLAYER, chieftainId);
+  });
 
   // ─── Base stats (conditional bonuses do not inflate base stats) ──────────────
 
@@ -74,7 +160,7 @@ describe('Orc Chieftain (le-32)', () => {
       .toBe(baseDef.directInfluence);
   });
 
-  // ─── Effect 1: +3 DI during influence-check (character control) ──────────────
+  // ─── Effect 2: +3 DI during influence-check (character control) ──────────────
 
   test('+3 DI vs Orcs allows Orc Chieftain to control Grishnákh (orc, mind 3) as a follower', () => {
     // Orc Chieftain base DI = 0. Grishnákh is an orc with mind 3.
@@ -128,7 +214,7 @@ describe('Orc Chieftain (le-32)', () => {
     expect(luitprandUnderChieftain).toHaveLength(0);
   });
 
-  // ─── Effect 2: +3 DI during faction-influence-check (orc factions) ───────────
+  // ─── Effect 3: +3 DI during faction-influence-check (orc factions) ───────────
 
   test('+3 DI bonus applies when influencing an Orc faction (Goblins of Goblin-gate)', () => {
     // Orc Chieftain (orc, base DI 0) attempts to influence Goblins of Goblin-gate

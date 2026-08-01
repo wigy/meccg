@@ -793,6 +793,11 @@ export function renderCompanyBlock(
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
     const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
+    // Grant-actions declared directly on the character card itself (e.g.
+    // Gandalf's test-gold-ring, tw-156) are keyed by the character's own
+    // instance ID, same as attached items/hazards are keyed by their own ID.
+    const grantedActionsForChar = options?.grantedActions?.get(charInstId as string) ?? [];
+    const hasGrantedActions = grantedActionsForChar.length > 0;
 
     // Check for opponent influence actions
     const oppInfluenceActions = viableActions(view.legalActions).filter(
@@ -802,7 +807,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence, bearerAction].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence, bearerAction, hasGrantedActions].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -816,7 +821,8 @@ export function renderCompanyBlock(
     if (actionTypes > 1) {
       const cls = influenceResult?.cls || companyResult?.cls || mergeCls
         || (hasSideboard ? 'company-card--influence-source' : '')
-        || (ccAction ? 'company-card--influence-source' : '');
+        || (ccAction ? 'company-card--influence-source' : '')
+        || (hasGrantedActions ? 'company-card--transfer-source' : '');
       return {
         cls,
         handler: (e) => {
@@ -917,6 +923,30 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           options!.onAction!(bearerAction);
+        },
+      };
+    }
+
+    // Single type: granted action(s) declared on the character card itself —
+    // commit directly if there's only one target, otherwise show a menu
+    // (mirrors buildHazardClick's handling of attached-card grant-actions).
+    if (hasGrantedActions) {
+      const onAction = options!.onAction!;
+      if (grantedActionsForChar.length === 1) {
+        const onlyAction = grantedActionsForChar[0];
+        return {
+          cls: 'company-card--transfer-source',
+          handler: (e) => {
+            e.stopPropagation();
+            onAction(onlyAction);
+          },
+        };
+      }
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          showGrantedActionTooltip(e.currentTarget as HTMLElement, grantedActionsForChar, onAction);
         },
       };
     }
