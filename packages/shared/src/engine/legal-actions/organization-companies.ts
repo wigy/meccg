@@ -43,15 +43,29 @@ import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
 
 /**
- * Group a player's companies by the instance ID of the site they currently
- * occupy. Companies with no current site are omitted. Used to find companies
- * (and their characters) that share a site for merges and inter-company moves.
+ * Resolve the grouping key for a company's current site: the site's
+ * definition ID rather than its raw card instance ID. Rule g.site.1 lets a
+ * player hold multiple physical instances of the same haven in play at
+ * once, so two companies each anchored to their own haven instance must
+ * still be recognized as being "at the same site" for merges and
+ * inter-company moves (rules 2.II.3.4/2.II.3.5). Falls back to the raw
+ * instance ID if the definition cannot be resolved.
  */
-function groupCompaniesBySite(player: PlayerState): Map<string, PlayerState['companies'][number][]> {
+function siteGroupKey(state: GameState, instanceId: CardInstanceId): string {
+  return (resolveInstanceId(state, instanceId) ?? instanceId) as string;
+}
+
+/**
+ * Group a player's companies by the site they currently occupy (see
+ * {@link siteGroupKey}). Companies with no current site are omitted. Used to
+ * find companies (and their characters) that share a site for merges and
+ * inter-company moves.
+ */
+function groupCompaniesBySite(state: GameState, player: PlayerState): Map<string, PlayerState['companies'][number][]> {
   const map = new Map<string, PlayerState['companies'][number][]>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteKey = company.currentSite.instanceId as string;
+    const siteKey = siteGroupKey(state, company.currentSite.instanceId);
     const existing = map.get(siteKey) ?? [];
     existing.push(company);
     map.set(siteKey, existing);
@@ -1039,14 +1053,14 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
 
   // Build a map from site instance ID → list of character instance IDs at that site
   const siteToCharacters = new Map<string, CardInstanceId[]>();
-  for (const [siteKey, companies] of groupCompaniesBySite(player)) {
+  for (const [siteKey, companies] of groupCompaniesBySite(state, player)) {
     siteToCharacters.set(siteKey, companies.flatMap(c => c.characters));
   }
 
   // For each character with items, find valid transfer targets at the same site
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteKey = company.currentSite.instanceId as string;
+    const siteKey = siteGroupKey(state, company.currentSite.instanceId);
     const charsAtSite = siteToCharacters.get(siteKey) ?? [];
 
     for (const charInstId of company.characters) {
@@ -1320,11 +1334,11 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
   const actions: EvaluatedAction[] = [];
 
   // Build map from site instance ID → companies at that site
-  const siteToCompanies = groupCompaniesBySite(player);
+  const siteToCompanies = groupCompaniesBySite(state, player);
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const companiesAtSite = siteToCompanies.get(company.currentSite.instanceId as string) ?? [];
+    const companiesAtSite = siteToCompanies.get(siteGroupKey(state, company.currentSite.instanceId)) ?? [];
     if (companiesAtSite.length < 2) continue;
 
     // Count GI characters in this company
@@ -1564,11 +1578,11 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
   const actions: EvaluatedAction[] = [];
 
   // Build map from site instance ID → companies at that site
-  const siteToCompanies = groupCompaniesBySite(player);
+  const siteToCompanies = groupCompaniesBySite(state, player);
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const companiesAtSite = siteToCompanies.get(company.currentSite.instanceId as string) ?? [];
+    const companiesAtSite = siteToCompanies.get(siteGroupKey(state, company.currentSite.instanceId)) ?? [];
     if (companiesAtSite.length < 2) continue;
 
     for (const targetCompany of companiesAtSite) {
