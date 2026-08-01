@@ -196,6 +196,10 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
         nonActiveActions.push(ea.action);
       }
     }
+    // Storing is optional (CoE 2.II.4: "may attempt to store") — the
+    // non-active player must be able to decline rather than being forced
+    // to store every eligible item just because the window is open.
+    nonActiveActions.push({ type: 'pass', player: playerId });
     return nonActiveActions;
   }
 

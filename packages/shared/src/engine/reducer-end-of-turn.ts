@@ -355,6 +355,16 @@ function checkEndOfTurnSiteWin(state: GameState): PlayerId | null {
  * Pass switches the active player and advances to the next turn's Untap phase.
  */
 function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): ReducerResult {
+  if (action.type === 'pass' && action.player !== state.activePlayer) {
+    // Non-active player declining their optional allow-store-eot storing
+    // window (CoE 2.II.4: "may attempt to store"). This is not the
+    // turn-ending pass — only the active (resource) player's pass ends the
+    // turn — so it is a no-op; the store-item options simply remain
+    // available for the rest of the step.
+    logDetail(`End-of-Turn signal-end: non-active player ${action.player as string} declined to store`);
+    return { state };
+  }
+
   if (action.type === 'pass') {
     // CoE 10.39: A New Ringlord (wh-60) — the Fallen-wizard's end-of-turn
     // One Ring roll. Fires before the turn ends; may win the game or

@@ -292,4 +292,42 @@ describe('Safe from the Shadow (as-54)', () => {
 
     expect(storeActions.length).toBeGreaterThan(0);
   });
+
+  test('non-active player may decline to store during EOT signal-end — pass is offered and is a no-op', () => {
+    // Bug report: with two low-value items (0 marshalling points), the AI
+    // was forced to store both because 'pass' was never offered to the
+    // non-active player alongside the store-item options at signal-end.
+    // Storing is optional (CoE 2.II.4: "may attempt to store"), so a pass
+    // option must be present, and choosing it must not end the turn — only
+    // the active player's pass at this step ends the turn.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withSignalEnd = {
+      ...base,
+      phaseState: { ...(base.phaseState as EndOfTurnPhaseState), step: 'signal-end' as const, discardDone: [true, true] as [boolean, boolean], resetHandDone: [true, true] as [boolean, boolean] } as EndOfTurnPhaseState,
+    };
+    const withItem = attachItemToChar(withSignalEnd, HAZARD_PLAYER, LEGOLAS, RED_BOOK_OF_WESTMARCH);
+    const withEvent = addCardInPlay(withItem, HAZARD_PLAYER, SAFE_FROM_THE_SHADOW);
+
+    const actions = computeLegalActions(withEvent, PLAYER_2);
+    const passAction = actions.find(a => a.viable && a.action.type === 'pass');
+    expect(passAction).toBeDefined();
+
+    const afterPass = dispatch(withEvent, passAction!.action);
+
+    // Turn must not have ended — still P1's turn, still end-of-turn signal-end.
+    expect(afterPass.activePlayer).toBe(PLAYER_1);
+    expect(afterPass.phaseState.phase).toBe(Phase.EndOfTurn);
+    expect((afterPass.phaseState as EndOfTurnPhaseState).step).toBe('signal-end');
+    // The item is still borne by Legolas — nothing was forced into storage.
+    const legolasEntry = Object.values(afterPass.players[HAZARD_PLAYER].characters)
+      .find(c => c.definitionId === LEGOLAS);
+    expect(legolasEntry!.items.some(i => i.definitionId === RED_BOOK_OF_WESTMARCH)).toBe(true);
+  });
 });
