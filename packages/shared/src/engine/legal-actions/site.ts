@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1008,7 +1008,8 @@ function playResourcesActions(
         // Check duplication-limit with scope "game": cannot play if a copy is already in play
         const dupLimit = findDuplicationLimitEffect(eventDef, 'game');
         if (dupLimit) {
-          const copiesInPlay = countCopiesInPlay(state, eventDef.name);
+          const copiesInPlay = countCopiesInPlay(state, eventDef.name)
+            + countCopiesDeclaredInChain(state, eventDef.name);
           if (copiesInPlay >= dupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated`));

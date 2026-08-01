@@ -27,7 +27,7 @@ import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -79,7 +79,8 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
       let blocked = false;
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-        const copiesInPlay = countCopiesInPlay(state, def.name);
+        const copiesInPlay = countCopiesInPlay(state, def.name)
+          + countCopiesDeclaredInChain(state, def.name);
         if (copiesInPlay >= effect.max) {
           logDetail(`${def.name}: duplication limit reached (${copiesInPlay}/${effect.max})`);
           actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated`));

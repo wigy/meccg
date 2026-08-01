@@ -2496,6 +2496,33 @@ export function countCopiesInPlayTargetedForDiscard(state: GameState, name: stri
 }
 
 /**
+ * Count copies of `name` currently declared on the chain but not yet resolved
+ * into any player's `cardsInPlay`.
+ *
+ * A permanent-event or long-event chain entry physically holds its card
+ * (`ChainEntry.card`) until it resolves and moves into the declaring player's
+ * `cardsInPlay` (CoE: cards on the chain are not yet "in play"). Until then,
+ * {@link countCopiesInPlay} cannot see it. A `duplication-limit` scope
+ * `"game"` check taken while a first copy is still declaring on the chain
+ * would therefore miss it and let a second copy be declared before the first
+ * resolves — e.g. two Gates of Morning (tw-243, "cannot be duplicated")
+ * declared back-to-back with priority merely passing between them, both
+ * landing in play together once the chain resolves. Add this count to
+ * {@link countCopiesInPlay} in every game-scope duplication-limit check so a
+ * pending chain entry is visible immediately.
+ */
+export function countCopiesDeclaredInChain(state: GameState, name: string): number {
+  const chain = state.chain;
+  if (!chain) return 0;
+  let count = 0;
+  for (const entry of chain.entries) {
+    if (entry.resolved || entry.negated || !entry.card) continue;
+    if (defById(state, entry.card.definitionId)?.name === name) count += 1;
+  }
+  return count;
+}
+
+/**
  * True when the card definition `defId` carries the given (lowercased) keyword.
  * Keyword matching is case-insensitive so `"Spawn"` in card data matches
  * `"spawn"`.
