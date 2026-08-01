@@ -295,4 +295,62 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
     expect(p1.siteDeck.some(c => c.instanceId === sharedSite.instanceId)).toBe(false);
     expect(p1.siteDiscardPile.some(c => c.instanceId === sharedSite.instanceId)).toBe(false);
   });
+
+  test('company arriving at a site already tapped by a sibling company inherits the tapped status (rule 2.II.7.2)', () => {
+    // Regression test: Isengard became untapped the round after a Precious
+    // Gold Ring was played there. Root cause — when a company moves to a
+    // site already held by a sibling company, the arriving company computed
+    // its own currentSite status independently instead of copying the
+    // sibling's, so an already-tapped shared site looked untapped from the
+    // arriving company's side until the two companies merged.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN], destinationSite: HENNETH_ANNUN },
+            { site: HENNETH_ANNUN, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const [company0, company1] = built.players[0].companies;
+    const sharedHenneth = { ...company1.currentSite!, status: CardStatus.Tapped };
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [
+            {
+              ...company0,
+              destinationSite: { ...company0.destinationSite!, instanceId: sharedHenneth.instanceId },
+              siteOfOrigin: company0.currentSite!.instanceId,
+            },
+            { ...company1, currentSite: sharedHenneth },
+          ],
+        },
+        built.players[1],
+      ],
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const arrivedCompany = afterBothPass.players[0].companies.find(c => c.id === company0.id)!;
+    expect(arrivedCompany.currentSite?.instanceId).toBe(sharedHenneth.instanceId);
+    expect(arrivedCompany.currentSite?.status).toBe(CardStatus.Tapped);
+  });
 });
