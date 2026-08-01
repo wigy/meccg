@@ -130,6 +130,11 @@ describe('Whole Villages Roused (wh-31)', () => {
     expect(wvrActions(state, PLAYER_2).length).toBeGreaterThan(0);
   });
 
+  test('offered against a company moving to hero Raider-hold, same name/siteType as its minion sibling', () => {
+    const state = buildHazardMovingState(RAIDER_HOLD_HERO, 'Raider-hold', [WHOLE_VILLAGES_ROUSED]);
+    expect(wvrActions(state, PLAYER_2).length).toBeGreaterThan(0);
+  });
+
   test('offered against a company moving to a minion Shadow-hold (Mount Gundabad)', () => {
     const state = buildHazardMovingState(
       GUNDABAD_MINION, 'Mount Gundabad', [WHOLE_VILLAGES_ROUSED], [ORC_CAPTAIN],
