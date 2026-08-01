@@ -10,7 +10,7 @@
  * favor situations with a comfortable success probability.
  */
 
-import type { GameAction } from '@meccg/shared';
+import type { GameAction, Company, PlayerView } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
@@ -25,7 +25,36 @@ import {
   hasUntappedCharacter,
   hasUntapSource,
   handHasNoTapPlayableAt,
+  type AnySiteCard,
 } from './common.js';
+
+/**
+ * Whether a site's automatic attacks make tapping the defender the only
+ * sensible choice, even for the company's strongest character — i.e. that
+ * character's need to stay untapped is "hard" (>= 8, the same threshold
+ * `combatEvaluator`'s `resolve-strike` scoring uses to prefer tapping over
+ * staying untapped — `packages/sim/src/ai/evaluators/combat.ts`). Mirrors the
+ * reducer's strike-need arithmetic (`need = attackerProwess - defenderProwess
+ * + 1`, with an extra 3-point penalty for staying untapped —
+ * `packages/shared/src/engine/legal-actions/combat.ts`), using the company's
+ * best available prowess, since the defender can always choose to send their
+ * strongest character.
+ */
+function automaticAttackForcesTap(
+  view: PlayerView,
+  company: Company,
+  siteDef: AnySiteCard,
+): boolean {
+  const attacks = siteDef.automaticAttacks ?? [];
+  if (attacks.length === 0) return false;
+  let bestProwess = 0;
+  for (const id of company.characters) {
+    const ch = view.self.characters[id];
+    if (ch) bestProwess = Math.max(bestProwess, ch.effectiveStats.prowess);
+  }
+  const bestUntappedProwess = bestProwess - 3;
+  return attacks.some(atk => atk.prowess - bestUntappedProwess + 1 >= 8);
+}
 
 export const sitePhaseEvaluator: ActionEvaluator = {
   phases: ['site'],
@@ -42,15 +71,14 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         if (!company?.currentSite) return 50;
         const siteDef = lookupDef(pool, company.currentSite.definitionId);
         if (!isSite(siteDef)) return 50;
-        let hasPlayable = false;
+        let bestPlayableMp = -1;
         for (const card of view.self.hand) {
           const def = lookupDef(pool, card.definitionId);
           if (def && resourcePlayableAt(def, siteDef)) {
-            hasPlayable = true;
-            break;
+            bestPlayableMp = Math.max(bestPlayableMp, mpValue(def));
           }
         }
-        if (!hasPlayable) return 0;
+        if (bestPlayableMp < 0) return 0;
         // Items, factions, and allies all require tapping a character on
         // play. If every character in the company is tapped and the
         // company has no untap source (item / spell), the only MP plays
@@ -61,6 +89,17 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         if (!hasUntappedCharacter(view, company)
             && !hasUntapSource(view, pool, company)
             && !handHasNoTapPlayableAt(view, pool, siteDef)) {
+          return 0;
+        }
+        // Automatic attacks resolve before any resource can be played. If
+        // even the company's strongest character would rather tap than risk
+        // staying untapped against them, entering costs a tapped defender
+        // (plus a real chance of a wound) for the sake of one low-value
+        // item — not a good trade. (Bug report: the AI entered Glittering
+        // Caves with Théoden/Balin/Fatty Bolger/Ioreth against a 9-prowess
+        // automatic-attack; Fatty Bolger was assigned to defend and ended up
+        // wounded, and the 1-MP item it entered for was never even played.)
+        if (bestPlayableMp <= 1 && automaticAttackForcesTap(view, company, siteDef)) {
           return 0;
         }
         return 50;
