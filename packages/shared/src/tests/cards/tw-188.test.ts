@@ -178,6 +178,16 @@ describe('A Chance Meeting (tw-188)', () => {
     expect((after.phaseState as { characterPlayedThisTurn?: boolean }).characterPlayedThisTurn).toBe(false);
   });
 
+  // ── Rule 5.1: not offered as a bare no-op play-short-event ───────────────────
+
+  test('is never offered as a standalone play-short-event (rule 5.1 — no effect without a recruit target)', () => {
+    const state = buildOrg(BREE, [ELROND], [A_CHANCE_MEETING, EOWYN]);
+    const bareShortEvent = viableActions(state, PLAYER_1, 'play-short-event')
+      .filter(a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId
+        === state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId);
+    expect(bareShortEvent).toHaveLength(0);
+  });
+
   // ── Rule 7: playable during any phase the company is at a site ──────────────
 
   test('the recruit action is offered during the movement/hazard phase', () => {
