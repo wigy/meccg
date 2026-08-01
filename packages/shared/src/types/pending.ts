@@ -1055,6 +1055,38 @@ export interface PendingResolution {
         readonly playedThisTurnIds: readonly CardInstanceId[];
         /** Tier 2: characters that reverted to general influence outside the organization phase. */
         readonly uncontrolledIds: readonly CardInstanceId[];
+      }
+    | {
+        /**
+         * Here Is a Snake! (dm-137): "Opponent may reveal to you any number of
+         * hazards from his hand. He may only play hazards he revealed to you
+         * (including on-guard cards) for the remainder of target company's
+         * movement/hazard phase. Alternatively, a face-down agent is tapped
+         * and revealed."
+         *
+         * Actor is the hazard player (opponent of the card's controller). Each
+         * `reveal-hazard-for-snake` action reveals one more hazard card from
+         * their hand, appending its instance ID to {@link revealedIds} (mirrors
+         * `arrange-deck-top`'s accumulate-then-finalize shape, but the count is
+         * unbounded — "any number" — so there is no target length and the actor
+         * finalizes explicitly with `pass`). On `pass`, {@link revealedIds}
+         * (even empty) becomes the allow-list of an `only-revealed-hazards-on-company`
+         * constraint on {@link companyId} for the rest of its M/H phase (CoE
+         * rule 4.3 supports an agent tap "initiating a hazard effect" while
+         * still face-down at declaration).
+         *
+         * While {@link revealedIds} is still empty, the actor may instead take
+         * `tap-reveal-agent-for-snake` on an eligible face-down, untapped agent —
+         * the printed alternative — which taps and reveals that agent and
+         * dequeues this resolution with **no** constraint added (CoE rule 4.3).
+         * Once any card has been revealed the alternative is no longer offered:
+         * the actor has committed to the reveal-and-restrict path.
+         */
+        readonly type: 'reveal-hazards-choice';
+        /** The company the restriction (if any) will apply to. */
+        readonly companyId: CompanyId;
+        /** Hand instance IDs revealed to the card's controller so far, in reveal order. */
+        readonly revealedIds: readonly CardInstanceId[];
       };
 }
 
@@ -2133,6 +2165,30 @@ export interface ActiveConstraint {
          * place when it was untapped.
          */
         readonly type: 'tap-on-strike-assignment';
+      }
+    | {
+        /**
+         * Here Is a Snake! (dm-137): once the hazard player finalizes their
+         * `reveal-hazards-choice` resolution (by `pass`, with zero or more
+         * cards revealed), the opponent may, "for the remainder of target
+         * company's movement/hazard phase," play only the hazards they
+         * revealed. Company-scoped, `company-mh-phase` scope (auto-clears when
+         * the target company's M/H phase ends).
+         *
+         * Filters `play-hazard` actions targeting the protected company (both
+         * hazard creatures and hazard events), dropping any whose
+         * `cardInstanceId` is not in {@link allowedInstanceIds}. An empty list
+         * (the opponent revealed nothing) blocks every hazard play against the
+         * company for the rest of its M/H phase. "including on-guard cards" is
+         * enforced separately by `onGuardWindowActions`
+         * (`legal-actions/pending.ts`), which looks this constraint up
+         * directly — while an on-guard-window resolution is queued,
+         * `computeLegalActions` never reaches the generic constraint
+         * post-filter that this kind would otherwise ride.
+         */
+        readonly type: 'only-revealed-hazards-on-company';
+        /** Instance IDs of the hazard cards the opponent revealed; the sole plays still allowed. */
+        readonly allowedInstanceIds: readonly CardInstanceId[];
       };
 }
 

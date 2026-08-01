@@ -1995,6 +1995,61 @@ replace all remaining cards back on top of his play deck. Remove this card from
 the game." (Paired with `play-discard-cost` for "discard a Spawn card from your
 hand.")
 
+### 6j. `enqueue-reveal-hazards-choice`
+
+Carried by a **resource** short-event's `on-event: self-enters-play` (`target:
+"target-company"`). When the event resolves, enqueues a `reveal-hazards-choice`
+pending resolution for the **opponent** (the hazard player) on the targeted
+company:
+
+1. The opponent may reveal any number of hazard cards from hand — one
+   `reveal-hazard-for-snake` action per not-yet-revealed hazard-creature or
+   hazard-event card, repeatable. Each reveal is recorded immediately in
+   `GameState.revealedInstances` (the card stays in hand) and appended to the
+   resolution's accumulator.
+2. **While nothing has been revealed yet**, the opponent may instead take
+   `tap-reveal-agent-for-snake` on an eligible face-down, untapped agent — the
+   printed alternative ("Alternatively, a face-down agent is tapped and
+   revealed"). This resolves exactly like the standalone `reveal-agent` action
+   (rule 9.04 home-site placement, movement-history and uniqueness checks) and
+   additionally taps the agent (CoE rule 4.3: a face-down agent tapped to
+   initiate a hazard effect is revealed as part of that action). No constraint
+   is added — the resolution simply dequeues.
+3. The opponent finalizes with `pass`. Whatever was revealed (even nothing)
+   becomes the allow-list of an `only-revealed-hazards-on-company` active
+   constraint on the target company, scoped `company-mh-phase` (auto-clears
+   at the end of the company's movement/hazard phase). The constraint drops
+   every `play-hazard` action against the company (creature or event) not in
+   the allow-list. An empty allow-list (the opponent revealed nothing and
+   didn't tap an agent) blocks every hazard play against the company for the
+   rest of its M/H phase. "including on-guard cards": `onGuardWindowActions`
+   separately looks up this constraint for the on-guard window's company and
+   skips any not-yet-revealed on-guard card outside its allow-list — checked
+   there rather than via the generic constraint post-filter, because
+   `computeLegalActions` short-circuits straight to a pending resolution's own
+   legal-action function (never reaching that post-filter) whenever any
+   resolution is queued for the actor.
+
+Enqueue is in `reducer-events.ts` (`applyShortEventOnEntersPlay`); the
+resolution lives in `legal-actions/pending.ts` (`revealHazardsChoiceActions`)
+and `pending-reducers.ts` (`applyRevealHazardsChoiceResolution`); the
+constraint filter is `applyOnlyRevealedHazardsOnCompany` in
+`legal-actions/pending.ts`.
+
+```json
+{ "type": "play-window", "phase": "movement-hazard", "step": "play-hazards" }
+{ "type": "play-target", "target": "company" }
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "enqueue-reveal-hazards-choice" }, "target": "target-company" }
+```
+
+Used by Here Is a Snake! (dm-137): "Playable on a company during its
+movement/hazard phase after cards have been drawn. Opponent may reveal to you
+any number of hazards from his hand. He may only play hazards he revealed to
+you (including on-guard cards) for the remainder of target company's
+movement/hazard phase. Alternatively, a face-down agent is tapped and
+revealed."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

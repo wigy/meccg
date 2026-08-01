@@ -16,11 +16,12 @@
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { isResourceEventCard, isSiteCard, isAllyCard } from '../../types/cards.js';
 import { CardStatus, cardStatusToName } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -160,6 +161,31 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
  * (with reasons) for cards that were considered but rejected, so the UI
  * can explain why.
  */
+/**
+ * Resolve the "active company" a `play-target: company` resource short-event
+ * may target in the current phase. Only meaningful for `playerId ===
+ * state.activePlayer` — a company-targeting resource event is played by its
+ * owner on their own moving/visiting company, and `activeCompanyIndex` only
+ * cycles through the active player's companies during the movement/hazard
+ * and site phases. Returns null everywhere else (no active-company concept),
+ * which safely falls through to "not playable" for the caller.
+ */
+function resolveActiveCompanyForTarget(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  currentPhase: string,
+): Company | null {
+  if (playerId !== state.activePlayer) return null;
+  if (currentPhase === 'movement-hazard' && state.phaseState.phase === Phase.MovementHazard) {
+    return player.companies[state.phaseState.activeCompanyIndex] ?? null;
+  }
+  if (currentPhase === 'site' && state.phaseState.phase === Phase.Site) {
+    return player.companies[state.phaseState.activeCompanyIndex] ?? null;
+  }
+  return null;
+}
+
 export function heroResourceShortEventActions(
   state: GameState,
   playerId: PlayerId,
@@ -435,6 +461,40 @@ export function heroResourceShortEventActions(
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a matching character`));
       } else {
         actions.push(...optionActions);
+      }
+    } else if (playTarget && playTarget.target === 'company') {
+      // Company-targeting resource short-events outside the org-phase
+      // end-of-org window (e.g. Here Is a Snake! dm-137, played on a company
+      // during its M/H phase). Mirrors the end-of-org company-target filter
+      // shape (`company.atHaven` / `company.moving`) so both paths agree on
+      // the same DSL context.
+      const targetCompany = resolveActiveCompanyForTarget(state, player, playerId, currentPhase);
+      if (!targetCompany) {
+        logDetail(`${def.name}: no active company to target in this phase — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires an active company`));
+      } else {
+        let filterOk = true;
+        if (playTarget.filter) {
+          const siteDef = targetCompany.currentSite ? defById(state, targetCompany.currentSite.definitionId) : undefined;
+          const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : '';
+          const companyFilterCtx = {
+            company: {
+              atHaven: siteType === 'haven',
+              moving: targetCompany.destinationSite !== null || !!targetCompany.specialMovement,
+            },
+          };
+          filterOk = matchesCondition(playTarget.filter, companyFilterCtx);
+        }
+        if (!filterOk) {
+          logDetail(`${def.name}: company filter not met`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be played on this company`));
+        } else {
+          logDetail(`Resource short-event playable on company ${targetCompany.id as string}: ${def.name}`);
+          actions.push({
+            action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCompanyId: targetCompany.id },
+            viable: true,
+          });
+        }
       }
     } else {
       emitPlay(undefined);

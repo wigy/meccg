@@ -61,6 +61,7 @@ import {
   applyPostAttackPlayOfferResolution,
   applyInfluenceRevealPlayOfferResolution,
   applyInfluenceOverflowDiscardResolution,
+  applyRevealHazardsChoiceResolution,
 } from './pending-reducers.js';
 import {
   corruptionCheckActions,
@@ -98,6 +99,7 @@ import {
   postAttackPlayOfferActions,
   influenceRevealPlayOfferActions,
   influenceOverflowDiscardActions,
+  revealHazardsChoiceActions,
 } from './legal-actions/pending.js';
 
 /** The discriminant of every {@link PendingResolution} kind. */
@@ -163,6 +165,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'post-attack-play-offer': { legalActions: postAttackPlayOfferActions, apply: applyPostAttackPlayOfferResolution },
   'influence-reveal-play-offer': { legalActions: influenceRevealPlayOfferActions, apply: applyInfluenceRevealPlayOfferResolution },
   'influence-overflow-discard': { legalActions: influenceOverflowDiscardActions, apply: applyInfluenceOverflowDiscardResolution },
+  'reveal-hazards-choice': { legalActions: revealHazardsChoiceActions, apply: applyRevealHazardsChoiceResolution },
 };
 
 /**

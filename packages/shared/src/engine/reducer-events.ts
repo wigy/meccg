@@ -2538,6 +2538,36 @@ function applyShortEventOnEntersPlay(
         },
       });
     }
+
+    if (onEvent.apply.type === 'enqueue-reveal-hazards-choice') {
+      // Here Is a Snake! (dm-137): enqueue the interactive choice for the
+      // opponent (hazard player) — reveal any number of hazards from hand
+      // (restricting them to the revealed set for the rest of this
+      // company's M/H phase), or tap-reveal a face-down agent instead.
+      const targetCompanyId = action.type === 'play-short-event' ? action.targetCompanyId : undefined;
+      if (!targetCompanyId) {
+        logDetail(`"${def.name}": enqueue-reveal-hazards-choice — no target company — fizzle`);
+        continue;
+      }
+      const company = companyById(state.players[playerIndex].companies, targetCompanyId);
+      if (!company) {
+        logDetail(`"${def.name}": enqueue-reveal-hazards-choice — company ${targetCompanyId as string} not found — fizzle`);
+        continue;
+      }
+      const opponentIndex = 1 - playerIndex;
+      const opponent = state.players[opponentIndex];
+      logDetail(`"${def.name}" played on company ${company.id as string} — ${opponent.name} may reveal hazards from hand or tap-reveal a face-down agent`);
+      state = enqueueResolution(state, {
+        source: handCard.instanceId,
+        actor: opponent.id,
+        scope: { kind: 'company-mh-subphase', companyId: company.id },
+        kind: {
+          type: 'reveal-hazards-choice',
+          companyId: company.id,
+          revealedIds: [],
+        },
+      });
+    }
   }
 
   return state;
