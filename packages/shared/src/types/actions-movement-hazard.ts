@@ -1093,6 +1093,45 @@ export interface RevealAgentAction {
 }
 
 /**
+ * Reveal one more hazard card from hand while resolving a `reveal-hazards-choice`
+ * pending resolution (Here Is a Snake! dm-137). Repeatable — one action per
+ * remaining unrevealed hazard card in hand — with `pass` finalizing the set.
+ */
+export interface RevealHazardForSnakeAction {
+  /** Action discriminant. */
+  readonly type: 'reveal-hazard-for-snake';
+  /** The hazard player revealing the card. */
+  readonly player: PlayerId;
+  /** The hand card instance being revealed (must be a hazard-creature or hazard-event). */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * The alternative to `reveal-hazard-for-snake`: tap and reveal a face-down,
+ * untapped agent instead of revealing any hazards from hand (Here Is a Snake!
+ * dm-137). Only legal while the `reveal-hazards-choice` resolution's
+ * `revealedIds` is still empty. Resolves the agent exactly as `reveal-agent`
+ * (rule 9.04 home-site placement, movement-history and uniqueness checks) and
+ * additionally taps it; unlike `reveal-agent` this does not require the agent
+ * be untapped as a precondition of revealing — it is the tap that this action
+ * performs.
+ */
+export interface TapRevealAgentForSnakeAction {
+  /** Action discriminant. */
+  readonly type: 'tap-reveal-agent-for-snake';
+  /** The hazard player taking the alternative. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent to tap and reveal. */
+  readonly agentId: CompanyId;
+  /**
+   * A site instance from the hazard player's own location deck that matches
+   * one of the agent's home sites (rule 9.04). If omitted, no matching site
+   * was available and the agent will be discarded at end of turn.
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
+}
+
+/**
  * Move a face-down agent hazard to a site in the same or an adjacent region.
  *
  * This is an agent action (costs 1 hazard slot, rule 9.02). The agent must

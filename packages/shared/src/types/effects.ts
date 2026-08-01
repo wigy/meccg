@@ -2008,6 +2008,7 @@ export type TriggeredActionType =
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
   | 'enqueue-gold-ring-test'
+  | 'enqueue-reveal-hazards-choice'
   | 'heal-target-character'
   | 'return-character-to-hand'
   | 'increment-company-extra-region-distance'
@@ -2805,6 +2806,21 @@ export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
   readonly rollCount?: number;
 }
 
+/**
+ * `enqueue-reveal-hazards-choice` — Here Is a Snake! (dm-137): enqueues the
+ * `reveal-hazards-choice` pending resolution (actor = the opponent of the
+ * playing player) on the `play-target: "company"` target, scoped
+ * `company-mh-subphase` to that company. See the resolution's own doc comment
+ * ({@link import('./pending.js').PendingResolution}) for the full flow — the
+ * opponent reveals any number of hazard cards from hand (or taps and reveals
+ * a face-down agent instead), and on `pass` an `only-revealed-hazards-on-company`
+ * constraint restricts them to the revealed set for the rest of the company's
+ * movement/hazard phase.
+ */
+export interface EnqueueRevealHazardsChoiceAction extends TriggeredActionBase {
+  readonly type: 'enqueue-reveal-hazards-choice';
+}
+
 /** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */
 export interface SequenceAction extends TriggeredActionBase {
   readonly type: 'sequence';
@@ -3048,6 +3064,7 @@ export type TriggeredAction =
   | EnqueuePendingFetchAction
   | EnqueueRingPlayOfferAction
   | EnqueueGoldRingTestAction
+  | EnqueueRevealHazardsChoiceAction
   | SequenceAction
   | CancelChainEntryAction
   | CompanyTapCharactersTriggeredAction

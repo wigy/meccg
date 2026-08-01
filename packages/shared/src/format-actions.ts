@@ -490,6 +490,12 @@ export function describeAction(
       return action.homeSiteInstanceId
         ? `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`
         : `Reveal agent ${action.agentId as string} (no home site — discarded at end of turn)`;
+    case 'reveal-hazard-for-snake':
+      return `${playerName(action.player)} reveals ${instName(action.cardInstanceId)} (Here Is a Snake!)`;
+    case 'tap-reveal-agent-for-snake':
+      return action.homeSiteInstanceId
+        ? `${playerName(action.player)} taps and reveals agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)} instead of revealing hazards (Here Is a Snake!)`
+        : `${playerName(action.player)} taps and reveals agent ${action.agentId as string} (no home site — discarded at end of turn) instead of revealing hazards (Here Is a Snake!)`;
     case 'agent-move':
       return `Agent ${action.agentId as string} moves to ${instName(action.destinationSiteInstanceId)}`;
     case 'agent-move-back':

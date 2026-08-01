@@ -53,6 +53,8 @@ import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
 import { grantedAction } from './granted-action-emit.js';
 import { findKeywordTargets } from '../environment-targets.js';
+import { revealAgentActions } from './movement-hazard.js';
+import type { RevealAgentAction } from '../../types/actions-movement-hazard.js';
 
 
 /**
@@ -240,12 +242,30 @@ export function onGuardWindowActions(
     }
   }
 
+  // Here Is a Snake! (dm-137): "including on-guard cards" — once an
+  // only-revealed-hazards-on-company constraint has narrowed this company to
+  // a specific allow-list, on-guard cards outside it may not be revealed
+  // either. Checked here rather than via the generic `applyConstraints` post-filter:
+  // computeLegalActions short-circuits straight to `resolutionLegalActions`
+  // while ANY pending resolution (like this on-guard-window) is queued for the
+  // actor, so `applyConstraints` — which only wraps the phase-switch branch —
+  // never runs on this function's output.
+  const onlyRevealedConstraint = company && state.activeConstraints.find(
+    c => c.kind.type === 'only-revealed-hazards-on-company'
+      && c.target.kind === 'company' && c.target.companyId === company.id,
+  );
+
   if (company) {
     for (const ogCard of company.onGuardCards) {
       if (ogCard.revealed) continue;
       const def = defById(state, ogCard.definitionId);
       if (!def) continue;
       if (def.cardType !== 'hazard-event') continue;
+      if (onlyRevealedConstraint && onlyRevealedConstraint.kind.type === 'only-revealed-hazards-on-company'
+        && !onlyRevealedConstraint.kind.allowedInstanceIds.includes(ogCard.instanceId)) {
+        logDetail(`On-guard window: "${def.name}" not in Here Is a Snake!'s revealed set (constraint ${onlyRevealedConstraint.id as string}) — skipping`);
+        continue;
+      }
 
       // Per CoE rule 2.V.6, only hazard events that directly affect the
       // company may be revealed from on-guard when a resource is played.
@@ -1450,6 +1470,8 @@ function applyOneConstraint(
       return applySitePhaseDoNothing(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'only-revealed-hazards-on-company':
+      return applyOnlyRevealedHazardsOnCompany(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site':
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
@@ -1533,6 +1555,10 @@ function applyOneConstraint(
       return base;
     case 'extra-automatic-attack':
       // FEAR! FIRE! FOES! (as-29) Mode A — consumed directly by
+      // `manifestations.ts` `getActiveAutoAttacks`; no filtering needed here.
+      return base;
+    case 'mirror-automatic-attacks':
+      // Whole Villages Roused (wh-31) — consumed directly by
       // `manifestations.ts` `getActiveAutoAttacks`; no filtering needed here.
       return base;
     case 'influence-at-site-modifier':
@@ -1842,6 +1868,43 @@ function applyNoCreatureHazardsOnCompany(
       return true;
     }
     logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): dropping creature play "${def.name}" against protected company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Here Is a Snake! (dm-137): once the hazard player finalizes their
+ * `reveal-hazards-choice` resolution, drop every `play-hazard` action against
+ * the protected company (hazard creature or hazard event) whose card is not
+ * in the revealed allow-list. An empty allow-list drops every hazard play
+ * against the company for the rest of its M/H phase.
+ *
+ * On-guard reveals ("including on-guard cards") are filtered separately,
+ * directly inside `onGuardWindowActions` above — while an on-guard-window
+ * resolution is queued, `computeLegalActions` short-circuits straight to
+ * `resolutionLegalActions` and never reaches this generic constraint
+ * post-filter (which only wraps the phase-switch branch of the legal-action
+ * computer).
+ */
+function applyOnlyRevealedHazardsOnCompany(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  if (constraint.kind.type !== 'only-revealed-hazards-on-company') return base;
+  const protectedCompany = constraint.target.companyId;
+  const allowed = new Set<string>(constraint.kind.allowedInstanceIds.map(id => id as string));
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
+    if (targetCompanyId !== protectedCompany) return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId || allowed.has(cardInstId as string)) return true;
+    const def = resolveDef(state, cardInstId);
+    logDetail(`Constraint ${constraint.id as string} (only-revealed-hazards-on-company): dropping unrevealed "${def?.name ?? cardInstId as string}" against protected company ${protectedCompany as string}`);
     return false;
   });
 }
@@ -2902,6 +2965,64 @@ export function revealRemoveFromDiscardActions(
   }
   // "You may" — declining is always allowed.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `reveal-hazards-choice` pending resolution (Here Is a
+ * Snake! dm-137) is at the top of the queue. The actor (hazard player) may:
+ *
+ *  - reveal one more hazard card from hand (`reveal-hazard-for-snake`),
+ *    repeatable — one action per not-yet-revealed hazard-creature or
+ *    hazard-event card in hand;
+ *  - while nothing has been revealed yet, tap-reveal an eligible face-down,
+ *    untapped agent instead (`tap-reveal-agent-for-snake`) — the printed
+ *    alternative. Candidates and their home-site pairings are computed by
+ *    the same `revealAgentActions` logic as the standalone rule-4.2 reveal,
+ *    filtered to untapped agents (a tapped agent cannot be tapped again);
+ *  - `pass` to finalize with whatever has been revealed so far (even
+ *    nothing — the resulting allow-list may be empty).
+ */
+export function revealHazardsChoiceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-hazards-choice') return [];
+  const { revealedIds } = top.kind;
+  const player = playerById(state, actor);
+  const actions: EvaluatedAction[] = [];
+
+  if (player) {
+    for (const handCard of player.hand) {
+      if (revealedIds.includes(handCard.instanceId)) continue;
+      const def = defById(state, handCard.definitionId);
+      if (!def || (def.cardType !== 'hazard-creature' && def.cardType !== 'hazard-event')) continue;
+      actions.push({
+        action: { type: 'reveal-hazard-for-snake', player: actor, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
+    }
+
+    if (revealedIds.length === 0) {
+      for (const ea of revealAgentActions(state, actor)) {
+        const ra = ea.action as RevealAgentAction;
+        const agent = player.agents.find(a => a.id === ra.agentId);
+        if (!agent || agent.character.status !== CardStatus.Untapped) continue;
+        actions.push({
+          action: {
+            type: 'tap-reveal-agent-for-snake',
+            player: actor,
+            agentId: ra.agentId,
+            ...(ra.homeSiteInstanceId ? { homeSiteInstanceId: ra.homeSiteInstanceId } : {}),
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  actions.push({ action: { type: 'pass', player: actor }, viable: true });
   return actions;
 }
 

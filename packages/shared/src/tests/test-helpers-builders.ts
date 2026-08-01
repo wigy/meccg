@@ -616,7 +616,10 @@ export function buildSitePhaseState(opts: {
  * Rivendell to `destination`, and PLAYER_2 (hazard) holding `hazardHand`. Used
  * by hold-targeting hazard short-event card tests (FEAR! FIRE! FOES! as-29,
  * Arouse Defenders le-101) that must be offered against a moving company whose
- * destination site type matches the card's gate.
+ * destination site type matches the card's gate. `phaseState.destinationSiteType`
+ * is derived from `destination`'s own printed `siteType` (via `pool`), so
+ * `site-path` play-condition cards (Choking Shadows tw-21, Whole Villages
+ * Roused wh-31) that gate on `destinationSiteType` are exercised correctly too.
  *
  * `opts` covers the cases where the moving side is not a plain Wizard company:
  * `resourceAlignment` sets PLAYER_1's alignment and `origin` its starting site
@@ -644,9 +647,15 @@ export function buildHazardMovingState(
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: hazardHand, siteDeck: [MINAS_TIRITH] },
     ],
   });
+  const destinationSiteType = (pool[destination as string] as { siteType?: SiteType } | undefined)?.siteType;
   return {
     ...state,
-    phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName }),
+    phaseState: makeMHState({
+      hazardsPlayedThisCompany: 0,
+      hazardLimitAtReveal: 4,
+      destinationSiteName,
+      ...(destinationSiteType ? { destinationSiteType } : {}),
+    }),
   };
 }
 

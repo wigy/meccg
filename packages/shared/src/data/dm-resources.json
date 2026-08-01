@@ -886,8 +886,27 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company during its movement/hazard phase after cards have been drawn. Opponent may reveal to you any number of hazards from his hand. He may only play hazards he revealed to you (including on-guard cards) for the remainder of target company’s movement/hazard phase.Alternatively, a face-down agent is tapped and revealed."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "movement-hazard",
+        "step": "play-hazards"
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-reveal-hazards-choice"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a company during its movement/hazard phase after cards have been drawn. Opponent may reveal to you any number of hazards from his hand. He may only play hazards he revealed to you (including on-guard cards) for the remainder of target company’s movement/hazard phase.Alternatively, a face-down agent is tapped and revealed.",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hero-resource-event",

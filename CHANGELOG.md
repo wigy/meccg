@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.76.0 — 2026-08-01
+
+Nightly Build
+
+### Game Engine
+
+- Fixed A Chance Meeting / We Have Come to Kill being offered as a no-op play when no valid target exists
+
+### Web Client
+
+- Fixed missing Roll button for Seized by Terror pending resolution
+
+### Cards
+
+- Certified Here Is a Snake! (dm-137) and Whole Villages Roused (wh-31)
+
 ## 0.75.0 — 2026-08-01
 
 Nightly Build

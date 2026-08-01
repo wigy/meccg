@@ -66,6 +66,7 @@ import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from 
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { revealInstances } from './visibility.js';
+import { handleRevealAgent } from './mh-hazard-play.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 import { afterAttackPlayTargets } from './post-attack-play.js';
@@ -4003,6 +4004,113 @@ export function applyRevealRemoveFromDiscardResolution(
     outOfPlayPile: [...p.outOfPlayPile, chosen],
   }));
   return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `reveal-hazards-choice` pending resolution (Here Is a Snake!
+ * dm-137). Three actions apply against it:
+ *
+ *  - `reveal-hazard-for-snake` — reveal one more hazard card from hand
+ *    (recorded in `revealedInstances` immediately) and append it to the
+ *    resolution's accumulator; repeatable, resolution stays queued.
+ *  - `tap-reveal-agent-for-snake` — only legal while nothing has been
+ *    revealed yet. Resolves exactly like `reveal-agent` (rule 9.04 home-site
+ *    placement, movement-history and uniqueness checks — `handleRevealAgent`)
+ *    and, if the agent survived the reveal, additionally taps it. No
+ *    constraint is added; the resolution simply dequeues.
+ *  - `pass` — finalizes with whatever has accumulated (even nothing) as an
+ *    `only-revealed-hazards-on-company` constraint on the target company for
+ *    the rest of its M/H phase.
+ */
+export function applyRevealHazardsChoiceResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'reveal-hazards-choice') return null;
+
+  if (action.type === 'reveal-hazard-for-snake') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for reveal-hazards-choice' };
+    }
+    const playerIdx = getPlayerIndex(state, action.player);
+    const handCard = findById(state.players[playerIdx].hand, action.cardInstanceId);
+    if (!handCard) {
+      return { state, error: `Card ${action.cardInstanceId as string} not in hand` };
+    }
+    const def = defById(state, handCard.definitionId);
+    if (!def || (def.cardType !== 'hazard-creature' && def.cardType !== 'hazard-event')) {
+      return { state, error: `Card ${action.cardInstanceId as string} is not a hazard card` };
+    }
+    if (top.kind.revealedIds.includes(action.cardInstanceId)) {
+      return { state, error: `Card ${action.cardInstanceId as string} already revealed` };
+    }
+    const newRevealed = [...top.kind.revealedIds, action.cardInstanceId];
+    logDetail(`reveal-hazards-choice: ${action.player as string} reveals "${def.name}" (${newRevealed.length} revealed so far)`);
+    const revealedState = revealInstances(state, [handCard]);
+    const newState = {
+      ...revealedState,
+      pendingResolutions: revealedState.pendingResolutions.map(r =>
+        r.id === top.id ? { ...r, kind: { ...top.kind, revealedIds: newRevealed } } : r,
+      ),
+    };
+    return { state: newState };
+  }
+
+  if (action.type === 'tap-reveal-agent-for-snake') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for reveal-hazards-choice' };
+    }
+    if (top.kind.revealedIds.length > 0) {
+      return { state, error: 'Cannot tap-reveal an agent after revealing hazards' };
+    }
+    const revealResult = handleRevealAgent(state, {
+      type: 'reveal-agent',
+      player: action.player,
+      agentId: action.agentId,
+      ...(action.homeSiteInstanceId ? { homeSiteInstanceId: action.homeSiteInstanceId } : {}),
+    });
+    if (revealResult.error) return revealResult;
+
+    const playerIdx = getPlayerIndex(revealResult.state, action.player);
+    const revealedAgent = revealResult.state.players[playerIdx].agents.find(a => a.id === action.agentId);
+    let finalState = revealResult.state;
+    if (revealedAgent && revealedAgent.revealed) {
+      finalState = updatePlayer(finalState, playerIdx, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.id === action.agentId ? { ...a, character: { ...a.character, status: CardStatus.Tapped } } : a,
+        ),
+      }));
+      logDetail(`reveal-hazards-choice: ${action.player as string} taps and reveals a face-down agent instead of revealing hazards — no restriction applied`);
+    } else {
+      logDetail(`reveal-hazards-choice: ${action.player as string}'s agent was discarded on reveal (illegal movement history or uniqueness conflict) — no restriction applied`);
+    }
+    return { state: dequeueResolution(finalState, top.id), effects: revealResult.effects };
+  }
+
+  if (action.type === 'pass') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for reveal-hazards-choice' };
+    }
+    const { companyId, revealedIds } = top.kind;
+    const sourceDefinitionId = top.source ? resolveInstanceId(state, top.source) : undefined;
+    if (!top.source || !sourceDefinitionId) {
+      logDetail('reveal-hazards-choice: source card not found — finalizing with no constraint');
+      return { state: dequeueResolution(state, top.id) };
+    }
+    logDetail(`reveal-hazards-choice: ${action.player as string} finalizes with ${revealedIds.length} hazard(s) revealed — company ${companyId as string} restricted to the revealed set for the rest of its M/H phase`);
+    const newState = addConstraint(state, {
+      source: top.source,
+      sourceDefinitionId,
+      scope: { kind: 'company-mh-phase', companyId },
+      target: { kind: 'company', companyId },
+      kind: { type: 'only-revealed-hazards-on-company', allowedInstanceIds: revealedIds },
+    });
+    return { state: dequeueResolution(newState, top.id) };
+  }
+
+  return { state, error: `Pending reveal-hazards-choice requires reveal-hazard-for-snake, tap-reveal-agent-for-snake, or pass, got '${action.type}'` };
 }
 
 /**

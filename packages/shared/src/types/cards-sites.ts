@@ -96,6 +96,18 @@ export interface AutomaticAttack {
    * overridden by a defender's `detainment-attacks-normal` effect.
    */
   readonly detainmentAgainstPlayer?: PlayerId;
+  /**
+   * When true, this attack is detainment only when the **defending
+   * company is racially overt** (contains Orc/Troll or a Balrog avatar —
+   * see {@link isCovertCompany}), and a normal attack against a covert
+   * company. The inverse of the default §3.II "detainment against covert
+   * company" convention. Set on attacks borrowed via `mirror-automatic-attacks`
+   * (Whole Villages Roused wh-31 minion-hold mode: "detainment against overt
+   * companies", borrowing the corresponding hero site's automatic-attacks).
+   * Like {@link forceDetainment}, still overridden by a defender's
+   * `detainment-attacks-normal` effect.
+   */
+  readonly detainmentAgainstOvert?: boolean;
 }
 
 /**

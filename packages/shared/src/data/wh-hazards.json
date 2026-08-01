@@ -907,8 +907,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WholeVillagesRoused.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a hero Border-hold [{B}] or Free-hold [{F}]. The site has the automatic-attacks indicated on the corresponding minion site card (detainment against hero companies) but with +2 prowess. Alternatively, playable on a minion Shadow-hold [{S}] or Dark-hold [{D}]. The site has the automatic-attacks indicated on the corresponding hero site card (detainment against overt companies) but with +2 prowess."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$or": [
+            {
+              "$and": [
+                { "destinationSiteCardType": "hero-site" },
+                { "destinationSiteType": { "$in": ["border-hold", "free-hold"] } }
+              ]
+            },
+            {
+              "$and": [
+                { "destinationSiteCardType": "minion-site" },
+                { "destinationSiteType": { "$in": ["shadow-hold", "dark-hold"] } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "mirror-automatic-attacks",
+          "value": 2,
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Playable on a hero Border-hold [{B}] or Free-hold [{F}]. The site has the automatic-attacks indicated on the corresponding minion site card (detainment against hero companies) but with +2 prowess. Alternatively, playable on a minion Shadow-hold [{S}] or Dark-hold [{D}]. The site has the automatic-attacks indicated on the corresponding hero site card (detainment against overt companies) but with +2 prowess.",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hazard-event",

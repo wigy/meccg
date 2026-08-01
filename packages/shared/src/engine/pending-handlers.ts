@@ -62,6 +62,7 @@ import {
   applyInfluenceRevealPlayOfferResolution,
   applyInfluenceOverflowDiscardResolution,
   applyNazgulMultiCancelResolution,
+  applyRevealHazardsChoiceResolution,
 } from './pending-reducers.js';
 import {
   corruptionCheckActions,
@@ -100,6 +101,7 @@ import {
   influenceRevealPlayOfferActions,
   influenceOverflowDiscardActions,
   nazgulMultiCancelActions,
+  revealHazardsChoiceActions,
 } from './legal-actions/pending.js';
 
 /** The discriminant of every {@link PendingResolution} kind. */
@@ -166,6 +168,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'influence-reveal-play-offer': { legalActions: influenceRevealPlayOfferActions, apply: applyInfluenceRevealPlayOfferResolution },
   'influence-overflow-discard': { legalActions: influenceOverflowDiscardActions, apply: applyInfluenceOverflowDiscardResolution },
   'nazgul-multi-cancel': { legalActions: nazgulMultiCancelActions, apply: applyNazgulMultiCancelResolution },
+  'reveal-hazards-choice': { legalActions: revealHazardsChoiceActions, apply: applyRevealHazardsChoiceResolution },
 };
 
 /**

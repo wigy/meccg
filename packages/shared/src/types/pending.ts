@@ -1083,6 +1083,38 @@ export interface PendingResolution {
         readonly type: 'nazgul-multi-cancel';
         /** Card keyword identifying eligible cancel targets (`"Nazgûl"`). */
         readonly keyword: string;
+      }
+    | {
+        /**
+         * Here Is a Snake! (dm-137): "Opponent may reveal to you any number of
+         * hazards from his hand. He may only play hazards he revealed to you
+         * (including on-guard cards) for the remainder of target company's
+         * movement/hazard phase. Alternatively, a face-down agent is tapped
+         * and revealed."
+         *
+         * Actor is the hazard player (opponent of the card's controller). Each
+         * `reveal-hazard-for-snake` action reveals one more hazard card from
+         * their hand, appending its instance ID to {@link revealedIds} (mirrors
+         * `arrange-deck-top`'s accumulate-then-finalize shape, but the count is
+         * unbounded — "any number" — so there is no target length and the actor
+         * finalizes explicitly with `pass`). On `pass`, {@link revealedIds}
+         * (even empty) becomes the allow-list of an `only-revealed-hazards-on-company`
+         * constraint on {@link companyId} for the rest of its M/H phase (CoE
+         * rule 4.3 supports an agent tap "initiating a hazard effect" while
+         * still face-down at declaration).
+         *
+         * While {@link revealedIds} is still empty, the actor may instead take
+         * `tap-reveal-agent-for-snake` on an eligible face-down, untapped agent —
+         * the printed alternative — which taps and reveals that agent and
+         * dequeues this resolution with **no** constraint added (CoE rule 4.3).
+         * Once any card has been revealed the alternative is no longer offered:
+         * the actor has committed to the reveal-and-restrict path.
+         */
+        readonly type: 'reveal-hazards-choice';
+        /** The company the restriction (if any) will apply to. */
+        readonly companyId: CompanyId;
+        /** Hand instance IDs revealed to the card's controller so far, in reveal order. */
+        readonly revealedIds: readonly CardInstanceId[];
       };
 }
 
@@ -1740,6 +1772,45 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Whole Villages Roused (wh-31): the site's printed automatic-attacks
+         * are *replaced*, for this one company's visit only, by the automatic-
+         * attacks printed on the **corresponding site card of the other
+         * alignment** (same printed name, hero-site ↔ minion-site), each
+         * boosted by {@link prowessBoost} and carrying the applicable
+         * detainment mode. Installed (scope `'turn'`) when the hazard
+         * short-event resolves during M/H against a company moving to a hero
+         * Border-hold/Free-hold or a minion Shadow-hold/Dark-hold, keyed to
+         * the destination site *instance* (matching only this company's copy,
+         * unlike {@link ActiveConstraint.kind} `'replace-automatic-attacks'`
+         * which matches every printing by definition id). Consumed in
+         * `manifestations.ts` `getActiveAutoAttacks`, which returns the
+         * mirrored, boosted attack list in place of the printed one when a
+         * matching constraint is present.
+         */
+        readonly type: 'mirror-automatic-attacks';
+        /** The site instance whose printed attacks are replaced. */
+        readonly siteInstanceId: import('./common.js').CardInstanceId;
+        /** Definition id of the corresponding site card the attacks are borrowed from. */
+        readonly mirrorSiteDefinitionId: import('./common.js').CardDefinitionId;
+        /** Added to each borrowed attack's printed prowess. */
+        readonly prowessBoost: number;
+        /**
+         * Hero-hold mode ("detainment against hero companies"): the id of the
+         * hero-aligned player, baked onto each borrowed attack as
+         * {@link import('./cards-sites.js').AutomaticAttack.detainmentAgainstPlayer}.
+         * Absent when this constraint is in minion-hold mode.
+         */
+        readonly detainmentAgainstPlayer?: import('./common.js').PlayerId;
+        /**
+         * Minion-hold mode ("detainment against overt companies"): bakes
+         * {@link import('./cards-sites.js').AutomaticAttack.detainmentAgainstOvert}
+         * onto each borrowed attack. Absent when this constraint is in
+         * hero-hold mode.
+         */
+        readonly detainmentAgainstOvert?: boolean;
+      }
+    | {
+        /**
          * Blasting Fire (wh-51): every faction-influence attempt made
          * against a faction at the named site is modified by {@link value}
          * for the rest of the turn. Placed (scope `'turn'`) when the item
@@ -2182,6 +2253,30 @@ export interface ActiveConstraint {
          * place when it was untapped.
          */
         readonly type: 'tap-on-strike-assignment';
+      }
+    | {
+        /**
+         * Here Is a Snake! (dm-137): once the hazard player finalizes their
+         * `reveal-hazards-choice` resolution (by `pass`, with zero or more
+         * cards revealed), the opponent may, "for the remainder of target
+         * company's movement/hazard phase," play only the hazards they
+         * revealed. Company-scoped, `company-mh-phase` scope (auto-clears when
+         * the target company's M/H phase ends).
+         *
+         * Filters `play-hazard` actions targeting the protected company (both
+         * hazard creatures and hazard events), dropping any whose
+         * `cardInstanceId` is not in {@link allowedInstanceIds}. An empty list
+         * (the opponent revealed nothing) blocks every hazard play against the
+         * company for the rest of its M/H phase. "including on-guard cards" is
+         * enforced separately by `onGuardWindowActions`
+         * (`legal-actions/pending.ts`), which looks this constraint up
+         * directly — while an on-guard-window resolution is queued,
+         * `computeLegalActions` never reaches the generic constraint
+         * post-filter that this kind would otherwise ride.
+         */
+        readonly type: 'only-revealed-hazards-on-company';
+        /** Instance IDs of the hazard cards the opponent revealed; the sole plays still allowed. */
+        readonly allowedInstanceIds: readonly CardInstanceId[];
       };
 }
 
