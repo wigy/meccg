@@ -1055,6 +1055,34 @@ export interface PendingResolution {
         readonly playedThisTurnIds: readonly CardInstanceId[];
         /** Tier 2: characters that reverted to general influence outside the organization phase. */
         readonly uncontrolledIds: readonly CardInstanceId[];
+      }
+    | {
+        /**
+         * Praise to Elbereth (tw-305): "For each of your characters in play
+         * that you choose to tap … cancel one Nazgûl event or one Nazgûl
+         * attack." Declaring the card opens a repeatable window rather than
+         * a single choice: the actor may tap any number of untapped
+         * characters, one cancellation per tap, until no eligible
+         * (character, target) pair remains or they choose to stop (`pass`).
+         *
+         * CRF 22 rules "which characters are tapping to discard which events
+         * must be declared when [the card] is declared" — i.e. as one
+         * simultaneous choice with no opponent response in between. A
+         * sequence of this player's own actions achieves exactly that in a
+         * turn-based engine: nothing else becomes legal for the opponent
+         * while this resolution is queued, so the whole sequence behaves as
+         * one atomic declaration.
+         *
+         * Candidates are computed live from current state each time (no
+         * remaining-count field): unresolved chain entries and in-play cards
+         * carrying {@link keyword}, found via `findKeywordTargets`
+         * (`environment-targets.ts`). Cancellation reuses
+         * `resolveCardCancelByInstanceId` (`chain-reducer.ts`), the same
+         * negate-or-discard primitive Twilight-style environment cancels use.
+         */
+        readonly type: 'nazgul-multi-cancel';
+        /** Card keyword identifying eligible cancel targets (`"Nazgûl"`). */
+        readonly keyword: string;
       };
 }
 
@@ -1147,7 +1175,14 @@ export interface ActiveConstraint {
   readonly target:
     | { readonly kind: 'company'; readonly companyId: CompanyId }
     | { readonly kind: 'character'; readonly characterId: CardInstanceId }
-    | { readonly kind: 'player'; readonly playerId: PlayerId };
+    | { readonly kind: 'player'; readonly playerId: PlayerId }
+    /**
+     * Applies to every character of every player, with no company/character/
+     * player scoping — e.g. Praise to Elbereth (tw-305)'s "characters gain
+     * +1 prowess" (both sides, per the card's Spanish-text clarification
+     * "todos los personajes").
+     */
+    | { readonly kind: 'global' };
   /** Discriminated payload. */
   readonly kind:
     | {
@@ -1781,6 +1816,20 @@ export interface ActiveConstraint {
         /** Which stat receives the bonus. */
         readonly stat: 'prowess' | 'body';
         /** The bonus applied to every character in the company. */
+        readonly value: number;
+      }
+    | {
+        /**
+         * Praise to Elbereth (tw-305) style: flat stat bonus to every
+         * character in play (both players, no company/player scoping — see
+         * the `'global'` {@link ActiveConstraint.target}). The effect
+         * resolver synthesises an equivalent {@link StatModifierEffect} for
+         * every character in play, mirroring {@link company-stat-modifier}.
+         */
+        readonly type: 'global-stat-modifier';
+        /** Which stat receives the bonus. */
+        readonly stat: 'prowess';
+        /** The bonus applied to every character in play. */
         readonly value: number;
       }
     | {

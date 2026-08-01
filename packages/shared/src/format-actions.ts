@@ -637,6 +637,8 @@ export function describeAction(
       return `${playerName(action.player)} rolls for ${instName(action.targetCharacterId)}: ${action.explanation}`;
     case 'opposed-roll':
       return `${playerName(action.player)} rolls for ${instName(action.characterId)}: ${action.explanation}`;
+    case 'nazgul-multi-cancel-tap':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to cancel ${instName(action.targetInstanceId)} (Praise to Elbereth)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

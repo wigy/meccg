@@ -896,6 +896,19 @@ export type ChainEntryPayload =
        * card" (The Great Eye as-85) skip entries carrying this flag.
        */
       readonly fromOnGuard?: boolean;
+      /**
+       * True for a short-event played via the generic "repeatable
+       * cancel-chain-entry / global-stat-modifier self-enters-play" path
+       * (Praise to Elbereth tw-305) rather than its `cancel-attack` mode.
+       * Both modes push a bare `{ type: 'short-event' }` payload from the
+       * same card, so this flag — set only by the generic path
+       * (`handlePlayResourceShortEvent`) — keeps the repeatable window /
+       * global constraint from opening when the entry actually stems from
+       * `handleCancelAttack`'s from-hand cancel-attack push, whose own
+       * `cancel-attack` effect is resolved separately via
+       * `shouldFireOnChainResolution`.
+       */
+      readonly repeatableSelfEntersPlay?: true;
     }
   | {
       readonly type: 'creature';

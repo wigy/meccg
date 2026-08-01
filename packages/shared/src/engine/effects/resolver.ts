@@ -588,6 +588,12 @@ export function collectCharacterEffects(
   const charConstraints = collectCharacterStatModifierEffects(state, char);
   results.push(...charConstraints);
 
+  // Global stat boosts applied via active constraints (e.g. Praise to
+  // Elbereth's "+1 prowess to characters" while Doors of Night is in play).
+  // Applies to every character in play, both players — no target matching.
+  const globalConstraints = collectGlobalStatModifierEffects(state);
+  results.push(...globalConstraints);
+
   // Whip of Many Thongs (ba-82): a weapon whose effects have been cancelled for
   // the current company-vs-company combat contributes nothing "until the end of
   // the combat". Drop every effect sourced from a suppressed weapon instance so
@@ -886,6 +892,35 @@ function collectCharacterStatModifierEffects(
         || char.hazards.some(h => h.instanceId === constraint.source);
       if (!borne) continue;
     }
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId];
+    if (!sourceDef) continue;
+    const synthesized: StatModifierEffect = {
+      type: 'stat-modifier',
+      stat: constraint.kind.stat,
+      value: constraint.kind.value,
+    };
+    results.push({
+      effect: synthesized,
+      sourceDef,
+      sourceInstance: constraint.source,
+    });
+  }
+  return results;
+}
+
+/**
+ * Synthesise {@link StatModifierEffect}s from active `global-stat-modifier`
+ * constraints — a flat stat bonus to every character in play, both players
+ * (e.g. Praise to Elbereth tw-305's "characters gain +1 prowess" while Doors
+ * of Night is in play). Unlike {@link collectCompanyStatModifierEffects} /
+ * {@link collectCharacterStatModifierEffects}, there is no target to match:
+ * every `global-stat-modifier` constraint applies to every character.
+ */
+function collectGlobalStatModifierEffects(state: GameState): CollectedEffect[] {
+  if (state.activeConstraints.length === 0) return [];
+  const results: CollectedEffect[] = [];
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'global-stat-modifier') continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {

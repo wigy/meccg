@@ -25,10 +25,11 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
-import type { WithdrawAgentEffect } from '../../types/effects.js';
+import type { WithdrawAgentEffect, OnEventEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
+import { findKeywordTargets } from '../environment-targets.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -307,6 +308,37 @@ export function heroResourceShortEventActions(
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
       actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during combat`));
       continue;
+    }
+
+    // Repeatable cancel-chain-entry (Praise to Elbereth tw-305): "for each
+    // character you tap, cancel one <keyword> event or attack". Only offer
+    // the play when there is at least one matching target to cancel, or
+    // another self-enters-play effect on the same card (e.g. the Doors of
+    // Night prowess buff) currently applies — otherwise it would be a play
+    // with no possible effect (CoE 9.6).
+    const repeatableCancelEffect = effects.find(
+      (e): e is OnEventEffect =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply.type === 'cancel-chain-entry'
+        && e.apply.select === 'target'
+        && e.apply.repeatable === true,
+    );
+    if (repeatableCancelEffect && repeatableCancelEffect.apply.type === 'cancel-chain-entry') {
+      const keyword = repeatableCancelEffect.apply.keyword;
+      const hasTarget = !!keyword && findKeywordTargets(state, keyword).length > 0;
+      const hasOtherBenefit = effects.some(
+        e => e.type === 'on-event'
+          && e.event === 'self-enters-play'
+          && e !== repeatableCancelEffect
+          && e.apply.type === 'add-constraint'
+          && (!e.when || matchesCondition(e.when, { inPlay: inPlayNames })),
+      );
+      if (!hasTarget && !hasOtherBenefit) {
+        logDetail(`${def.name}: no ${keyword ?? '?'} target to cancel and no other benefit right now — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target and no other effect right now`));
+        continue;
+      }
     }
 
     // Resource-side `call-council` (e.g. Sudden Call, le-235): the caller

@@ -658,6 +658,25 @@ export interface DiscardItemFromCompanyAction {
 }
 
 /**
+ * Resolve one repetition of a `nazgul-multi-cancel` pending resolution
+ * (Praise to Elbereth tw-305): tap `characterId` (must be untapped, owned by
+ * the actor) to cancel the Nazgûl-keyworded card at `targetInstanceId` — an
+ * unresolved chain entry or an in-play card. The resolution stays queued
+ * afterward so the actor may repeat with a different character/target pair;
+ * `pass` ends the window.
+ */
+export interface NazgulMultiCancelTapAction {
+  /** Action discriminant. */
+  readonly type: 'nazgul-multi-cancel-tap';
+  /** The declaring player (owner of `characterId`). */
+  readonly player: PlayerId;
+  /** The untapped character being tapped to pay for this cancellation. */
+  readonly characterId: CardInstanceId;
+  /** The Nazgûl-keyworded chain entry or in-play card being canceled. */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Resolve a `force-discard-card` pending resolution: the actor picks one
  * candidate card (a ring) to discard. Used by *Rolled down to the Sea*
  * (wh-29), where the card-player's opponent must discard one ring from their

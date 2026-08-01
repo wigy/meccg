@@ -49,6 +49,7 @@ import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
 import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
+import { findKeywordTargets } from './environment-targets.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -856,28 +857,38 @@ function cascadeLinkedDiscards(stateBefore: GameState, stateAfter: GameState): G
 }
 
 /**
- * Cancel and discard an environment card targeted by a short-event (e.g. Twilight).
+ * Cancel and discard a card targeted by a short-event by instance id — used
+ * both for environment cancels (e.g. Twilight) and for other keyword-gated
+ * "cancel this card" effects (e.g. Praise to Elbereth tw-305's Nazgûl cancel,
+ * via {@link applyNazgulMultiCancelResolution} in pending-reducers.ts).
  *
  * The target may be in a player's cardsInPlay (hazard permanent events like Doors of Night),
  * in a player's cardsInPlay (resource permanent events like Gates of Morning),
- * or on the chain itself (an environment declared earlier in the same chain).
+ * or on the chain itself (a card declared earlier in the same chain).
  *
  * If the target is on the chain, it is negated (marked as canceled) instead of
  * being physically moved — the chain entry's card was already discarded on declaration.
  *
  * If the target has already been negated or removed (e.g. another Twilight canceled
  * it first), this is a no-op — the cancel fizzles.
+ *
+ * `chain` is null when no chain is currently active (the target can then only
+ * be found in `cardsInPlay` or as an active-constraint source).
  */
-function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstanceId, chain: ChainState): GameState {
+export function resolveCardCancelByInstanceId(
+  state: GameState,
+  targetInstanceId: CardInstanceId,
+  chain: ChainState | null,
+): GameState {
   const targetDef = resolveDef(state, targetInstanceId);
   const targetName = targetDef?.name ?? (targetInstanceId as string);
 
-  // Check if target is on the chain (environment declared earlier in the same chain)
-  const chainIdx = chain.entries.findIndex(
+  // Check if target is on the chain (declared earlier in the same chain)
+  const chainIdx = chain ? chain.entries.findIndex(
     e => e.card?.instanceId === targetInstanceId && !e.resolved && !e.negated,
-  );
-  if (chainIdx !== -1) {
-    logDetail(`Environment cancel: negating chain entry #${chainIdx} (${targetName})`);
+  ) : -1;
+  if (chain && chainIdx !== -1) {
+    logDetail(`Card cancel: negating chain entry #${chainIdx} (${targetName})`);
     const newEntries = chain.entries.map((e, i) =>
       i === chainIdx ? { ...e, negated: true } : e,
     );
@@ -888,7 +899,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
   for (let pi = 0; pi < state.players.length; pi++) {
     const player = state.players[pi];
     if (player.cardsInPlay.some(c => c.instanceId === targetInstanceId)) {
-      logDetail(`Environment cancel: removing ${targetName} from player ${pi} cardsInPlay → discard`);
+      logDetail(`Card cancel: removing ${targetName} from player ${pi} cardsInPlay → discard`);
       const removedCard = findById(player.cardsInPlay, targetInstanceId)!;
       const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
       newPlayers[pi as 0 | 1] = {
@@ -911,7 +922,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
     .filter(c => c.source === targetInstanceId)
     .map(c => c.id);
   if (matchingConstraintIds.length > 0) {
-    logDetail(`Environment cancel: removing ${matchingConstraintIds.length} active constraint(s) sourced from ${targetName}`);
+    logDetail(`Card cancel: removing ${matchingConstraintIds.length} active constraint(s) sourced from ${targetName}`);
     return {
       ...state,
       activeConstraints: state.activeConstraints.filter(c => c.source !== targetInstanceId),
@@ -919,7 +930,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
   }
 
   // Target already gone (fizzle) — e.g. another effect already canceled it
-  logDetail(`Environment cancel: target ${targetName} already gone — fizzle`);
+  logDetail(`Card cancel: target ${targetName} already gone — fizzle`);
   return state;
 }
 
@@ -1148,9 +1159,90 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
       });
       continue;
     }
+    if (onEvent.apply.type === 'add-constraint'
+      && onEvent.apply.constraint === 'global-stat-modifier') {
+      // Praise to Elbereth (tw-305) carries this effect unconditionally, but
+      // the card's OTHER mode (`cancel-attack`, resolved separately via
+      // `shouldFireOnChainResolution`) pushes the same bare `short-event`
+      // payload shape. Only fire here for entries declared via the generic
+      // self-enters-play path (see `repeatableSelfEntersPlay` on the payload).
+      if (entry.payload.type !== 'short-event' || !entry.payload.repeatableSelfEntersPlay) {
+        logDetail(`"${cardName}": global-stat-modifier self-enters-play — entry not from the repeatable self-enters-play path, skip`);
+        continue;
+      }
+      if (onEvent.when) {
+        const ctx = { inPlay: buildInPlayNames(newState) };
+        if (!matchesCondition(onEvent.when, ctx as unknown as Record<string, unknown>)) {
+          logDetail(`"${cardName}": global-stat-modifier self-enters-play — when gate not met, skip`);
+          continue;
+        }
+      }
+      const stat = onEvent.apply.stat;
+      const value = onEvent.apply.value;
+      if (stat !== 'prowess' || typeof value !== 'number') {
+        logDetail(`"${cardName}": global-stat-modifier self-enters-play — missing/invalid stat or value, fizzle`);
+        continue;
+      }
+      logDetail(`"${cardName}" resolved — global-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on every character (scope turn)`);
+      newState = addConstraint(newState, {
+        source: card.instanceId,
+        sourceDefinitionId: card.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'global' },
+        kind: { type: 'global-stat-modifier', stat, value },
+      });
+      continue;
+    }
     newState = applyAddConstraintFromOnEvent(newState, entry, onEvent, cardName);
   }
   return newState;
+}
+
+/**
+ * Fire a short-event's `on-event self-enters-play → cancel-chain-entry`
+ * apply carrying `repeatable: true` (Praise to Elbereth tw-305): enqueue the
+ * `nazgul-multi-cancel` pending resolution instead of resolving a single
+ * cancel. The card was already discarded at play time. See
+ * {@link nazgulMultiCancelActions} / {@link applyNazgulMultiCancelResolution}
+ * for the repeatable tap-to-cancel window itself.
+ */
+function applyRepeatableCancelChainEntryOnEnter(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  if (entry.payload.type !== 'short-event' || !entry.payload.repeatableSelfEntersPlay) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const cancelEffect = getCardEffects(def).find(
+    (e): e is OnEventEffect =>
+      e.type === 'on-event'
+      && e.event === 'self-enters-play'
+      && e.apply.type === 'cancel-chain-entry'
+      && e.apply.select === 'target'
+      && e.apply.repeatable === true,
+  );
+  if (!cancelEffect || cancelEffect.apply.type !== 'cancel-chain-entry') return state;
+  const keyword = cancelEffect.apply.keyword;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  if (!keyword) {
+    logDetail(`"${cardName}": repeatable cancel-chain-entry missing keyword, fizzle`);
+    return state;
+  }
+  // No point opening an interactive window (forcing an explicit `pass`) when
+  // nothing currently matches — e.g. Praise to Elbereth played purely for its
+  // Doors of Night prowess buff, with no Nazgûl threat in play or on the
+  // chain. Skip straight through so `resolveEntry` marks the entry resolved
+  // normally.
+  if (findKeywordTargets(state, keyword).length === 0) {
+    logDetail(`"${cardName}": no ${keyword} target to cancel — repeatable window not opened`);
+    return state;
+  }
+  logDetail(`"${cardName}" resolved — opening repeatable ${keyword}-cancel window for ${entry.declaredBy as string}`);
+  return enqueueResolution(state, {
+    source: card.instanceId,
+    actor: entry.declaredBy,
+    scope: { kind: 'phase', phase: state.phaseState.phase },
+    kind: { type: 'nazgul-multi-cancel', keyword },
+  });
 }
 
 /**
@@ -3778,7 +3870,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
   // Apply card effects based on payload type
   if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
-    current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+    current = resolveCardCancelByInstanceId(current, entry.payload.targetInstanceId, chain);
   }
 
   // "Remove this card from the game." — a short-event whose self-enters-play
@@ -3825,6 +3917,33 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Short events with self-enters-play → cancel-chain-entry (repeatable:
+  // true) effects (Praise to Elbereth tw-305): open the repeatable
+  // nazgul-multi-cancel window instead of resolving a single cancel. Like the
+  // influence-attempt case above, do NOT mark this entry resolved yet — leave
+  // it on the chain so the pending resolution's own `pass` handler
+  // (`applyNazgulMultiCancelResolution` → `resolveChainEntryAndContinue`)
+  // marks it resolved and resumes auto-resolution once the window closes.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card
+    && entry.payload.repeatableSelfEntersPlay) {
+    // Unlike the hazard-event path Lost in Free-domains uses (discarded at
+    // play time), this hero-side path only removed the card from hand at
+    // play time (see `handlePlayResourceShortEvent`) — discard it now that
+    // the entry resolves un-negated, matching every other short-event branch
+    // in this function.
+    const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+    current = updatePlayer(current, declaringIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+    }));
+
+    const pendingBefore = current.pendingResolutions.length;
+    current = applyRepeatableCancelChainEntryOnEnter(current, entry);
+    if (current.pendingResolutions.length > pendingBefore) {
+      return { state: current, needsInput: true };
+    }
   }
 
   // Greed (le-113 / tw-42): a hazard short-event played on a site installs a

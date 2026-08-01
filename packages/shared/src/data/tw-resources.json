@@ -3055,7 +3055,35 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "when": { "enemy.race": "ringwraith" },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "repeatable": true,
+          "keyword": "Nazgûl"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "inPlay": "Doors of Night" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "global-stat-modifier",
+          "stat": "prowess",
+          "value": 1,
+          "scope": "turn"
+        }
+      }
+    ],
     "text": "For each of your characters in play that you choose to tap (when this card is declared), cancel one Nazgûl event or one Nazgûl attack against that character's company. Nazgûl events discarded by Praise to Elbereth have no effect and Nazgûl permanent-events that are targeted by Praise to Elbereth may not be tapped in response to its play.Additionally, if Doors of Night is in play, characters gain +1 prowess until the end of the turn."
   },
   {

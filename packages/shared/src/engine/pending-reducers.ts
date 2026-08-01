@@ -58,7 +58,7 @@ import {
   buildSiteEntryAttackCombat,
   executeDeferredSiteAction,
 } from './reducer-site.js';
-import { autoResolve } from './chain-reducer.js';
+import { autoResolve, resolveCardCancelByInstanceId } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending.js';
@@ -4611,4 +4611,58 @@ export function applyInfluenceRevealPlayOfferResolution(
   }
 
   return { state: recomputeDerived(dequeueResolution(updated, top.id)) };
+}
+
+/**
+ * Resolve one repetition of a `nazgul-multi-cancel` resolution (Praise to
+ * Elbereth tw-305): `nazgul-multi-cancel-tap` taps the named character and
+ * cancels the named target, then leaves the resolution queued so the actor
+ * may repeat with another (character, target) pair; `pass` ends the window.
+ * See {@link resolveCardCancelByInstanceId} for the cancellation itself
+ * (negates an unresolved chain entry, or discards an in-play card).
+ */
+export function applyNazgulMultiCancelResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'nazgul-multi-cancel') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for nazgul-multi-cancel' };
+  }
+
+  if (action.type === 'pass') {
+    logDetail('Praise to Elbereth: declaring player stops tapping characters — resuming chain resolution');
+    const dequeued = dequeueResolution(state, top.id);
+    // Mark Praise to Elbereth's own chain entry resolved (its card was
+    // already discarded at play time) and resume the LIFO walk — mirrors
+    // `resolveChainEntryAndContinue`'s roll-resolution tail, matched by
+    // source card instance instead of a roll-kind predicate.
+    return resolveChainEntryAndContinue(dequeued, e => e.card?.instanceId === top.source, []);
+  }
+
+  if (action.type !== 'nazgul-multi-cancel-tap') {
+    return { state, error: `Pending nazgul-multi-cancel requires nazgul-multi-cancel-tap or pass, got '${action.type}'` };
+  }
+
+  const { characterId, targetInstanceId } = action;
+  const playerIdx = getPlayerIndex(state, action.player);
+  const charData = state.players[playerIdx].characters[characterId];
+  if (!charData || charData.status !== CardStatus.Untapped) {
+    return { state, error: `Character ${characterId as string} is not available to tap for nazgul-multi-cancel` };
+  }
+
+  const targetDef = resolveDef(state, targetInstanceId);
+  const targetName = targetDef?.name ?? (targetInstanceId as string);
+  logDetail(`Praise to Elbereth: tapping ${charData.definitionId as string} to cancel "${targetName}"`);
+
+  let next = updatePlayer(state, playerIdx, p =>
+    updateCharacter(p, characterId, c => ({ ...c, status: CardStatus.Tapped })));
+
+  next = resolveCardCancelByInstanceId(next, targetInstanceId, next.chain);
+
+  // The resolution stays queued (not dequeued) — repeatable until `pass` or
+  // no eligible (character, target) pair remains, matching CRF 22: all taps
+  // are declared together, with no opponent action able to interleave.
+  return { state: next };
 }

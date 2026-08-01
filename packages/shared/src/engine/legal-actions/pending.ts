@@ -52,6 +52,7 @@ import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
 import { grantedAction } from './granted-action-emit.js';
+import { findKeywordTargets } from '../environment-targets.js';
 
 
 /**
@@ -1555,6 +1556,11 @@ function applyOneConstraint(
     case 'character-stat-modifier':
       // Consumed directly by the effects resolver via
       // `collectCharacterEffects` — no legal-action filtering needed.
+      return base;
+    case 'global-stat-modifier':
+      // Praise to Elbereth (tw-305): consumed directly by the effects
+      // resolver via `collectCharacterEffects` — no legal-action filtering
+      // needed.
       return base;
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
@@ -3212,6 +3218,52 @@ export function influenceRevealPlayOfferActions(
   }
 
   // "May immediately play" — always declinable, which leaves the card in hand.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `nazgul-multi-cancel` resolution is pending (Praise
+ * to Elbereth tw-305). One `nazgul-multi-cancel-tap` action per (untapped
+ * character in the actor's companies, eligible keyword-matching target)
+ * pair, plus an always-available `pass` to stop tapping characters. Targets
+ * are recomputed live each call, so a target canceled by an earlier
+ * repetition of this same resolution naturally drops out.
+ */
+export function nazgulMultiCancelActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'nazgul-multi-cancel') return [];
+  const player = playerById(state, actor);
+  if (!player) return [];
+
+  const targets = findKeywordTargets(state, top.kind.keyword);
+  const actions: EvaluatedAction[] = [];
+
+  if (targets.length > 0) {
+    for (const company of player.companies) {
+      for (const charId of company.characters) {
+        const charData = player.characters[charId];
+        if (!charData || charData.status !== CardStatus.Untapped) continue;
+        for (const target of targets) {
+          const targetDef = defById(state, target.definitionId as CardDefinitionId);
+          logDetail(`nazgul-multi-cancel: offer tap ${charData.definitionId as string} → cancel "${targetDef?.name ?? target.instanceId as string}"`);
+          actions.push({
+            action: {
+              type: 'nazgul-multi-cancel-tap' as const,
+              player: actor,
+              characterId: charId,
+              targetInstanceId: target.instanceId,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
+
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
 }

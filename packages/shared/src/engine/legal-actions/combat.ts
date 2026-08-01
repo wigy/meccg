@@ -2492,8 +2492,8 @@ function cancelAttackActions(
       continue;
     }
 
-    // Costless cancel-attack: no skill/race requirement (e.g. Dark Quarrels)
-    if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace) {
+    // Costless cancel-attack: no skill/race requirement and no cost (e.g. Dark Quarrels)
+    if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace && !cancelEffect.cost) {
       logDetail(`Cancel-attack available (no cost): ${handCard.definitionId as string}`);
       actions.push({
         action: {
@@ -2510,7 +2510,12 @@ function cancelAttackActions(
     // requiredRace must be in the company. When the effect has a tap cost,
     // the character must be untapped (one action per qualifying character).
     // When the cost is a check (e.g. corruption), tapped characters qualify
-    // too. When there is no cost, any matching character suffices.
+    // too. When there is no cost, any matching character suffices. When
+    // neither requiredSkill nor requiredRace is set but a cost is (Praise to
+    // Elbereth tw-305: "for each of your characters … that you choose to
+    // tap"), any character in the company qualifies — the card's `when`
+    // filter (e.g. enemy.race) still gates which attacks the cancel applies
+    // to, one action per untapped company character.
     const matchesRequirement = (charDef: import('../../types/cards.js').CharacterCard): boolean => {
       if (cancelEffect.requiredSkill) {
         return charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill);
@@ -2518,7 +2523,7 @@ function cancelAttackActions(
       if (cancelEffect.requiredRace) {
         return charDef.race === cancelEffect.requiredRace;
       }
-      return false;
+      return true;
     };
 
     if (cancelEffect.cost) {

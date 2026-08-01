@@ -486,6 +486,29 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: chained };
   }
 
+  // Repeatable cancel-chain-entry / global-stat-modifier self-enters-play
+  // effects (Praise to Elbereth tw-305): per CoE 9.4/9.5 this is a declared
+  // action that must ride the chain of effects, since it is normally played
+  // as a response to Nazgûl entries still unresolved lower on the same
+  // chain. Resolution happens in `resolveEntry` (chain-reducer.ts), which
+  // opens the repeatable nazgul-multi-cancel window and/or installs the
+  // turn-scoped global prowess constraint.
+  const hasChainDeferredSelfEnter = getOnEventEffects(def, 'self-enters-play').some(
+    e => (e.apply.type === 'cancel-chain-entry' && e.apply.select === 'target' && e.apply.repeatable === true)
+      || (e.apply.type === 'add-constraint' && e.apply.constraint === 'global-stat-modifier'),
+  );
+  if (hasChainDeferredSelfEnter) {
+    const revealed = revealInstances(state, [handCard]);
+    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+    }));
+    logDetail(`${def.name} → chain of effects (repeatable cancel / global stat modifier resolves on chain resolution)`);
+    const payload: ChainEntryPayload = { type: 'short-event', repeatableSelfEntersPlay: true };
+    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
+    return { state: chained };
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent

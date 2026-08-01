@@ -2832,6 +2832,20 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
    * resolves un-negated — "Remove this card from the game" (wh-24).
    */
   readonly removeFromGame?: boolean;
+  /**
+   * For `select: 'target'`: opens a repeatable `nazgul-multi-cancel`
+   * resolution instead of resolving a single cancel immediately — the actor
+   * may tap any number of untapped characters, canceling one matching
+   * target per tap, until no eligible pair remains or they `pass`. Used by
+   * Praise to Elbereth (tw-305): "For each of your characters … that you
+   * choose to tap, cancel one Nazgûl event or one Nazgûl attack." Requires
+   * {@link keyword} — targets are found via `findKeywordTargets`, not
+   * `filter`/`requiredSkill`. The per-repetition cost is fixed (tap the
+   * chosen character); there is no separate cost field.
+   */
+  readonly repeatable?: boolean;
+  /** For `repeatable: true`: the card keyword identifying eligible targets. */
+  readonly keyword?: string;
 }
 
 /**
