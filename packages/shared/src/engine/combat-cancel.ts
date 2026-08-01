@@ -29,7 +29,7 @@ import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, co
 import { applyCost } from './cost-evaluator.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
-import { resolveStrikeCore, nextStrikePhase } from './combat-strike.js';
+import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
 import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { cvccSides } from './cvcc-sides.js';
@@ -817,6 +817,16 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
 export function resolveChainStrikeModifier(state: GameState, effect: StrikeModifierEffect): ReducerResult {
   const combat = state.combat;
   if (!combat) return { state, error: 'No active combat' };
+
+  if (effect.cancel) {
+    // Cancel mode (e.g. Orc Stealth le-217): the current strike is canceled
+    // outright, no roll made — same outcome as the item-based `cancel-strike`
+    // and `flee-from-strike` handlers.
+    const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+    const newAssignments = [...combat.strikeAssignments];
+    newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
+    return advanceStrikeOrFinalize(state, { ...combat, strikeAssignments: newAssignments });
+  }
 
   if (effect.dodge) {
     return resolveStrikeCore(state, combat, 'dodge', effect.bodyPenalty ?? 0, null);

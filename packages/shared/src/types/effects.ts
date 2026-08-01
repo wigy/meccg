@@ -5081,6 +5081,14 @@ export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
  *   using the better result. The character taps normally (tap-to-fight).
  *   An optional `filter` gates availability on the strike target character.
  *   Example: Lucky Strike (tw-270) — Warrior only; roll twice, take better.
+ *
+ * - **`cancel: true`**: the strike is canceled outright, no roll made. Like
+ *   dodge and reroll, an optional `filter` gates availability on the strike
+ *   target character (e.g. race and/or skill). Resolves immediately (no
+ *   chain — matches the item-based `cancel-strike` and `flee-from-strike`
+ *   precedent of not offering the opponent a response window).
+ *   Example: Orc Stealth (le-217) — Orc scout only; cancels one strike
+ *   against an Orc scout.
  */
 export interface StrikeModifierEffect extends EffectBase {
   readonly type: 'strike-modifier';
@@ -5088,13 +5096,15 @@ export interface StrikeModifierEffect extends EffectBase {
   readonly dodge?: true;
   /** If true: roll twice and use the better result (reroll mode). */
   readonly reroll?: true;
+  /** If true: the strike is canceled outright, no roll made (cancel mode). */
+  readonly cancel?: true;
   /** Prowess bonus for this strike (+/−). Used in default and dodge modes. */
   readonly prowessBonus?: number;
   /** Body modifier applied on the body check (typically negative). */
   readonly bodyPenalty?: number;
   /** Optional skill the struck character must have (default and dodge modes). */
   readonly requiredSkill?: string;
-  /** Filter condition on the strike target character (reroll mode). */
+  /** Filter condition on the strike target character (reroll and cancel modes). */
   readonly filter?: Condition;
 }
 

@@ -346,8 +346,11 @@ export function handleFleeFromStrike(state: GameState, action: GameAction, comba
 
 /**
  * Play a `strike-modifier` short event from hand during resolve-strike.
- * Covers three resolution modes driven by the card's effect flags:
+ * Covers four resolution modes driven by the card's effect flags:
  *
+ * - **cancel** (`effect.cancel`): moves the card to discard and immediately
+ *   calls `resolveChainStrikeModifier` in cancel mode — the strike is
+ *   canceled outright, no roll, no chain.
  * - **dodge** (`effect.dodge`): moves the card to discard, initiates a chain
  *   (opponent may respond), and on resolution calls `resolveChainStrikeModifier`
  *   in dodge mode — the character resolves without tapping.
@@ -374,13 +377,19 @@ export function handlePlayStrikeEvent(state: GameState, action: GameAction, comb
   }
 
   const cardLabel = cardName(state, handCard.definitionId);
-  logDetail(`Playing strike event ${cardLabel} (mode: ${strikeEffect.dodge ? 'dodge' : strikeEffect.reroll ? 'reroll' : 'modify'})`);
+  logDetail(`Playing strike event ${cardLabel} (mode: ${strikeEffect.cancel ? 'cancel' : strikeEffect.dodge ? 'dodge' : strikeEffect.reroll ? 'reroll' : 'modify'})`);
 
   let resultState = updatePlayer(state, defPlayerIndex, p => ({
     ...p,
     hand: removeById(p.hand, handCard.instanceId),
     discardPile: [...p.discardPile, toCardInstance(handCard)],
   }));
+
+  if (strikeEffect.cancel) {
+    // Cancel mode: resolves immediately, no chain (matches item-based
+    // cancel-strike and flee-from-strike — no opponent response window).
+    return resolveChainStrikeModifier(resultState, strikeEffect);
+  }
 
   if (strikeEffect.dodge) {
     // Dodge mode: initiate chain so opponent may respond; resolution applies the dodge effect.
