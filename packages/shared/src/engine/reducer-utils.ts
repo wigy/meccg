@@ -4317,21 +4317,35 @@ export function rescuablePrisonersAtSite(
 }
 
 /**
- * Whether `def` is a `trigger-attack-on-play` permanent event whose
- * `afterAttack: 'move-to-mp-pile'` mode keeps it living in `cardsInPlay`
- * indefinitely once its self-inflicted attack is survived (Burning Rick, Cot,
- * and Tree le-173: "put this card in your marshalling point pile"; Descent
- * through Fire ba-56 and siblings). Such a card's `attachedToSite` only
- * records *where it was played* (for its `duplication-limit` scope, see
+ * Whether `def` is a `trigger-attack-on-play` permanent event that *detaches*
+ * from its bound site once kept, continuing to score MP from `cardsInPlay`
+ * regardless of the site's occupancy (Burning Rick, Cot, and Tree le-173,
+ * Smoke on the Wind le-230: "put this card in your marshalling point pile";
+ * Descent through Fire ba-56 / Tempest of Fire ba-77: "place this card in
+ * your marshalling point pile"). Such a card's `attachedToSite` only records
+ * *where it was played* (for its `duplication-limit` scope, see
  * {@link countPermanentEventCopiesAtSite}) — unlike a site-transforming event,
- * it has no ongoing tie to that site and must keep scoring MP after the
- * bearer's company travels elsewhere. Whether it survives the attack at all
- * is decided solely by the card-triggered-attack combat resolution in
- * `combat-finalize.ts`, never by this generic occupancy sweep.
+ * it has no ongoing tie to that site.
+ *
+ * `afterAttack: 'move-to-mp-pile'` alone is *not* sufficient: it is also the
+ * mechanical mode (tap bearer, leave in `cardsInPlay`, no untap constraint)
+ * for Invade Their Domain (ba-64) / Lord and Usurper (ba-65) / People
+ * Diminished (ba-72), whose text keeps them literally site-bound ("Discard
+ * this card when the site is discarded or returned to its location deck")
+ * — ba-65 even requires ba-64 to still be `card-attached-to-site` as a play
+ * condition. Those cards are marked by `discardUniqueFactionsAtSite` (as
+ * opposed to the detaching cards' `discardFactionsAtSite` /
+ * `returnFactionsAtSite` / no discard field at all) and must keep following
+ * the default discard-on-vacate sweep below.
+ *
+ * Whether the card survives the attack at all is decided solely by the
+ * card-triggered-attack combat resolution in `combat-finalize.ts`, never by
+ * this generic occupancy sweep.
  */
 function cardKeptInMarshallingPointPile(def: CardDefinition | null | undefined): boolean {
   return getCardEffects(def).some(
-    e => e.type === 'trigger-attack-on-play' && e.afterAttack === 'move-to-mp-pile',
+    e => e.type === 'trigger-attack-on-play' && e.afterAttack === 'move-to-mp-pile'
+      && !e.discardUniqueFactionsAtSite,
   );
 }
 
