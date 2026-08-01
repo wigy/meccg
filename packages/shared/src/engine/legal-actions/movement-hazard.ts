@@ -726,7 +726,7 @@ function agentRevealSiteOverrideTypes(
  * homeSiteInstanceId — the reveal is legal but the agent will be discarded
  * at end of turn (rule 9.04).
  */
-function revealAgentActions(
+export function revealAgentActions(
   state: GameState,
   playerId: PlayerId,
 ): EvaluatedAction[] {
