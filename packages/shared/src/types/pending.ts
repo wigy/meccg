@@ -1359,13 +1359,18 @@ export interface ActiveConstraint {
          * target boosts attacks against **every** company that player controls
          * — "all Wolf, Spider, and Animal attacks" (Dwar of Waw tw-31, via the
          * `attack-race-boost` effect).
+         *
+         * `race` is omitted entirely for a race-agnostic modifier that applies
+         * to every attack regardless of creature race — Wizard's Flame
+         * (tw-361, via the `company-attack-modifier` effect): "All attacks
+         * against Wizard's company suffer a -2 modification to prowess."
          */
         readonly type: 'creature-attack-boost';
         /**
          * Creature race — or races — that receive the boost (e.g. `"undead"`,
-         * or `["wolf", "spider", "animal"]`).
+         * or `["wolf", "spider", "animal"]`). Omit to match every race.
          */
-        readonly race: Race | readonly Race[];
+        readonly race?: Race | readonly Race[];
         /** Strike bonus applied to matching creature attacks. */
         readonly strikes: number;
         /** Prowess bonus applied to matching creature attacks. */

@@ -12124,6 +12124,29 @@ companies face hazards this turn. `collectCreatureAttackBoostEffects`
 prowess/strikes, so the boost lands on hazard-creature attacks and site
 automatic-attacks alike, and the `turn` scope sweeps it at end of turn.
 
+**Race-agnostic, self-targeted use via `on-event: self-enters-play` →
+`add-constraint`.** A plain resource short event with no combat/move/draw
+shape resolves inline (`handlePlayResourceShortEvent`, not the chain), so
+`attack-race-boost` itself (a chain-only primitive) doesn't reach it. Its
+underlying `creature-attack-boost` constraint kind is reachable from that
+inline path too, via the generic `add-constraint` `on-event` case already
+used for `character-stat-modifier`/`hazard-limit-modifier`/etc. (§ "add-constraint"
+above): set `constraint: "creature-attack-boost"`, `scope: "turn"`, and
+`prowess`/`strikes` on the apply, and **omit `race`** — the constraint-kind
+builder (`reducer-events.ts`) passes the apply's `race` through only when
+present, and `collectCreatureAttackBoostEffects` treats an absent `race` as
+"matches every attack" rather than filtering by one. The company is resolved
+from the card's own `play-target`-chosen character exactly as every other
+character-targeted `add-constraint` apply (§ "add-constraint": "resolve the
+target company from ... the scout/character instance"). Used by Wizard's
+Flame (tw-361): "Spell. Wizard only. All attacks against Wizard's company
+suffer a -2 modification to prowess for the rest of the turn. Wizard makes a
+corruption check modified by -3." — `play-target` (`target: "character"`,
+`filter: { "target.race": "wizard" }`), `on-event: self-enters-play` →
+`add-constraint` (`constraint: "creature-attack-boost"`, `scope: "turn"`,
+`prowess: -2`), and a second `on-event: self-enters-play` →
+`enqueue-corruption-check` (`modifier: -3`).
+
 ### 56i. `target-character-stat-modifier`
 
 When this short-event resolves — including a dual-mode creature's
