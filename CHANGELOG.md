@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.75.0 — 2026-08-01
+
+Nightly Build
+
+### Game Engine
+
+- Fixed Alatar (and other compound-homesite characters) being unable to be revealed
+- Fixed River's cancel-river action being rejected during the movement/hazard reset-hand step
+- Fixed game-scope duplication limit missing copies pending on the chain of effects
+- Characters can now tap in support during item-transfer corruption checks
+- Fixed Liquid Fire (wh-52) rejected as not playable at a tapped site
+- Fixed Were-worm (td-80) so the attacker chooses the defending characters
+- Fixed Creature of an Older World (as-73) never being playable
+
+### Web Client
+
+- Added board UI for event-maintenance upkeep
+- Fixed missing Roll button for Gandalf's gold-ring test
+- Fixed on-guard-only hand cards rendering indistinguishable from dead cards
+
+### Cards
+
+- Certified Were-worm (td-80) and Blow Turned (le-171)
+- Fixed Orc Chieftain (le-32) missing the "leader" keyword
+
 ## 0.74.0 — 2026-08-01
 
 Nightly Build

@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1058 | 1055 | 3 | 99.7% |
+| 1060 | 1057 | 3 | 99.7% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 102 | 102 | 100.0% |
+| AS | 103 | 103 | 100.0% |
 | BA | 96 | 96 | 100.0% |
 | DM | 90 | 90 | 100.0% |
-| LE | 293 | 291 | 99.3% |
+| LE | 294 | 292 | 99.3% |
 | TD | 80 | 80 | 100.0% |
 | TW | 314 | 313 | 99.7% |
 | WH | 83 | 83 | 100.0% |
@@ -60,6 +60,7 @@
 | as-63 | Haradrim | — | 8 | ☑ |
 | as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
+| as-73 | Creature of an Older World | — | 3 | ☑ |
 | as-74 | Great Bats | — | 17 | ☑ |
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
@@ -340,7 +341,7 @@
 | le-29 | Old Troll | — | 8 | ☑ |
 | le-30 | Orc Brawler | — | 5 | ☑ |
 | le-31 | Orc Captain | — | 4 | ☑ |
-| le-32 | Orc Chieftain | — | 6 | ☑ |
+| le-32 | Orc Chieftain | — | 7 | ☑ |
 | le-34 | Orc Tracker | — | 5 | ☑ |
 | le-35 | Orc Veteran | — | 3 | ☑ |
 | le-36 | Ostisen | — | 3 | ☑ |
@@ -434,6 +435,7 @@
 | le-165 | Awaiting the Call | — | 10 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
 | le-170 | Black Rider | — | 8 | ☑ |
+| le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
 | le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
@@ -642,7 +644,7 @@
 | td-76 | Times Are Evil | — | 5 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
 | td-78 | True Fire-drake | — | 8 | ☑ |
-| td-80 | Were-worm | — | 5 | ☑ |
+| td-80 | Were-worm | — | 7 | ☑ |
 | td-81 | Wild Fell Beast | — | 8 | ☑ |
 | td-84 | Winged Fire-drake | — | 2 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
@@ -738,7 +740,7 @@
 | tw-078 | Orc-watch | — | 3 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
-| tw-084 | — | — | 12 | ☑ |
+| tw-084 | — | — | 13 | ☑ |
 | tw-87 | Siege | — | 16 | ☑ |
 | tw-89 | Slayer | — | 7 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
@@ -846,7 +848,7 @@
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
 | tw-240 | Fellowship | — | 11 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
-| tw-243 | Gates of Morning | — | 10 | ☑ |
+| tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
 | tw-245 | Goldberry | — | 15 | ☑ |
 | tw-246 | Gollum | — | 16 | ☑ |
@@ -999,7 +1001,7 @@
 | tw-497 | A Pack at the Door | — | 11 | ☑ |
 | tw-498 | Swordmaster | — | 16 | ☑ |
 | tw-499 | Dwarven Axe | — | 7 | ☑ |
-| wh-1 | Alatar | — | 10 | ☑ |
+| wh-1 | Alatar | — | 12 | ☑ |
 | wh-2 | Doeth (Durthak) | — | 6 | ☑ |
 | wh-3 | Euog (Ulzog) | — | 12 | ☑ |
 | wh-4 | Gandalf | — | 12 | ☑ |
