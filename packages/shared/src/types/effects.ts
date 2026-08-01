@@ -2396,6 +2396,8 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly stat?: 'prowess' | 'body' | 'direct-influence';
   /** Creature race filter for creature-attack-boost. */
   readonly race?: Race;
+  /** Excluded creature races for `defeat-attack-strikes` (Liquid Fire wh-52). */
+  readonly excludeRaces?: readonly Race[];
   /** Prowess bonus for creature-attack-boost. */
   readonly prowess?: number;
   /** Strike bonus for creature-attack-boost. */

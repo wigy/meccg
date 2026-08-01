@@ -2269,6 +2269,40 @@ Actions:
         "uncancelable": true, "eachCharacter": true } } }
   ```
 
+- `defeat-attack-strikes` (`add-constraint` kind) — discard the source item
+  during the active player's site phase (`activeSitePhase: true`, offered at
+  the enter-or-skip decision window, same as `skip-automatic-attacks`) to add
+  a single-use `defeat-attack-strikes` constraint to the bearer's company.
+  Consumed by the site's automatic-attack initiation in `reducer-site.ts`:
+  the next automatic-attack the company faces whose creature race is **not**
+  in `excludeRaces` has every one of its strikes automatically resolve as
+  defeated (as if parried), regardless of the roll — threaded onto the combat
+  as `forcedStrikeDefeat: true` and consumed in `combat-strike.ts`'s
+  `resolveStrikeCore` (short-circuits the roll comparison; skipped entirely
+  by the `discardItemEffect`/`takePrisonerResult`/absorb-wound overrides,
+  which only fire on a `'wounded'` result). A forced-defeat strike still
+  triggers the normal creature body check when the creature has body, but
+  that check is penalized by `value` (the constraint's `bodyCheckModifier`,
+  typically negative) — threaded as `forcedDefeatBodyCheckModifier` and added
+  into `effectiveRoll` alongside the wounded-agent bonus and
+  `bearerCombatBodyCheckModifier` in `handleBodyCheckRoll`
+  (`combat-actions.ts`). If the attack's race *is* excluded, the constraint
+  is left untouched so it can still apply to a later qualifying
+  automatic-attack at the same site visit (it does not consume on a
+  non-match). `excludeRaces` and `value` are read off the `add-constraint`
+  apply clause by `buildPayloadConstraintKind` (`grant-action-apply.ts`).
+  Used by *Liquid Fire* (wh-52): "Discard to cause all strikes from all
+  attacks of a non-Dragon, non-Nazgûl, non-Balrog creature keyed to a site to
+  fail (resulting body checks for the creature are modified by -2)."
+
+  ```json
+  { "type": "grant-action", "action": "liquid-fire-defeat-attack",
+    "activeSitePhase": true, "cost": { "discard": "self" },
+    "apply": { "type": "add-constraint", "constraint": "defeat-attack-strikes",
+      "scope": "company-site-phase", "target": "bearer-company", "value": -2,
+      "excludeRaces": ["dragon", "ringwraith", "balrog"] } }
+  ```
+
 - `boost-company-influence` — tap the bearer (a sage carrying a
   permanent enchantment) during the active player's site phase to add
   `+value` to one influence attempt by **another** untapped character in
