@@ -2444,7 +2444,7 @@ function playHazardsActions(
             (e): e is PlayConditionEffect => e.type === 'play-condition',
           );
           if (playCondition && playCondition.requires === 'site-path') {
-            if (!checkSitePathCondition(mhState, playCondition, state)) {
+            if (!checkSitePathCondition(mhState, playCondition, state, targetCompany)) {
               logDetail(`Hazard short-event "${def.name}": site path condition not met`);
               actions.push({ action, viable: false, reason: 'Site path condition not met' });
               continue;
@@ -2463,7 +2463,7 @@ function playHazardsActions(
             const relevantSite = targetCompany.destinationSite ?? targetCompany.currentSite;
             const siteDef = relevantSite ? defById(state, relevantSite.definitionId) : undefined;
             const siteCtx = siteDef && isSiteCard(siteDef)
-              ? { site: { name: siteDef.name, siteType: siteDef.siteType, region: siteDef.region, keywords: siteDef.keywords ?? [] } }
+              ? { site: { name: siteDef.name, siteType: siteDef.siteType, cardType: siteDef.cardType, region: siteDef.region, keywords: siteDef.keywords ?? [] } }
               : { site: {} };
             if (!matchesCondition(playCondition.condition, siteCtx as unknown as Record<string, unknown>)) {
               logDetail(`Hazard short-event "${def.name}": company-site condition not met (site ${siteDef && isSiteCard(siteDef) ? siteDef.name : 'none'})`);
@@ -3271,7 +3271,7 @@ function playHazardsActions(
         const sitePathCond = getCardEffects(def).find(
           (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-path',
         );
-        if (sitePathCond && !checkSitePathCondition(mhState, sitePathCond, state)) {
+        if (sitePathCond && !checkSitePathCondition(mhState, sitePathCond, state, targetCompany)) {
           logDetail(`Hazard event "${def.name}": site path condition not met`);
           actions.push({ action, viable: false, reason: `${def.name}: site path condition not met` });
           continue;
@@ -4473,6 +4473,15 @@ function hasCreatureKeyingBypass(
  * - `destinationSiteType` — the site type of the destination (e.g.
  *   `ruins-and-lairs`), enabling cards like Dragon's Desolation Mode B
  *   that gate on both path composition and destination site type.
+ * - `destinationSiteCardType` — the destination site's printed alignment
+ *   (`"hero-site"` / `"minion-site"` / etc.), resolved from `targetCompany`'s
+ *   actual `destinationSite` definition. Only ever populated for a company
+ *   that is genuinely **moving** (unlike the `company-site` play-condition's
+ *   `destinationSite ?? currentSite` fallback, `site-path` never falls back to
+ *   the current site — a stationary company exposes no `destinationSiteType`
+ *   at all, so a condition referencing it correctly fails). Lets a card
+ *   distinguish e.g. a hero Border-hold from a minion Border-hold (the same
+ *   `siteType` occurs on both alignments).
  * - `inPlay` — names of all cards currently in play for both players,
  *   matching the shared `inPlay` condition semantics (e.g. Doors of
  *   Night as an alt-keying modifier).
@@ -4481,6 +4490,7 @@ function checkSitePathCondition(
   mhState: MovementHazardPhaseState,
   effect: PlayConditionEffect,
   state?: GameState,
+  targetCompany?: Company,
 ): boolean {
   const ctx: Record<string, unknown> = { sitePath: regionTypeCounts(mhState.resolvedSitePath) };
   if (mhState.destinationSiteType) {
@@ -4493,6 +4503,12 @@ function checkSitePathCondition(
   }
   if (state) {
     ctx['inPlay'] = buildInPlayNames(state);
+  }
+  if (state && targetCompany?.destinationSite) {
+    const destDef = state.cardPool[targetCompany.destinationSite.definitionId] as { cardType?: string } | undefined;
+    if (destDef?.cardType) {
+      ctx['destinationSiteCardType'] = destDef.cardType;
+    }
   }
   return effect.condition ? matchesCondition(effect.condition, ctx) : true;
 }

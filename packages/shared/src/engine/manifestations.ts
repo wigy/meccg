@@ -417,6 +417,30 @@ export function getActiveAutoAttacks(
     }];
   }
 
+  // Whole Villages Roused (wh-31): a `mirror-automatic-attacks` constraint
+  // matching this site *instance* (not definition id — only the visiting
+  // company's own copy is affected, for this turn only) replaces the entire
+  // attack list with the corresponding site card's (other alignment, same
+  // name) automatic-attacks, each boosted by the constraint's prowessBoost
+  // and carrying its baked-in detainment mode.
+  const mirror = siteInstanceId
+    ? state.activeConstraints.find(
+      c => c.kind.type === 'mirror-automatic-attacks' && c.kind.siteInstanceId === siteInstanceId,
+    )
+    : undefined;
+  if (mirror && mirror.kind.type === 'mirror-automatic-attacks') {
+    const mirrorKind = mirror.kind;
+    const mirrorDef = state.cardPool[mirrorKind.mirrorSiteDefinitionId] as SiteCard | undefined;
+    const mirrorAttacks = mirrorDef?.automaticAttacks ?? [];
+    logDetail(`mirror-automatic-attacks: ${siteDef.name} automatic-attacks replaced with ${mirrorDef?.name ?? mirrorKind.mirrorSiteDefinitionId as string}'s ${mirrorAttacks.length} attack(s), +${mirrorKind.prowessBoost} prowess`);
+    return mirrorAttacks.map(a => ({
+      ...a,
+      prowess: a.prowess + mirrorKind.prowessBoost,
+      ...(mirrorKind.detainmentAgainstPlayer !== undefined ? { detainmentAgainstPlayer: mirrorKind.detainmentAgainstPlayer } : {}),
+      ...(mirrorKind.detainmentAgainstOvert ? { detainmentAgainstOvert: true } : {}),
+    }));
+  }
+
   // Roots of the Earth (ba-74): a `site-instance-transform` strips all
   // automatic-attacks from the associated Darkhaven instance and adds an Orcs
   // 5/9 auto-attack to every other version. Lord and Usurper (ba-65): both the
