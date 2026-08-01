@@ -25,6 +25,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.getElementById('skip-cvcc-btn')?.remove();
   document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
   document.querySelectorAll('.gold-ring-choice-btn').forEach(b => b.remove());
+  document.querySelectorAll('.great-hunt-choice-btn').forEach(b => b.remove());
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
   // (which would otherwise show permanently, since they have no legal actions).
@@ -73,6 +74,27 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         chooseBtn.className = 'enter-site-btn gold-ring-choice-btn';
         chooseBtn.textContent = `Use ${chooseAction.rollTotal}`;
         chooseBtn.title = chooseAction.explanation;
+        chooseBtn.onclick = () => onAction(chooseAction);
+        document.getElementById('visual-panel')?.appendChild(chooseBtn);
+      }
+      return;
+    }
+
+    // The Great Hunt (wh-91): the controller chooses whether the opponent
+    // reveals from their play deck or discard pile (`choose-great-hunt-source`).
+    // Like the gold-ring choice above, there is no safe default pile to pick
+    // silently, so it is deliberately absent from the pass-like whitelist —
+    // render one button per offered pile instead of hiding the whole panel.
+    const greatHuntSourceEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'choose-great-hunt-source');
+    if (greatHuntSourceEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of greatHuntSourceEvals) {
+        const chooseAction = ea.action;
+        if (chooseAction.type !== 'choose-great-hunt-source') continue;
+        const chooseBtn = document.createElement('button');
+        chooseBtn.className = 'enter-site-btn great-hunt-choice-btn';
+        chooseBtn.textContent = chooseAction.source === 'deck' ? 'Reveal Play Deck' : 'Reveal Discard Pile';
         chooseBtn.onclick = () => onAction(chooseAction);
         document.getElementById('visual-panel')?.appendChild(chooseBtn);
       }
