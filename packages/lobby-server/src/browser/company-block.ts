@@ -36,6 +36,7 @@ import type {
   SelectCardBearerAction,
   DeclareAgentAttackAction,
   TapAltPermanentEventAction,
+  PayEventMaintenanceAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -1163,6 +1164,44 @@ export function findInPlayGrantedActions(
 }
 
 /**
+ * Find the viable `pay-event-maintenance` actions for the in-play event
+ * `cardInstanceId` is the upkeep source of (Thrice Outnumbered le-142,
+ * Balance Between Powers dm-118). One action per way to resolve the current
+ * stage — give the card up, decline to bid, or discard one of the actor's
+ * matching hand cards — all keyed to the same `sourceInstanceId`.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and
+ * the behaviour can be regression-tested without a full DOM render.
+ */
+export function findEventMaintenanceActions(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): PayEventMaintenanceAction[] {
+  return actions.filter(
+    (a): a is PayEventMaintenanceAction =>
+      a.type === 'pay-event-maintenance' && a.sourceInstanceId === cardInstanceId,
+  );
+}
+
+/**
+ * Build the tooltip menu label for one `pay-event-maintenance` action.
+ * `discard-self` and `decline` both name the source event itself (`sourceName`);
+ * `discard-from-hand` names whichever hand card that specific action pays
+ * with, resolved through the cached instance lookup.
+ */
+export function eventMaintenanceActionLabel(
+  action: PayEventMaintenanceAction,
+  sourceName: string,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  if (action.paymentType === 'discard-self') return `Discard ${sourceName}`;
+  if (action.paymentType === 'decline') return 'Decline';
+  const handDefId = getCachedInstanceLookup()(action.cardInstanceId);
+  const handName = handDefId ? cardPool[handDefId as string]?.name : undefined;
+  return `Discard ${handName ?? 'card'} from hand`;
+}
+
+/**
  * Resolve the `tap-alt-permanent-event` action that taps `targetCharacterId`
  * using the already-selected in-play permanent-event `cardInstanceId`, or
  * `null` if no such target is offered. Backs the second click of the two-step
@@ -1307,6 +1346,13 @@ function renderInPlayCardImage(
     // never highlighted and the ability was only reachable from the debug
     // action panel.
     const grantedActions = findInPlayGrantedActions(viableActions(view.legalActions), card.instanceId);
+    // Event-maintenance upkeep (Thrice Outnumbered le-142, Balance Between
+    // Powers dm-118): clicking the maintained permanent offers every way to
+    // resolve the current stage — give it up, decline to bid, or discard a
+    // matching hand card. Without this the player had no affordance at all:
+    // the pass button's whitelist doesn't cover `pay-event-maintenance`
+    // either, so the game looked frozen (bug fc2f6484500c88f1).
+    const maintenanceActions = findEventMaintenanceActions(viableActions(view.legalActions), card.instanceId);
     if (tapAltActions.length > 0) {
       const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
       img.classList.add('company-card--movable');
@@ -1342,6 +1388,24 @@ function renderInPlayCardImage(
       img.addEventListener('click', (e) => {
         e.stopPropagation();
         showInPlayGrantedActionMenu(img, grantedActions, cardPool, onAction);
+      });
+    } else if (maintenanceActions.length > 0) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (maintenanceActions.length === 1) {
+          onAction(maintenanceActions[0]);
+          return;
+        }
+        const sourceName = cardPool[card.definitionId as string]?.name ?? 'the card';
+        showTooltipMenu(
+          img,
+          maintenanceActions.map(action => ({
+            label: eventMaintenanceActionLabel(action, sourceName, cardPool),
+            onClick: () => onAction(action),
+          })),
+          { placement: 'auto' },
+        );
       });
     }
   }

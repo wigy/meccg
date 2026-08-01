@@ -17,6 +17,7 @@ import { isResourceEventCard } from '../types/cards.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer, handleAllyTapExtraMHOffer } from './mh-hazard-play.js';
 import { enterSetHazardLimitAndAutoAdvance, handleSelectCompany, handleRevealNewSite, handleUnderDeepsRoll, handleOrderEffects, handleDrawCards } from './mh-steps.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 
 
 /**
@@ -97,6 +98,17 @@ function handleResetHand(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
+  // Granted-action activation (e.g. River: ranger taps to cancel the
+  // constraint on an arriving company). CRF 22 gives the ranger's player
+  // until the beginning of the site phase to tap, so the cancel window
+  // must stay open through reset-hand — the last M/H step before Site.
+  // The constraint pass-through offers this action in every step, so every
+  // step handler must route it (engine gap class: an offered action must
+  // never be rejected by the reducer).
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   // A short event may legally arrive during reset-hand — e.g. a
   // corruption-check-boost offered by a pending resolution whose resolver
   // delegates the play to the phase reducer. Dispatch it like the

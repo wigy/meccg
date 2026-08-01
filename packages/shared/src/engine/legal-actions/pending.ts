@@ -1113,8 +1113,9 @@ export function corruptionCheckActions(
  * same shape the legacy per-phase short-circuits used to produce — plus
  * any reactive aids (short-event plays, modifier grants) and, when the
  * entry carries `allowSupport`, one `support-corruption-check` per
- * untapped company mate (tap for +1, the Free Council mechanic granted
- * mid-game by Ren the Unclean tw-83). An entry with `noResourceAid`
+ * untapped company mate (tap for +1, CoE 7.1.1 — offered for item-transfer
+ * checks and for checks granted mid-game by Ren the Unclean tw-83). An
+ * entry with `noResourceAid`
  * suppresses the reactive short-event plays ("you cannot play resources
  * to aid your character's corruption checks") — activating an in-play
  * grant is using, not playing, a resource and stays legal.
@@ -1296,10 +1297,11 @@ function corruptionCheckEntryActions(
   // here, before the roll, just like reactive short-event plays.
   const modifierGrants = modifyCorruptionCheckGrantActions(state, playerId, characterId);
 
-  // Tap-in-support (`allowSupport`, Ren the Unclean tw-83: "Your characters
-  // may tap in support"): each untapped company mate of the checking
-  // character may tap for +1 to the roll before it is made, exactly like
-  // the Free Council window (CoE 7.1.1).
+  // Tap-in-support (`allowSupport`, CoE 7.1.1): each untapped company mate
+  // of the checking character may tap for +1 to the roll before it is
+  // made, exactly like the Free Council window. Set for item-transfer
+  // checks and for checks granted mid-game by Ren the Unclean tw-83
+  // ("Your characters may tap in support").
   const supportActions: EvaluatedAction[] = [];
   if (top.kind.allowSupport) {
     const supportCompany = findCharacterCompany(player.companies, characterId);

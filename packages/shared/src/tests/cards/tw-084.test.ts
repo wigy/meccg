@@ -18,7 +18,7 @@
  * | 2 | Adds do-nothing-unless-ranger constraint | IMPLEMENTED | chain-reducer applyShortEventArrivalTrigger |
  * | 3 | Constraint collapses enter-or-skip menu  | IMPLEMENTED | constraint filter (legal-actions/pending) |
  * | 4 | Ranger may tap to cancel                 | IMPLEMENTED | constraint cancelWhen emits cancel-constraint action |
- * | 9 | Ranger cancel available during M/H phase | IMPLEMENTED | applySitePhaseDoNothing + MH reducer handles cancel |
+ * | 9 | Ranger cancel available during M/H phase | IMPLEMENTED | applySitePhaseDoNothing + MH reducer handles cancel in every step incl. reset-hand |
  * | 5 | Constraint clears at company-site-end    | IMPLEMENTED | sweepExpired in advanceSiteToNextCompany |
  * | 6 | Non-ranger characters cannot cancel      | IMPLEMENTED | constraint filter checks Skill.Ranger  |
  * | 7 | Tapped ranger cannot cancel              | IMPLEMENTED | constraint filter checks CardStatus    |
@@ -352,6 +352,28 @@ describe('River (tw-84)', () => {
     const base = buildTestState({ ...SITE_SCENARIO, phase: Phase.MovementHazard, recompute: true });
     const drawStep = { ...base, phaseState: makeMHState({ step: 'draw-cards' }) };
     const { state } = installRiverOnActiveCompany(drawStep, RIVER);
+
+    const offers = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
+    expect(offers).toHaveLength(1);
+
+    const nextState = dispatch(state, offers[0].action);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expect(nextState.activeConstraints).toHaveLength(0);
+    expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
+  });
+
+  test('cancel-river is offered and accepted during the M/H reset-hand step', () => {
+    // Regression: CRF 22 gives the ranger's player until the beginning of
+    // the site phase to tap and cancel River — reset-hand is the last M/H
+    // step before Site, so the window must still be open there. The
+    // reset-hand handler previously routed only pass/discard-card/
+    // play-short-event, rejecting the very cancel-river action the
+    // constraint pass-through offered (bug report: "retract River" —
+    // player was stuck discarding to hand size, unable to cancel River).
+    const base = buildTestState({ ...SITE_SCENARIO, phase: Phase.MovementHazard, recompute: true });
+    const resetHandStep = { ...base, phaseState: makeMHState({ step: 'reset-hand' }) };
+    const { state } = installRiverOnActiveCompany(resetHandStep, RIVER);
 
     const offers = viableActions(state, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');

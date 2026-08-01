@@ -3173,8 +3173,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Warrior only. Warrior does not tap against one strike. If wounded by the strike, his body check is modified by -1."
+    "effects": [
+      {
+        "type": "strike-modifier",
+        "dodge": true,
+        "bodyPenalty": -1,
+        "requiredSkill": "warrior"
+      }
+    ],
+    "text": "Warrior only. Warrior does not tap against one strike. If wounded by the strike, his body check is modified by -1.",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "minion-resource-event",

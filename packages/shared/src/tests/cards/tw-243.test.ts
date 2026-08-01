@@ -286,6 +286,45 @@ describe('Gates of Morning (tw-243)', () => {
     expect(s.players[1].discardPile).toHaveLength(0);
   });
 
+  test('cannot declare a second copy while the first is still declaring on the chain (duplication-limit sees pending chain entries)', () => {
+    // Regression: game ms7oxskb-o8u5ur, seq 34-38. The AI (p2) played one
+    // Gates of Morning, then — before that chain entry resolved into
+    // cardsInPlay — declared a second copy of Gates of Morning. Both entries
+    // then resolved and two copies of a "cannot be duplicated" card ended up
+    // in play simultaneously. The duplication-limit check only counted
+    // `cardsInPlay`, missing the first copy while it was still held on the
+    // chain awaiting resolution.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING, GATES_OF_MORNING], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const firstGomId = handCardId(state, RESOURCE_PLAYER, 0);
+    const secondGomId = handCardId(state, RESOURCE_PLAYER, 1);
+
+    // P1 declares the first Gates of Morning — it goes onto the chain, not
+    // yet in cardsInPlay. Priority passes to P2.
+    let s = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: firstGomId });
+    expect(s.chain).not.toBeNull();
+    expect(s.chain!.priority).toBe(PLAYER_2);
+    expect(s.players[0].cardsInPlay).toHaveLength(0);
+
+    // P2 passes chain priority (no response) → priority returns to P1, exactly
+    // as in the reported game (seq 34 play, seq 35 pass-chain-priority by the
+    // non-declaring player, seq 36 second play by the same declaring player).
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(s.chain!.priority).toBe(PLAYER_1);
+
+    // While the first copy is still declaring (unresolved on the chain), the
+    // duplication limit must already block the second copy from hand.
+    const actions = viableActions(s, PLAYER_1, 'play-permanent-event');
+    expect(actions.filter(ea => actionAs<PlayPermanentEventAction>(ea.action).cardInstanceId === secondGomId)).toHaveLength(0);
+  });
+
   test('opponent can cancel Gates of Morning with Twilight before it resolves', () => {
     const donInPlay: CardInPlay = {
       instanceId: 'don-1' as CardInstanceId,
