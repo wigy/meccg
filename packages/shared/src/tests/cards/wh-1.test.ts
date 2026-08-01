@@ -51,17 +51,78 @@ import {
 import type {
   CardDefinitionId, CardInstanceId, GameState,
 } from '../../index.js';
-import { Phase, Alignment, CardStatus, RegionType, SiteType } from '../../index.js';
+import { Phase, Alignment, CardStatus, RegionType, SiteType, computeLegalActions } from '../../index.js';
 
 const ALATAR_FW = 'wh-1' as CardDefinitionId;
 const HORSE_LORDS = 'le-78' as CardDefinitionId;   // hazard-creature, detainment vs hero/FW, kill MP 2
 const ISENGARD_FW = 'wh-56' as CardDefinitionId;    // fallen-wizard Wizardhaven (siteType haven)
 const STAGE_4 = 'wh-61' as CardDefinitionId;        // stage resource worth 4 stage points
 const STAGE_3 = 'wh-79' as CardDefinitionId;        // stage resource worth 3 stage points
+const THE_WHITE_TOWERS = 'tw-430' as CardDefinitionId; // ruins-and-lairs, Arthedain (wilderness), not a Dragon's lair
+const THE_LONELY_MOUNTAIN = 'tw-428' as CardDefinitionId; // ruins-and-lairs, Northern Rhovanion (wilderness), a Dragon's lair (lairOf tw-90)
 const UNTAPPED = CardStatus.Untapped;
 
 describe('Alatar (wh-1)', () => {
   beforeEach(() => resetMint());
+
+  // ── Home site: "Any non-'Dragon's lair' Ruins & Lairs in a Wilderness" (rule 2.II.2.1.F1) ──
+
+  test('Alatar can be revealed at a non-Dragon\'s-lair Ruins & Lairs in a Wilderness', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          hand: [ALATAR_FW],
+          siteDeck: [THE_WHITE_TOWERS],
+          companies: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.action.type === 'play-character' && (ea.action as { characterInstanceId: CardInstanceId }).characterInstanceId === handCardId(state, RESOURCE_PLAYER));
+    expect(actions.some(ea => ea.viable)).toBe(true);
+  });
+
+  test('Alatar cannot be revealed at a Dragon\'s lair even though it is a Wilderness Ruins & Lairs', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          hand: [ALATAR_FW],
+          siteDeck: [THE_LONELY_MOUNTAIN],
+          companies: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.action.type === 'play-character' && (ea.action as { characterInstanceId: CardInstanceId }).characterInstanceId === handCardId(state, RESOURCE_PLAYER));
+    expect(actions.every(ea => !ea.viable)).toBe(true);
+    expect(actions.some(ea => ea.reason?.includes('not available'))).toBe(true);
+  });
 
   // ── Effect 1: fw-kill-mp-full — full kill MP (MEWH §4 exemption) ──
 

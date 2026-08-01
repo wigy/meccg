@@ -10,14 +10,14 @@ import type { GameState, PlayerId, EvaluatedAction, CardInstanceId, CharacterCar
 import { hasPlayFlag, hasFollowerGrantPermission } from '../../effects/play-flags.js';
 import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
 import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
-import { SiteType, Alignment, Race } from '../../types/common.js';
+import { SiteType, RegionType, Alignment, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
 import { getEffectiveSiteType } from '../effective.js';
@@ -304,7 +304,7 @@ function findPlayableSites(
     // effective type already reads as a haven.
     let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId, true) === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
-    const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
+    const isHomesite = homesiteMatchesSite(state, charDef, siteDef, player.alignment);
     const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSiteDef(siteDef);
     // Bree (le-356) `allow-agent-play`: an agent may join a company already at
     // this site under direct influence, even though it is not the agent's home
@@ -339,7 +339,7 @@ function findPlayableSites(
 
     let isHaven = siteDef.siteType === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
-    const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
+    const isHomesite = homesiteMatchesSite(state, charDef, siteDef, player.alignment);
     const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSiteDef(siteDef);
 
     if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
@@ -376,8 +376,13 @@ function findPlayableSites(
  * Wizardhaven by Chambers in the Royal Court (wh-97) remains one of Gandalf's
  * home sites even though its effective type now reads `haven`. Dark-hold is
  * excluded from this form: "Any Dark-hold" keeps the special meaning above.
+ *
+ * The **compound exclusion form** `"Any non-<exclusion> <site-type>[ in a
+ * <region-type>]"` (Alatar wh-1: `"Any non-'Dragon's lair' Ruins & Lairs in a
+ * Wilderness"`; as-1/5/6: `"Any non-Under-deeps Ruins & Lairs"`) is delegated
+ * to {@link matchesCompoundHomesite}.
  */
-function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
+function homesiteMatchesSite(state: GameState, charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
   let homesite = charDef.homesite;
   if (playerAlignment === Alignment.Balrog && homesite === 'Any Dark-hold') {
     homesite = 'any non-Dark-hold Under-deeps site';
@@ -390,21 +395,90 @@ function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAl
   }
   const anySiteType = SITE_TYPE_HOMESITE_LABELS[homesite];
   if (anySiteType !== undefined) return siteDef.siteType === anySiteType;
-  return false;
+  return matchesCompoundHomesite(state, homesite, siteDef);
 }
+
+/**
+ * Bare site-type labels used both by the simple `"Any <site-type>"` home-site
+ * form and, prefixed with `"Any "`, by {@link SITE_TYPE_HOMESITE_LABELS}. Kept
+ * separate so the compound-exclusion form ({@link matchesCompoundHomesite})
+ * can reuse the same labels without the "Any " prefix.
+ */
+const SITE_TYPE_LABELS: Readonly<Record<string, SiteType>> = {
+  'Free-hold': SiteType.FreeHold,
+  'Border-hold': SiteType.BorderHold,
+  'Ruins & Lairs': SiteType.RuinsAndLairs,
+  'Shadow-hold': SiteType.ShadowHold,
+  'Haven': SiteType.Haven,
+};
 
 /**
  * `"Any <site-type>"` home-site labels → the printed {@link SiteType} they match
  * (see {@link homesiteMatchesSite}). Dark-hold is intentionally absent: its
  * "Any Dark-hold" form has bespoke (Balrog-remap / Darkhaven) handling.
  */
-const SITE_TYPE_HOMESITE_LABELS: Readonly<Record<string, SiteType>> = {
-  'Any Free-hold': SiteType.FreeHold,
-  'Any Border-hold': SiteType.BorderHold,
-  'Any Ruins & Lairs': SiteType.RuinsAndLairs,
-  'Any Shadow-hold': SiteType.ShadowHold,
-  'Any Haven': SiteType.Haven,
+const SITE_TYPE_HOMESITE_LABELS: Readonly<Record<string, SiteType>> = Object.fromEntries(
+  Object.entries(SITE_TYPE_LABELS).map(([label, type]) => [`Any ${label}`, type]),
+);
+
+/**
+ * Exclusion clauses recognized in the compound `"Any non-<exclusion>
+ * <site-type>..."` home-site form — each maps the bracketed word(s) to a
+ * predicate that's true when the candidate site is the excluded kind.
+ * `"Dragon's lair"` (Alatar wh-1) means any site with a Dragon automatic-attack,
+ * identified by the `lairOf` tag site definitions carry (CRF 22: "each site
+ * with a Dragon automatic-attack"). `"Under-deeps"` (as-1/5/6) reuses the same
+ * `under-deeps` keyword the dedicated Balrog home-site form checks above.
+ */
+const HOMESITE_EXCLUSIONS: Readonly<Record<string, (siteDef: SiteCard) => boolean>> = {
+  'dragon’s lair': siteDef => Boolean((siteDef as { lairOf?: unknown }).lairOf),
+  'under-deeps': siteDef => siteDef.keywords?.includes('under-deeps') ?? false,
 };
+
+/**
+ * Region-type labels recognized in the compound home-site form's optional
+ * `"... in a <region-type>"` suffix, mapped to the {@link RegionType} they
+ * designate.
+ */
+const REGION_TYPE_HOMESITE_LABELS: Readonly<Record<string, RegionType>> = {
+  'wilderness': RegionType.Wilderness,
+  'border-land': RegionType.Border,
+  'free-domain': RegionType.Free,
+  'shadow-land': RegionType.Shadow,
+  'dark-domain': RegionType.Dark,
+  'coastal-land': RegionType.Coastal,
+};
+
+/**
+ * Matches `"Any non-<exclusion> <site-type>[ in a <region-type>]"`, either
+ * with the exclusion in curly/straight quotes (`"Any non-“Dragon’s lair”
+ * Ruins & Lairs in a Wilderness"`) or as a single bare word (`"Any
+ * non-Under-deeps Ruins & Lairs"`). Group 3 is lazy so the optional region
+ * suffix, when present, is peeled off rather than swallowed into the
+ * site-type label.
+ */
+const COMPOUND_HOMESITE_PATTERN = /^Any non-(?:[“"]([^”"]+)[”"]|(\S+)) (.+?)(?: in an? (.+))?$/;
+
+/**
+ * Evaluates the compound exclusion home-site form (see
+ * {@link COMPOUND_HOMESITE_PATTERN}) against a candidate site. Returns `false`
+ * — "not a match" rather than throwing — for any `homesite` text that isn't
+ * this form, or whose exclusion/site-type/region-type label isn't recognized,
+ * so unmodeled or malformed home-site text degrades to "no home site" instead
+ * of crashing the legal-action computation.
+ */
+function matchesCompoundHomesite(state: GameState, homesite: string, siteDef: SiteCard): boolean {
+  const match = COMPOUND_HOMESITE_PATTERN.exec(homesite);
+  if (!match) return false;
+  const [, quotedExclusion, bareExclusion, siteTypeLabel, regionLabel] = match;
+  const excludes = HOMESITE_EXCLUSIONS[(quotedExclusion ?? bareExclusion ?? '').toLowerCase()];
+  if (!excludes || excludes(siteDef)) return false;
+  const siteType = SITE_TYPE_LABELS[siteTypeLabel];
+  if (siteType === undefined || siteDef.siteType !== siteType) return false;
+  if (regionLabel === undefined) return true;
+  const regionType = REGION_TYPE_HOMESITE_LABELS[regionLabel.toLowerCase()];
+  return regionType !== undefined && siteRegionTypeOf(state, siteDef) === regionType;
+}
 
 /**
  * Evaluates playing an avatar card from hand as a "Ringwraith follower" of the
@@ -492,7 +566,7 @@ function ringwraithFollowerPlayAction(
   // CoE 2.II.2.1.R4: the controlling Ringwraith must be at a Darkhaven or
   // the follower's home site.
   const siteDef = resolveDef(state, avatarSiteId);
-  if (!isSiteCard(siteDef) || !(siteDef.siteType === SiteType.Haven || homesiteMatchesSite(cardDef, siteDef))) {
+  if (!isSiteCard(siteDef) || !(siteDef.siteType === SiteType.Haven || homesiteMatchesSite(state, cardDef, siteDef))) {
     return blocked(`${cardDef.name}: ${avatarDef.name} is not at a Darkhaven or at ${cardDef.name}'s home site (${cardDef.homesite})`);
   }
 
@@ -959,7 +1033,7 @@ export function discardCharacterActions(state: GameState, playerId: PlayerId): E
         logDetail(`  discard-character: ${charDef.name} is an avatar — cannot be discarded (rule 3.22)`);
         continue;
       }
-      if (!isHaven && !homesiteMatchesSite(charDef, siteDef, player.alignment)) {
+      if (!isHaven && !homesiteMatchesSite(state, charDef, siteDef, player.alignment)) {
         logDetail(`  discard-character: ${charDef.name} at ${siteDef.name} — neither a haven nor its home site (rule 3.22)`);
         continue;
       }
