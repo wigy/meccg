@@ -195,11 +195,13 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
       for (const ea of storeItemActions(state, playerId)) {
         nonActiveActions.push(ea.action);
       }
+      // Storing is optional (CoE 2.II.4: "may attempt to store") — the
+      // non-active player must be able to decline rather than being forced
+      // to store every eligible item just because the window is open.
+      nonActiveActions.push({ type: 'pass', player: playerId });
+    } else {
+      logDetail(`End-of-Turn signal-end: no allow-store-eot window — hazard player has no actions`);
     }
-    // Storing is optional (CoE 2.II.4: "may attempt to store") — the
-    // non-active player must be able to decline rather than being forced
-    // to store every eligible item just because the window is open.
-    nonActiveActions.push({ type: 'pass', player: playerId });
     return nonActiveActions;
   }
 
