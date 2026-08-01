@@ -45,7 +45,6 @@ import {
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
-import type { ActivateGrantedAction } from '../../types/actions-organization.js';
 
 const DWARVEN_RING = 'tw-216' as CardDefinitionId;
 
@@ -166,7 +165,7 @@ describe("Dwarven Ring of Durin's Tribe (tw-216)", () => {
     const action = grantedActionsFor(state, gimliId, 'untap-site', PLAYER_1)[0];
     expect(action).toBeDefined();
 
-    const after = dispatch(state, action as ActivateGrantedAction);
+    const after = dispatch(state, action);
 
     // Bearer is tapped (the cost).
     expect(getCharacter(after, RESOURCE_PLAYER, GIMLI).status).toBe(CardStatus.Tapped);
