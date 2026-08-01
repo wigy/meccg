@@ -1401,6 +1401,32 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Liquid Fire (wh-52): a single-use constraint on the target company
+         * that causes all strikes of the next qualifying automatic-attack the
+         * company faces to automatically be defeated (as if parried),
+         * regardless of the roll — "cause all strikes from all attacks of a
+         * … creature keyed to a site to fail." A strike defeated this way
+         * still triggers the normal creature body check when the creature
+         * has body, so the company may still kill it, but that body check is
+         * penalized by {@link bodyCheckModifier} ("resulting body checks for
+         * the creature are modified by -2").
+         *
+         * An automatic-attack whose creature race is in {@link excludeRaces}
+         * (Dragon, Ringwraith/Nazgûl, Balrog) is unaffected and does not
+         * consume the constraint, so it carries over to a later qualifying
+         * attack at the same site visit. The site auto-attack initiation in
+         * `reducer-site.ts` resolves and consumes the constraint, threading
+         * `forcedStrikeDefeat` / `forcedDefeatBodyCheckModifier` onto the
+         * combat; `combat-strike.ts` and `combat-actions.ts` consume those.
+         */
+        readonly type: 'defeat-attack-strikes';
+        /** Added to the creature body check produced by a forced-defeat strike. */
+        readonly bodyCheckModifier: number;
+        /** Creature races this effect does not apply to. */
+        readonly excludeRaces: readonly Race[];
+      }
+    | {
+        /**
          * Generic attribute override: a conditional `add`/`override`
          * modifier on an entity attribute. Collapses what used to be
          * three separate constraint kinds
