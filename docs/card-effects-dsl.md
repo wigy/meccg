@@ -3673,10 +3673,16 @@ resolution modes driven by flags on the effect:
 **Dodge mode** (`"dodge": true`): the target character resolves the strike
 at full prowess without tapping (unless wounded). If wounded, `bodyPenalty`
 applies to the resulting body check. The play goes through the chain so the
-opponent may respond.
+opponent may respond. Optionally gated by a `requiredSkill` on the struck
+character (enforces CoE 3.iv.5: only one skill-requiring resource per
+strike, same as default mode).
 
 ```json
 { "type": "strike-modifier", "dodge": true, "bodyPenalty": -1 }
+```
+
+```json
+{ "type": "strike-modifier", "dodge": true, "requiredSkill": "warrior" }
 ```
 
 **Reroll mode** (`"reroll": true`): two 2d6 rolls are made and the better
@@ -3710,7 +3716,7 @@ per strike).
 - `bodyPenalty` — added to the character's body on the resulting body
   check if wounded (typically negative). Omit for 0.
 - `requiredSkill` — the struck character must carry this skill. Omit to
-  allow any character (default mode only).
+  allow any character (default and dodge modes).
 - `filter` — condition on the strike target character (reroll mode only).
 
 All modes emit a `play-strike-event` action during resolve-strike and

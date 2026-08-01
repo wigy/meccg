@@ -2284,8 +2284,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Warrior only. Warrior does not tap against one strike (unless he is wounded by the strike)."
+    "effects": [
+      { "type": "strike-modifier", "dodge": true, "requiredSkill": "warrior" }
+    ],
+    "text": "Warrior only. Warrior does not tap against one strike (unless he is wounded by the strike).",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hero-resource-event",
