@@ -1398,6 +1398,11 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   // `pendingCorruptionCheck` field; the resolver in `pending-reducers.ts`
   // handles the failure case (including removing the transferred item from
   // its new bearer if the check fails).
+  //
+  // `allowSupport: true` because CoE 7.1.1 lets a resource player tap
+  // untapped company mates for +1 each on *any* corruption check that has
+  // been declared but not yet resolved — it is not limited to the Free
+  // Council window or to checks granted by a specific card.
   logDetail(`Enqueuing corruption check for ${fromDef?.name ?? '?'} after item transfer`);
 
   const stateAfterTransfer: GameState = {
@@ -1419,6 +1424,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
       characterId: fromCharId,
       reason: 'Transfer',
       transferredItemId: itemInstId,
+      allowSupport: true,
     }),
   };
 }
