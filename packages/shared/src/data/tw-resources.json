@@ -3839,11 +3839,12 @@
     "race": "wose",
     "playableAt": [
       {
-        "site": "Drúadan"
+        "site": "Drúadan Forest"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Drúadan Forest if the influence check is greater than 9. Standard Modifications: none."
+    "text": "Unique. Playable at Drúadan Forest if the influence check is greater than 9. Standard Modifications: none.",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hero-resource-event",
