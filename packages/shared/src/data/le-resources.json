@@ -4063,8 +4063,20 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Orc scout only. Cancel one strike against an Orc scout."
+    "effects": [
+      {
+        "type": "strike-modifier",
+        "cancel": true,
+        "filter": {
+          "$and": [
+            { "target.race": "orc" },
+            { "target.skills": { "$includes": "scout" } }
+          ]
+        }
+      }
+    ],
+    "text": "Orc scout only. Cancel one strike against an Orc scout.",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "minion-resource-event",

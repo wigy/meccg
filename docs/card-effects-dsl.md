@@ -3756,8 +3756,26 @@ move) alongside `movementType` and `destination`.
 
 ### 10. `strike-modifier`
 
-Played from hand during strike resolution as a short event. Covers three
+Played from hand during strike resolution as a short event. Covers four
 resolution modes driven by flags on the effect:
+
+**Cancel mode** (`"cancel": true`): the current strike is canceled outright,
+no roll made. An optional `filter` gates availability on the strike target
+character, evaluated against the same `target.*` context as reroll mode.
+Resolves immediately — no chain, matching the item-based `cancel-strike`
+(§11) and `flee-from-strike` (§11a) precedent of not offering the opponent
+a response window.
+
+```json
+{ "type": "strike-modifier", "cancel": true,
+  "filter": { "$and": [
+    { "target.race": "orc" },
+    { "target.skills": { "$includes": "scout" } }
+  ] } }
+```
+
+Used by Orc Stealth (le-217): "Orc scout only. Cancel one strike against an
+Orc scout." — the target must be both race `orc` and carry the `scout` skill.
 
 **Dodge mode** (`"dodge": true`): the target character resolves the strike
 at full prowess without tapping (unless wounded). If wounded, `bodyPenalty`
@@ -3799,6 +3817,7 @@ per strike).
 
 **Fields:**
 
+- `cancel` — if `true`, the strike is canceled outright, no roll made (cancel mode).
 - `dodge` — if `true`, character resolves without tapping (dodge mode).
 - `reroll` — if `true`, roll twice and use the better result (reroll mode).
 - `prowessBonus` — added to the character's prowess for the strike roll
@@ -3807,7 +3826,7 @@ per strike).
   check if wounded (typically negative). Omit for 0.
 - `requiredSkill` — the struck character must carry this skill. Omit to
   allow any character (default and dodge modes; enforces CoE 3.iv.5 in both).
-- `filter` — condition on the strike target character (reroll mode only).
+- `filter` — condition on the strike target character (reroll and cancel modes only).
 
 All modes emit a `play-strike-event` action during resolve-strike and
 discard the card from hand after use. Implemented in

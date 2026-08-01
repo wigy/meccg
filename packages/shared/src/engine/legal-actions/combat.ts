@@ -1248,8 +1248,9 @@ function resolveStrikeActions(
   }
 
   // strike-modifier short events: scan hand once for cards with a `strike-modifier`
-  // effect. Mode is determined by effect flags: dodge (no-tap), reroll (two rolls),
-  // or default (prowess/body accumulator). All three emit `play-strike-event`.
+  // effect. Mode is determined by effect flags: cancel (outright, no roll),
+  // dodge (no-tap), reroll (two rolls), or default (prowess/body accumulator).
+  // All four emit `play-strike-event`.
   const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
@@ -1261,7 +1262,22 @@ function resolveStrikeActions(
     let explanation: string;
     let need: number;
 
-    if (strikeEffect.dodge) {
+    if (strikeEffect.cancel) {
+      if (strikeEffect.filter) {
+        if (!charDef) continue;
+        const targetObj: Record<string, unknown> = {};
+        if ('race' in charDef) targetObj.race = (charDef as { race: Race }).race;
+        if ('skills' in charDef) targetObj.skills = (charDef as { skills: readonly string[] }).skills;
+        if ('name' in charDef) targetObj.name = (charDef as { name: string }).name;
+        if (!matchesCondition(strikeEffect.filter, { target: targetObj })) {
+          logDetail(`Cancel strike ${handCard.definitionId as string}: filter not met for ${charName}`);
+          continue;
+        }
+      }
+      explanation = `${(cardDef as { name?: string } | undefined)?.name ?? 'Strike event'}: cancels the strike against ${charName} outright (no roll)`;
+      need = 0;
+      logDetail(`Cancel strike available: ${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string} for ${charName}`);
+    } else if (strikeEffect.dodge) {
       if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
         logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
         continue;
