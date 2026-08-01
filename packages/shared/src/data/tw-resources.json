@@ -3595,9 +3595,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsFlame.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-attack-boost",
+          "scope": "turn",
+          "prowess": -2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      }
+    ],
+    "certified": "2026-08-01",
     "text": "Spell. Wizard only. All attacks against Wizard’s company suffer a -2 modification to prowess for the rest of the turn. Wizard makes a corruption check modified by -3."
   },
   {
