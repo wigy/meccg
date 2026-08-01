@@ -398,6 +398,44 @@ describe('Burning Rick, Cot, and Tree (le-173)', () => {
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
   });
 
+  // ── Regression: card must not be swept when the bearer's company later
+  //    travels away from the site it was played at ──
+
+  test('stays in cardsInPlay and keeps earning MPs after the company moves to a different site', () => {
+    // Reproduces a bug report (game msakbfw9-ytbc1s): Burning Rick, kept via
+    // move-to-mp-pile, was silently discarded by the generic site-occupancy
+    // sweep (discardOrphanedSiteAttachedEvents) once the bearer's company left
+    // the border-hold it was played at — even though the card's own text puts
+    // it in the marshalling-point pile independent of the company's location.
+    const state = buildMinionSitePhaseState({
+      // Company now sits at Dol Guldur — NOT Easterling Camp, where Burning
+      // Rick was originally played and bound (attachedToSite).
+      site: DOL_GULDUR,
+      characters: [GORBAG],
+    });
+    const stateWithCard = {
+      ...state,
+      players: [
+        {
+          ...state.players[RESOURCE_PLAYER],
+          cardsInPlay: [
+            ...state.players[RESOURCE_PLAYER].cardsInPlay,
+            { instanceId: mint(), definitionId: BURNING_RICK, status: CardStatus.Untapped, attachedToSite: EASTERLING_CAMP },
+          ],
+        },
+        state.players[1],
+      ] as typeof state.players,
+    };
+
+    // Any dispatched action runs the shared post-action sweep pipeline
+    // (discardOrphanedSiteAttachedEvents among others).
+    const afterAction = dispatch(stateWithCard, { type: 'pass', player: PLAYER_1 });
+
+    expect(afterAction.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BURNING_RICK)).toBe(true);
+    expect(afterAction.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === BURNING_RICK)).toBe(false);
+    expect(afterAction.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
+  });
+
   // ── findCharInstanceId helper ──
 
   test('bearerActionsInclude untapped characters after both attacks', () => {

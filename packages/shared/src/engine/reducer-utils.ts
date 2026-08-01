@@ -4316,6 +4316,25 @@ export function rescuablePrisonersAtSite(
   return null;
 }
 
+/**
+ * Whether `def` is a `trigger-attack-on-play` permanent event whose
+ * `afterAttack: 'move-to-mp-pile'` mode keeps it living in `cardsInPlay`
+ * indefinitely once its self-inflicted attack is survived (Burning Rick, Cot,
+ * and Tree le-173: "put this card in your marshalling point pile"; Descent
+ * through Fire ba-56 and siblings). Such a card's `attachedToSite` only
+ * records *where it was played* (for its `duplication-limit` scope, see
+ * {@link countPermanentEventCopiesAtSite}) — unlike a site-transforming event,
+ * it has no ongoing tie to that site and must keep scoring MP after the
+ * bearer's company travels elsewhere. Whether it survives the attack at all
+ * is decided solely by the card-triggered-attack combat resolution in
+ * `combat-finalize.ts`, never by this generic occupancy sweep.
+ */
+function cardKeptInMarshallingPointPile(def: CardDefinition | null | undefined): boolean {
+  return getCardEffects(def).some(
+    e => e.type === 'trigger-attack-on-play' && e.afterAttack === 'move-to-mp-pile',
+  );
+}
+
 export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   const occupied = new Set<string>();
   for (const p of state.players) {
@@ -4351,7 +4370,11 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
       // (ba-74): "This site is never discarded or returned to its location
       // deck." The card is permanent and keeps its bound Under-deeps site in
       // play even while unoccupied — exempt it from the orphan sweep.
-      && !cardKeepsBoundSitePermanent(defById(state, card.definitionId)),
+      && !cardKeepsBoundSitePermanent(defById(state, card.definitionId))
+      // move-to-mp-pile cards (Burning Rick, Cot, and Tree le-173, Smoke on
+      // the Wind le-230, Descent through Fire ba-56, …) keep scoring MP from
+      // cardsInPlay for the rest of the game — exempt them too.
+      && !cardKeptInMarshallingPointPile(defById(state, card.definitionId)),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);
