@@ -2396,6 +2396,8 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly stat?: 'prowess' | 'body' | 'direct-influence';
   /** Creature race filter for creature-attack-boost. */
   readonly race?: Race;
+  /** Excluded creature races for `defeat-attack-strikes` (Liquid Fire wh-52). */
+  readonly excludeRaces?: readonly Race[];
   /** Prowess bonus for creature-attack-boost. */
   readonly prowess?: number;
   /** Strike bonus for creature-attack-boost. */
@@ -2604,9 +2606,16 @@ export interface DiscardTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-target-character';
 }
 
-/** `force-discard-one-company-item` — force the wounded character's company to discard one item (type-only marker). */
+/** `force-discard-one-company-item` — force the wounded character's company to discard one item. */
 export interface ForceDiscardOneCompanyItemAction extends TriggeredActionBase {
   readonly type: 'force-discard-one-company-item';
+  /**
+   * Who picks the item to discard. Defaults to `'defender'` (Brigands
+   * tw-17/le-64, Pirates le-88: "the company must … discard one item").
+   * Were-worm (td-80) is `'attacker'`: "the defending company must discard
+   * one item of attacker's choice".
+   */
+  readonly chooser?: 'attacker' | 'defender';
 }
 
 /**
@@ -5066,7 +5075,7 @@ export interface StrikeModifierEffect extends EffectBase {
   readonly prowessBonus?: number;
   /** Body modifier applied on the body check (typically negative). */
   readonly bodyPenalty?: number;
-  /** Optional skill the struck character must have (default and reroll modes). */
+  /** Optional skill the struck character must have (default and dodge modes). */
   readonly requiredSkill?: string;
   /** Filter condition on the strike target character (reroll mode). */
   readonly filter?: Condition;

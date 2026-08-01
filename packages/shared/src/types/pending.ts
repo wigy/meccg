@@ -1359,13 +1359,18 @@ export interface ActiveConstraint {
          * target boosts attacks against **every** company that player controls
          * — "all Wolf, Spider, and Animal attacks" (Dwar of Waw tw-31, via the
          * `attack-race-boost` effect).
+         *
+         * `race` is omitted entirely for a race-agnostic modifier that applies
+         * to every attack regardless of creature race — Wizard's Flame
+         * (tw-361, via the `company-attack-modifier` effect): "All attacks
+         * against Wizard's company suffer a -2 modification to prowess."
          */
         readonly type: 'creature-attack-boost';
         /**
          * Creature race — or races — that receive the boost (e.g. `"undead"`,
-         * or `["wolf", "spider", "animal"]`).
+         * or `["wolf", "spider", "animal"]`). Omit to match every race.
          */
-        readonly race: Race | readonly Race[];
+        readonly race?: Race | readonly Race[];
         /** Strike bonus applied to matching creature attacks. */
         readonly strikes: number;
         /** Prowess bonus applied to matching creature attacks. */
@@ -1393,6 +1398,32 @@ export interface ActiveConstraint {
         readonly uncancelable: boolean;
         /** Target site definition (for the per-site duplication limit). */
         readonly siteDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Liquid Fire (wh-52): a single-use constraint on the target company
+         * that causes all strikes of the next qualifying automatic-attack the
+         * company faces to automatically be defeated (as if parried),
+         * regardless of the roll — "cause all strikes from all attacks of a
+         * … creature keyed to a site to fail." A strike defeated this way
+         * still triggers the normal creature body check when the creature
+         * has body, so the company may still kill it, but that body check is
+         * penalized by {@link bodyCheckModifier} ("resulting body checks for
+         * the creature are modified by -2").
+         *
+         * An automatic-attack whose creature race is in {@link excludeRaces}
+         * (Dragon, Ringwraith/Nazgûl, Balrog) is unaffected and does not
+         * consume the constraint, so it carries over to a later qualifying
+         * attack at the same site visit. The site auto-attack initiation in
+         * `reducer-site.ts` resolves and consumes the constraint, threading
+         * `forcedStrikeDefeat` / `forcedDefeatBodyCheckModifier` onto the
+         * combat; `combat-strike.ts` and `combat-actions.ts` consume those.
+         */
+        readonly type: 'defeat-attack-strikes';
+        /** Added to the creature body check produced by a forced-defeat strike. */
+        readonly bodyCheckModifier: number;
+        /** Creature races this effect does not apply to. */
+        readonly excludeRaces: readonly Race[];
       }
     | {
         /**

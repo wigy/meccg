@@ -422,6 +422,28 @@ describe('a support event that boosts every attack', () => {
     expect(evaluation.expectedTsd).toBeLessThan(0);
     expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
   });
+
+  test('outscores playing the creature it would boost unboosted, so it is played first', () => {
+    // The bug this guards: the event was priced by the marginal sliver a
+    // second beam search found (the boosted bundle minus the unboosted one),
+    // while the creature it boosts was priced by that unboosted bundle's
+    // whole total. The sliver never beat the total, so an AI holding both
+    // Minions Stir and an Orc creature always played the creature first —
+    // its attack resolved and only then did the boost arrive, too late to
+    // reach it. The event now has to be worth at least what the plan it
+    // unlocks is worth, same as any creature that opens it.
+    const { play, context } = boostPosition();
+    const creatureCard = context.view.self.hand.find(c => {
+      const def = context.cardPool[c.definitionId] as unknown as { cardType?: string };
+      return def.cardType === 'hazard-creature';
+    })!;
+    const playCreature = context.legalActions.find(a => a.type === 'play-hazard'
+      && (a as { cardInstanceId?: string }).cardInstanceId === creatureCard.instanceId)!;
+
+    const eventEvaluation = hazardsModule.evaluate(play, context)!;
+    const creatureEvaluation = hazardsModule.evaluate(playCreature, context)!;
+    expect(eventEvaluation.expectedTsd).toBeGreaterThanOrEqual(creatureEvaluation.expectedTsd);
+  });
 });
 
 describe('a hazard event already in play', () => {

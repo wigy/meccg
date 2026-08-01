@@ -1037,6 +1037,21 @@ function buildPayloadConstraintKind(
     }
     return null;
   }
+  if (name === 'defeat-attack-strikes') {
+    // Liquid Fire (wh-52): discard to make all strikes of the next
+    // qualifying automatic-attack the bearer's company faces automatically
+    // fail, with `value` (negative) penalizing the resulting creature body
+    // checks. `excludeRaces` lists the races this does not apply to
+    // (Dragon, Ringwraith/Nazgûl, Balrog); reducer-site.ts leaves the
+    // constraint in place for such an attack so it can still apply to a
+    // later qualifying one at the same site visit.
+    if (typeof apply.value !== 'number') return null;
+    return {
+      type: 'defeat-attack-strikes',
+      bodyCheckModifier: apply.value,
+      excludeRaces: apply.excludeRaces ?? [],
+    };
+  }
   if (name === 'check-modifier') {
     // A one-shot roll modifier the engine collects when the targeted
     // character makes a matching check. Consumed the first time the targeted

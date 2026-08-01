@@ -2284,8 +2284,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Warrior only. Warrior does not tap against one strike (unless he is wounded by the strike)."
+    "effects": [
+      { "type": "strike-modifier", "dodge": true, "requiredSkill": "warrior" }
+    ],
+    "text": "Warrior only. Warrior does not tap against one strike (unless he is wounded by the strike).",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hero-resource-event",
@@ -2801,8 +2804,18 @@
         "site": "Vale of Erech"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Vale of Erech if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Vale of Erech if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hero-resource-faction",
@@ -3595,9 +3608,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsFlame.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-attack-boost",
+          "scope": "turn",
+          "prowess": -2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      }
+    ],
+    "certified": "2026-08-01",
     "text": "Spell. Wizard only. All attacks against Wizard’s company suffer a -2 modification to prowess for the rest of the turn. Wizard makes a corruption check modified by -3."
   },
   {

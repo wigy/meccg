@@ -1262,6 +1262,14 @@ function resolveStrikeActions(
     let need: number;
 
     if (strikeEffect.dodge) {
+      if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
+        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
+        continue;
+      }
+      if (strikeEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
+        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
+        continue;
+      }
       explanation = `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap)`;
       need = tapNeed;
       logDetail(`Dodge available: ${handCard.definitionId as string} for ${charName}`);
