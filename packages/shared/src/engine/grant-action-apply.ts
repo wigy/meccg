@@ -729,19 +729,42 @@ function runGrantApply(
 
     const branch = total >= apply.threshold ? apply.onSuccess : apply.onFailure;
     const stateOpsExtra: ((s: GameState) => GameState)[] = [];
-    if (noTap) {
-      // Lock further attempts on this character+corruption-card pair
-      // for the rest of the turn, regardless of roll outcome.
+    // Rule 7.3 / METD §7 / rule 10.08 applies only to corruption cards
+    // (the 'corruption' keyword), not to the plain remove-self-on-roll
+    // mechanic shared by non-corruption hazards like Foolish Words.
+    const sourceDef = defById(state, ctx.sourceCardDefinitionId);
+    const sourceKeywords = sourceDef && 'keywords' in sourceDef
+      ? (sourceDef as { keywords?: readonly string[] }).keywords
+      : undefined;
+    const isCorruptionRemoval = ctx.action.actionId === 'remove-self-on-roll'
+      && (sourceDef?.cardType === 'hazard-corruption' || sourceKeywords?.includes('corruption') === true);
+    if (isCorruptionRemoval) {
       const charId = ctx.action.characterId;
       const corruptionId = ctx.action.sourceCardId;
       const sourceDefId = ctx.sourceCardDefinitionId;
-      stateOpsExtra.push((s: GameState) => addConstraint(s, {
-        source: corruptionId,
-        sourceDefinitionId: sourceDefId,
-        scope: { kind: 'turn' },
-        target: { kind: 'character', characterId: charId },
-        kind: { type: 'corruption-removal-locked', characterId: charId, corruptionInstanceId: corruptionId },
-      }));
+      if (noTap) {
+        // Lock further attempts on this character+corruption-card pair
+        // for the rest of the turn, regardless of roll outcome.
+        stateOpsExtra.push((s: GameState) => addConstraint(s, {
+          source: corruptionId,
+          sourceDefinitionId: sourceDefId,
+          scope: { kind: 'turn' },
+          target: { kind: 'character', characterId: charId },
+          kind: { type: 'corruption-removal-locked', characterId: charId, corruptionInstanceId: corruptionId },
+        }));
+      } else {
+        // Rule 7.3: a tap-and-roll attempt was made this turn — the
+        // no-tap variant may no longer be taken for the rest of the
+        // turn, though further tap-and-roll attempts remain allowed
+        // (rule 7.3.1) if the character gets untapped again.
+        stateOpsExtra.push((s: GameState) => addConstraint(s, {
+          source: corruptionId,
+          sourceDefinitionId: sourceDefId,
+          scope: { kind: 'turn' },
+          target: { kind: 'character', characterId: charId },
+          kind: { type: 'corruption-removal-attempted', characterId: charId, corruptionInstanceId: corruptionId },
+        }));
+      }
     }
     if (!branch) {
       logDetail(`Grant-action ${ctx.action.actionId}: roll ${total >= apply.threshold ? 'succeeded' : 'failed'} — no branch, nothing to apply`);

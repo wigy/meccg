@@ -942,6 +942,16 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} corruption-removal locked this turn`);
           continue;
         }
+        // Rule 7.3: the no-tap -3 variant "cannot be taken if an attempt
+        // to remove the same corruption card has already been made this
+        // turn" — a prior tap-and-roll attempt withholds the no-tap
+        // variant, though further tap-and-roll attempts remain legal
+        // (rule 7.3.1) if the character is untapped again.
+        const tapAttemptMade = isCorruptionRemoval && state.activeConstraints.some(c =>
+          c.kind.type === 'corruption-removal-attempted'
+          && c.kind.characterId === charId
+          && c.kind.corruptionInstanceId === hazard.instanceId,
+        );
 
         // `sage-in-company` cost: a different character — an untapped
         // sage in the bearer's company — pays the tap, not the bearer.
@@ -1009,8 +1019,13 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         // METD §7 / rule 10.08: also offer the no-tap variant for
         // corruption-removal grant actions. Available regardless of
-        // bearer's tap state; first use locks subsequent attempts.
-        if (isCorruptionRemoval) {
+        // bearer's tap state; first use locks subsequent attempts. Rule
+        // 7.3 withholds it once a tap-and-roll attempt has already been
+        // made on this character+corruption-card pair this turn.
+        if (isCorruptionRemoval && tapAttemptMade) {
+          const charDef = defById(state, char.definitionId);
+          logDetail(`Grant-action ${effect.action}-no-tap on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} already attempted removal this turn — no-tap variant withheld`);
+        } else if (isCorruptionRemoval) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action}-no-tap available: ${charDef?.name ?? '?'} may roll without tapping at -3 (source: ${hazardDef?.name ?? '?'})`);
           actions.push(grantedActionFor(playerId, charId, hazard, effect, { noTap: true }));
