@@ -16,6 +16,7 @@
 import type { GameState } from '../index.js';
 import type { SiteFlag } from '../types/pending.js';
 import type { Race } from '../types/common.js';
+import { Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { activePlayerState } from './reducer-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -218,6 +219,54 @@ export function buildConstraintKind(
         op: 'override',
         value: 1,
         filter: { 'site.definitionId': siteDefId as string },
+      };
+    }
+    case 'mirror-automatic-attacks': {
+      // Whole Villages Roused (wh-31): only ever installed via the
+      // company-arrives-at-site arrival trigger, so the destination site is
+      // resolved exactly like site-type-override's M/H branch.
+      if (state.phaseState.phase !== Phase.MovementHazard) return null;
+      const activePlayer = activePlayerState(state);
+      const company = activePlayer?.companies[state.phaseState.activeCompanyIndex];
+      const siteInstanceId = company?.destinationSite?.instanceId;
+      if (!siteInstanceId) return null;
+      const siteDefId = resolveInstanceId(state, siteInstanceId);
+      if (!siteDefId) return null;
+      const siteDef = state.cardPool[siteDefId] as { name?: string; cardType?: string } | undefined;
+      if (!siteDef?.name || (siteDef.cardType !== 'hero-site' && siteDef.cardType !== 'minion-site')) return null;
+
+      // The "corresponding" site card: same printed name, the other alignment.
+      const mirrorCardType = siteDef.cardType === 'hero-site' ? 'minion-site' : 'hero-site';
+      const mirrorEntry = Object.entries(state.cardPool).find(
+        ([, d]) => (d as { name?: string; cardType?: string }).name === siteDef.name
+          && (d as { cardType?: string }).cardType === mirrorCardType,
+      );
+      if (!mirrorEntry) return null;
+      const mirrorSiteDefinitionId = mirrorEntry[0] as import('../types/common.js').CardDefinitionId;
+      const prowessBoost = (onEvent.apply as { value?: number }).value ?? 0;
+
+      if (siteDef.cardType === 'hero-site') {
+        // "The site has the automatic-attacks indicated on the corresponding
+        // minion site card (detainment against hero companies)".
+        const heroPlayer = state.players.find(
+          p => p.alignment === Alignment.Wizard || p.alignment === Alignment.FallenWizard,
+        );
+        return {
+          type: 'mirror-automatic-attacks',
+          siteInstanceId,
+          mirrorSiteDefinitionId,
+          prowessBoost,
+          ...(heroPlayer ? { detainmentAgainstPlayer: heroPlayer.id } : {}),
+        };
+      }
+      // "The site has the automatic-attacks indicated on the corresponding
+      // hero site card (detainment against overt companies)".
+      return {
+        type: 'mirror-automatic-attacks',
+        siteInstanceId,
+        mirrorSiteDefinitionId,
+        prowessBoost,
+        detainmentAgainstOvert: true,
       };
     }
     case 'auto-attack-duplicate':

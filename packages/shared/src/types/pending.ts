@@ -1705,6 +1705,45 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Whole Villages Roused (wh-31): the site's printed automatic-attacks
+         * are *replaced*, for this one company's visit only, by the automatic-
+         * attacks printed on the **corresponding site card of the other
+         * alignment** (same printed name, hero-site ↔ minion-site), each
+         * boosted by {@link prowessBoost} and carrying the applicable
+         * detainment mode. Installed (scope `'turn'`) when the hazard
+         * short-event resolves during M/H against a company moving to a hero
+         * Border-hold/Free-hold or a minion Shadow-hold/Dark-hold, keyed to
+         * the destination site *instance* (matching only this company's copy,
+         * unlike {@link ActiveConstraint.kind} `'replace-automatic-attacks'`
+         * which matches every printing by definition id). Consumed in
+         * `manifestations.ts` `getActiveAutoAttacks`, which returns the
+         * mirrored, boosted attack list in place of the printed one when a
+         * matching constraint is present.
+         */
+        readonly type: 'mirror-automatic-attacks';
+        /** The site instance whose printed attacks are replaced. */
+        readonly siteInstanceId: import('./common.js').CardInstanceId;
+        /** Definition id of the corresponding site card the attacks are borrowed from. */
+        readonly mirrorSiteDefinitionId: import('./common.js').CardDefinitionId;
+        /** Added to each borrowed attack's printed prowess. */
+        readonly prowessBoost: number;
+        /**
+         * Hero-hold mode ("detainment against hero companies"): the id of the
+         * hero-aligned player, baked onto each borrowed attack as
+         * {@link import('./cards-sites.js').AutomaticAttack.detainmentAgainstPlayer}.
+         * Absent when this constraint is in minion-hold mode.
+         */
+        readonly detainmentAgainstPlayer?: import('./common.js').PlayerId;
+        /**
+         * Minion-hold mode ("detainment against overt companies"): bakes
+         * {@link import('./cards-sites.js').AutomaticAttack.detainmentAgainstOvert}
+         * onto each borrowed attack. Absent when this constraint is in
+         * hero-hold mode.
+         */
+        readonly detainmentAgainstOvert?: boolean;
+      }
+    | {
+        /**
          * Blasting Fire (wh-51): every faction-influence attempt made
          * against a faction at the named site is modified by {@link value}
          * for the rest of the turn. Placed (scope `'turn'`) when the item

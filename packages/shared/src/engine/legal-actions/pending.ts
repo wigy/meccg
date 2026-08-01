@@ -1534,6 +1534,10 @@ function applyOneConstraint(
       // FEAR! FIRE! FOES! (as-29) Mode A — consumed directly by
       // `manifestations.ts` `getActiveAutoAttacks`; no filtering needed here.
       return base;
+    case 'mirror-automatic-attacks':
+      // Whole Villages Roused (wh-31) — consumed directly by
+      // `manifestations.ts` `getActiveAutoAttacks`; no filtering needed here.
+      return base;
     case 'influence-at-site-modifier':
       // Consulted directly by the faction-influence emitter in
       // `legal-actions/site.ts` — no broad legal-action filtering needed.
