@@ -165,6 +165,45 @@ describe('renderPassButton — flattery-attempt (Flatter a Foe)', () => {
   });
 });
 
+/**
+ * Regression test for bug report 168edbd3d46e42b1 (game msagrd6b-wruu03, seq
+ * 582): "Stays stuck in resolving. Doesn't resolve. Can't make roll." *Seized
+ * by Terror* (dm-88) enqueues a `seized-by-terror-roll` pending resolution,
+ * whose only legal action is `seized-by-terror-roll`. {@link renderPassButton}'s
+ * whitelist of pass-like action types omitted `seized-by-terror-roll` — the
+ * same class of bug as the `resolve-dice-check` and `flattery-attempt` cases
+ * above. `seized-by-terror-roll` is now whitelisted with a "Roll" label.
+ */
+const seizedByTerrorRoll: EvaluatedAction = {
+  action: {
+    type: 'seized-by-terror-roll',
+    player: 'p1',
+    targetCharacterId: 'p1-105',
+    need: 10,
+    explanation: 'Bofur resists Seized by Terror: need roll >= 10 (threshold 12, mind 2)',
+  },
+  viable: true,
+} as EvaluatedAction;
+
+describe('renderPassButton — seized-by-terror-roll (Seized by Terror)', () => {
+  test('shows a Roll button for a pending seized-by-terror-roll resolution', () => {
+    renderPassButton(viewWith([seizedByTerrorRoll]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('clicking the button sends the seized-by-terror-roll action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([seizedByTerrorRoll]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(seizedByTerrorRoll.action);
+  });
+});
+
 describe('renderPassButton — Free Council corruption-check declare step', () => {
   test('hides the bottom button when several characters are eligible, letting the player pick one', () => {
     renderPassButton(
