@@ -2165,7 +2165,17 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
   newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
 
-  let afterRemoval: GameState = { ...state, players: newPlayers };
+  // CoE rule 2.II.2: playing or discarding a character is the same
+  // once-per-turn organizing action, so a voluntary discard consumes the
+  // slot exactly like a play does (see handlePlayCharacter).
+  const isOrgPhase = state.phaseState.phase === Phase.Organization;
+  let afterRemoval: GameState = {
+    ...state,
+    players: newPlayers,
+    ...(isOrgPhase
+      ? { phaseState: { ...state.phaseState, characterPlayedThisTurn: true } }
+      : {}),
+  };
   if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
 
   let result = sweepCompanyMembershipChangedEvents(

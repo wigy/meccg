@@ -15,10 +15,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, phaseStateAs, Phase,
+  buildTestState, resetMint, dispatch, phaseStateAs, Phase, viableActions,
   viablePlayCharacterActions, nonViablePlayCharacterActions,
-  PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, LEGOLAS,
+  findCharInstanceId,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  ARAGORN, BILBO, LEGOLAS, GIMLI, BALIN,
   RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import type { OrganizationPhaseState } from '../../../index.js';
@@ -94,5 +95,76 @@ describe('Rule 3.02 — Play or Discard a Character', () => {
     });
 
     expect(viablePlayCharacterActions(state, PLAYER_2)).toHaveLength(0);
+  });
+
+  test('Playing a character consumes the turn slot, so discarding another character is not viable', () => {
+    // Regression: an AI-run game discarded four characters in one
+    // organization phase after already playing its avatar that same turn —
+    // discard-character wasn't gated by the once-per-turn play/discard slot.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [BALIN],
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS, GIMLI] }],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    // Before organizing, both discarding Legolas/Gimli and playing Balin
+    // (from hand) are viable.
+    expect(viableActions(state, PLAYER_1, 'discard-character').length).toBeGreaterThan(0);
+    expect(viablePlayCharacterActions(state, PLAYER_1).length).toBeGreaterThan(0);
+
+    const afterPlay = dispatch(state, viablePlayCharacterActions(state, PLAYER_1)[0]);
+    expect(phaseStateAs<OrganizationPhaseState>(afterPlay).characterPlayedThisTurn).toBe(true);
+
+    // The slot is spent — neither Legolas nor Gimli can be discarded now.
+    expect(viableActions(afterPlay, PLAYER_1, 'discard-character')).toHaveLength(0);
+  });
+
+  test('Discarding a character consumes the turn slot, so a second discard is not viable', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [ARAGORN],
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS, GIMLI] }],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [] }],
+        },
+      ],
+      recompute: true,
+    });
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+
+    const discardLegolas = viableActions(state, PLAYER_1, 'discard-character')
+      .find(ea => (ea.action as { characterInstanceId: string }).characterInstanceId === legolasId);
+    expect(discardLegolas).toBeDefined();
+
+    const afterDiscard = dispatch(state, discardLegolas!.action);
+    expect(phaseStateAs<OrganizationPhaseState>(afterDiscard).characterPlayedThisTurn).toBe(true);
+
+    // Gimli can no longer be discarded, and Aragorn can no longer be played —
+    // the play/discard slot for this organization phase is spent.
+    expect(viableActions(afterDiscard, PLAYER_1, 'discard-character')).toHaveLength(0);
+    expect(viablePlayCharacterActions(afterDiscard, PLAYER_1)).toHaveLength(0);
   });
 });
