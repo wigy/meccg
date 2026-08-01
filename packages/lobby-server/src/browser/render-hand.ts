@@ -1405,10 +1405,17 @@ export function renderHand(
         img.addEventListener('click', () => onAction(discardAction));
       }
     } else if (onGuardAction) {
-      // Non-playable card but can be placed on-guard — stays dimmed, click shows menu
-      img.className = 'hand-card hand-card-dimmed';
+      // Not otherwise playable, but CoE 2.IV.vii.4 lets the hazard player place
+      // any hand card on-guard (bluffing allowed). Rendering this the same as a
+      // genuinely dead card (`hand-card-dimmed`) — as opposed to the golden
+      // "playable" glow every other actionable branch above uses — made the
+      // option undiscoverable: for a company whose hazard creatures don't key
+      // to the site (common when the company hasn't moved), the *entire* hand
+      // looked uniformly unplayable with no bright card to reveal the on-guard
+      // menu, so players never thought to click anything (bug 0b917d21c4bd17fa,
+      // "Cant select any card on non-moving companies").
+      img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.style.cursor = 'pointer';
         img.addEventListener('click', (e) => {
           showHazardKeyingMenu(e, [], onAction, onGuardAction, cardPool);
         });
