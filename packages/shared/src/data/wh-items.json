@@ -143,9 +143,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/LiquidFire.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [
-      "Technology"
-    ],
+    "keywords": ["Technology"],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -158,23 +156,27 @@
         "allowTapped": true,
         "filter": {
           "$or": [
-            {
-              "site.siteType": {
-                "$in": [
-                  "shadow-hold",
-                  "dark-hold"
-                ]
-              }
-            },
-            {
-              "site.autoAttackRaces": {
-                "$includes": "dwarf"
-              }
-            }
+            { "site.siteType": { "$in": ["shadow-hold", "dark-hold"] } },
+            { "site.autoAttackRaces": { "$includes": "dwarf" } }
           ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "liquid-fire-defeat-attack",
+        "activeSitePhase": true,
+        "cost": { "discard": "self" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "defeat-attack-strikes",
+          "scope": "company-site-phase",
+          "target": "bearer-company",
+          "value": -2,
+          "excludeRaces": ["dragon", "ringwraith", "balrog"]
         }
       }
     ],
+    "certified": "2026-08-01",
     "text": "Technology. Playable at a tapped or untapped Shadow-hold [{S}], Dark-hold [{D}], or a site with a Dwarf automatic-attack. Discard to cause all strikes from all attacks of a non-Dragon, non-Nazgûl, non-Balrog creature keyed to a site to fail (resulting body checks for the creature are modified by -2)."
   },
   {

@@ -39,7 +39,7 @@ export type { BcWeightsFile, BcOutput, TensorJson } from './agents/bc-agent.js';
 export { INITIAL_RATING, updateRating, ratingInterval } from './glicko2.js';
 export type { Glicko2Rating, RatedGame } from './glicko2.js';
 
-export { runTournament, runMatch, estimateEloDiff, scoreToEloDiff } from './tournament.js';
+export { runTournament, runMatch, estimateEloDiff, estimatePairedEloDiff, MIN_PAIRS_FOR_INTERVAL, scoreToEloDiff } from './tournament.js';
 export type {
   TournamentOptions,
   TournamentResult,

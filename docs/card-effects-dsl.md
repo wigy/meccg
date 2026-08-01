@@ -2269,6 +2269,40 @@ Actions:
         "uncancelable": true, "eachCharacter": true } } }
   ```
 
+- `defeat-attack-strikes` (`add-constraint` kind) — discard the source item
+  during the active player's site phase (`activeSitePhase: true`, offered at
+  the enter-or-skip decision window, same as `skip-automatic-attacks`) to add
+  a single-use `defeat-attack-strikes` constraint to the bearer's company.
+  Consumed by the site's automatic-attack initiation in `reducer-site.ts`:
+  the next automatic-attack the company faces whose creature race is **not**
+  in `excludeRaces` has every one of its strikes automatically resolve as
+  defeated (as if parried), regardless of the roll — threaded onto the combat
+  as `forcedStrikeDefeat: true` and consumed in `combat-strike.ts`'s
+  `resolveStrikeCore` (short-circuits the roll comparison; skipped entirely
+  by the `discardItemEffect`/`takePrisonerResult`/absorb-wound overrides,
+  which only fire on a `'wounded'` result). A forced-defeat strike still
+  triggers the normal creature body check when the creature has body, but
+  that check is penalized by `value` (the constraint's `bodyCheckModifier`,
+  typically negative) — threaded as `forcedDefeatBodyCheckModifier` and added
+  into `effectiveRoll` alongside the wounded-agent bonus and
+  `bearerCombatBodyCheckModifier` in `handleBodyCheckRoll`
+  (`combat-actions.ts`). If the attack's race *is* excluded, the constraint
+  is left untouched so it can still apply to a later qualifying
+  automatic-attack at the same site visit (it does not consume on a
+  non-match). `excludeRaces` and `value` are read off the `add-constraint`
+  apply clause by `buildPayloadConstraintKind` (`grant-action-apply.ts`).
+  Used by *Liquid Fire* (wh-52): "Discard to cause all strikes from all
+  attacks of a non-Dragon, non-Nazgûl, non-Balrog creature keyed to a site to
+  fail (resulting body checks for the creature are modified by -2)."
+
+  ```json
+  { "type": "grant-action", "action": "liquid-fire-defeat-attack",
+    "activeSitePhase": true, "cost": { "discard": "self" },
+    "apply": { "type": "add-constraint", "constraint": "defeat-attack-strikes",
+      "scope": "company-site-phase", "target": "bearer-company", "value": -2,
+      "excludeRaces": ["dragon", "ringwraith", "balrog"] } }
+  ```
+
 - `boost-company-influence` — tap the bearer (a sage carrying a
   permanent enchantment) during the active player's site phase to add
   `+value` to one influence attempt by **another** untapped character in
@@ -2609,7 +2643,7 @@ Triggered effect that fires when a game event occurs.
 
 Events:
 
-- `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check. Wounds enqueue a `corruption-check` pending resolution (see [Pending resolutions](#pending-resolutions) below) for the actor whose character was wounded; the resolution is scoped to the active company's MH or Site sub-phase, so it auto-clears at the company's sub-phase end. Implemented in `reducer-combat.ts`.
+- `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check. Wounds enqueue a `corruption-check` pending resolution (see [Pending resolutions](#pending-resolutions) below) for the actor whose character was wounded; the resolution is scoped to the active company's MH or Site sub-phase, so it auto-clears at the company's sub-phase end. Implemented in `reducer-combat.ts`. Also supports `apply: { "type": "force-discard-one-company-item", "chooser"?: "attacker" | "defender" }` (`combat-finalize.ts`): the defending company must discard one item, once per attack. `chooser` picks who selects the item (default `"defender"`) — Brigands (tw-17/le-64) and Pirates (le-88) leave the choice to the defender; Were-worm (td-80) sets `"chooser": "attacker"` for "discard one item of attacker's choice".
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
 - `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`. `atHaven` follows the bearer's controller's {H} semantics (`isHavenForPlayer`): any haven-class site for hero/minion players (Haven/Darkhaven), but for a Fallen-wizard player his Wizardhavens — an FW-alignment haven site or a `wizardhaven-conversion` site. Supported apply types:
   - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only, `"bearer.atHaven": true`), *Longing for the West* wh-25 (away from Haven/Wizardhaven only, `"bearer.atHaven": false`) and *The Least of Gold Rings* (any site).
@@ -3673,10 +3707,16 @@ resolution modes driven by flags on the effect:
 **Dodge mode** (`"dodge": true`): the target character resolves the strike
 at full prowess without tapping (unless wounded). If wounded, `bodyPenalty`
 applies to the resulting body check. The play goes through the chain so the
-opponent may respond.
+opponent may respond. Optionally gated by a `requiredSkill` on the struck
+character (enforces CoE 3.iv.5: only one skill-requiring resource per
+strike, same as default mode).
 
 ```json
 { "type": "strike-modifier", "dodge": true, "bodyPenalty": -1 }
+```
+
+```json
+{ "type": "strike-modifier", "dodge": true, "requiredSkill": "warrior" }
 ```
 
 **Reroll mode** (`"reroll": true`): two 2d6 rolls are made and the better
@@ -3710,7 +3750,7 @@ per strike).
 - `bodyPenalty` — added to the character's body on the resulting body
   check if wounded (typically negative). Omit for 0.
 - `requiredSkill` — the struck character must carry this skill. Omit to
-  allow any character (default mode only).
+  allow any character (default and dodge modes).
 - `filter` — condition on the strike target character (reroll mode only).
 
 All modes emit a `play-strike-event` action during resolve-strike and
@@ -11646,8 +11686,9 @@ hazard short-event — including a dual-mode creature played as a short-event (s
 
 - `unless` (optional) — a DSL condition evaluated against the target company
   (context from `buildTargetCompanyConditionContext`: `company.alignment`,
-  `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When it
-  matches, the return is **skipped** and the card resolves with no effect.
+  `company.characterNames`, `company.maxUntappedWarriorProwess`,
+  `company.covert` (`isCovertCompany` — `true` covert, `false` overt), …). When
+  it matches, the return is **skipped** and the card resolves with no effect.
 
 The resolution lives in `applyCompanyReturnToOrigin` (`chain-reducer.ts`), which
 sets `MovementHazardPhaseState.returnedToOrigin` (honoured by `endCompanyMH`)
@@ -12122,6 +12163,29 @@ companies face hazards this turn. `collectCreatureAttackBoostEffects`
 (`effects/resolver.ts`) resolves either target shape when computing attack
 prowess/strikes, so the boost lands on hazard-creature attacks and site
 automatic-attacks alike, and the `turn` scope sweeps it at end of turn.
+
+**Race-agnostic, self-targeted use via `on-event: self-enters-play` →
+`add-constraint`.** A plain resource short event with no combat/move/draw
+shape resolves inline (`handlePlayResourceShortEvent`, not the chain), so
+`attack-race-boost` itself (a chain-only primitive) doesn't reach it. Its
+underlying `creature-attack-boost` constraint kind is reachable from that
+inline path too, via the generic `add-constraint` `on-event` case already
+used for `character-stat-modifier`/`hazard-limit-modifier`/etc. (§ "add-constraint"
+above): set `constraint: "creature-attack-boost"`, `scope: "turn"`, and
+`prowess`/`strikes` on the apply, and **omit `race`** — the constraint-kind
+builder (`reducer-events.ts`) passes the apply's `race` through only when
+present, and `collectCreatureAttackBoostEffects` treats an absent `race` as
+"matches every attack" rather than filtering by one. The company is resolved
+from the card's own `play-target`-chosen character exactly as every other
+character-targeted `add-constraint` apply (§ "add-constraint": "resolve the
+target company from ... the scout/character instance"). Used by Wizard's
+Flame (tw-361): "Spell. Wizard only. All attacks against Wizard's company
+suffer a -2 modification to prowess for the rest of the turn. Wizard makes a
+corruption check modified by -3." — `play-target` (`target: "character"`,
+`filter: { "target.race": "wizard" }`), `on-event: self-enters-play` →
+`add-constraint` (`constraint: "creature-attack-boost"`, `scope: "turn"`,
+`prowess: -2`), and a second `on-event: self-enters-play` →
+`enqueue-corruption-check` (`modifier: -3`).
 
 ### 56i. `target-character-stat-modifier`
 

@@ -1349,6 +1349,29 @@ function handleSiteAutomaticAttacks(
     boostedState = removeConstraint(boostedState, arouseBoost.id);
   }
 
+  // Liquid Fire (wh-52): a single-use `defeat-attack-strikes` constraint on
+  // this company causes all of this attack's strikes to be automatically
+  // defeated (as if parried), regardless of the roll — unless the creature's
+  // race is excluded (Dragon, Ringwraith/Nazgûl, Balrog), in which case the
+  // constraint is left in place for a later qualifying attack this visit.
+  let forcedStrikeDefeat = false;
+  let forcedDefeatBodyCheckModifier = 0;
+  const defeatStrikesConstraint = boostedState.activeConstraints.find(
+    c => c.target.kind === 'company'
+      && c.target.companyId === company.id
+      && c.kind.type === 'defeat-attack-strikes',
+  );
+  if (defeatStrikesConstraint && defeatStrikesConstraint.kind.type === 'defeat-attack-strikes') {
+    if (creatureRace && defeatStrikesConstraint.kind.excludeRaces.includes(creatureRace)) {
+      logDetail(`Site: defeat-attack-strikes constraint present but "${creatureRace}" is excluded — ${aa.creatureType} attacks normally`);
+    } else {
+      forcedStrikeDefeat = true;
+      forcedDefeatBodyCheckModifier = defeatStrikesConstraint.kind.bodyCheckModifier;
+      logDetail(`Site: consuming defeat-attack-strikes constraint from "${cardName(state, defeatStrikesConstraint.sourceDefinitionId, '?')}" — all strikes of this ${aa.creatureType} attack automatically fail (creature body checks modified by ${forcedDefeatBodyCheckModifier})`);
+      boostedState = removeConstraint(boostedState, defeatStrikesConstraint.id);
+    }
+  }
+
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   // "each character faces 1 strike": total = company size, strikes pre-assigned one per
   // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
@@ -1412,6 +1435,7 @@ function handleSiteAutomaticAttacks(
     ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
+    ...(forcedStrikeDefeat ? { forcedStrikeDefeat: true, forcedDefeatBodyCheckModifier } : {}),
   };
 
   // For each-character attacks with multiple characters, start at choose-strike-order.

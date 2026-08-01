@@ -289,6 +289,17 @@ export function resolveStrikeCore(
     logDetail(`Tie — ineffectual${mode === 'dodge' ? ' (dodge: no tap)' : ', character taps'}`);
   }
 
+  // Liquid Fire (wh-52): a `defeat-attack-strikes` constraint consumed at
+  // combat initiation forces every strike of this attack to be defeated
+  // regardless of the roll — the strike still triggers the normal creature
+  // body check when the creature has body (penalized separately by
+  // `forcedDefeatBodyCheckModifier` in `handleBodyCheckRoll`).
+  if (combat.forcedStrikeDefeat) {
+    result = 'success';
+    bodyCheckTarget = combat.creatureBody !== null ? 'creature' : null;
+    logDetail(`Forced strike defeat (Liquid Fire) — strike automatically fails${bodyCheckTarget ? ', creature body check pending' : ''}`);
+  }
+
   // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25): on a
   // successful agent strike the defender is not wounded; the company must
   // instead discard one item of their choice.

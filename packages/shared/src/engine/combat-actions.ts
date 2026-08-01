@@ -384,6 +384,13 @@ export function handlePlayStrikeEvent(state: GameState, action: GameAction, comb
 
   if (strikeEffect.dodge) {
     // Dodge mode: initiate chain so opponent may respond; resolution applies the dodge effect.
+    // Set requiredSkillEventPlayed at declaration time (CoE 3.iv.5), same as default mode.
+    if (strikeEffect.requiredSkill) {
+      const newAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex ? { ...a, requiredSkillEventPlayed: true } : a,
+      );
+      resultState = { ...resultState, combat: { ...combat, strikeAssignments: newAssignments } };
+    }
     const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
     resultState = initiateOrPushChain(resultState, action.player, handCard, payload);
     return { state: resultState };
@@ -714,9 +721,13 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // bearer-combat body-check modifier (Flame of Udûn ba-58): a failed strike
     // against the parrying character raises the striker's body check.
     const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike2);
-    const effectiveRoll = rollTotal + woundedBonus + bearerMod;
+    // Liquid Fire (wh-52): "resulting body checks for the creature are
+    // modified by -2" — applies to every creature body check this
+    // forced-defeat attack produces (see `forcedStrikeDefeat` in combat-strike.ts).
+    const forcedMod = combat.forcedDefeatBodyCheckModifier ?? 0;
+    const effectiveRoll = rollTotal + woundedBonus + bearerMod + forcedMod;
     const entityLabel = isAgent ? 'agent' : 'creature';
-    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${forcedMod ? `${formatSignedNumber(forcedMod)}(Liquid Fire)` : ''} = ${effectiveRoll} vs body ${body}`);
     // CoE 3.iv.7: the strike is defeated only if the body check FAILS (roll >
     // body). If the body check passes, the strike was not defeated and the
     // creature/agent survives. Record 'survived' (vs the parry's 'success') so

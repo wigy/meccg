@@ -411,6 +411,7 @@ export function showCharacterActionTooltip(
     sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
+    grantedActions?: Map<string, ActivateGrantedAction[]>;
     companyId?: CompanyId;
   },
 ): void {
@@ -500,6 +501,9 @@ export function showCharacterActionTooltip(
   if (ccSupportAction) {
     items.push({ label: 'Tap for CC Support (+1)', onClick: () => onAction(ccSupportAction) });
   }
+
+  const grantedActionsForChar = options.grantedActions?.get(charInstId as string) ?? [];
+  items.push(...buildGrantedActionMenuItems(grantedActionsForChar, onAction));
 
   // Opponent influence: enter targeting mode
   if (lastView) {

@@ -24,7 +24,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { runMatch } from '../tournament.js';
+import { runMatch, estimatePairedEloDiff, MIN_PAIRS_FOR_INTERVAL } from '../tournament.js';
 import type { TournamentPlayFn } from '../tournament.js';
 import { parseCliArgs, numberFlag, stringFlag, resolveAgent, resolveDecks } from './common.js';
 import { sliceGames, runChildren } from './jobs.js';
@@ -156,16 +156,27 @@ async function main(): Promise<void> {
   console.log('');
   console.log(`score:     ${challenger.wins}W-${challenger.losses}L-${challenger.draws}D (score ${(match.elo.score * 100).toFixed(1)}%) over ${match.elo.games} rated games`);
   console.log(`elo diff:  ${signed(match.elo.diff)} [${signed(match.elo.low)}, ${signed(match.elo.high)}] (95% CI, challenger − champion)`);
+  const paired = estimatePairedEloDiff(match.games, challenger.name);
+  if (paired) {
+    console.log(`  paired:  ${signed(paired.diff)} [${signed(paired.low)}, ${signed(paired.high)}] over ${paired.games / 2} complete pair(s) — the criterion`);
+  } else {
+    console.log(`  paired:  too few complete pairs (<${MIN_PAIRS_FOR_INTERVAL}) — falling back to the per-game interval`);
+  }
   console.log(`glicko-2:  challenger ${challenger.rating.rating.toFixed(0)} ±${(1.96 * challenger.rating.rd).toFixed(0)}, champion ${champion.rating.rating.toFixed(0)} ±${(1.96 * champion.rating.rd).toFixed(0)} → diff ${signed(match.glickoDiff.diff)} [${signed(match.glickoDiff.low)}, ${signed(match.glickoDiff.high)}]`);
   console.log(`failures:  ${match.failures}`);
   console.log('');
 
-  const eloOk = match.elo.low >= minElo;
+  // The paired estimate is the criterion when there are enough complete pairs,
+  // because the schedule was *built* to be paired and the unpaired interval
+  // spends that structure on nothing. It is only ever a narrower reading of the
+  // same games, never a different set of games.
+  const rated = paired ?? match.elo;
+  const eloOk = rated.low >= minElo;
   const cleanOk = match.failures === 0;
   if (eloOk && cleanOk) {
-    console.log(`PASS — Elo-diff lower bound ${signed(match.elo.low)} ≥ ${minElo} and all games completed`);
+    console.log(`PASS — Elo-diff lower bound ${signed(rated.low)} ≥ ${minElo} and all games completed`);
   } else {
-    if (!eloOk) console.log(`FAIL — Elo-diff lower bound ${signed(match.elo.low)} < ${minElo}: challenger is too weak`);
+    if (!eloOk) console.log(`FAIL — Elo-diff lower bound ${signed(rated.low)} < ${minElo}: challenger is too weak`);
     if (!cleanOk) console.log(`FAIL — ${match.failures} game(s) did not complete (engine bug or decision limit)`);
     process.exitCode = 1;
   }

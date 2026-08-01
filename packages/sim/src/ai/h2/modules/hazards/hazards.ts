@@ -529,10 +529,16 @@ function boostGain(
     ? describe(hypothetical)
     : `${describe(current)} becomes ${describe(hypothetical)}`;
   return {
-    // A boost never makes the plan worse — the unboosted bundle is still
-    // available — so a negative difference is beam noise, not a reason to play
-    // it for a loss.
-    tsd: Math.max(0, after - before),
+    // The value of playing this now is the *whole* boosted plan it unlocks —
+    // the same total a bundle starting with the creature it boosts would
+    // report, not the marginal sliver left after subtracting that plan's
+    // unboosted value. Comparing the sliver against a creature's full bundle
+    // total is why the event always lost that comparison and got played
+    // second, after the attack it was supposed to improve had already
+    // resolved. `Math.max(before, ...)` is the same beam-noise guard as
+    // before: a boost never makes the plan worse, so `after` dipping under
+    // `before` is search noise, not a real loss.
+    tsd: Math.max(before, after),
     reason: after - before > 0
       ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to `
         + `${after.toFixed(1)}`
