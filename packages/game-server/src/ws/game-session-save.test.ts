@@ -137,7 +137,11 @@ describe('GameSession save lifecycle', () => {
     const view = [...alice.sent].reverse().find(m => m.type === 'state');
     expect(view).toBeDefined();
     expect((view!.view as { phaseState: { phase: string } }).phaseState.phase).toBe(Phase.Setup);
-    expect(fs.existsSync(AUTOSAVE)).toBe(false);
+    // The autosave is kept current from the moment the fresh game starts (see
+    // the "in-progress action" test below) — it must reflect the new Setup
+    // game, never the stale finished one it replaced.
+    const saved = JSON.parse(fs.readFileSync(AUTOSAVE, 'utf-8')) as { state: { phaseState: { phase: string } } };
+    expect(saved.state.phaseState.phase).toBe(Phase.Setup);
   });
 
   test('a game over but not yet acknowledged is still restored', () => {
@@ -211,5 +215,44 @@ describe('GameSession save lifecycle', () => {
     alice.close();
 
     expect(fs.existsSync(AUTOSAVE)).toBe(true);
+  });
+
+  test('an in-progress action keeps the autosave current, without waiting for a disconnect', () => {
+    // A stale autosave that predates already-applied actions is exactly what
+    // let a crash silently revert an in-progress game (e.g. a completed
+    // gold-ring test discarded, reverting the player to before the card was
+    // played) with no clean disconnect to trigger a fresh write.
+    fs.rmSync(AUTOSAVE, { force: true });
+
+    const session = new GameSession({ dev: true, playerNames: ['Alice', 'Bob'] });
+    const alice = new FakeSocket();
+    const bob = new FakeSocket();
+    session.addConnection(alice as never);
+    session.addConnection(bob as never);
+    alice.join('Alice');
+    bob.join('Bob');
+
+    const assigned = alice.sent.find(m => m.type === 'assigned');
+    const aliceId = assigned!.playerId as string;
+    const view = [...alice.sent].reverse().find(m => m.type === 'state')!.view as {
+      stateSeq: number;
+      legalActions: readonly { action: Record<string, unknown>; viable: boolean }[];
+    };
+    const viableAction = view.legalActions.find(a => a.viable && a.action.player === aliceId);
+    expect(viableAction).toBeDefined();
+
+    // The autosave is already fresh as of the game starting (join/new-game) —
+    // the point of this test is that it keeps up after every action too.
+    expect(fs.existsSync(AUTOSAVE)).toBe(true);
+    const beforeAction = JSON.parse(fs.readFileSync(AUTOSAVE, 'utf-8')) as { state: { stateSeq: number } };
+    expect(beforeAction.state.stateSeq).toBe(view.stateSeq);
+
+    alice.action(viableAction!.action);
+
+    expect(fs.existsSync(AUTOSAVE)).toBe(true);
+    const saved = JSON.parse(fs.readFileSync(AUTOSAVE, 'utf-8')) as { state: { stateSeq: number } };
+    const nextView = [...alice.sent].reverse().find(m => m.type === 'state')!.view as { stateSeq: number };
+    expect(saved.state.stateSeq).toBe(nextView.stateSeq);
+    expect(saved.state.stateSeq).toBeGreaterThan(view.stateSeq);
   });
 });
