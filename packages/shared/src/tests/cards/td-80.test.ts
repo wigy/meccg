@@ -2,42 +2,40 @@
  * @module td-80.test
  *
  * Card test: Were-worm (td-80)
- * Type: hazard-creature
- * Race: drake
- * Stats: prowess 13, strikes 1, kill-marshalling-points 2, body 6
- * Keyed to: wilderness {w}
- * Effects: 1 (on-event: character-wounded-by-self → force-discard-one-company-item, chooser: attacker)
+ * Type: hazard-creature (Drake), non-unique.
+ * Strikes: 1, Prowess: 13, Body: 6, kill MP 2.
+ * Keyed to `{w}` — one Wilderness in the site path.
  *
- * "Drake. One strike. Attacker chooses defending characters. Defending
- *  company must discard one item of attacker's choice for each character
- *  wounded by Were-worm."
+ * Card text: "Drake. One strike. Attacker chooses defending characters.
+ * Defending company must discard one item of attacker's choice for each
+ * character wounded by Were-worm."
  *
- * Rules covered by tests:
- * 1. Combat initiates with 1 strike and prowess 13.
- * 2. A wound enqueues a discard-one-company-item pending resolution for the
- *    ATTACKING player — CRF 22: "Wounding an ally discards an item," and the
- *    card text is explicit that the item is "of attacker's choice", unlike
- *    Brigands (tw-17) where the choice belongs to the defender.
- * 3. The attacker may choose any item in the defending company to discard,
- *    and it moves to the defender's discard pile.
- * 4. No pending resolution when no character is wounded.
- * 5. No pending resolution when the company has no items, even if wounded.
+ * Rule coverage:
+ *
+ * | # | Rule                                   | Mechanism                                          |
+ * |---|-----------------------------------------|-----------------------------------------------------|
+ * | 1 | One strike at 13 prowess, body 6        | printed stats → CombatState                        |
+ * | 2 | Attacker chooses defending characters   | combat-attacker-chooses-defenders (cancel-window)   |
+ * | 3 | Discard an item per wounded character    | on-event: character-wounded-by-self →              |
+ * |   |                                          | force-discard-one-company-item, chooser: attacker  |
+ *
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO,
+  ARAGORN, LEGOLAS, GIMLI, BILBO,
   GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeWildernessMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, dispatch, expectCharItemCount,
-  viableActions,
+  viableActions, viableFor,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, GameState } from '../../index.js';
 
 const WERE_WORM = 'td-80' as CardDefinitionId;
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' };
@@ -45,7 +43,46 @@ const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' 
 describe('Were-worm (td-80)', () => {
   beforeEach(() => resetMint());
 
-  test('combat initiates with 1 strike and prowess 13', () => {
+  test('combat opens in the cancel-window with 1 strike at 13 prowess, body 6', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [WERE_WORM],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+
+    const wormId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, wormId, companyId, WILDERNESS_KEYING,
+    );
+
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.phase).toBe('assign-strikes');
+    // attacker-chooses-defenders opens a cancel-window before assignment
+    expect(afterChain.combat!.assignmentPhase).toBe('cancel-window');
+    expect(afterChain.combat!.attackerChoosesDefenders).toBe(true);
+    expect(afterChain.combat!.strikesTotal).toBe(1);
+    expect(afterChain.combat!.strikeProwess).toBe(13);
+    expect(afterChain.combat!.creatureBody).toBe(6);
+    expect(afterChain.combat!.creatureRace).toBe('drake');
+  });
+
+  test('the hazard player (attacker) assigns the strike, the defender does not', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -65,6 +102,44 @@ describe('Were-worm (td-80)', () => {
     expect(afterChain.combat!.strikesTotal).toBe(1);
     expect(afterChain.combat!.strikeProwess).toBe(13);
     expect(afterChain.combat!.attackSource.type).toBe('creature');
+  });
+
+  test('cancel-window: defender may only pass, then attacker assigns the strike', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [WERE_WORM],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+
+    const wormId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, wormId, companyId, WILDERNESS_KEYING,
+    );
+
+    // Cancel-window: defender may only pass; attacker has nothing to do yet.
+    expect(viableActions(afterChain, PLAYER_1, 'assign-strike')).toHaveLength(0);
+    expect(viableFor(afterChain, PLAYER_2)).toHaveLength(0);
+
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.combat!.assignmentPhase).toBe('attacker');
+    expect(viableActions(afterPass, PLAYER_2, 'assign-strike').length).toBeGreaterThan(0);
+    expect(viableActions(afterPass, PLAYER_1, 'assign-strike')).toHaveLength(0);
   });
 
   test('wounded character triggers discard-one-company-item pending resolution for the attacker', () => {
