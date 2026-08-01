@@ -2801,8 +2801,18 @@
         "site": "Vale of Erech"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Vale of Erech if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Vale of Erech if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
+    "certified": "2026-08-01"
   },
   {
     "cardType": "hero-resource-faction",
