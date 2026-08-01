@@ -1505,10 +1505,19 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     if (arrivesTapped) {
       logDetail(`Step 8: destination ${company.destinationSite.definitionId as string} carries this player's site lock — arriving tapped (never untaps for you)`);
     }
+    // When sharing a sibling's site, inherit its actual tapped/untapped status
+    // instead of recomputing one — the sibling's currentSite is the single
+    // physical card, and it may already be tapped (e.g. a resource was played
+    // there). Recomputing independently desyncs the two companies' views of
+    // the same site instance until the site-phase merge, which then silently
+    // picks whichever company happened to be listed first.
+    const arrivalStatus = sharedDestinationOwner
+      ? sharedDestinationOwner.currentSite!.status
+      : (arrivesTapped ? CardStatus.Tapped : CardStatus.Untapped);
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
-      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: arrivesTapped ? CardStatus.Tapped : CardStatus.Untapped },
+      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: arrivalStatus },
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
