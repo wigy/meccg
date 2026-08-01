@@ -165,6 +165,47 @@ describe('renderPassButton — flattery-attempt (Flatter a Foe)', () => {
   });
 });
 
+/**
+ * Regression test for bug report bc01c91f52d48674 (game msaaty2h-tgt6iw, seq
+ * 477): "AI hangst on Gandalf Ring test." Gandalf's (tw-156) granted
+ * `test-gold-ring` action enqueues a `gold-ring-test` pending resolution
+ * (CoE rule 6.2), whose only legal action is `gold-ring-test-roll`.
+ * {@link renderPassButton}'s whitelist of pass-like action types omitted
+ * `gold-ring-test-roll`, so neither the roll button nor the "Waiting…"
+ * indicator appeared — the same class of bug as `resolve-dice-check` and
+ * `flattery-attempt` above. `gold-ring-test-roll` is now whitelisted with a
+ * "Roll" label.
+ */
+const goldRingTestRoll: EvaluatedAction = {
+  action: {
+    type: 'gold-ring-test-roll',
+    player: 'p1',
+    goldRingInstanceId: 'p1-5',
+    rollModifier: 0,
+    explanation: 'Gold-ring auto-test for Beautiful Gold Ring: 2d6 +0',
+  },
+  viable: true,
+} as EvaluatedAction;
+
+describe('renderPassButton — gold-ring-test-roll (Gandalf test-gold-ring)', () => {
+  test('shows a Roll button for a pending gold-ring-test-roll resolution', () => {
+    renderPassButton(viewWith([goldRingTestRoll]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('clicking the button sends the gold-ring-test-roll action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([goldRingTestRoll]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(goldRingTestRoll.action);
+  });
+});
+
 describe('renderPassButton — Free Council corruption-check declare step', () => {
   test('hides the bottom button when several characters are eligible, letting the player pick one', () => {
     renderPassButton(
