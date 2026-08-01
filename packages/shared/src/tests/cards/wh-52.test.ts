@@ -43,7 +43,7 @@ import {
   findCharInstanceId, companyIdAt, dispatch,
   pool, LORIEN, MORIA, MINAS_TIRITH, LEGOLAS,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { Phase, CardStatus } from '../../index.js';
 import type {
   CardDefinitionId, SitePhaseState, SiteCard, GameState, ActivateGrantedAction,
 } from '../../index.js';
@@ -226,7 +226,7 @@ describe('Liquid Fire (wh-52)', () => {
 
   /** Assign the (single) pending strike to the defending company's only character. */
   function assignSoleStrike(state: GameState): GameState {
-    const action = viableActions(state, PLAYER_1, 'assign-strike')[0]!.action;
+    const action = viableActions(state, PLAYER_1, 'assign-strike')[0].action;
     return dispatch(state, action);
   }
 
