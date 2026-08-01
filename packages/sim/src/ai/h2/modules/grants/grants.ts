@@ -122,6 +122,40 @@ function costOf(
   return { tsd: 0, reason: 'the grant declares no cost' };
 }
 
+/**
+ * The tapping variant of the same grant, if this decision is also offering it.
+ *
+ * `organization.ts` emits both variants side by side whenever the bearer is
+ * untapped, and `grant-action-apply.ts` locks corruption removal on that
+ * character/card pair for the rest of the turn **"regardless of roll
+ * outcome"**. So the two are not independent options: taking the no-tap roll
+ * spends the turn's only attempt at -3, and the tapping one — which the module
+ * docstring's own calibration puts at 84.0% against the no-tap 40.4% — is gone
+ * with it.
+ *
+ * If the bearer is already tapped the engine offers no such variant, and then
+ * the free roll really is free. That is why this reads the candidate list
+ * rather than assuming: the option only costs what was actually on the table.
+ */
+function tappingVariantOf(
+  action: GameAction,
+  legalActions: readonly GameAction[],
+): GameAction | undefined {
+  const self = action as unknown as {
+    actionId?: string; characterId?: string; sourceCardId?: string;
+  };
+  return legalActions.find(candidate => {
+    if (candidate === action || candidate.type !== 'activate-granted-action') return false;
+    const other = candidate as unknown as {
+      actionId?: string; characterId?: string; sourceCardId?: string; noTap?: true;
+    };
+    return other.noTap !== true
+      && other.actionId === self.actionId
+      && other.characterId === self.characterId
+      && other.sourceCardId === self.sourceCardId;
+  });
+}
+
 /** What the grant is worth if it resolves, or null when it cannot be priced. */
 function gainOf(
   apply: GrantApply | undefined,
@@ -221,6 +255,30 @@ export const grantsModule: H2Module = {
     const name = printed?.name ?? sourceCardDefinitionId;
     const bearer = nameOf(context.cardPool, character.definitionId as string, characterId);
 
+    // A no-tap roll that fails has not merely achieved nothing — it has spent
+    // the turn's attempt, and the tapping variant standing beside it on this
+    // same decision goes with it. Charging that only on the failure branch is
+    // the point: on success the card is gone and the option is moot.
+    //
+    // Without this the no-tap variant costs nothing and can lose nothing, so
+    // its utility is `p × relief` — strictly positive, and therefore always
+    // ranked above `pass` at a flat 0. It was: `compare` prices `pass` at 42.7%
+    // of h2's total divergence cost against `mc`, and the dearest rows are `mc`
+    // passing while h2 takes exactly this free roll.
+    const tappingVariant = noTap ? tappingVariantOf(action, context.legalActions) : undefined;
+    const forfeited = tappingVariant === undefined
+      ? { tsd: 0, reason: 'the bearer is tapped, so no tapping variant was on offer to lose' }
+      : (() => {
+        const tapCost = costOf(grant, characterId, characterValue, sourceMpLoss);
+        const tapSuccess = pAtLeast(record.rollThreshold ?? 0);
+        const worth = Math.max(0, tapSuccess * gain.tsd - tapCost.tsd);
+        return {
+          tsd: worth,
+          reason: `forfeits the tapping variant for the turn — ${(tapSuccess * 100).toFixed(1)}% `
+            + `at the unmodified threshold, net of ${tapCost.reason}`,
+        };
+      })();
+
     const outcomes: Outcome[] = [
       {
         p: success,
@@ -229,8 +287,10 @@ export const grantsModule: H2Module = {
       },
       {
         p: 1 - success,
-        label: `${name}: the roll fails — the cost is paid anyway`,
-        dtsd: netTsdDelta({ realized: 0, tempo: cost.tsd }, tunables),
+        label: noTap && forfeited.tsd > 0
+          ? `${name}: the roll fails — and the turn's tapping attempt is locked out with it`
+          : `${name}: the roll fails — the cost is paid anyway`,
+        dtsd: netTsdDelta({ realized: 0, tempo: cost.tsd + forfeited.tsd }, tunables),
       },
     ].filter(outcome => outcome.p > 0);
     const scored = standing.score(outcomes);
@@ -247,6 +307,12 @@ export const grantsModule: H2Module = {
       leaf('what it is worth', gain.tsd, { unit: 'tsd', note: gain.reason }),
       leaf('what it costs', cost.tsd, { unit: 'tsd', note: cost.reason }),
     ];
+    if (noTap) {
+      detail.push(leaf('what a failed roll forfeits', forfeited.tsd, {
+        unit: 'tsd',
+        note: forfeited.reason,
+      }));
+    }
 
     return {
       action,
@@ -265,6 +331,10 @@ export const grantsModule: H2Module = {
         + 'does in full: a grant that also restricts or enables something else is under-valued',
         'a no-tap variant is priced at the published threshold plus 3, mirroring the engine; if that '
         + 'penalty ever changes there, this has to change with it',
+        'a failed no-tap roll is charged the tapping variant it locks out for the turn, valued at '
+        + 'that variant\'s own odds net of the tap. What it does not charge is the *next* turn\'s '
+        + 'attempt, so a card that will still be there tomorrow is over-valued by whatever the '
+        + 'delay costs',
         'a card recovered to hand is priced at what an average draw is worth, which is a floor — '
         + 'choosing the card beats drawing one',
         'shedding a card is priced only for the corruption it was carrying, against one future '

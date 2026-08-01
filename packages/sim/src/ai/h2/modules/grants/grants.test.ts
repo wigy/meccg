@@ -92,3 +92,52 @@ describe('what it will not price', () => {
     expect(grantsModule.evaluate(bogus, context)).toBeNull();
   });
 });
+
+describe('the no-tap roll is not free', () => {
+  /** Both variants of the shed, as the engine offers them side by side. */
+  function variants() {
+    const { context, legalActions } = position();
+    const shed = (noTap: boolean) => legalActions.find(a => a.type === 'activate-granted-action'
+      && (a as unknown as { actionId?: string }).actionId === 'remove-self-on-roll'
+      && ((a as unknown as { noTap?: true }).noTap === true) === noTap)!;
+    return { context, tapping: shed(false), free: shed(true) };
+  }
+
+  test('the engine offers both variants on the same decision', () => {
+    const { tapping, free } = variants();
+    expect(tapping).toBeDefined();
+    expect(free).toBeDefined();
+  });
+
+  test('a failed no-tap roll is charged the tapping attempt it locks out', () => {
+    // `grant-action-apply.ts` adds the `corruption-removal-locked` constraint
+    // "regardless of roll outcome", so the free roll spends the turn's only
+    // attempt. Priced at nothing, it could never lose and so always outranked
+    // passing.
+    const { context, free } = variants();
+    const evaluation = grantsModule.evaluate(free, context)!;
+
+    const failure = evaluation.outcomes.find(o => o.label.includes('the roll fails'))!;
+    expect(failure.dtsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('forfeits the tapping variant');
+  });
+
+  test('the tapping variant it forfeits is the better roll', () => {
+    // The whole reason the free roll is a trap: 5 on 2d6 against 5+3.
+    const { context, tapping, free } = variants();
+    const odds = (a: typeof tapping) => grantsModule.evaluate(a, context)!
+      .outcomes.find(o => !o.label.includes('the roll fails'))!.p;
+    expect(odds(tapping)).toBeGreaterThan(odds(free));
+  });
+
+  test('nothing is forfeited when the bearer is tapped and no variant was offered', () => {
+    // Then the free roll really is free, and the module must not invent a cost.
+    const { context, free } = variants();
+    const alone = { ...context, legalActions: [free] };
+    const evaluation = grantsModule.evaluate(free, alone)!;
+
+    const failure = evaluation.outcomes.find(o => o.label.includes('the roll fails'))!;
+    expect(failure.dtsd).toBe(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('no tapping variant was on offer');
+  });
+});
