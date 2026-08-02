@@ -1569,6 +1569,12 @@ function applyOneConstraint(
       // (see legal-actions/site.ts / organization.ts) — no broad
       // legal-action filtering needed here.
       return base;
+    case 'corruption-removal-attempted':
+      // Consulted directly by the corruption-removal action emitter
+      // (see organization.ts) to withhold the no-tap variant once a
+      // tap-and-roll attempt has already been made this turn — no
+      // broad legal-action filtering needed here.
+      return base;
     case 'granted-action-used':
       // Once-per-turn grant-action lock, consulted directly by the
       // grant-action scanner (grantedActionActivations) — no broad

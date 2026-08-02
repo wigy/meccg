@@ -1825,6 +1825,25 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * CRF rule 10.08 (Rule 7.3): the no-tap -3 variant of removing a
+         * corruption card "cannot be taken if an attempt to remove the
+         * same corruption card has already been made this turn." This
+         * marks that a standard tap-and-roll attempt has been made on
+         * the character+corruption-card pair, so the no-tap variant is
+         * withheld for the rest of the turn — while further tap-and-roll
+         * attempts remain allowed per rule 7.3.1 (e.g. if the character
+         * is untapped again). Scope is `'turn'`, so this clears at next
+         * untap. Superseded by `corruption-removal-locked` once the
+         * no-tap variant is actually used, which blocks everything.
+         */
+        readonly type: 'corruption-removal-attempted';
+        /** Character that attempted the removal. */
+        readonly characterId: CardInstanceId;
+        /** Corruption card instance the attempt applies to. */
+        readonly corruptionInstanceId: CardInstanceId;
+      }
+    | {
+        /**
          * Once-per-turn lock for a grant-action flagged
          * {@link GrantActionEffect.oncePerTurn}. Added (turn-scoped) by the
          * grant-action reducer the first time the ability resolves and read
