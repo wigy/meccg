@@ -341,6 +341,30 @@ export function shortEventPlayChoices(
 }
 
 /**
+ * Choices offered for a hand card whose only legal action is a bare
+ * `discard-card` (end-of-turn discard steps, movement-hazard hand
+ * reduction). Routed through the same cursor-anchored tooltip menu every
+ * other disambiguation case uses, so a misclick opens a confirmation popup
+ * instead of instantly discarding the card.
+ *
+ * `onGuardAction` is defensive: whenever it's set today, the card is already
+ * routed through the `isHazard`/`isShortEvent` branches earlier in the
+ * hand-arc `if`/`else if` chain, so this almost always receives `undefined`.
+ * Still folded in here so a future engine change that emits both without
+ * also emitting a hazard/short-event action doesn't silently drop the
+ * on-guard choice (the same class of bug fixed by agent-onguard-choice.test.ts
+ * / hazard-onguard-choice.test.ts / short-event-onguard-choice.test.ts).
+ */
+export function discardOnlyChoices(
+  discardAction: GameAction,
+  onGuardAction: GameAction | undefined,
+): readonly ShortEventPlayChoice[] {
+  const choices: ShortEventPlayChoice[] = [{ label: 'Discard', action: discardAction }];
+  if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  return choices;
+}
+
+/**
  * Show a disambiguation tooltip near the clicked short-event card
  * when there are multiple valid targets. Each button names a target
  * environment; clicking it sends the corresponding action.
@@ -1402,7 +1426,11 @@ export function renderHand(
     } else if (discardAction) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => onAction(discardAction));
+        img.addEventListener('click', (e) => {
+          const items: TooltipMenuItem[] = discardOnlyChoices(discardAction, onGuardAction)
+            .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
+          showCursorTooltipMenu(e, items);
+        });
       }
     } else if (onGuardAction) {
       // Not otherwise playable, but CoE 2.IV.vii.4 lets the hazard player place
