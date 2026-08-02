@@ -1010,8 +1010,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Riddling attempt. Playable on a character whose company is facing an attack of the type listed below. Character makes a roll modified by: +2 for each sage and +1 for each Hobbit in his company. If the result is greater than: 8 against Dragons and Drakes, 10 against Men and Giants, 12 against Slayers, Awakened Plants, Orcs, Spiders, and Trolls; then name a card and opponent must reveal his hand. If the named card is in opponent’s hand, the creature’s card is discarded (all of its attacks are canceled) and the hazard limit against the character’s company is decreased by three."
+    "effects": [
+      {
+        "type": "riddling-attempt",
+        "sageBonus": 2,
+        "hobbitBonus": 1,
+        "hazardLimitReduction": 3,
+        "thresholds": [
+          {
+            "races": [
+              "dragon",
+              "drake"
+            ],
+            "threshold": 8
+          },
+          {
+            "races": [
+              "man",
+              "giant"
+            ],
+            "threshold": 10
+          },
+          {
+            "races": [
+              "slayer",
+              "awakened-plant",
+              "orc",
+              "spider",
+              "troll"
+            ],
+            "threshold": 12
+          }
+        ]
+      }
+    ],
+    "text": "Riddling attempt. Playable on a character whose company is facing an attack of the type listed below. Character makes a roll modified by: +2 for each sage and +1 for each Hobbit in his company. If the result is greater than: 8 against Dragons and Drakes, 10 against Men and Giants, 12 against Slayers, Awakened Plants, Orcs, Spiders, and Trolls; then name a card and opponent must reveal his hand. If the named card is in opponent’s hand, the creature’s card is discarded (all of its attacks are canceled) and the hazard limit against the character’s company is decreased by three.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hero-resource-event",
