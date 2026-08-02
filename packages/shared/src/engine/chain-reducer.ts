@@ -3731,6 +3731,10 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
           characterId: charInstanceId,
           modifier,
           reason: creatureDef.name,
+          // CoE 7.1.1: the resource player may tap other untapped company mates
+          // for +1 each on any corruption check declared but not yet resolved —
+          // this is unconditional, not specific to this card.
+          allowSupport: true,
         });
       }
     }
