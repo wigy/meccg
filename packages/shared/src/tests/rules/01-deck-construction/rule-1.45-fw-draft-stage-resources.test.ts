@@ -44,8 +44,17 @@ import { computeLegalActions } from '../../../index.js';
 import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource (recruitment vehicle)
+const GLOVE_OF_RADAGAST = 'wh-111' as CardDefinitionId;  // Stage resource (unique, Radagast specific)
 const GIMLI = 'tw-159' as CardDefinitionId;              // hero character, mind 6
 const BALIN = 'tw-123' as CardDefinitionId;              // hero character, mind 5
+
+// Non-specific Stage resource with no play condition (like Bad Company).
+const BLIND_TO_ALL_ELSE = 'wh-64' as CardDefinitionId;
+// Avatar-specific Stage resource (CRF 22: "Wizard specific Stage Resources may
+// be played with the starting company").
+const BOW_OF_ALATAR = 'wh-90' as CardDefinitionId;
+// Explicitly "May not be a starting stage card" — must stay undraftable.
+const THE_FORTRESS_OF_ISEN = 'wh-68' as CardDefinitionId;
 
 /** All draft-pick instance IDs currently offered to a player via legal actions. */
 function draftableInstances(state: GameState, player: PlayerId): CardInstanceId[] {
@@ -310,5 +319,94 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(items).toContain(THRALL_OF_THE_VOICE);
     expect(items).toContain(DAGGER_OF_WESTERNESSE);
     expect(items).toContain(HORN_OF_ANOR);
+  });
+
+  test('[FALLEN-WIZARD] Glove of Radagast is draftable as a Stage resource (regression for bug report f5b68841a24ffeb4)', () => {
+    // Report: a Fallen-wizard (Radagast) drafting from a pool containing Glove
+    // of Radagast (wh-111) found it not offered as a Stage resource pick and
+    // never placed into the starting deck. Root cause: wh-111 was missing the
+    // `starting-item` keyword that every other Fallen-wizard Stage resource
+    // (Thrall of the Voice, Hidden Haven, Bad Company, Open to the Summons)
+    // carries — `isStageResourceCard` never recognised it, so it fell through
+    // to ordinary (non-character) draft evaluation and was always rejected.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [GLOVE_OF_RADAGAST, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    expect(draftOffered(state, PLAYER_1, 0, GLOVE_OF_RADAGAST)).toBe(true);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GLOVE_OF_RADAGAST) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+
+    // Drafted straight into the Stage resources, not the starting-character
+    // slots — it costs no character and is now on its way into the deck.
+    expect(draftStep(state).draftState[0].draftedStageResources).toHaveLength(1);
+    expect(draftStep(state).draftState[0].drafted).toHaveLength(0);
+  });
+
+  test('[FALLEN-WIZARD] other Stage resources (non-specific and avatar-specific) are draftable; explicitly barred ones are not', () => {
+    // Regression: the Glove of Radagast fix only added `starting-item` to one
+    // card. `isStageResourceCard` gates every Stage resource permanent-event on
+    // that keyword, so any other Stage resource missing it suffers the exact
+    // same bug — offered nowhere, dead-ended in the draft pool. Per CoE 1.7.F1
+    // a Fallen-wizard's pool may hold non-specific Stage resources (Blind to
+    // All Else, wh-64) and avatar-specific ones (CRF 22: "Wizard specific
+    // Stage Resources may be played with the starting company", e.g. Bow of
+    // Alatar, wh-90) alike — both must be draftable simultaneously with
+    // characters (CoE 1.9.F4). Cards whose text explicitly reads "May not be a
+    // starting stage card" (The Fortress of Isen, wh-68; its sibling Fortress
+    // of the Towers, wh-69; Guarded Haven, wh-74) are deliberately excluded and
+    // must remain undraftable — covered separately by the wh-74 card test.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [BLIND_TO_ALL_ELSE, BOW_OF_ALATAR, THE_FORTRESS_OF_ISEN, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    const state = createGame(config, pool);
+
+    expect(draftOffered(state, PLAYER_1, 0, BLIND_TO_ALL_ELSE)).toBe(true);
+    expect(draftOffered(state, PLAYER_1, 0, BOW_OF_ALATAR)).toBe(true);
+    expect(draftOffered(state, PLAYER_1, 0, THE_FORTRESS_OF_ISEN)).toBe(false);
   });
 });
