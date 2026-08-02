@@ -41,6 +41,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
+import { extraGeneralInfluence } from '../alignment-rules.js';
 import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, ringwraithReclaimMark, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
@@ -1468,7 +1469,12 @@ export function applyDiceCheckResolution(
       mod += m.value;
     } else {
       const pi = getPlayerIndex(state, m.player);
-      mod += effectiveGeneralInfluence(state, m.player) - state.players[pi].generalInfluenceUsed;
+      // Rules 1.55/1.56 (CoE 1.12.R1 / 1.12.B1): a Ringwraith or Balrog player's
+      // unused general influence for this kind of check — Muster Disperses
+      // tw-67, Call of Home — includes their flat +5 that "cannot be used to
+      // control characters ... added on top of available general influence".
+      mod += effectiveGeneralInfluence(state, m.player) - state.players[pi].generalInfluenceUsed
+        + extraGeneralInfluence(state.players[pi].alignment);
     }
   }
   const total = rolled.total + mod;
