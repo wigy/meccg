@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.81.0 — 2026-08-02
+
+Five card certifications and missing-choice UI fixes
+
+### Cards
+
+- Certified Durin's Bane (dm-107), Darkness Under Tree (le-108), A Lie in Your Eyes (as-23), The Nazgûl are Abroad (tw-96) and Worn and Famished (td-89)
+
+### Game Engine
+
+- Resource permanent-events are now offered and routed correctly during the end-of-turn phase
+- Characters can tap in support during Corpse-candle's forced corruption checks
+- Cards being arranged on top of a deck are no longer hidden from the player choosing their order
+
+### Web Client
+
+- The Rule 9.21 ring-play offer (play or skip a tested ring) now shows its buttons
+- The Revealed to all Watchers deck-ordering choice is now presented in the UI
+- The current site card is clickable for the Great-road haven-return
+- Side cards in large hands are clickable again after the hover catch-zone was lost
+
 ## 0.80.0 — 2026-08-02
 
 New card certifications and gameplay fixes
