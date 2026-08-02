@@ -2069,6 +2069,54 @@ h2 {
   color: #ddd;
 }
 
+/* Send Mail to All dialog (admin screen) */
+
+.admin-mail-all-title {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+  font-size: 1rem;
+}
+
+.admin-mail-all-hint {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin: 0 0 0.75rem;
+}
+
+.admin-mail-all-subject,
+.admin-mail-all-body {
+  width: 100%;
+  box-sizing: border-box;
+  background: #16162a;
+  color: #e0e0e0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.admin-mail-all-subject {
+  margin-bottom: 0.5rem;
+}
+
+.admin-mail-all-body {
+  resize: vertical;
+  margin-bottom: 0.25rem;
+}
+
+.admin-mail-all-error {
+  flex: 1;
+  align-self: center;
+  color: #e08080;
+  font-size: 0.85rem;
+}
+
+.admin-mail-all-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .lobby-content {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

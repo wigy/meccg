@@ -28,6 +28,7 @@
  * - DELETE /api/admin/requests/:inbox/:id — delete a request (admin session)
  * - POST /api/admin/requests/:inbox/:id/renew — set a request back to 'new', re-queueing it (admin session)
  * - POST /api/admin/yell — broadcast a message toast to every player online (admin session)
+ * - POST /api/admin/mail-all — send a mail to every non-system player (admin session)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
@@ -583,6 +584,29 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       broadcastNotification(message);
       lobbyLog.log('admin-yell', { admin: adminName, message });
       sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/admin/mail-all' && method === 'POST') {
+    await adminRoute(req, res, 'admin-mail-all', 'Failed to send mail', async (adminName) => {
+      const body = JSON.parse(await readBody(req)) as { subject?: string; body?: string };
+      const subject = body.subject?.trim();
+      const text = body.body?.trim();
+      if (!subject || !text) { sendJson(res, 400, { error: 'subject and body are required' }); return; }
+      const recipients = listPlayers().filter((p) => !p.system).map((p) => p.name);
+      if (recipients.length === 0) { sendJson(res, 400, { error: 'No players to mail' }); return; }
+      const id = sendMail(recipients, {
+        from: getDisplayName(adminName),
+        sender: 'player',
+        topic: 'announcement',
+        body: text,
+        subject,
+        keywords: {},
+        sentBy: adminName,
+      });
+      lobbyLog.log('admin-mail-all', { id, admin: adminName, recipients: recipients.length, subject });
+      sendJson(res, 200, { ok: true, id, recipients: recipients.length });
     });
     return;
   }

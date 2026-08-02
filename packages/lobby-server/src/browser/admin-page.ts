@@ -24,7 +24,9 @@
  *
  * Above the tabs sits the yell bar: a message box whose Yell button
  * broadcasts the text as a system toast to every player online
- * (`POST /api/admin/yell`).
+ * (`POST /api/admin/yell`). Next to it, Send Mail to All opens a
+ * subject + message dialog and delivers the mail to every non-system
+ * player's inbox (`POST /api/admin/mail-all`).
  */
 
 import { appState, ADMIN_TAB_KEY, type ScreenId } from './app-state.js';
@@ -296,6 +298,59 @@ function storedAdminTab(): AdminTab {
   return sessionStorage.getItem(ADMIN_TAB_KEY) === 'requests' ? 'requests' : 'users';
 }
 
+/**
+ * The Send Mail to All dialog: subject + message, delivered to every
+ * non-system player's inbox. Reports the delivery count in `note`.
+ */
+function showMailAllDialog(note: HTMLElement): void {
+  const modal = document.createElement('div');
+  modal.className = 'app-dialog';
+  modal.innerHTML = `
+    <div class="app-dialog-backdrop"></div>
+    <div class="app-dialog-box">
+      <h3 class="admin-mail-all-title">Send Mail to All</h3>
+      <p class="admin-mail-all-hint">Delivered to every registered player's inbox (system accounts excluded). Markdown supported.</p>
+      <input type="text" class="admin-mail-all-subject" maxlength="200" placeholder="Subject...">
+      <textarea class="admin-mail-all-body" rows="8" placeholder="Message..."></textarea>
+      <div class="app-dialog-actions">
+        <span class="admin-mail-all-error"></span>
+        <button type="button" class="app-dialog-btn-cancel">Cancel</button>
+        <button type="button" class="admin-mail-all-send">Send</button>
+      </div>
+    </div>`;
+  const subject = modal.querySelector<HTMLInputElement>('.admin-mail-all-subject')!;
+  const body = modal.querySelector<HTMLTextAreaElement>('.admin-mail-all-body')!;
+  const error = modal.querySelector<HTMLElement>('.admin-mail-all-error')!;
+  const sendBtn = modal.querySelector<HTMLButtonElement>('.admin-mail-all-send')!;
+
+  const close = (): void => modal.remove();
+  modal.querySelector('.app-dialog-backdrop')!.addEventListener('click', close);
+  modal.querySelector('.app-dialog-btn-cancel')!.addEventListener('click', close);
+
+  sendBtn.addEventListener('click', () => { void (async () => {
+    error.textContent = '';
+    if (!subject.value.trim() || !body.value.trim()) {
+      error.textContent = 'Subject and message are required.';
+      return;
+    }
+    sendBtn.disabled = true;
+    const r = await apiSend<{ recipients: number }>('/api/admin/mail-all', 'POST', {
+      subject: subject.value.trim(),
+      body: body.value.trim(),
+    });
+    if (!r.ok) {
+      sendBtn.disabled = false;
+      error.textContent = r.error ?? 'Failed to send mail';
+      return;
+    }
+    close();
+    note.textContent = `Mailed ${r.data.recipients} player${r.data.recipients === 1 ? '' : 's'}.`;
+  })(); });
+
+  document.body.appendChild(modal);
+  subject.focus();
+}
+
 /** The yell bar: broadcast a message as a toast to every player online. */
 function renderYellBar(): HTMLElement {
   const bar = document.createElement('div');
@@ -304,10 +359,14 @@ function renderYellBar(): HTMLElement {
     <input type="text" class="admin-yell-input" maxlength="500"
       placeholder="Message to yell at every player online...">
     <button type="button" class="admin-yell-btn">Yell</button>
+    <button type="button" class="admin-yell-btn admin-mail-all-btn"
+      title="Send a mail to every non-system player">Send Mail to All</button>
     <span class="admin-yell-note"></span>`;
   const input = bar.querySelector<HTMLInputElement>('.admin-yell-input')!;
   const btn = bar.querySelector<HTMLButtonElement>('.admin-yell-btn')!;
   const note = bar.querySelector<HTMLElement>('.admin-yell-note')!;
+  bar.querySelector<HTMLButtonElement>('.admin-mail-all-btn')!
+    .addEventListener('click', () => showMailAllDialog(note));
   const yell = async (): Promise<void> => {
     const message = input.value.trim();
     if (!message) return;
