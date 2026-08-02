@@ -7075,6 +7075,20 @@ export interface RetainHazardLongEventsEffect extends EffectBase {
  * Door (tw-497) grants non-unique Animal/Spider/Wolf creatures keying to
  * Border-lands [{b}] (region type) or Border-holds [{B}] / Ruins & Lairs [{R}]
  * (site types), gated by `requiresNonCoastalKeying` (see below).
+ *
+ * `siteFilter.excludeSiteTypes` inverts the site-type branch into a
+ * denylist: the grant matches any effective site type *except* those listed
+ * (mutually exclusive with `siteTypes` — a card uses one or the other). Used
+ * by The Nazgûl are Abroad (tw-96): "Nazgûl may attack a hero company … at
+ * any site that is not a Free-hold [{F}] or Haven [{H}]."
+ *
+ * The optional `companyFilter` gates the grant on the *target company* being
+ * attacked (in addition to the site/region match), evaluated via
+ * {@link buildTargetCompanyConditionContext}'s `company` context (exposing
+ * `itemNames`, `itemKeywords`, `alignment`, …). Used by The Nazgûl are Abroad
+ * (tw-96) to restrict the widened keying to a hero company bearing The One
+ * Ring (`{ "company.itemKeywords": { "$includes": "the-one-ring" } }`) or any
+ * Ring (`{ "company.itemKeywords": { "$includes": "ring" } }`).
  */
 export interface GrantCreatureKeyingEffect extends EffectBase {
   readonly type: 'grant-creature-keying';
@@ -7084,6 +7098,11 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
   readonly siteFilter: {
     /** Effective site type must be one of these (omit = no site-type branch). */
     readonly siteTypes?: readonly SiteType[];
+    /**
+     * Effective site type must NOT be one of these (an alternative to
+     * `siteTypes` for "any site except …" grants — mutually exclusive with it).
+     */
+    readonly excludeSiteTypes?: readonly SiteType[];
     /** Site must carry every keyword listed here (applies to the site-type branch). */
     readonly siteKeywords?: readonly string[];
     /**
@@ -7093,6 +7112,13 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
      */
     readonly regionTypes?: readonly RegionType[];
   };
+  /**
+   * DSL condition evaluated against the target company's condition context
+   * (`{ company: { itemNames, itemKeywords, alignment, … } }` — see
+   * {@link buildTargetCompanyConditionContext}). Omit to gate on site/region
+   * alone.
+   */
+  readonly companyFilter?: Condition;
   /**
    * When true, the grant applies only to creatures whose own printed `keyedTo`
    * offers at least one non-Coastal-Sea region keying — i.e. the creature "must

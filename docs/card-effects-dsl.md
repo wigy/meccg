@@ -8923,6 +8923,56 @@ Dwarven Travelers this turn."
 }
 ```
 
+`siteFilter.excludeSiteTypes` is the inverse of `siteTypes` — a denylist:
+the site-type branch matches any effective site type **except** those listed
+(still ANDed with `siteKeywords` when present). Mutually exclusive with
+`siteTypes` — a grant uses one or the other, not both. Used for "any site
+except …" grants where a positive list would have to enumerate every other
+site type.
+
+The optional `companyFilter` additionally gates the grant on the **target
+company being attacked**, evaluated only after a `siteFilter` branch already
+matched. Context (via `buildTargetCompanyConditionContext`):
+`{ company: { itemNames, itemKeywords, alignment, homeSites, characterNames,
+maxUntappedWarriorProwess, containsWizard, covert } }` — `itemNames`/
+`itemKeywords` are the names/combined keywords of every item borne by any
+character in the company (e.g. `"the-one-ring"`, `"ring"`), and `alignment` is
+the defending player's rules-terminology alignment label (`"hero"` for a
+Wizard player).
+
+Used by The Nazgûl are Abroad (tw-96): "Nazgûl may attack a hero company
+containing the bearer of The One Ring at any site that is not a Free-hold
+[{F}] or Haven [{H}]. Nazgûl may attack any hero company possessing any Ring
+in a Shadow-land [{s}] or Shadow-hold [{S}]."
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "keywords": { "$includes": "Nazgûl" } },
+  "siteFilter": { "excludeSiteTypes": ["free-hold", "haven"] },
+  "companyFilter": {
+    "$and": [
+      { "company.alignment": "hero" },
+      { "company.itemKeywords": { "$includes": "the-one-ring" } }
+    ]
+  }
+}
+```
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "keywords": { "$includes": "Nazgûl" } },
+  "siteFilter": { "siteTypes": ["shadow-hold"], "regionTypes": ["shadow"] },
+  "companyFilter": {
+    "$and": [
+      { "company.alignment": "hero" },
+      { "company.itemKeywords": { "$includes": "ring" } }
+    ]
+  }
+}
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected
