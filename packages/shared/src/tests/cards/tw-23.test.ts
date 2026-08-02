@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, CorruptionCheckAction, SupportCorruptionCheckAction } from '../../index.js';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS,
@@ -22,11 +22,11 @@ import {
   buildTestState, resetMint, makeWildernessMHState, makeShadowMHState,
   findCharInstanceId,
   playCreatureHazardAndResolve, runCreatureCombat,
-  handCardId, companyIdAt, executeAction,
+  handCardId, companyIdAt, executeAction, dispatch,
   viableActions, viableFor, RESOURCE_PLAYER, HAZARD_PLAYER,
   expectCharNotInPlay,
 } from '../test-helpers.js';
-import { Phase } from '../../index.js';
+import { Phase, CardStatus } from '../../index.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -118,6 +118,47 @@ describe('Corpse-candle (tw-23)', () => {
     const charIds = pending.map(p => (p.kind.type === 'corruption-check' ? p.kind.characterId : null));
     expect(charIds).toContain(aragornId);
     expect(charIds).toContain(bilboId);
+  });
+
+  test('company mate may tap in support (+1) of a pending corruption check (CoE 7.1.1)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CORPSE_CANDLE], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeWildernessMHState() };
+
+    const ccId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, ccId, companyId, WILDERNESS_KEYING);
+
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(afterChain, RESOURCE_PLAYER, BILBO);
+
+    // Bilbo, untapped and in the same company, may tap in support of Aragorn's check.
+    const supports = viableActions(afterChain, PLAYER_1, 'support-corruption-check')
+      .map(a => a.action as SupportCorruptionCheckAction);
+    expect(supports).toContainEqual(expect.objectContaining({
+      supportingCharacterId: bilboId,
+      targetCharacterId: aragornId,
+    }));
+
+    const baseModifier = (viableActions(afterChain, PLAYER_1, 'corruption-check')
+      .find(a => (a.action as CorruptionCheckAction).characterId === aragornId)!
+      .action as CorruptionCheckAction).corruptionModifier;
+
+    const supportAction = supports.find(a => a.supportingCharacterId === bilboId && a.targetCharacterId === aragornId)!;
+    const afterSupport = dispatch(afterChain, supportAction);
+    expect(afterSupport.players[0].characters[bilboId].status).toBe(CardStatus.Tapped);
+
+    const aragornRoll = viableActions(afterSupport, PLAYER_1, 'corruption-check')
+      .find(a => (a.action as CorruptionCheckAction).characterId === aragornId)!
+      .action as CorruptionCheckAction;
+    expect(aragornRoll.corruptionModifier).toBe(baseModifier + 1);
   });
 
   test('corruption checks have no modifier (base check)', () => {
