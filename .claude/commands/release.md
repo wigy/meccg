@@ -1,4 +1,4 @@
-Perform a release of the MECCG project. A release title MUST be provided as an argument (e.g. `/release Card pool expansion and UI polish`). If no title is given, stop and ask for one.
+Perform a release of the MECCG project. A release title MAY be provided as an argument (e.g. `/release Card pool expansion and UI polish`). If no title is given, come up with a good one yourself: read `git log` from the last version tag to master and write a short title (a few words, like a newspaper headline) that captures the most significant changes in the release.
 
 The title argument is: $ARGUMENTS
 

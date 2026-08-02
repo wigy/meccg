@@ -6,8 +6,9 @@
 #   2. Read the current version from packages/shared/package.json
 #   3. Compare master against the matching vX.Y.Z tag
 #   4. If there are no new commits, exit 0 without doing anything
-#   5. Otherwise hand `/release Nightly Build` to a headless claude, which
-#      bumps the version, writes the CHANGELOG, tags, pushes and publishes
+#   5. Otherwise hand `/release` (no title — claude writes one from the
+#      pending commits) to a headless claude, which bumps the version,
+#      writes the CHANGELOG, tags, pushes and publishes
 #   6. Verify a new tag actually appeared
 #
 # Exit status is chainable — `bin/nightly-release && bin/update-dev` deploys
@@ -32,9 +33,10 @@ Release master if there are any commits since the current version tag.
 
 Reads the current version from packages/shared/package.json, compares master
 against the tag vX.Y.Z, and — only when that range is non-empty — runs the
-/release command with the title "Nightly Build" in a headless claude. The
-release itself (version bump, CHANGELOG, docs, tag, push, docker publish) is
-performed by the /release command in .claude/commands/release.md.
+/release command without a title in a headless claude, which writes its own
+release title from the pending commits. The release itself (version bump,
+CHANGELOG, docs, tag, push, docker publish) is performed by the /release
+command in .claude/commands/release.md.
 
 Exit status is chainable, so a deploy can be gated on a release having
 happened:
@@ -83,7 +85,6 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SECRETS="$HOME/.meccg/secrets.json"
 LOG_DIR="$HOME/.meccg/logs"
 COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
-RELEASE_TITLE="Nightly Build"
 HARD_TIMEOUT="${NIGHTLY_RELEASE_TIMEOUT:-7200}"
 
 log() { echo "[nightly-release] $*"; }
@@ -192,13 +193,14 @@ if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
   exit 1
 fi
 
+# No title is passed: /release writes its own from the pending commits.
 PROMPT="$(cat "$COMMANDS_DIR/release.md")"
-PROMPT="${PROMPT//\$ARGUMENTS/$RELEASE_TITLE}"
+PROMPT="${PROMPT//\$ARGUMENTS/}"
 
 RAW_TMP="$(mktemp)"
 trap 'rm -f "$RAW_TMP"' EXIT
 
-log "Running /release \"$RELEASE_TITLE\" (timeout ${HARD_TIMEOUT}s)..."
+log "Running /release (timeout ${HARD_TIMEOUT}s)..."
 
 # The prompt goes in on stdin, not as `-p "$PROMPT"`: Linux caps a single argv
 # string at 128KB (MAX_ARG_STRLEN), and a pipe has no such limit.
