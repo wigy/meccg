@@ -10,6 +10,7 @@
 import type { PlayerView, GameAction } from '@meccg/shared';
 import { Phase } from '@meccg/shared';
 import { appState } from './app-state.js';
+import { passButtonLabel } from './pass-button-label.js';
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
 export function renderPassButton(view: PlayerView, onAction: (action: GameAction) => void): void {
@@ -131,83 +132,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   waitingEl?.classList.add('hidden');
 
   // Choose label based on action type and phase
-  let label = 'Done';
-  if (passAction.type === 'draft-stop') {
-    label = 'Done';
-  } else if (passAction.type === 'shuffle-play-deck') {
-    label = 'Shuffle';
-  } else if (passAction.type === 'draw-cards') {
-    label = 'Draw';
-  } else if (passAction.type === 'roll-initiative') {
-    label = 'Roll';
-  } else if (passAction.type === 'corruption-check') {
-    label = 'Roll';
-  } else if (passAction.type === 'faction-influence-roll') {
-    label = 'Roll';
-  } else if (passAction.type === 'under-deeps-roll') {
-    label = 'Roll';
-  } else if (passAction.type === 'deck-exhaust') {
-    label = 'Exhaust';
-  } else if (passAction.type === 'finished') {
-    label = 'Finished';
-  } else if (passAction.type === 'untap') {
-    label = 'Untap';
-  } else if (passAction.type === 'opponent-influence-defend') {
-    label = 'Roll Defense';
-  } else if (passAction.type === 'resolve-dice-check') {
-    label = 'Roll';
-  } else if (passAction.type === 'flattery-attempt') {
-    label = 'Roll';
-  } else if (passAction.type === 'seized-by-terror-roll') {
-    label = 'Roll';
-  } else if (passAction.type === 'gold-ring-test-roll') {
-    label = 'Roll';
-  } else if (passAction.type === 'pass-chain-priority') {
-    label = 'Pass Priority';
-  } else if (view.phaseState.phase === Phase.Untap) {
-    label = 'Pass';
-  } else if (view.phaseState.phase === Phase.Organization) {
-    label = 'Long-event';
-  } else if (view.phaseState.phase === Phase.LongEvent) {
-    label = 'Movement/Hazard';
-  } else if (view.phaseState.phase === Phase.MovementHazard) {
-    switch (view.phaseState.step) {
-      case 'set-hazard-limit': label = 'Continue'; break;
-      case 'draw-cards': label = 'Continue'; break;
-      case 'play-hazards': label = 'Pass'; break;
-      case 'reset-hand': label = 'Continue'; break;
-      default: label = 'Continue';
-    }
-  } else if (view.phaseState.phase === Phase.Site) {
-    switch (view.phaseState.step) {
-      case 'enter-or-skip': label = 'Skip'; break;
-      case 'play-resources': label = 'Pass'; break;
-      case 'play-minor-item': label = 'Pass'; break;
-      case 'declare-company-attack': {
-        const hasAttack = view.legalActions.some(ea => ea.viable && ea.action.type === 'declare-company-attack');
-        label = hasAttack ? 'Skip CvCC' : 'Pass';
-        break;
-      }
-      default: label = 'Continue';
-    }
-  } else if (view.phaseState.phase === Phase.EndOfTurn) {
-    switch (view.phaseState.step) {
-      case 'discard': label = 'Done'; break;
-      case 'signal-end': label = 'Finished'; break;
-      default: label = 'Continue';
-    }
-  } else if (view.phaseState.phase === Phase.FreeCouncil) {
-    // "Roll" during support window (pendingCheck is set), "Done" otherwise
-    const hasSupportActions = view.legalActions.some(ea => ea.viable && ea.action.type === 'support-corruption-check');
-    label = hasSupportActions ? 'Roll' : 'Done';
-  } else if (view.phaseState.phase === 'setup') {
-    const step = view.phaseState.setupStep.step;
-    if (step === 'item-draft') label = 'Continue';
-    else if (step === 'character-deck-draft') label = 'Done';
-    else if (step === 'starting-site-selection') label = 'Continue';
-    else if (step === 'character-placement') label = 'Done';
-    else label = 'Pass';
-  }
+  const label = passButtonLabel(passAction, view);
 
   btn.textContent = label;
   btn.classList.remove('hidden');
@@ -223,7 +148,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       const passBtn2 = document.createElement('button');
       passBtn2.id = 'secondary-pass-btn';
       passBtn2.className = 'enter-site-btn'; // reuse same styling
-      passBtn2.textContent = 'Pass';
+      passBtn2.textContent = passButtonLabel(secondaryPass.action, view);
       passBtn2.onclick = () => onAction(secondaryPass.action);
       panel?.appendChild(passBtn2);
     }
