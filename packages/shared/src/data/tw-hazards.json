@@ -1855,8 +1855,55 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheNazgulareAbroad.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Nazgûl may attack a hero company containing the bearer of The One Ring at any site that is not a Free-hold [{F}] or Haven [{H}].Nazgûl may attack any hero company possessing any Ring in a Shadow-land [{s}] or Shadow-hold [{S}].If Doors of Night is in play, at the end of each turn, each player may return one Nazgûl permanent-event from his discard pile to his hand.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": { "keywords": { "$includes": "Nazgûl" } },
+        "siteFilter": { "excludeSiteTypes": ["free-hold", "haven"] },
+        "companyFilter": {
+          "$and": [
+            { "company.alignment": "hero" },
+            { "company.itemKeywords": { "$includes": "the-one-ring" } }
+          ]
+        }
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": { "keywords": { "$includes": "Nazgûl" } },
+        "siteFilter": { "siteTypes": ["shadow-hold"], "regionTypes": ["shadow"] },
+        "companyFilter": {
+          "$and": [
+            { "company.alignment": "hero" },
+            { "company.itemKeywords": { "$includes": "ring" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-turn",
+        "actor": "both",
+        "when": {
+          "inPlay": "Doors of Night"
+        },
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "keywords": { "$includes": "Nazgûl" }
+          }
+        }
+      }
+    ],
+    "text": "Nazgûl may attack a hero company containing the bearer of The One Ring at any site that is not a Free-hold [{F}] or Haven [{H}].Nazgûl may attack any hero company possessing any Ring in a Shadow-land [{s}] or Shadow-hold [{S}].If Doors of Night is in play, at the end of each turn, each player may return one Nazgûl permanent-event from his discard pile to his hand.Cannot be duplicated.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hazard-event",

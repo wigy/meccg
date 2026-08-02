@@ -1540,7 +1540,7 @@ function summonsFromLongSleepActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || grantsCreatureKeying(state, mhState, targetCompany, creatureDef);
+          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1667,7 +1667,7 @@ function playCreatureFromDiscardActions(
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-        || grantsCreatureKeying(state, mhState, targetCompany, creatureDef);
+        || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -2180,7 +2180,7 @@ function playHazardsActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def)
-          || grantsCreatureKeying(state, mhState, targetCompany, def);
+          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -4343,15 +4343,21 @@ function collectCreatureKeyingGrants(
  * restricts the grant to creatures whose own `keyedTo` offers a non-Coastal-Sea
  * region — A Pack at the Door (tw-497), "may be played in Border-lands [{b}],
  * Border-holds [{B}] or Ruins & Lairs [{R}] … must be playable in a non-Coastal
- * Sea [{c}] region."
+ * Sea [{c}] region." `siteFilter.excludeSiteTypes` is the inverse of
+ * `siteTypes` — matches any effective site type except those listed — used by
+ * The Nazgûl are Abroad (tw-96): "at any site that is not a Free-hold [{F}] or
+ * Haven [{H}]."
+ *
+ * The optional `companyFilter` additionally gates the grant on the target
+ * company itself (`{ company: { itemNames, itemKeywords, alignment, … } }`,
+ * via {@link buildTargetCompanyConditionContext}) — e.g. "a hero company …
+ * possessing any Ring" (tw-96).
  */
 function grantsCreatureKeying(
   state: GameState,
   mhState: MovementHazardPhaseState,
-  targetCompany: {
-    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
-    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
-  },
+  owner: PlayerState,
+  targetCompany: Company,
   creatureDef: CardDefinition,
 ): boolean {
   const grants = collectCreatureKeyingGrants(state, mhState);
@@ -4375,22 +4381,31 @@ function grantsCreatureKeying(
     // The creature must be playable in a non-Coastal-Sea region (tw-497).
     if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
       && !creatureHasNonCoastalRegionKeying(creatureDef)) continue;
-    // Site-type branch: effective site type in siteTypes AND all keywords.
+    // Site-type branch: effective site type in siteTypes (or NOT in excludeSiteTypes) AND all keywords.
     let siteBranch = false;
     if (e.siteFilter.siteTypes) {
       siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
+        && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+    } else if (e.siteFilter.excludeSiteTypes) {
+      siteBranch = !e.siteFilter.excludeSiteTypes.includes(effSiteType)
         && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
     }
     // Region-type branch: the company path holds a granted region type.
     const regionBranch = !!e.siteFilter.regionTypes
       && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
-    if (siteBranch || regionBranch) {
-      logDetail(
-        `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
-        + `${siteBranch ? `site type ${effSiteType}` : `region type on path`}`,
+    if (!siteBranch && !regionBranch) continue;
+    // Target-company gate (e.g. "a hero company bearing The One Ring").
+    if (e.companyFilter) {
+      const companyCtx = buildTargetCompanyConditionContext(
+        state, owner, targetCompany, defenderAlignmentLabel(owner.alignment),
       );
-      return true;
+      if (!matchesCondition(e.companyFilter, companyCtx)) continue;
     }
+    logDetail(
+      `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
+      + `${siteBranch ? `site type ${effSiteType}` : `region type on path`}`,
+    );
+    return true;
   }
   return false;
 }
