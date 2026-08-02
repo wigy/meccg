@@ -16,14 +16,15 @@
  */
 
 import type { CardDefinition } from '../types/cards.js';
-import type { CardInstanceId, GameState, PlayerId } from '../index.js';
+import type { CardInstanceId, GameState, GameAction, PlayerId } from '../index.js';
+import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './reducer-move.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { defById, findAttachment, getCardEffects, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 
 /**
  * Move the chosen `discard-in-play` target to its owner's discard pile and
@@ -194,6 +195,64 @@ export function applyShortEventDiscardAllInPlay(
       reason: def.name,
     });
   }
+
+  return { state: newState };
+}
+
+/**
+ * Resolve one pick of a `tap-discard-in-play` sub-flow (Praise to Elbereth
+ * tw-305): tap the declaring player's chosen untapped character and discard
+ * the opponent's chosen untapped in-play card matching the effect's filter.
+ *
+ * Unlike `applyShortEventDiscardInPlay`, this never rides the chain — the
+ * whole point of the "may not be tapped in response" clause is that the
+ * opponent gets no window between a card being chosen as this pick's target
+ * and it being discarded. Resolving synchronously as part of the pending
+ * `card-effect` sub-flow (see `pendingEffectLegalActions` /
+ * `tapDiscardInPlayLegalActions`) guarantees that: there is no intervening
+ * step where the opponent could declare a response (e.g. tapping a Nazgûl
+ * permanent-event to convert it into its short-event mode first). The
+ * discard never triggers the target's own on-tap ability, matching "Nazgûl
+ * events discarded by Praise to Elbereth have no effect".
+ *
+ * The pending effect is left queued by the caller (`reducer.ts`) so the same
+ * player may repeat the pick; `pass` ends the sub-flow via the shared
+ * `resolvePendingEffect` (discarding the source event card).
+ */
+export function applyTapDiscardInPlay(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'tap-discard-in-play') return { state, error: 'Expected tap-discard-in-play action' };
+  if (state.pendingEffects.length === 0) return { state, error: 'No effect sub-flow active' };
+  const current = state.pendingEffects[0];
+  if (current.type !== 'card-effect' || current.effect.type !== 'tap-discard-in-play') {
+    return { state, error: `Expected tap-discard-in-play effect, got ${current.type}` };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player?.characters[action.characterId];
+  if (!char) return { state, error: `Character ${action.characterId as string} not found` };
+  if (char.status !== CardStatus.Untapped) return { state, error: `Character ${action.characterId as string} is not untapped` };
+
+  const opponentIndex = state.players.findIndex(p => p.id !== action.player);
+  const opponentPlayer = opponentIndex !== -1 ? state.players[opponentIndex] : undefined;
+  const target = opponentPlayer?.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+  if (!target) return { state, error: `Target ${action.targetInstanceId as string} not found in opponent's cardsInPlay` };
+  if (target.status !== CardStatus.Untapped) return { state, error: `Target ${action.targetInstanceId as string} is not untapped` };
+  const targetDef = defById(state, target.definitionId);
+  if (!targetDef || !matchesDefinition(targetDef, current.effect.filter)) {
+    return { state, error: `Target ${action.targetInstanceId as string} does not match the effect's filter` };
+  }
+
+  let newState = updatePlayer(state, playerIndex, p => updateCharacter(p, action.characterId, c => ({ ...c, status: CardStatus.Tapped })));
+  const targetInstance = toCardInstance(target);
+  const cardName = (targetDef as { name?: string }).name ?? (target.definitionId as string);
+  newState = updatePlayer(newState, opponentIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.targetInstanceId),
+    discardPile: [...p.discardPile, targetInstance],
+  }));
+  newState = dropConstraintsSourcedBy(newState, [target.instanceId]);
+  logDetail(`tap-discard-in-play: tapped ${action.characterId as string}, discarded ${cardName} — resolved outside the chain (no response window)`);
 
   return { state: newState };
 }

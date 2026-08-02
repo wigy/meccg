@@ -12,10 +12,10 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
-import type { PlayRestrictionEffect } from '../../types/effects.js';
-import { Alignment } from '../../types/common.js';
+import type { PlayRestrictionEffect, TapDiscardInPlayEffect } from '../../types/effects.js';
+import { Alignment, CardStatus } from '../../types/common.js';
 import { matchesContext } from '../../effects/condition-matcher.js';
-import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
@@ -46,8 +46,46 @@ function pendingEffectLegalActions(state: GameState, playerId: PlayerId): Evalua
   if (current.type === 'card-effect' && current.effect.type === 'fetch-to-deck') {
     return fetchFromPileLegalActions(state, playerId, current.effect);
   }
+  if (current.type === 'card-effect' && current.effect.type === 'tap-discard-in-play') {
+    return tapDiscardInPlayLegalActions(state, playerId, current.effect);
+  }
   // Unknown effect type: allow pass to skip
   return [{ action: { type: 'pass', player: playerId }, viable: true }];
+}
+
+/**
+ * Legal actions while a `tap-discard-in-play` sub-flow is active (Praise to
+ * Elbereth tw-305). One `tap-discard-in-play` action per (own untapped
+ * character, opponent's untapped in-play card matching the effect's filter)
+ * pair, plus `pass` to end the sub-flow. Each pick resolves immediately
+ * (`applyTapDiscardInPlay`); the pending effect stays queued so the same
+ * player can keep picking until no pairs remain or they pass.
+ */
+function tapDiscardInPlayLegalActions(
+  state: GameState,
+  playerId: PlayerId,
+  effect: TapDiscardInPlayEffect,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  const opponent = state.players.find(p => p.id !== playerId);
+  if (player && opponent) {
+    const targets = collectTapDiscardInPlayTargets(state, opponent, effect.filter);
+    if (targets.length > 0) {
+      for (const characterId of Object.keys(player.characters) as CardInstanceId[]) {
+        const char = player.characters[characterId];
+        if (char.status !== CardStatus.Untapped) continue;
+        for (const targetInstanceId of targets) {
+          actions.push({
+            action: { type: 'tap-discard-in-play', player: playerId, characterId, targetInstanceId },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
+  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
 }
 
 /** Computes legal fetch-from-pile actions for a fetch-to-deck effect. */

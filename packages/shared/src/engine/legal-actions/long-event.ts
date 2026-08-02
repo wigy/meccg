@@ -28,7 +28,7 @@ import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -394,6 +394,30 @@ export function heroResourceShortEventActions(
         continue;
       }
       logDetail(`${def.name}: discard-all mode would discard ${sweepTargets.length} card(s) in play`);
+    }
+
+    // Repeatable per-character tap-to-discard (Praise to Elbereth tw-305:
+    // "For each of your characters ... cancel one Nazgûl event"). Not
+    // playable when there is neither a live target to cancel nor an
+    // unconditional secondary effect (the Doors of Night prowess bonus) to
+    // fall back on — CoE 9.1 "may not play a card with no effect".
+    const tapDiscardEffect = effects.find(
+      (e): e is import('../../types/effects.js').TapDiscardInPlayEffect => e.type === 'tap-discard-in-play',
+    );
+    if (tapDiscardEffect) {
+      const opponent = state.players.find(p => p.id !== playerId);
+      const hasUntappedCharacter = Object.values(player.characters).some(c => c.status === CardStatus.Untapped);
+      const hasTapDiscardTarget = !!opponent && hasUntappedCharacter
+        && collectTapDiscardInPlayTargets(state, opponent, tapDiscardEffect.filter).length > 0;
+      const hasUnconditionalOnEventEffect = effects.some(e =>
+        e.type === 'on-event' && e.event === 'self-enters-play'
+        && (!e.when || matchesCondition(e.when, { inPlay: inPlayNames })));
+      if (!hasTapDiscardTarget && !hasUnconditionalOnEventEffect) {
+        logDetail(`${def.name}: no tap-discard target and no other active effect — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target and no other effect right now`));
+        continue;
+      }
+      logDetail(`${def.name}: playable (tap-discard target: ${hasTapDiscardTarget}, other effect: ${hasUnconditionalOnEventEffect})`);
     }
 
     // If the card has a play-target with a tap cost (e.g. Marvels Told taps

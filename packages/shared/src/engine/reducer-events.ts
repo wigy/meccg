@@ -716,7 +716,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // effects so only the discard resolves. Mode 2 (no discard target) enqueues
   // the fetch as normal.
   const choseDiscardMode = action.type === 'play-short-event' && !!action.discardTargetInstanceId;
-  const interactiveEffects: PendingEffect[] = (def.effects ?? [])
+  const fetchInteractiveEffects: PendingEffect[] = (def.effects ?? [])
     .flatMap(effect => {
       if (effect.type !== 'move') return [];
       if (choseDiscardMode) return [];
@@ -750,6 +750,22 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         ...(postCC ? { postCorruptionCheck: postCC } : {}),
       }];
     });
+
+  // `tap-discard-in-play` (Praise to Elbereth tw-305): a repeatable
+  // tap-a-character/discard-an-opponent's-in-play-card sub-flow, queued the
+  // same way as fetch-to-deck. Never rides the chain, so the opponent gets
+  // no window to respond to the whole play (nor to any individual pick
+  // inside the loop) — "Nazgûl permanent-events ... may not be tapped in
+  // response to its play."
+  const tapDiscardInteractiveEffects: PendingEffect[] = (def.effects ?? [])
+    .filter((e): e is import('../types/effects.js').TapDiscardInPlayEffect => e.type === 'tap-discard-in-play')
+    .map(effect => ({
+      type: 'card-effect' as const,
+      cardInstanceId: handCard.instanceId,
+      effect,
+    }));
+
+  const interactiveEffects: PendingEffect[] = [...fetchInteractiveEffects, ...tapDiscardInteractiveEffects];
 
   let newState: GameState = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 
@@ -2173,6 +2189,39 @@ function applyShortEventOnEntersPlay(
           scope: { kind: 'turn' },
           target: { kind: 'character', characterId },
           kind: { type: 'character-stat-modifier', stat, value, characterId, ...(requiresCardInPlay ? { requiresCardInPlay } : {}) },
+        });
+        continue;
+      }
+
+      // Player-scoped company-stat-modifier (Praise to Elbereth tw-305: "if
+      // Doors of Night is in play, characters gain +1 prowess until the end
+      // of the turn") — applies to every character the declaring player
+      // controls, not just one company. Read by `collectCompanyStatModifierEffects`
+      // (effects/resolver.ts), which now also matches a player-kind target.
+      if (constraintKind === 'company-stat-modifier' && onEvent.apply.target === 'player') {
+        if (onEvent.when && !matchesCondition(onEvent.when, { inPlay: buildInPlayNames(state) })) {
+          logDetail(`add-constraint(company-stat-modifier, player): when condition not met — fizzle`);
+          continue;
+        }
+        const stat = onEvent.apply.stat;
+        const value = onEvent.apply.value;
+        if (!stat || stat === 'direct-influence' || typeof value !== 'number') {
+          logDetail(`add-constraint(company-stat-modifier, player): missing/unsupported stat or value — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(company-stat-modifier, player): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const playerId = state.players[playerIndex].id;
+        logDetail(`"${def.name}" played — adding player-scoped company-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} for ${playerId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'player', playerId },
+          kind: { type: 'company-stat-modifier', stat, value },
         });
         continue;
       }

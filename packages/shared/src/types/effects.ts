@@ -7373,6 +7373,30 @@ export interface EvilHourGrantMovementEffect extends EffectBase {
 }
 
 /**
+ * Repeatable "for each character you tap, discard one matching in-play card
+ * belonging to your opponent" resource short-event ability (Praise to
+ * Elbereth tw-305: "For each of your characters in play that you choose to
+ * tap ... cancel one Nazgûl event ... against that character's company").
+ *
+ * On resolution the engine enqueues a `card-effect` pending effect (the
+ * `fetch-to-deck` loop-until-pass pattern): the declaring player repeatedly
+ * chooses one of their own untapped characters and one untapped opponent
+ * in-play card matching {@link filter}, taps the character, and discards the
+ * target — resolved immediately with no chain entry, so the opponent gets no
+ * response window to act on the targeted card first (e.g. tapping a Nazgûl
+ * permanent-event to convert it into its short-event mode before it can be
+ * discarded — "may not be tapped in response to its play"). The discard never
+ * triggers the target's own abilities ("Nazgûl events discarded ... have no
+ * effect"). Repeats until no untapped character or matching target remains,
+ * or the player passes.
+ */
+export interface TapDiscardInPlayEffect extends EffectBase {
+  readonly type: 'tap-discard-in-play';
+  /** DSL condition each target card's definition must match (e.g. keyword "Nazgûl"). */
+  readonly filter: Condition;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -7616,7 +7640,8 @@ export type CardEffect =
   | RetainHazardLongEventsEffect
   | OpposedRollEffect
   | FactionInfluenceRestrictionEffect
-  | NullifyInfluenceModificationsEffect;
+  | NullifyInfluenceModificationsEffect
+  | TapDiscardInPlayEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
