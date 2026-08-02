@@ -350,6 +350,60 @@ describe('renderPassButton — choose-great-hunt-source (The Great Hunt)', () =>
   });
 });
 
+/**
+ * Regression test for bug report underlying feature request "change 'pass'
+ * button name and place": Movement/Hazard's `draw-cards` and `play-hazards`
+ * steps are two separate engine steps with independent pass semantics, but
+ * both used to render an identical "Continue"/"Pass" button in the identical
+ * screen position — the player could not tell a new step had begun. The
+ * label logic now lives in {@link module:pass-button-label} and is
+ * step-aware; this locks in that the two steps never render the same text.
+ */
+const drawCardsEval = (player: 'p1' = 'p1'): EvaluatedAction => ({
+  action: { type: 'draw-cards', player, count: 1 },
+  viable: true,
+} as EvaluatedAction);
+
+const passEval = (player: 'p1' = 'p1'): EvaluatedAction => ({
+  action: { type: 'pass', player },
+  viable: true,
+} as EvaluatedAction);
+
+const viewWithMH = (step: string, legalActions: EvaluatedAction[]): PlayerView =>
+  ({
+    phaseState: { phase: Phase.MovementHazard, step },
+    legalActions,
+    self: { id: 'p1' },
+    activePlayer: 'p1',
+  } as unknown as PlayerView);
+
+describe('renderPassButton — Movement/Hazard draw-cards vs play-hazards labels', () => {
+  test('draw-cards step renders "Draw" and a distinctly-labeled secondary pass button', () => {
+    passBtn.parentElement = visualPanel;
+    renderPassButton(viewWithMH('draw-cards', [drawCardsEval(), passEval()]), () => { /* no-op */ });
+
+    expect(passBtn.textContent).toBe('Draw');
+    expect(visualPanel.children).toHaveLength(1);
+    expect(visualPanel.children[0].textContent).toBe('Pass Draw');
+  });
+
+  test('play-hazards step renders "Pass Hazards" on the primary button', () => {
+    renderPassButton(viewWithMH('play-hazards', [passEval()]), () => { /* no-op */ });
+
+    expect(passBtn.textContent).toBe('Pass Hazards');
+  });
+
+  test('draw-cards and play-hazards never render the same primary button text', () => {
+    renderPassButton(viewWithMH('draw-cards', [drawCardsEval(), passEval()]), () => { /* no-op */ });
+    const drawLabel = passBtn.textContent;
+
+    renderPassButton(viewWithMH('play-hazards', [passEval()]), () => { /* no-op */ });
+    const hazardsLabel = passBtn.textContent;
+
+    expect(drawLabel).not.toBe(hazardsLabel);
+  });
+});
+
 describe('renderPassButton — Free Council corruption-check declare step', () => {
   test('hides the bottom button when several characters are eligible, letting the player pick one', () => {
     renderPassButton(
