@@ -2803,6 +2803,31 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         } else {
           logDetail(`"${def?.name ?? '?'}" heal-target-character: no target character — fizzle`);
         }
+      } else if (effect.apply.type === 'set-character-status' && effect.apply.status) {
+        // A permanent event attached to a character (e.g. Herb-lore dm-136:
+        // "If untapped, tap Radagast afterwards") may set its own bearer's
+        // status on entering play. `target` absent/"bearer"/"target-character"
+        // all resolve to the character the event was just attached to.
+        const statusTarget = effect.apply.target;
+        if (targetCharId && (!statusTarget || statusTarget === 'bearer' || statusTarget === 'target-character')) {
+          for (let pi = 0; pi < 2; pi++) {
+            const charInPlay = newState.players[pi].characters[targetCharId];
+            if (!charInPlay) continue;
+            if (effect.apply.when && !matchesCondition(effect.apply.when, { target: { status: charInPlay.status as string } })) {
+              logDetail(`"${def?.name ?? '?'}" set-character-status: when-condition not met on ${targetCharId as string} (status ${charInPlay.status})`);
+              break;
+            }
+            const newStatus = cardStatusFromName(effect.apply.status);
+            logDetail(`"${def?.name ?? '?'}" set-character-status: ${targetCharId as string} → ${effect.apply.status}`);
+            newState = updatePlayer(newState, pi, p => ({
+              ...p,
+              characters: { ...p.characters, [targetCharId as string]: { ...charInPlay, status: newStatus } },
+            }));
+            break;
+          }
+        } else if (!targetCharId) {
+          logDetail(`"${def?.name ?? '?'}" set-character-status: no target character — fizzle`);
+        }
       } else if (effect.apply.type === 'enqueue-corruption-check') {
         // For permanent events, determine which character receives the corruption check.
         // When apply.target === "company-member", the check is made by the first

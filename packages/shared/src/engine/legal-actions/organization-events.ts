@@ -27,7 +27,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -597,6 +597,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const siteTypeCondition = findPlayConditionEffect(def, 'site-type');
       // play-condition: same-site-has-character-race — a company at the same site must have a character of the given race
       const sameSiteRaceCondition = findPlayConditionEffect(def, 'same-site-has-character-race');
+      // play-condition: site-path — the character's own company must be the M/H phase's
+      // currently-active *moving* company, and its resolved site path must satisfy the
+      // condition (e.g. Herb-lore dm-136: "at least one Wilderness in his site path").
+      // Combined with a `play-window { phase: "movement-hazard" }`, this realizes
+      // "Playable on <character> while moving during his movement/hazard phase".
+      const sitePathCondition = findPlayConditionEffect(def, 'site-path');
       // play-condition: company-context — a generic DSL condition on the target
       // character's company (To Fealty Sworn ba-33). During the organization
       // phase no faction has been played this site phase, so the
@@ -622,6 +628,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const companySiteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : null;
           if (!companySiteType || !siteTypeCondition.siteTypes?.includes(companySiteType)) {
             logDetail(`Permanent event ${def.name}: company ${company.id as string} not at required site type [${siteTypeCondition.siteTypes?.join(', ') ?? '?'}] (actual: ${companySiteType ?? 'none'})`);
+            continue;
+          }
+        }
+        if (sitePathCondition) {
+          const mhPs = state.phaseState as import('../../types/state-phases.js').MovementHazardPhaseState;
+          const isActiveMovingCompany = mhPs.phase === Phase.MovementHazard && mhPs.siteRevealed
+            && player.companies[mhPs.activeCompanyIndex]?.id === company.id;
+          if (!isActiveMovingCompany) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} is not the M/H phase's currently-moving company — site-path condition not evaluable`);
+            continue;
+          }
+          const sitePathCtx = { sitePath: regionTypeCounts(mhPs.resolvedSitePath) };
+          if (sitePathCondition.condition && !matchesCondition(sitePathCondition.condition, sitePathCtx)) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} site path does not satisfy site-path play-condition`);
             continue;
           }
         }
