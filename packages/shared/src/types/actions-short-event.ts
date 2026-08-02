@@ -82,6 +82,19 @@ export interface PlayShortEventAction {
    * the sage to tap and which gold ring to replace.
    */
   readonly targetGoldRingInstanceId?: CardInstanceId;
+  /**
+   * For a `transfer-item-free` play-option (Pledge of Conduct, td-144), the
+   * item borne by `targetCharacterId` (the character facing the pending
+   * corruption check) to move. One legal action is emitted per (item,
+   * `transferToCharacterId`) pair so the player picks both as part of
+   * playing the card.
+   */
+  readonly transferItemInstanceId?: CardInstanceId;
+  /**
+   * For a `transfer-item-free` play-option (Pledge of Conduct, td-144), the
+   * company-mate of `targetCharacterId` who receives the transferred item.
+   */
+  readonly transferToCharacterId?: CardInstanceId;
 }
 
 /**

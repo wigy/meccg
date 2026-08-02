@@ -772,6 +772,39 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     newState = constraintResult.state;
   }
 
+  // `transfer-item-free` play-option (Pledge of Conduct, td-144): the item
+  // and destination were chosen up front by the legal-action generator (one
+  // action per (item, destination) pair — see reactiveCorruptionCheckPlays).
+  // Move the item immediately; unlike the ordinary organization-phase
+  // transfer (CoE 2.II.5) no follow-up corruption check is enqueued — the
+  // whole point of the card is an "automatic" transfer.
+  if (
+    selectedOption
+    && action.type === 'play-short-event'
+    && selectedOption.apply.type === 'transfer-item-free'
+    && action.targetCharacterId
+    && action.transferItemInstanceId
+    && action.transferToCharacterId
+  ) {
+    const fromCharId = action.targetCharacterId;
+    const toCharId = action.transferToCharacterId;
+    const itemInstId = action.transferItemInstanceId;
+    const itemDef = resolveDef(newState, itemInstId);
+    if (!isItemCard(itemDef)) {
+      return { state, error: `${def.name}: ${itemDef?.name ?? '?'} is not an item card and cannot be transferred` };
+    }
+    const removed = removeAttachment(newState.players[playerIndex], 'items', itemInstId);
+    if (!removed || removed.charId !== fromCharId) {
+      return { state, error: `${def.name}: item not found on the character facing the corruption check` };
+    }
+    const item = removed.attachment;
+    const fromName = resolveDef(newState, fromCharId)?.name ?? '?';
+    const toName = resolveDef(newState, toCharId)?.name ?? '?';
+    logDetail(`${def.name}: automatically transferring ${itemDef.name} from ${fromName} to ${toName} (no corruption check for the transfer)`);
+    const playerAfterTransfer = updateCharacter(removed.player, toCharId, c => ({ ...c, items: [...c.items, item] }));
+    newState = updatePlayer(newState, playerIndex, () => playerAfterTransfer);
+  }
+
   // roll-remove-hazard-events (Glamour of Surpassing Excellance, as-49): enqueue one
   // dice-check (glamour) pending resolution per hazard permanent-event found on characters
   // in the active company. The player rolls for each; a roll exceeding the hazard's
