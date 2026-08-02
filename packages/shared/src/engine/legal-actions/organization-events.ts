@@ -574,6 +574,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     const playTarget = def.effects?.find(
       (e): e is PlayTargetEffect => e.type === 'play-target',
     );
+
+    // play-target DSL: item-targeting permanent events (Barrow-blade dm-119,
+    // "play this with the Dagger [of Westernesse]") are handled exclusively
+    // by the site-phase path (legal-actions/site.ts), which enforces both the
+    // item filter and the site-type play-condition. Without this guard the
+    // card falls through to the "no target" fallback at the bottom of this
+    // function and becomes unconditionally playable — with no item attached —
+    // in any phase, mirroring the analogous guard for `target: 'site'` above.
+    if (playTarget?.target === 'item') {
+      logDetail(`Permanent event ${def.name}: requires an item target — only playable during the site phase`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
+      continue;
+    }
+
     if (playTarget?.target === 'character') {
       const opposedRollEffect = def.effects?.find(
         (e): e is import('../../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',

@@ -90,6 +90,33 @@ describe('Barrow-blade (dm-119)', () => {
     expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
   });
 
+  test('not offered during the movement/hazard phase, even with an untapped Dagger-bearer at a Ruins & Lairs', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BARROW_DOWNS, characters: [{ defId: ARAGORN, items: [DAGGER_OF_WESTERNESSE] }] }],
+          hand: [BARROW_BLADE],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MINAS_TIRITH, characters: [] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    // Rule 2.1.1 lets a resource permanent-event be offered during any phase
+    // of the resource player's turn, including the M/H play-hazards step —
+    // the step at which the reported bug occurred.
+    state = { ...state, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
   // ── Play resolution: attach to the item, tap the bearer, +1 prowess ─────────
 
   test('playing it attaches to the Dagger, taps the bearer, and raises prowess by 1', () => {
