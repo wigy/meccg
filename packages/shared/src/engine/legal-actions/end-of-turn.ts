@@ -26,6 +26,7 @@ import { deckExhaustExchangeActions } from './movement-hazard.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { storeItemActions } from './organization-companies.js';
+import { playPermanentEventActions } from './organization-events.js';
 import { asViable as viable } from './evaluated.js';
 import { grantedAction } from './granted-action-emit.js';
 
@@ -38,9 +39,10 @@ import { grantedAction } from './granted-action-emit.js';
  * player may pass (ending the turn) or call the Free Council.
  *
  * Rule 2.1.1: the active (resource) player may also play resource
- * short-events during the voluntary `discard` and `signal-end` steps.
- * They are not offered during `reset-hand`, which is a mandatory
- * draw/discard step enforced sequentially by the reducer.
+ * short-events and resource permanent-events during the voluntary
+ * `discard` and `signal-end` steps. They are not offered during
+ * `reset-hand`, which is a mandatory draw/discard step enforced
+ * sequentially by the reducer.
  */
 export function endOfTurnActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const eotState = requirePhaseState(state, Phase.EndOfTurn);
@@ -52,6 +54,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
       const base = viable(discardStepActions(state, playerId));
       if (state.activePlayer === playerId) {
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
+        base.push(...playPermanentEventActions(state, playerId));
       }
       return base;
     }
@@ -61,6 +64,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
       const base = viable(signalEndStepActions(state, playerId));
       if (state.activePlayer === playerId) {
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
+        base.push(...playPermanentEventActions(state, playerId));
       }
       return base;
     }
