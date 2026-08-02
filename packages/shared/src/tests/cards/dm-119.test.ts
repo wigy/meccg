@@ -90,6 +90,30 @@ describe('Barrow-blade (dm-119)', () => {
     expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
   });
 
+  test('not offered during the movement/hazard phase, even with no Dagger anywhere in play (rule 2.1.1 does not bypass its site-phase item-target timing)', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: ARAGORN }] }],
+          hand: [BARROW_BLADE],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MORIA, characters: [] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    state = { ...state, phaseState: makeMHState() };
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
   // ── Play resolution: attach to the item, tap the bearer, +1 prowess ─────────
 
   test('playing it attaches to the Dagger, taps the bearer, and raises prowess by 1', () => {
