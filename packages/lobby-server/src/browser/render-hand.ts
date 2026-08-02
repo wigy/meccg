@@ -287,6 +287,23 @@ function findStrikeEventActions(
 }
 
 /**
+ * Find the play-ring-after-test action for a given special-ring card
+ * instance in hand (Rule 9.21's `ring-play-offer` resolution). The ring
+ * bearer is fixed by the pending resolution, so at most one action exists
+ * per hand instance and it needs no target selection — clicking the card
+ * plays it directly.
+ */
+export function findRingAfterTestAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return legalActions.find(
+    a => a.type === 'play-ring-after-test' && a.ringInstanceId === instanceId,
+  ) ?? null;
+}
+
+/**
  * When a `discard-in-play` target is a hazard attached to a character
  * (stored in `character.hazards`), return the bearer character's display
  * name. Used to disambiguate action labels when two identical-named
@@ -1050,10 +1067,12 @@ export function renderHand(
     const isCancelAttack = cancelAttackActions.length > 0;
     const strikeEventActions = findStrikeEventActions(cardInstanceId, viable);
     const isStrikeEvent = strikeEventActions.length > 0;
+    const ringAfterTestAction = findRingAfterTestAction(cardInstanceId, viable);
+    const isRingAfterTest = ringAfterTestAction !== null;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1330,6 +1349,14 @@ export function renderHand(
             reRenderResourcePlay();
           });
         }
+      }
+    } else if (isRingAfterTest) {
+      // Ring-play-offer (Rule 9.21): the bearer is fixed by the pending
+      // resolution, so clicking the card plays it directly — no target step.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const ringAction = ringAfterTestAction;
+        img.addEventListener('click', () => onAction(ringAction));
       }
     } else if (isInfluence) {
       // Faction influence two-step flow: click to select, then click a character in company

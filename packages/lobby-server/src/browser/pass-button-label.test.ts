@@ -138,6 +138,18 @@ describe('passButtonLabel — other phases', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.FreeCouncil }, []))).toBe('Done');
   });
 
+  // Bug report (game msc0bo47-pn2a2n, seq 383): Wizard's Test tested Beautiful
+  // Gold Ring as a lesser-ring during Organization. The `pass` action that
+  // declines the ring-play-offer was mislabeled "Long-event" (the ordinary
+  // Organization-phase pass), giving no indication it would skip the ring.
+  test('ring-play-offer pending during Organization -> Skip Ring, not Long-event', () => {
+    const ringOfferEval = {
+      action: { type: 'play-ring-after-test', player: 'p1', ringInstanceId: 'p1-8' },
+      viable: true,
+    } as unknown as EvaluatedAction;
+    expect(passButtonLabel(passAction, viewWith({ phase: Phase.Organization }, [ringOfferEval]))).toBe('Skip Ring');
+  });
+
   test.each([
     ['item-draft', 'Continue'],
     ['character-deck-draft', 'Done'],
