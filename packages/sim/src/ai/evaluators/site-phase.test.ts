@@ -74,6 +74,27 @@ const HOBBIT: CardDefinition = {
   skills: ['scout'],
 } as unknown as CardDefinition;
 
+// Glittering Caves (tw-397): a ruins-and-lairs site guarded by a 9-prowess
+// automatic-attack (Púkel-creature, 1 strike).
+const GLITTERING_CAVES: CardDefinition = {
+  cardType: 'hero-site',
+  name: 'Glittering Caves',
+  siteType: 'ruins-and-lairs',
+  playableResources: ['minor', 'major'],
+  sitePath: ['wilderness', 'border', 'border'],
+  resourceDraws: 2,
+  automaticAttacks: [{ creatureType: 'Púkel-creature', strikes: 1, prowess: 9 }],
+} as unknown as CardDefinition;
+
+// Sapling of the White Tree (tw-322): a 1-MP major item playable at
+// ruins-and-lairs sites.
+const SAPLING_OF_THE_WHITE_TREE: CardDefinition = {
+  cardType: 'hero-resource-item',
+  subtype: 'major',
+  playableAt: ['ruins-and-lairs'],
+  marshallingPoints: 1,
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'tw-404': ISENGARD,
   'td-178': ISLE_OF_THE_ULOND,
@@ -81,6 +102,8 @@ const POOL: Record<string, CardDefinition> = {
   'tw-323': SCROLL_OF_ISILDUR,
   'tw-253': HALFLING_STRENGTH,
   'tw-182': THEODEN,
+  'tw-397': GLITTERING_CAVES,
+  'tw-322': SAPLING_OF_THE_WHITE_TREE,
   hobbit: HOBBIT,
 };
 
@@ -132,6 +155,30 @@ function makeView(characterDefId: string): PlayerView {
   } as unknown as PlayerView;
 }
 
+/**
+ * Build a view for the Glittering Caves regression: a company of weak
+ * characters (best prowess 5) holding one playable 1-MP item, entering a
+ * site guarded by a 9-prowess automatic-attack.
+ */
+function makeGlitteringCavesView(bestProwess: number): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'tw-322' }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-182', status: 'untapped', items: [], effectiveStats: { prowess: bestProwess } },
+        c2: { instanceId: 'c2', definitionId: 'tw-182', status: 'untapped', items: [], effectiveStats: { prowess: 1 } },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'tw-397' },
+          characters: ['c1', 'c2'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
 const ENTER_SITE: GameAction = {
   type: 'enter-site',
   player: 'p2',
@@ -166,5 +213,27 @@ describe('sitePhaseEvaluator enter-site', () => {
     const view = makeScrollView();
     const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
     expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
+  });
+
+  // Regression (game msaihfe9-oo2tc3, seq 540): the AI entered Glittering
+  // Caves with Théoden (5 prowess), Balin, Fatty Bolger, and Ioreth against a
+  // 9-prowess automatic-attack. Even Théoden — the company's best character —
+  // can't roll high enough to stay untapped (needs an unrollable 13+), so
+  // entering guaranteed a tap; Fatty Bolger ended up wounded, and the 1-MP
+  // item the AI entered for was never even played. Entering for a single
+  // low-value item against an unbeatable automatic-attack is not worth it.
+  test('scores 0 for a low-value item when the automatic-attack guarantees a tap', () => {
+    const view = makeGlitteringCavesView(5); // best character: prowess 5
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
+  });
+
+  // Contrast: a company strong enough to plausibly stay untapped (prowess 12
+  // beats the 9-prowess attack even with the untapped penalty) should still
+  // enter for the same item.
+  test('scores 50 for the same item when the company can plausibly stay untapped', () => {
+    const view = makeGlitteringCavesView(12);
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
   });
 });
