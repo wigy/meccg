@@ -3340,6 +3340,29 @@ function modifyAttackActions(
       }
     }
 
+    // CoE rule 8.12: a hazard action played during the strike-assignment
+    // window of the opponent's M/H phase counts against the company's
+    // hazard limit unless the card bypasses it (e.g. Dragon's Desolation,
+    // tw-29 Mode A, carries `play-flag: no-hazard-limit`). Only applies to
+    // the attacker's own plays (a defender's from-hand modify-attack, e.g.
+    // Star-glass-style items played as resource short-events, is not a
+    // hazard play) and only inside the M/H phase (`hazardLimitStatus`
+    // returns `undefined` for site-phase combat, which has no hazard-limit
+    // bookkeeping — on-guard reveals fall through this check for free).
+    if (playerId === combat.attackingPlayerId) {
+      const bypassesLimit = cardDef !== undefined && 'effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit');
+      const hazardLimit = bypassesLimit ? undefined : hazardLimitStatus(state, combat.companyId);
+      if (hazardLimit?.reached) {
+        logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: hazard limit reached (${hazardLimit.played}/${hazardLimit.limit})`);
+        actions.push({
+          action: { type: 'modify-attack', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: 'Hazard limit reached',
+        });
+        continue;
+      }
+    }
+
     logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} (prowess ${effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
     actions.push({
       action: { type: 'modify-attack', player: playerId, cardInstanceId: handCard.instanceId },
