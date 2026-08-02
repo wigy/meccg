@@ -2031,7 +2031,8 @@ export type TriggeredActionType =
   | 'traitor-attack'
   | 'site-entry-attack'
   | 'win-condition-roll'
-  | 'win-game';
+  | 'win-game'
+  | 'transfer-item-free';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -3016,6 +3017,25 @@ export interface TraitorAttackAction extends TriggeredActionBase {
 }
 
 /**
+ * `transfer-item-free` — a reactive `play-option` apply (Pledge of Conduct,
+ * td-144) available while a corruption check is pending against a character
+ * in a diplomat's company. Moves one item the checked character bears to
+ * another character in the same company with no follow-up corruption check
+ * for the transfer itself — unlike the ordinary organization-phase
+ * `transfer-item` action (CoE 2.II.5), which always enqueues one.
+ *
+ * The option itself names no item or destination: `reactiveCorruptionCheckPlays`
+ * (legal-actions/pending.ts) enumerates one `play-short-event` action per
+ * (borne item, other company member) pair, carrying the choice on the
+ * action's `transferItemInstanceId` / `transferToCharacterId` fields. The
+ * reducer reads those fields directly; this apply payload carries no data of
+ * its own.
+ */
+export interface TransferItemFreeAction extends TriggeredActionBase {
+  readonly type: 'transfer-item-free';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -3079,7 +3099,8 @@ export type TriggeredAction =
   | UntapSiteAction
   | LockCompanyMovementAction
   | CancelCurrentAttackAction
-  | TraitorAttackAction;
+  | TraitorAttackAction
+  | TransferItemFreeAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`

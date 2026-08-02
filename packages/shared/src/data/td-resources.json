@@ -933,7 +933,26 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.containsDiplomat": true
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "transfer-item",
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
+        "apply": {
+          "type": "transfer-item-free"
+        }
+      }
+    ],
+    "certified": "2026-08-02",
     "text": "Diplomat only. A character facing a corruption check in the diplomat’s company may automatically transfer one item he bears to another character in his company. The item must be transferrable, and the new bearer must be able to bear it."
   },
   {

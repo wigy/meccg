@@ -1502,6 +1502,39 @@ export function reactiveCorruptionCheckPlays(
     );
     for (const opt of options) {
       if (opt.when && !matchesCondition(opt.when, ctx)) continue;
+
+      // `transfer-item-free` (Pledge of Conduct, td-144): the option itself
+      // names no item or destination — the player picks both. Enumerate one
+      // action per (item borne by the checking character, other character in
+      // the same company) pair, mirroring transferItemActions' per-triple
+      // enumeration for the ordinary organization-phase transfer.
+      if (opt.apply.type === 'transfer-item-free') {
+        const company = findCharacterCompany(player.companies, targetChar.instanceId);
+        if (!company) continue;
+        for (const item of targetChar.items) {
+          const itemDef = defById(state, item.definitionId);
+          if (!isItemCard(itemDef)) continue;
+          for (const mateId of company.characters) {
+            if (mateId === targetChar.instanceId) continue;
+            if (!player.characters[mateId]) continue;
+            logDetail(`Reactive corruption-check play available: ${shortDef.name} option "${opt.id}" transferring ${itemDef.name} from ${targetChar.instanceId as string} to ${mateId as string}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetCharacterId: targetChar.instanceId,
+                optionId: opt.id,
+                transferItemInstanceId: item.instanceId,
+                transferToCharacterId: mateId,
+              },
+              viable: true,
+            });
+          }
+        }
+        continue;
+      }
+
       logDetail(`Reactive corruption-check play available: ${shortDef.name} option "${opt.id}" on ${targetChar.instanceId as string}`);
       actions.push({
         action: {

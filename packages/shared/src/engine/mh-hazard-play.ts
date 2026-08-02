@@ -2847,6 +2847,27 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
         }
       }
     }
+    // Check movingBetweenSiteNames — the active company's origin (current)
+    // site and its destination site must both be named and differ; one entry
+    // covers both directions of the route (The Great Goblin tw-95:
+    // Rivendell ↔ Lórien). A non-moving company's destination name equals
+    // its origin name and never matches. Mirror of the offering side in
+    // findCreatureKeyingMatches.
+    if (key.movingBetweenSiteNames && key.movingBetweenSiteNames.length > 0 && mhState.destinationSiteName) {
+      const activeIdx = getPlayerIndex(state, state.activePlayer ?? state.players[0].id);
+      const activeCompany = state.players[activeIdx]?.companies[mhState.activeCompanyIndex];
+      const originDefId = activeCompany?.currentSite
+        ? resolveInstanceId(state, activeCompany.currentSite.instanceId)
+        : null;
+      const originName = originDefId ? defById(state, originDefId)?.name : undefined;
+      if (originName
+        && originName !== mhState.destinationSiteName
+        && key.movingBetweenSiteNames.includes(originName)
+        && key.movingBetweenSiteNames.includes(mhState.destinationSiteName)) {
+        logDetail(`Creature "${def.name}" keyable — company moving from "${originName}" to "${mhState.destinationSiteName}"`);
+        return undefined;
+      }
+    }
   }
 
   const keyDesc = def.keyedTo.map(k => {
@@ -2857,6 +2878,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     if (k.siteNames?.length) parts.push(`at: ${k.siteNames.join('/')}`);
     if (k.siteKeywords?.length) parts.push(`site-keyword: ${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to: ${k.adjacentToSiteKeywords.join('/')}`);
+    if (k.movingBetweenSiteNames?.length) parts.push(`moving between: ${k.movingBetweenSiteNames.join('/')}`);
     return parts.join(', ');
   }).join(' OR ');
   return `${def.name} cannot be keyed to this company's path (requires ${keyDesc})`;

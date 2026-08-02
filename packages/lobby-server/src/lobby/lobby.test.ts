@@ -28,6 +28,9 @@ vi.mock('../players/store.js', () => ({
   getCredits: () => 0,
   toDirName: (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
 }));
+vi.mock('../mail/store.js', () => ({
+  countUnread: () => 0,
+}));
 
 import { playerConnected } from './lobby.js';
 
