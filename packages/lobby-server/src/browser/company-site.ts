@@ -22,7 +22,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
-import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
+import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection, getSelectedShortEvent, clearShortEventSelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
 import { showGrantedActionTooltip } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -398,6 +398,20 @@ export function renderSiteArea(
       )
       : [];
 
+    // Find discard-target short-event actions naming an on-guard card (e.g.
+    // Withdrawn to Mordor's "discard an on-guard card" alternative) so the
+    // on-guard card lights up as a click target while such a short event is
+    // selected from hand — same mechanism as buildDiscardTargetClick in
+    // company-block.ts, but on-guard cards live outside that helper's reach.
+    const selectedSE = options?.onAction ? getSelectedShortEvent() : undefined;
+    const discardTargetActions = selectedSE
+      ? viableActions(view.legalActions).filter(
+        (a): a is import('@meccg/shared').PlayShortEventAction => a.type === 'play-short-event'
+          && a.cardInstanceId === selectedSE
+          && a.discardTargetInstanceId !== undefined,
+      )
+      : [];
+
     // Find the last site image in the area to attach on-guard overlay
     const siteImages = area.querySelectorAll<HTMLImageElement>('.company-card--site');
     const targetSite = siteImages[siteImages.length - 1];
@@ -411,9 +425,11 @@ export function renderSiteArea(
       for (const og of ogCards) {
         const ogDefId = cachedInstanceLookup(og.instanceId);
         const revealAction = revealActions.find(a => a.cardInstanceId === og.instanceId);
+        const discardAction = discardTargetActions.find(a => a.discardTargetInstanceId === og.instanceId);
         const revealCls = revealAction ? ' on-guard-card--revealable' : '';
+        const discardCls = discardAction ? ' company-card--influence-target' : '';
 
-        const ogImg = createCardImageOrBack(og.instanceId, ogDefId, cardPool, `company-card company-card--site on-guard-card${revealCls}`, 'On-guard card');
+        const ogImg = createCardImageOrBack(og.instanceId, ogDefId, cardPool, `company-card company-card--site on-guard-card${revealCls}${discardCls}`, 'On-guard card');
         // Show card-back unless revealed (face-up); hover preview shows real card either way
         if (!('revealed' in og) || !og.revealed) {
           ogImg.src = '/images/card-back.jpg';
@@ -424,6 +440,14 @@ export function renderSiteArea(
           ogImg.addEventListener('click', (e) => {
             e.stopPropagation();
             onAction(revealAction);
+          });
+        } else if (discardAction && options?.onAction) {
+          ogImg.style.cursor = 'pointer';
+          const onAction = options.onAction;
+          ogImg.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearShortEventSelection();
+            onAction(discardAction);
           });
         }
         wrapper.appendChild(ogImg);
