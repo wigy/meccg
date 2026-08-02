@@ -84,6 +84,10 @@ export function canPayCost(
 /**
  * Apply cost to state and return the updated state.
  *
+ * Cost components are independent and, when a card declares more than one
+ * (e.g. Healing Herbs tw-255's "tap and discard this item"), all of them are
+ * paid in sequence rather than the first one short-circuiting the rest:
+ *
  * - tap: taps the actor character, or the attached source card if
  *   `tap === "self"` and `context.sourceCardId !== actorId`.
  * - discard: detaches the source from the bearer and moves it to the
@@ -98,89 +102,54 @@ export function applyCost(
   actorId: CardInstanceId,
   context: CostContext,
 ): CostResult {
-  const { playerIndex, sourceCardId, sourceCardDefId, noTap, label = '?' } = context;
-  const player = state.players[playerIndex];
-  if (!player) return { error: `applyCost: no player at index ${playerIndex}` };
+  const { sourceCardId, sourceCardDefId, noTap, label = '?' } = context;
+  let currentState = state;
 
   if (cost.tap) {
-    if (noTap) {
-      logDetail(`Cost (${label}): tap skipped (no-tap variant)`);
-      return { state };
-    }
-    const actor = player.characters[actorId];
-
-    if (cost.tap === 'self' && sourceCardId && sourceCardId !== actorId) {
-      if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
-      // Tap the attachment in place (item / ally / hazard).
-      const updated = tapAttachment(actor, sourceCardId);
-      if (!updated) {
-        return { error: `applyCost: source ${sourceCardId as string} not found on actor ${actorId as string}` };
-      }
-      const newState = updatePlayer(state, playerIndex, p => ({
-        ...p,
-        characters: { ...p.characters, [actorId as string]: updated },
-      }));
-      logDetail(`Cost (${label}): tapped attachment ${sourceCardId as string}`);
-      return { state: newState };
-    }
-
-    if (actor) {
-      // Tap the actor character itself.
-      const newState = updatePlayer(state, playerIndex, p => ({
-        ...p,
-        characters: { ...p.characters, [actorId as string]: { ...actor, status: CardStatus.Tapped } },
-      }));
-      logDetail(`Cost (${label}): tapped ${actorId as string}`);
-      return { state: newState };
-    }
-
-    // The actor id is not a top-level character: a "skill only" card (e.g.
-    // Marvels Told) may tap a sage ally borne by one of the player's
-    // characters. Per CoE rule 2.V.2.2 the ally counts as a character for
-    // fulfilling that skill condition, so tap the ally in place.
-    const allyUpdate = updateAttachment(player, 'allies', actorId, a => ({ ...a, status: CardStatus.Tapped }));
-    if (allyUpdate) {
-      const newState = updatePlayer(state, playerIndex, () => allyUpdate.player);
-      logDetail(`Cost (${label}): tapped ally ${actorId as string}`);
-      return { state: newState };
-    }
-    return { error: `applyCost: actor ${actorId as string} not found` };
+    const tapResult = applyTapCost(currentState, cost, actorId, context, noTap, label);
+    if ('error' in tapResult) return tapResult;
+    currentState = tapResult.state;
   }
 
   if (cost.discard === 'self') {
     if (!sourceCardId || !sourceCardDefId) {
       return { error: `applyCost: discard-self requires sourceCardId and sourceCardDefId in context` };
     }
+    const player = currentState.players[context.playerIndex];
+    if (!player) return { error: `applyCost: no player at index ${context.playerIndex}` };
     const actor = player.characters[actorId];
     if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
-    return applyDiscardSelf(state, actor, actorId, sourceCardId, sourceCardDefId, playerIndex, label);
-  }
-
-  if (cost.discard === 'named-card') {
+    const discardResult = applyDiscardSelf(currentState, actor, actorId, sourceCardId, sourceCardDefId, context.playerIndex, label);
+    if ('error' in discardResult) return discardResult;
+    currentState = discardResult.state;
+  } else if (cost.discard === 'named-card') {
     if (!cost.discardCardName) {
       return { error: `applyCost: discard named-card requires discardCardName` };
     }
-    const handIdx = player.hand.findIndex(c => cardName(state, c.definitionId, '') === cost.discardCardName);
+    const player = currentState.players[context.playerIndex];
+    if (!player) return { error: `applyCost: no player at index ${context.playerIndex}` };
+    const handIdx = player.hand.findIndex(c => cardName(currentState, c.definitionId, '') === cost.discardCardName);
     if (handIdx < 0) {
       return { error: `applyCost: no "${cost.discardCardName}" in hand to discard` };
     }
     const discarded = player.hand[handIdx];
-    const newState = updatePlayer(state, playerIndex, p => ({
+    currentState = updatePlayer(currentState, context.playerIndex, p => ({
       ...p,
       hand: p.hand.filter((_, i) => i !== handIdx),
       discardPile: [...p.discardPile, discarded],
     }));
     logDetail(`Cost (${label}): discarded "${cost.discardCardName}" from hand`);
-    return { state: newState };
   }
 
   if (cost.check === 'corruption') {
-    const { companyId, checkScopeKind = 'company-site-subphase' } = context;
+    const { companyId, checkScopeKind = 'company-site-subphase', playerIndex } = context;
+    const player = currentState.players[playerIndex];
+    if (!player) return { error: `applyCost: no player at index ${playerIndex}` };
     if (!companyId) return { error: `applyCost: check-corruption requires companyId in context` };
     const modifier = cost.modifier ?? 0;
     const scope = { kind: checkScopeKind, companyId };
     logDetail(`Cost (${label}): enqueuing corruption check (modifier ${modifier})`);
-    const newState = enqueueCorruptionCheck(state, {
+    currentState = enqueueCorruptionCheck(currentState, {
       source: sourceCardId ?? actorId,
       actor: player.id,
       scope,
@@ -188,21 +157,83 @@ export function applyCost(
       modifier,
       reason: label,
     });
-    return { state: newState };
   }
 
   if (cost.wound) {
+    const player = currentState.players[context.playerIndex];
+    if (!player) return { error: `applyCost: no player at index ${context.playerIndex}` };
     const actor = player.characters[actorId];
     if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
-    const newState = updatePlayer(state, playerIndex, p => ({
+    currentState = updatePlayer(currentState, context.playerIndex, p => ({
       ...p,
       characters: { ...p.characters, [actorId as string]: { ...actor, status: CardStatus.Inverted } },
     }));
     logDetail(`Cost (${label}): wounded ${actorId as string}`);
+  }
+
+  return { state: currentState };
+}
+
+/**
+ * Pay the `tap` component of an {@link ActionCost} in isolation. Split out
+ * of {@link applyCost} so tap-and-discard combinations (e.g. Healing Herbs
+ * tw-255: "tap and discard this item") can pay the tap first and then fall
+ * through to the discard branch instead of the tap branch short-circuiting.
+ */
+function applyTapCost(
+  state: GameState,
+  cost: ActionCost,
+  actorId: CardInstanceId,
+  context: CostContext,
+  noTap: boolean | undefined,
+  label: string,
+): CostResult {
+  const { playerIndex, sourceCardId } = context;
+  const player = state.players[playerIndex];
+  if (!player) return { error: `applyCost: no player at index ${playerIndex}` };
+
+  if (noTap) {
+    logDetail(`Cost (${label}): tap skipped (no-tap variant)`);
+    return { state };
+  }
+  const actor = player.characters[actorId];
+
+  if (cost.tap === 'self' && sourceCardId && sourceCardId !== actorId) {
+    if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
+    // Tap the attachment in place (item / ally / hazard).
+    const updated = tapAttachment(actor, sourceCardId);
+    if (!updated) {
+      return { error: `applyCost: source ${sourceCardId as string} not found on actor ${actorId as string}` };
+    }
+    const newState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      characters: { ...p.characters, [actorId as string]: updated },
+    }));
+    logDetail(`Cost (${label}): tapped attachment ${sourceCardId as string}`);
     return { state: newState };
   }
 
-  return { state }; // no cost
+  if (actor) {
+    // Tap the actor character itself.
+    const newState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      characters: { ...p.characters, [actorId as string]: { ...actor, status: CardStatus.Tapped } },
+    }));
+    logDetail(`Cost (${label}): tapped ${actorId as string}`);
+    return { state: newState };
+  }
+
+  // The actor id is not a top-level character: a "skill only" card (e.g.
+  // Marvels Told) may tap a sage ally borne by one of the player's
+  // characters. Per CoE rule 2.V.2.2 the ally counts as a character for
+  // fulfilling that skill condition, so tap the ally in place.
+  const allyUpdate = updateAttachment(player, 'allies', actorId, a => ({ ...a, status: CardStatus.Tapped }));
+  if (allyUpdate) {
+    const newState = updatePlayer(state, playerIndex, () => allyUpdate.player);
+    logDetail(`Cost (${label}): tapped ally ${actorId as string}`);
+    return { state: newState };
+  }
+  return { error: `applyCost: actor ${actorId as string} not found` };
 }
 
 // ---- Private helpers ----
