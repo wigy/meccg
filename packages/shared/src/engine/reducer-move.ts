@@ -902,5 +902,6 @@ export function moveToFetchToDeckPayload(
     shuffle: move.shuffleAfter ?? true,
     to: move.to === 'hand' ? 'hand' : 'deck',
     ...(move.removeFromGame ? { removeFromGame: true } : {}),
+    ...(move.revealToOpponent ? { revealToOpponent: true } : {}),
   };
 }

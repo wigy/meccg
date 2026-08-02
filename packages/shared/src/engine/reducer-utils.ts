@@ -479,6 +479,41 @@ export function defById(state: GameState, definitionId: CardDefinitionId): CardD
 }
 
 /**
+ * `tap-site-on-play`: taps the active company's current site when a resource
+ * event carrying the flag enters play, unless the site carries the
+ * `never-taps` site-rule (e.g. The Worthy Hills). Shared by permanent-event
+ * resolution ({@link import('./chain-reducer.js').resolvePermanentEvent}) and
+ * the short-event reducer (Far-sight tw-238: "Tap the sage and the site"),
+ * so both event modes tap the site through the same code path.
+ */
+export function applyTapSiteOnPlayFlag(
+  state: GameState,
+  def: CardDefinition | undefined,
+  playerIndex: number,
+): GameState {
+  if (!hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'tap-site-on-play')) return state;
+  const ps = state.phaseState as { activeCompanyIndex?: number };
+  const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
+  const company = state.players[playerIndex].companies[activeCompanyIndex];
+  const siteInPlay = company?.currentSite;
+  if (!siteInPlay || siteInPlay.status === CardStatus.Tapped) return state;
+  const siteDef = defById(state, siteInPlay.definitionId);
+  const neverTaps = siteDef && isSiteCard(siteDef)
+    && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'never-taps');
+  if (neverTaps) {
+    logDetail(`"${def?.name ?? '?'}" tap-site-on-play: site has never-taps — leaving site untapped`);
+    return state;
+  }
+  logDetail(`"${def?.name ?? '?'}" tap-site-on-play: tapping site ${siteInPlay.definitionId as string}`);
+  const newCompanies = [...state.players[playerIndex].companies];
+  newCompanies[activeCompanyIndex] = {
+    ...company,
+    currentSite: { ...siteInPlay, status: CardStatus.Tapped },
+  };
+  return updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies }));
+}
+
+/**
  * True if the given player's avatar (wizard, ringwraith, fallen-wizard, or
  * Balrog) has been eliminated during the game.
  *

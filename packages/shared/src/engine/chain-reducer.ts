@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -2568,28 +2568,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   // tap-site-on-play: tap the active company's current site when the card enters play,
   // unless the site carries the never-taps site-rule (e.g. The Worthy Hills).
-  if (hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-site-on-play')) {
-    const ps = newState.phaseState as { activeCompanyIndex?: number };
-    const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
-    const company = newState.players[playerIndex].companies[activeCompanyIndex];
-    const siteInPlay = company?.currentSite;
-    if (siteInPlay && siteInPlay.status !== CardStatus.Tapped) {
-      const siteDef = defById(newState, siteInPlay.definitionId);
-      const neverTaps = siteDef && isSiteCard(siteDef)
-        && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'never-taps');
-      if (neverTaps) {
-        logDetail(`"${def?.name ?? '?'}" tap-site-on-play: site has never-taps — leaving site untapped`);
-      } else {
-        logDetail(`"${def?.name ?? '?'}" tap-site-on-play: tapping site ${siteInPlay.definitionId as string}`);
-        const newCompanies = [...newState.players[playerIndex].companies];
-        newCompanies[activeCompanyIndex] = {
-          ...company,
-          currentSite: { ...siteInPlay, status: CardStatus.Tapped },
-        };
-        newState = updatePlayer(newState, playerIndex, p => ({ ...p, companies: newCompanies }));
-      }
-    }
-  }
+  newState = applyTapSiteOnPlayFlag(newState, def, playerIndex);
 
   // eddy-lock (Eddy in Fate's Tide ba-57): "Tap The Balrog and the site." The
   // site is tapped by the tap-site-on-play flag above; here we tap the player's

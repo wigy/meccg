@@ -2578,7 +2578,59 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-has-resource",
+        "subtype": "information"
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": [
+          "deck"
+        ],
+        "to": "hand",
+        "shuffleAfter": true,
+        "revealToOpponent": true,
+        "count": 1,
+        "filter": {
+          "cardType": "hero-resource-item"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check"
+        }
+      }
+    ],
+    "certified": "2026-08-02",
     "text": "Sage only. Playable during the site phase on an untapped sage at an untapped site where Information is playable. Tap the sage and the site. Search through your play deck and choose an item that you must reveal to your opponent. This item is placed in your hand and the play deck is reshuffled. The sage makes a corruption check."
   },
   {

@@ -7391,6 +7391,15 @@ export interface MoveEffect extends EffectBase {
    * company …". The avatar's own allies are untouched.
    */
   readonly alsoDiscardCompanyFollowers?: boolean;
+  /**
+   * For a `select: 'target'` fetch-to-hand/deck move: when true, the fetched
+   * card's identity is revealed to the opponent as it is taken (recorded in
+   * {@link GameState.revealedInstances}). Generalizes the field already
+   * carried by the internal {@link FetchToDeckEffect} (Inner Cunning dm-68)
+   * to the card-level `move` primitive. Used by Far-sight (tw-238): "choose
+   * an item that you must reveal to your opponent."
+   */
+  readonly revealToOpponent?: boolean;
 }
 
 /**
