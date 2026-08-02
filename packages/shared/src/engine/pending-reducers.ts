@@ -34,8 +34,7 @@ import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isFactionCard, isItemCard, isAllyCard, printedMind } from '../types/cards.js';
-import { CardStatus, Skill } from '../types/common.js';
-import type { Race } from '../types/common.js';
+import { CardStatus, Race, Skill } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -1636,6 +1635,134 @@ export function applyFlateryAttemptResolution(
   // actually resumes instead of being left stuck in 'resolving' mode with
   // no legal actions for either player.
   return resolveChainEntryAndContinue(postRoll, e => e.card?.instanceId === top.source, [rollEffect]);
+}
+
+/**
+ * Resolve a queued `riddling-attempt` resolution (Riddling Talk, td-148).
+ * The defending player rolls 2d6; total = roll + sageBonus per Sage in the
+ * company + hobbitBonus per Hobbit in the company. Success if total >
+ * threshold: enqueue a `riddling-guess` resolution for the naming step (the
+ * attack is not cancelled here — a correct guess is still required).
+ */
+export function applyRiddlingAttemptResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'riddling-attempt', 'riddling-attempt');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { characterInstanceId, creatureRace, threshold, sageBonus, hobbitBonus, hazardLimitReduction } = kind;
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) {
+    return { state, error: `Riddling-attempt: character ${characterInstanceId as string} not found` };
+  }
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
+
+  const company = findCharacterCompany(player.companies, characterInstanceId);
+  let sages = 0;
+  let hobbits = 0;
+  if (company) {
+    for (const charId of company.characters) {
+      const c = player.characters[charId];
+      if (!c) continue;
+      const def = defById(state, c.definitionId);
+      if (!isCharacterCard(def)) continue;
+      if (def.skills.includes(Skill.Sage)) sages++;
+      if (def.race === Race.Hobbit) hobbits++;
+    }
+  }
+  const bonus = sages * sageBonus + hobbits * hobbitBonus;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + bonus;
+  const success = total > threshold;
+
+  logDetail(`Riddling attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+
+  const rollEffect = diceRollEffect(player.name, roll, `Riddling attempt: ${charName} vs ${creatureRace}`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
+
+  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+
+  if (success) {
+    logDetail(`Riddling attempt succeeded: player may now name a card to guess`);
+    postRoll = enqueueResolution(postRoll, {
+      source: top.source,
+      actor: top.actor,
+      scope: top.scope,
+      kind: {
+        type: 'riddling-guess',
+        hazardLimitReduction,
+      },
+    });
+    return { state: postRoll };
+  }
+
+  logDetail(`Riddling attempt failed: combat continues`);
+  return resolveChainEntryAndContinue(postRoll, e => e.card?.instanceId === top.source, [rollEffect]);
+}
+
+/**
+ * Resolve a queued `riddling-guess` resolution (Riddling Talk, td-148),
+ * following a successful riddling roll. The player names a card; the
+ * opponent's hand is revealed (recorded in `GameState.revealedInstances`).
+ * If a card with the named definition name is found there, the attack is
+ * cancelled and the company hazard limit is decreased by
+ * `hazardLimitReduction`. Otherwise the attack proceeds normally.
+ */
+export function applyRiddlingGuessResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'riddling-guess') return null;
+  if (action.type !== 'riddling-guess') {
+    return { state, error: `Pending riddling-guess requires 'riddling-guess', got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: `Wrong player for pending riddling-guess` };
+  }
+  const { hazardLimitReduction } = top.kind;
+
+  const actorIndex = getPlayerIndex(state, action.player);
+  const opponentIndex = actorIndex === 0 ? 1 : 0;
+  const opponent = state.players[opponentIndex];
+
+  const handInstances = opponent.hand.map(c => toCardInstance(c));
+  let next = revealInstances(state, handInstances);
+
+  const found = opponent.hand.some(c => defById(state, c.definitionId)?.name === action.guessedCardName);
+
+  logDetail(`Riddling guess "${action.guessedCardName}": opponent hand revealed — ${found ? 'FOUND' : 'not found'}`);
+
+  next = dequeueResolution(next, top.id);
+
+  if (found) {
+    logDetail(`Riddling guess succeeded: cancelling attack and reducing hazard limit by ${hazardLimitReduction}`);
+    next = resolveCancelAttackEntry(next);
+
+    if (next.phaseState.phase === Phase.MovementHazard) {
+      const mh = next.phaseState;
+      const current = mh.hazardLimitAtReveal;
+      next = {
+        ...next,
+        phaseState: {
+          ...mh,
+          hazardLimitAtReveal: Math.max(0, current - hazardLimitReduction),
+        },
+      };
+      logDetail(`Riddling guess: hazard limit reduced from ${current} to ${next.phaseState.phase === Phase.MovementHazard ? (next.phaseState).hazardLimitAtReveal : '?'}`);
+    }
+  } else {
+    logDetail(`Riddling guess failed: combat continues`);
+  }
+
+  return resolveChainEntryAndContinue(next, e => e.card?.instanceId === top.source, []);
 }
 
 /**

@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
@@ -4451,6 +4451,47 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             threshold: matchedEntry.threshold,
             diplomatBonus: flatEffect.diplomatBonus,
             hazardLimitReduction: flatEffect.hazardLimitReduction,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
+  }
+
+  // Riddling-attempt (Riddling Talk td-148): when the chain entry resolves
+  // un-negated, create a riddling-attempt pending resolution for the defending
+  // player to roll 2d6. The roll only determines whether a follow-up guess is
+  // offered — it does not itself cancel the attack. Do NOT cancel here.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.combat) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const riddlingEffect = getCardEffects(cardDef).find(
+      (e): e is RiddlingAttemptEffect => e.type === 'riddling-attempt',
+    );
+    if (riddlingEffect) {
+      const creatureRace = current.combat.creatureRace;
+      const matchedEntry = creatureRace === undefined
+        ? undefined
+        : riddlingEffect.thresholds.find(t => t.races.includes(creatureRace));
+      if (matchedEntry && creatureRace !== undefined) {
+        const defPlayerId = current.combat.defendingPlayerId;
+        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
+        logDetail(`Riddling-attempt: enqueuing riddling-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: defPlayerId,
+          scope,
+          kind: {
+            type: 'riddling-attempt',
+            characterInstanceId: entry.payload.targetCharacterId,
+            creatureRace,
+            threshold: matchedEntry.threshold,
+            sageBonus: riddlingEffect.sageBonus,
+            hobbitBonus: riddlingEffect.hobbitBonus,
+            hazardLimitReduction: riddlingEffect.hazardLimitReduction,
           },
         });
         return { state: current, needsInput: true };

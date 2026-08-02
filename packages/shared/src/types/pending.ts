@@ -384,6 +384,42 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Riddling attempt, roll stage (td-148 Riddling Talk): a resource short
+         * event has resolved against a creature attack. The defending player
+         * rolls 2d6; total = roll + `sageBonus` per Sage in the company +
+         * `hobbitBonus` per Hobbit in the company. If total > threshold, a
+         * `riddling-guess` resolution is enqueued next (the roll alone does
+         * not cancel the attack — see that kind for the second stage).
+         */
+        readonly type: 'riddling-attempt';
+        /** The character making the riddling attempt. */
+        readonly characterInstanceId: CardInstanceId;
+        /** Race of the attacking creature. */
+        readonly creatureRace: Race;
+        /** Roll + modifiers must exceed this for success. */
+        readonly threshold: number;
+        /** Bonus added to the roll for each Sage-skilled character in the company. */
+        readonly sageBonus: number;
+        /** Bonus added to the roll for each Hobbit-race character in the company. */
+        readonly hobbitBonus: number;
+        /** Reduction to the company hazard limit if the following guess succeeds. */
+        readonly hazardLimitReduction: number;
+      }
+    | {
+        /**
+         * Riddling attempt, guess stage (td-148 Riddling Talk): the riddling
+         * roll succeeded. The player names a card; the opponent's hand is then
+         * revealed (recorded in `GameState.revealedInstances`). If a card with
+         * the named definition name is in the opponent's hand, the attack is
+         * cancelled and the company hazard limit is decreased by
+         * `hazardLimitReduction`. Otherwise the attack proceeds normally.
+         */
+        readonly type: 'riddling-guess';
+        /** Reduction to the company hazard limit on a successful guess. */
+        readonly hazardLimitReduction: number;
+      }
+    | {
+        /**
          * Goodwill attempt (dm-160 Token of Goodwill): the diplomat passed his
          * corruption check and now discards one company item of `itemSubtype`
          * to make an influence roll (2d6 + unused DI). If the total exceeds

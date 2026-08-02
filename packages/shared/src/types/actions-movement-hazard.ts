@@ -793,6 +793,43 @@ export interface FlateryAttemptRollAction {
 }
 
 /**
+ * Execute the dice roll for a riddling attempt (td-148 Riddling Talk).
+ *
+ * Created by the pending-resolution system after Riddling Talk's chain
+ * entry resolves. The defending player rolls 2d6; total = roll + sage/hobbit
+ * bonuses. If total > threshold, a `riddling-guess` resolution follows.
+ */
+export interface RiddlingAttemptRollAction {
+  /** Action discriminant. */
+  readonly type: 'riddling-attempt';
+  /** The defending player (who rolls). */
+  readonly player: PlayerId;
+  /** The character making the riddling attempt. */
+  readonly characterInstanceId: CardInstanceId;
+  /** roll >= need means success (already accounts for sage/hobbit bonuses). */
+  readonly need: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}
+
+/**
+ * Name a card for a riddling guess (td-148 Riddling Talk), following a
+ * successful riddling roll. The opponent's hand is then revealed; if a card
+ * with the named definition name is found there, the attack is cancelled
+ * and the hazard limit is decreased.
+ */
+export interface RiddlingGuessAction {
+  /** Action discriminant. */
+  readonly type: 'riddling-guess';
+  /** The defending player (who names the card). */
+  readonly player: PlayerId;
+  /** The definition name being guessed. */
+  readonly guessedCardName: string;
+  /** Human-readable label for the guess. */
+  readonly explanation: string;
+}
+
+/**
  * Discard a company item and execute the dice roll for a goodwill attempt
  * (dm-160 Token of Goodwill).
  *

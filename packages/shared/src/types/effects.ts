@@ -4961,6 +4961,39 @@ export interface GoodwillCancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Riddling attempt: the bearer's company is facing a creature attack and a
+ * character in the company makes a riddling roll (2d6 + `sageBonus` per Sage
+ * in the company + `hobbitBonus` per Hobbit in the company) to try to trick
+ * the attacker into a fatal slip. Success requires roll > threshold for the
+ * attacker's race. On success, the player names a card; the opponent then
+ * reveals their hand. If the named card is present, the attack is cancelled
+ * and the company's hazard limit is decreased by `hazardLimitReduction`.
+ * If the roll fails, or the named card is not in the opponent's hand, the
+ * attack proceeds normally.
+ *
+ * Used by Riddling Talk (td-148). Two-stage resolution: pending kind
+ * `'riddling-attempt'` (the roll) enqueues kind `'riddling-guess'` (the
+ * naming + reveal) on success.
+ */
+export interface RiddlingAttemptEffect extends EffectBase {
+  readonly type: 'riddling-attempt';
+  /**
+   * Race-to-threshold mappings. The threshold for the facing creature's
+   * race is looked up at play time. Success requires roll > threshold.
+   */
+  readonly thresholds: ReadonlyArray<{
+    readonly races: ReadonlyArray<Race>;
+    readonly threshold: number;
+  }>;
+  /** Bonus added to the roll for each Sage-skilled character in the company. */
+  readonly sageBonus: number;
+  /** Bonus added to the roll for each Hobbit-race character in the company. */
+  readonly hobbitBonus: number;
+  /** Amount to reduce the company's hazard limit when the guess succeeds. */
+  readonly hazardLimitReduction: number;
+}
+
+/**
  * Roll-gated counter-cancel (Black Vapour ba-14): a hazard short-event the
  * *attacking* (hazard) player plays during a combat chain to negate an
  * opponent-declared chain entry that would cancel a creature attack of a
@@ -7416,6 +7449,7 @@ export type CardEffect =
   | ConvertCreatureToAllyEffect
   | FlatteryCancelAttackEffect
   | GoodwillCancelAttackEffect
+  | RiddlingAttemptEffect
   | CounterCancelAttackRollEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect
