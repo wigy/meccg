@@ -7041,10 +7041,22 @@ sideboard → play deck.
   "count": 1,
   "shuffleAfter": false,
   "corruptionCheck": { "modifier": 0 },
+  "revealToOpponent": false,
   "cardName": "…",
   "when": { "…": "…" }
 }
 ```
+
+**`revealToOpponent`** — for a `select: 'target'` fetch move (`to: 'hand'` or
+`'deck'`), reveals the fetched card's identity to the opponent as it is taken
+(recorded in `GameState.revealedInstances`). Generalizes the field the internal
+`FetchToDeckEffect` pending-resolution shape already carried for the hazard-only
+`fetch-agent-to-hand` (Inner Cunning dm-68) to the card-level `move` primitive,
+so any resource event can model "reveal to your opponent" on its own fetch.
+`moveToFetchToDeckPayload` (`reducer-move.ts`) copies the flag onto the
+generated `FetchToDeckEffect`; `handleFetchFromPile` (`reducer-utils.ts`) is
+unchanged — it already honoured the field. Used by Far-sight (tw-238): "choose
+an item that you must reveal to your opponent."
 
 **Selectors**
 
@@ -11520,6 +11532,16 @@ true`), and a `play-condition: company-context` requiring The Balrog in the
 company (`company.characterNames $includes "The Balrog"`). On resolution the
 `eddy-lock` handler in `chain-reducer.ts` taps The Balrog in the active company
 (a play cost — the card still attaches to the site, not to the character).
+
+`play-flag: untapped-site-required` and `play-flag: tap-site-on-play` were
+originally checked only for permanent-event resolution. Both are now also
+honoured for **short events** playable during the site phase: the gate lives
+in `playResourceShortEventActions` (`legal-actions/organization.ts`), and the
+tap is applied via the shared `applyTapSiteOnPlayFlag` (`reducer-utils.ts`),
+called from both `resolvePermanentEvent` (`chain-reducer.ts`) and
+`handlePlayResourceShortEvent` (`reducer-events.ts`). Used by Far-sight
+(tw-238): "Playable ... on an untapped sage at an untapped site ... Tap the
+sage and the site."
 
 ```json
 {

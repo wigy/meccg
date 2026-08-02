@@ -2993,6 +2993,22 @@ export function playResourceShortEventActions(
       }
     }
 
+    // play-flag: "untapped-site-required" — a short event playable during the
+    // site phase (e.g. Far-sight tw-238: "an untapped sage at an untapped
+    // site") requires the active company's current site to be untapped.
+    // Mirrors the permanent-event check in legal-actions/site.ts.
+    if (hasPlayFlag(def, 'untapped-site-required') && currentPhase === 'site') {
+      const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
+      const activePlayer = activePlayerState(state);
+      const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
+      const siteIsTapped = company?.currentSite?.status === CardStatus.Tapped;
+      if (siteIsTapped) {
+        logDetail(`${def.name}: requires untapped site, but active site is already tapped`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: site must be untapped`));
+        continue;
+      }
+    }
+
     // play-condition requires: "company-has-item" — at least one character in the
     // active company must carry an item of the given subtype. Only meaningful
     // during the site phase.

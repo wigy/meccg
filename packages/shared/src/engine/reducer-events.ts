@@ -19,7 +19,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -602,6 +602,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       workingState = costResult.state;
     }
   }
+
+  // tap-site-on-play: short events playable during the site phase (e.g.
+  // Far-sight tw-238: "Tap the sage and the site") tap the active company's
+  // current site as a play cost, mirroring the permanent-event path.
+  workingState = applyTapSiteOnPlayFlag(workingState, def, playerIndex);
 
   // A short event that discards a card in play (Voices of Malice le-250,
   // Marvels Told td-134, Ancient Secrets ba-36 mode 1, The Cock Crows tw-342
