@@ -10,11 +10,13 @@
  */
 
 import type { GameAction } from '@meccg/shared';
+import { RegionType } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
   lookupDef,
   isCharacter,
+  isSite,
   scoreDestinationSite,
   findSiteDef,
   isWounded,
@@ -24,6 +26,9 @@ import {
   storeItemMpGain,
   hasDirectlyPlayableMovement,
 } from './common.js';
+
+/** Definition ID of Great Ship (tw-248) — see the `play-short-event` case below. */
+const GREAT_SHIP_ID = 'tw-248';
 
 export const organizationEvaluator: ActionEvaluator = {
   phases: ['organization', 'untap'],
@@ -53,6 +58,29 @@ export const organizationEvaluator: ActionEvaluator = {
       case 'play-permanent-event': {
         // Permanent events are typically free MPs / utility — strongly preferred.
         return 30;
+      }
+
+      case 'play-short-event': {
+        // Great Ship's granted hazard-cancel only ever fires when the target
+        // company's site path contains a Coastal Sea region (CoE rule on the
+        // card). Tapping a character to play it on a landlocked company wastes
+        // the card and the tap for zero benefit, so score those targets 0.
+        // Approximate "could be coastal" via the current/destination site's
+        // own sitePath (region types from the nearest haven) — the AI has no
+        // visibility into the actual regions it will travel this turn.
+        const card = view.self.hand.find(c => c.instanceId === action.cardInstanceId);
+        const def = card ? lookupDef(pool, card.definitionId) : undefined;
+        if (def?.id !== GREAT_SHIP_ID) return null;
+        const targetCharId = action.targetScoutInstanceId ?? action.targetCharacterId;
+        const company = targetCharId
+          ? view.self.companies.find(c => c.characters.includes(targetCharId))
+          : undefined;
+        if (!company) return 0;
+        const siteDefs = [company.currentSite, company.destinationSite]
+          .filter((s): s is NonNullable<typeof s> => s !== null)
+          .map(s => lookupDef(pool, s.definitionId));
+        const hasCoastalPath = siteDefs.some(d => isSite(d) && d.sitePath.includes(RegionType.Coastal));
+        return hasCoastalPath ? 15 : 0;
       }
 
       case 'plan-movement': {

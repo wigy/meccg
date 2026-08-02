@@ -77,6 +77,100 @@ describe('hasDirectlyPlayableMovement', () => {
   });
 });
 
+// Great Ship (tw-248): grants a hazard-cancel that only ever fires when the
+// target company's site path contains a Coastal Sea region.
+const GREAT_SHIP: CardDefinition = {
+  id: 'tw-248',
+  cardType: 'hero-resource-event',
+  eventType: 'short',
+} as unknown as CardDefinition;
+
+// Landlocked site (mirrors Isengard, tw-404 — no coastal region in its path).
+const ISENGARD: CardDefinition = {
+  id: 'tw-404',
+  cardType: 'hero-site',
+  name: 'Isengard',
+  siteType: 'ruins-and-lairs',
+  sitePath: ['wilderness', 'border', 'border'],
+  playableResources: [],
+  resourceDraws: 2,
+} as unknown as CardDefinition;
+
+// Another landlocked site (mirrors Wellinghall, tw-437).
+const WELLINGHALL: CardDefinition = {
+  id: 'tw-437',
+  cardType: 'hero-site',
+  name: 'Wellinghall',
+  siteType: 'free-hold',
+  sitePath: ['wilderness', 'wilderness'],
+  playableResources: [],
+  resourceDraws: 1,
+} as unknown as CardDefinition;
+
+// A coastal site (mirrors Dol Amroth's path having a Coastal Sea region).
+const COASTAL_SITE: CardDefinition = {
+  id: 'coastal',
+  cardType: 'hero-site',
+  name: 'Coastal Site',
+  siteType: 'free-hold',
+  sitePath: ['wilderness', 'coastal'],
+  playableResources: [],
+  resourceDraws: 1,
+} as unknown as CardDefinition;
+
+const GREAT_SHIP_POOL: Record<string, CardDefinition> = {
+  'tw-248': GREAT_SHIP,
+  'tw-404': ISENGARD,
+  'tw-437': WELLINGHALL,
+  coastal: COASTAL_SITE,
+};
+
+function greatShipView(destinationDefId: string | null) {
+  return {
+    self: {
+      hand: [{ instanceId: 'gs1', definitionId: 'tw-248' }],
+      siteDeck: [],
+      companies: [
+        {
+          id: 'company-p2-1',
+          characters: ['c1'],
+          currentSite: { instanceId: 's1', definitionId: 'tw-404', status: 'untapped' },
+          destinationSite: destinationDefId
+            ? { instanceId: 's2', definitionId: destinationDefId, status: 'untapped' }
+            : null,
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+function playGreatShip(targetScoutInstanceId: string): GameAction {
+  return {
+    type: 'play-short-event',
+    player: 'p2',
+    cardInstanceId: 'gs1',
+    targetScoutInstanceId,
+  } as unknown as GameAction;
+}
+
+describe('organizationEvaluator Great Ship targeting', () => {
+  // Regression: the AI tapped a character to play Great Ship on a company
+  // whose current and destination sites are both landlocked (Isengard →
+  // Wellinghall), wasting the card since its hazard-cancel can never fire
+  // without a Coastal Sea region in the company's path.
+  test('scores 0 when neither current nor destination site has a coastal path', () => {
+    const view = greatShipView('tw-437');
+    const context: AiContext = { view, cardPool: GREAT_SHIP_POOL, legalActions: [playGreatShip('c1')] };
+    expect(organizationEvaluator.score(playGreatShip('c1'), context)).toBe(0);
+  });
+
+  test('scores positively when the destination site path includes coastal', () => {
+    const view = greatShipView('coastal');
+    const context: AiContext = { view, cardPool: GREAT_SHIP_POOL, legalActions: [playGreatShip('c1')] };
+    expect(organizationEvaluator.score(playGreatShip('c1'), context)).toBeGreaterThan(0);
+  });
+});
+
 describe('organizationEvaluator pass suppression', () => {
   // Regression: a healthy company holding a playable item passed the
   // organization phase instead of declaring movement to a site where the
