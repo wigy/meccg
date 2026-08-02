@@ -1189,8 +1189,23 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DarknessUnderTree.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on an untapped Orc, Troll, or Man character if Doors of Night is in play. Tap the character."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "tap-character",
+        "filter": {
+          "race": {
+            "$in": ["orc", "troll", "man"]
+          }
+        }
+      }
+    ],
+    "text": "Playable on an untapped Orc, Troll, or Man character if Doors of Night is in play. Tap the character.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hazard-event",

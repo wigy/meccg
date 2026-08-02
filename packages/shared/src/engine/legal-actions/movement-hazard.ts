@@ -2259,6 +2259,18 @@ function playHazardsActions(
           continue;
         }
 
+        // play-condition: card-in-play — some short-events require a named
+        // card in play (e.g. Darkness Under Tree le-108 requires Doors of
+        // Night before it may tap an Orc/Troll/Man character).
+        {
+          const cardInPlayCond = findPlayConditionEffect(def, 'card-in-play');
+          if (cardInPlayCond?.cardName && !isCardNameInPlayOrCharacters(state, cardInPlayCond.cardName)) {
+            logDetail(`Hazard short-event "${def.name}": play-condition card-in-play requires "${cardInPlayCond.cardName}" in play — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name} requires ${cardInPlayCond.cardName} in play` });
+            continue;
+          }
+        }
+
         // Duplication-limit: non-viable if max copies already on chain / in play / still in effect
         {
           let blocked = false;
