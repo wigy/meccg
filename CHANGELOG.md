@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.79.0 — 2026-08-02
+
+Goblin-town hordes and safer discards
+
+### Cards
+
+- Certified Orc-raiders (tw-75), Orc-warriors (tw-77), Wolf-riders (td-86), The Great Goblin (tw-95) and Hobgoblins (td-30)
+- Certified Pledge of Conduct (td-144) and Lapse of Will (tw-264)
+
+### Web Client
+
+- Hand-card discards are now confirmed via a tooltip menu instead of dispatching instantly
+
+### Infrastructure
+
+- The `/release` title is now optional; nightly releases write their own headline
+- Fixed lobby server test mocks for the mail store's unread counter
+
 ## 0.78.0 — 2026-08-02
 
 Nightly Build

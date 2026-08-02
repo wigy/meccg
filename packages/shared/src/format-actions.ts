@@ -456,6 +456,10 @@ export function describeAction(
       return `Flattery attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'goodwill-attempt':
       return `Goodwill attempt by ${instName(action.characterInstanceId)}: discard ${instName(action.itemInstanceId)}, need ${action.need}`;
+    case 'riddling-attempt':
+      return `Riddling attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
+    case 'riddling-guess':
+      return `Name "${action.guessedCardName}"`;
     case 'seized-by-terror-roll':
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':

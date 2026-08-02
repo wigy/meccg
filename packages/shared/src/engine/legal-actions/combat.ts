@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -2627,6 +2627,43 @@ function cancelAttackActions(
     // One action per character in the company — player picks who makes the attempt
     for (const charId of company.characters) {
       logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Riddling-attempt: hand cards with a `riddling-attempt` effect (e.g.
+  // Riddling Talk). Only offered when the attacking creature's race has a
+  // threshold entry in the effect. One `cancel-attack` action is emitted per
+  // character in the defending company (the player selects who makes the
+  // attempt) — the roll and, on success, the guess happen in later pending
+  // resolutions.
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const riddlingEffect = getCardEffects(cardDef).find(
+      (e): e is RiddlingAttemptEffect => e.type === 'riddling-attempt',
+    );
+    if (!riddlingEffect) continue;
+
+    if (!combat.creatureRace) {
+      logDetail(`Riddling-attempt ${handCard.definitionId as string}: no creature race — skipping`);
+      continue;
+    }
+    const matchedEntry = riddlingEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
+    if (!matchedEntry) {
+      logDetail(`Riddling-attempt ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
+      continue;
+    }
+
+    for (const charId of company.characters) {
+      logDetail(`Riddling-attempt ${handCard.definitionId as string}: offering for character ${charId as string}`);
       actions.push({
         action: {
           type: 'cancel-attack',

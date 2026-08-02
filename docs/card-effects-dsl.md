@@ -3825,6 +3825,61 @@ discarded and the orphaned event card follows via
 context exposes `sitePath.regionTypes` (the region types traversed this
 move) alongside `movementType` and `destination`.
 
+### 9d. `riddling-attempt`
+
+A resource short event playable on a character whose company is facing a
+creature attack, offering a two-stage attempt to cancel it by riddling —
+distinct from `flattery-cancel-attack` / `goodwill-cancel-attack` in that a
+successful roll only earns the *chance* to cancel; a second, independent
+guess must also succeed.
+
+```json
+{
+  "type": "riddling-attempt",
+  "sageBonus": 2,
+  "hobbitBonus": 1,
+  "hazardLimitReduction": 3,
+  "thresholds": [
+    { "races": ["dragon", "drake"], "threshold": 8 },
+    { "races": ["man", "giant"], "threshold": 10 },
+    { "races": ["slayer", "awakened-plant", "orc", "spider", "troll"], "threshold": 12 }
+  ]
+}
+```
+
+Used by Riddling Talk (td-148): "Character makes a roll modified by: +2 for
+each sage and +1 for each Hobbit in his company. If the result is greater
+than [race-keyed threshold]; then name a card and opponent must reveal his
+hand. If the named card is in opponent's hand, the creature's card is
+discarded (all of its attacks are canceled) and the hazard limit against the
+character's company is decreased by three."
+
+**Offering** (`legal-actions/combat.ts`): mirrors `flattery-cancel-attack` —
+one `cancel-attack` action per character in the defending company, gated on
+the attacking creature's race having a `thresholds` entry.
+
+**Stage 1 — the roll** (`chain-reducer.ts` enqueues a `riddling-attempt`
+pending resolution when the chain entry resolves un-negated; resolved by
+`applyRiddlingAttemptResolution` in `pending-reducers.ts`). The roll is 2d6 +
+`sageBonus` for each Sage-skilled character in the maker's company +
+`hobbitBonus` for each Hobbit-race character in the company (company found
+via `findCharacterCompany`, not just the acting character). On success —
+roll > threshold — a `riddling-guess` resolution is enqueued *instead of*
+resolving the cancel; the attack is not yet cancelled. On failure the chain
+entry resolves normally and combat continues.
+
+**Stage 2 — the guess** (`applyRiddlingGuessResolution`). One
+`riddling-guess` action exists per distinct card name among
+`hazard-event`/`hazard-creature` definitions in the card pool
+(`riddlingGuessActions`, `legal-actions/pending.ts`) — the player names any
+card, blind. On resolution the opponent's entire hand is revealed
+(`revealInstances`, recorded in `GameState.revealedInstances`) and checked
+for a card whose definition name matches the guess. A match cancels the
+attack (`resolveCancelAttackEntry`) and decreases `hazardLimitAtReveal` by
+`hazardLimitReduction` (Movement/Hazard phase only, floored at 0); no match
+leaves the attack in effect. Either way the guess resolution dequeues and
+the chain entry resolves.
+
 ### 10. `strike-modifier`
 
 Played from hand during strike resolution as a short event. Covers four

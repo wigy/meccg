@@ -748,6 +748,93 @@ export function flateryAttemptRollActions(
 }
 
 /**
+ * Compute the single riddling-attempt action for a queued `riddling-attempt`
+ * resolution. The defending player rolls 2d6; total = roll + sageBonus per
+ * Sage in the company + hobbitBonus per Hobbit in the company. Success if
+ * total > threshold (the roll threshold varies by creature race).
+ */
+export function riddlingAttemptRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'riddling-attempt') return [];
+  const { characterInstanceId, creatureRace, threshold, sageBonus, hobbitBonus } = top.kind;
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) return [];
+
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+  const company = findCharacterCompany(player.companies, characterInstanceId);
+  let sages = 0;
+  let hobbits = 0;
+  if (company) {
+    for (const charId of company.characters) {
+      const c = player.characters[charId];
+      if (!c) continue;
+      const def = defById(state, c.definitionId);
+      if (!isCharacterCard(def)) continue;
+      if (def.skills.includes(Skill.Sage)) sages++;
+      if (def.race === Race.Hobbit) hobbits++;
+    }
+  }
+  const bonus = sages * sageBonus + hobbits * hobbitBonus;
+
+  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
+  const need = threshold - bonus + 1;
+
+  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = +${bonus} → need roll >= ${need}`);
+
+  return [{
+    action: {
+      type: 'riddling-attempt' as const,
+      player: playerId,
+      characterInstanceId,
+      need,
+      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${bonus} → need roll >= ${need}`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the riddling-guess actions for a queued `riddling-guess`
+ * resolution (Riddling Talk, td-148), following a successful riddling roll.
+ * One action per distinct card name among hazard-event / hazard-creature
+ * definitions in the card pool — the player names any card, blind, hoping
+ * it turns out to be in the opponent's hand (revealed on resolution).
+ */
+export function riddlingGuessActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'riddling-guess') return [];
+
+  const names = new Set<string>();
+  for (const def of Object.values(state.cardPool)) {
+    if (def.cardType === 'hazard-event' || def.cardType === 'hazard-creature') {
+      names.add(def.name);
+    }
+  }
+
+  return Array.from(names).sort().map(guessedCardName => ({
+    action: {
+      type: 'riddling-guess' as const,
+      player: playerId,
+      guessedCardName,
+      explanation: `Name "${guessedCardName}"`,
+    },
+    viable: true,
+  }));
+}
+
+/**
  * Compute the goodwill-attempt actions for a queued `goodwill-attempt`
  * resolution (Token of Goodwill, dm-160). One action per company item
  * matching the queued rank — the player picks which item to discard, and
