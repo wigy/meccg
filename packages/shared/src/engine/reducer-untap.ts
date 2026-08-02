@@ -11,7 +11,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, printedMind } from '../types/cards.js';
-import { CardStatus, SiteType } from '../types/common.js';
+import { Alignment, CardStatus, Race, SiteType } from '../types/common.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { ownerOf } from '../types/state.js';
@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
-import type { OnEventEffect, CardEffect } from '../types/effects.js';
+import type { OnEventEffect, CardEffect, UntapMindRollEffect } from '../types/effects.js';
 
 
 /**
@@ -154,6 +154,47 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
  * Untaps all tapped characters, items, allies, and cards in play.
  * Heals wounded characters at havens to tapped position.
  */
+/**
+ * Locates an in-play `untap-mind-roll` effect (Worn and Famished td-89) and
+ * the card instance carrying it. Scanned across both players' `cardsInPlay`:
+ * the restriction is a game-wide hazard long-event rule, not scoped to
+ * whoever played it.
+ */
+function findUntapMindRollEffect(
+  state: GameState,
+): { effect: UntapMindRollEffect; sourceInstanceId: CardInstanceId; sourceName: string } | undefined {
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'untap-mind-roll') {
+          return { effect, sourceInstanceId: card.instanceId, sourceName: def?.name ?? 'Worn and Famished' };
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Whether an `untap-mind-roll` restriction exempts a tapped character from
+ * the roll requirement: Wizards are always exempt ("non-Wizard character"),
+ * as is any character whose company currently sits at one of the effect's
+ * `exemptSiteTypes` (Haven/Free-hold/Border-hold for td-89).
+ */
+function isExemptFromUntapMindRoll(
+  state: GameState,
+  ch: CharacterInPlay,
+  charId: string,
+  charSiteType: ReadonlyMap<string, SiteType | undefined>,
+  effect: UntapMindRollEffect,
+): boolean {
+  const def = defById(state, ch.definitionId);
+  if (isCharacterCard(def) && def.race === Race.Wizard) return true;
+  const siteType = charSiteType.get(charId);
+  return siteType !== undefined && effect.exemptSiteTypes.includes(siteType);
+}
+
 function performUntap(state: GameState): GameState {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
@@ -212,6 +253,29 @@ function performUntap(state: GameState): GameState {
     }
   }
 
+  // Worn and Famished (td-89): while an `untap-mind-roll` effect is in play
+  // and this untapping player isn't exempted by `noEffectOnMinion`, build a
+  // per-character effective site-type map so the untap sweep below can tell
+  // which tapped characters are restricted (roll required) vs. exempt.
+  const untapMindRoll = findUntapMindRollEffect(state);
+  const untapMindRollActive = untapMindRoll !== undefined
+    && !(untapMindRoll.effect.noEffectOnMinion && player.alignment === Alignment.Ringwraith);
+  const charSiteType = new Map<string, SiteType | undefined>();
+  if (untapMindRollActive) {
+    for (const company of player.companies) {
+      if (!company.currentSite) continue;
+      const siteDef = state.cardPool[company.currentSite.definitionId];
+      if (!siteDef || !isSiteCard(siteDef)) continue;
+      const effectiveType = getEffectiveSiteType(
+        state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId,
+      );
+      for (const charId of company.characters) {
+        charSiteType.set(charId as string, effectiveType);
+      }
+    }
+    logDetail(`Untap: "${untapMindRoll!.sourceName}" untap-mind-roll active for ${player.id as string}`);
+  }
+
   // Collect characters with a bearer-cannot-untap or character-is-prisoner
   // constraint so we can skip them during normal untap processing.
   // Prisoners are fully locked — they cannot untap or heal (rule 8.35).
@@ -247,6 +311,10 @@ function performUntap(state: GameState): GameState {
   // Characters with a bearer-cannot-untap constraint are left tapped.
   const newCharacters: Record<string, CharacterInPlay> = {};
   let healedCount = 0;
+  // Worn and Famished (td-89): tapped, non-exempt characters under an active
+  // `untap-mind-roll` restriction stay tapped here; a dice-check is enqueued
+  // for each after the sweep instead of the plain untap below.
+  const untapRollCandidates: Array<{ charId: CardInstanceId; effectiveMind: number; charName: string }> = [];
   for (const [key, ch] of Object.entries(player.characters)) {
     const untappedItems = ch.items.map(item =>
       item.status === CardStatus.Tapped ? { ...item, status: CardStatus.Untapped } : item,
@@ -270,7 +338,15 @@ function performUntap(state: GameState): GameState {
         logDetail(`Untap: skipping untap for ${key} (bearer-cannot-untap constraint active)`);
       }
     } else if (ch.status === CardStatus.Tapped) {
-      newStatus = CardStatus.Untapped;
+      if (untapMindRollActive && !isExemptFromUntapMindRoll(state, ch, key, charSiteType, untapMindRoll!.effect)) {
+        const def = defById(state, ch.definitionId);
+        const charName = isCharacterCard(def) ? def.name : key;
+        const effectiveMind = ch.effectiveStats.mind ?? printedMind(def);
+        logDetail(`Untap: ${charName} restricted by untap-mind-roll (not at Haven/Free-hold/Border-hold) — staying tapped, roll queued (mind ${effectiveMind})`);
+        untapRollCandidates.push({ charId: key as CardInstanceId, effectiveMind, charName });
+      } else {
+        newStatus = CardStatus.Untapped;
+      }
     } else if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
       newStatus = CardStatus.Tapped;
       healedCount++;
@@ -326,6 +402,34 @@ function performUntap(state: GameState): GameState {
     cardsInPlay: newCardsInPlay,
     agents: newAgents,
   }));
+
+  // Worn and Famished (td-89): enqueue the "may instead make a roll adding
+  // his mind" dice-check for every character held tapped above. Rolling has
+  // no downside (no `onFail` penalty), so the printed "may" is modeled as an
+  // always-taken roll rather than an interactive decline; the pending
+  // resolution takes priority over further untap-phase actions until resolved.
+  if (untapRollCandidates.length > 0) {
+    const rollEffect = untapMindRoll!.effect;
+    for (const { charId, effectiveMind, charName } of untapRollCandidates) {
+      logDetail(`Untap: enqueuing untap-mind-roll dice-check for ${charName} (${charId as string}) — need 2d6 + mind ${effectiveMind} > ${rollEffect.threshold}`);
+      stateAfterUntap = enqueueResolution(stateAfterUntap, {
+        source: untapMindRoll!.sourceInstanceId,
+        actor: player.id,
+        scope: { kind: 'phase', phase: Phase.Untap },
+        kind: {
+          type: 'dice-check',
+          label: `${charName} — roll to untap (Worn and Famished)`,
+          roller: player.id,
+          modifiers: [{ kind: 'constant', value: effectiveMind }],
+          threshold: rollEffect.threshold,
+          comparison: 'gt',
+          onPass: { type: 'set-character-status', status: 'untapped' },
+          continuation: { kind: 'dequeue-only' },
+          targetCharacterId: charId,
+        },
+      });
+    }
+  }
 
   // Rule 9.04: Discard agents revealed without a home site. These belong to the
   // hazard player (the opponent of the active player). They are discarded at the
