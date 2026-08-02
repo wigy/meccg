@@ -23,7 +23,7 @@ import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
 import { handleStoreItem } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { handlePlayResourceShortEvent } from './reducer-events.js';
+import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { endGame } from './reducer-free-council.js';
 import { scanEndOfTurnWinConditions } from './reducer-win-conditions.js';
 
@@ -150,6 +150,12 @@ function handleEndOfTurnDiscard(
   // NOT mark the player done for the discard step.
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
+  }
+
+  // Rule 2.1.1: resource permanent-events may likewise be played during the
+  // discard step (see `legal-actions/end-of-turn.ts`'s `playPermanentEventActions`).
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
   }
 
   if (action.type === 'haven-return') {
@@ -441,6 +447,12 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
   // phase, including at the signal-end step before passing to end the turn.
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
+  }
+
+  // Rule 2.1.1: resource permanent-events may likewise be played during the
+  // signal-end step (see `legal-actions/end-of-turn.ts`'s `playPermanentEventActions`).
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
   }
 
   if (action.type === 'haven-return') {

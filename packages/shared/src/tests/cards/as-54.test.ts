@@ -31,7 +31,7 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   eotState, addCardInPlay, attachItemToChar,
-  dispatch,
+  dispatch, viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   expectInDiscardPile,
   SAPLING_OF_THE_WHITE_TREE,
@@ -251,6 +251,39 @@ describe('Safe from the Shadow (as-54)', () => {
     const playActions = computeLegalActions(base, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'play-permanent-event');
 
+    expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  test('itself playable from hand during EOT discard step (rule 2.1.1)', () => {
+    // Bug report: a player who drew Safe from the Shadow during their own
+    // end-of-turn phase (reset-hand step) could not then play it before the
+    // turn ended. Rule 2.1.1: the resource player may play resource
+    // permanent-events during any phase of their turn unless restricted —
+    // this includes the end-of-turn phase's discard step.
+    const state = eotState({ p1Hand: [SAFE_FROM_THE_SHADOW] });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  test('itself playable from hand during EOT signal-end step (rule 2.1.1)', () => {
+    // Same scenario as above, but at the signal-end step — the last chance
+    // to play it before the turn ends, and where the just-drawn card
+    // (from the reset-hand step) would actually be available to play.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SAFE_FROM_THE_SHADOW], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withSignalEnd = {
+      ...base,
+      phaseState: { ...(base.phaseState as EndOfTurnPhaseState), step: 'signal-end' as const, discardDone: [true, true] as [boolean, boolean], resetHandDone: [true, true] as [boolean, boolean] } as EndOfTurnPhaseState,
+    };
+
+    const playActions = viableActions(withSignalEnd, PLAYER_1, 'play-permanent-event');
     expect(playActions.length).toBeGreaterThan(0);
   });
 
