@@ -2861,6 +2861,7 @@ function playHazardsActions(
                   race: charDef.race,
                   skills: charDef.skills,
                   name: charDef.name,
+                  status: charData.status,
                   possessions: possessionNames,
                   itemKeywords,
                   itemSubtypes,

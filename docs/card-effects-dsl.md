@@ -1995,6 +1995,65 @@ replace all remaining cards back on top of his play deck. Remove this card from
 the game." (Paired with `play-discard-cost` for "discard a Spawn card from your
 hand.")
 
+### 6i-bis. `opponent-choose-tap-or-roll`
+
+Carried by a **hazard** short-event playable on an untapped character (a
+`play-target` `target: "character"` sibling effect). When the event resolves
+un-negated on the chain, the character's **controller** (the defending
+player — "your opponent" from the card-player's perspective) is forced to
+choose one of three responses via a two-stage {@link PendingResolution}:
+
+1. `tap-or-roll-choice` — offered to the defender: tap the targeted
+   character; tap one **untapped** ally the character controls (one action
+   per eligible ally, the option omitted entirely when none is untapped); or
+   let the card-player roll. The choice is mandatory (no pass — "Your
+   opponent may either...").
+2. Picking **roll** enqueues a follow-up generic `dice-check` resolution
+   (roller = the card-player): 2d6, `comparison: "gt"`, `threshold` = the
+   character's effective mind + `rollAddend`, `onPass: { "type":
+   "discard-character" }`. Tapping the character or an ally resolves
+   immediately with no roll.
+
+`rollAddend` is the only field — the three responses themselves are fixed
+(this mirrors `reveal-deck-choose-penalty`'s precedent of a card-specific
+pending-resolution shape rather than a fully generic N-way choice DSL).
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.status": "untapped" },
+    { "target.race": { "$ne": "wizard" } },
+    { "target.race": { "$ne": "ringwraith" } } ] } }
+{ "type": "opponent-choose-tap-or-roll", "rollAddend": 6 }
+```
+
+**Implementation**: `chain-reducer.ts` `resolveEntry` detects the effect on a
+character-targeted short-event chain entry and enqueues `tap-or-roll-choice`
+(actor = the character's controller) without marking the entry resolved —
+mirroring `call-of-home-check`. `legal-actions/pending.ts`
+`tapOrRollChoiceActions` offers the three `choose-tap-or-roll` actions.
+`pending-reducers.ts` `applyTapOrRollChoiceResolution` resolves
+tap-character/tap-ally immediately (tapping the target and marking the chain
+entry resolved via the same `'target-character'` match `dice-check`'s
+`chain-entry` continuation uses) or, for `roll`, enqueues the `dice-check`
+described above. The `discard-character` `dice-check` branch verb
+(`applyDiceCheckBranch` in `pending-reducers.ts`) is owner-agnostic (locates
+the target's actual controller rather than assuming the roller is the
+owner), matching `eliminate-character`/`return-character-to-hand` — needed
+here because the roller (card-player) is not the target's controller.
+
+The hazard character-targeting play-target filter context
+(`legal-actions/movement-hazard.ts`, "Character-targeting short events"
+block) additionally exposes `target.status`, so a hazard short-event can gate
+on "playable on an **untapped** character" the same way a resource-side
+`play-target` does.
+
+Used by *A Lie in Your Eyes* (as-23): "Playable on an untapped
+non-Ringwraith, non-Wizard character. Your opponent may either: tap the
+character, tap an ally the character controls, or choose for you to make a
+roll. If the result is greater than the character's mind plus 6, the
+character is discarded (along with all non-follower cards he controls)."
+
 ### 6j. `enqueue-reveal-hazards-choice`
 
 Carried by a **resource** short-event's `on-event: self-enters-play` (`target:
