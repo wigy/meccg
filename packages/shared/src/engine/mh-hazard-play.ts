@@ -2847,6 +2847,22 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
         }
       }
     }
+    // Check adjacentToSiteNames — destination must be adjacent to one of the named sites
+    if (key.adjacentToSiteNames && key.adjacentToSiteNames.length > 0 && destSiteCard && mhState.destinationSiteName) {
+      for (const sn of key.adjacentToSiteNames) {
+        const namedSites = Object.values(state.cardPool).filter(c => isSiteCard(c) && c.name === sn);
+        for (const namedSite of namedSites) {
+          if (isSiteCard(namedSite)) {
+            const r1 = resolveAdjacency(state, namedSite, mhState.destinationSiteName);
+            const r2 = destSiteCard.name ? resolveAdjacency(state, destSiteCard, namedSite.name) : undefined;
+            if (r1 !== undefined || r2 !== undefined) {
+              logDetail(`Creature "${def.name}" keyable — destination adjacent to named site "${sn}"`);
+              return undefined;
+            }
+          }
+        }
+      }
+    }
     // Check followsAttackRaces — the company must have already faced a
     // creature-sourced (not-site-keyed) attack this M/H sub-phase by one of
     // the listed races (Wolf-riders, td-86).
@@ -2889,6 +2905,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     if (k.siteNames?.length) parts.push(`at: ${k.siteNames.join('/')}`);
     if (k.siteKeywords?.length) parts.push(`site-keyword: ${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to: ${k.adjacentToSiteKeywords.join('/')}`);
+    if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to: ${k.adjacentToSiteNames.join('/')}`);
     if (k.followsAttackRaces?.length) parts.push(`follows attack: ${k.followsAttackRaces.join('/')}`);
     if (k.movingBetweenSiteNames?.length) parts.push(`moving between: ${k.movingBetweenSiteNames.join('/')}`);
     return parts.join(', ');

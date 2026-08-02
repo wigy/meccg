@@ -9953,6 +9953,31 @@ The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
 Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
 an adjacent site of any Under-deeps site."
 
+### `adjacentToSiteNames`
+
+```json
+{ "adjacentToSiteNames": ["The Under-gates"] }
+```
+
+The named-site sibling of `adjacentToSiteKeywords`: matches when the destination
+site is adjacent (in the under-deeps movement sense — bidirectional via
+`adjacentSites`, using the same `resolveAdjacency`/`isUnderDeepsAdjacent`
+machinery) to any site printing one of the listed *names*, resolved against
+every same-named printing in `state.cardPool` (a site name like "The
+Under-gates" has separate hero/minion/balrog printings). Used for creatures
+whose base keying is tied to a single canonical site rather than a keyword
+category — the base cost still needs its own `siteNames` entry for the named
+site itself, since adjacency does not include the site.
+
+The keying method recorded in `keyedBy.method` is `"adjacent-to-site-name"`.
+Evaluated in `findCreatureKeyingMatches` (movement-hazard.ts) and
+`checkCreatureKeying` (mh-hazard-play.ts).
+
+Used by: *Durin's Bane* (dm-107) — "May be played at The Under-gates and at all
+of its adjacent sites" (`keyedTo: [{ siteNames: ["The Under-gates"] },
+{ adjacentToSiteNames: ["The Under-gates"] }, { siteKeywords: ["under-deeps"],
+when: { inPlay: "Doors of Night" } }]`).
+
 ### `followsAttackRaces`
 
 ```json
