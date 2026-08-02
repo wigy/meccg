@@ -273,7 +273,7 @@ function performUntap(state: GameState): GameState {
         charSiteType.set(charId as string, effectiveType);
       }
     }
-    logDetail(`Untap: "${untapMindRoll!.sourceName}" untap-mind-roll active for ${player.id as string}`);
+    logDetail(`Untap: "${untapMindRoll.sourceName}" untap-mind-roll active for ${player.id as string}`);
   }
 
   // Collect characters with a bearer-cannot-untap or character-is-prisoner
@@ -338,7 +338,7 @@ function performUntap(state: GameState): GameState {
         logDetail(`Untap: skipping untap for ${key} (bearer-cannot-untap constraint active)`);
       }
     } else if (ch.status === CardStatus.Tapped) {
-      if (untapMindRollActive && !isExemptFromUntapMindRoll(state, ch, key, charSiteType, untapMindRoll!.effect)) {
+      if (untapMindRollActive && !isExemptFromUntapMindRoll(state, ch, key, charSiteType, untapMindRoll.effect)) {
         const def = defById(state, ch.definitionId);
         const charName = isCharacterCard(def) ? def.name : key;
         const effectiveMind = ch.effectiveStats.mind ?? printedMind(def);
