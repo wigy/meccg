@@ -113,7 +113,9 @@ describe('a hand card whose only legal action is place-on-guard', () => {
     renderHand(onGuardOnlyView(), pool, () => { /* no-op */ });
 
     expect(handArc.children).toHaveLength(1);
-    const img = handArc.children[0];
+    const cardsEl = handArc.children[0];
+    expect(cardsEl.children).toHaveLength(1);
+    const img = cardsEl.children[0];
     expect(img.className).toBe('hand-card hand-card-playable');
     expect(img.className).not.toContain('hand-card-dimmed');
   });
@@ -122,7 +124,7 @@ describe('a hand card whose only legal action is place-on-guard', () => {
     let sent: GameAction | null = null;
     renderHand(onGuardOnlyView(), pool, action => { sent = action; });
 
-    const img = handArc.children[0];
+    const img = handArc.children[0].children[0];
     img.dispatch('click');
 
     // The tooltip menu (backdrop > tooltip > button) is appended to document.body.

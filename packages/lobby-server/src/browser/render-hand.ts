@@ -739,6 +739,17 @@ export function renderHand(
   const margin = total > 7 ? -4 : -2.5;
   el.style.setProperty('--card-margin', `${margin}vh`);
 
+  // Card images render into this wrapper, not directly into #hand-arc: the
+  // scale-to-fit transform (fitHandArc, below) must land on the wrapper so
+  // that #hand-arc itself never receives a `transform`, which would make it
+  // the containing block for its `::before` hover catch-zone and break that
+  // catch-zone's viewport-relative sizing (bug 312ca3add87e3ef7). Only
+  // attached when there are cards, so `#hand-arc:not(:empty)` still tells the
+  // CSS whether the hand is empty.
+  const cardsEl = document.createElement('div');
+  cardsEl.className = 'hand-arc-cards';
+  if (total > 0) el.appendChild(cardsEl);
+
   // Spectators cannot act and must not see hand identities: render the bottom
   // player's hand as face-down backs, static — no play affordance, no
   // interactive hover — and skip all the play/selection wiring below.
@@ -749,7 +760,7 @@ export function renderHand(
       img.alt = 'Hidden card';
       img.className = 'hand-card hand-card-static';
       img.style.setProperty('--i', String(i));
-      el.appendChild(img);
+      cardsEl.appendChild(img);
     }
     return;
   }
@@ -1458,7 +1469,7 @@ export function renderHand(
         img.title = nonViableReason;
       }
     }
-    el.appendChild(img);
+    cardsEl.appendChild(img);
   }
 
   // The fan's natural width grows linearly with the card count (fixed per-card
@@ -1466,7 +1477,7 @@ export function renderHand(
   // rightmost cards run off the screen edges. Measure the laid-out width and,
   // only when it would overflow, scale the whole arc down to fit — preserving
   // card size, margins, and fan shape for normal hands.
-  fitHandArc(el, total, margin);
+  fitHandArc(cardsEl, total, margin);
 }
 
 /**
