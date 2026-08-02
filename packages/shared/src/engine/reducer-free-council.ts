@@ -84,6 +84,12 @@ export function handleFreeCouncil(state: GameState, action: GameAction): Reducer
     return {
       state: {
         ...state,
+        // Keep `activePlayer` (used broadly by the UI for "whose turn" display,
+        // e.g. render-player-names.ts) in sync with the corruption-checks
+        // sub-turn — otherwise the turn highlight sticks on the first checker
+        // for the rest of Free Council, making the other player's actionable
+        // turn look like the opponent is still thinking.
+        activePlayer: otherPlayer,
         phaseState: {
           ...fcState,
           currentPlayer: otherPlayer,

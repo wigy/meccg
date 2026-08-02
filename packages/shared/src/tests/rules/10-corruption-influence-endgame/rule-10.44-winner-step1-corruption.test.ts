@@ -98,6 +98,39 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
     expect(p1Checks).toHaveLength(0);
   });
 
+  test('After last-turn player passes, activePlayer switches too (turn indicator stays in sync)', () => {
+    // Regression: the pass handler switched phaseState.currentPlayer to the
+    // other player but left state.activePlayer untouched, so the UI's "whose
+    // turn" highlight (render-player-names.ts) stayed on the first checker
+    // for the rest of Free Council — making the second player's own
+    // corruption-check turn look like the opponent was still acting.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [aragornId],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+
+    const stateP1Done = { ...base, phaseState: fcState };
+    const afterPass = dispatch(stateP1Done, { type: 'pass', player: PLAYER_1 });
+
+    expect(afterPass.activePlayer).toBe(PLAYER_2);
+  });
+
   test('A failed check discards the character\'s attached hazards exactly once (no duplication)', () => {
     // Regression: resolveCorruptionCheck discarded `char.hazards` unconditionally
     // AND again inside each failure branch, so a defeated character's attached
