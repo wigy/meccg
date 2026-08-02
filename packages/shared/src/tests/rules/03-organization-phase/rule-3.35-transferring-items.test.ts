@@ -224,4 +224,79 @@ describe('Rule 3.35 — Transferring Items', () => {
       a.action.targetCharacterId === aragornId,
     )).toBe(true);
   });
+
+  test('Transferring an item back to any earlier bearer this phase is regressive, not just the last one', () => {
+    // Bug report (game mscbx9w6-tt13e2, seq 125): the AI cycled Cram
+    // Aragorn -> Bilbo -> Gimli -> Aragorn -> Bilbo -> Gimli -> ... forever.
+    // The engine only ever flagged the *immediately preceding* hop's reverse
+    // (Bilbo->Aragorn right after Aragorn->Bilbo), so returning the item to
+    // Aragorn two hops later — after it had also passed through Gimli — was
+    // never marked `regress`, and nothing stopped the cycle. Every character
+    // that has held the item this phase must be a regressive destination.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [DAGGER_OF_WESTERNESSE] }, BILBO, GIMLI] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const daggerInstId = state.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+
+    // Hop 1: Aragorn -> Bilbo, forcing the corruption check to succeed.
+    const afterHop1 = reduce({ ...state, cheatRollTotal: 12 }, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: daggerInstId,
+      fromCharacterId: aragornId,
+      toCharacterId: bilboId,
+    });
+    expect(afterHop1.error).toBeUndefined();
+    const checkAction1 = viableFor(afterHop1.state, PLAYER_1)
+      .find(a => a.action.type === 'corruption-check')!.action;
+    const afterCheck1 = reduce({ ...afterHop1.state, cheatRollTotal: 12 }, checkAction1);
+    expect(afterCheck1.error).toBeUndefined();
+
+    // Hop 2: Bilbo -> Gimli, forcing the corruption check to succeed.
+    const afterHop2 = reduce({ ...afterCheck1.state, cheatRollTotal: 12 }, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: daggerInstId,
+      fromCharacterId: bilboId,
+      toCharacterId: gimliId,
+    });
+    expect(afterHop2.error).toBeUndefined();
+    const checkAction2 = viableFor(afterHop2.state, PLAYER_1)
+      .find(a => a.action.type === 'corruption-check')!.action;
+    const afterCheck2 = reduce({ ...afterHop2.state, cheatRollTotal: 12 }, checkAction2);
+    expect(afterCheck2.error).toBeUndefined();
+
+    // The item is now on Gimli. Both Aragorn (its original bearer, two hops
+    // back) and Bilbo (the intermediate bearer) must be offered as
+    // regressive destinations.
+    const transfers = viableFor(afterCheck2.state, PLAYER_1)
+      .filter(a => a.action.type === 'transfer-item' && a.action.itemInstanceId === daggerInstId) as
+      { action: TransferItemAction }[];
+
+    const toAragorn = transfers.find(a => a.action.fromCharacterId === gimliId && a.action.toCharacterId === aragornId);
+    const toBilbo = transfers.find(a => a.action.fromCharacterId === gimliId && a.action.toCharacterId === bilboId);
+
+    expect(toAragorn?.action.regress).toBe(true);
+    expect(toBilbo?.action.regress).toBe(true);
+  });
 });
