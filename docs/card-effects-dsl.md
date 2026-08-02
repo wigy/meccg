@@ -9833,6 +9833,31 @@ The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
 Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
 an adjacent site of any Under-deeps site."
 
+### `followsAttackRaces`
+
+```json
+{ "followsAttackRaces": ["orc"] }
+```
+
+Matches when the target company has, during its *current* M/H sub-phase, already
+faced a creature-sourced hazard attack (played from hand — "not keyed to a site",
+i.e. not a site automatic-attack or on-guard reveal) by a creature of one of the
+listed races. Evaluated against `deriveFacedRaces(state, mhState.hazardsEncountered)`
+(`reducer-utils.ts`) — `hazardsEncountered` only ever records creature-sourced
+attacks (`recordHazardEncountered`, `combat-finalize.ts`, gated on
+`combat.attackSource.type === 'creature'`), which is exactly "not keyed to a site."
+Scoped to the company's current M/H sub-phase (cleared at company start,
+`freshCompanyFields`), and unordered — any qualifying attack faced earlier in the
+same sub-phase satisfies it, not only the immediately preceding one.
+
+The keying method recorded in `keyedBy.method` is `"follows-attack"`. Checked in
+`findCreatureKeyingMatches` (movement-hazard.ts) and `checkCreatureKeying`
+(mh-hazard-play.ts).
+
+Used by: *Wolf-riders* (td-86) — "May be played following any Orc attack not keyed
+to a site." (`keyedTo: [{ "followsAttackRaces": ["orc"] }]`, no other keying entry —
+this creature has no ordinary region/site keying at all.)
+
 ### 38. `grant-keyword`
 
 Grants a keyword tag to the item's bearer while the item/event is attached.

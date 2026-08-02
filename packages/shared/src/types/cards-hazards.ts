@@ -59,6 +59,17 @@ export interface CreatureKeyRestriction {
    */
   readonly adjacentToSiteKeywords?: readonly Keyword[];
   /**
+   * Creature races whose attack this creature may follow. The creature is
+   * playable against a company that has, during its *current* M/H
+   * sub-phase, already faced a hazard-creature attack (played from hand —
+   * "not keyed to a site", i.e. not a site automatic-attack or on-guard
+   * reveal) by a creature of one of these races. Evaluated in
+   * `findCreatureKeyingMatches` against `deriveFacedRaces(state,
+   * mhState.hazardsEncountered)` (`reducer-utils.ts`). Used by Wolf-riders
+   * (td-86): "May be played following any Orc attack not keyed to a site."
+   */
+  readonly followsAttackRaces?: readonly Race[];
+  /**
    * Optional DSL condition gating this keying entry. When present, the
    * entry is skipped unless the condition matches a context exposing:
    *
