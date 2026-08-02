@@ -26,6 +26,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
+import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
@@ -133,6 +134,19 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
     if (typeof id === 'string') evaluatedInstances.add(id);
   }
   actions.push(...shortEventActions);
+
+  // Rule 2.1.1: resource permanent-events may also be played during any phase
+  // of the player's turn, including the long-event phase — e.g. Echo of All
+  // Joy (td-110), which is played onto a resource long-event once it is in
+  // play (so it is typically played here, right after the target long-event
+  // resolves onto the chain from the play-long-event action above).
+  const permanentEventActions = playPermanentEventActions(state, playerId);
+  for (const ea of permanentEventActions) {
+    const a = ea.action as unknown as Record<string, unknown>;
+    const id = a['cardInstanceId'];
+    if (typeof id === 'string') evaluatedInstances.add(id);
+  }
+  actions.push(...permanentEventActions);
 
   // Mark remaining hand cards as not playable during long-event phase
   for (const handCard of player.hand) {

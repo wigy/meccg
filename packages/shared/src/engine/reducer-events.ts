@@ -188,6 +188,12 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
   }
+  // Rule 2.1.1: resource permanent-events may be played during any phase of
+  // the player's turn, including the long-event phase (e.g. Echo of All Joy
+  // td-110, played onto a resource long-event once it is in play).
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
+  }
   // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The
   // legal-action emitter filters to `anyPhase: true` effects during
   // long-event phase, so we delegate unconditionally.
