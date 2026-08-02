@@ -19,6 +19,7 @@ import type {
   RegionType,
   ActivateGrantedAction,
   DeclareAgentAttackAction,
+  HavenReturnAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
@@ -212,9 +213,17 @@ export function renderSiteArea(
         const imgPath = cardImageProxyPath(siteDef);
         if (imgPath) {
           const siteOwned = company.siteCardOwned !== false;
+          // Great-road (tw-249): during end-of-turn, the resource player may
+          // click the current site card to replace it with the haven it began
+          // the turn at. Without this the engine legally offered `haven-return`
+          // (visible in the debug action panel) but the board gave no way to
+          // trigger it — the site card had no click affordance for the option.
+          const havenReturnAction = options?.onAction ? viableActions(view.legalActions).find(
+            (a): a is HavenReturnAction => a.type === 'haven-return' && a.companyId === company.id,
+          ) : undefined;
           let cls = 'company-card company-card--site';
           if (company.currentSite.status === CardStatus.Tapped) cls += ' company-card--tapped';
-          if (options?.hasLegalMovement) cls += ' company-card--movable';
+          if (options?.hasLegalMovement || havenReturnAction) cls += ' company-card--movable';
           if (!siteOwned) cls += ' company-card--site-ghost';
           const siteElId = siteElementInstanceId(company.id as string, company.currentSite.instanceId, options?.renderedSiteInstances);
           const img = createCardImage(siteDefId as string, siteDef, imgPath, cls, siteElId);
@@ -224,6 +233,12 @@ export function renderSiteArea(
             img.addEventListener('click', (e) => {
               e.stopPropagation();
               openMovementViewer(view, cardPool, companyId, onAction);
+            });
+          } else if (havenReturnAction && options?.onAction) {
+            const onAction = options.onAction;
+            img.addEventListener('click', (e) => {
+              e.stopPropagation();
+              onAction(havenReturnAction);
             });
           } else {
             applyHazardOnGuardClick(img, options?.onAction);
