@@ -112,16 +112,24 @@ function assignBothTo(state: GameState, defId: CardDefinitionId): GameState {
 describe('Swift Strokes (le-238)', () => {
   beforeEach(() => resetMint());
 
-  test('play-strike-event appears during resolve-strike when target is a warrior', () => {
+  test('play-strike-event appears during resolve-strike when target is a warrior, in both tap and stay-untapped variants', () => {
     const s0 = setupMinionCombat({ resourceChars: [LAGDUF, OSTISEN], resourceHand: [SWIFT_STROKES] });
     const s1 = assignBothTo(s0, LAGDUF);
 
     const actions = computeLegalActions(s1, PLAYER_1);
     const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
-    expect(rerollActions.length).toBe(1);
-    expect(actionAs<PlayStrikeEventAction>(rerollActions[0].action).cardInstanceId).toBe(
-      handCardId(s1, RESOURCE_PLAYER),
-    );
+    // Swift Strokes' text says nothing about tapping, so it doesn't collapse
+    // the defender's independent CoE 3.iv.3 tap/stay-untapped choice — both
+    // variants are offered while Lagduf is untapped (bug report: it must not
+    // immediately roll under the assumption the character will tap).
+    expect(rerollActions.length).toBe(2);
+    for (const a of rerollActions) {
+      expect(actionAs<PlayStrikeEventAction>(a.action).cardInstanceId).toBe(
+        handCardId(s1, RESOURCE_PLAYER),
+      );
+    }
+    expect(rerollActions.some(a => actionAs<PlayStrikeEventAction>(a.action).tapToFight === true)).toBe(true);
+    expect(rerollActions.some(a => actionAs<PlayStrikeEventAction>(a.action).tapToFight === false)).toBe(true);
   });
 
   test('play-strike-event is not available when target is not a warrior', () => {
@@ -145,7 +153,8 @@ describe('Swift Strokes (le-238)', () => {
       a => a.viable && a.action.type === 'resolve-strike' &&
         actionAs<ResolveStrikeAction>(a.action).tapToFight === true,
     )!;
-    const swiftAction = actions.find(a => a.viable && a.action.type === 'play-strike-event')!;
+    const swiftAction = actions.find(a => a.viable && a.action.type === 'play-strike-event' &&
+      actionAs<PlayStrikeEventAction>(a.action).tapToFight === true)!;
 
     expect(tapAction).toBeDefined();
     expect(swiftAction).toBeDefined();
@@ -154,12 +163,42 @@ describe('Swift Strokes (le-238)', () => {
     expect(swiftNeed).toBe(tapNeed - 1);
   });
 
+  test('stay-untapped variant matches plain stay-untapped need, and Lagduf stays untapped on success (CoE 3.iv.3)', () => {
+    // Bug report: playing Swift Strokes immediately rolled under the
+    // assumption the character would tap — it must still wait for the
+    // defender's tap/stay-untapped choice.
+    const s0 = setupMinionCombat({ resourceChars: [LAGDUF, OSTISEN], resourceHand: [SWIFT_STROKES] });
+    const s1 = assignBothTo(s0, LAGDUF);
+
+    const actions = computeLegalActions(s1, PLAYER_1);
+    const untapAction = actions.find(
+      a => a.viable && a.action.type === 'resolve-strike' &&
+        actionAs<ResolveStrikeAction>(a.action).tapToFight === false,
+    )!;
+    const swiftUntapAction = actions.find(a => a.viable && a.action.type === 'play-strike-event' &&
+      actionAs<PlayStrikeEventAction>(a.action).tapToFight === false)!;
+
+    expect(untapAction).toBeDefined();
+    expect(swiftUntapAction).toBeDefined();
+    // Same -3 stay-untapped penalty applies as for a plain resolve-strike
+    // (offset by Swift Strokes' own +1 prowess bonus).
+    const untapNeed = actionAs<ResolveStrikeAction>(untapAction.action).need;
+    const swiftUntapNeed = actionAs<PlayStrikeEventAction>(swiftUntapAction.action).need;
+    expect(swiftUntapNeed).toBe(untapNeed - 1);
+
+    // First roll cheated to 12 — always the better of the two. Lagduf stays
+    // untapped, so the -3 penalty applies: prowess 5 - 3 + 1 (bonus) + 12 = 15 > 10 → success.
+    const result = dispatchResult({ ...s1, cheatRollTotal: 12 }, swiftUntapAction.action);
+    expectCharStatus(result.state, RESOURCE_PLAYER, LAGDUF, CardStatus.Untapped);
+  });
+
   test('reroll uses the better of two rolls and prowess bonus is applied', () => {
     const s0 = setupMinionCombat({ resourceChars: [LAGDUF, OSTISEN], resourceHand: [SWIFT_STROKES] });
     const s1 = assignBothTo(s0, LAGDUF);
 
     const swiftAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-strike-event')!;
+      .find(a => a.viable && a.action.type === 'play-strike-event' &&
+        actionAs<PlayStrikeEventAction>(a.action).tapToFight === true)!;
 
     // First roll cheated to 12 — always the better of the two.
     // Lagduf prowess 5 + 1 (bonus) + 12 = 18 > Cave Drake prowess 10 → success.
@@ -192,7 +231,8 @@ describe('Swift Strokes (le-238)', () => {
     const s1 = assignBothTo(s0, LAGDUF);
 
     const swiftAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-strike-event')!;
+      .find(a => a.viable && a.action.type === 'play-strike-event' &&
+        actionAs<PlayStrikeEventAction>(a.action).tapToFight === true)!;
 
     const result = dispatchResult({ ...s1, cheatRollTotal: 2 }, swiftAction.action);
 

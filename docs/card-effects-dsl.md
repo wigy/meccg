@@ -3920,9 +3920,14 @@ strike, same as default mode; e.g. Blow Turned: "Warrior only").
 ```
 
 **Reroll mode** (`"reroll": true`): two 2d6 rolls are made and the better
-total is used; the character taps normally (tap-to-fight). An optional
-`filter` gates availability on the strike target character, evaluated
-against a `target.*` context carrying the target's race, skills, and name.
+total is used. The card's text says nothing about tapping, so it doesn't
+override the defender's independent CoE 3.iv.3 choice — two `play-strike-event`
+actions are offered, mirroring plain `resolve-strike`: tap to fight at full
+prowess (`tapToFight: true`), or stay untapped with the usual -3 prowess
+penalty (`tapToFight: false`, only while the combatant is untapped). An
+optional `filter` gates availability on the strike target character,
+evaluated against a `target.*` context carrying the target's race, skills,
+and name.
 
 ```json
 { "type": "strike-modifier", "reroll": true,

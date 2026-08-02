@@ -813,8 +813,11 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
  *
  * @param state - Current game state (must have active combat).
  * @param effect - The resolved `strike-modifier` effect from the card definition.
+ * @param tapToFight - Reroll mode only (CoE 3.iv.3): `true` (default) taps
+ *   the character to fight at full prowess; `false` keeps it untapped with
+ *   the usual -3 penalty. Ignored by every other mode.
  */
-export function resolveChainStrikeModifier(state: GameState, effect: StrikeModifierEffect): ReducerResult {
+export function resolveChainStrikeModifier(state: GameState, effect: StrikeModifierEffect, tapToFight = true): ReducerResult {
   const combat = state.combat;
   if (!combat) return { state, error: 'No active combat' };
 
@@ -843,7 +846,7 @@ export function resolveChainStrikeModifier(state: GameState, effect: StrikeModif
       );
       preState = { ...state, combat: { ...combat, strikeAssignments: newAssignments } };
     }
-    return resolveStrikeCore(preState, preState.combat!, 'reroll', 0, null);
+    return resolveStrikeCore(preState, preState.combat!, 'reroll', 0, null, !tapToFight);
   }
 
   // Default: accumulate prowess/body bonuses on the current strike assignment.

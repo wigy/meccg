@@ -163,14 +163,22 @@ export function creatureDefenderProwessDelta(
  * Rolls 2d6 + prowess vs strike prowess, determines the outcome, applies
  * tap/wound to the character or ally, and advances combat to body-check or
  * the next strike. The four resolution modes differ only in:
- * - prowess modifier (stay-untapped takes -3; tap, dodge, and reroll are full)
- * - whether the character taps on success/tie (reroll taps like tap mode)
+ * - prowess modifier (stay-untapped takes -3; tap and dodge are full; reroll
+ *   is full or -3 depending on `rerollStayUntapped`)
+ * - whether the character taps on success/tie (reroll taps like tap mode
+ *   unless `rerollStayUntapped`, in which case it behaves like untap mode)
  * - dodge adds a body penalty for the resulting body check
  * - reroll makes two 2d6 rolls and keeps the better total
  *
  * `preAppliedDefender` lets callers pre-mutate the defender (e.g. dodge
  * discards a card from hand before resolving); this must NOT alter
  * characters or companies, only piles.
+ *
+ * `rerollStayUntapped` carries the defender's independent CoE 3.iv.3 choice
+ * for reroll mode (e.g. Swift Strokes, Lucky Strike): the card's own text
+ * doesn't say anything about tapping, so the defender still gets to apply
+ * the usual -3 stay-untapped penalty instead of tapping. Ignored outside
+ * `mode === 'reroll'`.
  */
 export function resolveStrikeCore(
   state: GameState,
@@ -178,6 +186,7 @@ export function resolveStrikeCore(
   mode: 'tap' | 'untap' | 'dodge' | 'reroll',
   dodgeBodyPenalty: number,
   preAppliedDefender: PlayerState | null,
+  rerollStayUntapped = false,
 ): ReducerResult {
   const strike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
@@ -213,7 +222,7 @@ export function resolveStrikeCore(
     prowess = charData.effectiveStats.prowess;
   }
   // Stay untapped penalty (MEBA: -1 for The Balrog; 0 with Thong of Fire as-132)
-  if (mode === 'untap') prowess -= computeStayUntappedPenalty(state, charData, charDef);
+  if (mode === 'untap' || (mode === 'reroll' && rerollStayUntapped)) prowess -= computeStayUntappedPenalty(state, charData, charDef);
   if (targetStatus === CardStatus.Tapped) prowess -= 1;
   if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
   if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
@@ -350,10 +359,10 @@ export function resolveStrikeCore(
   // tapped on both fail and tie "unless a -3 modification was applied in
   // Step 3"):
   //  - tap:    always (success or tie)
-  //  - reroll: always (same as tap)
+  //  - reroll: same as tap, unless the defender chose to stay untapped
   //  - untap:  never (the -3 penalty was paid specifically to stay untapped)
   //  - dodge:  never
-  const tapOnNonWounded = mode === 'tap' || mode === 'reroll';
+  const tapOnNonWounded = mode === 'tap' || (mode === 'reroll' && !rerollStayUntapped);
 
   // Record strike assignment. Dodge tags the strike so the body check picks
   // up the body penalty (CoE rule 3.I +1 for already-wounded still applies).
