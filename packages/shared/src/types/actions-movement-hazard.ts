@@ -736,6 +736,14 @@ export interface PlayStrikeEventAction {
   readonly need: number;
   /** Human-readable breakdown of the modified prowess vs creature prowess. */
   readonly explanation: string;
+  /**
+   * Reroll mode only (CoE 3.iv.3): whether the character taps to fight
+   * (`true`) or stays untapped with the usual -3 prowess penalty (`false`).
+   * A reroll card's own text doesn't override this independent choice, so
+   * both options are offered exactly as for a plain `resolve-strike`.
+   * Ignored by cancel/dodge/default modes, which don't carry a tap choice.
+   */
+  readonly tapToFight?: boolean;
 }
 
 /**

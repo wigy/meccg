@@ -1301,13 +1301,44 @@ function resolveStrikeActions(
           continue;
         }
       }
+      // A reroll card's text (e.g. Swift Strokes, Lucky Strike) says nothing
+      // about tapping, so it doesn't override the defender's independent
+      // CoE 3.iv.3 tap/stay-untapped choice — offer both, mirroring the
+      // plain resolve-strike tap/untap split above. The stay-untapped variant
+      // is only offered while the combatant is actually untapped.
       const rerollBonus = strikeEffect.prowessBonus ?? 0;
-      const rerollProwess = tapProwess + rerollBonus;
-      const rerollNeed = Math.max(2, strikeProwess - rerollProwess + 1);
       const rerollBonusNote = rerollBonus !== 0 ? `, ${formatSignedNumber(rerollBonus)}` : '';
-      explanation = `Reroll: need ${rerollNeed}+ (prowess ${rerollProwess} vs ${strikeProwess}, better of two rolls${rerollBonusNote})`;
-      need = rerollNeed;
-      logDetail(`Reroll strike available: ${handCard.definitionId as string} for ${charName}`);
+      const rerollTapProwess = tapProwess + rerollBonus;
+      const rerollTapNeed = Math.max(2, strikeProwess - rerollTapProwess + 1);
+      logDetail(`Reroll strike available (tapped): ${handCard.definitionId as string} for ${charName}`);
+      actions.push({
+        action: {
+          type: 'play-strike-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          tapToFight: true,
+          need: rerollTapNeed,
+          explanation: `Reroll (tapped): need ${rerollTapNeed}+ (prowess ${rerollTapProwess} vs ${strikeProwess}, better of two rolls${rerollBonusNote})`,
+        },
+        viable: true,
+      });
+      if (isUntapped) {
+        const rerollUntapProwess = untapProwess + rerollBonus;
+        const rerollUntapNeed = Math.max(2, strikeProwess - rerollUntapProwess + 1);
+        logDetail(`Reroll strike available (stay untapped): ${handCard.definitionId as string} for ${charName}`);
+        actions.push({
+          action: {
+            type: 'play-strike-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            tapToFight: false,
+            need: rerollUntapNeed,
+            explanation: `Reroll (stay untapped): need ${rerollUntapNeed}+ (prowess ${rerollUntapProwess} vs ${strikeProwess}, better of two rolls${rerollBonusNote})`,
+          },
+          viable: true,
+        });
+      }
+      continue;
     } else {
       if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
         logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
