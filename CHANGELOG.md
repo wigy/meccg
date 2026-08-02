@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.77.0 — 2026-08-02
+
+Nightly Build
+
+### Game Engine
+
+- Gated character discards behind the once-per-turn play/discard slot (rule 2.II.2)
+- Fixed orphan-sweep exemption wrongly covering site-bound Invade Their Domain, and move-to-MP-pile cards being orphan-swept
+- Fixed missing minion general-influence bonus in muster and call-of-home rolls
+- Fixed the hazard player being offered a pass at end-of-turn signal-end with no store window open
+- Fixed the non-active player being forced to store items during end-of-turn signal-end
+- No-tap corruption removal is now withheld after a tap attempt the same turn
+- Fixed an arriving company not inheriting its sibling company's tapped site status
+
+### Web Client
+
+- Added missing UI for The Great Hunt's play-deck/discard choice
+- Added missing UI for choosing between Wizard's Test's two gold-ring rolls
+
+### AI
+
+- Heuristic AI now weighs automatic-attack risk before entering a site
+- Fixed heuristic AI wasting Great Ship on landlocked companies
+
+### Cards
+
+- Certified Dark Numbers (dm-123), Three Golden Hairs (td-157), Dwarven Ring of Durin's Tribe (tw-216), Orc Stealth (le-217), and Woses of the Drúadan Forest (tw-370)
+- Fixed The Balrog (as-71) missing its Under-gates playable-at entry
+
+### Infrastructure
+
+- Game autosave is now kept current after every action, not just on disconnect
+
 ## 0.76.0 — 2026-08-01
 
 Nightly Build
