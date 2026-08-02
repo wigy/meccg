@@ -341,6 +341,29 @@ export function shortEventPlayChoices(
 }
 
 /**
+ * Build the choices for a hand card whose only play-style action is a bare
+ * `discard-card` (end-of-turn discard step, reset-hand step, movement-hazard
+ * hand reduction). Routing the click through a tooltip menu — instead of
+ * dispatching the discard immediately — turns a misclick into a dismissible
+ * popup rather than an irrevocable discard (bug report: "Clicking cards at
+ * not exactly the right time causes them to be immediately discarded").
+ *
+ * The `onGuardAction` parameter is defensive: whenever an on-guard action is
+ * legal the card is normally routed through the hazard/short-event branches
+ * earlier in the render chain, but if a future engine change emits both
+ * without those, the on-guard choice must not be silently dropped (the same
+ * defect class fixed by agent-onguard-choice.test.ts and friends).
+ */
+export function discardOnlyChoices(
+  discardAction: GameAction,
+  onGuardAction: GameAction | undefined,
+): readonly ShortEventPlayChoice[] {
+  const choices: ShortEventPlayChoice[] = [{ label: 'Discard', action: discardAction }];
+  if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  return choices;
+}
+
+/**
  * Show a disambiguation tooltip near the clicked short-event card
  * when there are multiple valid targets. Each button names a target
  * environment; clicking it sends the corresponding action.
@@ -1400,9 +1423,18 @@ export function renderHand(
         img.addEventListener('click', () => onAction(action));
       }
     } else if (discardAction) {
+      // Never discard straight from the click: a misclick during the
+      // end-of-turn / reset-hand / hand-reduction discard steps would
+      // otherwise irrevocably discard the card. Open the same cursor tooltip
+      // used for every other hand-card disambiguation so the player confirms
+      // "Discard" (or dismisses by clicking elsewhere).
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => onAction(discardAction));
+        img.addEventListener('click', (e) => {
+          const items: TooltipMenuItem[] = discardOnlyChoices(discardAction, onGuardAction)
+            .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
+          showCursorTooltipMenu(e, items);
+        });
       }
     } else if (onGuardAction) {
       // Not otherwise playable, but CoE 2.IV.vii.4 lets the hazard player place
