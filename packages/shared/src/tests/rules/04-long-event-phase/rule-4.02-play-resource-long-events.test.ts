@@ -11,19 +11,27 @@
  * RULING:
  *
  * The resource player may play resource long-events during the long-event phase (but not at any other time).
+ *
+ * Rule 2.1.1: The resource player may play resource short-events and resource
+ * permanent-events, and may take resource/character actions on their cards in
+ * play, during any phase of their turn unless a rule or effect restricts them
+ * from doing so — this includes the long-event phase.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, viableActions, viableFor,
-  actionAs, Phase,
+  actionAs, Phase, addCardInPlay,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   SUN,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
-import type { NotPlayableAction, PlayLongEventAction } from '../../../index.js';
+import type { NotPlayableAction, PlayLongEventAction, PlayPermanentEventAction, CardDefinitionId } from '../../../index.js';
+
+const ECHO_OF_ALL_JOY = 'td-110' as CardDefinitionId; // resource permanent-event, played onto a resource long-event
+const STAR_OF_HIGH_HOPE = 'td-154' as CardDefinitionId; // resource long-event
 
 describe('Rule 4.02 — Play Resource Long-Events', () => {
   beforeEach(() => resetMint());
@@ -122,5 +130,43 @@ describe('Rule 4.02 — Play Resource Long-Events', () => {
     // play-long-event action is offered — only the resource player may play.
     expect(viableActions(state, PLAYER_2, 'play-long-event').length).toBe(0);
     expect(viableFor(state, PLAYER_2).length).toBe(0);
+  });
+
+  test('Resource player may play a resource permanent-event onto an in-play resource long-event during the long-event phase', () => {
+    // Rule 2.1.1: resource permanent-events may be played during any phase of
+    // the player's turn, including the long-event phase. Echo of All Joy
+    // (td-110) is played onto a resource long-event once it is in play — here
+    // Star of High Hope is already resolved onto P1's cardsInPlay (as it would
+    // be right after the long-event's own chain resolves earlier in the same
+    // long-event phase).
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [ECHO_OF_ALL_JOY],
+          siteDeck: [MORIA],
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+    state = addCardInPlay(state, 0, STAR_OF_HIGH_HOPE);
+    const starInstanceId = state.players[0].cardsInPlay[0].instanceId;
+
+    const plays = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(plays.length).toBe(1);
+    expect(actionAs<PlayPermanentEventAction>(plays[0].action).targetLongEventInstanceId).toBe(starInstanceId);
+
+    const afterPlay = dispatch(state, plays[0].action);
+    const passOpp = dispatch(afterPlay, { type: 'pass-chain-priority', player: PLAYER_2 });
+    const passOwn = dispatch(passOpp, { type: 'pass-chain-priority', player: PLAYER_1 });
+    expect(passOwn.players[0].cardsInPlay.some(c => c.definitionId === ECHO_OF_ALL_JOY)).toBe(true);
   });
 });
