@@ -133,7 +133,11 @@ function commonViewFields(state: GameState, player: PlayerState) {
  * Builds the "self" portion of a player's view. The player can see their
  * own hand contents (resolved to definition IDs), discard pile, site deck,
  * sideboard, companies, and characters — but only the *size* of their play
- * deck (not its order).
+ * deck (not its order), except for any instance already made public per
+ * {@link GameState.revealedInstances} (e.g. a card a reveal effect placed
+ * back on top of the deck, such as Revealed to all Watchers, dm-85's
+ * set-aside cards — the player must still be able to tell those apart to
+ * choose their order).
  */
 function buildSelfView(state: GameState, player: PlayerState): SelfView {
   // Redact on-guard card identities — the resource player must not see
@@ -147,7 +151,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
   return {
     ...commonViewFields(state, player),
     hand: toViewCards(player.hand),
-    playDeck: hiddenCardPile(player.playDeck),
+    playDeck: revealedCardPile(player.playDeck, state.revealedInstances),
     discardPile: toViewCards(player.discardPile),
     siteDeck: toViewCards(player.siteDeck),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
@@ -200,7 +204,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
   return {
     ...commonViewFields(state, player),
     hand: revealedCardPile(player.hand, state.revealedInstances),
-    playDeck: hiddenCardPile(player.playDeck),
+    playDeck: revealedCardPile(player.playDeck, state.revealedInstances),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
     discardPile: hiddenCardPile(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),

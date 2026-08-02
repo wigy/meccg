@@ -286,3 +286,60 @@ describe("Pallando reveals the top of an opponent's discard pile (CRF 22)", () =
     expect(pileById(buried)?.definitionId).toBe(ARAGORN);
   });
 });
+
+/**
+ * A bare two-player game whose player 0 (Alice) has two cards sitting on top
+ * of her play deck: one recorded in `revealedInstances` (as Revealed to all
+ * Watchers, dm-85, leaves the set-aside cards it places back on the deck top
+ * for the player to order) and one that is not.
+ */
+function gameWithPartlyRevealedAliceDeckTop(): {
+  state: GameState;
+  known: CardInstanceId;
+  secret: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const known = 'p1-deck-known' as CardInstanceId;
+  const secret = 'p1-deck-secret' as CardInstanceId;
+  const state: GameState = {
+    ...base,
+    players: [
+      { ...base.players[0], playDeck: [
+        { instanceId: known, definitionId: ARAGORN },
+        { instanceId: secret, definitionId: BALIN },
+      ] },
+      base.players[1],
+    ],
+    revealedInstances: { ...base.revealedInstances, [known]: ARAGORN },
+  };
+  return { state, known, secret };
+}
+
+describe('Revealed play-deck-top cards (dm-85 Revealed to all Watchers)', () => {
+  test('the deck owner sees the revealed top card so they can choose its order; the rest stay hidden', () => {
+    const { state, known, secret } = gameWithPartlyRevealedAliceDeckTop();
+    const aliceView = projectPlayerView(state, ALICE);
+    const deckById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.self.playDeck.find(c => c.instanceId === id);
+    expect(deckById(known)?.definitionId).toBe(ARAGORN);
+    expect(deckById(secret)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test('the opponent also sees the revealed top card (it was made public when revealed)', () => {
+    const { state, known, secret } = gameWithPartlyRevealedAliceDeckTop();
+    const bobView = projectPlayerView(state, BOB);
+    const deckById = (id: CardInstanceId): ViewCard | undefined =>
+      bobView.opponent.playDeck.find(c => c.instanceId === id);
+    expect(deckById(known)?.definitionId).toBe(ARAGORN);
+    expect(deckById(secret)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+});
