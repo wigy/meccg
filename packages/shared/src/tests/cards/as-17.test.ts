@@ -458,8 +458,14 @@ describe('Pallando the Soul-keeper (as-17)', () => {
     expectInDiscardPile(afterFirst, HAZARD_PLAYER, SOUL_KEEPER);
 
     // "The next" — only one minion is converted; the second is plainly discarded.
+    // (The first discard already spent this turn's once-per-turn play/discard
+    // slot — rule 2.II.2 — so this second removal goes through the same
+    // discard-to-pile helper used elsewhere in this file for forced discards,
+    // rather than another rule-3.22 voluntary `discard-character` action.)
     const asternakId = findCharInstanceId(afterFirst, RESOURCE_PLAYER, ASTERNAK);
-    const afterSecond = dispatch(afterFirst, orgDiscardAction(afterFirst, asternakId));
+    const afterSecond = discardCharacterToDiscardPile(
+      afterFirst, RESOURCE_PLAYER, asternakId, afterFirst.players[RESOURCE_PLAYER].characters[asternakId],
+    );
     expect(afterSecond.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === asternakId)).toBe(true);
     expect(afterSecond.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === asternakId)).toBe(false);
   });

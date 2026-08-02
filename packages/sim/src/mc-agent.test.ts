@@ -185,7 +185,12 @@ describe('rollout', () => {
   test('TSD is zero-sum around the two seats', () => {
     const view = captureViews(1, 4242)[0];
     const world = determinizeNull({ view, seed: 11, cardPool: CARD_POOL });
-    expect(stateTsd(world.state, view.self.id)).toBe(-stateTsd(world.state, view.opponent.id));
+    // Summed rather than compared via negation-and-toBe: when the two sides
+    // are tied, `X - Y` and `Y - X` are both exactly `+0` in IEEE754, so
+    // `-stateTsd(opponent)` becomes `-0` — mathematically equal to `stateTsd
+    // (self)`'s `+0` but distinct under Object.is/`toBe`. The sum is exactly
+    // 0 either way and is what "zero-sum" actually asserts.
+    expect(stateTsd(world.state, view.self.id) + stateTsd(world.state, view.opponent.id)).toBe(0);
   });
 });
 

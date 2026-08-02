@@ -1008,10 +1008,18 @@ export function playCharacterActions(
  * home site. Offered for every qualifying character in every company of the
  * player; the discard itself (possessions, followers, influence release) is
  * handled by the reducer.
+ *
+ * CoE rule 2.II.2: playing or discarding a character is the *same* once-per-
+ * turn organizing action — so a discard is gated by
+ * `characterPlayLimitReached` exactly like a play, reusing the play-side
+ * exceptions (Sauron's unlimited plays, the Balrog's second non-unique
+ * action).
  */
 export function discardCharacterActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const phaseState = requirePhaseState(state, Phase.Organization);
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
+  const noCharacterPlayLimit = playerHasNoCharacterPlayLimit(state, player);
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
@@ -1035,6 +1043,10 @@ export function discardCharacterActions(state: GameState, playerId: PlayerId): E
       }
       if (!isHaven && !homesiteMatchesSite(state, charDef, siteDef, player.alignment)) {
         logDetail(`  discard-character: ${charDef.name} at ${siteDef.name} — neither a haven nor its home site (rule 3.22)`);
+        continue;
+      }
+      if (!noCharacterPlayLimit && characterPlayLimitReached(phaseState, player.alignment, charDef)) {
+        logDetail(`  discard-character: ${charDef.name} — already played/discarded a character this turn (rule 2.II.2)`);
         continue;
       }
       logDetail(`  → viable: discard ${charDef.name} at ${siteDef.name} (${isHaven ? 'haven' : 'home site'})`);
