@@ -1247,7 +1247,11 @@
     "mind": 6,
     "marshallingPoints": 4,
     "marshallingCategory": "ally",
-    "playableAt": [],
+    "playableAt": [
+      {
+        "site": "The Under-gates"
+      }
+    ],
     "effects": [
       {
         "type": "deck-restriction",
