@@ -3,8 +3,8 @@
  *
  * Renders deck piles (play deck, site deck, sideboard, discard, victory display)
  * for both players, and provides the pile browser modal for browsing card lists.
- * Also handles the interactive site selection, fetch-from-pile, and
- * reveal-remove-from-discard sub-flows.
+ * Also handles the interactive site selection, fetch-from-pile,
+ * reveal-remove-from-discard, and arrange-deck-top sub-flows.
  */
 
 import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard } from '@meccg/shared';
@@ -685,7 +685,37 @@ export function prepareRevealRemoveFromDiscard(
   siteSelectionCallback = onAction;
 }
 
-/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard) is active (pile highlights should persist). */
+/**
+ * Prepare the arrange-deck-top sub-flow UI (Revealed to all Watchers, dm-85):
+ * highlights the player's own play deck pile and wires up the pile browser so
+ * clicking one of the top-of-deck cards sends the corresponding
+ * `arrange-deck-top-card` action. The player picks the next-highest card one
+ * at a time until every set-aside card has been placed; there is no pass path.
+ */
+export function prepareArrangeDeckTop(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const arrangeActions = view.legalActions.filter(ea => ea.viable && ea.action.type === 'arrange-deck-top-card');
+  if (arrangeActions.length === 0) return;
+
+  cachedCardPool = cardPool;
+
+  // Open the self deck box so the play deck is visible
+  document.getElementById('self-deck-box')?.classList.remove('deck-box--compact');
+  document.getElementById('self-deck-pile')?.classList.add('pile--fetch-active');
+
+  pileSubFlowActive = true;
+  siteSelectionActions = arrangeActions;
+  siteSelectionMatcher = (card) => arrangeActions.find(
+    ea => ea.action.type === 'arrange-deck-top-card'
+      && ea.action.cardInstanceId === card.instanceId,
+  );
+  siteSelectionCallback = onAction;
+}
+
+/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard, arrange-deck-top) is active (pile highlights should persist). */
 let pileSubFlowActive = false;
 
 /** Close the pile browser and clear selection state. */
@@ -715,6 +745,7 @@ export function clearSelectionState(): void {
   document.getElementById('self-sideboard-pile')?.classList.remove('pile--fetch-active');
   document.getElementById('self-discard-pile')?.classList.remove('pile--fetch-active');
   document.getElementById('opponent-discard-pile')?.classList.remove('pile--fetch-active');
+  document.getElementById('self-deck-pile')?.classList.remove('pile--fetch-active');
 }
 
 /** @deprecated Use closeSelectionViewer instead. */

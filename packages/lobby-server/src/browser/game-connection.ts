@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { clearTutorialPanel, renderTutorialPanel } from './tutorial-panel.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
@@ -574,6 +574,8 @@ export function connect(name: string): void {
           prepareFetchFromPile(msg.view, cardPool, sendAction);
         } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'remove-revealed-card')) {
           prepareRevealRemoveFromDiscard(msg.view, cardPool, sendAction);
+        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'arrange-deck-top-card')) {
+          prepareArrangeDeckTop(msg.view, cardPool, sendAction);
         } else {
           clearSelectionState();
         }
