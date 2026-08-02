@@ -4919,7 +4919,11 @@ h2 {
   min-width: 0;
 }
 
-/* Action button panel — fixed above the radar minimap, stacks buttons upward */
+/* Action button panel — fixed above the radar minimap, stacks buttons upward.
+   Gap is deliberately generous (not the 0.5rem used elsewhere): this panel
+   often grows a secondary "Pass"/step-ending button directly above a primary
+   repeatable action (e.g. "Draw"), and a tight gap made it easy to
+   double-click into the wrong one and skip ahead a step. */
 #visual-panel {
   position: fixed;
   bottom: calc(1rem + 162px + 0.75rem);
@@ -4928,7 +4932,7 @@ h2 {
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 #pass-btn {
