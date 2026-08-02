@@ -5526,3 +5526,30 @@ export function regionTypesMatch(required: readonly RegionType[], path: readonly
   }
   return false;
 }
+
+/**
+ * Derives the list of creature races the defending company has already
+ * faced this M/H sub-phase by looking up each hazard name in
+ * `phaseState.hazardsEncountered` and extracting its race. Used by
+ * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
+ * was already faced), and by the `followsAttackRaces` creature-keying
+ * restriction (e.g. Wolf-riders td-86: "may be played following any Orc
+ * attack not keyed to a site") — `hazardsEncountered` only ever records
+ * creature-sourced attacks (`combat.attackSource.type === 'creature'`,
+ * see `recordHazardEncountered` in `combat-finalize.ts`), which is exactly
+ * "not keyed to a site" (a hand-played M/H creature, not a site
+ * automatic-attack or on-guard reveal).
+ */
+export function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): Race[] {
+  const races = new Set<Race>();
+  for (const name of hazardNames) {
+    for (const def of Object.values(state.cardPool)) {
+      if ((def as { cardType?: string }).cardType !== 'hazard-creature') continue;
+      if ((def as { name?: string }).name !== name) continue;
+      const race = (def as { race?: Race }).race;
+      if (race) races.add(race);
+      break;
+    }
+  }
+  return Array.from(races);
+}

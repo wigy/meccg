@@ -1735,6 +1735,19 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       return { state, error: `Only ${effect.player === 'attacker' ? 'attacking' : 'defending'} player can play this card` };
     }
 
+    // CoE rule 8.12: a plain from-hand modify-attack played by the attacker
+    // counts against the company's hazard limit unless the card bypasses it
+    // (`play-flag: no-hazard-limit`), mirroring the fromAltPermanentEvent
+    // charge above. Site-phase combat has no hazard-limit bookkeeping, so
+    // on-guard reveals (which reuse this same from-hand path) are unaffected.
+    if (!altPermanentEvent && !onGuard && effect.player === 'attacker' && state.phaseState.phase === Phase.MovementHazard
+      && !('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
+      const limit = currentHazardLimit(state, state.phaseState, combat.companyId);
+      if ((state.phaseState.hazardsPlayedThisCompany ?? 0) >= limit) {
+        return { state, error: `modify-attack: hazard limit reached (${limit})` };
+      }
+    }
+
     const prowessModifier = effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
     const strikesModifier = effect.strikesModifier ?? 0;
@@ -1811,6 +1824,15 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         hand: removeById(p.hand, handCard.instanceId),
         discardPile: [...p.discardPile, discarded],
       }));
+      // CoE rule 8.12: charge the hazard limit for the attacker's own plain
+      // from-hand play (mirroring the fromAltPermanentEvent charge above).
+      if (effect.player === 'attacker' && baseState.phaseState.phase === Phase.MovementHazard
+        && !('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
+        const mhState = baseState.phaseState;
+        const played = (mhState.hazardsPlayedThisCompany ?? 0) + 1;
+        logDetail(`${cardDef.name}: from-hand modify-attack played in combat — counts against hazard limit (${played})`);
+        baseState = { ...baseState, phaseState: { ...mhState, hazardsPlayedThisCompany: played } };
+      }
     }
 
     let newState: GameState = {
