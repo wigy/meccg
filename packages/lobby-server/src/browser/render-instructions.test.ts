@@ -302,6 +302,54 @@ describe('renderPassButton — choose-gold-ring-test-roll (Wizard\'s Test)', () 
   });
 });
 
+/**
+ * Regression test for bug report 20c3ed62a7350c6a (game msaihfe9-oo2tc3, seq
+ * 1344): "Program freeze again. Should ask for play or discard and then show
+ * creatures to fight." Playing The Great Hunt (wh-91) enqueues a
+ * `great-hunt-source` pending resolution offering two viable
+ * `choose-great-hunt-source` actions (reveal from the opponent's play deck or
+ * discard pile). Neither action type was in {@link renderPassButton}'s
+ * pass-like whitelist, so once the choice was pending, the roll/pass button
+ * hid and (since viable actions did exist) the "Waiting…" indicator was
+ * suppressed too — no control on screen let the player pick a pile, the same
+ * class of bug as `choose-gold-ring-test-roll` above. There is no safe
+ * default pile to pick silently, so it renders one button per offered pile
+ * instead of joining the generic whitelist.
+ */
+const chooseGreatHuntSource = (source: 'deck' | 'discard'): EvaluatedAction => ({
+  action: {
+    type: 'choose-great-hunt-source',
+    player: 'p1',
+    source,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — choose-great-hunt-source (The Great Hunt)', () => {
+  test('renders one button per offered pile instead of hiding the panel', () => {
+    renderPassButton(
+      viewWith([chooseGreatHuntSource('deck'), chooseGreatHuntSource('discard')]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(visualPanel.children).toHaveLength(2);
+    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Reveal Play Deck', 'Reveal Discard Pile']);
+  });
+
+  test('clicking a choice button sends that pile\'s action', () => {
+    let sent: unknown = null;
+    const deck = chooseGreatHuntSource('deck');
+    const discard = chooseGreatHuntSource('discard');
+    renderPassButton(viewWith([deck, discard]), action => { sent = action; });
+
+    visualPanel.children[1].onclick?.();
+
+    expect(sent).toEqual(discard.action);
+  });
+});
+
 describe('renderPassButton — Free Council corruption-check declare step', () => {
   test('hides the bottom button when several characters are eligible, letting the player pick one', () => {
     renderPassButton(
