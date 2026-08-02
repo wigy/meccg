@@ -1921,6 +1921,15 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       continue;
     }
 
+    // Regular items (CoE rule 2.II.4): storable at any Haven without a
+    // `storable-at` effect on the card — see storeItemActions in
+    // organization-companies.ts. These still earn their printed MP once
+    // stored, same as items with an explicit storable-at effect above.
+    if (isItemCard(def)) {
+      mp = addItemMP(mp, def, player.alignment);
+      continue;
+    }
+
     // Defeated creatures earn kill MP.
     if (!('killMarshallingPoints' in def)) continue;
     const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
