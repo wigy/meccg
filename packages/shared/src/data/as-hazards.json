@@ -183,8 +183,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ALieinYourEyes.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on an untapped non-Ringwraith, non-Wizard character. Your opponent may either: tap the character, tap an ally the character controls, or choose for you to make a roll. If the result is greater than the character’s mind plus 6, the character is discarded (along with all non-follower cards he controls)."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.status": "untapped" },
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "opponent-choose-tap-or-roll",
+        "rollAddend": 6
+      }
+    ],
+    "text": "Playable on an untapped non-Ringwraith, non-Wizard character. Your opponent may either: tap the character, tap an ally the character controls, or choose for you to make a roll. If the result is greater than the character’s mind plus 6, the character is discarded (along with all non-follower cards he controls).",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hazard-event",

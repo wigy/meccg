@@ -1687,6 +1687,35 @@ export interface RevealDeckChoosePenaltyEffect extends EffectBase {
 }
 
 /**
+ * Carried by a hazard short-event playable on an untapped character. When the
+ * event resolves un-negated on the chain, the **defending** player (the
+ * targeted character's controller — "your opponent" from the card-player's
+ * perspective) is forced to choose one of three responses:
+ *
+ * - Tap the targeted character.
+ * - Tap one untapped ally the character controls (offered only when such an
+ *   ally exists).
+ * - Let the card-player roll 2d6: if the total is strictly greater than the
+ *   character's effective mind plus `rollAddend`, the character is discarded
+ *   to their owner's discard pile (their non-follower possessions go with
+ *   them; followers are freed to general influence per the standard
+ *   `discard-character` verb).
+ *
+ * Resolved via a two-stage {@link PendingResolution}: `tap-or-roll-choice`
+ * (the defender's pick) and, only if "roll" is picked, a generic `dice-check`
+ * (the card-player's roll). Used by *A Lie in Your Eyes* (as-23): "Your
+ * opponent may either: tap the character, tap an ally the character
+ * controls, or choose for you to make a roll. If the result is greater than
+ * the character's mind plus 6, the character is discarded (along with all
+ * non-follower cards he controls)."
+ */
+export interface OpponentChooseTapOrRollEffect extends EffectBase {
+  readonly type: 'opponent-choose-tap-or-roll';
+  /** Added to the character's effective mind to form the discard threshold. */
+  readonly rollAddend: number;
+}
+
+/**
  * Removes an opponent's face-up agent from play, or (as an alternative mode)
  * discards one of the opponent's unrevealed on-guard cards.
  *
@@ -7553,6 +7582,7 @@ export type CardEffect =
   | PeekShuffleDeckTopEffect
   | RevealRemoveFromDiscardEffect
   | RevealDeckChoosePenaltyEffect
+  | OpponentChooseTapOrRollEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect

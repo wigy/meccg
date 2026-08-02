@@ -1123,6 +1123,24 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Hand instance IDs revealed to the card's controller so far, in reveal order. */
         readonly revealedIds: readonly CardInstanceId[];
+      }
+    | {
+        /**
+         * A Lie in Your Eyes (as-23): the defending player (the targeted
+         * character's controller) picks how to respond to the hazard-event's
+         * threat — tap the character, tap an untapped ally the character
+         * controls, or let the card-player roll to try to discard the
+         * character. Resolved by a `choose-tap-or-roll` action. The "roll"
+         * choice enqueues a follow-up generic `dice-check` resolution rather
+         * than rolling inline.
+         */
+        readonly type: 'tap-or-roll-choice';
+        /** The threatened character. */
+        readonly characterInstanceId: CardInstanceId;
+        /** Who rolls if the "roll" branch is chosen (the hazard/card player). */
+        readonly rollingPlayer: PlayerId;
+        /** Added to the character's effective mind to form the discard threshold. */
+        readonly rollAddend: number;
       };
 }
 

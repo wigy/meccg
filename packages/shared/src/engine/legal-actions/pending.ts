@@ -3202,6 +3202,49 @@ export function desireBellyChoosePenaltyActions(
 }
 
 /**
+ * Legal actions while a `tap-or-roll-choice` resolution is pending (A Lie in
+ * Your Eyes, as-23): the defending player must choose one of tap the
+ * character, tap an untapped ally the character controls (one action per
+ * eligible ally — omitted entirely when none is untapped), or let the
+ * card-player roll. The choice is mandatory ("Your opponent may either...").
+ */
+export function tapOrRollChoiceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'tap-or-roll-choice') return [];
+  const { characterInstanceId } = top.kind;
+  const ownerIndex = state.players.findIndex(p => !!p.characters[characterInstanceId]);
+  if (ownerIndex === -1) return [];
+  const character = state.players[ownerIndex].characters[characterInstanceId];
+
+  const actions: EvaluatedAction[] = [
+    {
+      action: { type: 'choose-tap-or-roll' as const, player: actor, choice: 'tap-character' as const },
+      viable: true,
+    },
+  ];
+  for (const ally of character.allies) {
+    if (ally.status !== CardStatus.Untapped) continue;
+    actions.push({
+      action: {
+        type: 'choose-tap-or-roll' as const,
+        player: actor,
+        choice: 'tap-ally' as const,
+        allyInstanceId: ally.instanceId,
+      },
+      viable: true,
+    });
+  }
+  actions.push({
+    action: { type: 'choose-tap-or-roll' as const, player: actor, choice: 'roll' as const },
+    viable: true,
+  });
+  return actions;
+}
+
+/**
  * Legal actions while an `agent-play-manifestation-offer` resolution is pending
  * (My Precious dm-29): the defender may tap one untapped character in the target
  * company to play Gollum from hand (discarding My Precious), or pass. One
