@@ -14,13 +14,13 @@
  * second time.
  *
  * **Requests** — the AI work queue (`GET /api/admin/requests`): every open
- * request across the ai/admin inboxes with view and delete actions, plus an
- * "Older Requests" row that pages in already-handled requests 50 at a time
- * (`GET /api/admin/requests/old`); those can additionally be renewed —
- * set back to status 'new' — to re-queue them. The single-request detail
- * view carries the same delete and renew actions. A search bar above the
- * list jumps straight to a request by its message ID, probing each request
- * inbox with the detail route.
+ * request across the ai/admin inboxes, plus an "Older Requests" row that
+ * pages in already-handled requests 50 at a time
+ * (`GET /api/admin/requests/old`). Clicking a row opens the single-request
+ * detail view, which carries the delete action and — for already-handled
+ * requests — renew, setting the status back to 'new' to re-queue it. A
+ * search bar above the list jumps straight to a request by its message ID,
+ * probing each request inbox with the detail route.
  *
  * Above the tabs sits the yell bar: a message box whose Yell button
  * broadcasts the text as a system toast to every player online
@@ -459,11 +459,6 @@ interface AdminRequestDetail {
   readonly inbox: string;
 }
 
-// Inline 16px stroke icons, matching the nav-button SVG style.
-const VIEW_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-const DELETE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
-const RENEW_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
-
 /** Inboxes that hold work-queue requests. Mirrors REQUEST_INBOXES in http/routes.ts. */
 const REQUEST_INBOXES = ['ai', 'admin'];
 
@@ -511,45 +506,22 @@ function requestor(request: AdminRequest): string {
 }
 
 /**
- * Build one request row: status badge, title, requestor, and icon actions —
- * view and delete always, renew only for old (already handled) requests.
- * `onRemoved` is called after a successful delete, so the pager can keep
- * its server-side offset aligned with the shrunken old-request list.
+ * Build one request row: status badge, title, and requestor. Clicking the
+ * row opens the request's detail view, which carries the delete and renew
+ * actions.
  */
-function requestRow(request: AdminRequest, options: { renew: boolean; onRemoved?: () => void }): HTMLTableRowElement {
+function requestRow(request: AdminRequest): HTMLTableRowElement {
   const tr = document.createElement('tr');
   tr.className = 'admin-request-row';
-  const renewBtn = options.renew
-    ? `<button type="button" class="admin-req-icon-btn" data-action="renew" title="Renew — put back into the queue">${RENEW_ICON}</button>`
-    : '';
+  tr.title = 'View request';
   tr.innerHTML = `
     <td><span class="inbox-status inbox-status--${escapeHtml(request.status)}">${escapeHtml(request.status)}</span></td>
     <td>${escapeHtml(request.subject)}</td>
-    <td>${escapeHtml(requestor(request))}</td>
-    <td class="admin-req-actions">
-      <button type="button" class="admin-req-icon-btn" data-action="view" title="View request">${VIEW_ICON}</button>
-      ${renewBtn}
-      <button type="button" class="admin-req-icon-btn admin-req-icon-btn--danger" data-action="delete" title="Delete request">${DELETE_ICON}</button>
-    </td>`;
+    <td>${escapeHtml(requestor(request))}</td>`;
 
-  tr.querySelector('[data-action="view"]')?.addEventListener('click', () => {
+  tr.addEventListener('click', () => {
     void openAdminRequestPage(request.inbox, request.id);
   });
-
-  tr.querySelector('[data-action="renew"]')?.addEventListener('click', () => { void (async () => {
-    const r = await apiSend(`/api/admin/requests/${request.inbox}/${request.id}/renew`, 'POST');
-    // Reload the tab: the request just moved from the old list to the open one.
-    if (r.ok) await openAdminPage('requests');
-  })(); });
-
-  tr.querySelector('[data-action="delete"]')?.addEventListener('click', () => { void (async () => {
-    if (!await showConfirm(`Delete request "${request.subject}"?`, { okLabel: 'Delete' })) return;
-    const r = await apiSend(`/api/admin/requests/${request.inbox}/${request.id}`, 'DELETE');
-    if (r.ok) {
-      tr.remove();
-      options.onRemoved?.();
-    }
-  })(); });
 
   return tr;
 }
@@ -577,27 +549,24 @@ async function renderRequestsTab(listEl: HTMLElement): Promise<void> {
         <th>Status</th>
         <th>Title</th>
         <th>Requestor</th>
-        <th class="admin-req-actions"></th>
       </tr>
     </thead>
     <tbody></tbody>
   `;
   const tbody = table.querySelector('tbody')!;
   for (const request of r.data.requests) {
-    tbody.appendChild(requestRow(request, { renew: false }));
+    tbody.appendChild(requestRow(request));
   }
   if (count === 0) {
     const empty = document.createElement('tr');
-    empty.innerHTML = '<td colspan="4" class="admin-req-empty">No open requests.</td>';
+    empty.innerHTML = '<td colspan="3" class="admin-req-empty">No open requests.</td>';
     tbody.appendChild(empty);
   }
 
   // Last line: pages in already-handled requests, 50 newest-first at a time.
-  // Deleting an old row shifts the server-side listing left by one, so the
-  // next page's offset shrinks along with it (the onRemoved callback).
   const olderRow = document.createElement('tr');
   olderRow.className = 'admin-older-row';
-  olderRow.innerHTML = '<td colspan="4"><button type="button" class="inbox-action-btn admin-older-btn">Older Requests</button></td>';
+  olderRow.innerHTML = '<td colspan="3"><button type="button" class="inbox-action-btn admin-older-btn">Older Requests</button></td>';
   tbody.appendChild(olderRow);
   const olderBtn = olderRow.querySelector<HTMLButtonElement>('.admin-older-btn')!;
   let oldOffset = 0;
@@ -611,7 +580,7 @@ async function renderRequestsTab(listEl: HTMLElement): Promise<void> {
       return;
     }
     for (const request of old.data.requests) {
-      tbody.insertBefore(requestRow(request, { renew: true, onRemoved: () => { oldOffset -= 1; } }), olderRow);
+      tbody.insertBefore(requestRow(request), olderRow);
     }
     oldOffset += old.data.requests.length;
     if (oldOffset >= old.data.total) {
@@ -660,9 +629,9 @@ export async function openAdminRequestPage(inbox: string, id: string): Promise<v
     .map(([key, value]) => [escapeHtml(key), escapeHtml(value)] as [string, string]);
 
   // Renewing a request that is already 'new' would be a no-op, so the
-  // renew action only appears on already-handled requests, as in the list.
+  // renew button only appears on already-handled requests.
   const renewBtn = detail.status !== 'new'
-    ? `<button type="button" class="admin-req-icon-btn" data-action="renew" title="Renew — put back into the queue">${RENEW_ICON}</button>`
+    ? '<button type="button" class="inbox-action-btn" data-action="renew" title="Put back into the queue">Renew</button>'
     : '';
   listEl.innerHTML = `
     <div class="admin-detail-head">
@@ -670,7 +639,7 @@ export async function openAdminRequestPage(inbox: string, id: string): Promise<v
       <h3 class="admin-detail-name">${escapeHtml(detail.subject)}</h3>
       <span class="admin-req-actions">
         ${renewBtn}
-        <button type="button" class="admin-req-icon-btn admin-req-icon-btn--danger" data-action="delete" title="Delete request">${DELETE_ICON}</button>
+        <button type="button" class="inbox-action-btn inbox-action-btn--danger" data-action="delete">Delete</button>
       </span>
     </div>
     <dl class="admin-profile">${metaRows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>

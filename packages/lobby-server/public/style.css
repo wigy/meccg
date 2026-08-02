@@ -1001,28 +1001,14 @@ h2 {
 /* ---- Admin: requests tab ---- */
 
 .admin-req-actions {
-  text-align: right;
+  margin-left: auto;
   white-space: nowrap;
-  width: 7rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
-.admin-req-icon-btn {
-  background: none;
-  border: none;
-  padding: 0.15rem;
-  margin-left: 0.35rem;
-  color: #a0a8b0;
+.admin-request-row {
   cursor: pointer;
-  vertical-align: middle;
-  line-height: 0;
-}
-
-.admin-req-icon-btn:hover {
-  color: #f5d98a;
-}
-
-.admin-req-icon-btn--danger:hover {
-  color: #f44336;
 }
 
 .admin-req-empty {
