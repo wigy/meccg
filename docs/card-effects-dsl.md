@@ -13819,3 +13819,43 @@ non-Wizard, non-Hobbit diplomat character (other than Galadriel) at the same
 site as Galadriel. All corruption cards on the bearer are discarded when this
 card comes into play. +2 to all corruption checks by bearer." (the "+2 to all
 corruption checks" is a bearer-scoped `check-modifier` — see section 2.)
+
+### 74. `untap-mind-roll`
+
+A game-wide untap-phase restriction carried by a hazard **long-event** while it
+sits in either player's `cardsInPlay` (checked once per untap in
+`performUntap`, `reducer-untap.ts`, not tied to whoever played the card).
+
+```json
+{ "type": "untap-mind-roll", "threshold": 12,
+  "exemptSiteTypes": ["haven", "free-hold", "border-hold"],
+  "noEffectOnMinion": true }
+```
+
+Every tapped character of the untapping (active) player is checked: a Wizard
+(`race === "wizard"`) or a character whose company's current site resolves
+(`getEffectiveSiteType`) to one of `exemptSiteTypes` untaps normally. Every
+other tapped character stays tapped instead, and a generic `dice-check` is
+enqueued in its place — 2d6 + the character's effective mind (`effectiveStats
+.mind` ?? printed mind), strictly greater than `threshold` untaps him via the
+`set-character-status` onPass verb. There is no `onFail` branch: rolling has no
+downside, so the printed "the player may instead make a roll" is modeled as an
+always-enqueued roll rather than an interactive decline — a rational player
+never declines. The pending resolution outranks every other untap-phase action
+(including the phase advancing straight to Organization when the hazard player
+had already passed) until it resolves.
+
+`noEffectOnMinion: true` skips the whole restriction for an untapping player
+whose alignment is `ringwraith` — the same "minion player" reading the
+`ahunt-attack`/`faction-influence-restriction` primitives use (Balrog is not
+included).
+
+Used by Worn and Famished (td-89): "Each non-Wizard character that is not in a
+Haven [{H}], Free-hold [{F}], or Border-hold [{B}] does not untap normally
+during his untap phase. Character's player may instead make a roll adding his
+mind. If the result is greater than 12, he untaps. This card has no effect on
+a minion player. Cannot be duplicated." — paired with the pre-existing
+`play-restriction unplayable-when opponent.alignment: "ringwraith"` (the
+tw-36/dm-72 "no effect on a minion player" precedent of also blocking play
+against a Ringwraith opponent outright) and a `duplication-limit` scope `game`
+max 1 for "Cannot be duplicated".

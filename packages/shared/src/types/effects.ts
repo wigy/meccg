@@ -3254,6 +3254,38 @@ export interface RollUntapSiteEffect extends EffectBase {
 }
 
 /**
+ * Global untap-phase restriction, carried by a hazard long-event while it sits
+ * in either player's `cardsInPlay`. Every character of the untapping (active)
+ * player whose race is not Wizard, and whose company's current site is not
+ * one of {@link exemptSiteTypes}, does not untap normally: instead of the
+ * plain tapped→untapped transition in `performUntap`, a generic `dice-check`
+ * is enqueued per such character — 2d6 + the character's effective mind,
+ * strictly greater than {@link threshold} untaps him via the `set-character-
+ * status` onPass verb. Rolling has no downside (no `onFail` penalty), so the
+ * printed "may instead make a roll" is modeled as an always-taken roll rather
+ * than an interactive decline.
+ *
+ * When {@link noEffectOnMinion} is set, the whole restriction is skipped for
+ * an untapping player whose alignment is Ringwraith (CoE "minion player" —
+ * the `ahunt-attack`/`faction-influence-restriction` precedent).
+ *
+ * Used by Worn and Famished (td-89): "Each non-Wizard character that is not
+ * in a Haven [{H}], Free-hold [{F}], or Border-hold [{B}] does not untap
+ * normally during his untap phase. Character's player may instead make a
+ * roll adding his mind. If the result is greater than 12, he untaps. This
+ * card has no effect on a minion player."
+ */
+export interface UntapMindRollEffect extends EffectBase {
+  readonly type: 'untap-mind-roll';
+  /** The modified 2d6 total must be strictly greater than this to untap. */
+  readonly threshold: number;
+  /** Site types where an affected character's company being present exempts him from the restriction. */
+  readonly exemptSiteTypes: readonly SiteType[];
+  /** When true, the restriction has no effect for an untapping player with alignment `ringwraith`. */
+  readonly noEffectOnMinion?: boolean;
+}
+
+/**
  * On-play marker that installs a one-shot `skip-next-untap` active constraint on
  * the target character (the same constraint kind Fled into Darkness ba-18 uses):
  * the next time the character would otherwise untap he stays tapped once, then
@@ -7517,6 +7549,7 @@ export type CardEffect =
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
   | RollUntapSiteEffect
+  | UntapMindRollEffect
   | SkipNextUntapOnPlayEffect
   | ReturnToHandEffect
   | CombatAttackerChoosesDefendersEffect
