@@ -131,3 +131,21 @@ export interface FetchFromPileAction {
   /** Destination zone. Defaults to `'deck'` for backward compatibility. */
   readonly to?: 'deck' | 'hand';
 }
+
+/**
+ * One tap-and-discard pick within a `tap-discard-in-play` sub-flow (Praise
+ * to Elbereth tw-305). Taps `characterId` (one of the declaring player's own
+ * untapped characters) and discards `targetInstanceId` (an untapped opponent
+ * in-play card matching the effect's filter) immediately — no chain entry,
+ * so the opponent has no window to respond. The pending effect stays queued
+ * afterward so the player may repeat the pick; `pass` ends the sub-flow.
+ */
+export interface TapDiscardInPlayAction {
+  readonly type: 'tap-discard-in-play';
+  /** The declaring player. */
+  readonly player: PlayerId;
+  /** The declaring player's own untapped character to tap as the cost. */
+  readonly characterId: CardInstanceId;
+  /** The opponent's untapped in-play card to discard. */
+  readonly targetInstanceId: CardInstanceId;
+}

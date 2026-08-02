@@ -610,6 +610,28 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Untapped opponent `cardsInPlay` cards matching `filter` — candidate targets
+ * for a `tap-discard-in-play` effect (Praise to Elbereth tw-305: "cancel one
+ * Nazgûl event"). Only scans `cardsInPlay` (a Nazgûl permanent-event lives
+ * there, not attached to a character) and only untapped cards: a tapped card
+ * has already resolved its ability for the turn and gains nothing from being
+ * discarded pre-emptively.
+ */
+export function collectTapDiscardInPlayTargets(
+  state: GameState,
+  opponent: PlayerState,
+  filter: Condition,
+): CardInstanceId[] {
+  const targets: CardInstanceId[] = [];
+  for (const c of opponent.cardsInPlay) {
+    if (c.status !== CardStatus.Untapped) continue;
+    const cDef = defById(state, c.definitionId);
+    if (cDef && matchesDefinition(cDef, filter)) targets.push(c.instanceId);
+  }
+  return targets;
+}
+
+/**
  * Returns `true` when the given site definition carries an
  * `allow-creature-by-race` site-rule that grants the given creature definition a
  * keying bypass at the site: the rule's `race` matches the creature's race and,

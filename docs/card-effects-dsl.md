@@ -3318,9 +3318,15 @@ with the named skill (e.g. Concealment — tap a scout). When `cost` and
 company — one action is generated per qualifying character. If the cost
 is a corruption check (`"check": "corruption"`), the character need not
 be untapped (e.g. Vanishment — wizard makes corruption check -2). When
-both `requiredSkill` and `requiredRace` are absent, the card is simply
-played with no additional cost (e.g. Dark Quarrels — cancel one attack
-by Orcs, Trolls, or Men).
+When both `requiredSkill` and `requiredRace` are absent AND `cost` is also
+absent, the card is simply played with no additional cost (e.g. Dark
+Quarrels — cancel one attack by Orcs, Trolls, or Men). When `cost` **is**
+present but `requiredSkill`/`requiredRace` are both absent, any character in
+the defending company may pay it — one action is generated per untapped
+qualifying character, same as the skill/race-gated shape. Used by Praise to
+Elbereth (tw-305): `cost: { "tap": "character" }`, `when: { "enemy.race":
+"ringwraith" }` — "for each of your characters ... cancel one Nazgûl attack",
+no skill or race requirement.
 
 When the effect is declared on an in-play ally with
 `cost: { "tap": "self" }`, the engine sources the ability from any
@@ -3636,6 +3642,48 @@ The chosen character's instance ID is carried on the action as
 
 Example: Escape (tw-229) — cancel an attack against an unwounded character;
 the character is wounded as the cost.
+
+### 9a2. `tap-discard-in-play`
+
+Repeatable "for each of your characters you choose to tap, discard one
+matching in-play card belonging to your opponent" resource short-event
+ability (Praise to Elbereth tw-305: "For each of your characters in play
+that you choose to tap ... cancel one Nazgûl event ... against that
+character's company").
+
+- `filter` — DSL condition each target card's `CardDefinition` must match
+  (e.g. `{ "keywords": { "$includes": "Nazgûl" } }`).
+
+Unlike `cancel-chain-entry`'s `discard the in-play card` fallback (which
+rides the chain, giving the opponent a response window before the target is
+discarded — CoE 9.4/9.5), `tap-discard-in-play` resolves through the same
+loop-until-pass sub-flow `fetch-to-deck` uses (`GameState.pendingEffects`):
+`handlePlayResourceShortEvent` (`reducer-events.ts`) queues one `card-effect`
+pending effect when the card is played; while it is active,
+`tapDiscardInPlayLegalActions` (`legal-actions/index.ts`) offers one
+`tap-discard-in-play` action per (own untapped character × opponent's
+untapped `cardsInPlay` card matching `filter`) pair, plus `pass`. Each pick
+(`applyTapDiscardInPlay`, `short-event-discard.ts`) taps the character and
+discards the target **immediately, with no chain entry** — the pending
+effect stays queued for the next pick. Because there is no chain entry, the
+opponent has no window to declare a response between a card being chosen as
+a pick's target and its discard (e.g. tapping a Nazgûl permanent-event to
+convert it into its short-event mode first) — this is what "may not be
+tapped in response to its play" means in this engine. The discard never
+triggers the target's own on-tap ability ("Nazgûl events discarded ... have
+no effect"). `pass` ends the sub-flow via the generic `resolvePendingEffect`,
+which discards the source card.
+
+`heroResourceShortEventActions` (`legal-actions/long-event.ts`) gates the
+card's playability (CoE 9.1, "may not play a card with no effect") on there
+being either a live target for this effect or an unconditional companion
+effect on the card (e.g. a `when`-less `on-event: self-enters-play`, or one
+whose `when` is currently satisfied).
+
+```json
+{ "type": "tap-discard-in-play",
+  "filter": { "keywords": { "$includes": "Nazgûl" } } }
+```
 
 ### 9b. `cancel-influence`
 

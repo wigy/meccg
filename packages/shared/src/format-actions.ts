@@ -406,6 +406,8 @@ export function describeAction(
       return `Exhaust deck (reshuffle discard)`;
     case 'fetch-from-pile':
       return `Fetch ${instName(action.cardInstanceId)} from ${action.source}`;
+    case 'tap-discard-in-play':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to discard ${instName(action.targetInstanceId)} from play (Praise to Elbereth)`;
     case 'finished':
       return `Finished`;
     case 'activate-granted-action':

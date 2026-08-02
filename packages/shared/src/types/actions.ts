@@ -63,6 +63,7 @@ export type {
 export type {
   PlayShortEventAction,
   FetchFromPileAction,
+  TapDiscardInPlayAction,
   ReshuffleCardFromHandAction,
 } from './actions-short-event.js';
 
@@ -189,7 +190,7 @@ export type {
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, PlaceStartingCompanyEventAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, SelectStageResourceSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
 import type { UntapAction, PlayCharacterAction, ReanimateFromDiscardAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, ChooseGoldRingTestRollAction, PlayRingAfterTestAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, ManifestationSwapAction, DiscardToRecruitAction, TestRingAtSiteAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction, DiscardCharacterOrgAction, DiscardStageResourceAction, VoluntaryDiscardInPlayAction, ReturnAttachedToHandAction, ActivateOrgFetchAction, DiscardForEvilHourMovementAction, PayMovementTaxAction, OpposedRollAction, UseItemAction, InfluenceOverflowDiscardAction } from './actions-organization.js';
-import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction } from './actions-short-event.js';
+import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction, TapDiscardInPlayAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, SideboardWithNazgulAction, TapAltPermanentEventAction, PlayAgentManifestationAction, AssignStrikeAction, AllocateCvccExcessAction, ResolveStrikeAction, AgentStrikeRollAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, ConvertCreatureToAllyAction, CancelByTapAction, CancelStrikeAction, FleeFromStrikeAction, ProtectFromStrikeAssignmentAction, HalveStrikesAction, TapAllyCombatBoostAction, TapAllyBodyCheckBoostAction, ModifyAttackAction, ApplyAttackerAttackOptionAction, TapItemForStrikeAction, FaceStrikeOnTapAction, CancelWeaponEffectsAction, SalvageItemAction, ShieldDiscardRollAction, DiscardItemFromCompanyAction, PlayStrikeEventAction, ResolveDiceCheckAction, SeizedByTerrorRollAction, CompanyTapRollAction, HavenJoinAttackAction, CancelReturnToOriginAction, CancelHazardEventAction, PlayCounterCancelRollAction, CounterCancelAttackAction, TapAllyDiscardHazardAction, PlayAgentHazardAction, RevealAgentAction, RevealHazardForSnakeAction, TapRevealAgentForSnakeAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction, UnderDeepsRollAction, GangwaysExtraMoveAction, ExtraMHMoveAction, AllyTapExtraMHPhaseAction, FlateryAttemptRollAction, GoodwillAttemptRollAction, RiddlingAttemptRollAction, RiddlingGuessAction, TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction, TakeTrophyAction, ReserveCreatureAction, PlayReservedCreatureAction, PlayCreatureFromDiscardAction, SpawnReplayCreatureAction, StayHerAppetiteRollAction, ForceDiscardCardAction, TransferReturnedItemAction, UseDiscardSubstituteAction } from './actions-movement-hazard.js';
 import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, CancelAutoAttackAction, PlaySiteAutoAttackAction, RescuePrisonerAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction, SelectForewarnedAttackAction, DeclareCompanyAttackAction, PaySiteTaxAction, PlayRevealedCardAction } from './actions-site.js';
@@ -251,6 +252,7 @@ export type GameAction =
   | PayMovementTaxAction
   | PlayShortEventAction
   | FetchFromPileAction
+  | TapDiscardInPlayAction
   | ReshuffleCardFromHandAction
   | PlayLongEventAction
   | SelectCompanyAction

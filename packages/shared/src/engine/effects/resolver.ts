@@ -824,8 +824,11 @@ export function collectCompanyAllyEffects(
 /**
  * Synthesise {@link StatModifierEffect}s from active
  * `company-stat-modifier` constraints whose target company contains the
- * given character. Returns one entry per matching constraint so caps /
- * overrides are evaluated uniformly with JSON-declared effects.
+ * given character, or — for a player-wide target (Praise to Elbereth
+ * tw-305: "characters gain +1 prowess" until end of turn, not scoped to a
+ * single company) — whose target player controls the character. Returns one
+ * entry per matching constraint so caps / overrides are evaluated uniformly
+ * with JSON-declared effects.
  */
 function collectCompanyStatModifierEffects(
   state: GameState,
@@ -835,9 +838,15 @@ function collectCompanyStatModifierEffects(
   const results: CollectedEffect[] = [];
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'company-stat-modifier') continue;
-    if (constraint.target.kind !== 'company') continue;
-    const company = findCompanyById(state, constraint.target.companyId);
-    if (!company || !company.characters.includes(char.instanceId)) continue;
+    if (constraint.target.kind === 'player') {
+      const found = findPlayerAndCompany(state, char.instanceId);
+      if (!found || found.player.id !== constraint.target.playerId) continue;
+    } else if (constraint.target.kind === 'company') {
+      const company = findCompanyById(state, constraint.target.companyId);
+      if (!company || !company.characters.includes(char.instanceId)) continue;
+    } else {
+      continue;
+    }
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {

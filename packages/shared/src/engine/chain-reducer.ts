@@ -948,6 +948,14 @@ function addDeclaredConstraint(
   opts: {
     readonly boundSiteDefId?: import('../types/common.js').CardDefinitionId;
     readonly untilClearedPlayerId?: PlayerId;
+    /**
+     * Forces a player-wide target regardless of scope, bypassing the active-
+     * company resolution entirely. Used when `effect.apply.target ===
+     * "player"` (Praise to Elbereth tw-305: "characters gain +1
+     * prowess" — every character the declaring player controls, not just the
+     * one company active in the current M/H/Site sub-phase).
+     */
+    readonly declaringPlayerTarget?: PlayerId;
   } = {},
 ): { readonly state: GameState; readonly added: boolean } {
   const scope = parseConstraintScope(scopeName, companyId);
@@ -961,7 +969,9 @@ function addDeclaredConstraint(
     return { state, added: false };
   }
   let target: import('../types/pending.js').ActiveConstraint['target'];
-  if (scopeName === 'until-cleared' && opts.untilClearedPlayerId) {
+  if (opts.declaringPlayerTarget) {
+    target = { kind: 'player', playerId: opts.declaringPlayerTarget };
+  } else if (scopeName === 'until-cleared' && opts.untilClearedPlayerId) {
     target = { kind: 'player', playerId: opts.untilClearedPlayerId };
   } else if (companyId) {
     target = { kind: 'company', companyId };
@@ -3042,10 +3052,12 @@ function applyAddConstraintFromOnEvent(
 
   // For `until-cleared` scope, target the active player (the effect applies
   // globally, not to a specific company that may later disband); other scopes
-  // target the resolved company.
+  // target the resolved company — unless the effect explicitly requests a
+  // player-wide target (`target: "player"`), which always wins.
   const r = addDeclaredConstraint(state, entry.card!, effect, constraintKind, scopeName, companyId, {
     boundSiteDefId,
     untilClearedPlayerId: activePlayer ?? undefined,
+    declaringPlayerTarget: effect.apply.target === 'player' ? entry.declaredBy : undefined,
   });
   if (r.added) {
     logDetail(`"${cardName}" entered play — added constraint ${constraintKind}, scope ${scopeName}`);
