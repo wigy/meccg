@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1070 | 1068 | 2 | 99.8% |
+| 1077 | 1075 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -16,8 +16,8 @@
 | BA | 96 | 96 | 100.0% |
 | DM | 92 | 92 | 100.0% |
 | LE | 295 | 293 | 99.3% |
-| TD | 81 | 81 | 100.0% |
-| TW | 318 | 318 | 100.0% |
+| TD | 84 | 84 | 100.0% |
+| TW | 322 | 322 | 100.0% |
 | WH | 84 | 84 | 100.0% |
 
 ## Detailed Test Matrix
@@ -624,6 +624,7 @@
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
 | td-25 | Foolish Words | — | 8 | ☑ |
 | td-27 | From the Pits of Angband | — | 15 | ☑ |
+| td-30 | Hobgoblins  | — | 4 | ☑ |
 | td-32 | Ice-drake | — | 2 | ☑ |
 | td-34 | Incite Denizens | — | 10 | ☑ |
 | td-36 | Itangast | — | 8 | ☑ |
@@ -652,6 +653,7 @@
 | td-81 | Wild Fell Beast | — | 8 | ☑ |
 | td-84 | Winged Fire-drake | — | 2 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
+| td-86 | Wolf-riders | — | 7 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
 | td-91 | Fram Framson | — | 2 | ☑ |
 | td-92 | Galdor | — | 6 | ☑ |
@@ -675,6 +677,7 @@
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
+| td-144 | Pledge of Conduct | — | 8 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 5 | ☑ |
@@ -742,7 +745,9 @@
 | tw-072 | Orc-guard | — | 3 | ☑ |
 | tw-073 | Orc-lieutenant | — | 4 | ☑ |
 | tw-074 | Orc-patrol | — | 3 | ☑ |
+| tw-75 | Orc-raiders | — | 8 | ☑ |
 | tw-076 | Orc-warband | — | 3 | ☑ |
+| tw-77 | Orc-warriors | — | 6 | ☑ |
 | tw-078 | Orc-watch | — | 3 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
@@ -753,6 +758,7 @@
 | tw-91 | Snowstorm | — | 5 | ☑ |
 | tw-93 | The Balance of Things | — | 6 | ☑ |
 | tw-94 | The Burden of Time | — | 11 | ☑ |
+| tw-95 | The Great Goblin | — | 8 | ☑ |
 | tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
 | tw-100 | The Will of Sauron | — | 14 | ☑ |
 | tw-103 | “Tom” (Tûma) | — | 7 | ☑ |
@@ -872,6 +878,7 @@
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
+| tw-264 | Lapse of Will | — | 5 | ☑ |
 | tw-266 | Lesser Ring | — | 3 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 8 | ☑ |
