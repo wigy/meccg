@@ -131,7 +131,9 @@ describe('a hand card whose only legal action is discard-card', () => {
     renderHand(discardOnlyView(), pool, action => { sent = action; });
 
     expect(handArc.children).toHaveLength(1);
-    const img = handArc.children[0];
+    const cardsEl = handArc.children[0];
+    expect(cardsEl.children).toHaveLength(1);
+    const img = cardsEl.children[0];
     expect(img.className).toBe('hand-card hand-card-playable');
 
     img.dispatch('click');
@@ -149,7 +151,7 @@ describe('a hand card whose only legal action is discard-card', () => {
     let sent: GameAction | null = null;
     renderHand(discardOnlyView(), pool, action => { sent = action; });
 
-    handArc.children[0].dispatch('click');
+    handArc.children[0].children[0].dispatch('click');
     const button = body.all().find(el => el.tagName === 'button');
     button!.dispatch('click');
 
@@ -160,7 +162,7 @@ describe('a hand card whose only legal action is discard-card', () => {
     let sent: GameAction | null = null;
     renderHand(discardOnlyView(), pool, action => { sent = action; });
 
-    handArc.children[0].dispatch('click');
+    handArc.children[0].children[0].dispatch('click');
     const backdrop = body.all().find(el => el.className === 'chain-target-backdrop');
     expect(backdrop).toBeDefined();
     backdrop!.dispatch('click');

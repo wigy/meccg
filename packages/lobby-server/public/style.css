@@ -4989,19 +4989,42 @@ h2 {
   position: fixed;
   left: 10vw;
   right: 10vw;
-  display: flex;
-  justify-content: center;
   z-index: var(--z-board);
   pointer-events: none;
 }
 
-#hand-arc > *, #opponent-arc > * {
+#opponent-arc {
+  display: flex;
+  justify-content: center;
+}
+
+#opponent-arc > * {
   pointer-events: auto;
 }
 
 #hand-arc {
   bottom: -10vh;
   transition: bottom 0.3s ease;
+}
+
+/*
+ * Card images render into this wrapper rather than directly into #hand-arc.
+ * The scale-to-fit transform applied to large hands (see fitHandArc in
+ * render-hand.ts) must land here, not on #hand-arc itself: a `transform` on
+ * #hand-arc would make it the containing block for its `::before` hover
+ * catch-zone below (a `position: fixed` pseudo-element), pulling the catch
+ * zone's viewport-relative edges inward exactly when a large hand needs
+ * scaling -- shrinking it enough that the mouse loses :hover over the
+ * fanned-out side cards and the arc snaps shut before they can be clicked
+ * (bug 312ca3add87e3ef7).
+ */
+.hand-arc-cards {
+  display: flex;
+  justify-content: center;
+}
+
+.hand-arc-cards > * {
+  pointer-events: auto;
 }
 
 /*
