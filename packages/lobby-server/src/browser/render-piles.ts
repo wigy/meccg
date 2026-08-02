@@ -3,7 +3,8 @@
  *
  * Renders deck piles (play deck, site deck, sideboard, discard, victory display)
  * for both players, and provides the pile browser modal for browsing card lists.
- * Also handles the interactive site selection and fetch-from-pile sub-flows.
+ * Also handles the interactive site selection, fetch-from-pile, and
+ * reveal-remove-from-discard sub-flows.
  */
 
 import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard } from '@meccg/shared';
@@ -638,7 +639,7 @@ export function prepareFetchFromPile(
   }
 
   // Set up selection state so pile browser highlights eligible cards
-  fetchSubFlowActive = true;
+  pileSubFlowActive = true;
   siteSelectionActions = fetchActions;
   siteSelectionMatcher = (card) => fetchActions.find(
     ea => ea.action.type === 'fetch-from-pile'
@@ -647,18 +648,48 @@ export function prepareFetchFromPile(
   siteSelectionCallback = onAction;
 }
 
-/** Whether the fetch-from-pile sub-flow is active (pile highlights should persist). */
-let fetchSubFlowActive = false;
+/**
+ * Prepare the reveal-remove-from-discard sub-flow UI (Aware of their Ways,
+ * dm-46): highlights the opponent's discard pile and wires up the pile
+ * browser so clicking one of the revealed cards sends the corresponding
+ * `remove-revealed-card` action. Declining is handled by the regular pass
+ * button, not this sub-flow.
+ */
+export function prepareRevealRemoveFromDiscard(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const removeActions = view.legalActions.filter(ea => ea.viable && ea.action.type === 'remove-revealed-card');
+  if (removeActions.length === 0) return;
+
+  cachedCardPool = cardPool;
+
+  // Open the opponent's deck box so the discard pile is visible
+  document.getElementById('opponent-deck-box')?.classList.remove('deck-box--compact');
+  document.getElementById('opponent-discard-pile')?.classList.add('pile--fetch-active');
+
+  pileSubFlowActive = true;
+  siteSelectionActions = removeActions;
+  siteSelectionMatcher = (card) => removeActions.find(
+    ea => ea.action.type === 'remove-revealed-card'
+      && ea.action.cardInstanceId === card.instanceId,
+  );
+  siteSelectionCallback = onAction;
+}
+
+/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard) is active (pile highlights should persist). */
+let pileSubFlowActive = false;
 
 /** Close the pile browser and clear selection state. */
 export function closeSelectionViewer(): void {
   const modal = document.getElementById('pile-browser-modal');
   if (modal) modal.classList.add('hidden');
 
-  if (fetchSubFlowActive) {
+  if (pileSubFlowActive) {
     // Keep selection wiring and pile highlights -- only hide the modal.
-    // The next state update will re-call prepareFetchFromPile if still active,
-    // or clearSelectionState if no longer needed.
+    // The next state update will re-call the active sub-flow preparer if
+    // still active, or clearSelectionState if no longer needed.
     return;
   }
 
@@ -671,11 +702,12 @@ export function clearSelectionState(): void {
   siteSelectionCallback = null;
   siteSelectionMatcher = null;
   siteSelectionInPlayInstanceIds = new Set();
-  fetchSubFlowActive = false;
+  pileSubFlowActive = false;
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
   document.getElementById('self-sideboard-pile')?.classList.remove('pile--fetch-active');
   document.getElementById('self-discard-pile')?.classList.remove('pile--fetch-active');
+  document.getElementById('opponent-discard-pile')?.classList.remove('pile--fetch-active');
 }
 
 /** @deprecated Use closeSelectionViewer instead. */

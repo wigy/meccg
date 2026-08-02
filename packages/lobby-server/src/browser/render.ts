@@ -49,7 +49,7 @@ export { renderActions } from './render-actions.js';
 export { renderPlayerNames } from './render-player-names.js';
 
 // Deck piles and pile browser
-export { renderDeckPiles, resetDeckPiles, prepareSiteSelection, openMovementViewer, prepareFetchFromPile, closeSelectionViewer, clearSelectionState, clearSiteSelection } from './render-piles.js';
+export { renderDeckPiles, resetDeckPiles, prepareSiteSelection, openMovementViewer, prepareFetchFromPile, prepareRevealRemoveFromDiscard, closeSelectionViewer, clearSelectionState, clearSiteSelection } from './render-piles.js';
 
 // Instructions and pass button
 export { renderPassButton } from './render-instructions.js';
