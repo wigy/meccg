@@ -1001,28 +1001,14 @@ h2 {
 /* ---- Admin: requests tab ---- */
 
 .admin-req-actions {
-  text-align: right;
+  margin-left: auto;
   white-space: nowrap;
-  width: 7rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
-.admin-req-icon-btn {
-  background: none;
-  border: none;
-  padding: 0.15rem;
-  margin-left: 0.35rem;
-  color: #a0a8b0;
+.admin-request-row {
   cursor: pointer;
-  vertical-align: middle;
-  line-height: 0;
-}
-
-.admin-req-icon-btn:hover {
-  color: #f5d98a;
-}
-
-.admin-req-icon-btn--danger:hover {
-  color: #f44336;
 }
 
 .admin-req-empty {
@@ -2081,6 +2067,54 @@ h2 {
 .app-dialog-actions .app-dialog-btn-cancel:hover {
   background: rgba(255,255,255,0.05);
   color: #ddd;
+}
+
+/* Send Mail to All dialog (admin screen) */
+
+.admin-mail-all-title {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+  font-size: 1rem;
+}
+
+.admin-mail-all-hint {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin: 0 0 0.75rem;
+}
+
+.admin-mail-all-subject,
+.admin-mail-all-body {
+  width: 100%;
+  box-sizing: border-box;
+  background: #16162a;
+  color: #e0e0e0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.admin-mail-all-subject {
+  margin-bottom: 0.5rem;
+}
+
+.admin-mail-all-body {
+  resize: vertical;
+  margin-bottom: 0.25rem;
+}
+
+.admin-mail-all-error {
+  flex: 1;
+  align-self: center;
+  color: #e08080;
+  font-size: 0.85rem;
+}
+
+.admin-mail-all-send:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .lobby-content {
