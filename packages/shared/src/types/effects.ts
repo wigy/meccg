@@ -2017,6 +2017,7 @@ export type TriggeredActionType =
   | 'place-item-on-character'
   | 'discard-named-in-play'
   | 'discard-target-in-play'
+  | 'discard-bearer-corruption'
   | 'draw-cards'
   | 'sauron-sideboard-fetch'
   | 'peek-opponent-hand'
@@ -2691,6 +2692,18 @@ export interface DiscardTargetInPlayAction extends TriggeredActionBase {
 }
 
 /**
+ * `discard-bearer-corruption` — on `self-enters-play` for a permanent-event
+ * played onto a character (the `targetCharacterId` on the chain entry), moves
+ * every attached hazard-corruption card (`cardType: "hazard-corruption"`,
+ * scanning the bearer's `hazards`) to its owner's discard pile. Used by Three
+ * Golden Hairs (td-157): "All corruption cards on the bearer are discarded
+ * when this card comes into play."
+ */
+export interface DiscardBearerCorruptionAction extends TriggeredActionBase {
+  readonly type: 'discard-bearer-corruption';
+}
+
+/**
  * `sauron-sideboard-fetch` — the first mode of The Lidless Eye's (le-203)
  * once-per-organization-phase granted ability: "bring a resource or character
  * from your sideboard into your play deck and shuffle." The chosen sideboard
@@ -3040,6 +3053,7 @@ export type TriggeredAction =
   | PlaceItemOnCharacterAction
   | DiscardNamedInPlayAction
   | DiscardTargetInPlayAction
+  | DiscardBearerCorruptionAction
   | DrawCardsEffect
   | SauronSideboardFetchAction
   | PeekOpponentHandAction

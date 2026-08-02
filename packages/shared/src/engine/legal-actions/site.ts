@@ -1272,6 +1272,22 @@ function playResourcesActions(
           // site-phase play path, mirroring organization-events.ts.
           const charDupLimit = findDuplicationLimitEffect(eventDef, 'character');
           const eligibleCharIds: import('../../index.js').CardInstanceId[] = [];
+          // Names of every character in one of the player's companies currently
+          // at this same site (across companies, including this one) — backs
+          // "at the same site as <Named Character>" play-target filters (e.g.
+          // Three Golden Hairs td-157: "… diplomat character … at the same
+          // site as Galadriel").
+          const siteCharacterNames = siteDefId
+            ? player.companies
+                .filter(co => co.currentSite?.definitionId === siteDefId)
+                .flatMap(co => co.characters)
+                .map(cId => {
+                  const memberChar = player.characters[cId];
+                  const memberDef = memberChar ? defById(state, memberChar.definitionId) : undefined;
+                  return memberDef?.name;
+                })
+                .filter((n): n is string => !!n)
+            : [];
           for (const charId of company.characters) {
             const ch = player.characters[charId];
             if (!ch) continue;
@@ -1292,7 +1308,7 @@ function playResourcesActions(
                 keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 isAvatar: isAvatarCharacter(charDef),
               },
-              company: { covert: isCovertCompany(company, player, state) },
+              company: { covert: isCovertCompany(company, player, state), siteCharacterNames },
             };
             if (charPlayTarget.filter && !matchesCondition(charPlayTarget.filter, ctx)) continue;
             if (charDupLimit) {
