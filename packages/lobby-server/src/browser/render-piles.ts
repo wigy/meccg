@@ -624,7 +624,14 @@ export function prepareFetchFromPile(
 
   cachedCardPool = cardPool;
 
-  // Open deck box so piles are visible
+  // Open deck box so piles are visible. The all-companies overview hides
+  // #self-deck-box entirely (`.all-companies-mode #self-deck-box { display:
+  // none }`) — e.g. auto-forced on the opponent's turn, or left on by a
+  // manual toggle from before this effect appeared. Without clearing it here,
+  // a fetch-to-deck offer landing while that overview is showing leaves the
+  // sideboard/discard piles impossible to see or click (reported: Smoke Rings
+  // played mid-attack, "the discard/sideboard never lights up for retrieval").
+  document.body.classList.remove('all-companies-mode');
   document.getElementById('self-deck-box')?.classList.remove('deck-box--compact');
 
   // Highlight sideboard and discard pile cells
