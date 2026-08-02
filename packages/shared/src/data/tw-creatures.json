@@ -1785,10 +1785,22 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "High Pass"
+        ]
+      },
+      {
+        "movingBetweenSiteNames": [
+          "Rivendell",
+          "Lórien"
+        ]
       }
     ],
     "effects": [],
-    "text": "Unique.Orc. One strike. May also be played on a company moving from Rivendell to Lórien or from Lórien to Rivendell. May also be played keyed to High Pass and at sites in High Pass."
+    "text": "Unique.Orc. One strike. May also be played on a company moving from Rivendell to Lórien or from Lórien to Rivendell. May also be played keyed to High Pass and at sites in High Pass.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hazard-creature",

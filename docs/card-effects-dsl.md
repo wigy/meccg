@@ -9833,6 +9833,27 @@ The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
 Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
 an adjacent site of any Under-deeps site."
 
+### `movingBetweenSiteNames`
+
+```json
+{ "movingBetweenSiteNames": ["Rivendell", "Lórien"] }
+```
+
+Site-to-site movement keying. Matches when the company is moving directly between
+two of the named sites: the company's origin (current) site name and its destination
+site name must both appear in the list and differ from each other, so a single entry
+covers both directions of the route. A non-moving company never matches, because its
+destination site name equals its origin site name.
+
+Evaluated in `findCreatureKeyingMatches` (legal-actions/movement-hazard.ts, offer
+side — the origin resolves from the target company's `currentSite`) and
+`checkCreatureKeying` (mh-hazard-play.ts, validation side — the origin resolves from
+the active company's `currentSite`). The keying method recorded in `keyedBy.method`
+is `"moving-between-sites"` with the route as the value (e.g. `"Rivendell to Lórien"`).
+
+Used by: *The Great Goblin* (tw-95) — "May also be played on a company moving from
+Rivendell to Lórien or from Lórien to Rivendell."
+
 ### 38. `grant-keyword`
 
 Grants a keyword tag to the item's bearer while the item/event is attached.
