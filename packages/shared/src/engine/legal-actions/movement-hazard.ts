@@ -4152,6 +4152,32 @@ function findCreatureKeyingMatches(
         }
       }
     }
+    // Adjacent-to site name matches — destination site must be adjacent
+    // (under-deeps sense) to any of the named sites (the name sibling of
+    // adjacentToSiteKeywords; e.g. Durin's Bane dm-107: "at The Under-gates
+    // and at all of its adjacent sites").
+    if (key.adjacentToSiteNames && key.adjacentToSiteNames.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined);
+      if (resolvedDest) {
+        for (const sn of key.adjacentToSiteNames) {
+          const namedSites = Object.values(state.cardPool).filter(
+            c => isSiteCard(c) && c.name === sn,
+          ) as SiteCard[];
+          for (const namedSite of namedSites) {
+            if (isUnderDeepsAdjacent(state, namedSite, resolvedDest)) {
+              const k = `adjacent-to-site-name:${sn}`;
+              if (!seen.has(k)) { seen.add(k); matches.push({ method: 'adjacent-to-site-name', value: sn }); }
+              break;
+            }
+          }
+        }
+      }
+    }
     // Follows-attack matches — the company must have already faced a
     // creature-sourced (not-site-keyed) hazard attack this M/H sub-phase by
     // one of the listed races. See Wolf-riders (td-86).
@@ -4437,6 +4463,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
     if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
+    if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to:${k.adjacentToSiteNames.join('/')}`);
     if (k.followsAttackRaces?.length) parts.push(`follows-attack:${k.followsAttackRaces.join('/')}`);
     return parts.join(', ');
   }).join(' or ');
