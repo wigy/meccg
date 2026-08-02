@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1077 | 1075 | 2 | 99.8% |
+| 1081 | 1079 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -16,8 +16,8 @@
 | BA | 96 | 96 | 100.0% |
 | DM | 92 | 92 | 100.0% |
 | LE | 295 | 293 | 99.3% |
-| TD | 84 | 84 | 100.0% |
-| TW | 322 | 322 | 100.0% |
+| TD | 85 | 85 | 100.0% |
+| TW | 325 | 325 | 100.0% |
 | WH | 84 | 84 | 100.0% |
 
 ## Detailed Test Matrix
@@ -287,7 +287,7 @@
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
-| dm-119 | Barrow-blade | — | 8 | ☑ |
+| dm-119 | Barrow-blade | — | 9 | ☑ |
 | dm-120 | Choice of Lúthien | — | 12 | ☑ |
 | dm-121 | Crown of Flowers | — | 6 | ☑ |
 | dm-123 | Dark Numbers | — | 14 | ☑ |
@@ -473,7 +473,7 @@
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
-| le-238 | Swift Strokes | — | 6 | ☑ |
+| le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 12 | ☑ |
 | le-240 | That Ain’t No Secret | — | 14 | ☑ |
 | le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
@@ -678,6 +678,7 @@
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
 | td-144 | Pledge of Conduct | — | 8 | ☑ |
+| td-148 | Riddling Talk | — | 15 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 5 | ☑ |
@@ -856,9 +857,11 @@
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
 | tw-224 | Elf-stone | — | 6 | ☑ |
+| tw-225 | Elven Cloak | — | 5 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
+| tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
 | tw-240 | Fellowship | — | 11 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
@@ -881,7 +884,7 @@
 | tw-264 | Lapse of Will | — | 5 | ☑ |
 | tw-266 | Lesser Ring | — | 3 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
-| tw-270 | Lucky Strike | — | 8 | ☑ |
+| tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
 | tw-276 | Men of Anfalas | — | 2 | ☑ |
 | tw-277 | Men of Anórien | — | 2 | ☑ |
@@ -896,6 +899,7 @@
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
 | tw-302 | Paths of the Dead | — | 6 | ☑ |
+| tw-305 | Praise to Elbereth | — | 11 | ☑ |
 | tw-306 | Precious Gold Ring | — | 21 | ☑ |
 | tw-307 | Quickbeam | — | 7 | ☑ |
 | tw-308 | Quickbeam | — | 7 | ☑ |

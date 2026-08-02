@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.80.0 — 2026-08-02
+
+New card certifications and gameplay fixes
+
+### Cards
+
+- Certified Far-sight (tw-238), Elven Cloak (tw-225), Riddling Talk (td-148) and Praise to Elbereth (tw-305)
+
+### Game Engine
+
+- Barrow-blade is no longer playable without a Dagger during the movement/hazard phase
+- Resource permanent-events can now be played during the long-event phase
+- Reroll strike-modifier cards no longer force tap-to-fight
+- The active player is now synced when Free Council corruption checks switch players
+
+### Web Client
+
+- Widened the gap between stacked action buttons in the visual panel
+- Fixed invisible sideboard/discard piles during a fetch-from-pile offer
+- Fixed the on-guard card discard-target click for Withdrawn to Mordor
+- Aware of their Ways discard-removal choice is now offered in the UI
+
+### Infrastructure
+
+- Fixed lobby server test mocks for the missing `toDirName` player-store export
+
 ## 0.79.0 — 2026-08-02
 
 Goblin-town hordes and safer discards
