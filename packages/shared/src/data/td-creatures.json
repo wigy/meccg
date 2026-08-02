@@ -417,11 +417,13 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ]
       }
     ],
     "effects": [],
+    "certified": "2026-08-02",
     "text": "Orcs. Two strikes."
   },
   {

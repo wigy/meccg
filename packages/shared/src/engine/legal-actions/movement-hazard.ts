@@ -4012,7 +4012,10 @@ function findCreatureKeyingMatches(
   def: CreatureCard,
   mhState: MovementHazardPhaseState,
   state: GameState,
-  targetCompany: { readonly destinationSite?: { readonly instanceId: CardInstanceId } | null },
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
 ): CreatureKeyingMatch[] {
   const matches: CreatureKeyingMatch[] = [];
   const seen = new Set<string>();
@@ -4158,6 +4161,25 @@ function findCreatureKeyingMatches(
           const k = `follows-attack:${race}`;
           if (!seen.has(k)) { seen.add(k); matches.push({ method: 'follows-attack', value: race }); }
         }
+      }
+    }
+    // Moving-between-sites matches — the company's origin (current) site and
+    // its destination site must both be named in the entry and differ, so one
+    // entry covers both directions of a named site-to-site route (The Great
+    // Goblin tw-95: Rivendell ↔ Lórien). A non-moving company's destination
+    // name equals its origin name and never matches.
+    if (key.movingBetweenSiteNames && key.movingBetweenSiteNames.length > 0 && mhState.destinationSiteName) {
+      const originDefId = targetCompany.currentSite?.instanceId
+        ? resolveInstanceId(state, targetCompany.currentSite.instanceId)
+        : null;
+      const originName = originDefId ? defById(state, originDefId)?.name : undefined;
+      if (originName
+        && originName !== mhState.destinationSiteName
+        && key.movingBetweenSiteNames.includes(originName)
+        && key.movingBetweenSiteNames.includes(mhState.destinationSiteName)) {
+        const route = `${originName} to ${mhState.destinationSiteName}`;
+        const k = `moving-between-sites:${route}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'moving-between-sites', value: route }); }
       }
     }
   }
