@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1081 | 1079 | 2 | 99.8% |
+| 1086 | 1084 | 2 | 99.8% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 104 | 104 | 100.0% |
+| AS | 105 | 105 | 100.0% |
 | BA | 96 | 96 | 100.0% |
-| DM | 92 | 92 | 100.0% |
-| LE | 295 | 293 | 99.3% |
-| TD | 85 | 85 | 100.0% |
-| TW | 325 | 325 | 100.0% |
+| DM | 93 | 93 | 100.0% |
+| LE | 296 | 294 | 99.3% |
+| TD | 86 | 86 | 100.0% |
+| TW | 326 | 326 | 100.0% |
 | WH | 84 | 84 | 100.0% |
 
 ## Detailed Test Matrix
@@ -42,6 +42,7 @@
 | as-18 | Radagast the Tamer | — | 20 | ☑ |
 | as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
+| as-23 | A Lie in Your Eyes | — | 7 | ☑ |
 | as-24 | Alone and Unadvised | — | 14 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 13 | ☑ |
@@ -54,7 +55,7 @@
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-51 | No Strangers at this Time | — | 14 | ☑ |
-| as-54 | Safe from the Shadow | — | 11 | ☑ |
+| as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-63 | Haradrim | — | 8 | ☑ |
@@ -280,6 +281,7 @@
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
+| dm-107 | Durin's Bane | — | 11 | ☑ |
 | dm-108 | Little Snuffler | — | 7 | ☑ |
 | dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
@@ -400,6 +402,7 @@
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-106 | Chill Them with Fear | — | 15 | ☑ |
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
+| le-108 | Darkness Under Tree | — | 5 | ☑ |
 | le-110 | Doors of Night | — | 7 | ☑ |
 | le-111 | Fell Winter | — | 11 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
@@ -654,6 +657,7 @@
 | td-84 | Winged Fire-drake | — | 2 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-86 | Wolf-riders | — | 7 | ☑ |
+| td-89 | Worn and Famished | — | 11 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
 | td-91 | Fram Framson | — | 2 | ☑ |
 | td-92 | Galdor | — | 6 | ☑ |
@@ -712,7 +716,7 @@
 | tw-18 | Call of Home | — | 8 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
 | tw-021 | — | — | 15 | ☑ |
-| tw-23 | Corpse-candle | — | 10 | ☑ |
+| tw-23 | Corpse-candle | — | 11 | ☑ |
 | tw-024 | — | — | 2 | ☑ |
 | tw-26 | Daelomin | — | 7 | ☑ |
 | tw-27 | Despair of the Heart | — | 9 | ☑ |
@@ -760,6 +764,7 @@
 | tw-93 | The Balance of Things | — | 6 | ☑ |
 | tw-94 | The Burden of Time | — | 11 | ☑ |
 | tw-95 | The Great Goblin | — | 8 | ☑ |
+| tw-96 | The Nazgûl are Abroad | — | 17 | ☑ |
 | tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
 | tw-100 | The Will of Sauron | — | 14 | ☑ |
 | tw-103 | “Tom” (Tûma) | — | 7 | ☑ |

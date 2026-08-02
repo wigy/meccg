@@ -1540,7 +1540,7 @@ function summonsFromLongSleepActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || grantsCreatureKeying(state, mhState, targetCompany, creatureDef);
+          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1667,7 +1667,7 @@ function playCreatureFromDiscardActions(
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-        || grantsCreatureKeying(state, mhState, targetCompany, creatureDef);
+        || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -2180,7 +2180,7 @@ function playHazardsActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def)
-          || grantsCreatureKeying(state, mhState, targetCompany, def);
+          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -2257,6 +2257,18 @@ function playHazardsActions(
         // playCreatureFromDiscardActions(). Skip the generic short-event path.
         if (getCardEffects(def).some(e => e.type === 'play-creature-from-discard')) {
           continue;
+        }
+
+        // play-condition: card-in-play — some short-events require a named
+        // card in play (e.g. Darkness Under Tree le-108 requires Doors of
+        // Night before it may tap an Orc/Troll/Man character).
+        {
+          const cardInPlayCond = findPlayConditionEffect(def, 'card-in-play');
+          if (cardInPlayCond?.cardName && !isCardNameInPlayOrCharacters(state, cardInPlayCond.cardName)) {
+            logDetail(`Hazard short-event "${def.name}": play-condition card-in-play requires "${cardInPlayCond.cardName}" in play — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name} requires ${cardInPlayCond.cardName} in play` });
+            continue;
+          }
         }
 
         // Duplication-limit: non-viable if max copies already on chain / in play / still in effect
@@ -2861,6 +2873,7 @@ function playHazardsActions(
                   race: charDef.race,
                   skills: charDef.skills,
                   name: charDef.name,
+                  status: charData.status,
                   possessions: possessionNames,
                   itemKeywords,
                   itemSubtypes,
@@ -4151,6 +4164,32 @@ function findCreatureKeyingMatches(
         }
       }
     }
+    // Adjacent-to site name matches — destination site must be adjacent
+    // (under-deeps sense) to any of the named sites (the name sibling of
+    // adjacentToSiteKeywords; e.g. Durin's Bane dm-107: "at The Under-gates
+    // and at all of its adjacent sites").
+    if (key.adjacentToSiteNames && key.adjacentToSiteNames.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined);
+      if (resolvedDest) {
+        for (const sn of key.adjacentToSiteNames) {
+          const namedSites = Object.values(state.cardPool).filter(
+            c => isSiteCard(c) && c.name === sn,
+          ) as SiteCard[];
+          for (const namedSite of namedSites) {
+            if (isUnderDeepsAdjacent(state, namedSite, resolvedDest)) {
+              const k = `adjacent-to-site-name:${sn}`;
+              if (!seen.has(k)) { seen.add(k); matches.push({ method: 'adjacent-to-site-name', value: sn }); }
+              break;
+            }
+          }
+        }
+      }
+    }
     // Follows-attack matches — the company must have already faced a
     // creature-sourced (not-site-keyed) hazard attack this M/H sub-phase by
     // one of the listed races. See Wolf-riders (td-86).
@@ -4343,15 +4382,21 @@ function collectCreatureKeyingGrants(
  * restricts the grant to creatures whose own `keyedTo` offers a non-Coastal-Sea
  * region — A Pack at the Door (tw-497), "may be played in Border-lands [{b}],
  * Border-holds [{B}] or Ruins & Lairs [{R}] … must be playable in a non-Coastal
- * Sea [{c}] region."
+ * Sea [{c}] region." `siteFilter.excludeSiteTypes` is the inverse of
+ * `siteTypes` — matches any effective site type except those listed — used by
+ * The Nazgûl are Abroad (tw-96): "at any site that is not a Free-hold [{F}] or
+ * Haven [{H}]."
+ *
+ * The optional `companyFilter` additionally gates the grant on the target
+ * company itself (`{ company: { itemNames, itemKeywords, alignment, … } }`,
+ * via {@link buildTargetCompanyConditionContext}) — e.g. "a hero company …
+ * possessing any Ring" (tw-96).
  */
 function grantsCreatureKeying(
   state: GameState,
   mhState: MovementHazardPhaseState,
-  targetCompany: {
-    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
-    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
-  },
+  owner: PlayerState,
+  targetCompany: Company,
   creatureDef: CardDefinition,
 ): boolean {
   const grants = collectCreatureKeyingGrants(state, mhState);
@@ -4375,22 +4420,31 @@ function grantsCreatureKeying(
     // The creature must be playable in a non-Coastal-Sea region (tw-497).
     if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
       && !creatureHasNonCoastalRegionKeying(creatureDef)) continue;
-    // Site-type branch: effective site type in siteTypes AND all keywords.
+    // Site-type branch: effective site type in siteTypes (or NOT in excludeSiteTypes) AND all keywords.
     let siteBranch = false;
     if (e.siteFilter.siteTypes) {
       siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
+        && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+    } else if (e.siteFilter.excludeSiteTypes) {
+      siteBranch = !e.siteFilter.excludeSiteTypes.includes(effSiteType)
         && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
     }
     // Region-type branch: the company path holds a granted region type.
     const regionBranch = !!e.siteFilter.regionTypes
       && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
-    if (siteBranch || regionBranch) {
-      logDetail(
-        `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
-        + `${siteBranch ? `site type ${effSiteType}` : `region type on path`}`,
+    if (!siteBranch && !regionBranch) continue;
+    // Target-company gate (e.g. "a hero company bearing The One Ring").
+    if (e.companyFilter) {
+      const companyCtx = buildTargetCompanyConditionContext(
+        state, owner, targetCompany, defenderAlignmentLabel(owner.alignment),
       );
-      return true;
+      if (!matchesCondition(e.companyFilter, companyCtx)) continue;
     }
+    logDetail(
+      `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
+      + `${siteBranch ? `site type ${effSiteType}` : `region type on path`}`,
+    );
+    return true;
   }
   return false;
 }
@@ -4421,6 +4475,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
     if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
+    if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to:${k.adjacentToSiteNames.join('/')}`);
     if (k.followsAttackRaces?.length) parts.push(`follows-attack:${k.followsAttackRaces.join('/')}`);
     return parts.join(', ');
   }).join(' or ');

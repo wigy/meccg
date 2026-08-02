@@ -226,7 +226,11 @@
     "killMarshallingPoints": 5,
     "race": "balrog",
     "additionalRaces": ["spawn"],
-    "keyedTo": [],
+    "keyedTo": [
+      { "siteNames": ["The Under-gates"] },
+      { "adjacentToSiteNames": ["The Under-gates"] },
+      { "siteKeywords": ["under-deeps"], "when": { "inPlay": "Doors of Night" } }
+    ],
     "effects": [
       {
         "type": "deck-restriction",
@@ -246,9 +250,14 @@
           }
         },
         "reason": "cannot be played against a Balrog player (MEBA)"
+      },
+      {
+        "type": "combat-body-check-modifier",
+        "value": 1
       }
     ],
-    "text": "Unique.Manifestation of Balrog of Moria. Balrog. Two strikes—all body checks resulting from a successful strike are modified by +1. May be played at The Under-gates and at all of its adjacent sites. If Doors of Night is in play, Durin's Bane may be played at any Under-deeps site.Cannot be included in a Balrog's deck and cannot be played if your opponent is a Balrog player."
+    "text": "Unique.Manifestation of Balrog of Moria. Balrog. Two strikes—all body checks resulting from a successful strike are modified by +1. May be played at The Under-gates and at all of its adjacent sites. If Doors of Night is in play, Durin's Bane may be played at any Under-deeps site.Cannot be included in a Balrog's deck and cannot be played if your opponent is a Balrog player.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hazard-creature",

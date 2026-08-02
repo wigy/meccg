@@ -59,6 +59,16 @@ export interface CreatureKeyRestriction {
    */
   readonly adjacentToSiteKeywords?: readonly Keyword[];
   /**
+   * Site adjacency name filter. The creature is playable at any site that is
+   * adjacent (in the Under-deeps movement sense) to one of the *named* sites
+   * listed here — the name sibling of {@link adjacentToSiteKeywords}, for
+   * creatures whose base keying is tied to a single canonical site rather
+   * than a keyword category. Used by Durin's Bane (dm-107): "May be played
+   * at The Under-gates and at all of its adjacent sites."
+   * Evaluated in `findCreatureKeyingMatches`.
+   */
+  readonly adjacentToSiteNames?: readonly string[];
+  /**
    * Creature races whose attack this creature may follow. The creature is
    * playable against a company that has, during its *current* M/H
    * sub-phase, already faced a hazard-creature attack (played from hand —

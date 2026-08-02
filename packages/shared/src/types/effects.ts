@@ -1687,6 +1687,35 @@ export interface RevealDeckChoosePenaltyEffect extends EffectBase {
 }
 
 /**
+ * Carried by a hazard short-event playable on an untapped character. When the
+ * event resolves un-negated on the chain, the **defending** player (the
+ * targeted character's controller — "your opponent" from the card-player's
+ * perspective) is forced to choose one of three responses:
+ *
+ * - Tap the targeted character.
+ * - Tap one untapped ally the character controls (offered only when such an
+ *   ally exists).
+ * - Let the card-player roll 2d6: if the total is strictly greater than the
+ *   character's effective mind plus `rollAddend`, the character is discarded
+ *   to their owner's discard pile (their non-follower possessions go with
+ *   them; followers are freed to general influence per the standard
+ *   `discard-character` verb).
+ *
+ * Resolved via a two-stage {@link PendingResolution}: `tap-or-roll-choice`
+ * (the defender's pick) and, only if "roll" is picked, a generic `dice-check`
+ * (the card-player's roll). Used by *A Lie in Your Eyes* (as-23): "Your
+ * opponent may either: tap the character, tap an ally the character
+ * controls, or choose for you to make a roll. If the result is greater than
+ * the character's mind plus 6, the character is discarded (along with all
+ * non-follower cards he controls)."
+ */
+export interface OpponentChooseTapOrRollEffect extends EffectBase {
+  readonly type: 'opponent-choose-tap-or-roll';
+  /** Added to the character's effective mind to form the discard threshold. */
+  readonly rollAddend: number;
+}
+
+/**
  * Removes an opponent's face-up agent from play, or (as an alternative mode)
  * discards one of the opponent's unrevealed on-guard cards.
  *
@@ -3251,6 +3280,38 @@ export interface RollUntapSiteEffect extends EffectBase {
   readonly threshold: number;
   /** Bonus added to the roll when the target character is a Wizard. */
   readonly wizardBonus: number;
+}
+
+/**
+ * Global untap-phase restriction, carried by a hazard long-event while it sits
+ * in either player's `cardsInPlay`. Every character of the untapping (active)
+ * player whose race is not Wizard, and whose company's current site is not
+ * one of {@link exemptSiteTypes}, does not untap normally: instead of the
+ * plain tapped→untapped transition in `performUntap`, a generic `dice-check`
+ * is enqueued per such character — 2d6 + the character's effective mind,
+ * strictly greater than {@link threshold} untaps him via the `set-character-
+ * status` onPass verb. Rolling has no downside (no `onFail` penalty), so the
+ * printed "may instead make a roll" is modeled as an always-taken roll rather
+ * than an interactive decline.
+ *
+ * When {@link noEffectOnMinion} is set, the whole restriction is skipped for
+ * an untapping player whose alignment is Ringwraith (CoE "minion player" —
+ * the `ahunt-attack`/`faction-influence-restriction` precedent).
+ *
+ * Used by Worn and Famished (td-89): "Each non-Wizard character that is not
+ * in a Haven [{H}], Free-hold [{F}], or Border-hold [{B}] does not untap
+ * normally during his untap phase. Character's player may instead make a
+ * roll adding his mind. If the result is greater than 12, he untaps. This
+ * card has no effect on a minion player."
+ */
+export interface UntapMindRollEffect extends EffectBase {
+  readonly type: 'untap-mind-roll';
+  /** The modified 2d6 total must be strictly greater than this to untap. */
+  readonly threshold: number;
+  /** Site types where an affected character's company being present exempts him from the restriction. */
+  readonly exemptSiteTypes: readonly SiteType[];
+  /** When true, the restriction has no effect for an untapping player with alignment `ringwraith`. */
+  readonly noEffectOnMinion?: boolean;
 }
 
 /**
@@ -7043,6 +7104,20 @@ export interface RetainHazardLongEventsEffect extends EffectBase {
  * Door (tw-497) grants non-unique Animal/Spider/Wolf creatures keying to
  * Border-lands [{b}] (region type) or Border-holds [{B}] / Ruins & Lairs [{R}]
  * (site types), gated by `requiresNonCoastalKeying` (see below).
+ *
+ * `siteFilter.excludeSiteTypes` inverts the site-type branch into a
+ * denylist: the grant matches any effective site type *except* those listed
+ * (mutually exclusive with `siteTypes` — a card uses one or the other). Used
+ * by The Nazgûl are Abroad (tw-96): "Nazgûl may attack a hero company … at
+ * any site that is not a Free-hold [{F}] or Haven [{H}]."
+ *
+ * The optional `companyFilter` gates the grant on the *target company* being
+ * attacked (in addition to the site/region match), evaluated via
+ * {@link buildTargetCompanyConditionContext}'s `company` context (exposing
+ * `itemNames`, `itemKeywords`, `alignment`, …). Used by The Nazgûl are Abroad
+ * (tw-96) to restrict the widened keying to a hero company bearing The One
+ * Ring (`{ "company.itemKeywords": { "$includes": "the-one-ring" } }`) or any
+ * Ring (`{ "company.itemKeywords": { "$includes": "ring" } }`).
  */
 export interface GrantCreatureKeyingEffect extends EffectBase {
   readonly type: 'grant-creature-keying';
@@ -7052,6 +7127,11 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
   readonly siteFilter: {
     /** Effective site type must be one of these (omit = no site-type branch). */
     readonly siteTypes?: readonly SiteType[];
+    /**
+     * Effective site type must NOT be one of these (an alternative to
+     * `siteTypes` for "any site except …" grants — mutually exclusive with it).
+     */
+    readonly excludeSiteTypes?: readonly SiteType[];
     /** Site must carry every keyword listed here (applies to the site-type branch). */
     readonly siteKeywords?: readonly string[];
     /**
@@ -7061,6 +7141,13 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
      */
     readonly regionTypes?: readonly RegionType[];
   };
+  /**
+   * DSL condition evaluated against the target company's condition context
+   * (`{ company: { itemNames, itemKeywords, alignment, … } }` — see
+   * {@link buildTargetCompanyConditionContext}). Omit to gate on site/region
+   * alone.
+   */
+  readonly companyFilter?: Condition;
   /**
    * When true, the grant applies only to creatures whose own printed `keyedTo`
    * offers at least one non-Coastal-Sea region keying — i.e. the creature "must
@@ -7495,6 +7582,7 @@ export type CardEffect =
   | PeekShuffleDeckTopEffect
   | RevealRemoveFromDiscardEffect
   | RevealDeckChoosePenaltyEffect
+  | OpponentChooseTapOrRollEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect
@@ -7517,6 +7605,7 @@ export type CardEffect =
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
   | RollUntapSiteEffect
+  | UntapMindRollEffect
   | SkipNextUntapOnPlayEffect
   | ReturnToHandEffect
   | CombatAttackerChoosesDefendersEffect

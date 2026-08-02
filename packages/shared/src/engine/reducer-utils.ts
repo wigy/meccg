@@ -705,6 +705,11 @@ export function siteRuleAllowsCreatureByRace(
  * - `containsWizard` — true if any character in the company has `race ===
  *   "wizard"`, for "unless it contains a Wizard" clauses (Fifteen Birds in
  *   Five Firtrees dm-129).
+ * - `itemNames` — names of every item borne by any character in the company
+ *   (e.g. "the bearer of The One Ring").
+ * - `itemKeywords` — combined `keywords` of every item borne by any character
+ *   in the company (e.g. `"ring"` for "possessing any Ring"), via
+ *   {@link itemKeywordsOf}.
  *
  * Shared by the creature/short-event targeting checks (`legal-actions/
  * movement-hazard.ts`) and short-event resolution (`chain-reducer.ts`) so both
@@ -719,6 +724,8 @@ export function buildTargetCompanyConditionContext(
 ): Record<string, unknown> {
   const homeSites: string[] = [];
   const characterNames: string[] = [];
+  const itemNames: string[] = [];
+  const itemKeywords: string[] = [];
   let maxUntappedWarriorProwess = 0;
   let containsWizard = false;
   for (const charInstId of company.characters) {
@@ -736,10 +743,17 @@ export function buildTargetCompanyConditionContext(
       if (prowess > maxUntappedWarriorProwess) maxUntappedWarriorProwess = prowess;
     }
     if (charDef.race === Race.Wizard) containsWizard = true;
+    if (inPlay) {
+      itemNames.push(...defNamesOf(state, inPlay.items));
+      itemKeywords.push(...itemKeywordsOf(state, inPlay.items));
+    }
   }
   const covert = isCovertCompany(company, owner, state);
   return {
-    company: { homeSites, characterNames, maxUntappedWarriorProwess, containsWizard, alignment: alignment ?? null, covert },
+    company: {
+      homeSites, characterNames, maxUntappedWarriorProwess, containsWizard,
+      alignment: alignment ?? null, covert, itemNames, itemKeywords,
+    },
   };
 }
 

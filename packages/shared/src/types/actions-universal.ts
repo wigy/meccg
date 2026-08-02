@@ -477,6 +477,23 @@ export interface DesireChoosePenaltyAction {
 }
 
 /**
+ * The defending player's forced choice in response to A Lie in Your Eyes
+ * (as-23): tap the targeted character, tap one of its untapped allies, or let
+ * the card-player roll for a chance to discard the character. Resolves a
+ * `tap-or-roll-choice` pending resolution; the choice is mandatory ("Your
+ * opponent may either...").
+ */
+export interface ChooseTapOrRollAction {
+  readonly type: 'choose-tap-or-roll';
+  /** The defending player making the forced choice. */
+  readonly player: PlayerId;
+  /** Which response the defender picks. */
+  readonly choice: 'tap-character' | 'tap-ally' | 'roll';
+  /** Required when `choice` is `'tap-ally'` — the ally instance to tap. */
+  readonly allyInstanceId?: CardInstanceId;
+}
+
+/**
  * Choose which play deck to look at and shuffle the top of (Mirror of
  * Galadriel, tw-282: "choose to look at the top five cards of any one play
  * deck"). Resolves a `choose-peek-deck` pending resolution; declining the

@@ -1995,6 +1995,65 @@ replace all remaining cards back on top of his play deck. Remove this card from
 the game." (Paired with `play-discard-cost` for "discard a Spawn card from your
 hand.")
 
+### 6i-bis. `opponent-choose-tap-or-roll`
+
+Carried by a **hazard** short-event playable on an untapped character (a
+`play-target` `target: "character"` sibling effect). When the event resolves
+un-negated on the chain, the character's **controller** (the defending
+player — "your opponent" from the card-player's perspective) is forced to
+choose one of three responses via a two-stage {@link PendingResolution}:
+
+1. `tap-or-roll-choice` — offered to the defender: tap the targeted
+   character; tap one **untapped** ally the character controls (one action
+   per eligible ally, the option omitted entirely when none is untapped); or
+   let the card-player roll. The choice is mandatory (no pass — "Your
+   opponent may either...").
+2. Picking **roll** enqueues a follow-up generic `dice-check` resolution
+   (roller = the card-player): 2d6, `comparison: "gt"`, `threshold` = the
+   character's effective mind + `rollAddend`, `onPass: { "type":
+   "discard-character" }`. Tapping the character or an ally resolves
+   immediately with no roll.
+
+`rollAddend` is the only field — the three responses themselves are fixed
+(this mirrors `reveal-deck-choose-penalty`'s precedent of a card-specific
+pending-resolution shape rather than a fully generic N-way choice DSL).
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.status": "untapped" },
+    { "target.race": { "$ne": "wizard" } },
+    { "target.race": { "$ne": "ringwraith" } } ] } }
+{ "type": "opponent-choose-tap-or-roll", "rollAddend": 6 }
+```
+
+**Implementation**: `chain-reducer.ts` `resolveEntry` detects the effect on a
+character-targeted short-event chain entry and enqueues `tap-or-roll-choice`
+(actor = the character's controller) without marking the entry resolved —
+mirroring `call-of-home-check`. `legal-actions/pending.ts`
+`tapOrRollChoiceActions` offers the three `choose-tap-or-roll` actions.
+`pending-reducers.ts` `applyTapOrRollChoiceResolution` resolves
+tap-character/tap-ally immediately (tapping the target and marking the chain
+entry resolved via the same `'target-character'` match `dice-check`'s
+`chain-entry` continuation uses) or, for `roll`, enqueues the `dice-check`
+described above. The `discard-character` `dice-check` branch verb
+(`applyDiceCheckBranch` in `pending-reducers.ts`) is owner-agnostic (locates
+the target's actual controller rather than assuming the roller is the
+owner), matching `eliminate-character`/`return-character-to-hand` — needed
+here because the roller (card-player) is not the target's controller.
+
+The hazard character-targeting play-target filter context
+(`legal-actions/movement-hazard.ts`, "Character-targeting short events"
+block) additionally exposes `target.status`, so a hazard short-event can gate
+on "playable on an **untapped** character" the same way a resource-side
+`play-target` does.
+
+Used by *A Lie in Your Eyes* (as-23): "Playable on an untapped
+non-Ringwraith, non-Wizard character. Your opponent may either: tap the
+character, tap an ally the character controls, or choose for you to make a
+roll. If the result is greater than the character's mind plus 6, the
+character is discarded (along with all non-follower cards he controls)."
+
 ### 6j. `enqueue-reveal-hazards-choice`
 
 Carried by a **resource** short-event's `on-event: self-enters-play` (`target:
@@ -8923,6 +8982,56 @@ Dwarven Travelers this turn."
 }
 ```
 
+`siteFilter.excludeSiteTypes` is the inverse of `siteTypes` — a denylist:
+the site-type branch matches any effective site type **except** those listed
+(still ANDed with `siteKeywords` when present). Mutually exclusive with
+`siteTypes` — a grant uses one or the other, not both. Used for "any site
+except …" grants where a positive list would have to enumerate every other
+site type.
+
+The optional `companyFilter` additionally gates the grant on the **target
+company being attacked**, evaluated only after a `siteFilter` branch already
+matched. Context (via `buildTargetCompanyConditionContext`):
+`{ company: { itemNames, itemKeywords, alignment, homeSites, characterNames,
+maxUntappedWarriorProwess, containsWizard, covert } }` — `itemNames`/
+`itemKeywords` are the names/combined keywords of every item borne by any
+character in the company (e.g. `"the-one-ring"`, `"ring"`), and `alignment` is
+the defending player's rules-terminology alignment label (`"hero"` for a
+Wizard player).
+
+Used by The Nazgûl are Abroad (tw-96): "Nazgûl may attack a hero company
+containing the bearer of The One Ring at any site that is not a Free-hold
+[{F}] or Haven [{H}]. Nazgûl may attack any hero company possessing any Ring
+in a Shadow-land [{s}] or Shadow-hold [{S}]."
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "keywords": { "$includes": "Nazgûl" } },
+  "siteFilter": { "excludeSiteTypes": ["free-hold", "haven"] },
+  "companyFilter": {
+    "$and": [
+      { "company.alignment": "hero" },
+      { "company.itemKeywords": { "$includes": "the-one-ring" } }
+    ]
+  }
+}
+```
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "keywords": { "$includes": "Nazgûl" } },
+  "siteFilter": { "siteTypes": ["shadow-hold"], "regionTypes": ["shadow"] },
+  "companyFilter": {
+    "$and": [
+      { "company.alignment": "hero" },
+      { "company.itemKeywords": { "$includes": "ring" } }
+    ]
+  }
+}
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected
@@ -9952,6 +10061,31 @@ The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
 
 Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
 an adjacent site of any Under-deeps site."
+
+### `adjacentToSiteNames`
+
+```json
+{ "adjacentToSiteNames": ["The Under-gates"] }
+```
+
+The named-site sibling of `adjacentToSiteKeywords`: matches when the destination
+site is adjacent (in the under-deeps movement sense — bidirectional via
+`adjacentSites`, using the same `resolveAdjacency`/`isUnderDeepsAdjacent`
+machinery) to any site printing one of the listed *names*, resolved against
+every same-named printing in `state.cardPool` (a site name like "The
+Under-gates" has separate hero/minion/balrog printings). Used for creatures
+whose base keying is tied to a single canonical site rather than a keyword
+category — the base cost still needs its own `siteNames` entry for the named
+site itself, since adjacency does not include the site.
+
+The keying method recorded in `keyedBy.method` is `"adjacent-to-site-name"`.
+Evaluated in `findCreatureKeyingMatches` (movement-hazard.ts) and
+`checkCreatureKeying` (mh-hazard-play.ts).
+
+Used by: *Durin's Bane* (dm-107) — "May be played at The Under-gates and at all
+of its adjacent sites" (`keyedTo: [{ siteNames: ["The Under-gates"] },
+{ adjacentToSiteNames: ["The Under-gates"] }, { siteKeywords: ["under-deeps"],
+when: { inPlay: "Doors of Night" } }]`).
 
 ### `followsAttackRaces`
 
@@ -13819,3 +13953,43 @@ non-Wizard, non-Hobbit diplomat character (other than Galadriel) at the same
 site as Galadriel. All corruption cards on the bearer are discarded when this
 card comes into play. +2 to all corruption checks by bearer." (the "+2 to all
 corruption checks" is a bearer-scoped `check-modifier` — see section 2.)
+
+### 74. `untap-mind-roll`
+
+A game-wide untap-phase restriction carried by a hazard **long-event** while it
+sits in either player's `cardsInPlay` (checked once per untap in
+`performUntap`, `reducer-untap.ts`, not tied to whoever played the card).
+
+```json
+{ "type": "untap-mind-roll", "threshold": 12,
+  "exemptSiteTypes": ["haven", "free-hold", "border-hold"],
+  "noEffectOnMinion": true }
+```
+
+Every tapped character of the untapping (active) player is checked: a Wizard
+(`race === "wizard"`) or a character whose company's current site resolves
+(`getEffectiveSiteType`) to one of `exemptSiteTypes` untaps normally. Every
+other tapped character stays tapped instead, and a generic `dice-check` is
+enqueued in its place — 2d6 + the character's effective mind (`effectiveStats
+.mind` ?? printed mind), strictly greater than `threshold` untaps him via the
+`set-character-status` onPass verb. There is no `onFail` branch: rolling has no
+downside, so the printed "the player may instead make a roll" is modeled as an
+always-enqueued roll rather than an interactive decline — a rational player
+never declines. The pending resolution outranks every other untap-phase action
+(including the phase advancing straight to Organization when the hazard player
+had already passed) until it resolves.
+
+`noEffectOnMinion: true` skips the whole restriction for an untapping player
+whose alignment is `ringwraith` — the same "minion player" reading the
+`ahunt-attack`/`faction-influence-restriction` primitives use (Balrog is not
+included).
+
+Used by Worn and Famished (td-89): "Each non-Wizard character that is not in a
+Haven [{H}], Free-hold [{F}], or Border-hold [{B}] does not untap normally
+during his untap phase. Character's player may instead make a roll adding his
+mind. If the result is greater than 12, he untaps. This card has no effect on
+a minion player. Cannot be duplicated." — paired with the pre-existing
+`play-restriction unplayable-when opponent.alignment: "ringwraith"` (the
+tw-36/dm-72 "no effect on a minion player" precedent of also blocking play
+against a Ringwraith opponent outright) and a `duplication-limit` scope `game`
+max 1 for "Cannot be duplicated".

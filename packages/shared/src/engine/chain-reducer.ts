@@ -4708,6 +4708,43 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // A Lie in Your Eyes (as-23): hazard short-event targeting a character.
+  // Enqueue a tap-or-roll-choice pending resolution so the character's
+  // controller (the defending player) picks how to respond. Like Call of
+  // Home, do NOT mark the entry resolved yet — the pending resolution (and,
+  // if "roll" is picked, the follow-up dice-check) does that.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const tapOrRollEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').OpponentChooseTapOrRollEffect => e.type === 'opponent-choose-tap-or-roll',
+    );
+    if (tapOrRollEffect) {
+      const targetCharId = entry.payload.targetCharacterId;
+      const defenderIndex = current.players.findIndex(p => !!p.characters[targetCharId]);
+      if (defenderIndex === -1) {
+        logDetail(`A Lie in Your Eyes: target character ${targetCharId as string} no longer in play — no effect`);
+      } else {
+        const defenderId = current.players[defenderIndex].id;
+        logDetail(`A Lie in Your Eyes: enqueuing tap-or-roll-choice pending resolution for ${defenderId as string}`);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: defenderId,
+          scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+          kind: {
+            type: 'tap-or-roll-choice',
+            characterInstanceId: targetCharId,
+            rollingPlayer: entry.declaredBy,
+            rollAddend: tapOrRollEffect.rollAddend,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
+  }
+
   // Stay Her Appetite (le-140): hazard short-event targeting an ally.
   // Enqueue a stay-her-appetite-roll pending resolution so the hazard player
   // rolls 2d6 for the condition check.

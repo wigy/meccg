@@ -1206,9 +1206,17 @@ function applyDiceCheckBranch(
   }
   if (branch.type === 'discard-character') {
     if (!ctx.targetCharacterId) return { state };
-    const charInPlay = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
-    if (!charInPlay) return { state };
-    return { state: discardCharacter(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+    // Owner-agnostic like `eliminate-character` below: the roller need not be
+    // the target's controller (A Lie in Your Eyes as-23 has the card-player
+    // roll against the opponent's character).
+    const targetId = ctx.targetCharacterId;
+    const ownerIndex = state.players.findIndex(p => !!p.characters[targetId]);
+    if (ownerIndex === -1) {
+      logDetail(`dice-check discard-character: ${targetId as string} no longer in play — no-op`);
+      return { state };
+    }
+    const charInPlay = state.players[ownerIndex].characters[targetId];
+    return { state: discardCharacter(state, ownerIndex, targetId, charInPlay) };
   }
   if (branch.type === 'eliminate-character') {
     if (!ctx.targetCharacterId) return { state };
@@ -4376,6 +4384,92 @@ export function applyDesireBellyChoosePenaltyResolution(
   }
 
   return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `tap-or-roll-choice` pending resolution (A Lie in Your Eyes,
+ * as-23): the defending player picks tap-character, tap-ally, or roll.
+ *
+ * - `tap-character` / `tap-ally` resolve immediately: tap the chosen target
+ *   and mark the source chain entry resolved (matching by `targetCharacterId`,
+ *   same as {@link diceCheckChainMatcher}'s `'target-character'` mode).
+ * - `roll` enqueues a follow-up generic `dice-check` resolution (roller = the
+ *   card-player) whose `onPass` discards the character; that dice-check's own
+ *   `'chain-entry'` continuation marks the chain entry resolved once it rolls.
+ */
+export function applyTapOrRollChoiceResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'tap-or-roll-choice') return null;
+  if (action.type !== 'choose-tap-or-roll') {
+    return { state, error: `Pending tap-or-roll-choice requires choose-tap-or-roll, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for tap-or-roll-choice' };
+  }
+  const { characterInstanceId, rollingPlayer, rollAddend } = top.kind;
+  const ownerIndex = state.players.findIndex(p => !!p.characters[characterInstanceId]);
+  if (ownerIndex === -1) {
+    logDetail(`A Lie in Your Eyes: target character ${characterInstanceId as string} no longer in play — no-op`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+  const character = state.players[ownerIndex].characters[characterInstanceId];
+  const chainMatcher = (e: ChainEntry): boolean =>
+    e.payload.type === 'short-event' && e.payload.targetCharacterId === characterInstanceId;
+
+  if (action.choice === 'tap-character') {
+    logDetail(`A Lie in Your Eyes: opponent taps the character instead`);
+    const post = dequeueResolution(state, top.id);
+    const tapped = updatePlayer(post, ownerIndex, p =>
+      updateCharacter(p, characterInstanceId, c => ({ ...c, status: CardStatus.Tapped })));
+    return resolveChainEntryAndContinue(tapped, chainMatcher, []);
+  }
+
+  if (action.choice === 'tap-ally') {
+    if (!action.allyInstanceId) {
+      return { state, error: 'choose-tap-or-roll: tap-ally requires allyInstanceId' };
+    }
+    const ally = character.allies.find(a => a.instanceId === action.allyInstanceId);
+    if (!ally || ally.status !== CardStatus.Untapped) {
+      return { state, error: `Ally ${action.allyInstanceId as string} is not an untapped ally of the target character` };
+    }
+    const allyInstanceId = action.allyInstanceId;
+    logDetail(`A Lie in Your Eyes: opponent taps ${cardName(state, ally.definitionId)} instead`);
+    const post = dequeueResolution(state, top.id);
+    const tapped = updatePlayer(post, ownerIndex, p =>
+      updateCharacter(p, characterInstanceId, c => ({
+        ...c,
+        allies: c.allies.map(a => (a.instanceId === allyInstanceId ? { ...a, status: CardStatus.Tapped } : a)),
+      })));
+    return resolveChainEntryAndContinue(tapped, chainMatcher, []);
+  }
+
+  // 'roll': let the card-player roll — the character's owner did not avert it.
+  const mind = character.effectiveStats.mind ?? printedMind(defById(state, character.definitionId));
+  const threshold = mind + rollAddend;
+  const charName = cardName(state, character.definitionId);
+  logDetail(`A Lie in Your Eyes: opponent lets ${rollingPlayer as string} roll (discard if > mind ${mind} + ${rollAddend})`);
+  const post = dequeueResolution(state, top.id);
+  const withRoll = enqueueResolution(post, {
+    source: top.source,
+    actor: rollingPlayer,
+    scope: top.scope,
+    kind: {
+      type: 'dice-check',
+      label: `A Lie in Your Eyes: ${charName}`,
+      roller: rollingPlayer,
+      modifiers: [],
+      threshold,
+      comparison: 'gt',
+      onPass: { type: 'discard-character' },
+      continuation: { kind: 'chain-entry', match: 'target-character' },
+      requireTargetPresent: true,
+      targetCharacterId: characterInstanceId,
+    },
+  });
+  return { state: withRoll };
 }
 
 /**

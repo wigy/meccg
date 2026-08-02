@@ -48,6 +48,16 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
   if (passAction.type === 'gold-ring-test-roll') return 'Roll';
   if (passAction.type === 'pass-chain-priority') return 'Pass Priority';
 
+  // Rule 9.21's ring-play-offer: the plain `pass` here declines playing the
+  // offered special ring, not the ordinary end-of-phase pass it would
+  // otherwise be read as (e.g. "Long-event" during Organization) — without
+  // this the button read as an unrelated phase-advance action and the
+  // player had no visible way to decline the ring.
+  if (passAction.type === 'pass'
+    && view.legalActions.some(ea => ea.viable && ea.action.type === 'play-ring-after-test')) {
+    return 'Skip Ring';
+  }
+
   if (view.phaseState.phase === Phase.Untap) return 'End Untap';
   if (view.phaseState.phase === Phase.Organization) return 'Long-event';
   if (view.phaseState.phase === Phase.LongEvent) return 'Movement/Hazard';
