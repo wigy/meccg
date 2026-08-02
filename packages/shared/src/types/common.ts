@@ -324,6 +324,9 @@ export type CheckKind =
  * - `palantir` — palantíri item subgrouping.
  * - `ritual` — METD ritual-tagged events.
  * - `light-enchantment`, `dark-enchantment` — METD enchantment categories.
+ * - `stolen-knowledge` — MEWH resource-event subgrouping (e.g. Dark Numbers
+ *   dm-123); referenced by sibling cards' text ("discards a Stolen Knowledge
+ *   card it controls").
  * - `Leader`, `Uruk-hai`, `Olog-hai` — minion character subgroupings.
  * - `Half-orc` — race-keyword: the character counts as an Orc for all purposes
  *   *except* that it never makes its company overt and may not take trophies
@@ -358,6 +361,7 @@ export type Keyword =
   | 'ritual'
   | 'light-enchantment'
   | 'dark-enchantment'
+  | 'stolen-knowledge'
   | 'leader'
   | 'uruk-hai'
   | 'olog-hai'

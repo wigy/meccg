@@ -666,8 +666,57 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Stolen Knowledge. Playable on an untapped scout immediately after facing an Orc, Troll, or Man attack. Tap scout. Can be stored at a Haven [{H}]. If not stored, discard to give +3 to an influence attempt against a faction by a character in the same company."
+    "keywords": ["stolen-knowledge"],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "after-attack",
+        "when": {
+          "$and": [
+            {
+              "attack.source": {
+                "$in": ["creature", "on-guard-creature", "automatic-attack", "played-auto-attack"]
+              }
+            },
+            {
+              "enemy.race": { "$in": ["orc", "troll", "man"] }
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "scout" } },
+            { "target.status": "untapped" }
+          ]
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"]
+      },
+      {
+        "type": "grant-action",
+        "action": "discard-boost-influence",
+        "activeSitePhase": true,
+        "cost": { "discard": "self" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "value": 3,
+          "scope": "turn",
+          "target": "action-target-character"
+        }
+      }
+    ],
+    "text": "Stolen Knowledge. Playable on an untapped scout immediately after facing an Orc, Troll, or Man attack. Tap scout. Can be stored at a Haven [{H}]. If not stored, discard to give +3 to an influence attempt against a faction by a character in the same company.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hero-resource-event",

@@ -1360,6 +1360,36 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // `discard-boost-influence` (Dark Numbers dm-123): discard the bearer
+        // (a permanent event attached to a scout) to give +3 to an influence
+        // attempt against a faction by a character in the bearer's company.
+        // Unlike `boost-company-influence`, the cost is discarding the source
+        // card rather than tapping the bearer, so the bearer itself remains a
+        // legal (untapped) target — the card text does not exclude it. Emit one
+        // activation per untapped company member, carried on `targetCardId`.
+        if (effect.action === 'discard-boost-influence') {
+          if (!company) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
+            continue;
+          }
+          const boostTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
+          for (const compCharId of company.characters) {
+            const compChar = player.characters[compCharId];
+            if (!compChar || compChar.status !== CardStatus.Untapped) continue;
+            const compCharDef = defById(state, compChar.definitionId);
+            boostTargets.push({ instanceId: compCharId, name: compCharDef?.name ?? (compCharId as string) });
+          }
+          if (boostTargets.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no untapped character in ${charDef?.name ?? '?'}'s company to boost`);
+            continue;
+          }
+          for (const { instanceId: targetId, name: targetName } of boostTargets) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to give ${targetName} +3 to an influence attempt`);
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: targetId }));
+          }
+          continue;
+        }
+
         // Per-company enumeration for an item-borne grant: one activation per
         // eligible company, carrying it on `targetCompanyId` (Shifter of Hues
         // wh-115, a permanent-event attached to Radagast — such cards live in
