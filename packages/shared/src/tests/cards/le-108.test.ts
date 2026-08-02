@@ -147,7 +147,6 @@ describe('Darkness Under Tree (le-108)', () => {
     const mhState: GameState = { ...state, phaseState: makeMHState() };
 
     const gamlingId = findCharInstanceId(mhState, RESOURCE_PLAYER, GAMLING);
-    const aragornId = findCharInstanceId(mhState, RESOURCE_PLAYER, ARAGORN);
     const dutId = handCardId(mhState, HAZARD_PLAYER);
 
     const afterPlay = dispatch(mhState, {
