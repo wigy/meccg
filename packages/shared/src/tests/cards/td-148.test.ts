@@ -31,7 +31,7 @@ import {
   buildTestState, resetMint,
   makeCancelWindowCombat,
   dispatch, resolveChain,
-  handCardId, findHandCardId, charIdAt,
+  findHandCardId, charIdAt,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
