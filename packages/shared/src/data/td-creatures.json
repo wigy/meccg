@@ -417,11 +417,13 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ]
       }
     ],
     "effects": [],
+    "certified": "2026-08-02",
     "text": "Orcs. Two strikes."
   },
   {
@@ -739,14 +741,29 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "orc",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "followsAttackRaces": ["orc"]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifier": 1,
+        "strikesModifier": 1,
+        "when": {
+          "enemy.race": "wolf"
+        }
       }
     ],
-    "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
+    "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hazard-creature",

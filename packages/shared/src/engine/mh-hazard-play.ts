@@ -41,7 +41,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -2847,6 +2847,38 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
         }
       }
     }
+    // Check followsAttackRaces — the company must have already faced a
+    // creature-sourced (not-site-keyed) attack this M/H sub-phase by one of
+    // the listed races (Wolf-riders, td-86).
+    if (key.followsAttackRaces && key.followsAttackRaces.length > 0) {
+      const facedRaces = deriveFacedRaces(state, mhState.hazardsEncountered);
+      const matchedRace = key.followsAttackRaces.find(r => facedRaces.includes(r));
+      if (matchedRace) {
+        logDetail(`Creature "${def.name}" keyable — follows a "${matchedRace}" attack faced this sub-phase`);
+        return undefined;
+      }
+    }
+    // Check movingBetweenSiteNames — the active company's origin (current)
+    // site and its destination site must both be named and differ; one entry
+    // covers both directions of the route (The Great Goblin tw-95:
+    // Rivendell ↔ Lórien). A non-moving company's destination name equals
+    // its origin name and never matches. Mirror of the offering side in
+    // findCreatureKeyingMatches.
+    if (key.movingBetweenSiteNames && key.movingBetweenSiteNames.length > 0 && mhState.destinationSiteName) {
+      const activeIdx = getPlayerIndex(state, state.activePlayer ?? state.players[0].id);
+      const activeCompany = state.players[activeIdx]?.companies[mhState.activeCompanyIndex];
+      const originDefId = activeCompany?.currentSite
+        ? resolveInstanceId(state, activeCompany.currentSite.instanceId)
+        : null;
+      const originName = originDefId ? defById(state, originDefId)?.name : undefined;
+      if (originName
+        && originName !== mhState.destinationSiteName
+        && key.movingBetweenSiteNames.includes(originName)
+        && key.movingBetweenSiteNames.includes(mhState.destinationSiteName)) {
+        logDetail(`Creature "${def.name}" keyable — company moving from "${originName}" to "${mhState.destinationSiteName}"`);
+        return undefined;
+      }
+    }
   }
 
   const keyDesc = def.keyedTo.map(k => {
@@ -2857,6 +2889,8 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     if (k.siteNames?.length) parts.push(`at: ${k.siteNames.join('/')}`);
     if (k.siteKeywords?.length) parts.push(`site-keyword: ${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to: ${k.adjacentToSiteKeywords.join('/')}`);
+    if (k.followsAttackRaces?.length) parts.push(`follows attack: ${k.followsAttackRaces.join('/')}`);
+    if (k.movingBetweenSiteNames?.length) parts.push(`moving between: ${k.movingBetweenSiteNames.join('/')}`);
     return parts.join(', ');
   }).join(' OR ');
   return `${def.name} cannot be keyed to this company's path (requires ${keyDesc})`;

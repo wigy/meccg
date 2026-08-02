@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch, deriveFacedRaces } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -4012,7 +4012,10 @@ function findCreatureKeyingMatches(
   def: CreatureCard,
   mhState: MovementHazardPhaseState,
   state: GameState,
-  targetCompany: { readonly destinationSite?: { readonly instanceId: CardInstanceId } | null },
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
 ): CreatureKeyingMatch[] {
   const matches: CreatureKeyingMatch[] = [];
   const seen = new Set<string>();
@@ -4146,6 +4149,37 @@ function findCreatureKeyingMatches(
             }
           }
         }
+      }
+    }
+    // Follows-attack matches — the company must have already faced a
+    // creature-sourced (not-site-keyed) hazard attack this M/H sub-phase by
+    // one of the listed races. See Wolf-riders (td-86).
+    if (key.followsAttackRaces && key.followsAttackRaces.length > 0) {
+      const facedRaces = deriveFacedRaces(state, mhState.hazardsEncountered);
+      for (const race of key.followsAttackRaces) {
+        if (facedRaces.includes(race)) {
+          const k = `follows-attack:${race}`;
+          if (!seen.has(k)) { seen.add(k); matches.push({ method: 'follows-attack', value: race }); }
+        }
+      }
+    }
+    // Moving-between-sites matches — the company's origin (current) site and
+    // its destination site must both be named in the entry and differ, so one
+    // entry covers both directions of a named site-to-site route (The Great
+    // Goblin tw-95: Rivendell ↔ Lórien). A non-moving company's destination
+    // name equals its origin name and never matches.
+    if (key.movingBetweenSiteNames && key.movingBetweenSiteNames.length > 0 && mhState.destinationSiteName) {
+      const originDefId = targetCompany.currentSite?.instanceId
+        ? resolveInstanceId(state, targetCompany.currentSite.instanceId)
+        : null;
+      const originName = originDefId ? defById(state, originDefId)?.name : undefined;
+      if (originName
+        && originName !== mhState.destinationSiteName
+        && key.movingBetweenSiteNames.includes(originName)
+        && key.movingBetweenSiteNames.includes(mhState.destinationSiteName)) {
+        const route = `${originName} to ${mhState.destinationSiteName}`;
+        const k = `moving-between-sites:${route}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'moving-between-sites', value: route }); }
       }
     }
   }
@@ -4387,6 +4421,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
     if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
+    if (k.followsAttackRaces?.length) parts.push(`follows-attack:${k.followsAttackRaces.join('/')}`);
     return parts.join(', ');
   }).join(' or ');
   return `Not keyable (requires ${keyDesc})`;
