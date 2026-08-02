@@ -27,6 +27,9 @@ vi.mock('../players/store.js', () => ({
   getDisplayName: (name: string) => name,
   getCredits: () => 0,
 }));
+vi.mock('../mail/store.js', () => ({
+  countUnread: () => 0,
+}));
 
 import { playerConnected } from './lobby.js';
 
