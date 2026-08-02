@@ -2342,7 +2342,57 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "playableResources": {
+            "$includes": "information"
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "sage"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven"
+        ],
+        "marshallingPoints": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
+      }
+    ],
+    "certified": "2026-08-02",
     "text": "Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage may not untap until Dreams of Lore is stored at a Haven [{H}] during his organization phase. May not be transferred."
   },
   {
@@ -2734,8 +2784,27 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "The prowess of each attack is modified by -1. The prowess of each Nazgûl attack is modified by -3."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "target": "all-attacks",
+        "id": "lapse-of-will-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "target": "all-attacks",
+        "overrides": "lapse-of-will-prowess",
+        "when": {
+          "enemy.race": "ringwraith"
+        }
+      }
+    ],
+    "text": "The prowess of each attack is modified by -1. The prowess of each Nazgûl attack is modified by -3.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hero-resource-ally",

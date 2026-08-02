@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.78.0 — 2026-08-02
+
+Nightly Build
+
+### Web Client
+
+- Pass/continue button labels now name the step being skipped
+- Admin: added a Send Mail to All button; unread mail badge is now seeded on connect
+- Admin requests: rows are clickable and detail-page actions are labeled
+
+### Cards
+
+- Certified Healing Herbs (tw-255) and Dreams of Lore (tw-210)
+- Fixed Glove of Radagast not being draftable as a Fallen-wizard Stage resource, and marked all draftable Stage resources with starting-item
+
 ## 0.77.0 — 2026-08-02
 
 Nightly Build

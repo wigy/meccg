@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1069 | 1066 | 3 | 99.7% |
+| 1070 | 1068 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 92 | 92 | 100.0% |
 | LE | 295 | 293 | 99.3% |
 | TD | 81 | 81 | 100.0% |
-| TW | 317 | 316 | 99.7% |
+| TW | 318 | 318 | 100.0% |
 | WH | 84 | 84 | 100.0% |
 
 ## Detailed Test Matrix
@@ -845,6 +845,7 @@
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
 | tw-209 | Dodge | — | 8 | ☑ |
+| tw-210 | Dreams of Lore | — | 11 | ☑ |
 | tw-212 | Durin’s Axe | — | 9 | ☑ |
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
@@ -866,7 +867,7 @@
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-253 | Halfling Strength | — | 14 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
-| tw-255 | Healing Herbs | — | 6 | ◐ |
+| tw-255 | Healing Herbs | — | 12 | ☑ |
 | tw-256 | Hiding | — | 9 | ☑ |
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |

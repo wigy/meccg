@@ -44,7 +44,8 @@ export type MailTopic =
   | 'bug-fix-request'
   | 'bug-report'
   | 'bug-reply'
-  | 'review-fix-request';
+  | 'review-fix-request'
+  | 'announcement';
 
 /** A mail message stored in a player's inbox or deleted folder. */
 export interface MailMessage {

@@ -2055,6 +2055,29 @@ revealed."
 Gives the card bearer a new activated ability. For roll-based actions,
 `rollThreshold` specifies the minimum 2d6 total for success.
 
+**Composable `cost`.** `ActionCost`'s `tap`, `discard`, `check`, and `wound`
+fields are independent and may be combined on one `cost` object — `applyCost`
+(`cost-evaluator.ts`) pays `tap` first, then falls through to pay
+`discard`/`check`/`wound` against the post-tap state, rather than the first
+paid component short-circuiting the rest. Used by Healing Herbs (tw-255):
+`{ "tap": "bearer", "discard": "self" }` for "tap and discard this item" —
+the bearer taps AND the item is discarded, not one or the other.
+
+```json
+{ "type": "grant-action", "action": "heal-company-character",
+  "cost": { "tap": "bearer", "discard": "self" },
+  "apply": { "type": "set-character-status", "target": "target-character", "status": "untapped" } }
+```
+
+**`heal-company-character`** (le-310 precedent) targets a wounded (Inverted)
+character in the bearer's company; **`untap-company-character`** (tw-255)
+targets a Tapped, non-wounded company member instead — both implemented in
+`legal-actions/organization.ts`'s item grant-action scan, emitting one
+activation per matching candidate on `targetCardId`, and sharing the same
+`set-character-status` apply. A bearer able to pay a `tap: "bearer"` cost is
+by definition Untapped at legal-action-generation time, so it can never
+qualify as its own `untap-company-character` target.
+
 **Phase-window flags.** By default a grant-action is emitted only in
 its natural phase (organization for item-tap abilities, end-of-turn
 for Saruman's spell-fetch, etc.). The following optional booleans

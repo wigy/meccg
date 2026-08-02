@@ -1262,6 +1262,34 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // `untap-company-character` targets a tapped, non-wounded character in
+        // the bearer's company — emit one action per tapped (and therefore, by
+        // definition, not-Inverted/not-wounded) candidate, carrying the chosen
+        // target on `targetCardId`. If no one is tapped, the ability is not
+        // offered. Used by Healing Herbs (tw-255): "untap a character in his
+        // company that is not wounded."
+        if (effect.action === 'untap-company-character') {
+          if (!company) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
+            continue;
+          }
+          const tapped: import('../../index.js').CharacterInPlay[] = [];
+          for (const compCharId of company.characters) {
+            const compChar = player.characters[compCharId];
+            if (compChar && compChar.status === CardStatus.Tapped) tapped.push(compChar);
+          }
+          if (tapped.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no tapped, non-wounded character in ${charDef?.name ?? '?'}'s company`);
+            continue;
+          }
+          for (const target of tapped) {
+            const targetDef = defById(state, target.definitionId);
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to untap ${targetDef?.name ?? '?'}`);
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: target.instanceId }));
+          }
+          continue;
+        }
+
         // `force-discard-dwarf-at-site` targets each Dwarf character at the
         // bearer's current site (any company, any player). Emit one action per
         // Dwarf. If there are no Dwarves at the same site, the ability is not
