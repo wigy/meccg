@@ -1129,8 +1129,38 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Playable at any site on a non-Wizard, non-Hobbit diplomat character (other than Galadriel) at the same site as Galadriel. All corruption cards on the bearer are discarded when this card comes into play. +2 to all corruption checks by bearer."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.skills": { "$includes": "diplomat" } },
+            { "target.name": { "$ne": "Galadriel" } },
+            { "company.siteCharacterNames": { "$includes": "Galadriel" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "discard-bearer-corruption" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2
+      }
+    ],
+    "text": "Unique. Playable at any site on a non-Wizard, non-Hobbit diplomat character (other than Galadriel) at the same site as Galadriel. All corruption cards on the bearer are discarded when this card comes into play. +2 to all corruption checks by bearer.",
+    "certified": "2026-08-02"
   },
   {
     "cardType": "hero-resource-event",

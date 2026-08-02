@@ -1960,6 +1960,59 @@ function discardNamedCardsInPlay(state: GameState, cardName: string): GameState 
 }
 
 /**
+ * Backs the `discard-bearer-corruption` self-enters-play apply of Three
+ * Golden Hairs (td-157): "All corruption cards on the bearer are discarded
+ * when this card comes into play." Scans only the target character's
+ * `hazards` (not the whole board, unlike `discardNamedCardsInPlay`) for
+ * attached corruption cards and routes each to its owner's discard pile
+ * (owner derived from the instance-id prefix, matching the move primitive),
+ * preserving the no-card-disappears invariant. A "corruption card" is one
+ * with `cardType: "hazard-corruption"` **or** a `hazard-event` carrying the
+ * `"corruption"` game keyword — the same CoE-7.2.1 test used by
+ * `movement-hazard.ts` (one-corruption-card-per-turn) and
+ * `organization.ts` (no-tap removal roll), since every printed "Corruption."
+ * hazard in the data files is modeled as the latter.
+ */
+function discardBearerCorruptionCards(state: GameState, bearerId: CardInstanceId): GameState {
+  const players = state.players;
+  const bearerPi = players.findIndex(p => !!p.characters[bearerId]);
+  if (bearerPi < 0) {
+    logDetail(`discard-bearer-corruption: bearer ${bearerId as string} not found — nothing to discard`);
+    return state;
+  }
+  const char = players[bearerPi].characters[bearerId];
+  const removed: CardInstance[] = [];
+  const keptHazards = char.hazards.filter(hz => {
+    const hzDef = defById(state, hz.definitionId);
+    const isCorruptionCard = hzDef?.cardType === 'hazard-corruption'
+      || (hzDef && 'keywords' in hzDef && (hzDef as { keywords?: readonly string[] }).keywords?.includes('corruption') === true);
+    if (isCorruptionCard && hzDef) {
+      logDetail(`discard-bearer-corruption: discarding "${hzDef.name}" ${hz.instanceId as string} from ${bearerId as string}'s hazards`);
+      removed.push({ instanceId: hz.instanceId, definitionId: hz.definitionId });
+      return false;
+    }
+    return true;
+  });
+  if (removed.length === 0) {
+    logDetail(`discard-bearer-corruption: no corruption cards on ${bearerId as string} — nothing to discard`);
+    return state;
+  }
+  const ownerIndexOf = (instanceId: CardInstanceId): number => {
+    const idx = players.findIndex(p => (p.id as string) === (instanceId as string).split('-')[0]);
+    return idx >= 0 ? idx : bearerPi;
+  };
+  let newState = updatePlayer(state, bearerPi, p => ({
+    ...p,
+    characters: { ...p.characters, [bearerId]: { ...char, hazards: keptHazards } },
+  }));
+  for (const inst of removed) {
+    const ownerIndex = ownerIndexOf(inst.instanceId);
+    newState = updatePlayer(newState, ownerIndex, p => ({ ...p, discardPile: [...p.discardPile, inst] }));
+  }
+  return newState;
+}
+
+/**
  * Resolves a Wizard's Trove (wh-85) style permanent-event chain entry — a
  * `play-with-stored-card` or `storage-site-transfer` combo play. The
  * placement is handled here in full; in particular the site binding is NOT
@@ -2826,6 +2879,16 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         // it sits (bare in play, or attached to a Ringwraith as an item).
         logDetail(`"${def?.name ?? '?'}" entered play — discard-named-in-play "${effect.apply.cardName}"`);
         newState = discardNamedCardsInPlay(newState, effect.apply.cardName);
+      } else if (effect.apply.type === 'discard-bearer-corruption') {
+        // Three Golden Hairs (td-157): on entering play attached to a
+        // character, discard every corruption card already attached to that
+        // bearer.
+        if (targetCharId) {
+          logDetail(`"${def?.name ?? '?'}" entered play — discard-bearer-corruption on ${targetCharId as string}`);
+          newState = discardBearerCorruptionCards(newState, targetCharId);
+        } else {
+          logDetail(`"${def?.name ?? '?'}" discard-bearer-corruption: no target character — fizzle`);
+        }
       }
   }
 

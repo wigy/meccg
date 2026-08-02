@@ -13568,3 +13568,55 @@ the card "«un-eliminates» a hazard creature, allowing any manifestation of tha
 character to be played".
 
 Used by: *Returned Beyond All Hope* (as-35).
+
+### 73. `discard-bearer-corruption` + `company.siteCharacterNames`
+
+`{ "type": "on-event", "event": "self-enters-play", "apply": { "type":
+"discard-bearer-corruption" } }` — for a permanent-event played onto a
+character (a `play-target: "character"` attachment), discards every attached
+corruption card already on that bearer (its `hazards`) the moment this card
+enters play. A "corruption card" is `cardType: "hazard-corruption"` **or** a
+`hazard-event` carrying the `"corruption"` game keyword — the same CoE-7.2.1
+test `movement-hazard.ts` (one corruption card per character per turn) and
+`organization.ts` (no-tap removal roll) already use, since every printed
+"Corruption." hazard in the data files today is modeled as the latter (no
+card actually uses the `hazard-corruption` cardType yet). Scoped to the bearer
+only — unlike `discard-named-in-play`, which scans the whole board by name,
+this scans one character's `hazards`. Implemented by
+`discardBearerCorruptionCards` (`chain-reducer.ts`), dispatched from the
+`self-enters-play` apply loop in `resolvePermanentEvent` using the chain
+entry's `targetCharacterId`. Each discarded instance is routed to its owner's
+discard pile (owner from the instance-id prefix), so the no-card-disappears
+invariant holds even for an opponent's corruption card attached to the
+bearer.
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "discard-bearer-corruption" } }
+```
+
+The site-phase `play-target: "character"` filter context (`site.ts`,
+`playResourcesActions`) also gained a `company.siteCharacterNames` field: the
+names of every character in one of the *player's* companies currently at the
+same site as the candidate bearer's company (across companies, including the
+candidate's own) — backing "playable on a … character … at the same site as
+<Named Character>" gates with a plain `$includes` filter, the same way
+`same-site-has-character-race` (organization-events.ts) backs the race-scoped
+org-phase equivalent. Not computed for the organization-phase emitter (no card
+needs it there yet).
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.race": { "$ne": "wizard" } },
+    { "target.race": { "$ne": "hobbit" } },
+    { "target.skills": { "$includes": "diplomat" } },
+    { "target.name": { "$ne": "Galadriel" } },
+    { "company.siteCharacterNames": { "$includes": "Galadriel" } } ] } }
+```
+
+Used by *Three Golden Hairs* (td-157): "Unique. Playable at any site on a
+non-Wizard, non-Hobbit diplomat character (other than Galadriel) at the same
+site as Galadriel. All corruption cards on the bearer are discarded when this
+card comes into play. +2 to all corruption checks by bearer." (the "+2 to all
+corruption checks" is a bearer-scoped `check-modifier` — see section 2.)
