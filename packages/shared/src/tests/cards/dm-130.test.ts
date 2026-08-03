@@ -34,7 +34,7 @@ import {
   buildSitePhaseState, resetMint, Phase, CardStatus,
   viableActions, dispatch, playPermanentEventAndResolve,
   findCharInstanceId, findHandCardId,
-  PLAYER_1, RESOURCE_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   BILBO, GANDALF, GIMLI, BREE, EDORAS, MORIA,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
@@ -58,11 +58,11 @@ function fireworksState(opts: {
   });
 }
 
-/** Move the resource player's state into their untap phase. */
-function toUntapPhase(state: GameState): GameState {
+/** Move the state into `activePlayer`'s untap phase (PLAYER_1 by default). */
+function toUntapPhase(state: GameState, activePlayer = PLAYER_1): GameState {
   return {
     ...state,
-    activePlayer: PLAYER_1,
+    activePlayer,
     phaseState: {
       phase: Phase.Untap, untapped: false, hazardSideboardDestination: null,
       hazardSideboardFetched: 0, hazardSideboardAccessed: false,
@@ -229,6 +229,32 @@ describe('Fireworks (dm-130)', () => {
     expect(afterUntap.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardId)).toBe(true);
     // The one-shot constraint is consumed.
     expect(afterUntap.activeConstraints.filter(c => c.kind.type === 'skip-next-untap')).toHaveLength(0);
+  });
+
+  test('the opponent\'s untap phase does not consume the skip-next-untap constraint', () => {
+    // The constraint targets PLAYER_1's sage; PLAYER_2's own untap phase runs
+    // in between (the very next turn) and must not touch it — only the sage's
+    // own controller's untap phase may consume it.
+    const state = fireworksState({ site: BREE, chars: [BILBO] });
+    const sageId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, FIREWORKS);
+    const played = playPermanentEventAndResolve(state, PLAYER_1, cardId, sageId, { targetSiteDefinitionId: BREE });
+    const rolled = dispatch(
+      { ...played, cheatRollTotal: 8 },
+      { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
+    );
+
+    const afterOpponentUntap = dispatch(toUntapPhase(rolled, PLAYER_2), { type: 'untap', player: PLAYER_2 });
+    expect(afterOpponentUntap.activeConstraints.filter(c => c.kind.type === 'skip-next-untap')).toHaveLength(1);
+    expect(afterOpponentUntap.players[RESOURCE_PLAYER].characters[sageId].items.some(i => i.instanceId === cardId)).toBe(true);
+    expect(afterOpponentUntap.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardId)).toBe(false);
+
+    // The sage's own controller's untap phase, run afterward, still correctly
+    // holds him tapped once and discards Fireworks.
+    const afterOwnUntap = dispatch(toUntapPhase(afterOpponentUntap, PLAYER_1), { type: 'untap', player: PLAYER_1 });
+    expect(afterOwnUntap.players[RESOURCE_PLAYER].characters[sageId].status).toBe(CardStatus.Tapped);
+    expect(afterOwnUntap.activeConstraints.filter(c => c.kind.type === 'skip-next-untap')).toHaveLength(0);
+    expect(afterOwnUntap.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardId)).toBe(true);
   });
 
   test('a second, later untap untaps the sage normally (the skip was one-shot)', () => {

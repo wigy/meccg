@@ -288,6 +288,13 @@ function performUntap(state: GameState): GameState {
   const skipNextUntap = new Map<string, { constraintId: string; cardInstanceId: string }>();
   for (const c of state.activeConstraints) {
     if (c.target.kind !== 'character') continue;
+    // This is the untapping player's own phase: a constraint on the other
+    // player's character (e.g. Fireworks dm-130's skip-next-untap on their
+    // sage) must not be scanned here — scanning both players unconditionally
+    // caused the opponent's untap phase to consume (and discard the source
+    // card for) a skip-next-untap constraint that was never actually honoured,
+    // since the sweep below only ever walks `player.characters`.
+    if (!(c.target.characterId in player.characters)) continue;
     if (c.kind.type === 'bearer-cannot-untap') {
       cannotUntapIds.add(c.target.characterId as string);
     }
