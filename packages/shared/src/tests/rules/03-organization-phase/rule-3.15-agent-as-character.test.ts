@@ -30,6 +30,10 @@ import type { CardDefinitionId } from '../../../index.js';
 const FORI_THE_BEARDLESS = 'dm-11' as CardDefinitionId;
 // tw-403: Iron Hill Dwarf-hold — hero-site (homesite of Fori the Beardless)
 const IRON_HILL_DWARF_HOLD = 'tw-403' as CardDefinitionId;
+// dm-182: Freca — minion-character, agent, homesite: "Edoras, Dunnish Clan-hold" (two listed home sites)
+const FRECA = 'dm-182' as CardDefinitionId;
+// tw-394: Edoras — hero-site, the second of Freca's two comma-listed home sites
+const EDORAS = 'tw-394' as CardDefinitionId;
 
 describe('Rule 3.15 — Agent Played as Character', () => {
   beforeEach(() => resetMint());
@@ -122,5 +126,36 @@ describe('Rule 3.15 — Agent Played as Character', () => {
     expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
     const nonViable = nonViablePlayCharacterActions(state, PLAYER_1);
     expect(nonViable.length).toBeGreaterThan(0);
+  });
+
+  test('Ringwraith player can play an agent character at any one of its comma-listed home sites', () => {
+    // Regression: Freca's homesite is "Edoras, Dunnish Clan-hold" — a
+    // comma-separated list naming two valid home sites, either of which
+    // satisfies the home-site-only restriction. A company already sitting at
+    // Edoras (the second listed name) must make Freca viable there.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          hand: [FRECA],
+          siteDeck: [],
+          companies: [{ site: EDORAS, characters: [] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [],
+          companies: [{ site: LORIEN, characters: [ARAGORN] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
+    expect(viable.length).toBe(1);
+    expect(viable[0].atSite).toBe(state.players[0].companies[0].currentSite!.instanceId);
   });
 });
