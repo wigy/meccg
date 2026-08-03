@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CharacterInPlay, SiteInPlay, ViewCard, Alignment } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings, resolveCharacterTargetedStageResourcePairings } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { getCachedInstanceLookup } from './render-text-format.js';
 import { getSelectedItemDefId, setSelectedItemDefId, setTargetingInstruction } from './render-selection-state.js';
@@ -94,7 +94,12 @@ function renderDraftedCharactersWithThralls(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): ReadonlySet<string> {
   const charRefs = drafted.filter(c => isCharacterCard(cardPool[c.definitionId as string]));
-  const pairings = resolveThrallCharacterPairings(charRefs, draftedStageResources, defId => cardPool[defId as string]);
+  const thrallPairings = resolveThrallCharacterPairings(charRefs, draftedStageResources, defId => cardPool[defId as string]);
+  const characterTargetPairings = resolveCharacterTargetedStageResourcePairings(
+    charRefs, draftedStageResources, defId => cardPool[defId as string],
+    new Set(thrallPairings.map(p => p.characterInstanceId as string)),
+  );
+  const pairings = [...thrallPairings, ...characterTargetPairings];
   const thrallsByChar = new Map<string, { definitionId: CardDefinitionId; instanceId: CardInstanceId }[]>();
   const pairedResourceIds = new Set<string>();
   for (const pairing of pairings) {
