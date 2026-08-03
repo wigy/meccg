@@ -17,7 +17,7 @@ import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf, parseHomesiteNames } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
 import { getEffectiveSiteType } from '../effective.js';
@@ -357,9 +357,11 @@ function findPlayableSites(
 
 /**
  * Returns true if the character's `homesite` designates the given site:
- * either by exact site name, or by the region-form home site used by
- * Ringwraith avatars (`"Any site in <region>"` matches any site whose
- * `region` is that region).
+ * either by exact site name (including a comma-separated list of multiple
+ * home sites, e.g. Freca dm-182: `"Edoras, Dunnish Clan-hold"` — the
+ * character's home site is *either* named site), or by the region-form home
+ * site used by Ringwraith avatars (`"Any site in <region>"` matches any site
+ * whose `region` is that region).
  *
  * Two Under-deeps home-site forms (MEBA) are also resolved here:
  * - `"any non-Dark-hold Under-deeps site"` (ba-6/7/8) matches any Under-deeps
@@ -387,7 +389,7 @@ function homesiteMatchesSite(state: GameState, charDef: CharacterCard, siteDef: 
   if (playerAlignment === Alignment.Balrog && homesite === 'Any Dark-hold') {
     homesite = 'any non-Dark-hold Under-deeps site';
   }
-  if (homesite === siteDef.name) return true;
+  if (parseHomesiteNames(homesite).includes(siteDef.name)) return true;
   if (siteDef.region !== undefined && homesite === `Any site in ${siteDef.region}`) return true;
   if (homesite.toLowerCase() === 'any non-dark-hold under-deeps site') {
     const isUnderDeeps = siteDef.keywords?.includes('under-deeps') ?? false;
