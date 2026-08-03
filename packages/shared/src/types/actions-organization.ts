@@ -178,6 +178,12 @@ export interface TransferItemAction {
  * a character to the player's stored-items pile when the character is
  * at a matching site. The item earns marshalling points safely, and
  * the initial bearer must make a corruption check.
+ *
+ * A **company-bound** storable card (a permanent event in `cardsInPlay` whose
+ * `companyId` names the controlling company — Pass the Doors of Dol Guldur
+ * dm-154) has no bearer: it carries {@link companyId} instead of
+ * {@link characterId}, and storing it enqueues no corruption check, since CoE
+ * 2.II.4's "the bearer makes a corruption check" presumes a bearer.
  */
 export interface StoreItemAction {
   readonly type: 'store-item';
@@ -185,8 +191,18 @@ export interface StoreItemAction {
   readonly player: PlayerId;
   /** The item card instance being stored. */
   readonly itemInstanceId: CardInstanceId;
-  /** The character currently holding the item. */
-  readonly characterId: CardInstanceId;
+  /**
+   * The character currently holding the item. Absent for a company-bound
+   * storable card, which has no bearer — {@link companyId} names its company
+   * instead.
+   */
+  readonly characterId?: CardInstanceId;
+  /**
+   * The company the stored card is bound to (`CardInPlay.companyId`). Set
+   * only for the bearer-less, company-bound storage path; mutually exclusive
+   * with {@link characterId}.
+   */
+  readonly companyId?: CompanyId;
 }
 
 /**

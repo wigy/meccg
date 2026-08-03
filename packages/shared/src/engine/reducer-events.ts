@@ -71,6 +71,21 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
         discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
       }));
       logDetail(`Discarded item ${removed.attachment.definitionId as string} from character ${removed.charId as string}`);
+    } else if (newState.players[playerIndex].cardsInPlay.some(c => c.instanceId === action.discardCardInstanceId)) {
+      // A bare permanent event in `cardsInPlay` (Pass the Doors of Dol Guldur
+      // dm-154's `discard-keyword-card` cost can spend another company-bound
+      // Stolen Knowledge card). The discard is "for no effect": the card moves
+      // straight to the discard pile and none of its own discard-triggered
+      // abilities (`grant-action` with `cost.discard: self`, `on-event`) fire.
+      const inPlayCard = newState.players[playerIndex].cardsInPlay.find(
+        c => c.instanceId === action.discardCardInstanceId,
+      )!;
+      newState = updatePlayer(newState, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.discardCardInstanceId),
+        discardPile: [...p.discardPile, toCardInstance(inPlayCard)],
+      }));
+      logDetail(`Discarded in-play card ${defById(newState, inPlayCard.definitionId)?.name ?? (inPlayCard.definitionId as string)} for no effect`);
     } else {
       // Check the marshalling point pile (killPile), where successfully stored
       // items are placed per CoE rule 2.II.4.1 (e.g. a Sapling of the White

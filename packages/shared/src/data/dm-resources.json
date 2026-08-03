@@ -1089,6 +1089,9 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "keywords": [
+      "stolen-knowledge"
+    ],
     "effects": [],
     "text": "Stolen Knowledge. Playable on an untapped character at a Shadow-hold [{S}] or Dark-hold [{D}] or if his company faced an agent attack and all of its strikes failed. Tap character. Can be stored at a Haven [{H}]—only if stored do you receive its marshalling point. If stored, you may discard this card and force one non-unique hazard to be removed from the game as you see your opponent discard it through a mechanism of the game."
   },
@@ -1180,7 +1183,80 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "stolen-knowledge"
+    ],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "discard-keyword-card",
+        "cardKeyword": "stolen-knowledge",
+        "sources": [
+          "character-items",
+          "cards-in-play"
+        ]
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "grant-action",
+        "action": "tap-pass-the-doors",
+        "cost": {
+          "tap": "self"
+        },
+        "singletonLock": true,
+        "when": {
+          "company.prisonersRescuedAtDolGuldurThisSitePhase": true
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-auto-untap"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven"
+        ],
+        "requiresTapped": true,
+        "marshallingPoints": 4
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "target": "all-automatic-attacks",
+        "value": -1,
+        "min": 1,
+        "activeWhileStored": true,
+        "when": {
+          "site.siteType": {
+            "$in": [
+              "dark-hold",
+              "shadow-hold"
+            ]
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "target": "all-automatic-attacks",
+        "value": -1,
+        "min": 1,
+        "activeWhileStored": true,
+        "when": {
+          "site.siteType": {
+            "$in": [
+              "dark-hold",
+              "shadow-hold"
+            ]
+          }
+        }
+      }
+    ],
+    "certified": "2026-08-03",
     "text": "Stolen Knowledge. Playable on a company if the company discards (for no effect) a Stolen Knowledge card it controls. You can tap this card during the same site phase the company successfully plays Rescue Prisoners at Dol Guldur (or rescues characters taken prisoner if the rescue site is Dol Guldur); this card never untaps. If tapped, this card can be stored at a Haven [{H}]—only if stored do you receive its marshalling points. If stored, all automatic-attacks at all Dark-holds [{D}] and all Shadow-holds [{S}] are with one less prowess and one less strike (to a minimum of one). Once tapped, no other copy of this card can be tapped."
   },
   {
