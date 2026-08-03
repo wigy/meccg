@@ -418,6 +418,13 @@ function handleSiteSiegeAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during siege-attacks step` };
   }
@@ -711,6 +718,13 @@ function handleSiteEntryAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during site-entry-attack step, got '${action.type}'` };
   }
@@ -736,6 +750,13 @@ function handleRevealOnGuardAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   // Pass: advance to play-site-auto-attack (if dynamic) or forewarned-select-attack
   // (if Forewarned Is Forearmed is in play and site has >1 attacks) or automatic-attacks.
   if (action.type === 'pass') {
@@ -899,6 +920,13 @@ function handleForewarnedSelectAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'select-forewarned-attack') {
     return { state, error: `Expected 'select-forewarned-attack' during forewarned-select-attack step, got '${action.type}'` };
   }
@@ -973,6 +1001,13 @@ function handleSiteAutomaticAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   // A chain response may arrive during the automatic-attacks step (e.g. a
   // hazard short event answering a declared effect while an auto-attack
   // chain is open). Dispatch it like the organization phase does: resource
@@ -1701,6 +1736,13 @@ function handleSiteTrollPurseAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during troll-purse-attacks step` };
   }
@@ -1805,6 +1847,13 @@ function handleSiteRescueAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during rescue-attacks step` };
   }
@@ -1864,6 +1913,13 @@ function handleDeclareAgentAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type === 'pass') {
     logDetail(`Site: declare-agent-attack → no agent attack declared (pass)`);
     return {
@@ -2107,6 +2163,13 @@ function handleSitePlaySiteAutoAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = company?.currentSite
@@ -2236,6 +2299,13 @@ function handleSiteResolveAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during resolve-attacks step` };
   }
@@ -4840,6 +4910,13 @@ function handleDeclareCompanyAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Constraint pass-through grants (River's cancel, and friends) are offered
+  // in every site step, so every step must route them: an offered action
+  // must never be rejected by the reducer.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
 

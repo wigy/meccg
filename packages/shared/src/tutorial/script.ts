@@ -150,7 +150,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
     card: { cardDefId: BARROW_DOWNS, highlight: { x: 0.11, y: 0.9, r: 0.06 } } },
   { id: 'mh-draw', title: 'Draw cards', body: 'Both players draw based on the destination’s draw numbers — you find Gates of Morning. Watch: the Mentor draws too.' },
   { id: 'mh-gates', title: 'Card synergy', body: 'Resource events can be played during the hazard window too. Play Gates of Morning: hazard environments are swept away, and Star of High Hope now gives +2.' },
-  { id: 'mh-gates-effect', title: 'The numbers change', body: 'See how the numbers changed: with Gates of Morning in play, Star of High Hope gives +2 prowess to every Elf — Arwen now fights at 4 instead of her printed 2. The Mentor plays nothing — a quiet first journey. Press [[Pass Priority]] and then [[Pass]] to continue.',
+  { id: 'mh-gates-effect', title: 'The numbers change', body: 'See how the numbers changed: with Gates of Morning in play, Star of High Hope gives +2 prowess to every Elf — Arwen now fights at 4 instead of her printed 2. The Mentor plays nothing — a quiet first journey. Press [[Pass Priority]] and then [[Pass Hazards]] to continue.',
     pointers: [{ cardDefId: ARWEN, label: 'Arwen’s effective prowess is now 4, as shown in the bottom right corner.', side: 'below' }] },
   { id: 'site-select', title: 'The site phase', body: 'Every company has a site phase of its own, and they are handled one by one in the order of your choosing. You have only one company today — select it.' },
   { id: 'site-enter-barrow', title: 'The Barrow-downs', body: 'Every company may either enter its site or skip it — skipping avoids the dangers, but forfeits everything the site offers. Ruins usually hold dangers in the form of automatic-attacks — at the Barrow-downs, it is Undead. Let’s go in — press [[Enter]].',
@@ -158,7 +158,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
       { term: 'Automatic-attack', explanation: 'An attack printed on the site itself — the price of entering dangerous places. It resolves before anything else can happen there.' },
     ] },
   { id: 'site-undead', title: 'The Undead attack', body: 'The barrow-wights rise: an automatic-attack of one strike at 8 prowess. There is no way around it — press [[Continue]] to face it.' },
-  { id: 'site-assign', title: 'Assign the strike', body: 'Each strike of an attack must be assigned to a character in the company. Elrohir is the sturdiest warrior here — click him to take this one.',
+  { id: 'site-assign', title: 'Assign the strike', body: 'Each strike of an attack must be assigned to a character in the company — you choose who stands where, and the choice is real strategy. Glorfindel II is your mightiest warrior at prowess 8 and body 9, but that is a reason to hold him back, not to spend him: whoever faces the strike may end up tapped or wounded, and you want your best character fresh when the site yields its treasure. Elrohir can afford the risk — his body of 8 gives him good odds to shrug off a failed strike, and the Shield of Iron-bound Ash on his arm is waiting to be used. Click Elrohir to take the strike.',
     concepts: [
       { term: 'Strike', explanation: 'One duel within an attack, assigned to one character: the character rolls two dice plus prowess against the strike’s prowess.' },
     ] },
@@ -173,18 +173,15 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
       { term: 'Corruption', explanation: 'The lure of power and treasure weighing on a character’s heart. Rings, treasures and certain hazards add corruption points (CP) — the more a character carries, the harder it is to stay true.' },
       { term: 'Corruption check', explanation: 'Roll two dice against the character’s corruption point total: roll higher and they resist. Equal or one less, a hero forsakes the quest and is discarded; lower still, the character is eliminated.' },
     ] },
-  { id: 'site-aftermath', title: 'The mound falls silent', body: 'The fight is over and Elrohir’s wound is the price paid. Nothing more stands between you and the site’s treasure — press [[Pass]] until the spoils are within reach.' },
-  { id: 'site-sword', title: 'Claim the prize', body: 'A tapped site yields its treasure: play Sword of Gondolin on Glorfindel II — the wounded Elrohir cannot bear it. It taps Glorfindel and the site, and is worth 2 marshalling points.',
+  { id: 'site-aftermath', title: 'The mound falls silent', body: 'The fight is over and Elrohir’s wound is the price paid. Nothing more stands between you and the site’s treasure — press [[Continue]] until the spoils are within reach.' },
+  { id: 'site-sword', title: 'Claim the prize', body: 'A tapped site yields its treasure: play Sword of Gondolin on Glorfindel II — the wounded Elrohir cannot bear it. It taps Glorfindel and the site, and is worth 2 marshalling points. Then press [[Pass Resources]] to finish the site phase.',
     concepts: [
-      { term: 'Marshalling points (MP)', explanation: 'Victory points. Items, factions, allies and slain foes all score them; the player with the most marshalling points wins the endgame council.' },
+      { term: 'Marshalling points (MP)', explanation: 'Victory points. Items, factions, allies and slain foes all score them; whoever holds the most wins the endgame council. Duplicates matter too: a unique card may only be in play once, and at the council a duplicate in your hand of a unique card your opponent scores from cancels one of their points.' },
     ],
-    pointers: [{ anchor: 'marshalling-points', label: 'Your marshalling points' }] },
-  { id: 'eot-1', title: 'End of turn', body: 'You may discard a card you don’t need — let go of the spare Sword of Gondolin, its twin is already in Glorfindel’s hands. Then refill your hand to 8. Your turn ends.' },
-  { id: 'mentor-untap-1', title: 'Roles swap', body: 'On your opponent’s turn you are the hazard player. You could fetch from your sideboard now, but that would halve your hazard limit all turn — decline.',
-    concepts: [
-      { term: 'Sideboard', explanation: 'A reserve of cards outside your play deck. You may fetch from it during your opponent’s untap phase — at the cost of a halved hazard limit that turn.' },
-    ],
-    pointers: [{ anchor: 'sideboard', label: 'Your sideboard — the reserve pile' }] },
+    pointers: [{ anchor: 'marshalling-points', label: 'Your marshalling points', side: 'right' }] },
+  { id: 'eot-1', title: 'End of turn', body: 'You may discard a card you don’t need — let go of the spare Sword of Gondolin, its twin is already in Glorfindel’s hands: click the sword in your hand and choose Discard. Then press [[Draw]] to refill your hand to 8.' },
+  { id: 'eot-1-end', title: 'Turn over', body: 'All done — now click [[End Turn]]. The Mentor takes over from here.' },
+  { id: 'mentor-untap-1', title: 'Roles swap', body: 'On your opponent’s turn you are the hazard player: now it is your job to make the Mentor’s journey dangerous. Watch the Mentor untap, then click [[End Untap]].' },
   { id: 'mentor-org-1', title: 'The Mentor moves out', body: 'Watch: the Mentor’s dwarves head for Moria. You have no actions in your opponent’s organization phase.' },
   { id: 'mentor-mh-1', title: 'Your first hazard', body: 'The Mentor reveals its path. Draw, then play the Orc-lieutenant on the dwarves — creatures are keyed to regions and site types on the path. The Mentor defends: Gimli taps and defeats the Orc, and the Mentor takes the kill marshalling points. Both sides score in this game.',
     concepts: [
@@ -296,7 +293,7 @@ export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   b('eot-1', 'mentor', { type: 'pass' }),
   b('eot-1', 'human', { type: 'draw-cards' }),
   b('eot-1', 'mentor', { type: 'pass' }),
-  b('eot-1', 'human', { type: 'pass' }),
+  b('eot-1-end', 'human', { type: 'pass' }),
 
   // ---- Part 2 — Round 1: the Mentor's turn ----
   b('mentor-untap-1', 'mentor', { type: 'untap' }),
