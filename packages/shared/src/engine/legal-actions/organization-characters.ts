@@ -384,7 +384,7 @@ function findPlayableSites(
  * Wilderness"`; as-1/5/6: `"Any non-Under-deeps Ruins & Lairs"`) is delegated
  * to {@link matchesCompoundHomesite}.
  */
-function homesiteMatchesSite(state: GameState, charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
+export function homesiteMatchesSite(state: GameState, charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
   let homesite = charDef.homesite;
   if (playerAlignment === Alignment.Balrog && homesite === 'Any Dark-hold') {
     homesite = 'any non-Dark-hold Under-deeps site';
