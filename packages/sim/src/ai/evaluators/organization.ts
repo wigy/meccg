@@ -175,6 +175,15 @@ export const organizationEvaluator: ActionEvaluator = {
         // waste actions.
         return 0;
 
+      case 'discard-character':
+        // Never voluntarily discard a character in play — the AI has no
+        // evaluation of when giving up a character's marshalling points,
+        // items, and mind investment is worth it, so an unscored discard
+        // fell through to the default weight (1) and tied with (or beat)
+        // other weak-but-harmless actions, occasionally throwing away a
+        // healthy, undamaged character for no reason.
+        return 0;
+
       case 'activate-granted-action':
         // Removing attached hazards is high value when likely to succeed.
         return 8;
