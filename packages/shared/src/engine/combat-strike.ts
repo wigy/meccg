@@ -83,12 +83,33 @@ export function nextStrikePhase(combat: CombatState): Partial<CombatState> | nul
  * either continue with the next strike phase (via {@link nextStrikePhase}) or,
  * when no unresolved strikes remain, finalize the combat. This is the shared
  * tail of every strike-resolution handler.
+ *
+ * Multi-attack cancel-by-tap creatures (Assassin tw-8, Slayer le-90, Nameless
+ * Thing dm-109 — `forceSingleTarget` + `combat-cancel-attack-by-tap`) let the
+ * defender hold back a cancel and use it after facing an earlier attack: CRF 22
+ * "you may decide to cancel one of the attacks after facing another attack."
+ * So before advancing, reopen the cancel-by-tap sub-phase at each attack
+ * boundary (every `strikesPerAttack` strikes resolved) while cancels and
+ * unresolved strikes both remain. Carrion Feeders' wounded-strike variant
+ * (`cancelStrikeAgainstWounded`) has no such clause and is excluded via the
+ * `forceSingleTarget` gate (it never sets that flag).
  */
 export function advanceStrikeOrFinalize(
   state: GameState,
   combat: CombatState,
   effects?: GameEffect[],
 ): ReducerResult {
+  if (combat.forceSingleTarget && combat.cancelByTapRemaining && combat.cancelByTapRemaining > 0) {
+    const strikesPerAttack = combat.strikesPerAttack ?? 1;
+    const resolvedCount = combat.strikeAssignments.filter(a => a.resolved).length;
+    const unresolvedCount = combat.strikeAssignments.length - resolvedCount;
+    if (resolvedCount > 0 && unresolvedCount > 0 && resolvedCount % strikesPerAttack === 0) {
+      logDetail(`Cancel-by-tap window reopens after facing an attack: ${combat.cancelByTapRemaining} cancel(s) still available`);
+      const newState = { ...state, combat: { ...combat, phase: 'assign-strikes' as const, assignmentPhase: 'cancel-by-tap' as const } };
+      return effects ? { state: newState, effects } : { state: newState };
+    }
+  }
+
   const next = nextStrikePhase(combat);
   if (next) {
     const newState = { ...state, combat: { ...combat, ...next } };

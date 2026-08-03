@@ -30,7 +30,7 @@ import { applyCost } from './cost-evaluator.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
-import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
+import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { cvccSides } from './cvcc-sides.js';
 
@@ -985,7 +985,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayers, combat: null }) };
   }
 
-  let newCombat: CombatState = {
+  const newCombat: CombatState = {
     ...combat,
     strikeAssignments: newAssignments,
     strikesTotal: newStrikesTotal,
@@ -993,11 +993,22 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
   };
 
+  // The canceled attack may have been the last unresolved one — e.g. it was
+  // canceled after the reopened post-attack window (CRF 22: "cancel one of the
+  // attacks after facing another attack"), leaving only already-resolved
+  // strikes behind. `nextStrikePhase` returning null means no unresolved
+  // strikes remain, so combat is over regardless of any unused cancel
+  // allowance — finalize it now rather than leaving a stale combat state.
+  const next = nextStrikePhase(newCombat);
+  if (next === null) {
+    logDetail('No unresolved strikes remain after cancellation — finalizing combat');
+    return finalizeCombat({ ...state, players: newPlayers, combat: newCombat });
+  }
+
   // If no more cancels available, proceed to strike resolution
   if (newCancelRemaining <= 0) {
     logDetail('No more cancel-by-tap opportunities — proceeding to resolution');
-    const next = nextStrikePhase(newCombat);
-    newCombat = { ...newCombat, assignmentPhase: 'done', ...next };
+    return { state: { ...state, players: newPlayers, combat: { ...newCombat, assignmentPhase: 'done', ...next } } };
   }
 
   return { state: { ...state, players: newPlayers, combat: newCombat } };
