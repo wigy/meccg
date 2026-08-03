@@ -34,7 +34,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions, reduce } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
-import type { CardDefinitionId, CardInstanceId, SitePhaseState } from '../../index.js';
+import type { CardDefinitionId, SitePhaseState } from '../../index.js';
 
 const BURGLARY = 'td-103' as CardDefinitionId;
 

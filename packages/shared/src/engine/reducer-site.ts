@@ -11,7 +11,7 @@ import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
-import { CardStatus, Race, Alignment, Skill } from '../types/common.js';
+import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findCompanyAllies } from './legal-actions/combat.js';
