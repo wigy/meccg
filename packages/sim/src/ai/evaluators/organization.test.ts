@@ -247,3 +247,22 @@ describe('organizationEvaluator pass suppression', () => {
     expect(organizationEvaluator.score(PASS, context)).toBe(5);
   });
 });
+
+describe('organizationEvaluator discard-character', () => {
+  // Regression: with no case for 'discard-character', the dispatcher's flat
+  // default weight (1) made discarding a healthy, useful character as likely
+  // as any good play — the AI discarded Anborn (a follower at a haven, so
+  // rule 3.22 legally allowed the discard) for no reason (bug report:
+  // game msdenbx7-gcyhn5, stateSeq 376). The heuristic has no model of when
+  // a voluntary discard is worth it, so it must score 0 until it does.
+  function discardCharacter(characterInstanceId: string): GameAction {
+    return { type: 'discard-character', player: 'p2', characterInstanceId } as unknown as GameAction;
+  }
+
+  test('scores 0 for discarding a character', () => {
+    const view = makeView([]);
+    const action = discardCharacter('anborn');
+    const context: AiContext = { view, cardPool: POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+});
