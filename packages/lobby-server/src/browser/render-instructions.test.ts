@@ -17,8 +17,9 @@
 import './test-dom-bootstrap.js'; // must precede the render-instructions import (load-time window access)
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { Phase } from '@meccg/shared';
-import type { PlayerView, EvaluatedAction } from '@meccg/shared';
+import type { PlayerView, EvaluatedAction, CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { renderPassButton } from './render-instructions.js';
+import { appState } from './app-state.js';
 
 class StubEl {
   tagName: string;
@@ -62,6 +63,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (globalThis as unknown as { document?: unknown }).document;
+  appState.lastInstanceLookup = () => undefined;
 });
 
 const resolveDiceCheck: EvaluatedAction = {
@@ -425,5 +427,60 @@ describe('renderPassButton — Free Council corruption-check declare step', () =
 
     passBtn.onclick?.();
     expect(sent).toEqual(onlyCheck.action);
+  });
+});
+
+/**
+ * Regression test for bug report f46b56f4617e1f74 (game msd25yx4-jzz7ze, seq
+ * 147): "Just played join the Hunt and then nothing can be done anymore."
+ * Alatar (Fallen-wizard avatar, wh-1) entering play mid-game drops the
+ * player's general-influence pool from the default 20 to his printed 17,
+ * putting four already-recruited characters over the limit (CoE 2.II.8 /
+ * 2.II.2.1.F2) and enqueuing an `influence-overflow-discard` resolution with
+ * one viable action per removable character. That action type was entirely
+ * absent from {@link renderPassButton}'s pass-like whitelist — the same class
+ * of bug as `choose-gold-ring-test-roll`/`choose-great-hunt-source` above:
+ * with several removal candidates and no safe default to auto-pick, the roll
+ * button hid and (since viable actions did exist) the "Waiting…" indicator
+ * was suppressed too, leaving no control on screen at all. It now renders one
+ * "Remove <character>" button per candidate.
+ */
+const influenceOverflowDiscard = (characterInstanceId: string): EvaluatedAction => ({
+  action: {
+    type: 'influence-overflow-discard',
+    player: 'p1',
+    characterInstanceId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+const lookupOf = (map: Record<string, string>) =>
+  ((id: CardInstanceId) => map[id as string] as CardDefinitionId | undefined);
+
+describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-influence overflow)', () => {
+  test('renders one Remove button per candidate character instead of hiding the panel', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p1-99': 'dm-17', 'p1-105': 'le-1' });
+
+    renderPassButton(
+      viewWith([influenceOverflowDiscard('p1-99'), influenceOverflowDiscard('p1-105')]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(visualPanel.children).toHaveLength(2);
+    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Remove Ivic', 'Remove Asternak']);
+  });
+
+  test('clicking a candidate button sends that character\'s discard action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p1-99': 'dm-17' });
+    const onlyCandidate = influenceOverflowDiscard('p1-99');
+
+    renderPassButton(viewWith([onlyCandidate]), action => { sent = action; });
+
+    visualPanel.children[0].onclick?.();
+
+    expect(sent).toEqual(onlyCandidate.action);
   });
 });

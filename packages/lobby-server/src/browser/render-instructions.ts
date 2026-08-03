@@ -9,7 +9,7 @@
 
 import type { PlayerView, GameAction } from '@meccg/shared';
 import { Phase } from '@meccg/shared';
-import { appState } from './app-state.js';
+import { appState, cardPool } from './app-state.js';
 import { passButtonLabel } from './pass-button-label.js';
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
@@ -98,6 +98,31 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         chooseBtn.textContent = chooseAction.source === 'deck' ? 'Reveal Play Deck' : 'Reveal Discard Pile';
         chooseBtn.onclick = () => onAction(chooseAction);
         document.getElementById('visual-panel')?.appendChild(chooseBtn);
+      }
+      return;
+    }
+
+    // CoE 3.47 general-influence overflow: the player left their organization
+    // phase over their general influence and must remove one of several
+    // named characters (`influence-overflow-discard`). Like the two choices
+    // above, there is no safe default to auto-pick, so render one button per
+    // candidate rather than falling through to the "no pass action" branch
+    // below — which hides both the pass button and the waiting indicator
+    // (since a viable action *does* exist), leaving no visible control at all.
+    const overflowDiscardEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'influence-overflow-discard');
+    if (overflowDiscardEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of overflowDiscardEvals) {
+        const discardAction = ea.action;
+        if (discardAction.type !== 'influence-overflow-discard') continue;
+        const defId = appState.lastInstanceLookup(discardAction.characterInstanceId);
+        const charName = defId ? cardPool[defId as string]?.name : undefined;
+        const discardBtn = document.createElement('button');
+        discardBtn.className = 'enter-site-btn influence-overflow-discard-btn';
+        discardBtn.textContent = `Remove ${charName ?? discardAction.characterInstanceId as string}`;
+        discardBtn.onclick = () => onAction(discardAction);
+        document.getElementById('visual-panel')?.appendChild(discardBtn);
       }
       return;
     }
