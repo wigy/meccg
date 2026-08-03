@@ -117,6 +117,8 @@ export function renderCharacterColumn(
       const attEl = createCardImage(att.definitionId as string, attDef, attImg, 'company-card company-card--item', att.instanceId as string);
       if (att.status === CardStatus.Tapped) {
         attEl.classList.add('company-card--tapped');
+      } else if (att.status === CardStatus.Inverted) {
+        attEl.classList.add('company-card--wounded');
       }
       const isItem = char.items.some(i => i.instanceId === att.instanceId);
       const isHazard = char.hazards.some(h => h.instanceId === att.instanceId);
@@ -224,6 +226,8 @@ export function renderCharacterColumn(
             const fAttEl = createCardImage(fAtt.definitionId as string, fAttDef, fAttImg, 'company-card company-card--item', fAtt.instanceId as string);
             if (fAtt.status === CardStatus.Tapped) {
               fAttEl.classList.add('company-card--tapped');
+            } else if (fAtt.status === CardStatus.Inverted) {
+              fAttEl.classList.add('company-card--wounded');
             }
             const fIsItem = follower.items.some(i => i.instanceId === fAtt.instanceId);
             const fIsHazard = follower.hazards.some(h => h.instanceId === fAtt.instanceId);

@@ -886,6 +886,7 @@ function renderCombatCharacterColumn(
       const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'company-card company-card--item', item.instanceId as string);
       if (!itemEl) continue;
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
+      else if (item.status === CardStatus.Inverted) itemEl.classList.add('company-card--wounded');
 
       // Hazards are display-only in combat — skip combat click handlers and strike styling.
       if (hazardIds.has(item.instanceId as string)) {
@@ -1153,6 +1154,7 @@ function renderCvCCAttackerCharacterColumn(
       const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'company-card company-card--item', item.instanceId as string);
       if (!itemEl) continue;
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
+      else if (item.status === CardStatus.Inverted) itemEl.classList.add('company-card--wounded');
       attachments.appendChild(withItemCpBadge(itemEl, item.instanceId as string));
     }
     col.appendChild(attachments);
