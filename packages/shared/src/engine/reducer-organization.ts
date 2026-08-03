@@ -1405,15 +1405,28 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   // Council window or to checks granted by a specific card.
   logDetail(`Enqueuing corruption check for ${fromDef?.name ?? '?'} after item transfer`);
 
+  // Flag a return to *any* character this item has already borne this phase
+  // — not just the character it is leaving now — as regressive. Without
+  // this, an item bouncing among three or more characters (A→B→C→A→B→C…)
+  // never matches a single-step reverse and the AI can cycle it forever;
+  // each hop only ever undid the *previous* hop, not the earlier ones.
+  const priorHolders = new Set<CardInstanceId>([fromCharId]);
+  for (const reverse of state.reverseActions) {
+    if (reverse.type === 'transfer-item' && reverse.itemInstanceId === itemInstId && reverse.player === action.player) {
+      priorHolders.add(reverse.toCharacterId);
+    }
+  }
+  const newReverseActions: GameAction[] = Array.from(priorHolders).map(holder => ({
+    type: 'transfer-item' as const,
+    player: action.player,
+    itemInstanceId: itemInstId,
+    fromCharacterId: toCharId,
+    toCharacterId: holder,
+  }));
+
   const stateAfterTransfer: GameState = {
     ...updatePlayer(state, playerIndex, () => playerAfterTransfer),
-    reverseActions: [...state.reverseActions, {
-      type: 'transfer-item' as const,
-      player: action.player,
-      itemInstanceId: itemInstId,
-      fromCharacterId: toCharId,
-      toCharacterId: fromCharId,
-    }],
+    reverseActions: [...state.reverseActions, ...newReverseActions],
   };
 
   return {
