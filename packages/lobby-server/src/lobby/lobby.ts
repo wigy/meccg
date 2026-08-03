@@ -42,8 +42,23 @@ import { countUnread } from '../mail/store.js';
  * process itself and the rest of the box. Batch harnesses must keep the
  * default `jobs=1` and parallelize across games via SIM_JOBS instead —
  * per-decision fan-out under SIM_JOBS would oversubscribe the machine.
+ *
+ * `candidates=4`, narrowed from 6 on 2026-08-02. At a fixed budget of 16
+ * playouts the split between width and samples is flat: `2x8` gates at
+ * −27 Elo [−96, +40] and `8x2` at −14 [−71, +41] against the `4x4`
+ * reference, both spanning zero over 100 games each, and only the
+ * degenerate `1x16` is genuinely worse at −154 [−255, −73]. Four is inside
+ * that flat range, so it costs no measured strength — and under a *time*
+ * budget a cheaper round is the point, because more rounds then fit inside
+ * the same 2 s.
+ *
+ * Deliberately not pinned to an explicit `rollouts`: in time-budget mode
+ * that becomes a round *cap* (`TIME_MODE_ROUND_CAP` in `agents/mc-agent`),
+ * which would end the search early and leave most of the budget unspent.
+ * The horizon stays at 3 — the sweep above held `turns=1` throughout, so it
+ * says nothing about the horizon this spec uses.
  */
-const MC_AGENT_SPEC = `mc:jobs=${Math.max(1, os.cpus().length - 2)}/ms=2000/turns=3/candidates=6`;
+const MC_AGENT_SPEC = `mc:jobs=${Math.max(1, os.cpus().length - 2)}/ms=2000/turns=3/candidates=4`;
 
 /**
  * Sim agent spec for the "Play vs Modular AI" button — Heuristics 2
