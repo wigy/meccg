@@ -237,6 +237,111 @@ describe('Slayer (le-90)', () => {
     expect(r3.combat!.phase).toBe('resolve-strike');
   });
 
+  test('cancel-by-tap window reopens after facing the first attack (CRF 22: "even after facing another attack")', () => {
+    // Regression test for bug report: a defender who declines to cancel before
+    // any strikes resolve must still be able to tap a character to cancel the
+    // second (remaining) attack after the first one has been faced — Slayer's
+    // own text: "This may be done even after a strike is assigned and after
+    // facing another attack." Previously the cancel-by-tap window only opened
+    // once, before either strike resolved; once passed, it stayed closed for
+    // the rest of combat and tapping a character only offered support-strike.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [SLAYER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const slayerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: slayerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 0);
+    const gimliCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 2);
+    const r2 = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(r2.combat!.cancelByTapRemaining).toBe(1);
+
+    // Defender declines to cancel before facing either strike.
+    const r3 = dispatch(r2, { type: 'pass', player: PLAYER_1 });
+    expect(r3.combat!.assignmentPhase).toBe('done');
+    expect(r3.combat!.phase).toBe('choose-strike-order');
+    expect(r3.combat!.strikeAssignments).toHaveLength(2);
+
+    // Defender chooses to resolve the first strike, and wins it comfortably
+    // (Aragorn's prowess plus a forced 12 easily beats the Slayer's 11).
+    const chooseActions = computeLegalActions(r3, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'choose-strike-order');
+    expect(chooseActions.length).toBeGreaterThan(0);
+    const r4 = dispatch(r3, chooseActions[0].action);
+    expect(r4.combat!.phase).toBe('resolve-strike');
+
+    const rolled: typeof r4 = { ...r4, cheatRollTotal: 12 };
+    const resolveActions = computeLegalActions(rolled, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'resolve-strike' && a.action.tapToFight === false);
+    expect(resolveActions.length).toBe(1);
+    const r5 = dispatch(rolled, resolveActions[0].action);
+
+    // One strike now resolved, one remains — the cancel-by-tap window
+    // reopens for the still-unused cancel allowance.
+    expect(r5.combat!.strikeAssignments.filter(a => a.resolved)).toHaveLength(1);
+    expect(r5.combat!.strikeAssignments.filter(a => !a.resolved)).toHaveLength(1);
+    expect(r5.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(r5.combat!.phase).toBe('assign-strikes');
+    expect(r5.combat!.cancelByTapRemaining).toBe(1);
+
+    // The defender can now tap Gimli to cancel the remaining (second) attack.
+    const defActions = computeLegalActions(r5, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'cancel-by-tap');
+    expect(defActions.length).toBeGreaterThan(0);
+
+    const r6 = dispatch(r5, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: gimliCharId,
+    });
+
+    // The second attack is canceled; no unresolved strikes remain, so combat
+    // finalizes (the creature is discarded and combat clears).
+    expect(r6.players[0].characters[gimliCharId].status).toBe('tapped');
+    expect(r6.combat).toBeNull();
+  });
+
   test('cancel-by-tap respects maxCancels=1 (only one attack can be canceled)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
