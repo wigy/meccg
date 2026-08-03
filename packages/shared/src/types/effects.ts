@@ -5076,6 +5076,34 @@ export interface RiddlingAttemptEffect extends EffectBase {
 }
 
 /**
+ * Burglary attempt: playable at a site during the site phase, before any of
+ * its automatic-attacks has been faced. Tap a character and the site "in
+ * lieu of facing" the site's automatic-attacks, then roll 2d6 modified by
+ * `scoutBonus` if the character has the Scout skill and `hobbitBonus` if he
+ * is a Hobbit. If the total is greater than `threshold`, the company's
+ * automatic-attacks are skipped entirely and an item normally playable at
+ * the site may be played with the (tapped) character. Otherwise the
+ * character must face all of the site's automatic-attacks alone, with no
+ * combat support from the rest of his company.
+ *
+ * Used by Burglary (td-103). Offered as a bespoke `declare-burglary` action
+ * in `legal-actions/site.ts` (not a `play-target`/chain flow); the roll
+ * itself is a `burglary-attempt` pending resolution enqueued by the
+ * `declare-burglary` reducer in `reducer-site.ts`, so a future on-guard
+ * interaction (e.g. Half an Eye Open, td-29, which modifies the roll by -5)
+ * can hook the same resolution before it resolves.
+ */
+export interface BurglaryAttemptEffect extends EffectBase {
+  readonly type: 'burglary-attempt';
+  /** Roll + modifiers must exceed this for success. */
+  readonly threshold: number;
+  /** Bonus added to the roll if the character has the Scout skill. */
+  readonly scoutBonus: number;
+  /** Bonus added to the roll if the character is a Hobbit. */
+  readonly hobbitBonus: number;
+}
+
+/**
  * Roll-gated counter-cancel (Black Vapour ba-14): a hazard short-event the
  * *attacking* (hazard) player plays during a combat chain to negate an
  * opponent-declared chain entry that would cancel a creature attack of a
@@ -7592,6 +7620,7 @@ export type CardEffect =
   | FlatteryCancelAttackEffect
   | GoodwillCancelAttackEffect
   | RiddlingAttemptEffect
+  | BurglaryAttemptEffect
   | CounterCancelAttackRollEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect

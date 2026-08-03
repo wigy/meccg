@@ -803,6 +803,49 @@ export function riddlingAttemptRollActions(
 }
 
 /**
+ * Compute the single burglary-attempt action for a queued `burglary-attempt`
+ * resolution (Burglary, td-103). The player rolls 2d6; total = roll +
+ * `scoutBonus` if the character has the Scout skill + `hobbitBonus` if he is
+ * a Hobbit. Success if total > threshold.
+ */
+export function burglaryAttemptRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'burglary-attempt') return [];
+  const { characterInstanceId, threshold, scoutBonus, hobbitBonus } = top.kind;
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) return [];
+
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const isScout = isCharacterCard(charDef) && charDef.skills.includes(Skill.Scout);
+  const isHobbit = isCharacterCard(charDef) && charDef.race === Race.Hobbit;
+  const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0);
+
+  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
+  const need = threshold - bonus + 1;
+
+  logDetail(`Pending burglary-attempt by ${charName}: threshold ${threshold}${isScout ? `, +${scoutBonus} scout` : ''}${isHobbit ? `, +${hobbitBonus} hobbit` : ''} → need roll >= ${need}`);
+
+  return [{
+    action: {
+      type: 'burglary-attempt' as const,
+      player: playerId,
+      characterInstanceId,
+      need,
+      explanation: `${charName} burglary: threshold ${threshold}, bonus +${bonus} → need roll >= ${need}`,
+    },
+    viable: true,
+  }];
+}
+
+/**
  * Compute the riddling-guess actions for a queued `riddling-guess`
  * resolution (Riddling Talk, td-148), following a successful riddling roll.
  * One action per distinct card name among hazard-event / hazard-creature

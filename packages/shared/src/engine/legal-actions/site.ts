@@ -535,6 +535,31 @@ function automaticAttacksActions(
         actions.push({ type: 'cancel-auto-attack', player: playerId, characterId: charId });
       }
     }
+
+    // Burglary (td-103): before any attack this slot has been faced (or an
+    // earlier burglary attempt has already succeeded/failed), an untapped
+    // character in the company may tap (with the site) to attempt burglary
+    // "in lieu of facing" the site's automatic-attacks.
+    if (company && autoAttacks.length > 0 && siteState.automaticAttacksResolved === 0
+      && siteState.autoAttacksSkipped !== true && !siteState.soloAutoAttackCharacterId) {
+      const burglaryCards = player.hand.filter(c =>
+        getCardEffects(defById(state, c.definitionId)).some(e => e.type === 'burglary-attempt'));
+      if (burglaryCards.length > 0) {
+        for (const charId of company.characters) {
+          const char = player.characters[charId];
+          if (!char || char.status !== CardStatus.Untapped) continue;
+          const charDef = defById(state, char.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          for (const card of burglaryCards) {
+            logDetail(`Automatic attacks: ${charDef.name} may tap to attempt burglary with "${defById(state, card.definitionId)?.name ?? '?'}"`);
+            actions.push({
+              type: 'declare-burglary', player: playerId,
+              cardInstanceId: card.instanceId, characterInstanceId: charId,
+            });
+          }
+        }
+      }
+    }
   }
 
   logDetail(`Automatic attacks — ${actions.length} action(s) offered`);
@@ -1508,7 +1533,15 @@ function playResourcesActions(
         logDetail(`Item ${itemDef.name}: gold ring unlocked at ${siteName} (Hermit's Hill) — site restriction and playable-resources gate bypassed`);
       }
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive) {
+      // Burglary (td-103): a successful attempt tapped the site itself, so the
+      // one item it unlocks must bypass the "site already tapped" gate too
+      // (the ordinary `playableResources`/subtype gate below still applies).
+      const burglaryUnlockActive = siteState.burglaryItemUnlock !== undefined;
+      if (burglaryUnlockActive) {
+        logDetail(`Item ${itemDef.name}: burglary attempt unlocked ${siteName} — site-tapped gate bypassed`);
+      }
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !burglaryUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;
@@ -1567,7 +1600,18 @@ function playResourcesActions(
         continue;
       }
 
-      if (untappedCharacters.length === 0) {
+      // Burglary (td-103): a successful attempt unlocks one item play with
+      // the (tapped) burgling character despite the untapped-character gate.
+      const burglarChar = siteState.burglaryItemUnlock
+        ? company.characters
+          .map(cId => player.characters[cId])
+          .find(ch => ch?.instanceId === siteState.burglaryItemUnlock)
+        : undefined;
+      const itemEligibleCharacters = burglarChar
+        ? [...untappedCharacters, burglarChar]
+        : untappedCharacters;
+
+      if (itemEligibleCharacters.length === 0) {
         logDetail(`Item ${itemDef.name}: no untapped character to carry it`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: no untapped character in company`));
         continue;
@@ -1615,8 +1659,9 @@ function playResourcesActions(
         }
       }
 
-      // One action per untapped character that could carry the item
-      for (const ch of untappedCharacters) {
+      // One action per untapped character that could carry the item (plus
+      // the burgling character, if a burglary attempt just unlocked one).
+      for (const ch of itemEligibleCharacters) {
         const charDef = defById(state, ch.definitionId);
         const charName = charDef?.name ?? ch.instanceId;
 

@@ -393,6 +393,10 @@ export function describeAction(
       return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
     case 'cancel-auto-attack':
       return `Tap ${instName(action.characterId)} to cancel automatic-attack at home site`;
+    case 'declare-burglary':
+      return `${playerName(action.player)} taps ${instName(action.characterInstanceId)} and the site to attempt burglary in lieu of facing automatic-attacks (Burglary)`;
+    case 'burglary-attempt':
+      return `${playerName(action.player)} rolls for ${instName(action.characterInstanceId)}: ${action.explanation}`;
     case 'declare-agent-attack': {
       const reveal = action.homeSiteInstanceId ? ` (reveal at ${instName(action.homeSiteInstanceId)})` : '';
       const tap = action.tapForExtraStrike ? ' (tap for an extra strike)' : '';

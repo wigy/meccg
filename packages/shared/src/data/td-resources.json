@@ -424,8 +424,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Burglary attempt. Tap a character to make a burglary attempt at a site in lieu of facing its automatic-attacks. Tap the site and make a roll modified by +2 if the character is a scout and by +3 if he is a Hobbit. If the result is greater than 10, an item normally playable at the site may be played with the character. If the attempt fails, the character must face all automatic-attacks alone."
+    "effects": [
+      {
+        "type": "burglary-attempt",
+        "threshold": 10,
+        "scoutBonus": 2,
+        "hobbitBonus": 3
+      }
+    ],
+    "text": "Burglary attempt. Tap a character to make a burglary attempt at a site in lieu of facing its automatic-attacks. Tap the site and make a roll modified by +2 if the character is a scout and by +3 if he is a Hobbit. If the result is greater than 10, an item normally playable at the site may be played with the character. If the attempt fails, the character must face all automatic-attacks alone.",
+    "certified": "2026-08-03"
   },
   {
     "cardType": "hero-resource-event",

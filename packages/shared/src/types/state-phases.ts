@@ -968,6 +968,31 @@ export interface SitePhaseState {
    */
   readonly eddyTaxTapped?: number;
   /**
+   * Character instance ID that must face the active company's site
+   * automatic-attacks **alone**, following a failed burglary attempt
+   * (Burglary, td-103: "the character must face all automatic-attacks
+   * alone"). Threaded into every automatic-attack `CombatState` built for
+   * this company slot as `soloDefenderInstanceId`, restricting strike
+   * assignment to this one character — no other company member (nor an
+   * ally hosted by one) may face a strike on his behalf. Does not affect
+   * on-guard creature combat, which is faced by the whole company per CRF
+   * ("On-guard creatures are faced by the whole company after a Burglaring
+   * attempt, regardless of the success of the attempt."). Absent
+   * (undefined) unless a burglary attempt has failed this slot; reset to
+   * absent when a new company's site phase begins.
+   */
+  readonly soloAutoAttackCharacterId?: CardInstanceId;
+  /**
+   * Character instance ID allowed to receive one item normally playable at
+   * the site despite being tapped, following a successful burglary attempt
+   * (Burglary, td-103: "an item normally playable at the site may be played
+   * with the character"). Consumed (cleared) the moment an item is played
+   * on this character. Absent (undefined) unless a burglary attempt has
+   * just succeeded this slot; reset to absent when a new company's site
+   * phase begins.
+   */
+  readonly burglaryItemUnlock?: CardInstanceId;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */

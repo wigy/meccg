@@ -91,6 +91,53 @@ export interface CancelAutoAttackAction {
 }
 
 /**
+ * Declare a burglary attempt (Burglary, td-103): tap a character and the
+ * site to attempt burglary "in lieu of facing" the site's automatic-attacks.
+ *
+ * Only offered during the `automatic-attacks` step before any attack has
+ * been faced (`automaticAttacksResolved === 0`) and before any burglary
+ * attempt or skip is already in effect this slot, for an untapped character
+ * in the active company while the Burglary card is in hand. Tapping the
+ * character and site happens immediately; the roll itself is a separate
+ * `burglary-attempt` pending resolution so a future on-guard interaction
+ * (e.g. Half an Eye Open, td-29) can modify it before it resolves.
+ */
+export interface DeclareBurglaryAction {
+  /** Action discriminant. */
+  readonly type: 'declare-burglary';
+  /** The resource player declaring the attempt. */
+  readonly player: PlayerId;
+  /** The Burglary card instance being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character attempting the burglary. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
+ * Execute the dice roll for a declared burglary attempt (Burglary, td-103).
+ *
+ * Created by the pending-resolution system once `declare-burglary` taps the
+ * character and site. The player rolls 2d6, modified by +2 if the character
+ * is a Scout and +3 if he is a Hobbit. If the total is greater than 10, the
+ * company's automatic-attacks are skipped entirely and an item normally
+ * playable at the site may be played with the (tapped) character. If not,
+ * the character must face all of the site's automatic-attacks alone, with
+ * no combat support from the rest of his company.
+ */
+export interface BurglaryAttemptRollAction {
+  /** Action discriminant. */
+  readonly type: 'burglary-attempt';
+  /** The resource player (who rolls). */
+  readonly player: PlayerId;
+  /** The character making the burglary attempt. */
+  readonly characterInstanceId: CardInstanceId;
+  /** roll >= need means success (already accounts for scout/Hobbit bonuses). */
+  readonly need: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}
+
+/**
  * Play a hazard creature from the hazard player's hand as the site's
  * automatic-attack. Used at sites with a `site-rule: dynamic-auto-attack`
  * effect (e.g. Framsburg td-175).

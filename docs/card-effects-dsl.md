@@ -3939,6 +3939,68 @@ attack (`resolveCancelAttackEntry`) and decreases `hazardLimitAtReveal` by
 leaves the attack in effect. Either way the guess resolution dequeues and
 the chain entry resolves.
 
+### 9e. `burglary-attempt`
+
+A site-phase alternative to facing a site's automatic-attacks.
+
+```json
+{
+  "type": "burglary-attempt",
+  "threshold": 10,
+  "scoutBonus": 2,
+  "hobbitBonus": 3
+}
+```
+
+Used by Burglary (td-103): "Tap a character to make a burglary attempt at a
+site in lieu of facing its automatic-attacks. Tap the site and make a roll
+modified by +2 if the character is a scout and by +3 if he is a Hobbit. If
+the result is greater than 10, an item normally playable at the site may be
+played with the character. If the attempt fails, the character must face
+all automatic-attacks alone."
+
+**Offering** (`legal-actions/site.ts`, `automaticAttacksActions`): one
+`declare-burglary` action per untapped character in the active company,
+while the `automatic-attacks` step has not yet faced any attack this slot
+(`automaticAttacksResolved === 0`, no earlier burglary success/failure), the
+site has at least one active automatic-attack, and a card carrying this
+effect is in hand.
+
+**Declaration** (`reducer-site.ts`, `handleSiteAutomaticAttacks`): taps the
+character and the site (unless `never-taps`), discards the card, and
+enqueues a `burglary-attempt` pending resolution — kept separate from the
+site step so a future on-guard interaction (Half an Eye Open, td-29: "may be
+revealed as an on-guard card when a burglary attempt is announced" to modify
+the roll by -5) can hook the same window later.
+
+**The roll** (`legal-actions/pending.ts` `burglaryAttemptRollActions`,
+`pending-reducers.ts` `applyBurglaryAttemptResolution`): 2d6 + `scoutBonus`
+if the character has the Scout skill + `hobbitBonus` if he is a Hobbit,
+compared against `threshold`.
+
+- **Success** sets `SitePhaseState.autoAttacksSkipped = true` (the existing
+  Farmer Maggot as-48 "sequence abandoned" flag — `handleSiteAutomaticAttacks`
+  already treats it as "all attacks resolved" with no combat) and
+  `SitePhaseState.burglaryItemUnlock = characterInstanceId`: `playResourcesActions`
+  and `handleSitePlayHeroResource` let that one (already-tapped) character
+  receive one item normally playable at the site, consuming the allowance.
+- **Failure** sets `SitePhaseState.soloAutoAttackCharacterId = characterInstanceId`,
+  threaded into every automatic-attack `CombatState` built for this company
+  slot (including the race-duplicate, Incite Defenders, and No Strangers at
+  this Time copies) as `CombatState.soloDefenderInstanceId`. Both halves of
+  `assignStrikeActions` (`legal-actions/combat.ts`) restrict the defending
+  company to just that character when the field is set — no other company
+  member (nor an ally hosted by one) can be assigned a strike — and the
+  "each character faces one strike" pre-assignment in `reducer-site.ts` is
+  restricted the same way. On-guard creature combat is untouched (a separate
+  code path from `handleSiteAutomaticAttacks`), matching the CRF ruling that
+  on-guard creatures are still faced by the whole company regardless of a
+  burglary attempt's outcome.
+
+Both `SitePhaseState.soloAutoAttackCharacterId` and `burglaryItemUnlock` are
+explicitly reset to absent whenever a fresh `SitePhaseState` is built for a
+new company slot.
+
 ### 10. `strike-modifier`
 
 Played from hand during strike resolution as a short event. Covers four
