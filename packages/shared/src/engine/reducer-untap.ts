@@ -297,7 +297,11 @@ function performUntap(state: GameState): GameState {
       prisonerIds.add(c.target.characterId as string);
       cannotUntapIds.add(c.target.characterId as string);
     }
-    if (c.kind.type === 'skip-next-untap') {
+    // Scoped to this player's own characters: a skip-next-untap constraint on
+    // an opponent's character must not be consumed (and its source card
+    // silently vanished) during THIS player's untap phase — it belongs to the
+    // constrained character's own owner's next untap phase.
+    if (c.kind.type === 'skip-next-untap' && c.target.characterId as string in player.characters) {
       cannotUntapIds.add(c.target.characterId as string);
       skipNextUntap.set(c.target.characterId as string, {
         constraintId: c.id as string,
@@ -495,6 +499,61 @@ function performUntap(state: GameState): GameState {
   }
 
   return stateAfterUntap;
+}
+
+/**
+ * Intercepts an attempt to set `characterId` to untapped outside of the
+ * untap-phase sweep (e.g. a short event like And Forth He Hastened td-98
+ * that untaps a character directly). If a one-shot `skip-next-untap`
+ * constraint (Fireworks dm-130, Fled into Darkness ba-18) is active on the
+ * character, the untap is intercepted here — the constraint is consumed
+ * (removed) and its source card discarded to its owner's discard pile — so
+ * the caller must leave the character tapped instead of applying the
+ * requested untap. Returns `intercepted: false` (state unchanged) when no
+ * such constraint applies, so the caller proceeds with the untap normally.
+ */
+export function interceptSkipNextUntap(
+  state: GameState,
+  characterId: CardInstanceId,
+): { state: GameState; intercepted: boolean } {
+  const constraint = state.activeConstraints.find(
+    c => c.target.kind === 'character'
+      && c.target.characterId === characterId
+      && c.kind.type === 'skip-next-untap',
+  );
+  if (!constraint || constraint.kind.type !== 'skip-next-untap') return { state, intercepted: false };
+  const cardInstanceId = constraint.kind.cardInstanceId;
+  const ownerIndex = state.players.findIndex(p => (characterId as string) in p.characters);
+  if (ownerIndex < 0) return { state, intercepted: false };
+
+  logDetail(`skip-next-untap: intercepting untap of ${characterId as string} — stays tapped, discarding ${cardInstanceId as string}`);
+  let discardedCard: import('../types/state-cards.js').CardInstance | undefined;
+  let newState = updatePlayer(state, ownerIndex, p => {
+    const cardsInPlay = p.cardsInPlay.filter(c => {
+      if (c.instanceId !== cardInstanceId) return true;
+      discardedCard = toCardInstance(c);
+      return false;
+    });
+    const characters = Object.fromEntries(Object.entries(p.characters).map(([id, ch]) => {
+      const items = ch.items.filter(item => {
+        if (item.instanceId !== cardInstanceId) return true;
+        discardedCard = toCardInstance(item);
+        return false;
+      });
+      return [id, items.length === ch.items.length ? ch : { ...ch, items }];
+    }));
+    return {
+      ...p,
+      cardsInPlay,
+      characters,
+      discardPile: discardedCard ? [...p.discardPile, discardedCard] : p.discardPile,
+    };
+  });
+  newState = {
+    ...newState,
+    activeConstraints: newState.activeConstraints.filter(c => c.id !== constraint.id),
+  };
+  return { state: newState, intercepted: true };
 }
 
 /**

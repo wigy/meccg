@@ -44,6 +44,7 @@ import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
+import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
 import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
@@ -5407,42 +5408,57 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         if (charPlayerIdx >= 0) {
           const targetChar = current.players[charPlayerIdx].characters[targetCharId];
           const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
-          logDetail(`${cardNm} option "${opt.id}": set ${targetCharId as string} status → ${apply.status}`);
-          current = updatePlayer(current, charPlayerIdx, p =>
-            updateCharacter(p, targetCharId as string, c => ({ ...c, status: statusEnum })));
+          // Fireworks (dm-130) / Fled into Darkness (ba-18): "the next time
+          // the character would otherwise become untapped, make him tapped
+          // instead and discard this card." That one-shot constraint must
+          // intercept ANY untap attempt on the character, not just the
+          // untap-phase sweep — a resource short event like And Forth He
+          // Hastened (td-98) untapping the character directly must honor it
+          // too, or the constraint silently leaks the character untapped
+          // without ever discarding its source card.
+          const isUntapAttempt = statusEnum === CardStatus.Untapped && targetChar.status !== CardStatus.Untapped;
+          const skipResult = isUntapAttempt ? interceptSkipNextUntap(current, targetCharId) : { state: current, intercepted: false };
+          current = skipResult.state;
+          if (skipResult.intercepted) {
+            logDetail(`${cardNm} option "${opt.id}": skip-next-untap active on ${targetCharId as string} — stays tapped instead of untapping, constraint's source card discarded`);
+          } else {
+            logDetail(`${cardNm} option "${opt.id}": set ${targetCharId as string} status → ${apply.status}`);
+            current = updatePlayer(current, charPlayerIdx, p =>
+              updateCharacter(p, targetCharId as string, c => ({ ...c, status: statusEnum })));
 
-          // healing-affects-all — if this was a heal (wounded → well), extend
-          // the healing to all other wounded characters in the same company.
-          // Triggers either from a character in the company carrying the
-          // `healing-affects-all` play-flag (e.g. Ioreth) or from the
-          // company's current site carrying the `site-rule` variant (e.g.
-          // Rhosgobel, Old Forest).
-          if (isHeal) {
-            const company = findCharacterCompany(current.players[charPlayerIdx].companies, targetCharId);
-            if (company) {
-              const hasCompanyFlag = company.characters.some(charId => {
-                const ch = current.players[charPlayerIdx].characters[charId];
-                if (!ch) return false;
-                const charDef = defById(current, ch.definitionId);
-                return hasPlayFlag(charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'healing-affects-all');
-              });
-              let hasSiteRule = false;
-              if (company.currentSite) {
-                const siteDef = defById(current, company.currentSite.definitionId);
-                hasSiteRule = !!(siteDef && 'effects' in siteDef &&
-                  (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
-                    e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
-                  ));
-              }
-              if (hasCompanyFlag || hasSiteRule) {
-                const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
-                for (const charId of company.characters) {
-                  if (charId === targetCharId) continue;
+            // healing-affects-all — if this was a heal (wounded → well), extend
+            // the healing to all other wounded characters in the same company.
+            // Triggers either from a character in the company carrying the
+            // `healing-affects-all` play-flag (e.g. Ioreth) or from the
+            // company's current site carrying the `site-rule` variant (e.g.
+            // Rhosgobel, Old Forest).
+            if (isHeal) {
+              const company = findCharacterCompany(current.players[charPlayerIdx].companies, targetCharId);
+              if (company) {
+                const hasCompanyFlag = company.characters.some(charId => {
                   const ch = current.players[charPlayerIdx].characters[charId];
-                  if (ch && ch.status === CardStatus.Inverted) {
-                    logDetail(`${source} healing-affects-all: extending heal to ${charId as string}`);
-                    current = updatePlayer(current, charPlayerIdx, p =>
-                      updateCharacter(p, charId as string, c => ({ ...c, status: statusEnum })));
+                  if (!ch) return false;
+                  const charDef = defById(current, ch.definitionId);
+                  return hasPlayFlag(charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'healing-affects-all');
+                });
+                let hasSiteRule = false;
+                if (company.currentSite) {
+                  const siteDef = defById(current, company.currentSite.definitionId);
+                  hasSiteRule = !!(siteDef && 'effects' in siteDef &&
+                    (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
+                      e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
+                    ));
+                }
+                if (hasCompanyFlag || hasSiteRule) {
+                  const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
+                  for (const charId of company.characters) {
+                    if (charId === targetCharId) continue;
+                    const ch = current.players[charPlayerIdx].characters[charId];
+                    if (ch && ch.status === CardStatus.Inverted) {
+                      logDetail(`${source} healing-affects-all: extending heal to ${charId as string}`);
+                      current = updatePlayer(current, charPlayerIdx, p =>
+                        updateCharacter(p, charId as string, c => ({ ...c, status: statusEnum })));
+                    }
                   }
                 }
               }

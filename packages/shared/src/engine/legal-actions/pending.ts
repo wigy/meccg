@@ -1768,9 +1768,11 @@ function applyOneConstraint(
       // no legal-action filtering needed here.
       return base;
     case 'skip-next-untap':
-      // Fled into Darkness (ba-18): consumed directly by `reducer-untap.ts`
-      // `performUntap` (character stays tapped once, then the card is
-      // discarded) — no broad legal-action filtering needed here.
+      // Fled into Darkness (ba-18) / Fireworks (dm-130): consumed directly by
+      // `reducer-untap.ts` `performUntap` for the untap-phase sweep, and by
+      // `interceptSkipNextUntap` for any other code path that sets a
+      // character's status to untapped directly (e.g. And Forth He Hastened
+      // td-98) — no broad legal-action filtering needed here.
       return base;
     case 'attack-card-played':
       // Pure marker for the duplication-limit mechanism; consulted directly
