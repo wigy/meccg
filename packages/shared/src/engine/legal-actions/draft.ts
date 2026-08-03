@@ -50,7 +50,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // forward (no further character picks, no stop) until the site is chosen.
   if (blockingSiteStageResources(state, draft, state.players[playerIndex].siteDeck).length > 0) {
     logDetail(`Revealed Hidden Haven must be paired with its site before the draft can continue`);
-    return stageResourcePairingTail(state, playerId, playerIndex, draft);
+    return stageResourcePairingTail(state, playerId, playerIndex, draft, false);
   }
 
   // A Stage resource drafted this round (and its site, if any, now paired) is
@@ -123,6 +123,12 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'} (vehicles ${vehiclesDrafted}, gated chars drafted ${gatedCharsDrafted}), RW agent gate ${isRingwraith ? 'active' : 'inactive'}, agent-summons enablers ${agentSummonsEnablers} (agents drafted ${agentsDrafted}, one more agent ${summonsAgentAllowed ? 'allowed' : 'not allowed'})`);
 
   const evaluated: EvaluatedAction[] = [];
+  // CoE 1.9.F4: "A Fallen-wizard player must also attempt to draft the Stage
+  // resource(s) in their pool simultaneously with their characters." While any
+  // pool Stage resource is still a legal pick for this Fallen-wizard, stopping
+  // the draft is not offered — see the forced-attempt check in
+  // stageResourcePairingTail below.
+  let hasViableFwStageResourcePick = false;
 
   for (const charCard of draft.pool) {
     const charDef = defById(state, charCard.definitionId);
@@ -152,6 +158,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
       const result = evaluateAction(action, STAGE_RESOURCE_DRAFT_RULES, stageContext);
       logDetail(`${stageContext.card.name} (Stage resource): ${result.viable ? 'eligible' : result.reason}`);
       evaluated.push(result);
+      if (isFallenWizard && result.viable) hasViableFwStageResourcePick = true;
       continue;
     }
 
@@ -205,7 +212,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   }
 
   // Site-targeting Stage resource pairing offers + the (possibly gated) stop.
-  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft));
+  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft, hasViableFwStageResourcePick));
 
   return evaluated;
 }
@@ -215,14 +222,18 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
  * wh-75) plus the draft-stop action. Each unpaired resource gets one
  * `select-stage-resource-site` offer per eligible Ruins & Lairs in the player's
  * own site deck. While any remain unpaired, `draft-stop` is non-viable — CRF 22
- * requires the site to be chosen when Hidden Haven is revealed. Shared between
- * the normal end of the draft round and the at-max-company-size branch.
+ * requires the site to be chosen when Hidden Haven is revealed. `draft-stop` is
+ * likewise non-viable while `hasViableFwStageResourcePick` is true — CoE 1.9.F4
+ * obliges a Fallen-wizard to attempt drafting every Stage resource still legal
+ * to pick from their pool before they may stop. Shared between the normal end
+ * of the draft round and the at-max-company-size branch.
  */
 function stageResourcePairingTail(
   state: GameState,
   playerId: PlayerId,
   playerIndex: number,
   draft: DraftPlayerState,
+  hasViableFwStageResourcePick: boolean,
 ): EvaluatedAction[] {
   const evaluated: EvaluatedAction[] = [];
   const siteDeck = state.players[playerIndex].siteDeck;
@@ -250,7 +261,9 @@ function stageResourcePairingTail(
   // Can stop — but not while a Hidden Haven that CAN be paired (the site deck
   // holds an eligible Ruins & Lairs) is still unpaired. If no eligible site
   // exists, the requirement cannot be met, so stopping is allowed (the card
-  // falls to hand at finalize).
+  // falls to hand at finalize). Nor while a Stage resource in the pool is still
+  // a legal pick for a Fallen-wizard (CoE 1.9.F4 — they must attempt to draft
+  // it first).
   const blocking = blockingSiteStageResources(state, draft, siteDeck);
   if (blocking.length > 0) {
     logDetail(`Cannot stop: ${blocking.length} Stage resource(s) still need a paired site`);
@@ -258,6 +271,13 @@ function stageResourcePairingTail(
       action: { type: 'draft-stop', player: playerId },
       viable: false,
       reason: 'You must choose a site for your Hidden Haven before stopping',
+    });
+  } else if (hasViableFwStageResourcePick) {
+    logDetail('Cannot stop: a Stage resource in the pool is still a legal pick (CoE 1.9.F4)');
+    evaluated.push({
+      action: { type: 'draft-stop', player: playerId },
+      viable: false,
+      reason: 'You must attempt to draft your remaining Stage resource(s) before stopping',
     });
   } else {
     evaluated.push({ action: { type: 'draft-stop', player: playerId }, viable: true });

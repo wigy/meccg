@@ -19,7 +19,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, getCardEffects, matchesDefinition } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -356,6 +356,12 @@ function handleCharacterDraft(
       // site deck holds an eligible Ruins & Lairs) is unpaired.
       if (blockingSiteStageResources(state, playerDraft, state.players[playerIndex].siteDeck).length > 0) {
         return { state, error: 'You must choose a site for your Hidden Haven before stopping' };
+      }
+      // CoE 1.9.F4: a Fallen-wizard must attempt to draft every Stage resource
+      // still legal to pick from their pool before they may stop.
+      if (state.players[playerIndex].alignment === Alignment.FallenWizard
+        && fwHasViableStageResourcePick(state, playerDraft)) {
+        return { state, error: 'You must attempt to draft your remaining Stage resource(s) before stopping' };
       }
 
       const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
