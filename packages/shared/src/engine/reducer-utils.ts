@@ -2185,6 +2185,16 @@ export function findPlayConditionEffect(
 }
 
 /**
+ * Number of cards in {@link GameState.activePlayer}'s play deck. Backs the
+ * `play-condition` `requires: 'active-player-deck-size'` gate (Great Secrets
+ * Buried There, dm-63) — see {@link PlayConditionEffect.minDeckSize} for why
+ * the active player is always the correct party to check.
+ */
+export function activePlayerDeckSize(state: GameState): number {
+  return state.players.find(p => p.id === state.activePlayer)?.playDeck.length ?? 0;
+}
+
+/**
  * The site name whose rescues Pass the Doors of Dol Guldur (dm-154) keys on.
  * Matched by name so that any printing of the site counts.
  */

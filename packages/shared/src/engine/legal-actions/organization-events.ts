@@ -27,7 +27,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -105,7 +105,38 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId] as HeroResourceEventCard | MinionResourceEventCard | undefined;
+    const rawDef = state.cardPool[handCard.definitionId] as HeroResourceEventCard | MinionResourceEventCard | HazardEventCard | undefined;
+
+    // Great Secrets Buried There (dm-63): "you may play this card as a
+    // resource on yourself … you and your opponent reverse roles." A
+    // permanent hazard-event with `playable-as-resource` never targets a
+    // character/site/company, so it is handled as its own minimal branch —
+    // the generic hero/minion-resource-event logic below assumes that
+    // cardType and would mis-cast this card's definition.
+    if (
+      rawDef
+      && rawDef.cardType === 'hazard-event'
+      && rawDef.eventType === 'permanent'
+      && hasPlayFlag(rawDef, 'playable-as-resource')
+    ) {
+      const deckSizeCond = findPlayConditionEffect(rawDef, 'active-player-deck-size');
+      if (deckSizeCond?.minDeckSize !== undefined) {
+        const deckSize = activePlayerDeckSize(state);
+        if (deckSize < deckSizeCond.minDeckSize) {
+          logDetail(`${rawDef.name}: playable as a resource only with at least ${deckSizeCond.minDeckSize} cards in play deck (have ${deckSize})`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${rawDef.name}: requires at least ${deckSizeCond.minDeckSize} cards in your play deck`));
+          continue;
+        }
+      }
+      logDetail(`${rawDef.name}: playable as a resource on yourself`);
+      actions.push({
+        action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+        viable: true,
+      });
+      continue;
+    }
+
+    const def = rawDef as HeroResourceEventCard | MinionResourceEventCard | undefined;
     if (!def || (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') || def.eventType !== 'permanent') continue;
 
     // Rule 5.F1 [FALLEN-WIZARD]: Stage resource permanent-events can only be

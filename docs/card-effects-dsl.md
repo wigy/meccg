@@ -2073,6 +2073,68 @@ character, tap an ally the character controls, or choose for you to make a
 roll. If the result is greater than the character's mind plus 6, the
 character is discarded (along with all non-follower cards he controls)."
 
+### 6i-ter. `reveal-deck-choose-set-aside`
+
+Carried by a **hazard permanent-event** (typically paired with a `play-flag`
+`playable-as-resource` alt-mode and a `play-condition` `active-player-deck-size`
+gate — see §24 above). Once the host card itself enters play (the normal
+permanent-event placement into `cardsInPlay`, unaffected by this effect), it
+reveals the top `count` cards of `GameState.activePlayer`'s play deck (see the
+`active-player-deck-size` doc above for why `activePlayer` is always the
+correct target regardless of hazard-mode vs. resource self-cast mode):
+
+1. The reveal count is capped by the deck length; an empty deck fizzles with
+   no further effect.
+2. Revealed cards are recorded in `GameState.revealedInstances`. Each is
+   checked against `itemFilter` (a card-definition condition, e.g. non-special
+   non-hoard items via `{ "$and": [{ "cardType": { "$in": [...] } },
+   { "$not": { "subtype": { "$in": ["special", "hoard"] } } }] }`).
+3. If at least one revealed card is eligible, a `great-secrets-choose-item`
+   pending resolution is enqueued (actor = the deck owner — **not** the
+   card-player): they **must** choose one (`choose-set-aside-item`, no pass).
+   The chosen card is placed "off to the side" under the host via
+   `placeCardSetAside` (§module `engine/set-aside`); the remaining revealed
+   cards are shuffled and returned to the top of the deck.
+4. If no revealed card is eligible, the reveal itself already showed the cards
+   to both players — nothing more happens beyond shuffling every revealed card
+   back to the top of the deck (no pending resolution).
+
+The reveal + immediate fizzle path lives in `chain-reducer.ts` (`resolveEntry`,
+right after the generic permanent-event placement); the choice resolves via
+`legal-actions/pending.ts` (`greatSecretsChooseItemActions`) and
+`pending-reducers.ts` (`applyGreatSecretsChooseItemResolution`).
+
+A set-aside item placed this way scores no marshalling points at all — the
+`CardInPlay.setAsideNoMp` flag (stamped via `placeCardSetAside`'s `noMp`
+argument) overrides the MEAS §1 default of crediting them to the owner. The
+deck owner may later play it "as though it were in hand" via
+`PlayHeroResourceAction.fromSetAside` (see `legal-actions/site.ts`'s
+Under-deeps set-aside item merge and `reducer-site.ts`'s
+`handleSitePlayHeroResource`), which pulls it back out via
+`removeItemFromSetAside`.
+
+```json
+{
+  "type": "reveal-deck-choose-set-aside",
+  "count": 10,
+  "itemFilter": {
+    "$and": [
+      { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+      { "$not": { "subtype": { "$in": ["special", "hoard"] } } }
+    ]
+  }
+}
+```
+
+Used by *Great Secrets Buried There* (dm-63): "Opponent reveals the top ten
+cards of his play deck to himself. If one is available, opponent must choose a
+non-special, non-hoard item from the revealed cards to place off to the side
+under this card (item does not give marshalling points and is considered out
+of play). If none are available, opponent must show you the cards he revealed
+to himself. Opponent shuffles all remaining revealed cards into his play deck.
+Opponent may play this item as though it were in his hand at any Under-deeps
+site where it could be normally playable."
+
 ### 6j. `enqueue-reveal-hazards-choice`
 
 Carried by a **resource** short-event's `on-event: self-enters-play` (`target:
@@ -6989,6 +7051,25 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
 
 ```json
 { "type": "play-condition", "requires": "supporters-in-region", "min": 6 }
+```
+
+- `active-player-deck-size` — gates on `GameState.activePlayer`'s play deck
+  card count reaching `minDeckSize`. `activePlayer` is always the correct
+  party to check regardless of which "side" of the card's text is being
+  evaluated: a hazard permanent-event is only ever declared by the
+  *non*-active player against the active company's owner ("opponent" in the
+  card text = the active player), and a `playable-as-resource` self-cast
+  permanent-event is only ever declared by the active player on themself
+  ("you" = the active player). Checked in `legal-actions/movement-hazard.ts`
+  (hazard mode) and `legal-actions/organization-events.ts` /
+  `legal-actions/site.ts` (resource mode) via the shared
+  `activePlayerDeckSize` helper (`reducer-utils.ts`). Used by *Great Secrets
+  Buried There* (dm-63): "Playable if opponent has at least ten cards in his
+  play deck" / "you may play this card as a resource on yourself if you have
+  at least ten cards in your play deck."
+
+```json
+{ "type": "play-condition", "requires": "active-player-deck-size", "minDeckSize": 10 }
 ```
 
 ### 24. `creature-race-choice`

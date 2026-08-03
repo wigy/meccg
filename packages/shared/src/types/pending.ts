@@ -986,6 +986,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Great Secrets Buried There (dm-63): the deck owner has had the top
+         * cards of their play deck revealed and at least one is an eligible
+         * (non-special, non-hoard) item. They must choose exactly one
+         * (`choose-set-aside-item`) to place off to the side under the host
+         * card. The choice is mandatory (no pass — the resolution is only
+         * enqueued when `eligibleInstanceIds` is non-empty). On resolution the
+         * remaining revealed cards are shuffled back into the deck.
+         */
+        readonly type: 'great-secrets-choose-item';
+        /** Instance ids of ALL revealed top-of-deck cards (top-first). */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** Instance ids of the eligible (non-special, non-hoard item) subset. */
+        readonly eligibleInstanceIds: readonly CardInstanceId[];
+        /** The player whose deck was revealed and who is choosing. */
+        readonly deckOwnerId: PlayerId;
+        /** The host permanent-event instance the chosen item is set aside under. */
+        readonly hostInstanceId: CardInstanceId;
+      }
+    | {
+        /**
          * Mirror of Galadriel (tw-282): the card-player has already looked at
          * the opponent's hand and must now choose **one** play deck whose top
          * {@link count} cards they look at and shuffle back on top

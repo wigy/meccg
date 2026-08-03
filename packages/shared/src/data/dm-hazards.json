@@ -793,7 +793,20 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/GreatSecretsBuriedThere.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "play-condition", "requires": "active-player-deck-size", "minDeckSize": 10 },
+      { "type": "play-flag", "flag": "playable-as-resource" },
+      {
+        "type": "reveal-deck-choose-set-aside",
+        "count": 10,
+        "itemFilter": {
+          "$and": [
+            { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+            { "$not": { "subtype": { "$in": ["special", "hoard"] } } }
+          ]
+        }
+      }
+    ],
     "text": "Playable if opponent has at least ten cards in his play deck. Opponent reveals the top ten cards of his play deck to himself. If one is available, opponent must choose a non-special, non-hoard item from the revealed cards to place off to the side under this card (item does not give marshalling points and is considered out of play). If none are available, opponent must show you the cards he revealed to himself. Opponent shuffles all remaining revealed cards into his play deck. Opponent may play this item as though it were in his hand at any Under-deeps site where it could be normally playable.Alternatively, you may play this card as a resource on yourself if you have at least ten cards in your play deck. In this case, you and your opponent reverse roles."
   },
   {

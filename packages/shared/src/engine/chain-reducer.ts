@@ -5614,6 +5614,61 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Great Secrets Buried There (dm-63): once the host permanent-event enters
+  // play (above), reveal the top N cards of the active player's play deck
+  // (the deck owner — see PlayConditionEffect.minDeckSize doc for why
+  // activePlayer is always correct regardless of hazard-mode vs.
+  // playable-as-resource self-cast). At least one eligible item enqueues a
+  // choice; none means the reveal alone showed the cards and they are all
+  // shuffled back immediately.
+  if (entry.payload.type === 'permanent-event' && !entry.negated && entry.card) {
+    const hostDef = defById(current, entry.card.definitionId);
+    const revealEff = getCardEffects(hostDef).find(
+      (e): e is import('../types/effects.js').RevealDeckChooseSetAsideEffect =>
+        e.type === 'reveal-deck-choose-set-aside',
+    );
+    if (revealEff) {
+      const hostName = (hostDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      const deckOwnerId = current.activePlayer!;
+      const deckOwnerIdx = getPlayerIndex(current, deckOwnerId);
+      const deckOwnerName = current.players[deckOwnerIdx].name;
+      const deck = current.players[deckOwnerIdx].playDeck;
+      const revealCount = Math.min(revealEff.count, deck.length);
+      logDetail(`${hostName}: revealing ${revealCount} card(s) from the top of ${deckOwnerName}'s play deck (deck ${deck.length})`);
+      if (revealCount === 0) {
+        logDetail(`${hostName}: play deck is empty — nothing to reveal`);
+      } else {
+        const revealed = deck.slice(0, revealCount);
+        current = revealInstances(current, revealed);
+        const eligible = revealed.filter(c => {
+          const d = defById(current, c.definitionId);
+          return d && matchesCondition(revealEff.itemFilter, d as unknown as Record<string, unknown>);
+        });
+        if (eligible.length > 0) {
+          logDetail(`${hostName}: ${eligible.length} eligible item(s) revealed — ${deckOwnerName} must choose one to set aside`);
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: deckOwnerId,
+            scope: { kind: 'phase', phase: current.phaseState.phase },
+            kind: {
+              type: 'great-secrets-choose-item',
+              revealedInstanceIds: revealed.map(c => c.instanceId),
+              eligibleInstanceIds: eligible.map(c => c.instanceId),
+              deckOwnerId,
+              hostInstanceId: entry.card.instanceId,
+            },
+          });
+        } else {
+          logDetail(`${hostName}: no eligible item among the revealed cards — shuffling all ${revealed.length} back on top`);
+          const rest = deck.slice(revealCount);
+          const [shuffled, nextRng] = shuffle(revealed, current.rng);
+          current = { ...current, rng: nextRng };
+          current = updatePlayer(current, deckOwnerIdx, p => ({ ...p, playDeck: [...shuffled, ...rest] }));
+        }
+      }
+    }
+  }
+
   if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {
     current = resolveLongEvent(current, entry);
   }

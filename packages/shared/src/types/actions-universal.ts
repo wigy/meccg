@@ -436,6 +436,21 @@ export interface ChooseRevealedCardAction {
 }
 
 /**
+ * Choose one of the revealed eligible items to place off to the side under
+ * the host card (Great Secrets Buried There, dm-63). Resolves a
+ * `great-secrets-choose-item` pending resolution: the chosen item is set
+ * aside under the host and the remaining revealed cards are shuffled back
+ * into the deck. The choice is mandatory (no pass).
+ */
+export interface ChooseSetAsideItemAction {
+  readonly type: 'choose-set-aside-item';
+  /** The deck owner choosing which eligible revealed item to set aside. */
+  readonly player: PlayerId;
+  /** The instance ID of the chosen item. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Choose one of the opponent's revealed discard-pile cards to remove from the
  * game (Aware of their Ways, dm-46). Resolves a `reveal-remove-from-discard`
  * pending resolution: the chosen non-unique card moves from the opponent's
