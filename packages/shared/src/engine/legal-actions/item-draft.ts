@@ -10,9 +10,10 @@ import type { CardEffect } from '../../types/effects.js';
 import { ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from '../../rules/definitions/item-draft.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { setupStepContext } from '../../state-utils.js';
-import { isItemCard } from '../../types/cards.js';
+import { isCharacterCard, isItemCard } from '../../types/cards.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
+import { matchesCharacterPlayTarget } from '../../stage-resource-characters.js';
 import { logDetail } from './log.js';
 import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter } from '../reducer-utils.js';
 
@@ -67,6 +68,28 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     const itemDef = defById(state, defId);
     const itemName = itemDef ? itemDef.name : defId as string;
     const isItem = isItemCard(itemDef);
+
+    // A deferred Stage resource with a mandatory `play-target: character`
+    // effect (Gandalf's Friend wh-98, Squire of the Hunt wh-95, etc. — see
+    // applyDraftResults) has no rules-mandated "best" character, so the player
+    // chooses which drafted character it attaches to, same as a minor item —
+    // but only among characters it may actually target, and it never counts
+    // against the two-minor-item budget or the item-only draft rules (it
+    // isn't a minor item at all).
+    if (!isItem) {
+      const eligibleCharIds = allCharIds.filter(charId => {
+        const charDef = defById(state, player.characters[charId]?.definitionId);
+        return isCharacterCard(charDef) && matchesCharacterPlayTarget(charDef, itemDef);
+      });
+      logDetail(`Stage resource '${itemName}' can be assigned to ${eligibleCharIds.length}/${allCharIds.length} character(s) (CoE 1.9.F4)`);
+      for (const charId of eligibleCharIds) {
+        evaluated.push({
+          action: { type: 'assign-starting-item', player: playerId, itemDefId: defId, characterInstanceId: charId },
+          viable: true,
+        });
+      }
+      continue;
+    }
 
     const isHoard = isItem && (itemDef.keywords ?? []).includes('hoard');
     const noStartingCompany = isItemCard(itemDef) && hasPlayFlag(itemDef, 'no-starting-company');
