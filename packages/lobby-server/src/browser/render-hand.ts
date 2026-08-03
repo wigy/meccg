@@ -36,6 +36,7 @@ import {
   getPermanentEventLongEventTargetRenderCache, setPermanentEventLongEventTargetRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
+import { combatButtonLabel } from './combat-button-label.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getFocusedCompanyId } from './company-view-state.js';
 
@@ -355,6 +356,22 @@ export function shortEventPlayChoices(
   if (discardAction) choices.push({ label: 'Discard', action: discardAction });
   if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
   return choices;
+}
+
+/**
+ * Label a strike-modifier card's `play-strike-event` actions for a
+ * disambiguation menu. Reroll-mode cards (e.g. Swift Strokes, Lucky Strike)
+ * offer two actions differing only by `tapToFight` — the defender's
+ * independent CoE 3.iv.3 tap/stay-untapped choice, which the card's own text
+ * doesn't override. Every other strike-modifier mode (cancel/dodge/default)
+ * offers exactly one action per card instance, so this is only consulted
+ * when there is more than one (bug report: clicking a reroll card always
+ * tapped the character — the click handler dispatched the first legal
+ * action unconditionally, silently dropping the stay-untapped option).
+ */
+export function strikeEventPlayChoices(actions: readonly GameAction[]): readonly ShortEventPlayChoice[] {
+  const hasStayUntappedOption = actions.length > 1;
+  return actions.map(action => ({ label: combatButtonLabel(action, hasStayUntappedOption), action }));
 }
 
 /**
@@ -1453,7 +1470,15 @@ export function renderHand(
     } else if (isStrikeEvent) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => onAction(strikeEventActions[0]));
+        if (strikeEventActions.length === 1) {
+          img.addEventListener('click', () => onAction(strikeEventActions[0]));
+        } else {
+          img.addEventListener('click', (e) => {
+            const items: TooltipMenuItem[] = strikeEventPlayChoices(strikeEventActions)
+              .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
+            showCursorTooltipMenu(e, items);
+          });
+        }
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
