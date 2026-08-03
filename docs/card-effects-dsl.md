@@ -5355,6 +5355,31 @@ phase), it is company- *and* site-phase-scoped for free.
 { "type": "play-flag", "flag": "rescues-prisoners" }
 ```
 
+### 15c-ter. `play-flag: "any-phase-site-target"`
+
+A resource permanent-event with a `play-target` site (optionally combined
+with a `play-target` character) whose text declares no phase restriction of
+its own. Every other card of this shape says "playable … during the site
+phase" (or names a tapped/untapped site requirement implying the same), so
+`legal-actions/organization-events.ts` defaults site-targeting permanent
+events to the site-phase-only path (`legal-actions/site.ts`) and does not
+offer them elsewhere. This flag opts a card back into rule 2.1.1's default
+"any phase of the resource player's turn" timing: `playPermanentEventActions`
+evaluates the site (and character) filter against whichever site each company
+currently occupies, whenever it is consulted (organization, movement/hazard,
+end-of-turn, long-event, and chain-response windows) — while `site.ts` still
+independently offers it during the site phase itself, so the card is playable
+throughout the turn.
+
+Used by Return of the King (tw-316): "Unique. Aragorn II only. Only playable
+in Minas Tirith and only if Denethor II is not in play." — no site-phase
+wording, so it must remain playable for as long as Aragorn II's company is at
+Minas Tirith, including outside the site phase (e.g. the end-of-turn phase).
+
+```json
+{ "type": "play-flag", "flag": "any-phase-site-target" }
+```
+
 ### 15d. `play-flag: "grants-followers"`
 
 Overrides the Balrog's default "may not have any followers" restriction

@@ -1701,6 +1701,10 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 3
+      },
+      {
+        "type": "play-flag",
+        "flag": "any-phase-site-target"
       }
     ]
   },

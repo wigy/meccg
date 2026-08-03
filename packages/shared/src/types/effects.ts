@@ -3663,8 +3663,21 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   opens its tap window "during the same site phase the company successfully
  *   plays Rescue Prisoners at Dol Guldur". Marked when a bearer is assigned
  *   (the card is kept), never on the declined/discarded branch.
+ * - `any-phase-site-target` — a resource permanent-event with a `play-target`
+ *   site (and, optionally, a combined character target) whose card text
+ *   declares no phase restriction of its own. Every other site-targeting
+ *   resource permanent-event's text says "playable … during the site phase"
+ *   (or names an untapped/tapped site requirement implying the same), so the
+ *   engine defaults such cards to the site-phase-only path
+ *   (`legal-actions/site.ts`). This flag opts a card out of that default and
+ *   back into rule 2.1.1's general "any phase of the resource player's turn"
+ *   timing, evaluated against whichever site each company currently occupies.
+ *   Used by Return of the King (tw-316): "Only playable in Minas Tirith …" —
+ *   no site-phase wording, so it must remain playable throughout the turn
+ *   (e.g. during the end-of-turn phase) as long as Aragorn II is at Minas
+ *   Tirith when it is played.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'any-phase-site-target';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

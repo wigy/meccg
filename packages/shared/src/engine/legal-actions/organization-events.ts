@@ -474,6 +474,65 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         continue;
       }
 
+      // play-flag: any-phase-site-target — unlike its "playable … during the
+      // site phase" siblings, this card's text declares no phase restriction,
+      // so rule 2.1.1's default "any phase" timing applies. Evaluate the site
+      // filter (and, if present, the combined character filter) against
+      // whichever site each company currently occupies. Return of the King
+      // (tw-316): "Aragorn II only. Only playable in Minas Tirith …" — no
+      // site-phase wording, so it stays playable outside the site phase too
+      // (e.g. during the end-of-turn phase, per the bug report).
+      if (!orgPhaseSiteTiming && hasPlayFlag(def, 'any-phase-site-target')) {
+        const charPlayTarget = def.effects?.find(
+          (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+        );
+        let anyPlayable = false;
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          const siteDef = defById(state, siteDefId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (sitePlayTarget.filter) {
+            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          if (charPlayTarget) {
+            for (const charId of company.characters) {
+              const ch = player.characters[charId];
+              const charDef = ch && defById(state, ch.definitionId);
+              if (!ch || !charDef || !isCharacterCard(charDef)) continue;
+              const ctx = { target: { name: charDef.name, skills: getEffectiveSkills(state, ch, charDef) } };
+              if (charPlayTarget.filter && !matchesCondition(charPlayTarget.filter, ctx)) continue;
+              anyPlayable = true;
+              logDetail(`Permanent event ${def.name}: playable on ${charDef.name} at ${siteDef.name} (phase ${state.phaseState.phase})`);
+              actions.push({
+                action: {
+                  type: 'play-permanent-event', player: playerId, cardInstanceId,
+                  targetCharacterId: charId,
+                  targetSiteDefinitionId: siteDefId,
+                },
+                viable: true,
+              });
+            }
+          } else {
+            anyPlayable = true;
+            logDetail(`Permanent event ${def.name}: playable on site ${siteDef.name} (phase ${state.phaseState.phase})`);
+            actions.push({
+              action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetSiteDefinitionId: siteDefId },
+              viable: true,
+            });
+          }
+        }
+        if (!anyPlayable) {
+          logDetail(`Permanent event ${def.name}: no company at a matching site${charPlayTarget ? '/character' : ''}`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid site target`));
+        }
+        continue;
+      }
+
       if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
