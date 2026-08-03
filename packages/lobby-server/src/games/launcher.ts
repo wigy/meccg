@@ -235,6 +235,25 @@ export function isActiveGamePort(port: number): boolean {
   return activeGames.has(port);
 }
 
+/**
+ * Kill the game-server child on `port` if it is still running, resolving
+ * once the process has exited. Used when a relaunch replaces a still-live
+ * server: the old child would otherwise linger until its idle-exit grace
+ * period ran out, showing the same game twice in the watchable list.
+ * Waiting for the exit matters because the child writes a final autosave
+ * on SIGTERM — a caller that deletes or restores saves must not race it.
+ * The exit fires the normal onEnd cleanup.
+ */
+export function killGame(port: number): Promise<void> {
+  const child = activeGames.get(port);
+  if (!child) return Promise.resolve();
+  lobbyLog.log('game-kill', { port });
+  return new Promise((resolve) => {
+    child.once('exit', () => resolve());
+    child.kill('SIGTERM');
+  });
+}
+
 /** Kill all active game server processes (called on lobby shutdown). */
 export function shutdownAllGames(): void {
   for (const [port, child] of activeGames) {

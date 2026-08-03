@@ -35,6 +35,20 @@ const server = http.createServer((req, res) => {
 /** Lobby WebSocket server — authenticates via session cookie on upgrade. */
 const wss = new WebSocketServer({ noServer: true });
 
+/**
+ * Lobby WebSocket keepalive, for the same reason as the game server's: a
+ * player idling on the lobby screen generates no traffic (broadcasts only
+ * happen on lobby events), so an idle-timeout proxy on the path (e.g.
+ * nginx `proxy_read_timeout`) would cut the socket. Browsers answer
+ * protocol pings automatically.
+ */
+const KEEPALIVE_INTERVAL_MS = 30_000;
+const keepaliveTimer = setInterval(() => {
+  for (const client of wss.clients) {
+    if (client.readyState === client.OPEN) client.ping();
+  }
+}, KEEPALIVE_INTERVAL_MS);
+
 server.on('upgrade', (req, socket, head) => {
   // Authenticate using the session cookie
   const payload = getPayloadFromCookie(req.headers.cookie);
@@ -124,6 +138,7 @@ server.listen(LOBBY_PORT, () => {
 // the fallback exit is a short safety net, not the normal path.
 function shutdown(): void {
   lobbyLog.log('shutdown');
+  clearInterval(keepaliveTimer);
   shutdownAllGames();
   closeLiveReloadStreams();
   wss.close();

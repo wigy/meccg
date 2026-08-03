@@ -45,12 +45,27 @@ wss.on('connection', (ws) => {
   session.addConnection(ws);
 });
 
+/**
+ * WebSocket keepalive: ping every client on a short interval. Browsers
+ * answer protocol pings automatically, so even an AFK player's socket
+ * carries periodic traffic — without it, an idle-timeout proxy on the
+ * path (e.g. nginx `proxy_read_timeout`) cuts the connection and the
+ * client falls into the rejoin flow although this server is alive.
+ */
+const KEEPALIVE_INTERVAL_MS = 30_000;
+const keepaliveTimer = setInterval(() => {
+  for (const client of wss.clients) {
+    if (client.readyState === client.OPEN) client.ping();
+  }
+}, KEEPALIVE_INTERVAL_MS);
+
 let shuttingDown = false;
 
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
 
+  clearInterval(keepaliveTimer);
   session.gracefulShutdown();
 
   wss.close(() => {

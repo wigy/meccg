@@ -12,7 +12,7 @@ import * as os from 'os';
 import * as path from 'path';
 import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
-import { launchGame } from '../games/launcher.js';
+import { killGame, launchGame } from '../games/launcher.js';
 import { resolveModelFile } from '../games/models.js';
 import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -116,6 +116,60 @@ const onlinePlayers = new Map<string, OnlinePlayer>();
  */
 const watchableGames = new Map<number, WatchableGame>();
 
+/**
+ * Active-game info per player name, surviving lobby reconnects. The
+ * OnlinePlayer entry doubles as the presence list and is deleted when the
+ * lobby socket closes, which used to take `activeGame` with it: a
+ * reconnecting client's 'rejoin-game' then relaunched a NEW game server
+ * while the old one was still alive inside its idle-exit grace period,
+ * and the lobby briefly listed the same game twice. Entries live exactly
+ * as long as the game-server child process ({@link clearPlayerGame}).
+ */
+const activeGamesByName = new Map<string, ActiveGameInfo>();
+
+/** Record `info` as `player`'s active game, both on the player and in {@link activeGamesByName}. */
+function setActiveGame(player: OnlinePlayer, info: ActiveGameInfo): void {
+  player.activeGame = info;
+  activeGamesByName.set(player.name, info);
+}
+
+/**
+ * Clear a player's in-game state because the game on `port` ended. Looks
+ * the player up by name — the OnlinePlayer captured at launch may have
+ * been replaced by a lobby reconnect — and does nothing if the player has
+ * already moved on to a newer game: during a relaunch the old server's
+ * exit arrives after the new game started, and must not clobber it.
+ */
+function clearPlayerGame(name: string, port: number): void {
+  const stored = activeGamesByName.get(name);
+  if (stored?.port === port) activeGamesByName.delete(name);
+  const current = onlinePlayers.get(name);
+  if (!current) return;
+  if (stored?.port === port || current.activeGame?.port === port) {
+    current.inGame = false;
+    current.activeGame = null;
+    current.pendingFrom.clear();
+  }
+}
+
+/**
+ * Kill a still-running game server that is being replaced, forgetting its
+ * players' active-game entries up front so its exit callback (which runs
+ * concurrently with the replacement launch) cannot clobber the new game's
+ * state. Resolves once the old process has exited — and its final
+ * autosave has been written — so callers can safely launch or delete
+ * saves afterwards.
+ */
+async function killLingeringGame(port: number): Promise<void> {
+  const game = watchableGames.get(port);
+  if (game) {
+    for (const n of [game.player1, game.player2]) {
+      if (activeGamesByName.get(n)?.port === port) activeGamesByName.delete(n);
+    }
+  }
+  await killGame(port);
+}
+
 /** Send a typed message to a WebSocket. */
 function send(ws: WebSocket, msg: LobbyServerMessage): void {
   if (ws.readyState === ws.OPEN) {
@@ -198,7 +252,12 @@ export function playerConnected(name: string, ws: WebSocket): void {
     existing.ws = ws;
   }
 
-  const player: OnlinePlayer = existing ?? { name, ws, pendingFrom: new Set(), inGame: false, activeGame: null, rejoining: false };
+  // A fresh connection may belong to a player whose game server is still
+  // running (the lobby socket dropped — e.g. a proxy idle timeout — while
+  // the game lived on): restore the active game so 'rejoin-game' reconnects
+  // to it instead of launching a duplicate server.
+  const restored = activeGamesByName.get(name) ?? null;
+  const player: OnlinePlayer = existing ?? { name, ws, pendingFrom: new Set(), inGame: restored !== null, activeGame: restored, rejoining: false };
   if (!existing) onlinePlayers.set(name, player);
   lobbyLog.log('connect', { name, online: onlinePlayers.size });
   broadcastPlayerList();
@@ -323,15 +382,27 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
     }
 
     case 'play-tutorial': {
-      if (from.inGame) {
+      // A still-live Mentor game (e.g. an abandoned tab's session inside
+      // its idle-exit grace period) must not block a fresh start; any
+      // other live game does.
+      const lingeringMentorPort = from.activeGame?.opponent === 'Mentor' ? from.activeGame.port : null;
+      if (from.inGame && lingeringMentorPort === null) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
         return;
       }
-      // The Start button always begins a fresh run at step 1: drop any
-      // autosaved mid-tutorial progress. Only the reload/rejoin flow
-      // ('rejoin-game' with the Mentor) resumes a saved tutorial.
-      deleteTutorialSaves(from.name);
-      void startTutorialGame(from);
+      from.inGame = false;
+      from.activeGame = null;
+      void (async () => {
+        // Kill the lingering Mentor server BEFORE deleting the saves: it
+        // writes a final autosave on SIGTERM, which would otherwise land
+        // after the delete and resurrect the run the player just dropped.
+        if (lingeringMentorPort !== null) await killLingeringGame(lingeringMentorPort);
+        // The Start button always begins a fresh run at step 1: drop any
+        // autosaved mid-tutorial progress. Only the reload/rejoin flow
+        // ('rejoin-game' with the Mentor) resumes a saved tutorial.
+        deleteTutorialSaves(from.name);
+        await startTutorialGame(from);
+      })();
       break;
     }
 
@@ -376,8 +447,10 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       const opponentName = msg.opponent;
       const isAi = opponentName.startsWith('AI-');
 
-      // If the opponent already relaunched a game that includes us, just
-      // send back the stored connection info without launching another server.
+      // If a live game against this opponent is already known — the server
+      // survived while only the client's sockets dropped, or the opponent
+      // already relaunched one that includes us — send back the stored
+      // connection info instead of launching another server.
       if (from.activeGame && from.activeGame.opponent === opponentName) {
         lobbyLog.log('rejoin-existing', { name: fromName, opponent: opponentName });
         send(from.ws, { type: 'game-starting', ...from.activeGame });
@@ -400,47 +473,68 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       const storedAiDeckId = from.activeGame?.aiDeckId;
       const storedAiModelFile = from.activeGame?.aiModelFile;
 
+      // The Real-AI is identified by its model rather than by a spec, so it
+      // needs the same treatment as the spec agents below. Without a
+      // remembered model there is nothing to relaunch: seating the heuristic
+      // would swap the opponent and move the game onto a different save key,
+      // so refuse instead.
+      if (opponentName === 'AI-Real' && storedAiModelFile === undefined) {
+        send(from.ws, { type: 'error', message: 'Cannot rejoin: the Real-AI model for this game is no longer known' });
+        return;
+      }
+
+      // A human opponent must exist and be free before anything is torn down.
+      let humanOpponent: OnlinePlayer | undefined;
+      if (opponentName !== 'Mentor' && !isAi) {
+        humanOpponent = onlinePlayers.get(opponentName);
+        if (!humanOpponent) {
+          send(from.ws, { type: 'error', message: `${opponentName} is no longer online` });
+          return;
+        }
+        if (humanOpponent.activeGame && humanOpponent.activeGame.opponent !== fromName) {
+          send(from.ws, { type: 'error', message: `${opponentName} is already in another game` });
+          return;
+        }
+      }
+
+      // A different game of ours may still be live (e.g. this client's
+      // session predates a game started from another tab). It is being
+      // abandoned, so kill it before launching: one player must never have
+      // two live game servers — the stale one would linger in the
+      // watchable-games list as a duplicate row.
+      const lingering = activeGamesByName.get(fromName);
+
       // Clear stale inGame state from the dead game
       from.inGame = false;
       from.activeGame = null;
       from.rejoining = true;
       const clearRejoining = (): void => { from.rejoining = false; };
 
-      if (opponentName === 'Mentor') {
-        // Relaunch the tutorial server; it restores the autosaved tutorial
-        // (state + script cursor) and resumes at the same step. The Mentor
-        // seat is played server-side, so a normal rejoin would never seat.
-        void startTutorialGame(from).finally(clearRejoining);
-      } else if (opponentName === 'AI-Pseudo') {
-        void startPseudoAiGame(from).finally(clearRejoining);
-      } else if (isAi) {
-        // Preserve which AI it was: relaunching 'AI-MC' without the spec
-        // would silently seat the heuristic instead, so a reconnect would
-        // change opponents mid-match.
-        const rejoinSpec = opponentName === 'AI-MC' ? MC_AGENT_SPEC
-          : opponentName === 'AI-Modular' ? MODULAR_AGENT_SPEC
-            : undefined;
-        // The Real-AI is identified by its model rather than by a spec, so it
-        // needs the same treatment. Without a remembered model there is nothing
-        // to relaunch: seating the heuristic would swap the opponent and move
-        // the game onto a different save key, so refuse instead.
-        if (opponentName === 'AI-Real' && storedAiModelFile === undefined) {
-          clearRejoining();
-          send(from.ws, { type: 'error', message: 'Cannot rejoin: the Real-AI model for this game is no longer known' });
-          return;
+      const relaunch = async (): Promise<void> => {
+        if (lingering) await killLingeringGame(lingering.port);
+        if (opponentName === 'Mentor') {
+          // Relaunch the tutorial server; it restores the autosaved tutorial
+          // (state + script cursor) and resumes at the same step. The Mentor
+          // seat is played server-side, so a normal rejoin would never seat.
+          await startTutorialGame(from);
+        } else if (opponentName === 'AI-Pseudo') {
+          await startPseudoAiGame(from);
+        } else if (isAi) {
+          // Preserve which AI it was: relaunching 'AI-MC' without the spec
+          // would silently seat the heuristic instead, so a reconnect would
+          // change opponents mid-match.
+          const rejoinSpec = opponentName === 'AI-MC' ? MC_AGENT_SPEC
+            : opponentName === 'AI-Modular' ? MODULAR_AGENT_SPEC
+              : undefined;
+          await startAiGame(from, storedAiDeckId, storedAiModelFile, rejoinSpec);
+        } else {
+          const opponent = humanOpponent!;
+          opponent.inGame = false;
+          opponent.activeGame = null;
+          await startGame(from, opponent);
         }
-        void startAiGame(from, storedAiDeckId, storedAiModelFile, rejoinSpec).finally(clearRejoining);
-      } else {
-        const opponent = onlinePlayers.get(opponentName);
-        if (!opponent) {
-          clearRejoining();
-          send(from.ws, { type: 'error', message: `${opponentName} is no longer online` });
-          return;
-        }
-        opponent.inGame = false;
-        opponent.activeGame = null;
-        void startGame(from, opponent).finally(clearRejoining);
-      }
+      };
+      void relaunch().finally(clearRejoining);
       break;
     }
   }
@@ -470,8 +564,8 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
       opponent: player1.name,
       opponentDisplayName: getDisplayName(player1.name),
     };
-    player1.activeGame = p1Game;
-    player2.activeGame = p2Game;
+    setActiveGame(player1, p1Game);
+    setActiveGame(player2, p2Game);
 
     // Register the game so others can watch it, then broadcast so the updated
     // list (players now in-game, a new watchable game) reaches everyone.
@@ -483,12 +577,8 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
 
     // When the game ends, mark players as available again
     result.onEnd(() => {
-      player1.inGame = false;
-      player2.inGame = false;
-      player1.activeGame = null;
-      player2.activeGame = null;
-      player1.pendingFrom.clear();
-      player2.pendingFrom.clear();
+      clearPlayerGame(player1.name, result.port);
+      clearPlayerGame(player2.name, result.port);
       watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player1.name, player2: player2.name });
@@ -549,7 +639,7 @@ async function startAiGame(
     });
     lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
-    player.activeGame = {
+    const gameInfo: ActiveGameInfo = {
       port: result.port,
       token: result.tokens[0],
       opponent: aiName,
@@ -557,17 +647,16 @@ async function startAiGame(
       aiDeckId: deckId,
       aiModelFile: modelFile,
     };
+    setActiveGame(player, gameInfo);
     // Register the game so others see this player as busy — shown as a
     // "player vs. AI-*" row they can watch instead of a Challenge button.
     watchableGames.set(result.port, { port: result.port, player1: player.name, player2: aiName });
 
-    send(player.ws, { type: 'game-starting', ...player.activeGame });
+    send(player.ws, { type: 'game-starting', ...gameInfo });
     broadcastPlayerList();
 
     result.onEnd(() => {
-      player.inGame = false;
-      player.activeGame = null;
-      player.pendingFrom.clear();
+      clearPlayerGame(player.name, result.port);
       watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player.name, player2: aiName, ai: true });
@@ -614,21 +703,20 @@ async function startTutorialGame(player: OnlinePlayer): Promise<void> {
     const result = await launchGame(player.name, mentorName, { tutorial: true });
     lobbyLog.log('game-start', { player1: player.name, player2: mentorName, tutorial: true, port: result.port });
 
-    player.activeGame = {
+    const gameInfo: ActiveGameInfo = {
       port: result.port,
       token: result.tokens[0],
       opponent: mentorName,
       opponentDisplayName: mentorName,
     };
+    setActiveGame(player, gameInfo);
     watchableGames.set(result.port, { port: result.port, player1: player.name, player2: mentorName });
 
-    send(player.ws, { type: 'game-starting', ...player.activeGame });
+    send(player.ws, { type: 'game-starting', ...gameInfo });
     broadcastPlayerList();
 
     result.onEnd(() => {
-      player.inGame = false;
-      player.activeGame = null;
-      player.pendingFrom.clear();
+      clearPlayerGame(player.name, result.port);
       watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player.name, player2: mentorName, tutorial: true });
@@ -654,12 +742,13 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
     const result = await launchGame(player.name, aiName, { aiDeckId: deckId });
     lobbyLog.log('game-start', { player1: player.name, player2: aiName, pseudoAi: true, port: result.port });
 
-    player.activeGame = {
+    const gameInfo: ActiveGameInfo = {
       port: result.port,
       token: result.tokens[0],
       opponent: aiName,
       opponentDisplayName: aiName,
     };
+    setActiveGame(player, gameInfo);
     // Like real AI games, a pseudo-AI game shows up as a watchable "vs. AI-Pseudo"
     // row; the spectator projection hides both hands, so it is safe to watch even
     // though one human controls both seats.
@@ -667,16 +756,14 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
 
     send(player.ws, {
       type: 'game-starting',
-      ...player.activeGame,
+      ...gameInfo,
       pseudoAi: true,
       aiToken: result.tokens[1],
     });
     broadcastPlayerList();
 
     result.onEnd(() => {
-      player.inGame = false;
-      player.activeGame = null;
-      player.pendingFrom.clear();
+      clearPlayerGame(player.name, result.port);
       watchableGames.delete(result.port);
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player.name, player2: aiName, pseudoAi: true });
