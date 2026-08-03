@@ -40,7 +40,7 @@ import type {
 } from '../index.js';
 import { HAND_SIZE } from '../constants.js';
 import { createRng, shuffle } from '../rng.js';
-import { resolveThrallCharacterPairings } from '../stage-resource-characters.js';
+import { resolveThrallCharacterPairings, resolveCharacterTargetedStageResourcePairings, hasCharacterPlayTargetEffect } from '../stage-resource-characters.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../types/cards.js';
 import { CardStatus, Alignment } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS, ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
@@ -420,6 +420,20 @@ export function applyDraftResults(
         defId => defById(state, defId),
       ).map(p => [p.stageResourceInstanceId as string, p.characterInstanceId]),
     );
+    // Any other Stage resource whose sole effect requires a character bearer
+    // (Squire of the Hunt wh-95, Gandalf's Friend wh-98, Pallando's Apprentice
+    // wh-104, Wizard's Myrmidon wh-84, The Forge-master wh-117) is attached to
+    // a matching drafted character — CoE 1.9.F4's "put into play" means
+    // "attached", exactly as each card's "(or in your starting company)" text
+    // describes. Excludes characters already claimed by a Thrall pairing above.
+    const characterTargetByResource = new Map(
+      resolveCharacterTargetedStageResourcePairings(
+        characterInstanceIds.map(id => ({ instanceId: id, definitionId: characters[id as string].definitionId })),
+        draftState[index].draftedStageResources,
+        defId => defById(state, defId),
+        new Set(Array.from(thrallTargetByResource.values(), id => id as string)),
+      ).map(p => [p.stageResourceInstanceId as string, p.characterInstanceId]),
+    );
     // Non-colliding Hidden Haven sites for this player → become starting sites.
     const convertedSites: { siteInstanceId: CardInstanceId; siteDefId: CardDefinitionId }[] = [];
     const myPairings = pairingsByPlayer[index];
@@ -466,6 +480,23 @@ export function applyDraftResults(
       } else if (hasStartingCompanyPlacementEffect(def)) {
         // Placed with the starting company "in lieu of a minor item" during the
         // item-draft step — keep it in hand until then.
+        handAdditions.push(card);
+      } else if (characterTargetByResource.has(card.instanceId as string)) {
+        // A card whose sole effect requires a character bearer (Squire of the
+        // Hunt wh-95 and its family) is attached to the matching drafted
+        // character found above, exactly as playing it normally would.
+        const targetId = characterTargetByResource.get(card.instanceId as string)!;
+        const target = characters[targetId as string];
+        logDetail(`${def?.name ?? (card.definitionId as string)} attached to ${defById(state, target.definitionId)?.name ?? (target.definitionId as string)} (CoE 1.9.F4)`);
+        characters[targetId as string] = {
+          ...target,
+          items: [...target.items, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
+        };
+      } else if (hasCharacterPlayTargetEffect(def)) {
+        // A character-bearer-only Stage resource with no qualifying drafted
+        // character to attach to — keep it in hand rather than entering play
+        // unattached (it has no effect without a bearer).
+        logDetail(`${def?.name ?? (card.definitionId as string)} has no qualifying drafted character — keeping in hand`);
         handAdditions.push(card);
       } else {
         // CoE 1.9.F4: a drafted Stage resource that needs neither a character nor

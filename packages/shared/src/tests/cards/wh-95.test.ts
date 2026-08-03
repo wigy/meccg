@@ -58,8 +58,9 @@ import {
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   getCharacter,
+  createGame, draftInstId, runActions, pool, recomputeDerived,
 } from '../test-helpers.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, GameConfig } from '../../index.js';
 import { Phase, Alignment } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
@@ -245,5 +246,47 @@ describe('Squire of the Hunt (wh-95)', () => {
     expect(base.players[0].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, boromirId);
     expect(after.players[0].stagePoints).toBe(2);
+  });
+
+  // ── Rule 3 (setup route): "(or in your starting company)" ──────────────────
+
+  test('drafted during the character draft, Squire of the Hunt attaches to the warrior starting character', () => {
+    // Regression (bug report): drafted as a Stage resource, the engine used to
+    // "put it into play" bare (CoE 1.9.F4) with no character bearer, leaving it
+    // stuck in cardsInPlay — invisible and with no effect, exactly like the
+    // reported "selected in Draft but wasn't assigned to character" symptom. It
+    // must instead attach to a qualifying drafted character, per its own "(or in
+    // your starting company)" text.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [SQUIRE_OF_THE_HUNT, BOROMIR], playDeck: makePlayDeck(), siteDeck: [ISENGARD], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ADRAZAR], playDeck: makePlayDeck(), siteDeck: [ISENGARD], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Round 1: the Fallen-wizard drafts the Squire — a Stage resource that
+    // resolves into play immediately (CoE 1.9.F4) without using a character
+    // pick; the opponent picks their (only) character, emptying their pool.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, SQUIRE_OF_THE_HUNT) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ADRAZAR) },
+    ]);
+    // The Fallen-wizard then drafts the warrior, which empties the pool and
+    // auto-finalises the draft.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BOROMIR) },
+    ]);
+
+    state = recomputeDerived(state);
+    const boromir = getCharacter(state, RESOURCE_PLAYER, BOROMIR);
+    expect(boromir.items.some(i => i.definitionId === SQUIRE_OF_THE_HUNT)).toBe(true);
+    // Never left floating, unattached, in cardsInPlay.
+    expect(state.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === SQUIRE_OF_THE_HUNT)).toBe(false);
+    // Its stat-modifiers apply immediately (+1 prowess: 6 → 7).
+    expect(boromir.effectiveStats.prowess).toBe(7);
   });
 });
