@@ -314,6 +314,10 @@ function handleSiteSelectCompany(
       // automatic-attack sequence — each company starts its slot facing its
       // site's attacks normally.
       autoAttacksSkipped: undefined,
+      // A prior company's burglary attempt (Burglary, td-103) never carries
+      // over — each company starts its slot facing its site's attacks normally.
+      soloAutoAttackCharacterId: undefined,
+      burglaryItemUnlock: undefined,
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,
@@ -983,7 +987,7 @@ function handleSiteAutomaticAttacks(
       : handlePlayShortEvent(state, action);
   }
 
-  if (action.type !== 'pass' && action.type !== 'cancel-auto-attack') {
+  if (action.type !== 'pass' && action.type !== 'cancel-auto-attack' && action.type !== 'declare-burglary') {
     return { state, error: `Expected 'pass' during automatic-attacks step` };
   }
 
@@ -1044,6 +1048,68 @@ function handleSiteAutomaticAttacks(
       logDetail(`Site: skipping automatic-attack ${resolveIdx + 1}/${autoAttacks.length} (${autoAttacks[resolveIdx].creatureType}, against ${autoAttacks[resolveIdx].appliesTo} company only) — company is ${defendingCovert ? 'covert' : 'overt'}`);
       resolveIdx++;
     }
+  }
+
+  // Burglary (td-103): tap a character and the site to attempt burglary "in
+  // lieu of facing" the site's automatic-attacks. Only legal before any
+  // attack this slot has been faced or forewarned-selected, and before any
+  // earlier burglary attempt this slot has already succeeded or failed.
+  if (action.type === 'declare-burglary') {
+    if (forewarnedIdx !== undefined || attackIndex !== 0
+      || siteState.autoAttacksSkipped === true || siteState.soloAutoAttackCharacterId) {
+      return { state, error: `Burglary attempt not available` };
+    }
+    if (autoAttacks.length === 0) {
+      return { state, error: `No automatic-attacks to attempt burglary against` };
+    }
+    const player = state.players[activePlayerIndex];
+    const handCard = findById(player.hand, action.cardInstanceId);
+    if (!handCard) return { state, error: 'Burglary card not found in hand' };
+    const def = defById(state, handCard.definitionId);
+    const burglaryEffect = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').BurglaryAttemptEffect => e.type === 'burglary-attempt',
+    );
+    if (!burglaryEffect) return { state, error: `${def?.name ?? '?'} has no burglary-attempt effect` };
+    const char = player.characters[action.characterInstanceId];
+    const charDef = char ? defById(state, char.definitionId) : undefined;
+    if (!char || !charDef || !isCharacterCard(charDef)) {
+      return { state, error: `${action.characterInstanceId as string} is not a character` };
+    }
+    if (char.status !== CardStatus.Untapped) {
+      return { state, error: `${charDef.name} must be untapped to attempt burglary` };
+    }
+    if (!company.characters.includes(action.characterInstanceId)) {
+      return { state, error: `${charDef.name} is not in the active company` };
+    }
+
+    const neverTaps = siteNeverTaps(state, company.currentSite);
+    logDetail(`Site: ${charDef.name} taps (and taps the site${neverTaps ? ' — never-taps, left untapped' : ''}) to attempt burglary at "${siteDef.name}" in lieu of facing ${autoAttacks.length} automatic-attack(s)`);
+
+    const nextState: GameState = updatePlayer(state, activePlayerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      discardPile: [...p.discardPile, handCard],
+      characters: { ...p.characters, [action.characterInstanceId as string]: { ...char, status: CardStatus.Tapped } },
+      companies: p.companies.map(c => (c.id === company.id && c.currentSite && !neverTaps
+        ? { ...c, currentSite: { ...c.currentSite, status: CardStatus.Tapped } }
+        : c)),
+    }));
+
+    return {
+      state: enqueueResolution(nextState, {
+        source: handCard.instanceId,
+        actor: state.activePlayer!,
+        scope: { kind: 'company-site-subphase', companyId: company.id },
+        kind: {
+          type: 'burglary-attempt',
+          characterInstanceId: action.characterInstanceId,
+          companyId: company.id,
+          threshold: burglaryEffect.threshold,
+          scoutBonus: burglaryEffect.scoutBonus,
+          hobbitBonus: burglaryEffect.hobbitBonus,
+        },
+      }),
+    };
   }
 
   // CRF Site Phase / Automatic-attacks: "Any character may tap to cancel one
@@ -1167,6 +1233,7 @@ function handleSiteAutomaticAttacks(
           assignmentPhase: dupAttackerChoosesR ? 'cancel-window' : 'defender',
           detainment: dupDetainmentR,
           ...(dupAttackerChoosesR ? { attackerChoosesDefenders: true } : {}),
+          ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
         });
         return {
           state: {
@@ -1220,6 +1287,7 @@ function handleSiteAutomaticAttacks(
         assignmentPhase: dupAttackerChooses ? 'cancel-window' : 'defender',
         detainment: dupDetainment,
         ...(dupAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
       });
       return {
         state: {
@@ -1278,6 +1346,7 @@ function handleSiteAutomaticAttacks(
         ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
       });
       return {
         state: {
@@ -1373,15 +1442,22 @@ function handleSiteAutomaticAttacks(
   }
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
+  // Burglary (td-103) failure: the tapped character faces the site's
+  // automatic-attacks alone — restrict the "each character faces one strike"
+  // pre-assignment (and its allies) to just that character, exactly like the
+  // legal-action defender/attacker strike-assignment restriction below.
+  const eachCharacterCompany = siteState.soloAutoAttackCharacterId
+    ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
+    : company;
   // "each character faces 1 strike": total = company size, strikes pre-assigned one per
   // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
   // they are pre-assigned a strike too (unless a play-flag makes them immune to attacks).
   const facingAllies = isEachCharacter
-    ? facingAlliesFor(state, state.players[activePlayerIndex], company)
+    ? facingAlliesFor(state, state.players[activePlayerIndex], eachCharacterCompany)
     : [];
   const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
     ? [
-        ...company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+        ...eachCharacterCompany.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
         ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
       ]
     : [];
@@ -1436,6 +1512,7 @@ function handleSiteAutomaticAttacks(
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
     ...(forcedStrikeDefeat ? { forcedStrikeDefeat: true, forcedDefeatBodyCheckModifier } : {}),
+    ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
   };
 
   // For each-character attacks with multiple characters, start at choose-strike-order.
@@ -2792,6 +2869,14 @@ function handleSitePlayHeroResource(
       ? false
       : siteState.minorItemAvailable;
 
+  // Burglary (td-103): a successful attempt unlocked one item play with this
+  // (already-tapped) character. Consume the one-shot allowance once used —
+  // the site is already tapped from the burglary attempt itself.
+  const usingBurglaryUnlock = isItem && siteState.burglaryItemUnlock === targetCharId;
+  if (usingBurglaryUnlock) {
+    logDetail(`Site: ${def.name} played with ${charName} via a successful burglary attempt — allowance consumed`);
+  }
+
   const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
@@ -2810,6 +2895,7 @@ function handleSitePlayHeroResource(
       firstItemNoTapAvailable: nextFirstItemNoTapAvailable,
       firstMinorItemNoTapAvailable: nextFirstMinorItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
+      ...(usingBurglaryUnlock ? { burglaryItemUnlock: undefined } : {}),
     },
   };
 
@@ -4954,6 +5040,8 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
         step: 'select-company' as const,
         automaticAttacksResolved: 0,
         autoAttacksSkipped: undefined,
+        soloAutoAttackCharacterId: undefined,
+        burglaryItemUnlock: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -5019,6 +5107,8 @@ function advanceSiteToNextCompany(
         handledCompanyIds: updatedHandled,
         automaticAttacksResolved: 0,
         autoAttacksSkipped: undefined,
+        soloAutoAttackCharacterId: undefined,
+        burglaryItemUnlock: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,

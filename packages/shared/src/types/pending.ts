@@ -420,6 +420,32 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Burglary attempt (td-103 Burglary): a character and the site have
+         * been tapped "in lieu of facing" the site's automatic-attacks. The
+         * player rolls 2d6, modified by `scoutBonus` if the character has the
+         * Scout skill and `hobbitBonus` if he is a Hobbit. If the total is
+         * greater than `threshold`, the company's automatic-attacks are
+         * skipped entirely (`SitePhaseState.autoAttacksSkipped`) and an item
+         * normally playable at the site may be played with the character
+         * (`SitePhaseState.burglaryItemUnlock`). Otherwise the character must
+         * face all of the site's automatic-attacks alone
+         * (`SitePhaseState.soloAutoAttackCharacterId`), with no combat support
+         * from the rest of his company.
+         */
+        readonly type: 'burglary-attempt';
+        /** The character making the burglary attempt. */
+        readonly characterInstanceId: CardInstanceId;
+        /** The character's company. */
+        readonly companyId: CompanyId;
+        /** Roll + modifiers must exceed this for success. */
+        readonly threshold: number;
+        /** Bonus added to the roll if the character has the Scout skill. */
+        readonly scoutBonus: number;
+        /** Bonus added to the roll if the character is a Hobbit. */
+        readonly hobbitBonus: number;
+      }
+    | {
+        /**
          * Goodwill attempt (dm-160 Token of Goodwill): the diplomat passed his
          * corruption check and now discards one company item of `itemSubtype`
          * to make an influence roll (2d6 + unused DI). If the total exceeds
