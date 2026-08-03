@@ -517,25 +517,28 @@ function characterTargetFilter(effects: readonly unknown[] | undefined): Conditi
 }
 
 /**
- * Whether a hand card can restore a company character currently in
- * `desiredStatus`. The card must both carry a restore option applicable to
- * that status AND be able to target a company character in it — respecting the
- * card's `play-target` filter. A card like Halfling Strength that only restores
- * hobbits is no help to a company whose only tapped character is a Man.
+ * Whether a single character has some restore source — an equipped item
+ * (e.g. Cram untaps its tapped bearer) or a hand card (e.g. Halfling
+ * Strength) — that can bring it from its current status back to `untapped`.
+ * Respects the card's `play-target` filter: a card like Halfling Strength
+ * that only restores hobbits is no help to a Man.
  */
-function handCardRestoresCharacter(
+function characterHasRestoreSource(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
-  company: Company,
-  def: CardDefinition,
-  desiredStatus: CardStatus,
+  ch: CharacterInPlay,
 ): boolean {
-  const effects = (def as { effects?: readonly unknown[] }).effects;
-  if (!hasRestoreOptionForStatus(effects, desiredStatus)) return false;
-  const filter = characterTargetFilter(effects);
-  for (const charId of company.characters) {
-    const ch = view.self.characters[charId];
-    if (!ch || ch.status !== desiredStatus) continue;
+  for (const item of ch.items) {
+    const def = lookupDef(pool, item.definitionId);
+    const effects = (def as { effects?: readonly unknown[] } | undefined)?.effects;
+    if (hasRestoreOptionForStatus(effects, ch.status)) return true;
+  }
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (!def) continue;
+    const effects = (def as { effects?: readonly unknown[] }).effects;
+    if (!hasRestoreOptionForStatus(effects, ch.status)) continue;
+    const filter = characterTargetFilter(effects);
     if (!filter) return true;
     const cdef = lookupDef(pool, ch.definitionId);
     if (!cdef) continue;
@@ -546,10 +549,8 @@ function handCardRestoresCharacter(
 }
 
 /**
- * Whether the company has a way to restore a character currently in
- * `desiredStatus` to `untapped` without traveling to a haven — an equipped
- * item (e.g. Cram untaps its tapped bearer) or a hand card (e.g. Halfling
- * Strength) whose restore option can actually target such a character.
+ * Whether the company has a way to restore AT LEAST ONE character currently
+ * in `desiredStatus` to `untapped` without traveling to a haven.
  *
  * Crucially this rejects false positives: a restore card is only counted when
  * an eligible company character in `desiredStatus` exists and matches the
@@ -563,38 +564,31 @@ function hasRestoreSource(
   company: Company,
   desiredStatus: CardStatus,
 ): boolean {
-  // Equipped item that restores its bearer (e.g. Cram / Strange Rations untap
-  // a tapped bearer). Only counts when the bearer itself is in `desiredStatus`.
   for (const charId of company.characters) {
     const ch = view.self.characters[charId];
     if (!ch || ch.status !== desiredStatus) continue;
-    for (const item of ch.items) {
-      const def = lookupDef(pool, item.definitionId);
-      const effects = (def as { effects?: readonly unknown[] } | undefined)?.effects;
-      if (hasRestoreOptionForStatus(effects, desiredStatus)) return true;
-    }
-  }
-  // Hand card whose restore play-option can actually target a company
-  // character currently in `desiredStatus`.
-  for (const card of view.self.hand) {
-    const def = lookupDef(pool, card.definitionId);
-    if (!def) continue;
-    if (handCardRestoresCharacter(view, pool, company, def, desiredStatus)) return true;
+    if (characterHasRestoreSource(view, pool, ch)) return true;
   }
   return false;
 }
 
 /**
- * Whether the company has a way to heal a wounded (`inverted`) character
- * without traveling to a haven — an equipped healing item or a healing card in
- * hand (e.g. Halfling Strength for a wounded hobbit).
+ * Whether the company has a way to heal EVERY wounded (`inverted`) character
+ * without traveling to a haven. A card that heals only one wounded character
+ * (e.g. Halfling Strength, hobbit-only) does not make the trip unnecessary
+ * for the rest of the wounded company — they still need a haven visit during
+ * untap, so movement scoring must keep steering toward one.
  */
 export function hasHealingAvailable(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
   company: Company,
 ): boolean {
-  return hasRestoreSource(view, pool, company, CardStatus.Inverted);
+  const wounded = woundedCharactersInCompany(view, company)
+    .map(id => view.self.characters[id])
+    .filter((ch): ch is CharacterInPlay => !!ch);
+  if (wounded.length === 0) return true;
+  return wounded.every(ch => characterHasRestoreSource(view, pool, ch));
 }
 
 /**
