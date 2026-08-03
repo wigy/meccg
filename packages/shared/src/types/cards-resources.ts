@@ -164,6 +164,14 @@ interface FactionCardBase extends ResourceCardBase {
   readonly race: Race;
   /** Locations where this faction can be played (typically a single named site). */
   readonly playableAt: readonly PlayableAtEntry[];
+  /**
+   * If set, only a character with this exact name may attempt to influence
+   * this faction — every other untapped character or influence-capable ally
+   * in the company is excluded from the influencer pool. Rare: used by
+   * factions whose printed text names one specific character (e.g. Army of
+   * the Dead tw-193: "May only be played by Aragorn II").
+   */
+  readonly requiredInfluencerName?: string;
 }
 
 /**
