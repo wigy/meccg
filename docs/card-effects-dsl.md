@@ -5117,6 +5117,34 @@ the new `player.avatarInPlay` context field (`false` while no avatar is in play)
   "condition": { "player.avatarInPlay": false } }
 ```
 
+The `move` apply's `to` need not be `discard`: *Bade to Rule* (le-167) instead
+declares `to: "in-play-on-character"`, so instead of discarding itself the bare
+card **attaches** itself onto the just-entered avatar ("Place this card with
+your Ringwraith when he comes into play"). `applyAvatarEntersPlayEffects`
+threads the newly-played character's instance id through as
+`ctx.targetCharacterId`, which `in-play-on-character` resolves as its bearer:
+
+```json
+{ "type": "on-event", "event": "avatar-enters-play",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "in-play-on-character" } }
+```
+
+Getting the card into `cardsInPlay` bare in the first place — before the
+avatar exists to attach to — needs its own gate: the `play-condition`
+`requires: "avatar-not-in-play"` (no extra fields). Paired with a `play-target:
+character` effect on the same card, it is consulted only in the
+character-target branch of `playPermanentEventActions`
+(`legal-actions/organization-events.ts`), and only once that targeted mode
+finds no qualifying character in play — it offers a targetless
+`play-permanent-event` action instead of `notPlayable`, when the player has no
+avatar in play at all (`findPlayerAvatar` returns undefined). Unlike the
+top-of-function `player-state` gate above, it never blocks the card's normal
+targeted mode — it only ever adds the untargeted alternative:
+
+```json
+{ "type": "play-condition", "requires": "avatar-not-in-play" }
+```
+
 ### 14a. `name-alias`
 
 Makes the card count as another named card for the purpose of `inPlay`

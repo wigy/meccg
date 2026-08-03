@@ -888,7 +888,7 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   // which fires for the *entering card itself* — this observes another card's
   // entry (the avatar's).
   if (isAvatarCharacter(charDef)) {
-    finalState = applyAvatarEntersPlayEffects(finalState, playerIndex);
+    finalState = applyAvatarEntersPlayEffects(finalState, playerIndex, charInstId);
   }
 
   return { state: finalState };
@@ -997,13 +997,18 @@ function handleReanimateFromDiscard(state: GameState, action: GameAction): Reduc
 
 /**
  * Fire every `on-event: avatar-enters-play` effect on the acting player's
- * in-play cards, the moment that player brings an avatar into play. Each such
- * effect declares a `move` apply (self → discard); Saw Further and Deeper
- * (dm-156) uses it to discard itself when the Wizard is revealed. Reuses the
- * generic {@link applyMove} primitive, mirroring
+ * in-play cards, the moment that player brings an avatar into play. Most such
+ * effects declare a `move` apply of self → discard (Saw Further and Deeper
+ * dm-156 discards itself when the Wizard is revealed); Bade to Rule (le-167),
+ * played bare in `cardsInPlay` while its player's Ringwraith was not yet in
+ * play, instead declares self → `in-play-on-character` to attach itself onto
+ * the Ringwraith the moment he comes into play ("Place this card with your
+ * Ringwraith when he comes into play") — `avatarCharInstId` is threaded
+ * through as the move's bearer for that destination. Reuses the generic
+ * {@link applyMove} primitive, mirroring
  * {@link applyCharacterSelfEntersPlayMoveEffects}.
  */
-function applyAvatarEntersPlayEffects(state: GameState, playerIndex: number): GameState {
+function applyAvatarEntersPlayEffects(state: GameState, playerIndex: number, avatarCharInstId: CardInstanceId): GameState {
   let newState = state;
   // Snapshot the instance ids up front — the list is mutated as cards discard.
   const inPlayIds = newState.players[playerIndex].cardsInPlay.map(c => c.instanceId);
@@ -1015,7 +1020,7 @@ function applyAvatarEntersPlayEffects(state: GameState, playerIndex: number): Ga
       if (effect.type !== 'on-event' || effect.event !== 'avatar-enters-play') continue;
       if (effect.apply.type !== 'move') continue;
       logDetail(`"${def?.name ?? (card.definitionId as string)}" fires on-event avatar-enters-play — running move apply`);
-      const ctx: MoveContext = { sourceCardId: card.instanceId, sourcePlayerIndex: playerIndex };
+      const ctx: MoveContext = { sourceCardId: card.instanceId, sourcePlayerIndex: playerIndex, targetCharacterId: avatarCharInstId };
       const r = applyMove(newState, effect.apply, ctx);
       if ('error' in r) {
         logDetail(`avatar-enters-play move apply failed: ${r.error}`);

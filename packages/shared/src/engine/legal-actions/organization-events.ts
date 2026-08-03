@@ -759,8 +759,23 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         }
       }
       if (!anyTarget) {
-        logDetail(`Permanent event ${def.name}: no valid target`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
+        // avatar-not-in-play: an untargeted alternative mode (Bade to Rule
+        // le-167: "Alternatively, playable if your Ringwraith is not in
+        // play") — offered only once the targeted mode above finds no
+        // qualifying character, and only while the player has no avatar in
+        // play at all. The card enters play bare in `cardsInPlay` and later
+        // attaches itself via `on-event: avatar-enters-play`.
+        const avatarNotInPlayCondition = findPlayConditionEffect(def, 'avatar-not-in-play');
+        if (avatarNotInPlayCondition && !findPlayerAvatar(state, player)) {
+          logDetail(`Permanent event ${def.name}: no valid target, but no avatar in play — offering untargeted alternative mode`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+            viable: true,
+          });
+        } else {
+          logDetail(`Permanent event ${def.name}: no valid target`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
+        }
       }
       continue;
     }

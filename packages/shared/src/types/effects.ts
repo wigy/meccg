@@ -5791,12 +5791,27 @@ export interface DeckRestrictionEffect extends EffectBase {
  *   field (comma-separated entries are split). Used for restrictions like
  *   "May not be played against a company containing a character with
  *   Edoras as a home site" (Horse-lords).
+ * - `avatar-not-in-play` — no extra payload. Gates a card's **untargeted**
+ *   alternative play mode: paired with a `play-target: character` effect on
+ *   the same card, it is consulted only once that targeted mode finds no
+ *   qualifying character, and offers a targetless `play-permanent-event`
+ *   action (straight into the player's `cardsInPlay`, unattached) when the
+ *   player has no avatar character in play (`findPlayerAvatar` returns
+ *   undefined). Used by Bade to Rule (le-167): "Alternatively, playable if
+ *   your Ringwraith is not in play." — paired with an `on-event:
+ *   avatar-enters-play` effect (`move` to `in-play-on-character`) so the
+ *   bare card attaches itself the moment the Ringwraith is later played
+ *   ("Place this card with your Ringwraith when he comes into play").
+ *   Evaluated in the character-target branch of
+ *   `legal-actions/organization-events.ts`'s `playPermanentEventActions`,
+ *   not the generic top-of-function gate — it never blocks the targeted
+ *   mode.
  *
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'avatar-not-in-play';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
