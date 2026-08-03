@@ -33,6 +33,7 @@ import {
   ORC_PATROL,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER,
+  GLAMDRING,
 } from '../test-helpers.js';
 import { Alignment, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
@@ -444,5 +445,48 @@ describe('Black Arrow (tw-494)', () => {
     const act = modifyActions[0].action as ModifyAttackAction;
     const theodenId = findCharInstanceId(combatState, RESOURCE_PLAYER, THEODEN);
     expect(act.characterInstanceId).toBe(theodenId);
+  });
+
+  // ─── Regression: Black Arrow does not occupy the weapon slot ────────────
+
+  test('Black Arrow does not compete for the weapon slot — a real weapon borne alongside it still applies its bonus', () => {
+    // Bug report (game msdenbx7-gcyhn5, seq 247): Beorn bore Black Arrow and
+    // Orcrist together and Orcrist's prowess bonus never applied. Root cause:
+    // Black Arrow was mistakenly tagged with the "weapon" keyword, so rule
+    // 9.15/6.1.3's "one weapon in use at a time" made Black Arrow (borne
+    // first) occupy the weapon slot instead of Orcrist. Unlike every other
+    // weapon in the card data, Black Arrow's card text never says "Weapon." —
+    // it should not occupy the slot at all, so a true weapon borne alongside
+    // it (regardless of carrying order) applies its bonus normally.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [{ defId: THEODEN, items: [BLACK_ARROW, GLAMDRING] }] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [FRODO] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const theodenId = findCharInstanceId(base, RESOURCE_PLAYER, THEODEN);
+    const theoden = base.players[RESOURCE_PLAYER].characters[theodenId];
+
+    // Glamdring: +3 prowess to a maximum of 8. Théoden's printed prowess is 5.
+    expect(theoden.effectiveStats.prowess).toBe(8);
+    // No declaration was needed to bring Glamdring into use — Black Arrow
+    // never held the weapon slot to begin with.
+    expect(viableActions(base, PLAYER_1, 'use-item')).toHaveLength(0);
   });
 });
