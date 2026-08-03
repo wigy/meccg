@@ -16,7 +16,8 @@
  * Effects:
  *   1. play-target site { siteType in [free-hold, border-hold] }        — site.ts filter
  *   2. play-condition company-context { company.playedFactionHere }     — site.ts / reducer-utils
- *        (`SitePhaseState.factionPlayedThisSitePhase`, set when a faction resolves)
+ *        (`PlayerState.factionsPlayedAtSites`, a persistent per-site record set
+ *        when a faction resolves — not scoped to the current site-phase visit)
  *   3. duplication-limit scope site                                     — site.ts
  *   4. site-lock (convertDetainmentVsMinion, duplicateFirstAutoAttackVsMinion) — the ongoing rules:
  *        a. permanence ("never discarded")            — cardKeepsBoundSitePermanent
@@ -63,9 +64,21 @@ const MINAS_MORGUL = 'le-390' as CardDefinitionId;     // haven — wrong site t
 // A minion (Ringwraith) character for the anti-minion combat rules.
 const GORBAG = 'le-11' as CardDefinitionId;
 
-/** Set `factionPlayedThisSitePhase` on a site-phase state (the flag the play-condition reads). */
+/**
+ * Record that a faction has (at some point) been played at the resource
+ * player's current site, via `PlayerState.factionsPlayedAtSites` — the
+ * persistent record the play-condition reads.
+ */
 function withFactionPlayed(state: GameState): GameState {
-  return { ...state, phaseState: { ...(state.phaseState as SitePhaseState), factionPlayedThisSitePhase: true } };
+  const player = state.players[RESOURCE_PLAYER];
+  const siteDefId = player.companies[0].currentSite!.definitionId;
+  return {
+    ...state,
+    players: [
+      { ...player, factionsPlayedAtSites: { ...player.factionsPlayedAtSites, [siteDefId]: true } },
+      state.players[1],
+    ] as typeof state.players,
+  };
 }
 
 describe('No Strangers at this Time (as-51)', () => {
@@ -110,17 +123,45 @@ describe('No Strangers at this Time (as-51)', () => {
     expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
   });
 
-  // ── Effect 2 wiring: a resolved faction sets the SitePhaseState flag ──
+  // ── Effect 2 wiring: a resolved faction sets the persistent per-site record ──
 
-  test('successfully playing a faction sets factionPlayedThisSitePhase', () => {
+  test('successfully playing a faction records the site in factionsPlayedAtSites', () => {
     const at = buildSitePhaseState({ site: GOBEL_MIRLOND, characters: [ARAGORN], hand: [RIDERS_OF_ROHAN] });
-    expect(at.phaseState.factionPlayedThisSitePhase).toBeFalsy();
+    expect(at.players[RESOURCE_PLAYER].factionsPlayedAtSites?.[GOBEL_MIRLOND]).toBeFalsy();
     const factionCard = at.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === RIDERS_OF_ROHAN)!;
     const after = resolveInfluenceAttemptRoll(
       { ...at, cheatRollTotal: 12 },
       { card: factionCard, declaredBy: PLAYER_1, payload: { type: 'influence-attempt', influencingCharacterId: findCharInstanceId(at, RESOURCE_PLAYER, ARAGORN) } },
     );
-    expect((after.state.phaseState as SitePhaseState).factionPlayedThisSitePhase).toBe(true);
+    expect(after.state.players[RESOURCE_PLAYER].factionsPlayedAtSites?.[GOBEL_MIRLOND]).toBe(true);
+  });
+
+  test('remains playable in a LATER site-phase visit, not just the one where the faction was played (regression: bug report on game msdcrp9b-79z5qs)', () => {
+    // Resolve a real faction play at this Border-hold, then simulate the
+    // company leaving and coming back for a brand-new site phase (e.g. the
+    // next turn): a fresh SitePhaseState carries none of the first visit's
+    // transient flags, but the player's persistent `factionsPlayedAtSites`
+    // record (set on the earlier successful influence attempt) must still
+    // satisfy the play-condition, since the card's own text — "if you have
+    // played a faction there" — is not scoped to the same visit.
+    const at = buildSitePhaseState({ site: GOBEL_MIRLOND, characters: [ARAGORN], hand: [RIDERS_OF_ROHAN] });
+    const factionCard = at.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === RIDERS_OF_ROHAN)!;
+    const afterFaction = resolveInfluenceAttemptRoll(
+      { ...at, cheatRollTotal: 12 },
+      { card: factionCard, declaredBy: PLAYER_1, payload: { type: 'influence-attempt', influencingCharacterId: findCharInstanceId(at, RESOURCE_PLAYER, ARAGORN) } },
+    ).state;
+
+    const laterVisit = buildSitePhaseState({ site: GOBEL_MIRLOND, characters: [ARAGORN], hand: [NO_STRANGERS] });
+    const stateAtLaterVisit: GameState = {
+      ...laterVisit,
+      players: [
+        { ...laterVisit.players[RESOURCE_PLAYER], factionsPlayedAtSites: afterFaction.players[RESOURCE_PLAYER].factionsPlayedAtSites },
+        laterVisit.players[1],
+      ] as typeof laterVisit.players,
+    };
+    const actions = viableActions(stateAtLaterVisit, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as PlayPermanentEventAction).targetSiteDefinitionId).toBe(GOBEL_MIRLOND);
   });
 
   // ── Effect 3: one copy per site ──
