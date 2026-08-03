@@ -68,9 +68,13 @@ export const endOfTurnEvaluator: ActionEvaluator = {
       }
 
       case 'store-item': {
-        const char = view.self.characters[action.characterId];
+        // A company-bound storable card (Pass the Doors of Dol Guldur dm-154)
+        // has no bearer — it sits in `cardsInPlay` rather than on a character.
+        const char = action.characterId ? view.self.characters[action.characterId] : undefined;
         const item = char?.items.find(i => i.instanceId === action.itemInstanceId);
-        const gain = storeItemMpGain(pool, item?.definitionId);
+        const definitionId = item?.definitionId
+          ?? view.self.cardsInPlay.find(c => c.instanceId === action.itemInstanceId)?.definitionId;
+        const gain = storeItemMpGain(pool, definitionId);
         return gain > 0 ? gain * 10 : 0;
       }
 

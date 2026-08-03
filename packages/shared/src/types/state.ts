@@ -150,6 +150,21 @@ export interface GameState {
    * Rule 8.35 / 8.36 — CoE Rules.
    */
   readonly hazardHosts: readonly HazardHost[];
+  /**
+   * Card **names** that have permanently claimed their card's once-per-game
+   * "no other copy may do this" lock (`grant-action` with `singletonLock`).
+   *
+   * Pass the Doors of Dol Guldur (dm-154) ends "Once tapped, no other copy of
+   * this card can be tapped." The restriction outlives the copy that claimed
+   * it — that copy is later *stored*, leaving `cardsInPlay` for the
+   * marshalling-point pile — so it cannot be derived from any card's current
+   * status and is instead recorded here, never cleared. Keyed by name (not
+   * instance) so copies from different printings of the same card share one
+   * lock, mirroring how `duplication-limit` scope `game` counts by name.
+   *
+   * Absent on states built before the field existed; treat as empty.
+   */
+  readonly singletonTapLocks?: readonly string[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */

@@ -1174,9 +1174,17 @@ const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
  *    appears in the effect's `sites` list, or whose type appears in
  *    `siteTypes`. This covers special items (e.g. Rescue Prisoners) and
  *    items with alternative storage sites (e.g. Sapling of the White Tree).
+ * 3. **Company-bound storable cards**: a permanent event in `cardsInPlay`
+ *    bound to the company (`CardInPlay.companyId`) whose definition carries a
+ *    `storable-at` effect. Such a card has no bearer, so the emitted action
+ *    carries `companyId` instead of `characterId` and no corruption check
+ *    follows. A `storable-at` declaring `requiresTapped` is only offered while
+ *    the card itself is tapped — Pass the Doors of Dol Guldur (dm-154): "*If
+ *    tapped*, this card can be stored at a Haven [{H}]".
  *
- * After storage, the initial bearer must make a corruption check.
- * Emits one action per valid (item, character) pair.
+ * After storage, the initial bearer (if any) must make a corruption check.
+ * Emits one action per valid (item, character) pair, plus one per storable
+ * company-bound card.
  */
 export function storeItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
@@ -1202,6 +1210,34 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
     if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
       logDetail(`Store-item: ${siteName} carries no-storage site-rule — skipping company`);
       continue;
+    }
+
+    // Company-bound storable cards (no bearer — see category 3 above).
+    for (const cip of player.cardsInPlay) {
+      if (cip.companyId !== company.id) continue;
+      const cipDef = defById(state, cip.definitionId);
+      const storable = getCardEffects(cipDef).find(
+        (e): e is import('../../types/effects.js').StorableAtEffect => e.type === 'storable-at',
+      );
+      if (!storable) continue;
+      if (!(storable.sites?.includes(siteName) ?? false)
+        && !(storable.siteTypes?.includes(siteType) ?? false)) {
+        continue;
+      }
+      if (storable.requiresTapped && cip.status !== CardStatus.Tapped) {
+        logDetail(`Store-item: ${cipDef?.name ?? '?'} is ${cip.status} — storable only once tapped`);
+        continue;
+      }
+      logDetail(`  → viable: store ${cipDef?.name ?? '?'} from company ${company.id as string} at ${siteName}`);
+      actions.push({
+        action: {
+          type: 'store-item',
+          player: playerId,
+          itemInstanceId: cip.instanceId,
+          companyId: company.id,
+        },
+        viable: true,
+      });
     }
 
     for (const charInstId of company.characters) {

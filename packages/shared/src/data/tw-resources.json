@@ -1657,6 +1657,10 @@
       {
         "type": "play-flag",
         "flag": "bearer-cannot-untap-until-stored"
+      },
+      {
+        "type": "play-flag",
+        "flag": "rescues-prisoners"
       }
     ],
     "certified": "2026-04-26"

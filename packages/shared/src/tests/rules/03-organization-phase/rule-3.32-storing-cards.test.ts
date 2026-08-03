@@ -194,4 +194,47 @@ describe('Rule 3.32 — Storing Cards', () => {
       c => c.instanceId === bookInstId,
     )).toBe(false);
   });
+
+  test('Stored regular item (no storable-at effect) keeps earning its marshalling points', () => {
+    // CoE rule 2.II.4.1: a stored item "is placed in its player's marshalling
+    // point pile" and so continues to count for scoring. Scroll of Isildur
+    // has no storable-at effect (it relies on the generic any-Haven rule),
+    // so its 4 item MPs must not disappear once stored.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [SCROLL_OF_ISILDUR] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(4);
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const scrollInstId = state.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
+
+    const storeAction = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item')
+      .find(a => (a.action as StoreItemAction).itemInstanceId === scrollInstId);
+    expect(storeAction).toBeDefined();
+
+    const afterStore = dispatch(state, storeAction!.action);
+
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(
+      c => c.instanceId === scrollInstId,
+    )).toBe(true);
+    expect(afterStore.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(4);
+  });
 });

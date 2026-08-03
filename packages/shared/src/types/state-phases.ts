@@ -949,6 +949,23 @@ export interface SitePhaseState {
    */
   readonly factionPlayedThisSitePhase?: boolean;
   /**
+   * Whether the active company has, this site phase, **successfully freed
+   * characters taken prisoner while standing at Dol Guldur** — either by
+   * playing Rescue Prisoners (tw-315) there and keeping it (a bearer was
+   * assigned), or by resolving a generic CoE 8.36 `rescue-prisoner` action
+   * whose rescue site is Dol Guldur. Matched by site *name*, so any printing
+   * of Dol Guldur counts. Consulted by the `grant-action` `when` clause of
+   * Pass the Doors of Dol Guldur (dm-154) — "You can tap this card during the
+   * same site phase the company successfully plays Rescue Prisoners at Dol
+   * Guldur (or rescues characters taken prisoner if the rescue site is Dol
+   * Guldur)" — via the context key
+   * `company.prisonersRescuedAtDolGuldurThisSitePhase`. Absent (undefined →
+   * false) until such a rescue happens; reset to absent when a new company's
+   * site phase begins (a fresh {@link SitePhaseState} is built), which is what
+   * makes it company-scoped as well as site-phase-scoped.
+   */
+  readonly prisonersRescuedAtDolGuldurThisSitePhase?: boolean;
+  /**
    * Whether the site's minion-only additional automatic-attack (No Strangers at
    * this Time, as-51 `duplicateFirstAutoAttackVsMinion`) has already been faced
    * this site phase. Set once the copied first automatic-attack has been
@@ -967,6 +984,31 @@ export interface SitePhaseState {
    * a new company's site phase begins (a fresh {@link SitePhaseState} is built).
    */
   readonly eddyTaxTapped?: number;
+  /**
+   * Character instance ID that must face the active company's site
+   * automatic-attacks **alone**, following a failed burglary attempt
+   * (Burglary, td-103: "the character must face all automatic-attacks
+   * alone"). Threaded into every automatic-attack `CombatState` built for
+   * this company slot as `soloDefenderInstanceId`, restricting strike
+   * assignment to this one character — no other company member (nor an
+   * ally hosted by one) may face a strike on his behalf. Does not affect
+   * on-guard creature combat, which is faced by the whole company per CRF
+   * ("On-guard creatures are faced by the whole company after a Burglaring
+   * attempt, regardless of the success of the attempt."). Absent
+   * (undefined) unless a burglary attempt has failed this slot; reset to
+   * absent when a new company's site phase begins.
+   */
+  readonly soloAutoAttackCharacterId?: CardInstanceId;
+  /**
+   * Character instance ID allowed to receive one item normally playable at
+   * the site despite being tapped, following a successful burglary attempt
+   * (Burglary, td-103: "an item normally playable at the site may be played
+   * with the character"). Consumed (cleared) the moment an item is played
+   * on this character. Absent (undefined) unless a burglary attempt has
+   * just succeeded this slot; reset to absent when a new company's site
+   * phase begins.
+   */
+  readonly burglaryItemUnlock?: CardInstanceId;
   /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.

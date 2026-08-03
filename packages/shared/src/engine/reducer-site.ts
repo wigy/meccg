@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -314,6 +314,10 @@ function handleSiteSelectCompany(
       // automatic-attack sequence — each company starts its slot facing its
       // site's attacks normally.
       autoAttacksSkipped: undefined,
+      // A prior company's burglary attempt (Burglary, td-103) never carries
+      // over — each company starts its slot facing its site's attacks normally.
+      soloAutoAttackCharacterId: undefined,
+      burglaryItemUnlock: undefined,
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,
@@ -983,7 +987,7 @@ function handleSiteAutomaticAttacks(
       : handlePlayShortEvent(state, action);
   }
 
-  if (action.type !== 'pass' && action.type !== 'cancel-auto-attack') {
+  if (action.type !== 'pass' && action.type !== 'cancel-auto-attack' && action.type !== 'declare-burglary') {
     return { state, error: `Expected 'pass' during automatic-attacks step` };
   }
 
@@ -1044,6 +1048,68 @@ function handleSiteAutomaticAttacks(
       logDetail(`Site: skipping automatic-attack ${resolveIdx + 1}/${autoAttacks.length} (${autoAttacks[resolveIdx].creatureType}, against ${autoAttacks[resolveIdx].appliesTo} company only) — company is ${defendingCovert ? 'covert' : 'overt'}`);
       resolveIdx++;
     }
+  }
+
+  // Burglary (td-103): tap a character and the site to attempt burglary "in
+  // lieu of facing" the site's automatic-attacks. Only legal before any
+  // attack this slot has been faced or forewarned-selected, and before any
+  // earlier burglary attempt this slot has already succeeded or failed.
+  if (action.type === 'declare-burglary') {
+    if (forewarnedIdx !== undefined || attackIndex !== 0
+      || siteState.autoAttacksSkipped === true || siteState.soloAutoAttackCharacterId) {
+      return { state, error: `Burglary attempt not available` };
+    }
+    if (autoAttacks.length === 0) {
+      return { state, error: `No automatic-attacks to attempt burglary against` };
+    }
+    const player = state.players[activePlayerIndex];
+    const handCard = findById(player.hand, action.cardInstanceId);
+    if (!handCard) return { state, error: 'Burglary card not found in hand' };
+    const def = defById(state, handCard.definitionId);
+    const burglaryEffect = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').BurglaryAttemptEffect => e.type === 'burglary-attempt',
+    );
+    if (!burglaryEffect) return { state, error: `${def?.name ?? '?'} has no burglary-attempt effect` };
+    const char = player.characters[action.characterInstanceId];
+    const charDef = char ? defById(state, char.definitionId) : undefined;
+    if (!char || !charDef || !isCharacterCard(charDef)) {
+      return { state, error: `${action.characterInstanceId as string} is not a character` };
+    }
+    if (char.status !== CardStatus.Untapped) {
+      return { state, error: `${charDef.name} must be untapped to attempt burglary` };
+    }
+    if (!company.characters.includes(action.characterInstanceId)) {
+      return { state, error: `${charDef.name} is not in the active company` };
+    }
+
+    const neverTaps = siteNeverTaps(state, company.currentSite);
+    logDetail(`Site: ${charDef.name} taps (and taps the site${neverTaps ? ' — never-taps, left untapped' : ''}) to attempt burglary at "${siteDef.name}" in lieu of facing ${autoAttacks.length} automatic-attack(s)`);
+
+    const nextState: GameState = updatePlayer(state, activePlayerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      discardPile: [...p.discardPile, handCard],
+      characters: { ...p.characters, [action.characterInstanceId as string]: { ...char, status: CardStatus.Tapped } },
+      companies: p.companies.map(c => (c.id === company.id && c.currentSite && !neverTaps
+        ? { ...c, currentSite: { ...c.currentSite, status: CardStatus.Tapped } }
+        : c)),
+    }));
+
+    return {
+      state: enqueueResolution(nextState, {
+        source: handCard.instanceId,
+        actor: state.activePlayer!,
+        scope: { kind: 'company-site-subphase', companyId: company.id },
+        kind: {
+          type: 'burglary-attempt',
+          characterInstanceId: action.characterInstanceId,
+          companyId: company.id,
+          threshold: burglaryEffect.threshold,
+          scoutBonus: burglaryEffect.scoutBonus,
+          hobbitBonus: burglaryEffect.hobbitBonus,
+        },
+      }),
+    };
   }
 
   // CRF Site Phase / Automatic-attacks: "Any character may tap to cancel one
@@ -1139,7 +1205,7 @@ function handleSiteAutomaticAttacks(
         const dupRace = normalizeCreatureRace(aa.creatureType);
         const inPlayNamesR = buildInPlayNames(state);
         const dupBoostCtxR = { companyId: company.id };
-        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR);
+        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR, false, effectiveSiteType);
         const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
@@ -1167,6 +1233,7 @@ function handleSiteAutomaticAttacks(
           assignmentPhase: dupAttackerChoosesR ? 'cancel-window' : 'defender',
           detainment: dupDetainmentR,
           ...(dupAttackerChoosesR ? { attackerChoosesDefenders: true } : {}),
+          ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
         });
         return {
           state: {
@@ -1191,7 +1258,7 @@ function handleSiteAutomaticAttacks(
       const inPlayNames2 = buildInPlayNames(state);
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtx = { companyId: company.id };
-      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx);
+      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx, false, effectiveSiteType);
       const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType);
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
@@ -1220,6 +1287,7 @@ function handleSiteAutomaticAttacks(
         assignmentPhase: dupAttackerChooses ? 'cancel-window' : 'defender',
         detainment: dupDetainment,
         ...(dupAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
       });
       return {
         state: {
@@ -1246,7 +1314,7 @@ function handleSiteAutomaticAttacks(
       const inPlayNamesM = buildInPlayNames(state);
       const creatureRaceM = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtxM = { companyId: company.id };
-      const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM);
+      const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM, false, effectiveSiteType);
       const dupStrikesM = resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType);
       const dupBodyM = resolveAttackBody(state, aa.body ?? null, inPlayNamesM, creatureRaceM, dupBoostCtxM);
       logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
@@ -1278,6 +1346,7 @@ function handleSiteAutomaticAttacks(
         ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
       });
       return {
         state: {
@@ -1308,7 +1377,7 @@ function handleSiteAutomaticAttacks(
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const aaBoostCtx = { companyId: company.id };
-  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx);
+  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx, false, effectiveSiteType);
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, aaBoostCtx);
 
@@ -1373,15 +1442,22 @@ function handleSiteAutomaticAttacks(
   }
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
+  // Burglary (td-103) failure: the tapped character faces the site's
+  // automatic-attacks alone — restrict the "each character faces one strike"
+  // pre-assignment (and its allies) to just that character, exactly like the
+  // legal-action defender/attacker strike-assignment restriction below.
+  const eachCharacterCompany = siteState.soloAutoAttackCharacterId
+    ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
+    : company;
   // "each character faces 1 strike": total = company size, strikes pre-assigned one per
   // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
   // they are pre-assigned a strike too (unless a play-flag makes them immune to attacks).
   const facingAllies = isEachCharacter
-    ? facingAlliesFor(state, state.players[activePlayerIndex], company)
+    ? facingAlliesFor(state, state.players[activePlayerIndex], eachCharacterCompany)
     : [];
   const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
     ? [
-        ...company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+        ...eachCharacterCompany.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
         ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
       ]
     : [];
@@ -1436,6 +1512,7 @@ function handleSiteAutomaticAttacks(
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
     ...(forcedStrikeDefeat ? { forcedStrikeDefeat: true, forcedDefeatBodyCheckModifier } : {}),
+    ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
   };
 
   // For each-character attacks with multiple characters, start at choose-strike-order.
@@ -1491,7 +1568,7 @@ function buildSiteRepeatedAttackCombat(
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const boostCtx = { companyId: company.id };
-  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
+  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx, false, effectiveSiteType);
   const effectiveProwess = baseProwess + opts.prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
@@ -1742,10 +1819,15 @@ function handleSiteRescueAttacks(
   if (!rescue || rescue.resolved >= rescueAttacks.length) {
     const freedState = rescue ? freePrisonersOfHost(state, rescue.hostInstanceId) : state;
     logDetail('Rescue: rescue-attack faced — prisoners freed → play-resources');
+    // The rescue succeeded — if the rescue site is Dol Guldur this opens the
+    // tap window for Pass the Doors of Dol Guldur (dm-154) for the rest of this
+    // company's site phase.
+    const marked = rescue ? markPrisonersRescuedAtDolGuldur(freedState, company) : freedState;
+    const markedSiteState = marked.phaseState as SitePhaseState;
     return {
       state: {
-        ...freedState,
-        phaseState: { ...siteState, step: 'play-resources' as const, rescueInProgress: undefined },
+        ...marked,
+        phaseState: { ...markedSiteState, step: 'play-resources' as const, rescueInProgress: undefined },
       },
     };
   }
@@ -2550,11 +2632,15 @@ function handleSitePlayResources(
     const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
     const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
     if (rescueAttacks.length === 0) {
-      // No rescue-attack to face — free immediately.
+      // No rescue-attack to face — free immediately. A successful rescue at Dol
+      // Guldur opens the Pass the Doors of Dol Guldur (dm-154) tap window.
+      const freed = markPrisonersRescuedAtDolGuldur(
+        freePrisonersOfHost(state, action.hostInstanceId), company,
+      );
       return {
         state: {
-          ...freePrisonersOfHost(state, action.hostInstanceId),
-          phaseState: { ...siteState },
+          ...freed,
+          phaseState: { ...(freed.phaseState as SitePhaseState) },
         },
       };
     }
@@ -2792,6 +2878,14 @@ function handleSitePlayHeroResource(
       ? false
       : siteState.minorItemAvailable;
 
+  // Burglary (td-103): a successful attempt unlocked one item play with this
+  // (already-tapped) character. Consume the one-shot allowance once used —
+  // the site is already tapped from the burglary attempt itself.
+  const usingBurglaryUnlock = isItem && siteState.burglaryItemUnlock === targetCharId;
+  if (usingBurglaryUnlock) {
+    logDetail(`Site: ${def.name} played with ${charName} via a successful burglary attempt — allowance consumed`);
+  }
+
   const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
@@ -2810,6 +2904,7 @@ function handleSitePlayHeroResource(
       firstItemNoTapAvailable: nextFirstItemNoTapAvailable,
       firstMinorItemNoTapAvailable: nextFirstMinorItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
+      ...(usingBurglaryUnlock ? { burglaryItemUnlock: undefined } : {}),
     },
   };
 
@@ -4954,6 +5049,8 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
         step: 'select-company' as const,
         automaticAttacksResolved: 0,
         autoAttacksSkipped: undefined,
+        soloAutoAttackCharacterId: undefined,
+        burglaryItemUnlock: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -5019,6 +5116,8 @@ function advanceSiteToNextCompany(
         handledCompanyIds: updatedHandled,
         automaticAttacksResolved: 0,
         autoAttacksSkipped: undefined,
+        soloAutoAttackCharacterId: undefined,
+        burglaryItemUnlock: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,

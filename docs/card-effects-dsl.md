@@ -171,7 +171,26 @@ For automatic-attacks the resolution context also exposes `site.siteType` — th
 defending company's effective current-site type — so a global modifier can gate
 on the site type it applies at, e.g. `when: { "site.siteType": { "$in": ["free-hold",
 "border-hold"] } }` (Awaken Defenders le-103 / Awaken Denizens / Awaken Minions:
-"strikes … at a Free-hold / Ruins & Lairs / Shadow-hold … doubled").
+"strikes … at a Free-hold / Ruins & Lairs / Shadow-hold … doubled"). Both
+`resolveAttackStrikes` and `resolveAttackProwess` thread the site type in, so
+the same gate works on either stat.
+
+**`activeWhileStored: true` — an "if stored" ongoing effect.** A card *stored*
+in its controller's marshalling-point pile has left `cardsInPlay`, where
+`collectGlobalEffects` normally looks. Marking a modifier `activeWhileStored`
+inverts that: it is skipped while the card sits in play and collected instead
+from the stored-card scan (a `killPile` entry carrying `storedAtSite` — the
+marker that separates a stored card from a defeated creature). Used by Pass the
+Doors of Dol Guldur (dm-154): "**If stored**, all automatic-attacks at all
+Dark-holds [{D}] and all Shadow-holds [{S}] are with one less prowess and one
+less strike (to a minimum of one)" — the "minimum of one" is the ordinary `min`
+floor:
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "target": "all-automatic-attacks",
+  "value": -1, "min": 1, "activeWhileStored": true,
+  "when": { "site.siteType": { "$in": ["dark-hold", "shadow-hold"] } } }
+```
 
 The optional `op` field controls how `value` combines with the running stat
 total: `"add"` (the default) does `result += value`, while `"multiply"` does
@@ -2161,6 +2180,36 @@ extend the emission window:
 
 Multiple flags may coexist on the same effect.
 
+**Bearer-less sources: `cost: { "tap": "self" }` and an optional `apply`.**
+A card sitting in `cardsInPlay` with no bearer (an in-play faction, or a
+permanent event bound to a company) routes to `handleInPlayCardGrantAction`.
+Two costs are supported there: `discard: "self"` (the source leaves play for
+its controller's discard pile — A Panoply of Wings wh-37) and `tap: "self"`
+(the source is set to `Tapped` **in place** and stays in `cardsInPlay`). With
+`tap: "self"` the `apply` may be omitted entirely, for a card where becoming
+tapped *is* the whole effect — Pass the Doors of Dol Guldur (dm-154), whose
+tapped status is what later unlocks `storable-at` `requiresTapped` and what
+`play-flag: "no-auto-untap"` then preserves ("this card never untaps").
+
+The site-phase emitter for these is `inPlayCompanyTapGrantActions`
+(`legal-actions/site.ts`), which offers the ability to the company currently
+taking its site phase, for an `Untapped` source whose `when` matches the
+per-company site-phase context.
+
+**`singletonLock: true` — "no other copy of this card can be tapped".** The
+first activation records the source's card **name** in
+`GameState.singletonTapLocks`, which is never cleared; both the emitter and
+the reducer refuse the ability for every copy of that name thereafter. Keyed
+by name (not instance) so multi-set printings share one lock, and stored in
+`GameState` rather than derived from any card's status because the locking
+copy may leave `cardsInPlay` afterwards (dm-154 is subsequently *stored*).
+
+```json
+{ "type": "grant-action", "action": "tap-pass-the-doors",
+  "cost": { "tap": "self" }, "singletonLock": true,
+  "when": { "company.prisonersRescuedAtDolGuldurThisSitePhase": true } }
+```
+
 **Gating a grant-action to one phase via `when`.** `anyPhase: true` makes an
 ability *available* in every non-organization phase, but sometimes a card is
 restricted to a single one (e.g. "Once during his movement/hazard phase …").
@@ -3939,6 +3988,68 @@ attack (`resolveCancelAttackEntry`) and decreases `hazardLimitAtReveal` by
 leaves the attack in effect. Either way the guess resolution dequeues and
 the chain entry resolves.
 
+### 9e. `burglary-attempt`
+
+A site-phase alternative to facing a site's automatic-attacks.
+
+```json
+{
+  "type": "burglary-attempt",
+  "threshold": 10,
+  "scoutBonus": 2,
+  "hobbitBonus": 3
+}
+```
+
+Used by Burglary (td-103): "Tap a character to make a burglary attempt at a
+site in lieu of facing its automatic-attacks. Tap the site and make a roll
+modified by +2 if the character is a scout and by +3 if he is a Hobbit. If
+the result is greater than 10, an item normally playable at the site may be
+played with the character. If the attempt fails, the character must face
+all automatic-attacks alone."
+
+**Offering** (`legal-actions/site.ts`, `automaticAttacksActions`): one
+`declare-burglary` action per untapped character in the active company,
+while the `automatic-attacks` step has not yet faced any attack this slot
+(`automaticAttacksResolved === 0`, no earlier burglary success/failure), the
+site has at least one active automatic-attack, and a card carrying this
+effect is in hand.
+
+**Declaration** (`reducer-site.ts`, `handleSiteAutomaticAttacks`): taps the
+character and the site (unless `never-taps`), discards the card, and
+enqueues a `burglary-attempt` pending resolution — kept separate from the
+site step so a future on-guard interaction (Half an Eye Open, td-29: "may be
+revealed as an on-guard card when a burglary attempt is announced" to modify
+the roll by -5) can hook the same window later.
+
+**The roll** (`legal-actions/pending.ts` `burglaryAttemptRollActions`,
+`pending-reducers.ts` `applyBurglaryAttemptResolution`): 2d6 + `scoutBonus`
+if the character has the Scout skill + `hobbitBonus` if he is a Hobbit,
+compared against `threshold`.
+
+- **Success** sets `SitePhaseState.autoAttacksSkipped = true` (the existing
+  Farmer Maggot as-48 "sequence abandoned" flag — `handleSiteAutomaticAttacks`
+  already treats it as "all attacks resolved" with no combat) and
+  `SitePhaseState.burglaryItemUnlock = characterInstanceId`: `playResourcesActions`
+  and `handleSitePlayHeroResource` let that one (already-tapped) character
+  receive one item normally playable at the site, consuming the allowance.
+- **Failure** sets `SitePhaseState.soloAutoAttackCharacterId = characterInstanceId`,
+  threaded into every automatic-attack `CombatState` built for this company
+  slot (including the race-duplicate, Incite Defenders, and No Strangers at
+  this Time copies) as `CombatState.soloDefenderInstanceId`. Both halves of
+  `assignStrikeActions` (`legal-actions/combat.ts`) restrict the defending
+  company to just that character when the field is set — no other company
+  member (nor an ally hosted by one) can be assigned a strike — and the
+  "each character faces one strike" pre-assignment in `reducer-site.ts` is
+  restricted the same way. On-guard creature combat is untouched (a separate
+  code path from `handleSiteAutomaticAttacks`), matching the CRF ruling that
+  on-guard creatures are still faced by the whole company regardless of a
+  burglary attempt's outcome.
+
+Both `SitePhaseState.soloAutoAttackCharacterId` and `burglaryItemUnlock` are
+explicitly reset to absent whenever a fresh `SitePhaseState` is built for a
+new company slot.
+
 ### 10. `strike-modifier`
 
 Played from hand during strike resolution as a short event. Covers four
@@ -5218,6 +5329,32 @@ untap lock.
 { "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" }
 ```
 
+### 15c-bis. `play-flag: "rescues-prisoners"`
+
+Marks a card whose successful play *is* a prisoner rescue — carried by Rescue
+Prisoners (tw-315). When such a card is **kept** (a bearer is assigned in the
+`select-card-bearer` resolution; the declined branch discards it and does not
+count), `markPrisonersRescuedAtDolGuldur` records the rescue on the current
+`SitePhaseState`. The same helper is called from the generic CoE 8.36
+`rescue-prisoner` paths (immediate free, and after the rescue-attack is faced),
+so every route to "characters taken prisoner were freed" is covered by one
+marker.
+
+Today the marker is site-specific: it sets
+`SitePhaseState.prisonersRescuedAtDolGuldurThisSitePhase` only when the
+rescuing company stands at a site **named** "Dol Guldur" (any printing).
+`legal-actions/site.ts` exposes it to `when` clauses as
+`company.prisonersRescuedAtDolGuldurThisSitePhase`, which is how Pass the Doors
+of Dol Guldur (dm-154) gates its tap ability on "during the same site phase the
+company successfully plays Rescue Prisoners at Dol Guldur (or rescues
+characters taken prisoner if the rescue site is Dol Guldur)". Because the flag
+lives on the per-company site-phase state (rebuilt for every company's site
+phase), it is company- *and* site-phase-scoped for free.
+
+```json
+{ "type": "play-flag", "flag": "rescues-prisoners" }
+```
+
 ### 15d. `play-flag: "grants-followers"`
 
 Overrides the Balrog's default "may not have any followers" restriction
@@ -6229,6 +6366,25 @@ The store handler stamps the stored pile entry with `storedAtSite` (the site
 definition it was stored at), which "stored there" references such as
 `play-with-stored-card` match against.
 
+**`requiresTapped` — storable only once the card itself is tapped.** Pass the
+Doors of Dol Guldur (dm-154): "*If tapped*, this card can be stored at a Haven
+[{H}]". The store action is withheld until the card's own `status` is
+`Tapped`; the reducer re-checks it.
+
+**Company-bound storage (no bearer).** A permanent event played on a company
+(`play-target` `company`) lives in `cardsInPlay` with a `companyId`, not on a
+character. Such a card is offered for storage per company rather than per
+(item, bearer) pair, and the emitted `store-item` action carries `companyId`
+instead of `characterId`. Storing moves it from `cardsInPlay` into the
+marshalling-point pile with `storedAtSite` stamped, and enqueues **no**
+corruption check — CoE 2.II.4's check falls on *the bearer*, and a card the
+whole company jointly controls has none.
+
+```json
+{ "type": "storable-at", "siteTypes": ["haven"],
+  "requiresTapped": true, "marshallingPoints": 4 }
+```
+
 ### 21a. `storage-site-transfer`
 
 Carried by a permanent event whose play *is* the act of storing one
@@ -6511,6 +6667,34 @@ Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
 
 Implemented in `legal-actions/site.ts` (permanent event play-condition
 check) and `reducer-events.ts` (discard execution).
+
+- `discard-keyword-card` — the keyword-matched sibling of
+  `discard-named-card`: instead of one printing, it matches a *family* of
+  cards by the structural keyword in `cardKeyword`. Used by Pass the Doors of
+  Dol Guldur (dm-154): "Playable on a company if the company discards (for no
+  effect) a Stolen Knowledge card it controls" — Dark Numbers (dm-123),
+  Knowledge of the Enemy (dm-147), and another copy of dm-154 all qualify.
+
+  `sources` adds `cards-in-play` to `character-items` / `kill-pile`, for the
+  bare permanent events that live in `PlayerState.cardsInPlay`. On a
+  company-targeting card the search is scoped to what *that company* controls:
+  the items of its own characters, and only `cardsInPlay` entries whose
+  `companyId` is that company. One legal action per candidate, each carrying
+  its `discardCardInstanceId`.
+
+  "For no effect" is literal — the play-cost payer moves the chosen card
+  straight to its owner's discard pile without running any of its own
+  discard-triggered `grant-action` / `on-event` abilities.
+
+```json
+{ "type": "play-condition", "requires": "discard-keyword-card",
+  "cardKeyword": "stolen-knowledge",
+  "sources": ["character-items", "cards-in-play"] }
+```
+
+Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
+`legal-actions/organization-events.ts` (company play-target emitter), and
+`reducer-events.ts` (discard execution).
 
 - `site-type` — restricts the card to companies whose current site type
   is in the `siteTypes` array. For character-targeting permanent events

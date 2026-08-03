@@ -257,7 +257,9 @@ export function describeAction(
     case 'transfer-item':
       return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
     case 'store-item':
-      return `Store item ${instName(action.itemInstanceId)} from ${instName(action.characterId)}`;
+      return action.characterId
+        ? `Store item ${instName(action.itemInstanceId)} from ${instName(action.characterId)}`
+        : `Store ${instName(action.itemInstanceId)}${action.companyId ? ` from ${compName(action.companyId)}` : ''}`;
     case 'move-to-influence':
       return action.controlledBy === 'general'
         ? `Move ${instName(action.characterInstanceId)} to general influence`
@@ -393,6 +395,10 @@ export function describeAction(
       return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
     case 'cancel-auto-attack':
       return `Tap ${instName(action.characterId)} to cancel automatic-attack at home site`;
+    case 'declare-burglary':
+      return `${playerName(action.player)} taps ${instName(action.characterInstanceId)} and the site to attempt burglary in lieu of facing automatic-attacks (Burglary)`;
+    case 'burglary-attempt':
+      return `${playerName(action.player)} rolls for ${instName(action.characterInstanceId)}: ${action.explanation}`;
     case 'declare-agent-attack': {
       const reveal = action.homeSiteInstanceId ? ` (reveal at ${instName(action.homeSiteInstanceId)})` : '';
       const tap = action.tapForExtraStrike ? ' (tap for an extra strike)' : '';

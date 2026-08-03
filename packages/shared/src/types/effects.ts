@@ -180,6 +180,16 @@ export interface StatModifierEffect extends EffectBase {
   readonly max?: ValueExpr;
   /** Minimum resulting stat value (floor). Can be a MathJS expression. E.g. `0` prevents negative DI. */
   readonly min?: ValueExpr;
+  /**
+   * When true this modifier applies **only while the source card is stored**
+   * in its controller's marshalling-point pile (a `killPile` entry carrying
+   * `storedAtSite`), never while the card merely sits in play. Pass the Doors
+   * of Dol Guldur (dm-154): "*If stored*, all automatic-attacks at all
+   * Dark-holds and all Shadow-holds are with one less prowess and one less
+   * strike." {@link collectGlobalEffects} skips such effects on `cardsInPlay`
+   * entries and picks them up from the stored-card scan instead.
+   */
+  readonly activeWhileStored?: boolean;
   /** Named identifier so other effects can reference and override this one. */
   readonly id?: string;
   /** If set, this effect replaces the named effect when its condition matches. */
@@ -1871,6 +1881,17 @@ export interface GrantActionEffect extends EffectBase {
    * companion in the bearer's company whose definition ID is in this list.
    */
   readonly companionIds?: readonly string[];
+  /**
+   * When true, activating this ability claims a **game-wide, permanent lock
+   * keyed by the source card's name**: no other copy of the same card — in
+   * either player's play area, for the rest of the game — may ever activate
+   * it. Pass the Doors of Dol Guldur (dm-154): "Once tapped, no other copy of
+   * this card can be tapped." The lock is recorded in
+   * {@link GameState.singletonTapLocks} rather than derived from the tapped
+   * copy's status, because the tapped copy leaves `cardsInPlay` when it is
+   * later stored and the lock must survive that.
+   */
+  readonly singletonLock?: boolean;
 }
 
 /**
@@ -3635,8 +3656,15 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   That's Been Heard Before Tonight (le-241), Rescue Prisoners (tw-315), and
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
+ * - `rescues-prisoners` — this card *is* the rescue: successfully playing and
+ *   keeping it frees the characters its company came for. Carried by Rescue
+ *   Prisoners (tw-315). Cards that key on a rescue having happened read this
+ *   flag rather than naming tw-315 — Pass the Doors of Dol Guldur (dm-154)
+ *   opens its tap window "during the same site phase the company successfully
+ *   plays Rescue Prisoners at Dol Guldur". Marked when a bearer is assigned
+ *   (the card is kept), never on the declined/discarded branch.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -5076,6 +5104,34 @@ export interface RiddlingAttemptEffect extends EffectBase {
 }
 
 /**
+ * Burglary attempt: playable at a site during the site phase, before any of
+ * its automatic-attacks has been faced. Tap a character and the site "in
+ * lieu of facing" the site's automatic-attacks, then roll 2d6 modified by
+ * `scoutBonus` if the character has the Scout skill and `hobbitBonus` if he
+ * is a Hobbit. If the total is greater than `threshold`, the company's
+ * automatic-attacks are skipped entirely and an item normally playable at
+ * the site may be played with the (tapped) character. Otherwise the
+ * character must face all of the site's automatic-attacks alone, with no
+ * combat support from the rest of his company.
+ *
+ * Used by Burglary (td-103). Offered as a bespoke `declare-burglary` action
+ * in `legal-actions/site.ts` (not a `play-target`/chain flow); the roll
+ * itself is a `burglary-attempt` pending resolution enqueued by the
+ * `declare-burglary` reducer in `reducer-site.ts`, so a future on-guard
+ * interaction (e.g. Half an Eye Open, td-29, which modifies the roll by -5)
+ * can hook the same resolution before it resolves.
+ */
+export interface BurglaryAttemptEffect extends EffectBase {
+  readonly type: 'burglary-attempt';
+  /** Roll + modifiers must exceed this for success. */
+  readonly threshold: number;
+  /** Bonus added to the roll if the character has the Scout skill. */
+  readonly scoutBonus: number;
+  /** Bonus added to the roll if the character is a Hobbit. */
+  readonly hobbitBonus: number;
+}
+
+/**
  * Roll-gated counter-cancel (Black Vapour ba-14): a hazard short-event the
  * *attacking* (hazard) player plays during a combat chain to negate an
  * opponent-declared chain entry that would cancel a creature attack of a
@@ -5544,6 +5600,15 @@ export interface StorableAtEffect extends EffectBase {
   readonly siteTypes?: readonly SiteType[];
   /** Override marshalling points when stored (replaces the card's base MP). */
   readonly marshallingPoints?: number;
+  /**
+   * When true the card may only be stored once it is itself **tapped**
+   * ({@link CardStatus.Tapped}). Used by Pass the Doors of Dol Guldur
+   * (dm-154): "If tapped, this card can be stored at a Haven [{H}]" — the
+   * card's tap is the rescue it records, so an untapped copy has nothing to
+   * store. Applies to the company-bound `cardsInPlay` storage path (the card
+   * has no bearer); character-borne items ignore it.
+   */
+  readonly requiresTapped?: boolean;
 }
 
 /**
@@ -5731,7 +5796,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -5853,17 +5918,37 @@ export interface PlayConditionEffect extends EffectBase {
    */
   readonly cardName?: string;
   /**
-   * Where to look for the named card.
-   * - `character-items` — items on characters at the current site.
+   * For `requires: 'discard-keyword-card'`: the structural **keyword** every
+   * candidate discard must carry on its definition (e.g. `"stolen-knowledge"`).
+   * The keyword variant is otherwise identical to `discard-named-card` — the
+   * same {@link sources} are searched and the chosen candidate rides the play
+   * action's `discardCardInstanceId` — but it matches a *family* of cards
+   * rather than one printing. Used by Pass the Doors of Dol Guldur (dm-154):
+   * "Playable on a company if the company discards (for no effect) a Stolen
+   * Knowledge card it controls" — any of Dark Numbers (dm-123), Knowledge of
+   * the Enemy (dm-147), … qualifies. The discard is "for no effect": the card
+   * is moved straight to its owner's discard pile without any of its own
+   * discard-triggered abilities firing.
+   */
+  readonly cardKeyword?: string;
+  /**
+   * Where to look for the named (or keyword-matched) card.
+   * - `character-items` — items on characters at the current site. For the
+   *   company-scoped `discard-keyword-card` variant this means the items of
+   *   the characters of the company being played on ("a card it controls").
    * - `kill-pile` — the player's marshalling point pile, where successfully
    *   stored items are placed (CoE rule 2.II.4.1). Used by The White Tree to
    *   discard a Sapling stored at Minas Tirith.
+   * - `cards-in-play` — the player's `cardsInPlay`, where bare permanent
+   *   events live. For the company-scoped `discard-keyword-card` variant only
+   *   entries bound to the target company (`CardInPlay.companyId`) count, so
+   *   the discard really is a card *that company* controls.
    *
    * Also used for `requires: 'card-not-in-play'`: the card name that must
    * NOT be in play (as a character or in any player's cardsInPlay) for the
    * card to be playable.
    */
-  readonly sources?: readonly ('character-items' | 'kill-pile')[];
+  readonly sources?: readonly ('character-items' | 'kill-pile' | 'cards-in-play')[];
   /**
    * For `requires: 'combat-creature-race'`: the required attacker race
    * (lowercase, e.g. `"dragon"`). When the current combat's
@@ -7592,6 +7677,7 @@ export type CardEffect =
   | FlatteryCancelAttackEffect
   | GoodwillCancelAttackEffect
   | RiddlingAttemptEffect
+  | BurglaryAttemptEffect
   | CounterCancelAttackRollEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect

@@ -2147,6 +2147,116 @@ export function findPlayConditionEffect(
 }
 
 /**
+ * The site name whose rescues Pass the Doors of Dol Guldur (dm-154) keys on.
+ * Matched by name so that any printing of the site counts.
+ */
+const DOL_GULDUR_SITE_NAME = 'Dol Guldur';
+
+/**
+ * Records on the current {@link SitePhaseState} that `company` has, this site
+ * phase, successfully freed characters taken prisoner **while standing at Dol
+ * Guldur** (CoE 8.36 rescue, or a kept Rescue Prisoners tw-315 played there).
+ *
+ * Pass the Doors of Dol Guldur (dm-154) may only be tapped "during the same
+ * site phase the company successfully plays Rescue Prisoners at Dol Guldur (or
+ * rescues characters taken prisoner if the rescue site is Dol Guldur)", so
+ * every successful-rescue path calls this and the flag lives on the per-company
+ * site-phase state that is rebuilt for each company's site phase.
+ *
+ * A no-op outside the site phase, or when the company is not at Dol Guldur —
+ * so callers can invoke it unconditionally on any rescue path.
+ */
+export function markPrisonersRescuedAtDolGuldur(
+  state: GameState,
+  company: Company | undefined,
+): GameState {
+  if (state.phaseState.phase !== Phase.Site) return state;
+  const siteDefId = company?.currentSite?.definitionId;
+  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+  if (siteDef?.name !== DOL_GULDUR_SITE_NAME) {
+    logDetail(`Rescue: not at ${DOL_GULDUR_SITE_NAME} (at ${siteDef?.name ?? 'no site'}) — Pass the Doors of Dol Guldur tap window not opened`);
+    return state;
+  }
+  logDetail(`Rescue: company ${company?.id as string ?? '?'} freed prisoners at ${DOL_GULDUR_SITE_NAME} — Pass the Doors of Dol Guldur may be tapped this site phase`);
+  return {
+    ...state,
+    phaseState: { ...state.phaseState, prisonersRescuedAtDolGuldurThisSitePhase: true },
+  };
+}
+
+/**
+ * One card the playing company could discard to satisfy a
+ * `discard-keyword-card` play-condition.
+ */
+export interface KeywordDiscardCandidate {
+  /** The instance that would be discarded — rides the play action's `discardCardInstanceId`. */
+  readonly instanceId: CardInstanceId;
+  /** Which zone it was found in, for logging. */
+  readonly source: 'character-items' | 'cards-in-play' | 'kill-pile';
+  /** The candidate's card name, for logging. */
+  readonly name: string;
+}
+
+/**
+ * Enumerates every card **the given company controls** that carries the
+ * keyword named by a `discard-keyword-card` play-condition, so the player can
+ * choose which one to discard as the play cost.
+ *
+ * Pass the Doors of Dol Guldur (dm-154): "Playable on a company if the company
+ * discards (for no effect) a Stolen Knowledge card it controls." A Stolen
+ * Knowledge card may be attached to one of the company's characters (Dark
+ * Numbers dm-123, Knowledge of the Enemy dm-147 — permanent events played on a
+ * character live in `character.items`) or be a bare company-bound permanent
+ * event in `cardsInPlay` (another copy of dm-154 itself). "It controls" is what
+ * scopes the search: only the company's own characters and only `cardsInPlay`
+ * entries bound to this company are offered.
+ *
+ * Returns an empty list when the condition cannot be satisfied, in which case
+ * the card is not playable.
+ */
+export function keywordDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  condition: PlayConditionEffect,
+): KeywordDiscardCandidate[] {
+  const keyword = condition.cardKeyword;
+  if (!keyword) return [];
+  const sources = condition.sources ?? ['character-items'];
+  const candidates: KeywordDiscardCandidate[] = [];
+  const hasKeyword = (defId: CardDefinitionId): { ok: boolean; name: string } => {
+    const def = defById(state, defId);
+    const keywords = (def as { keywords?: readonly string[] } | undefined)?.keywords ?? [];
+    return { ok: keywords.includes(keyword), name: def?.name ?? (defId as string) };
+  };
+  for (const source of sources) {
+    if (source === 'character-items') {
+      for (const charId of company.characters) {
+        const ch = player.characters[charId];
+        if (!ch) continue;
+        for (const item of ch.items) {
+          const { ok, name } = hasKeyword(item.definitionId);
+          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
+        }
+      }
+    } else if (source === 'cards-in-play') {
+      for (const card of player.cardsInPlay) {
+        // "a card it controls" — only cards bound to this very company.
+        if (card.companyId !== company.id) continue;
+        const { ok, name } = hasKeyword(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    } else {
+      for (const card of player.killPile) {
+        const { ok, name } = hasKeyword(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    }
+  }
+  return candidates;
+}
+
+/**
  * Returns ALL of the card's `play-condition` effects for the given {@link
  * PlayConditionEffect.requires}. A card may carry the same prerequisite kind
  * more than once — Greater Half-orcs (wh-86) requires both "A Strident Spawn"

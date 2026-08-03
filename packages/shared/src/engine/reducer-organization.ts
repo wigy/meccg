@@ -1405,15 +1405,28 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   // Council window or to checks granted by a specific card.
   logDetail(`Enqueuing corruption check for ${fromDef?.name ?? '?'} after item transfer`);
 
+  // Flag a return to *any* character this item has already borne this phase
+  // — not just the character it is leaving now — as regressive. Without
+  // this, an item bouncing among three or more characters (A→B→C→A→B→C…)
+  // never matches a single-step reverse and the AI can cycle it forever;
+  // each hop only ever undid the *previous* hop, not the earlier ones.
+  const priorHolders = new Set<CardInstanceId>([fromCharId]);
+  for (const reverse of state.reverseActions) {
+    if (reverse.type === 'transfer-item' && reverse.itemInstanceId === itemInstId && reverse.player === action.player) {
+      priorHolders.add(reverse.toCharacterId);
+    }
+  }
+  const newReverseActions: GameAction[] = Array.from(priorHolders).map(holder => ({
+    type: 'transfer-item' as const,
+    player: action.player,
+    itemInstanceId: itemInstId,
+    fromCharacterId: toCharId,
+    toCharacterId: holder,
+  }));
+
   const stateAfterTransfer: GameState = {
     ...updatePlayer(state, playerIndex, () => playerAfterTransfer),
-    reverseActions: [...state.reverseActions, {
-      type: 'transfer-item' as const,
-      player: action.player,
-      itemInstanceId: itemInstId,
-      fromCharacterId: toCharId,
-      toCharacterId: fromCharId,
-    }],
+    reverseActions: [...state.reverseActions, ...newReverseActions],
   };
 
   return {
@@ -1497,12 +1510,81 @@ function handleUseItem(state: GameState, action: GameAction): ReducerResult {
 }
 
 /**
+ * Store a **company-bound** card — a permanent event sitting in `cardsInPlay`
+ * whose `companyId` names the storing company, with no bearer character (Pass
+ * the Doors of Dol Guldur dm-154).
+ *
+ * The card moves from `cardsInPlay` into the player's marshalling point pile
+ * with `storedAtSite` stamped to the company's current site, exactly as a
+ * character-borne item does, so `recompute-derived`'s `storable-at` MP override
+ * picks it up ("only if stored do you receive its marshalling points"). No
+ * corruption check is enqueued: CoE 2.II.4's check falls on *the bearer*, and a
+ * card the company jointly controls has none.
+ */
+function storeCompanyBoundCard(
+  state: GameState,
+  playerIndex: number,
+  companyId: import('../types/common.js').CompanyId,
+  cardInstanceId: CardInstanceId,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const company = player.companies.find(co => co.id === companyId);
+  if (!company) return { state, error: `Company ${companyId as string} not found` };
+  const card = player.cardsInPlay.find(c => c.instanceId === cardInstanceId);
+  if (!card) return { state, error: 'Card not found in play' };
+  if (card.companyId !== companyId) return { state, error: 'Card is not bound to that company' };
+
+  const cardDef = defById(state, card.definitionId);
+  const storable = getCardEffects(cardDef).find(
+    (e): e is import('../types/effects.js').StorableAtEffect => e.type === 'storable-at',
+  );
+  if (!storable) return { state, error: `${cardDef?.name ?? '?'} cannot be stored` };
+  if (storable.requiresTapped && card.status !== CardStatus.Tapped) {
+    logDetail(`Store rejected: ${cardDef?.name ?? '?'} must be tapped before it can be stored`);
+    return { state, error: `${cardDef?.name ?? '?'} must be tapped before it can be stored` };
+  }
+
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a site' };
+  if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+    logDetail(`Store rejected: ${siteDef.name} carries no-storage site-rule`);
+    return { state, error: `Resources may never be stored at ${siteDef.name}` };
+  }
+  const siteMatches = (storable.sites?.includes(siteDef.name) ?? false)
+    || (storable.siteTypes?.includes(siteDef.siteType) ?? false);
+  if (!siteMatches) {
+    logDetail(`Store rejected: ${cardDef?.name ?? '?'} cannot be stored at ${siteDef.name}`);
+    return { state, error: `${cardDef?.name ?? '?'} cannot be stored at ${siteDef.name}` };
+  }
+
+  logDetail(`Store: ${cardDef?.name ?? '?'} from company ${companyId as string} into the marshalling point pile at ${siteDef.name}`);
+  const stored: CardInstance = {
+    instanceId: card.instanceId,
+    definitionId: card.definitionId,
+    storedAtSite: company.currentSite!.definitionId,
+  };
+  const newState = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
+    killPile: [...p.killPile, stored],
+  }));
+  return { state: recomputeDerived(newState) };
+}
+
+/**
  * Handle store-item during organization.
  *
  * Moves an item from a character to the player's marshalling point pile. The
  * character must be at a site matching the item's storable-at effect.
  * Stored items continue to earn marshalling points (via the item's
  * `storable-at` effect); the initial bearer makes a corruption check.
+ *
+ * A **company-bound** storable card (a permanent event in `cardsInPlay` whose
+ * `companyId` names the company — Pass the Doors of Dol Guldur dm-154) takes
+ * the bearer-less branch: it moves from `cardsInPlay` into the marshalling
+ * point pile with `storedAtSite` set, and no corruption check is enqueued.
+ * CoE 2.II.4's "the bearer makes a corruption check" presupposes a bearer, and
+ * a card the whole company jointly controls has none.
  */
 export function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'store-item') return wrongActionType(state, action, 'store-item');
@@ -1510,9 +1592,14 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const charId = action.characterId;
   const itemInstId = action.itemInstanceId;
 
+  if (action.companyId !== undefined) {
+    return storeCompanyBoundCard(state, playerIndex, action.companyId, itemInstId);
+  }
+
+  const charId = action.characterId;
+  if (charId === undefined) return { state, error: 'store-item requires a bearer or a company' };
   if (!player.characters[charId]) return { state, error: 'Character not found' };
 
   // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
