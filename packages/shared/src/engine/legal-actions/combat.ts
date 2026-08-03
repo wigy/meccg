@@ -412,13 +412,20 @@ function assignStrikeActions(
     // Find characters in the defending company
     const player = playerById(state, playerId);
     if (!player) return [];
-    const company = companyById(player.companies, combat.companyId);
-    if (!company) {
+    const rawCompany = companyById(player.companies, combat.companyId);
+    if (!rawCompany) {
       // The defending company dissolved mid-combat — pass to fizzle the attack.
       logDetail('Defender assignment: defending company no longer exists — pass to fizzle the attack');
       actions.push({ action: { type: 'pass', player: playerId }, viable: true });
       return actions;
     }
+    // Burglary (td-103) failure: restrict assignment to the solo defender —
+    // no other company member (nor an ally hosted by one) may face a strike.
+    // An ally hosted by the solo defender himself is still reachable via
+    // `findCompanyAllies`, since it counts as "what he himself can provide".
+    const company = combat.soloDefenderInstanceId
+      ? { ...rawCompany, characters: rawCompany.characters.filter(id => id === combat.soloDefenderInstanceId) }
+      : rawCompany;
 
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
     const strikesRemaining = combat.strikesTotal - combat.strikeAssignments.length;
@@ -584,7 +591,11 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} protected from strike assignment (Ruse) — skipping`);
         continue;
       }
-      if (charData.status !== CardStatus.Untapped && !isForcedTarget) {
+      // The solo defender (Burglary, td-103 failure) must face the attack
+      // "regardless of any conflicting effects" — including his own tapped
+      // status from making the burglary attempt itself.
+      const isSoloDefender = combat.soloDefenderInstanceId === charId;
+      if (charData.status !== CardStatus.Untapped && !isForcedTarget && !isSoloDefender) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
@@ -704,14 +715,19 @@ function assignStrikeActions(
     // Creature combat: attacker assigns remaining strikes to unassigned characters or as excess
     const defPlayer = playerById(state, combat.defendingPlayerId);
     if (!defPlayer) return [];
-    const company = companyById(defPlayer.companies, combat.companyId);
-    if (!company) {
+    const rawCompany = companyById(defPlayer.companies, combat.companyId);
+    if (!rawCompany) {
       // The defending company dissolved mid-combat — nothing to strike.
       // Offer pass so the attack can fizzle (see handleCombatPass).
       logDetail('Attacker assignment: defending company no longer exists — pass to fizzle the attack');
       actions.push({ action: { type: 'pass', player: playerId }, viable: true });
       return actions;
     }
+    // Burglary (td-103) failure: restrict assignment to the solo defender (see
+    // the defender-phase branch above for the full rationale).
+    const company = combat.soloDefenderInstanceId
+      ? { ...rawCompany, characters: rawCompany.characters.filter(id => id === combat.soloDefenderInstanceId) }
+      : rawCompany;
 
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
     const totalAllocated = combat.strikeAssignments.length

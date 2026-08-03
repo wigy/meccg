@@ -922,7 +922,19 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-08-02",
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.name": "Radagast" } },
+      { "type": "play-window", "phase": "movement-hazard" },
+      { "type": "play-condition", "requires": "site-path",
+        "condition": { "sitePath.wildernessCount": { "$gte": 1 } } },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "set-character-status", "status": "tapped",
+                   "when": { "target.status": "untapped" } } },
+      { "type": "grant-action", "action": "herb-lore-heal-and-untap-company",
+        "cost": { "tap": "bearer", "discard": "self" },
+        "apply": { "type": "set-character-status", "target": "company", "status": "untapped" } }
+    ],
     "text": "Playable on Radagast while moving during his movement/hazard phase if there is at least one Wilderness [{w}] in his site path. If untapped, tap Radagast afterwards. During any organization phase, Radagast can tap and discard this card to heal all characters in his company from wounded to untapped and to untap all tapped characters."
   },
   {

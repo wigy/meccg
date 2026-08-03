@@ -572,6 +572,18 @@ export interface CombatState {
    */
   readonly forcedStrikeTargets?: readonly CardInstanceId[];
   /**
+   * Restricts defender/attacker strike assignment to this single character
+   * instance — no other member of the defending company (nor an ally hosted
+   * by one) may be assigned a strike. Set from
+   * `SitePhaseState.soloAutoAttackCharacterId` on every automatic-attack
+   * built for a company slot following a failed burglary attempt (Burglary,
+   * td-103: "the character must face all automatic-attacks alone"). An ally
+   * hosted by this character is still offered — it counts as "what he
+   * himself can provide" — but allies hosted by any other company member do
+   * not. Absent for every other combat.
+   */
+  readonly soloDefenderInstanceId?: CardInstanceId;
+  /**
    * Side-effects to apply to a specific character when combat finalizes,
    * regardless of outcome. Enqueued by accepted haven-join offers
    * (e.g. Alatar's "must tap + corruption check following the attack").

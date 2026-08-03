@@ -171,6 +171,66 @@ describe('organizationEvaluator Great Ship targeting', () => {
   });
 });
 
+// Halfling Strength (tw-253): can untap OR heal a *hobbit* only, via two
+// separate play-options gated on the target's status.
+const HALFLING_STRENGTH: CardDefinition = {
+  cardType: 'hero-resource-event',
+  eventType: 'short',
+  effects: [
+    { type: 'play-target', target: 'character', filter: { 'target.race': 'hobbit' } },
+    {
+      type: 'play-option',
+      id: 'untap',
+      when: { 'target.status': 'tapped' },
+      apply: { type: 'set-character-status', status: 'untapped' },
+    },
+    {
+      type: 'play-option',
+      id: 'heal',
+      when: { $and: [{ 'target.status': 'inverted' }, { phase: 'organization' }] },
+      apply: { type: 'set-character-status', status: 'untapped' },
+    },
+  ],
+} as unknown as CardDefinition;
+
+const HOBBIT_CHAR: CardDefinition = { cardType: 'hero-character', race: 'hobbit' } as unknown as CardDefinition;
+const MAN_CHAR: CardDefinition = { cardType: 'hero-character', race: 'man' } as unknown as CardDefinition;
+
+const HEAL_ROUTING_POOL: Record<string, CardDefinition> = {
+  'tw-253': HALFLING_STRENGTH,
+  hobbit: HOBBIT_CHAR,
+  man: MAN_CHAR,
+  'tw-408': LORIEN,
+};
+
+describe('organizationEvaluator plan-movement wounded routing', () => {
+  // Regression: a company with three wounded characters, only one of which
+  // (a hobbit) can be healed in place by a hand card (Halfling Strength),
+  // still needs the haven-routing bonus for the other two wounded characters.
+  // hasHealingAvailable must require ALL wounded characters to have a
+  // restore source, not just one, or the AI stops steering the whole company
+  // toward a haven while two characters remain wounded.
+  test('still boosts a haven destination when only one of several wounded characters can heal in place', () => {
+    const view = {
+      self: {
+        hand: [{ instanceId: 'h1', definitionId: 'tw-253' }],
+        siteDeck: [{ instanceId: 'lorien', definitionId: 'tw-408' }],
+        characters: {
+          sam: { instanceId: 'sam', definitionId: 'hobbit', status: 'inverted', items: [] },
+          anborn: { instanceId: 'anborn', definitionId: 'man', status: 'inverted', items: [] },
+          theoden: { instanceId: 'theoden', definitionId: 'man', status: 'inverted', items: [] },
+        },
+        companies: [
+          { id: 'company-p2-0', characters: ['sam', 'anborn', 'theoden'] },
+        ],
+      },
+    } as unknown as PlayerView;
+    const action = planMovement('lorien');
+    const context: AiContext = { view, cardPool: HEAL_ROUTING_POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(90);
+  });
+});
+
 describe('organizationEvaluator pass suppression', () => {
   // Regression: a healthy company holding a playable item passed the
   // organization phase instead of declaring movement to a site where the

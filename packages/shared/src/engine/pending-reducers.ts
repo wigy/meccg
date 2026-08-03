@@ -1646,6 +1646,74 @@ export function applyFlateryAttemptResolution(
 }
 
 /**
+ * Resolve a queued `burglary-attempt` resolution (Burglary, td-103). The
+ * player rolls 2d6; total = roll + `scoutBonus` if the character has the
+ * Scout skill + `hobbitBonus` if he is a Hobbit. Success (total > threshold)
+ * skips the company's automatic-attacks entirely for this site-phase slot
+ * (`SitePhaseState.autoAttacksSkipped`) and unlocks an item play with the
+ * character (`SitePhaseState.burglaryItemUnlock`). Failure marks the
+ * character as the sole defender of the company's automatic-attacks
+ * (`SitePhaseState.soloAutoAttackCharacterId`) — threaded into every
+ * automatic-attack `CombatState` built for this slot as
+ * `soloDefenderInstanceId`.
+ */
+export function applyBurglaryAttemptResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'burglary-attempt', 'burglary-attempt');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { characterInstanceId, threshold, scoutBonus, hobbitBonus } = kind;
+
+  const charInPlay = player.characters[characterInstanceId];
+  if (!charInPlay) {
+    return { state, error: `Burglary attempt: character ${characterInstanceId as string} not found` };
+  }
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
+  const isScout = isCharacterCard(charDef) && charDef.skills.includes(Skill.Scout);
+  const isHobbit = isCharacterCard(charDef) && charDef.race === Race.Hobbit;
+  const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0);
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + bonus;
+  const success = total > threshold;
+
+  logDetail(`Burglary attempt by ${charName}: rolled ${roll.die1}+${roll.die2}${isScout ? ` +${scoutBonus} scout` : ''}${isHobbit ? ` +${hobbitBonus} hobbit` : ''} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
+
+  const postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+
+  if (postRoll.phaseState.phase !== Phase.Site) {
+    logDetail('Burglary attempt resolved outside the site phase — no-op beyond the roll');
+    return { state: postRoll };
+  }
+  const siteState = postRoll.phaseState;
+
+  if (success) {
+    logDetail(`Burglary attempt succeeded: automatic-attacks skipped; an item may be played with ${charName}`);
+    return {
+      state: {
+        ...postRoll,
+        phaseState: { ...siteState, autoAttacksSkipped: true, burglaryItemUnlock: characterInstanceId },
+      },
+    };
+  }
+
+  logDetail(`Burglary attempt failed: ${charName} must face all automatic-attacks alone`);
+  return {
+    state: {
+      ...postRoll,
+      phaseState: { ...siteState, soloAutoAttackCharacterId: characterInstanceId },
+    },
+  };
+}
+
+/**
  * Resolve a queued `riddling-attempt` resolution (Riddling Talk, td-148).
  * The defending player rolls 2d6; total = roll + sageBonus per Sage in the
  * company + hobbitBonus per Hobbit in the company. Success if total >
