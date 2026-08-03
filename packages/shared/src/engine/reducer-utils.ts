@@ -23,6 +23,8 @@ import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { revealInstances } from './visibility.js';
+import { evaluateRules } from '../rules/evaluator.js';
+import { STAGE_RESOURCE_DRAFT_RULES } from '../rules/definitions/character-draft.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -2128,6 +2130,42 @@ export function stageResourceDuplicationLimitReached(
   if (!limit) return false;
   const drafted = draft.draftedStageResources.filter(c => c.definitionId === defId).length;
   return drafted >= limit.max;
+}
+
+/**
+ * True if a Fallen-wizard's draft pool still holds at least one Stage
+ * resource that is currently a legal pick (CoE 1.9.F4: "A Fallen-wizard
+ * player must also attempt to draft the Stage resource(s) in their pool
+ * simultaneously with their characters"). While this holds, the Fallen-wizard
+ * may not call `draft-stop` — they must draft the resource (or wait until it
+ * becomes illegal, e.g. a duplication limit) before stopping. Mirrors the
+ * per-card evaluation in `legal-actions/draft.ts` so the reducer's
+ * `draft-stop` guard and the legal-action offer never diverge.
+ */
+export function fwHasViableStageResourcePick(
+  state: GameState,
+  draft: {
+    readonly pool: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[];
+    readonly draftedStageResources: readonly { readonly definitionId: CardDefinitionId }[];
+  },
+): boolean {
+  return draft.pool.some(card => {
+    const def = defById(state, card.definitionId);
+    if (!isStageResourceCard(def)) return false;
+    const context = {
+      card: {
+        name: def?.name ?? (card.instanceId as string),
+        isStageResource: true,
+        isAgentSummonsEnabler: hasAgentSummonsEffect(def),
+      },
+      ctx: {
+        isFallenWizard: true,
+        isRingwraith: false,
+        duplicationLimitReached: stageResourceDuplicationLimitReached(state, draft, card.definitionId),
+      },
+    };
+    return evaluateRules(STAGE_RESOURCE_DRAFT_RULES, context) === undefined;
+  });
 }
 
 /**

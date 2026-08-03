@@ -41,6 +41,7 @@ import {
   ADRAZAR, FRODO, FARAMIR, BILBO,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
+import { reduce } from '../../../engine/reducer.js';
 import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource (recruitment vehicle)
@@ -408,5 +409,57 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(draftOffered(state, PLAYER_1, 0, BLIND_TO_ALL_ELSE)).toBe(true);
     expect(draftOffered(state, PLAYER_1, 0, BOW_OF_ALATAR)).toBe(true);
     expect(draftOffered(state, PLAYER_1, 0, THE_FORTRESS_OF_ISEN)).toBe(false);
+  });
+
+  test('[FALLEN-WIZARD] draft-stop is not offered while a Stage resource in the pool is still a legal pick (regression for game msd1yp91-j5yc2m seq 8)', () => {
+    // Report: a Fallen-wizard called draft-stop on the very first round, with
+    // stagePoints still at 0 and an undrafted Thrall of the Voice sitting in
+    // their pool. CoE 1.9.F4 obliges a Fallen-wizard to "attempt to draft the
+    // Stage resource(s) in their pool simultaneously with their characters" —
+    // stopping before doing so must not be offered, whether via the client's
+    // legal actions or the reducer's own guard.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    const state = createGame(config, pool);
+
+    // Before anything is drafted, Thrall is still a legal pick — stopping is
+    // not offered.
+    expect(draftOffered(state, PLAYER_1, 0, THRALL_OF_THE_VOICE)).toBe(true);
+    const legal = computeLegalActions(state, PLAYER_1);
+    expect(legal.find(a => a.action.type === 'draft-stop')?.viable ?? false).toBe(false);
+
+    // The reducer itself rejects the attempt too (defense in depth, not just
+    // the offered legal actions).
+    const result = reduce(state, { type: 'draft-stop', player: PLAYER_1 });
+    expect(result.error).toBeDefined();
+
+    // Once Thrall is drafted, no Stage resource remains in the pool, so a
+    // character-only stop is offered normally.
+    const afterThrall = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+    expect(computeLegalActions(afterThrall, PLAYER_1).find(a => a.action.type === 'draft-stop')?.viable).toBe(true);
   });
 });
