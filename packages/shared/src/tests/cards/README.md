@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1086 | 1084 | 2 | 99.8% |
+| 1090 | 1088 | 2 | 99.8% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 105 | 105 | 100.0% |
 | BA | 96 | 96 | 100.0% |
-| DM | 93 | 93 | 100.0% |
+| DM | 95 | 95 | 100.0% |
 | LE | 296 | 294 | 99.3% |
-| TD | 86 | 86 | 100.0% |
-| TW | 326 | 326 | 100.0% |
+| TD | 87 | 87 | 100.0% |
+| TW | 327 | 327 | 100.0% |
 | WH | 84 | 84 | 100.0% |
 
 ## Detailed Test Matrix
@@ -299,9 +299,11 @@
 | dm-130 | Fireworks | — | 12 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
 | dm-134 | Hall of Fire | — | 11 | ☑ |
+| dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 10 | ☑ |
+| dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 5 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-159 | Smoke Rings | — | 12 | ☑ |
@@ -668,6 +670,7 @@
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-101 | Bounty of the Hoard | — | 12 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
+| td-103 | Burglary  | — | 12 | ☑ |
 | td-105 | Cram | — | 16 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
@@ -813,6 +816,7 @@
 | tw-150 | Fíli | — | 5 | ☑ |
 | tw-151 | Forlong | — | 2 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
+| tw-155 | Gamling the Old | — | 3 | ☑ |
 | tw-156 | Gandalf | — | 9 | ☑ |
 | tw-158 | Gildor Inglorion | — | 2 | ☑ |
 | tw-159 | Gimli | — | 8 | ☑ |
@@ -1091,7 +1095,7 @@
 | wh-92 | Huntsman’s Garb | — | 9 | ☑ |
 | wh-93 | Join the Hunt | — | 14 | ☑ |
 | wh-94 | Oromë’s Warders | — | 20 | ☑ |
-| wh-95 | Squire of the Hunt | — | 9 | ☑ |
+| wh-95 | Squire of the Hunt | — | 10 | ☑ |
 | wh-96 | Await the Onset | — | 11 | ☑ |
 | wh-97 | Chambers in the Royal Court | — | 15 | ☑ |
 | wh-98 | Gandalf’s Friend | — | 9 | ☑ |

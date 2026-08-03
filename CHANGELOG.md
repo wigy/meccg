@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.82.0 — 2026-08-03
+
+Fallen-wizard draft fixes and item-handling repairs
+
+### Cards
+
+- Certified Herb-lore (dm-136), Gamling the Old (tw-155), Pass the Doors of Dol Guldur (dm-154) and Burglary (td-103)
+
+### Game Engine
+
+- Stored items no longer lose their marshalling points
+- Item transfers back to any earlier bearer are flagged as regressive, ending an infinite Cram transfer-item loop
+- Character-targeting Stage resources now attach to their target instead of entering play unattached at draft
+- The Fallen-wizard draft no longer allows stopping while a Stage resource is still legal to pick
+- Granted-action activation is routed in every site step
+
+### AI
+
+- The heuristic AI no longer skips haven routing when only some wounded characters can heal in place
+
+### Web Client
+
+- Tutorial step texts clarified and button references matched to the real UI labels
+
+### Infrastructure
+
+- Duplicate game-server launches for the same player are prevented
+- Lobby dev mode restarts on shared/src changes via nodemon
+
 ## 0.81.0 — 2026-08-02
 
 Five card certifications and missing-choice UI fixes
