@@ -61,7 +61,7 @@ import {
   ARAGORN, LEGOLAS, GANDALF,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   makeMHState, findCharInstanceId, charIdAt,
-  dispatch, expectInDiscardPile,
+  dispatch, expectInDiscardPile, expectInPile,
   Alignment,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
@@ -373,7 +373,10 @@ describe('Cruel Claw Perceived (wh-16)', () => {
     const after = recomputeDerived(dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 }));
 
     expect(after.players[RESOURCE_PLAYER].characters[gandalfId].hazards).toHaveLength(0);
-    expectInDiscardPile(after, HAZARD_PLAYER, CRUEL_CLAW);
+    // Cruel Claw discards, but since it's P2's own deck exhausting, CRF 22
+    // "Exhausted" shuffles it into the new play deck along with the rest of
+    // the discard pile rather than leaving it in discardPile.
+    expectInPile(after, HAZARD_PLAYER, 'playDeck', CRUEL_CLAW);
     expect(effectiveGeneralInfluence(after, PLAYER_1)).toBe(BASE_GI);
   });
 });

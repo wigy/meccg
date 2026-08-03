@@ -53,7 +53,7 @@ import {
   handCardId, companyIdAt,
   viableActions, nonViableOfType, dispatch, dispatchResult, resolveChain, reduce,
   RESOURCE_PLAYER, HAZARD_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, expectInPile,
 } from '../test-helpers.js';
 import {
   computeLegalActions, Phase, Alignment, RegionType, SiteType, CardStatus,
@@ -455,7 +455,8 @@ describe('Master of the House (as-16)', () => {
     const afterExhaust = dispatch(state, { type: 'deck-exhaust', player: PLAYER_2 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 });
     expect(afterPass.players[1].cardsInPlay.some(c => c.definitionId === MASTER)).toBe(false);
-    expectInDiscardPile(afterPass, 1, MASTER);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expectInPile(afterPass, 1, 'playDeck', MASTER);
   });
 
   // ─── #1: manifestation of Elrond (g.man.1, both directions) ───────────────

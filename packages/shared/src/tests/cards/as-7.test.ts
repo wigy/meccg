@@ -60,7 +60,7 @@ import {
   playCreatureHazardAndResolve,
   handCardId, findHandCardId, companyIdAt,
   viableActions, nonViableOfType, dispatch, resolveChain, reduce,
-  expectInDiscardPile,
+  expectInDiscardPile, expectInPile,
 } from '../test-helpers.js';
 import {
   computeLegalActions, Phase, Alignment, RegionType, SiteType, CardStatus,
@@ -493,7 +493,8 @@ describe('Alatar the Hunter (as-7)', () => {
     const afterExhaust = dispatch(state, { type: 'deck-exhaust', player: PLAYER_2 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 });
     expect(afterPass.players[HAZARD_PLAYER].cardsInPlay.some(c => c.definitionId === THE_HUNTER)).toBe(false);
-    expectInDiscardPile(afterPass, HAZARD_PLAYER, THE_HUNTER);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expectInPile(afterPass, HAZARD_PLAYER, 'playDeck', THE_HUNTER);
   });
 
   // ─── #15: unique — no second play while one copy is in play ───────────────

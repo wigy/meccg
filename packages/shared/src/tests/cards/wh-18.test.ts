@@ -383,7 +383,9 @@ describe('Flotsam and Jetsam (wh-18)', () => {
     const afterExhaust = dispatch(state, { type: 'deck-exhaust', player: PLAYER_2 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 });
     expect(afterPass.players[1].cardsInPlay.some(c => c.definitionId === FLOTSAM)).toBe(false);
-    expect(afterPass.players[1].discardPile.some(c => c.definitionId === FLOTSAM)).toBe(true);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expect(afterPass.players[1].discardPile.some(c => c.definitionId === FLOTSAM)).toBe(false);
+    expect(afterPass.players[1].playDeck.some(c => c.definitionId === FLOTSAM)).toBe(true);
   });
 
   test('once discarded on exhaustion the cancel is gone: the tutor works again', () => {

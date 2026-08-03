@@ -56,7 +56,7 @@ import {
   playCreatureHazardAndResolve,
   charIdAt, handCardId, findHandCardId, companyIdAt,
   viableActions, viablePlayCharacterActions, nonViableOfType,
-  dispatch, resolveChain, reduce, expectInDiscardPile,
+  dispatch, resolveChain, reduce, expectInDiscardPile, expectInPile,
 } from '../test-helpers.js';
 import {
   computeLegalActions, Phase, Alignment, RegionType, SiteType, CardStatus,
@@ -487,7 +487,8 @@ describe('Saruman the Wise (as-19)', () => {
     const afterExhaust = dispatch(state, { type: 'deck-exhaust', player: PLAYER_2 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 });
     expect(afterPass.players[HAZARD_PLAYER].cardsInPlay.some(c => c.definitionId === SARUMAN_THE_WISE)).toBe(false);
-    expectInDiscardPile(afterPass, HAZARD_PLAYER, SARUMAN_THE_WISE);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expectInPile(afterPass, HAZARD_PLAYER, 'playDeck', SARUMAN_THE_WISE);
   });
 
   // ─── #15: unique — no second play while one copy is in play ───────────────

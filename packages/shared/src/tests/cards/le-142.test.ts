@@ -38,7 +38,7 @@ import {
   dispatch,
   dispatchResult,
   HAZARD_PLAYER, RESOURCE_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, expectInPile,
   SAPLING_OF_THE_WHITE_TREE,
   Phase,
   makeMHState,
@@ -538,7 +538,10 @@ describe('Thrice Outnumbered (le-142)', () => {
     const afterExhaust = dispatch(withEvent, { type: 'deck-exhaust', player: PLAYER_2 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 });
 
-    expectInDiscardPile(afterPass, HAZARD_PLAYER, THRICE_OUTNUMBERED);
+    // Thrice Outnumbered discards, but since it's P2's own deck exhausting,
+    // CRF 22 "Exhausted" shuffles it into the new play deck along with the
+    // rest of the discard pile rather than leaving it in discardPile.
+    expectInPile(afterPass, HAZARD_PLAYER, 'playDeck', THRICE_OUTNUMBERED);
     expect(afterPass.players[HAZARD_PLAYER].cardsInPlay.some(
       c => c.definitionId === THRICE_OUTNUMBERED,
     )).toBe(false);

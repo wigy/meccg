@@ -33,7 +33,7 @@ import {
   eotState, addCardInPlay, attachItemToChar,
   dispatch, viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, expectInPile,
   SAPLING_OF_THE_WHITE_TREE,
 } from '../test-helpers.js';
 import type { CardDefinitionId, StoreItemAction, EndOfTurnPhaseState } from '../../index.js';
@@ -156,8 +156,10 @@ describe('Safe from the Shadow (as-54)', () => {
     // Player 1 passes to complete the exhaust
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
 
-    // Safe from the Shadow must now be in P1's discard pile
-    expectInDiscardPile(afterPass, RESOURCE_PLAYER, SAFE_FROM_THE_SHADOW);
+    // Safe from the Shadow discards, but since it's P1's own deck being
+    // exhausted, CRF 22 "Exhausted" shuffles it into the new play deck along
+    // with the rest of the discard pile rather than leaving it in discardPile.
+    expectInPile(afterPass, RESOURCE_PLAYER, 'playDeck', SAFE_FROM_THE_SHADOW);
     expect(afterPass.players[RESOURCE_PLAYER].cardsInPlay.some(
       c => c.definitionId === SAFE_FROM_THE_SHADOW,
     )).toBe(false);
