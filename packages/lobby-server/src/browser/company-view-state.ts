@@ -100,6 +100,36 @@ export function shouldOverrideToAllCompanies(
   return opponentTurn && !isGameStart;
 }
 
+/**
+ * Decide whether a select-company → next-step transition (M/H or Site phase)
+ * should auto-focus the just-selected company into single-company view.
+ *
+ * This only applies on our own turn: when the active player picks one of
+ * their own companies to resolve next, narrowing to that single company is
+ * a convenience. On the opponent's turn, we are the hazard player and must
+ * stay in the all-companies overview (forced on by {@link
+ * shouldOverrideToAllCompanies} for the whole opponent turn) — that overview
+ * is the only place our own agents are rendered (see company-agent.ts), so
+ * forcing single-company view here would silently drop a just-played agent
+ * hazard off the screen until the player manually toggles the view.
+ *
+ * @param lastMhSiteStep - The M/H or Site phase step from the previous render.
+ * @param curStep - The M/H or Site phase step for the current render.
+ * @param activeId - The active player ID for the current render (null if none).
+ * @param selfId - The local player's ID.
+ * @returns True if the local player should be focused onto their active company.
+ */
+export function shouldFocusOwnCompanyAfterSelectCompany(
+  lastMhSiteStep: string | null,
+  curStep: string | null,
+  activeId: string | null,
+  selfId: string,
+): boolean {
+  const justResolvedSelectCompany = lastMhSiteStep === 'select-company' && curStep !== null && curStep !== 'select-company';
+  const isSelfTurn = activeId !== null && activeId === selfId;
+  return justResolvedSelectCompany && isSelfTurn;
+}
+
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 

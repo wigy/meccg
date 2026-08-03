@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldOverrideToAllCompanies } from './company-view-state.js';
+import { shouldOverrideToAllCompanies, shouldFocusOwnCompanyAfterSelectCompany } from './company-view-state.js';
 
 /**
  * Regression tests for the turn-change focus decision.
@@ -33,5 +33,42 @@ describe('shouldOverrideToAllCompanies', () => {
 
   it('does NOT force the overview when there is no active player', () => {
     expect(shouldOverrideToAllCompanies(null, OPPONENT, SELF)).toBe(false);
+  });
+});
+
+/**
+ * Regression tests for bug report a0b96ce4a3e16820 (game msd9dixh-m9voxl, seq
+ * 721): "l'agent a disparu je ne le vois plus sur la surface de jeu" — after
+ * playing Pôn-ora-Pôn (dm-22) as an agent hazard during the opponent's
+ * movement/hazard phase, the agent never appeared anywhere on the board.
+ *
+ * Root cause: the select-company → next-step auto-focus fired regardless of
+ * whose turn it was, kicking the hazard player out of the all-companies
+ * overview (forced on for the whole opponent turn by
+ * shouldOverrideToAllCompanies) and into single-company view focused on the
+ * opponent's active company — the only view that never renders self.agents.
+ */
+describe('shouldFocusOwnCompanyAfterSelectCompany', () => {
+  const SELF = 'p1';
+  const OPPONENT = 'p2';
+
+  it('does NOT focus a company on the opponent\'s turn (stays in the all-companies overview)', () => {
+    expect(shouldFocusOwnCompanyAfterSelectCompany('select-company', 'play-hazards', OPPONENT, SELF)).toBe(false);
+  });
+
+  it('focuses the active company on our own turn', () => {
+    expect(shouldFocusOwnCompanyAfterSelectCompany('select-company', 'draw-cards', SELF, SELF)).toBe(true);
+  });
+
+  it('does NOT focus when the previous step was not select-company', () => {
+    expect(shouldFocusOwnCompanyAfterSelectCompany('draw-cards', 'play-hazards', SELF, SELF)).toBe(false);
+  });
+
+  it('does NOT focus when still in the select-company step', () => {
+    expect(shouldFocusOwnCompanyAfterSelectCompany('select-company', 'select-company', SELF, SELF)).toBe(false);
+  });
+
+  it('does NOT focus when there is no active player', () => {
+    expect(shouldFocusOwnCompanyAfterSelectCompany('select-company', 'draw-cards', null, SELF)).toBe(false);
   });
 });
