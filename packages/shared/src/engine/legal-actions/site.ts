@@ -277,6 +277,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // (A Panoply of Wings wh-37: discard to make Information playable at
       // such a site — activated during the site phase).
       base.push(...inPlayFactionGrantActions(state, playerId));
+      // Tap-self abilities on company-bound permanent events in play (Pass the
+      // Doors of Dol Guldur dm-154: tap during the site phase in which the
+      // company rescued prisoners at Dol Guldur).
+      base.push(...inPlayCompanyTapGrantActions(state, playerId, siteState));
       // Prisoner rescue (CoE rule 8.36): if the active company is at a site
       // holding its own prisoners (e.g. by Troll-purse), offer to face the
       // host's rescue-attack to free them.
@@ -812,6 +816,77 @@ function resolveAttacksActions(
 // onGuardRevealAtResourceActions removed: the on-guard reveal window
 // is now produced via the unified pending-resolution dispatcher in
 // `legal-actions/pending.ts:onGuardWindowActions`.
+
+/**
+ * Site-phase activations of **tap-self** abilities on the active player's
+ * bearer-less in-play cards — a permanent event sitting in `cardsInPlay` bound
+ * to the company currently taking its site phase (`CardInPlay.companyId`),
+ * whose definition declares a `grant-action` with `cost: { tap: "self" }`.
+ *
+ * Pass the Doors of Dol Guldur (dm-154): "You can tap this card during the same
+ * site phase the company successfully plays Rescue Prisoners at Dol Guldur (or
+ * rescues characters taken prisoner if the rescue site is Dol Guldur)." The
+ * quoted window is the effect's `when` condition, evaluated against the
+ * per-company site-phase context — currently
+ * `company.prisonersRescuedAtDolGuldurThisSitePhase`, set by every successful
+ * rescue path (see `markPrisonersRescuedAtDolGuldur`).
+ *
+ * Three gates, all of which the reducer re-checks:
+ *  - the card must be `Untapped` (the tap is its cost, and "this card never
+ *    untaps" means a tapped copy is spent for good),
+ *  - the `when` condition must hold right now, and
+ *  - a `singletonLock` effect must not already be claimed by another copy
+ *    ("Once tapped, no other copy of this card can be tapped").
+ *
+ * This is the site-phase sibling of `inPlayFactionGrantActions` (organization
+ * phase, discard-self only): both route to `handleInPlayCardGrantAction`, which
+ * is why `characterId` self-references the source instance.
+ */
+function inPlayCompanyTapGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const company = player.companies[siteState.activeCompanyIndex];
+  if (!company) return [];
+
+  // The site-phase context a tap-self `when` clause is evaluated against.
+  const context = {
+    company: {
+      prisonersRescuedAtDolGuldurThisSitePhase:
+        siteState.prisonersRescuedAtDolGuldurThisSitePhase ?? false,
+    },
+  };
+  const locks = state.singletonTapLocks ?? [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const cip of player.cardsInPlay) {
+    if (cip.companyId !== company.id) continue;
+    const def = defById(state, cip.definitionId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action') continue;
+      if (effect.cost.tap !== 'self') continue;
+      if (cip.status !== CardStatus.Untapped) {
+        logDetail(`Tap-self grant-action ${effect.action} on ${def.name}: card is ${cip.status} — not offered`);
+        continue;
+      }
+      if (effect.singletonLock && locks.includes(def.name)) {
+        logDetail(`Tap-self grant-action ${effect.action} on ${def.name}: another copy already claimed the once-per-game lock — not offered`);
+        continue;
+      }
+      if (effect.when && !matchesCondition(effect.when, context)) {
+        logDetail(`Tap-self grant-action ${effect.action} on ${def.name}: timing condition not met (prisoners rescued at Dol Guldur this site phase: ${String(context.company.prisonersRescuedAtDolGuldurThisSitePhase)})`);
+        continue;
+      }
+      logDetail(`Tap-self grant-action ${effect.action} available: tap ${def.name} bound to company ${company.id as string}`);
+      actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0));
+    }
+  }
+  return actions;
+}
 
 /**
  * Generate play-resources actions for the current company (CoE lines 362–374).

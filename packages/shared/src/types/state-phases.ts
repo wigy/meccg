@@ -949,6 +949,23 @@ export interface SitePhaseState {
    */
   readonly factionPlayedThisSitePhase?: boolean;
   /**
+   * Whether the active company has, this site phase, **successfully freed
+   * characters taken prisoner while standing at Dol Guldur** — either by
+   * playing Rescue Prisoners (tw-315) there and keeping it (a bearer was
+   * assigned), or by resolving a generic CoE 8.36 `rescue-prisoner` action
+   * whose rescue site is Dol Guldur. Matched by site *name*, so any printing
+   * of Dol Guldur counts. Consulted by the `grant-action` `when` clause of
+   * Pass the Doors of Dol Guldur (dm-154) — "You can tap this card during the
+   * same site phase the company successfully plays Rescue Prisoners at Dol
+   * Guldur (or rescues characters taken prisoner if the rescue site is Dol
+   * Guldur)" — via the context key
+   * `company.prisonersRescuedAtDolGuldurThisSitePhase`. Absent (undefined →
+   * false) until such a rescue happens; reset to absent when a new company's
+   * site phase begins (a fresh {@link SitePhaseState} is built), which is what
+   * makes it company-scoped as well as site-phase-scoped.
+   */
+  readonly prisonersRescuedAtDolGuldurThisSitePhase?: boolean;
+  /**
    * Whether the site's minion-only additional automatic-attack (No Strangers at
    * this Time, as-51 `duplicateFirstAutoAttackVsMinion`) has already been faced
    * this site phase. Set once the copied first automatic-attack has been

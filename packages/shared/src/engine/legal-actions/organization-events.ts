@@ -27,7 +27,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -817,6 +817,33 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             continue;
           }
         }
+        // play-condition: discard-keyword-card — "Playable on a company if the
+        // company discards (for no effect) a Stolen Knowledge card it
+        // controls" (Pass the Doors of Dol Guldur dm-154). Emit one action per
+        // discardable candidate so the player picks which card is spent; a
+        // company controlling none cannot play the card at all.
+        const keywordDiscardCond = findPlayConditionEffect(def, 'discard-keyword-card');
+        if (keywordDiscardCond) {
+          const candidates = keywordDiscardCandidates(state, player, company, keywordDiscardCond);
+          if (candidates.length === 0) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} controls no "${keywordDiscardCond.cardKeyword ?? '?'}" card to discard`);
+            continue;
+          }
+          anyTarget = true;
+          for (const candidate of candidates) {
+            logDetail(`Permanent event ${def.name}: playable on company ${company.id as string} by discarding ${candidate.name} (${candidate.source})`);
+            actions.push({
+              action: {
+                type: 'play-permanent-event', player: playerId, cardInstanceId,
+                targetCompanyId: company.id,
+                discardCardInstanceId: candidate.instanceId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         anyTarget = true;
         logDetail(`Permanent event ${def.name}: playable on company ${company.id as string} (siteType=${siteType}, memberCount=${memberCount})`);
         actions.push({

@@ -1166,15 +1166,29 @@ function resolveConstraintTarget(
 
 /**
  * Resolve an activated ability on a *bearer-less* in-play card — a card in the
- * player's `cardsInPlay` that is not attached to any character (currently an
- * in-play faction). Only the `discard: self` cost and the `add-constraint`
- * apply are supported: the source is discarded from `cardsInPlay` to the
- * controller's discard pile, then the declared constraint is added.
+ * player's `cardsInPlay` that is not attached to any character (an in-play
+ * faction, or a company-bound permanent event).
  *
- * Used by A Panoply of Wings (wh-37): "Discard this faction to make
- * information playable at such a site" — a `site-resource-unlocked` constraint
- * (Information, keyed to a compound `siteCondition`), scope `turn`, targeting
- * the discarding player.
+ * Two costs are supported:
+ *  - `discard: self` — the source leaves `cardsInPlay` for the controller's
+ *    discard pile. Used by A Panoply of Wings (wh-37): "Discard this faction to
+ *    make information playable at such a site" — a `site-resource-unlocked`
+ *    constraint (Information, keyed to a compound `siteCondition`), scope
+ *    `turn`, targeting the discarding player.
+ *  - `tap: self` — the source is set to {@link CardStatus.Tapped} in place and
+ *    stays in `cardsInPlay`. Used by Pass the Doors of Dol Guldur (dm-154),
+ *    where becoming tapped *is* the whole effect: the tapped status is what
+ *    later unlocks storage (`storable-at` `requiresTapped`) and what the card's
+ *    "this card never untaps" (`no-auto-untap`) preserves.
+ *
+ * `apply` is therefore optional: when the effect declares none, paying the cost
+ * is the entire resolution. When it is declared, only `add-constraint` is
+ * supported.
+ *
+ * An effect flagged `singletonLock` additionally claims the game-wide,
+ * never-cleared per-card-name lock in {@link GameState.singletonTapLocks}
+ * ("Once tapped, no other copy of this card can be tapped"), and is rejected
+ * when the lock is already held.
  */
 function handleInPlayCardGrantAction(
   state: GameState,
@@ -1254,22 +1268,60 @@ function handleInPlayCardGrantAction(
     (e): e is import('../types/effects.js').GrantActionEffect =>
       e.type === 'grant-action' && e.action === action.actionId,
   );
-  if (!effect?.apply) return { state, error: `in-play grant-action ${action.actionId} has no apply on ${sourceName}` };
-  if (effect.cost.discard !== 'self') {
-    return { state, error: `in-play grant-action ${action.actionId}: only discard-self cost supported (${sourceName})` };
+  if (!effect) return { state, error: `in-play grant-action ${action.actionId} not declared on ${sourceName}` };
+  const paysWithTap = effect.cost.tap === 'self';
+  if (!paysWithTap && effect.cost.discard !== 'self') {
+    return { state, error: `in-play grant-action ${action.actionId}: only discard-self or tap-self cost supported (${sourceName})` };
   }
+
+  // "Once tapped, no other copy of this card can be tapped" — the lock is keyed
+  // by card *name* and never cleared, so it survives the locking copy leaving
+  // `cardsInPlay` (dm-154 is stored into the marshalling-point pile).
+  const existingLocks = state.singletonTapLocks ?? [];
+  if (effect.singletonLock && existingLocks.includes(sourceName)) {
+    logDetail(`In-play grant-action ${action.actionId}: "${sourceName}" is already locked by another copy — rejected`);
+    return { state, error: `Another copy of ${sourceName} has already used this ability` };
+  }
+
+  const newPlayers = clonePlayers(state);
+  if (paysWithTap) {
+    // Tap the source in place. The emitter already filters on Untapped; check
+    // again here so a stale or hand-crafted action cannot re-tap a tapped card.
+    if (source.status !== CardStatus.Untapped) {
+      return { state, error: `${sourceName} is not untapped — cannot pay the tap cost` };
+    }
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      cardsInPlay: newPlayers[playerIndex].cardsInPlay.map(c =>
+        c.instanceId === source.instanceId ? { ...c, status: CardStatus.Tapped } : c),
+    };
+    logDetail(`In-play grant-action ${action.actionId}: tapping ${sourceName} in place`);
+  } else {
+    // Discard the source card from cardsInPlay to the controller's discard pile.
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      cardsInPlay: newPlayers[playerIndex].cardsInPlay.filter(c => c.instanceId !== source.instanceId),
+      discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: source.instanceId, definitionId: source.definitionId }],
+    };
+  }
+
+  const withLock: GameState = effect.singletonLock
+    ? { ...state, players: newPlayers, singletonTapLocks: [...existingLocks, sourceName] }
+    : { ...state, players: newPlayers };
+  if (effect.singletonLock) {
+    logDetail(`In-play grant-action ${action.actionId}: "${sourceName}" claimed the once-per-game lock — no other copy may use it`);
+  }
+
+  // No `apply`: paying the cost is the whole resolution (dm-154 — becoming
+  // tapped is itself the recorded effect).
+  if (!effect.apply) {
+    return { state: recomputeDerived(withLock), effects: [] };
+  }
+
   const apply = effect.apply;
   if (apply.type !== 'add-constraint') {
     return { state, error: `in-play grant-action ${action.actionId}: only add-constraint apply supported (${sourceName})` };
   }
-
-  // Discard the source card from cardsInPlay to the controller's discard pile.
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    cardsInPlay: newPlayers[playerIndex].cardsInPlay.filter(c => c.instanceId !== source.instanceId),
-    discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: source.instanceId, definitionId: source.definitionId }],
-  };
 
   const constraintKind = apply.constraint ?? '';
   const kind = buildPayloadConstraintKind(constraintKind, apply) ?? constraintKindWithoutPayload(constraintKind);
@@ -1279,8 +1331,8 @@ function handleInPlayCardGrantAction(
   const target = resolveConstraintTarget(apply.target, newPlayers[playerIndex], action.characterId, action.player, action);
   if (!target) return { state, error: `in-play grant-action: cannot resolve target "${apply.target ?? ''}" on ${sourceName}` };
 
-  logDetail(`In-play grant-action ${action.actionId}: discarding ${sourceName}, adding constraint ${constraintKind} (scope ${apply.scope ?? '?'})`);
-  let finalState = recomputeDerived({ ...state, players: newPlayers });
+  logDetail(`In-play grant-action ${action.actionId}: ${paysWithTap ? 'tapping' : 'discarding'} ${sourceName}, adding constraint ${constraintKind} (scope ${apply.scope ?? '?'})`);
+  let finalState = recomputeDerived(withLock);
   finalState = addConstraint(finalState, {
     source: source.instanceId,
     sourceDefinitionId: source.definitionId,

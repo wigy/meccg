@@ -443,10 +443,36 @@ export function collectGlobalEffects(
 
       for (const effect of effects) {
         if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
+        // "If stored, …" — an `activeWhileStored` effect is dormant while its
+        // card merely sits in play; it is collected from the stored-card scan
+        // below instead (Pass the Doors of Dol Guldur dm-154).
+        if ((effect as { activeWhileStored?: boolean }).activeWhileStored) continue;
         if (effect.when && !matchesCondition(effect.when, conditionContext)) {
           continue;
         }
         results.push({ effect, sourceDef: def, sourceInstance: card.instanceId });
+      }
+    }
+  }
+
+  // Cards **stored** in a marshalling-point pile (CoE 2.II.4.1) that declare an
+  // ongoing "if stored" effect. A stored card leaves `cardsInPlay` for
+  // `killPile`, so without this pass its effect would silently stop applying
+  // exactly when the card text says it starts. `storedAtSite` is the marker
+  // that separates a legitimately stored card from a defeated creature (which
+  // never carries one), and the `activeWhileStored` flag keeps every ordinary
+  // stored item — which has no ongoing effect — out of the global pool.
+  for (const player of state.players) {
+    if (targetScope === 'own-characters' && ownerPlayerId !== undefined && player.id !== ownerPlayerId) continue;
+    for (const stored of player.killPile) {
+      if (!stored.storedAtSite) continue;
+      const def = resolveDef(state, stored.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
+        if (!(effect as { activeWhileStored?: boolean }).activeWhileStored) continue;
+        if (effect.when && !matchesCondition(effect.when, baseRecordContext)) continue;
+        results.push({ effect, sourceDef: def, sourceInstance: stored.instanceId });
       }
     }
   }
@@ -1391,6 +1417,13 @@ function buildAttackContext(
  * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
  * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
  *   `attack.isAgentAttack`; see {@link buildAttackContext}).
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved (only for site automatic-attacks), exposed as `site.siteType` so global
+ *   effects can gate on it — mirroring {@link resolveAttackStrikes}. Pass the Doors
+ *   of Dol Guldur (dm-154) reduces both the prowess and the strikes of every
+ *   automatic-attack at a Dark-hold or Shadow-hold, so the gate has to reach the
+ *   prowess side too. Omitted (undefined) for hazard-creature and agent attacks,
+ *   which are not keyed to a site.
  * @returns The modified prowess value after applying attack effects.
  */
 export function resolveAttackProwess(
@@ -1402,8 +1435,9 @@ export function resolveAttackProwess(
   creatureSelf?: CreatureSelfContext,
   attackBoostCtx?: CreatureAttackBoostContext,
   isAgentAttack = false,
+  siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, undefined, isAgentAttack);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));

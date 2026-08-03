@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1205,7 +1205,7 @@ function handleSiteAutomaticAttacks(
         const dupRace = normalizeCreatureRace(aa.creatureType);
         const inPlayNamesR = buildInPlayNames(state);
         const dupBoostCtxR = { companyId: company.id };
-        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR);
+        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR, false, effectiveSiteType);
         const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
@@ -1258,7 +1258,7 @@ function handleSiteAutomaticAttacks(
       const inPlayNames2 = buildInPlayNames(state);
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtx = { companyId: company.id };
-      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx);
+      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx, false, effectiveSiteType);
       const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType);
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
@@ -1314,7 +1314,7 @@ function handleSiteAutomaticAttacks(
       const inPlayNamesM = buildInPlayNames(state);
       const creatureRaceM = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtxM = { companyId: company.id };
-      const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM);
+      const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM, false, effectiveSiteType);
       const dupStrikesM = resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType);
       const dupBodyM = resolveAttackBody(state, aa.body ?? null, inPlayNamesM, creatureRaceM, dupBoostCtxM);
       logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
@@ -1377,7 +1377,7 @@ function handleSiteAutomaticAttacks(
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const aaBoostCtx = { companyId: company.id };
-  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx);
+  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx, false, effectiveSiteType);
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, aaBoostCtx);
 
@@ -1568,7 +1568,7 @@ function buildSiteRepeatedAttackCombat(
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const boostCtx = { companyId: company.id };
-  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
+  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx, false, effectiveSiteType);
   const effectiveProwess = baseProwess + opts.prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
@@ -1819,10 +1819,15 @@ function handleSiteRescueAttacks(
   if (!rescue || rescue.resolved >= rescueAttacks.length) {
     const freedState = rescue ? freePrisonersOfHost(state, rescue.hostInstanceId) : state;
     logDetail('Rescue: rescue-attack faced — prisoners freed → play-resources');
+    // The rescue succeeded — if the rescue site is Dol Guldur this opens the
+    // tap window for Pass the Doors of Dol Guldur (dm-154) for the rest of this
+    // company's site phase.
+    const marked = rescue ? markPrisonersRescuedAtDolGuldur(freedState, company) : freedState;
+    const markedSiteState = marked.phaseState as SitePhaseState;
     return {
       state: {
-        ...freedState,
-        phaseState: { ...siteState, step: 'play-resources' as const, rescueInProgress: undefined },
+        ...marked,
+        phaseState: { ...markedSiteState, step: 'play-resources' as const, rescueInProgress: undefined },
       },
     };
   }
@@ -2627,11 +2632,15 @@ function handleSitePlayResources(
     const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
     const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
     if (rescueAttacks.length === 0) {
-      // No rescue-attack to face — free immediately.
+      // No rescue-attack to face — free immediately. A successful rescue at Dol
+      // Guldur opens the Pass the Doors of Dol Guldur (dm-154) tap window.
+      const freed = markPrisonersRescuedAtDolGuldur(
+        freePrisonersOfHost(state, action.hostInstanceId), company,
+      );
       return {
         state: {
-          ...freePrisonersOfHost(state, action.hostInstanceId),
-          phaseState: { ...siteState },
+          ...freed,
+          phaseState: { ...(freed.phaseState as SitePhaseState) },
         },
       };
     }
