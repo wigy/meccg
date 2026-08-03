@@ -24,13 +24,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  resetMint, buildAhuntOrderEffectsState,
-  PLAYER_1, PLAYER_2,
+  resetMint, buildAhuntOrderEffectsState, buildTestState, makeMHState,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   DOORS_OF_NIGHT,
-  viableActions, dispatch,
+  viableActions, dispatch, handCardId, companyIdAt, playHazardAndResolve,
 } from '../test-helpers.js';
-import { RegionType } from '../../index.js';
-import type { CardDefinitionId, CombatState } from '../../index.js';
+import { Phase, RegionType, ARAGORN, LEGOLAS, EDHELLOND, LORIEN, MINAS_TIRITH } from '../../index.js';
+import type { CardDefinitionId, CombatState, GameState } from '../../index.js';
 
 const BAIRANAX_AHUNT = 'td-4' as CardDefinitionId;
 
@@ -237,5 +237,44 @@ describe('Bairanax Ahunt (td-4)', () => {
     expect(current.players[1].cardsInPlay.some(c => c.definitionId === BAIRANAX_AHUNT)).toBe(true);
     expect(current.players[0].killPile.some(c => c.definitionId === BAIRANAX_AHUNT)).toBe(false);
     expect(current.players[1].discardPile.some(c => c.definitionId === BAIRANAX_AHUNT)).toBe(false);
+  });
+
+  test('playing Bairanax Ahunt during the moving company\'s own movement triggers an attack immediately', () => {
+    // Bug report (game msd2n90b-jidxrb, seq 305): the hazard player played
+    // Bairanax Ahunt targeting the company while it was moving through Grey
+    // Mountain Narrows, but no attack was ever faced — order-effects (CoE
+    // step 4) had already run for this company *before* the hazard player's
+    // step 7, so the freshly-played long-event sat in cardsInPlay unresolved
+    // until some future company's movement. Per the long-event rule
+    // ("effects are immediately implemented when it is played"), the very
+    // act of playing it against the currently-moving company should trigger
+    // the attack right away.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: EDHELLOND, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BAIRANAX_AHUNT], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state: GameState = {
+      ...base,
+      phaseState: makeMHState({
+        resolvedSitePathNames: [...PATH_GREY_MOUNTAIN_NARROWS.pathNames],
+        resolvedSitePath: [...PATH_GREY_MOUNTAIN_NARROWS.pathTypes],
+      }),
+    };
+
+    const ahuntId = handCardId(state, HAZARD_PLAYER);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const after = playHazardAndResolve(state, PLAYER_2, ahuntId, companyId);
+
+    expect(after.combat).not.toBeNull();
+    const combat = after.combat as CombatState;
+    expect(combat.attackSource.type).toBe('ahunt');
+    expect(combat.strikesTotal).toBe(3);
+    expect(combat.strikeProwess).toBe(12);
+    expect(after.players[HAZARD_PLAYER].cardsInPlay.some(c => c.definitionId === BAIRANAX_AHUNT)).toBe(true);
   });
 });

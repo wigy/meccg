@@ -1003,6 +1003,59 @@ function applyAhuntGroupRewards(
 }
 
 /**
+ * Construct the {@link CombatState} for one resolved ahunt-attack effect
+ * against the given moving company. Shared by {@link handleOrderEffects}
+ * (CoE step 4, replaying ongoing effects already in play) and
+ * {@link triggerAhuntOnLongEventPlay} (a hazard long-event whose
+ * `ahunt-attack` effect matches the company's path the instant it enters
+ * play).
+ */
+function buildAhuntCombat(
+  state: GameState,
+  company: Company,
+  instanceId: CardInstanceId,
+  effect: AhuntAttackEffect,
+): CombatState {
+  const defId = resolveInstanceId(state, instanceId);
+  const defName = defId ? cardName(state, defId, 'unknown') : 'unknown';
+
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const hazardPlayerId = hazardPlayer(state).id;
+
+  const inPlayNames = buildInPlayNames(state);
+  const ahuntBoostCtx = { companyId: company.id };
+  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false, undefined, ahuntBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race, false, ahuntBoostCtx);
+
+  const attackerChooses = resolveAttackerChoosesDefenders(
+    state, effect.combatRules?.includes('attacker-chooses-defenders') ?? false, effect.race,
+  );
+  if (attackerChooses) {
+    logDetail(`Ahunt attack has attacker-chooses-defenders`);
+  }
+
+  logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
+
+  return makeCombatState({
+    attackSource: { type: 'ahunt', longEventInstanceId: instanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayerId,
+    strikesTotal: effectiveStrikes,
+    strikeProwess: effectiveProwess,
+    creatureBody: effect.body ?? null,
+    creatureRace: effect.race,
+    assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
+    ...(attackerChooses ? { attackerChoosesDefenders: true } : {}),
+    detainment: isDetainmentAttack({
+      attackRace: effect.race,
+      defendingAlignment: state.players[activePlayerIndex].alignment,
+      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
+    }),
+  });
+}
+
+/**
  * Handle the order-effects step (CoE step 4).
  *
  * Scans cardsInPlay for ahunt-attack long-events whose region lists
@@ -1028,10 +1081,8 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
   }
 
   const { instanceId, effect } = matchingAhunts[mhState.ahuntAttacksResolved];
-  const defId = resolveInstanceId(state, instanceId);
-  const defName = defId ? cardName(state, defId, 'unknown') : 'unknown';
 
-  logDetail(`Order-effects: ahunt attack ${mhState.ahuntAttacksResolved + 1}/${matchingAhunts.length} — ${defName}`);
+  logDetail(`Order-effects: ahunt attack ${mhState.ahuntAttacksResolved + 1}/${matchingAhunts.length}`);
 
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
@@ -1040,39 +1091,7 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
     return transitionToDrawCards(state, mhState);
   }
 
-  const hazardPlayerId = hazardPlayer(state).id;
-
-  const inPlayNames = buildInPlayNames(state);
-  const ahuntBoostCtx = { companyId: company.id };
-  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false, undefined, ahuntBoostCtx);
-  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race, false, ahuntBoostCtx);
-
-  const attackerChooses = resolveAttackerChoosesDefenders(
-    state, effect.combatRules?.includes('attacker-chooses-defenders') ?? false, effect.race,
-  );
-  if (attackerChooses) {
-    logDetail(`Ahunt attack has attacker-chooses-defenders`);
-  }
-
-  const combat: CombatState = makeCombatState({
-    attackSource: { type: 'ahunt', longEventInstanceId: instanceId },
-    companyId: company.id,
-    defendingPlayerId: state.activePlayer!,
-    attackingPlayerId: hazardPlayerId,
-    strikesTotal: effectiveStrikes,
-    strikeProwess: effectiveProwess,
-    creatureBody: effect.body ?? null,
-    creatureRace: effect.race,
-    assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
-    ...(attackerChooses ? { attackerChoosesDefenders: true } : {}),
-    detainment: isDetainmentAttack({
-      attackRace: effect.race,
-      defendingAlignment: state.players[activePlayerIndex].alignment,
-      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
-    }),
-  });
-
-  logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
+  const combat = buildAhuntCombat(state, company, instanceId, effect);
 
   return {
     state: {
@@ -1082,6 +1101,46 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
         ...mhState,
         ahuntAttacksResolved: mhState.ahuntAttacksResolved + 1,
       },
+    },
+  };
+}
+
+/**
+ * Trigger an ahunt-attack combat immediately when a hazard long-event
+ * resolves into play mid-movement and its `ahunt-attack` effect matches the
+ * currently active company's declared region path.
+ *
+ * CoE event rules: "the effects of a long-event are immediately implemented
+ * when it is played." Step 4 (Establish Order of Ongoing Effects) only
+ * replays ahunt-attack cards already in play *before* this company's
+ * movement/hazard phase began; a card freshly played during Step 7 (Play
+ * Hazards) of this very phase would otherwise sit dormant until some future
+ * company's Step 4, even though the moving company is, right now, "moving
+ * in" one of its keyed regions. Called after every long-event resolution
+ * (see {@link resolveLongEvent} in chain-reducer.ts) — a no-op unless the
+ * newly-played card actually introduces a fresh, unresolved match.
+ */
+export function triggerAhuntOnLongEventPlay(state: GameState): GameState {
+  if (state.phaseState.phase !== Phase.MovementHazard || state.combat) return state;
+  const mhState = state.phaseState;
+
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex]?.companies[mhState.activeCompanyIndex];
+  if (!company) return state;
+
+  const matchingAhunts = collectMatchingAhuntAttacks(state, mhState);
+  if (mhState.ahuntAttacksResolved >= matchingAhunts.length) return state;
+
+  const { instanceId, effect } = matchingAhunts[mhState.ahuntAttacksResolved];
+  logDetail(`Long-event ahunt-attack matches the active company's path on play — triggering immediately`);
+  const combat = buildAhuntCombat(state, company, instanceId, effect);
+
+  return {
+    ...state,
+    combat,
+    phaseState: {
+      ...mhState,
+      ahuntAttacksResolved: mhState.ahuntAttacksResolved + 1,
     },
   };
 }

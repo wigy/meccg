@@ -90,6 +90,7 @@ import { handleUntap } from './reducer-untap.js';
 import { handleOrganization } from './reducer-organization.js';
 import { handleLongEvent } from './reducer-events.js';
 import { handleMovementHazard, autoAdvanceMHOrderEffects } from './reducer-movement-hazard.js';
+import { triggerAhuntOnLongEventPlay } from './mh-steps.js';
 import { handleSite } from './reducer-site.js';
 import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
 import { handleFreeCouncil } from './reducer-free-council.js';
@@ -126,7 +127,13 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
     if (!chainResult.error) {
-      const recomputed = postReduce(chainResult.state, state);
+      // A hazard long-event (e.g. Bairanax Ahunt td-4) may have just resolved
+      // into play mid-movement, matching the active company's declared
+      // region path — trigger its ahunt combat immediately rather than
+      // waiting for some future company's order-effects step. No-op unless
+      // a fresh, unresolved match was just introduced.
+      const finalState = triggerAhuntOnLongEventPlay(chainResult.state);
+      const recomputed = postReduce(finalState, state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: chainResult.effects,
