@@ -21,6 +21,7 @@ import {
   isHazardEvent,
   freeDi,
   boostsCreatureAttack,
+  enablesHandCardBonus,
 } from './common.js';
 
 /** Estimate how dangerous a creature is against a target company. */
@@ -110,6 +111,10 @@ export const movementHazardEvaluator: ActionEvaluator = {
           // resolved — outscore that creature so the boost is sequenced first.
           const boosted = boostedCreatureThreatInHand(def, view, pool);
           if (boosted > 0) return boosted + 1;
+          // An enabler like Doors of Night unlocks a bonus on another hazard
+          // event still in hand (e.g. An Unexpected Outpost's double fetch).
+          // Outscore the plain event baseline so the enabler plays first.
+          if (enablesHandCardBonus(def, view, pool)) return 6;
           return 5;
         }
         return 3;

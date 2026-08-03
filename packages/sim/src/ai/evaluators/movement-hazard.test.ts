@@ -39,10 +39,44 @@ const STIRRING_BONES: CardDefinition = {
   race: 'undead',
 } as unknown as CardDefinition;
 
+// Doors of Night (tw-28): a permanent environment event with no effect this
+// evaluator otherwise scores above the flat hazard-event baseline.
+const DOORS_OF_NIGHT: CardDefinition = {
+  cardType: 'hazard-event',
+  id: 'tw-28',
+  name: 'Doors of Night',
+  eventType: 'permanent',
+  effects: [
+    {
+      type: 'on-event',
+      event: 'self-enters-play',
+      apply: { type: 'move', select: 'filter-all', from: 'in-play', to: 'discard', filter: {} },
+    },
+  ],
+} as unknown as CardDefinition;
+
+// An Unexpected Outpost (dm-45): fetches one hazard from sideboard/discard,
+// or two if Doors of Night is already in play.
+const UNEXPECTED_OUTPOST: CardDefinition = {
+  cardType: 'hazard-event',
+  id: 'dm-45',
+  name: 'An Unexpected Outpost',
+  eventType: 'short',
+  effects: [
+    { type: 'move', select: 'target', from: ['sideboard', 'discard'], to: 'deck', count: 1 },
+    {
+      type: 'move', select: 'target', from: ['sideboard', 'discard'], to: 'deck', count: 1,
+      when: { inPlay: 'Doors of Night' },
+    },
+  ],
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'as-30': FULL_OF_FROTH_AND_RAGE,
   'td-42': LESSER_SPIDERS,
   'dm-111': STIRRING_BONES,
+  'tw-28': DOORS_OF_NIGHT,
+  'dm-45': UNEXPECTED_OUTPOST,
 };
 
 function makeContext(handDefIds: readonly string[]): AiContext {
@@ -81,5 +115,23 @@ describe('movementHazardEvaluator play-hazard sequencing', () => {
     const context = makeContext(['as-30', 'dm-111']);
     const boostScore = movementHazardEvaluator.score(playHazard('h0'), context);
     expect(boostScore).toBe(5);
+  });
+
+  test('scores Doors of Night above An Unexpected Outpost\'s baseline when both are in hand', () => {
+    // Bug report: the AI played An Unexpected Outpost, then Doors of Night
+    // afterwards in the same hazard round — wasting Outpost's double-fetch
+    // bonus, which only applies if Doors of Night is already in play.
+    const context = makeContext(['dm-45', 'tw-28']);
+    const outpostScore = movementHazardEvaluator.score(playHazard('h0'), context);
+    const doorsScore = movementHazardEvaluator.score(playHazard('h1'), context);
+    expect(outpostScore).toBe(5);
+    expect(doorsScore).not.toBeNull();
+    expect(doorsScore!).toBeGreaterThan(outpostScore!);
+  });
+
+  test('Doors of Night falls back to the flat baseline without a dependent card in hand', () => {
+    const context = makeContext(['tw-28']);
+    const doorsScore = movementHazardEvaluator.score(playHazard('h0'), context);
+    expect(doorsScore).toBe(5);
   });
 });
