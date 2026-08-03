@@ -347,6 +347,7 @@
       {
         "type": "grant-action",
         "action": "saruman-fetch-spell",
+        "endOfTurnOnly": true,
         "cost": { "tap": "self" },
         "apply": {
           "type": "move",
