@@ -64,6 +64,24 @@ export function findCharacterInPlay(
   return null;
 }
 
+/**
+ * True when a `discardTargetInstanceId` names a hazard attached to a
+ * character on the opponent's side. Discard-in-play resource events
+ * (Marvels Told, Voices of Malice, Ancient Secrets, The Cock Crows) get one
+ * legal action per eligible target on *either* side of the table — the
+ * engine correctly offers them all, since the rules place no ownership
+ * restriction on the choice. But discarding a hazard attached to the
+ * opponent's character relieves the opponent, not us, so evaluators must
+ * never score that choice as a beneficial removal.
+ */
+export function discardTargetsOpponentHazard(
+  view: PlayerView,
+  discardTargetInstanceId: CardInstanceId,
+): boolean {
+  return Object.values(view.opponent.characters)
+    .some(char => char.hazards.some(h => h.instanceId === discardTargetInstanceId));
+}
+
 /** Find which company contains the given character (self side only). */
 export function findCompanyOf(
   view: PlayerView,

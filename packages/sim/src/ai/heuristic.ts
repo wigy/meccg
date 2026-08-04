@@ -23,7 +23,7 @@ import { movementHazardEvaluator } from './evaluators/movement-hazard.js';
 import { combatEvaluator } from './evaluators/combat.js';
 import { sitePhaseEvaluator } from './evaluators/site-phase.js';
 import { endOfTurnEvaluator } from './evaluators/end-of-turn.js';
-import { diceSuccessPct } from './evaluators/common.js';
+import { diceSuccessPct, discardTargetsOpponentHazard } from './evaluators/common.js';
 
 /** Action types treated as "doing nothing" — suppressed when alternatives exist. */
 const PASS_ACTIONS = new Set(['pass', 'draft-stop']);
@@ -89,6 +89,21 @@ export const heuristicStrategy: AiStrategy = {
     const hasSubstantive = actions.some(a => !PASS_ACTIONS.has(a.type));
 
     return actions.map(action => {
+      // Discard-in-play short events (Marvels Told and its kin) offer one
+      // action per eligible target on either side of the table. A target
+      // attached to the opponent's character relieves the opponent, not
+      // us — never let a phase evaluator's default weight treat that
+      // choice as equal to a self-relieving one. See
+      // `discardTargetsOpponentHazard` for why this crosses phases the
+      // same way combat routing does.
+      if (
+        action.type === 'play-short-event'
+        && action.discardTargetInstanceId
+        && discardTargetsOpponentHazard(context.view, action.discardTargetInstanceId)
+      ) {
+        return { action, weight: 0 };
+      }
+
       const evaluator = evaluatorFor(action, phase);
       const score = evaluator.score(action, context);
       let weight: number;
