@@ -37,7 +37,7 @@ import {
   setPendingFocusCharacterId,
   rerender,
 } from './company-view-state.js';
-import { setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction } from './render.js';
+import { setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction, buildCardPreviewInfo } from './render.js';
 import { switchToAllCompanies } from './company-view.js';
 import { showTooltipMenu, tooltipButton, type TooltipMenuItem } from './tooltip-menu.js';
 
@@ -85,6 +85,8 @@ function openCardGridModal(
   const grid = document.createElement('div');
   grid.className = `${variant}-grid`;
 
+  const cardPreview = document.getElementById('card-preview');
+
   for (const choice of choices) {
     const defId = cachedInstanceLookup(choice.instanceId);
     const def = defId ? cardPool[defId as string] : undefined;
@@ -97,6 +99,9 @@ function openCardGridModal(
     // Note: deliberately NOT setting data-card-id / data-instance-id here so the
     // FLIP animation system (flip-animate.ts) ignores modal card images and does
     // not try to animate real pile cards from these transient modal positions.
+    // Hover preview is wired up directly below instead of via the shared
+    // #visual-view delegated listener (setupCardPreview), which never sees
+    // these images since the modal is appended to document.body.
     img.style.cursor = 'pointer';
 
     img.addEventListener('click', (e) => {
@@ -104,6 +109,23 @@ function openCardGridModal(
       dismiss();
       onAction(choice.action);
     });
+
+    if (cardPreview) {
+      img.addEventListener('mouseenter', () => {
+        cardPreview.innerHTML = '';
+        if (def) {
+          cardPreview.appendChild(buildCardPreviewInfo(def));
+        } else {
+          const clone = document.createElement('img');
+          clone.src = img.src;
+          clone.alt = img.alt;
+          cardPreview.appendChild(clone);
+        }
+      });
+      img.addEventListener('mouseleave', () => {
+        cardPreview.innerHTML = '';
+      });
+    }
 
     grid.appendChild(img);
   }
@@ -129,6 +151,9 @@ function openCardGridModal(
 function dismissCardGridModal(variant: 'sideboard-fetch' | 'granted-target'): void {
   document.querySelector(`.${variant}-modal`)?.remove();
   document.querySelector(`.${variant}-backdrop`)?.remove();
+  // Removing the hovered card's img fires no mouseleave — clear any stale preview.
+  const cardPreview = document.getElementById('card-preview');
+  if (cardPreview) cardPreview.innerHTML = '';
 }
 
 /**
