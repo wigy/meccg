@@ -260,10 +260,16 @@ describe('An Unexpected Party (dm-114)', () => {
     expect(state.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(20);
 
     const bifurId = findHandCardId(state, RESOURCE_PLAYER, BIFUR);
-    // Baseline: with no influence left, Bifur cannot be taken under general influence.
+    // Baseline: playing Bifur under general influence is still legal even
+    // with the pool exhausted (CoE 2.II.2.2.1 — GI play is legal "regardless
+    // of whether doing so would exceed" the maximum general influence; the
+    // overflow settles at the end of the organization phase, CoE 3.47) — but
+    // without the card's waiver, his mind pushes the pool past its 20-point limit.
     const baseline = (viableActions(state, PLAYER_1, 'play-character') as { action: PlayCharacterAction }[])
       .filter(a => a.action.characterInstanceId === bifurId && a.action.controlledBy === 'general');
-    expect(baseline).toHaveLength(0);
+    expect(baseline.length).toBeGreaterThan(0);
+    const baselinePlayed = dispatch(state, baseline[0].action);
+    expect(baselinePlayed.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(22);
 
     const cardId = findHandCardId(state, RESOURCE_PLAYER, UNEXPECTED_PARTY);
     const after = playPermanentEventAndResolve(state, PLAYER_1, cardId, undefined, {

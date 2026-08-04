@@ -21,6 +21,7 @@ import {
   isHazardEvent,
   freeDi,
   boostsCreatureAttack,
+  enablesHandCardBonus,
 } from './common.js';
 
 /** Estimate how dangerous a creature is against a target company. */
@@ -110,14 +111,24 @@ export const movementHazardEvaluator: ActionEvaluator = {
           // resolved — outscore that creature so the boost is sequenced first.
           const boosted = boostedCreatureThreatInHand(def, view, pool);
           if (boosted > 0) return boosted + 1;
+          // An enabler like Doors of Night unlocks a bonus on another hazard
+          // event still in hand (e.g. An Unexpected Outpost's double fetch).
+          // Outscore the plain event baseline so the enabler plays first.
+          if (enablesHandCardBonus(def, view, pool)) return 6;
           return 5;
         }
         return 3;
       }
 
       case 'place-on-guard': {
-        // Lay something on-guard occasionally — moderate weight.
-        return 4;
+        // Any hand card is eligible for placement (bluffing allowed), so one
+        // action exists per hand card, but they're all the same underlying
+        // decision — guard or not. Split a fixed total weight across them so
+        // a bigger hand doesn't multiply the odds of guarding; otherwise a
+        // 10-card hand would outweigh "pass" ~10x more strongly than a
+        // 1-card hand for the exact same strategic situation.
+        const guardOptions = context.legalActions.filter(a => a.type === 'place-on-guard').length;
+        return 4 / Math.max(1, guardOptions);
       }
 
       case 'pass':

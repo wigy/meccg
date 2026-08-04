@@ -27,7 +27,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -105,7 +105,38 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId] as HeroResourceEventCard | MinionResourceEventCard | undefined;
+    const rawDef = state.cardPool[handCard.definitionId] as HeroResourceEventCard | MinionResourceEventCard | HazardEventCard | undefined;
+
+    // Great Secrets Buried There (dm-63): "you may play this card as a
+    // resource on yourself … you and your opponent reverse roles." A
+    // permanent hazard-event with `playable-as-resource` never targets a
+    // character/site/company, so it is handled as its own minimal branch —
+    // the generic hero/minion-resource-event logic below assumes that
+    // cardType and would mis-cast this card's definition.
+    if (
+      rawDef
+      && rawDef.cardType === 'hazard-event'
+      && rawDef.eventType === 'permanent'
+      && hasPlayFlag(rawDef, 'playable-as-resource')
+    ) {
+      const deckSizeCond = findPlayConditionEffect(rawDef, 'active-player-deck-size');
+      if (deckSizeCond?.minDeckSize !== undefined) {
+        const deckSize = activePlayerDeckSize(state);
+        if (deckSize < deckSizeCond.minDeckSize) {
+          logDetail(`${rawDef.name}: playable as a resource only with at least ${deckSizeCond.minDeckSize} cards in play deck (have ${deckSize})`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${rawDef.name}: requires at least ${deckSizeCond.minDeckSize} cards in your play deck`));
+          continue;
+        }
+      }
+      logDetail(`${rawDef.name}: playable as a resource on yourself`);
+      actions.push({
+        action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+        viable: true,
+      });
+      continue;
+    }
+
+    const def = rawDef as HeroResourceEventCard | MinionResourceEventCard | undefined;
     if (!def || (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') || def.eventType !== 'permanent') continue;
 
     // Rule 5.F1 [FALLEN-WIZARD]: Stage resource permanent-events can only be
@@ -474,6 +505,76 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         continue;
       }
 
+      // Return of the King (tw-316): "Only playable in Minas Tirith and only
+      // if Denethor II is not in play." Like The White Tree above, its text
+      // declares no site-phase timing and it has no tapping/attack/transform
+      // mechanics tying it to the site's play-resources step, so under rule
+      // 2.1.1 it is playable during any phase as soon as the company is
+      // physically at the matching site — evaluated directly here rather than
+      // deferred to the site phase (which would wrongly require `enter-site`
+      // first even though the card never asked for that).
+      const cardNotInPlayConds = findPlayConditionEffects(def, 'card-not-in-play');
+      if (!orgPhaseSiteTiming && cardNotInPlayConds.length > 0) {
+        const charPlayTarget = def.effects?.find(
+          (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+        );
+        let blockedByCardInPlay = false;
+        for (const cond of cardNotInPlayConds) {
+          if (cond.cardName && isCardNameInPlayOrCharacters(state, cond.cardName)) {
+            logDetail(`Permanent event ${def.name}: blocked because ${cond.cardName} is in play`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: cannot be played while ${cond.cardName} is in play`));
+            blockedByCardInPlay = true;
+            break;
+          }
+        }
+        if (blockedByCardInPlay) continue;
+
+        let anyPlayable = false;
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          const siteDef = defById(state, siteDefId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (sitePlayTarget.filter) {
+            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          const charFilter = charPlayTarget?.filter;
+          let targetCharacterId: CardInstanceId | undefined;
+          if (charFilter) {
+            const eligibleCharId = company.characters.find(charId => {
+              const ch = player.characters[charId];
+              const charDef = ch && defById(state, ch.definitionId);
+              if (!ch || !charDef || !isCharacterCard(charDef)) return false;
+              const ctx = { target: { name: charDef.name, skills: getEffectiveSkills(state, ch, charDef) } };
+              return matchesCondition(charFilter, ctx);
+            });
+            if (!eligibleCharId) {
+              logDetail(`Permanent event ${def.name}: no eligible character at ${siteDef.name}`);
+              continue;
+            }
+            targetCharacterId = eligibleCharId;
+          }
+          anyPlayable = true;
+          logDetail(`Permanent event ${def.name}: playable at ${siteDef.name}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event', player: playerId, cardInstanceId,
+              targetSiteDefinitionId: siteDefId,
+              ...(targetCharacterId ? { targetCharacterId } : {}),
+            },
+            viable: true,
+          });
+        }
+        if (!anyPlayable) {
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site/character target`));
+        }
+        continue;
+      }
+
       if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
@@ -759,15 +860,22 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         }
       }
       if (!anyTarget) {
-        // avatar-not-in-play: an untargeted alternative mode (Bade to Rule
-        // le-167: "Alternatively, playable if your Ringwraith is not in
-        // play") — offered only once the targeted mode above finds no
-        // qualifying character, and only while the player has no avatar in
-        // play at all. The card enters play bare in `cardsInPlay` and later
-        // attaches itself via `on-event: avatar-enters-play`.
-        const avatarNotInPlayCondition = findPlayConditionEffect(def, 'avatar-not-in-play');
-        if (avatarNotInPlayCondition && !findPlayerAvatar(state, player)) {
-          logDetail(`Permanent event ${def.name}: no valid target, but no avatar in play — offering untargeted alternative mode`);
+        // play-option { untargeted: true }: an alternative mode that needs no
+        // character target at all when its `when` condition holds (Bade to
+        // Rule le-167: "Alternatively, playable if your Ringwraith is not in
+        // play."). Evaluated against the same player-state context as the
+        // `player-state` play-condition above, since the option's `when`
+        // describes the *player's* situation, not a specific target. The card
+        // enters play bare in `cardsInPlay` and, for le-167, later attaches
+        // itself via `on-event: avatar-enters-play`.
+        const untargetedOption = def.effects?.find(
+          (e): e is import('../../types/effects.js').PlayOptionEffect =>
+            e.type === 'play-option' && e.untargeted === true,
+        );
+        const untargetedApplies = untargetedOption
+          && (!untargetedOption.when || matchesCondition(untargetedOption.when, buildPlayerStateContext(state, player, playerId)));
+        if (untargetedApplies) {
+          logDetail(`Permanent event ${def.name}: no matching character target — untargeted play-option "${untargetedOption.id}" applies`);
           actions.push({
             action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
             viable: true,

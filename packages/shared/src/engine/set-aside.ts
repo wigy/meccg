@@ -69,6 +69,7 @@ export function placeCardSetAside(
   hostInstanceId: CardInstanceId,
   child: CardInstance,
   keepOnHostRemoval = false,
+  noMp = false,
 ): GameState {
   const hostIdx = hostPlayerIndex(state, hostInstanceId);
   if (hostIdx === -1) {
@@ -89,11 +90,51 @@ export function placeCardSetAside(
       status: CardStatus.Untapped,
       setAsideHost: hostInstanceId,
       ...(keepOnHostRemoval ? { setAsideKeepOnRemoval: true } : {}),
+      ...(noMp ? { setAsideNoMp: true } : {}),
     });
     return { ...p, cardsInPlay };
   }) as [PlayerState, PlayerState];
 
-  logDetail(`Set aside ${child.instanceId as string} with host ${hostInstanceId as string}${keepOnHostRemoval ? ' (kept on host removal)' : ''}`);
+  logDetail(`Set aside ${child.instanceId as string} with host ${hostInstanceId as string}${keepOnHostRemoval ? ' (kept on host removal)' : ''}${noMp ? ' (no marshalling points)' : ''}`);
+  return { ...state, players: newPlayers };
+}
+
+/**
+ * Reverse of {@link placeCardSetAside}: pulls `childInstanceId` out of
+ * whichever player's `cardsInPlay` holds it and off its host's `setAside`
+ * list. Used when a set-aside card is played directly out of its slot rather
+ * than being disposed of by {@link sweepSetAside} (e.g. Great Secrets Buried
+ * There dm-63: the deck owner plays the set-aside item "as though it were in
+ * his hand"). No-op (with a log line) if the instance is not currently
+ * set aside — callers that already validated the source need not guard.
+ */
+export function removeItemFromSetAside(state: GameState, childInstanceId: CardInstanceId): GameState {
+  const holderIdx = state.players.findIndex(p =>
+    p.cardsInPlay.some(c => c.instanceId === childInstanceId && isSetAsideCard(c)),
+  );
+  if (holderIdx === -1) {
+    logDetail(`removeItemFromSetAside: ${childInstanceId as string} is not currently set aside — no-op`);
+    return state;
+  }
+  const child = state.players[holderIdx].cardsInPlay.find(c => c.instanceId === childInstanceId)!;
+  const hostInstanceId = child.setAsideHost!;
+
+  const newPlayers = state.players.map((p, idx) => {
+    if (idx !== holderIdx) return p;
+    const cardsInPlay: CardInPlay[] = p.cardsInPlay
+      .filter(c => c.instanceId !== childInstanceId)
+      .map(c => {
+        if (c.instanceId !== hostInstanceId || !c.setAside) return c;
+        const pruned = c.setAside.filter(id => id !== childInstanceId);
+        if (pruned.length > 0) return { ...c, setAside: pruned };
+        const { setAside: _s, ...rest } = c;
+        void _s;
+        return rest;
+      });
+    return { ...p, cardsInPlay };
+  }) as [PlayerState, PlayerState];
+
+  logDetail(`Played set-aside card ${childInstanceId as string} out of its slot with host ${hostInstanceId as string}`);
   return { ...state, players: newPlayers };
 }
 

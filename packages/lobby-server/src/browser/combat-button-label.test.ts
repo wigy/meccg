@@ -48,3 +48,42 @@ describe('combatButtonLabel for resolve-strike', () => {
     expect(combatButtonLabel(tapAction(), false)).toBe('Not tapping');
   });
 });
+
+/**
+ * Regression test for bug report 73deca14307b4922 (game msd5rpsh-fhc6rm,
+ * seq ~1363): "Swift Strokes always triggers character tapping when used ->
+ * no choice to stay untapped". The engine correctly offers both `tapToFight`
+ * variants for reroll-mode strike-modifier cards (le-238.test.ts), but
+ * `combatButtonLabel` only recognized `resolve-strike`, so a disambiguation
+ * menu built from `play-strike-event` actions had no way to label the two
+ * choices distinctly.
+ */
+describe('combatButtonLabel for play-strike-event (reroll mode, e.g. Swift Strokes)', () => {
+  const PLAYER = 'p1' as PlayerId;
+
+  const rerollTapAction = (): GameAction => ({
+    type: 'play-strike-event',
+    player: PLAYER,
+    cardInstanceId: 'p1-31' as never,
+    tapToFight: true,
+    need: 5,
+    explanation: 'Reroll (tapped): need 5+ (prowess 6 vs 10, better of two rolls, +1)',
+  });
+
+  const rerollStayUntappedAction = (): GameAction => ({
+    type: 'play-strike-event',
+    player: PLAYER,
+    cardInstanceId: 'p1-31' as never,
+    tapToFight: false,
+    need: 8,
+    explanation: 'Reroll (stay untapped): need 8+ (prowess 3 vs 10, better of two rolls, +1)',
+  });
+
+  it('labels the tap-to-fight reroll variant "Tapping" when the stay-untapped sibling is present', () => {
+    expect(combatButtonLabel(rerollTapAction(), true)).toBe('Tapping');
+  });
+
+  it('labels the stay-untapped reroll variant "Untapped"', () => {
+    expect(combatButtonLabel(rerollStayUntappedAction(), true)).toBe('Untapped');
+  });
+});

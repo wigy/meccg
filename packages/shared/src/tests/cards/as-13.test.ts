@@ -403,7 +403,9 @@ describe('Lady of the Golden Wood (as-13)', () => {
     const afterExhaust = dispatch(state, { type: 'deck-exhaust', player: PLAYER_1 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
     expect(afterPass.players[0].cardsInPlay.some(c => c.definitionId === LADY)).toBe(false);
-    expect(afterPass.players[0].discardPile.some(c => c.definitionId === LADY)).toBe(true);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expect(afterPass.players[0].discardPile.some(c => c.definitionId === LADY)).toBe(false);
+    expect(afterPass.players[0].playDeck.some(c => c.definitionId === LADY)).toBe(true);
   });
 
   // ─── #1: manifestation of Galadriel (g.man.1, both directions) ────────────

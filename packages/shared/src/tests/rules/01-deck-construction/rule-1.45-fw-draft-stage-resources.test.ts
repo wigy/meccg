@@ -48,6 +48,9 @@ const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource (recr
 const GLOVE_OF_RADAGAST = 'wh-111' as CardDefinitionId;  // Stage resource (unique, Radagast specific)
 const GIMLI = 'tw-159' as CardDefinitionId;              // hero character, mind 6
 const BALIN = 'tw-123' as CardDefinitionId;              // hero character, mind 5
+// Character-targeted Stage resource with no rules-mandated "best" bearer
+// (unlike Thrall's agent/mind preference) — any non-avatar character qualifies.
+const GANDALFS_FRIEND = 'wh-98' as CardDefinitionId;
 
 // Non-specific Stage resource with no play condition (like Bad Company).
 const BLIND_TO_ALL_ELSE = 'wh-64' as CardDefinitionId;
@@ -320,6 +323,89 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(items).toContain(THRALL_OF_THE_VOICE);
     expect(items).toContain(DAGGER_OF_WESTERNESSE);
     expect(items).toContain(HORN_OF_ANOR);
+  });
+
+  test('[FALLEN-WIZARD] a Stage resource with no rules-mandated bearer is deferred to item draft, not auto-attached (regression for game msdjffie-no2hyx)', () => {
+    // Report: playing Thrall of the Voice on a drafted character worked, but
+    // Gandalf's Friend then landed on "the next character drafted" instead of
+    // the intended one, even when drafted in a different order. Root cause:
+    // resolveCharacterTargetedStageResourcePairings auto-attached it to the
+    // first eligible drafted character in draft order — unlike Thrall (which
+    // has a rules-driven preference: an as-yet-unthralled agent, else highest
+    // mind), Gandalf's Friend has no such tie-breaker, so ANY non-avatar
+    // character is an equally legal home and the choice belongs to the player.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [BALIN, GANDALFS_FRIEND, FRODO, FARAMIR],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [ADRAZAR],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Round 1: P1 drafts a character (Balin) first; P2's single-character pool
+    // is exhausted, so P2 auto-stops.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ADRAZAR) },
+    ]);
+    // Round 2 (solo): P1 drafts the Stage resource — Balin is, at this point,
+    // the only drafted character, exactly the scenario the old "first in draft
+    // order" pairing would have (wrongly) locked in.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GANDALFS_FRIEND) },
+    ]);
+    // Round 3 (solo): P1 drafts a second character (Frodo) afterwards. Faramir
+    // is left undrafted so the draft doesn't auto-exhaust — stopping is explicit.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, FRODO) },
+      { type: 'draft-stop', player: PLAYER_1 },
+    ]);
+
+    const setup = (state.phaseState as { setupStep: { step: string } }).setupStep;
+    expect(setup.step).toBe('item-draft');
+
+    const charIds = Object.keys(state.players[0].characters) as CardInstanceId[];
+    const balinId = charIds.find(id => state.players[0].characters[id].definitionId === BALIN)!;
+    const frodoId = charIds.find(id => state.players[0].characters[id].definitionId === FRODO)!;
+
+    // Not auto-attached to either character yet.
+    expect(state.players[0].characters[balinId].items.some(i => i.definitionId === GANDALFS_FRIEND)).toBe(false);
+    expect(state.players[0].characters[frodoId].items.some(i => i.definitionId === GANDALFS_FRIEND)).toBe(false);
+
+    // Both drafted characters are offered as legal targets — the player
+    // genuinely chooses, rather than the engine having already decided.
+    const gandalfsFriendTargets = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'assign-starting-item'
+        && (ea.action as { itemDefId: CardDefinitionId }).itemDefId === GANDALFS_FRIEND)
+      .map(ea => (ea.action as { characterInstanceId: CardInstanceId }).characterInstanceId);
+    expect(gandalfsFriendTargets).toContain(balinId);
+    expect(gandalfsFriendTargets).toContain(frodoId);
+
+    // Assigning it to Frodo — the character drafted AFTER it, which the old
+    // "first in draft order" auto-pairing could never select — must succeed
+    // and land only on Frodo.
+    state = runActions(state, [
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: GANDALFS_FRIEND, characterInstanceId: frodoId },
+    ]);
+    expect(state.players[0].characters[frodoId].items.some(i => i.definitionId === GANDALFS_FRIEND)).toBe(true);
+    expect(state.players[0].characters[balinId].items.some(i => i.definitionId === GANDALFS_FRIEND)).toBe(false);
   });
 
   test('[FALLEN-WIZARD] Glove of Radagast is draftable as a Stage resource (regression for bug report f5b68841a24ffeb4)', () => {

@@ -111,7 +111,7 @@ describe('Bade to Rule (le-167)', () => {
     expect(actions.length).toBe(0);
   });
 
-  test('NOT playable targeting a non-Ringwraith character (The Mouth, race man) — falls back to the untargeted alternative mode, since no Ringwraith is in play', () => {
+  test('NOT attachable to a non-Ringwraith character (The Mouth, race man) — falls back to the untargeted alternative mode since no Ringwraith is in play', () => {
     const state = orgStateAtHaven({ ringwraith: THE_MOUTH });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBe(1);

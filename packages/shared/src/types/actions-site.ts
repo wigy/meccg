@@ -241,6 +241,15 @@ export interface PlayHeroResourceAction {
    * lock against it.
    */
   readonly viaWizardhavenAllyGrant?: CardInstanceId;
+  /**
+   * When `true`, the item is sourced from a set-aside slot (`setAsideHost`)
+   * instead of the hand — Great Secrets Buried There (dm-63): "Opponent may
+   * play this item as though it were in his hand at any Under-deeps site
+   * where it could be normally playable." Only offered at an Under-deeps site
+   * for the item's owner; the card is found by searching both players'
+   * `cardsInPlay` (its host may belong to either player) rather than `hand`.
+   */
+  readonly fromSetAside?: boolean;
 }
 
 /**

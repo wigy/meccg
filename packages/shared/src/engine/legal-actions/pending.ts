@@ -1768,9 +1768,11 @@ function applyOneConstraint(
       // no legal-action filtering needed here.
       return base;
     case 'skip-next-untap':
-      // Fled into Darkness (ba-18): consumed directly by `reducer-untap.ts`
-      // `performUntap` (character stays tapped once, then the card is
-      // discarded) — no broad legal-action filtering needed here.
+      // Fled into Darkness (ba-18) / Fireworks (dm-130): consumed directly by
+      // `reducer-untap.ts` `performUntap` for the untap-phase sweep, and by
+      // `interceptSkipNextUntap` for any other code path that sets a
+      // character's status to untapped directly (e.g. And Forth He Hastened
+      // td-98) — no broad legal-action filtering needed here.
       return base;
     case 'attack-card-played':
       // Pure marker for the duplication-limit mechanism; consulted directly
@@ -3242,6 +3244,36 @@ export function desireBellyChoosePenaltyActions(
       viable: true,
     },
   ];
+}
+
+/**
+ * Legal actions while a `great-secrets-choose-item` resolution is pending
+ * (Great Secrets Buried There, dm-63): the deck owner must choose one of the
+ * revealed eligible items to place off to the side under the host card. One
+ * `choose-set-aside-item` action per eligible item; the choice is mandatory
+ * (no pass).
+ */
+export function greatSecretsChooseItemActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'great-secrets-choose-item') return [];
+  const { eligibleInstanceIds, deckOwnerId } = top.kind;
+  const deckOwner = playerById(state, deckOwnerId);
+  if (!deckOwner) return [];
+  const inDeck = new Set(deckOwner.playDeck.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of eligibleInstanceIds) {
+    if (!inDeck.has(id as string)) continue;
+    const card = deckOwner.playDeck.find(c => c.instanceId === id)!;
+    logDetail(`Great Secrets Buried There: offering to set aside "${cardName(state, card.definitionId)}"`);
+    actions.push({
+      action: { type: 'choose-set-aside-item' as const, player: actor, cardInstanceId: id },
+      viable: true,
+    });
+  }
+  return actions;
 }
 
 /**

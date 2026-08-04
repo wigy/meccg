@@ -269,6 +269,54 @@ describe('GCCG deck import section split', () => {
     }
   });
 
+  test('an untagged faction shared by hero and minion versions resolves to the deck\'s own alignment', () => {
+    // "Haradrim" and "Wain-easterlings" each name two AS cards: a
+    // hero-resource-faction manifestation (as-59/as-60) and the
+    // minion-resource-faction original (as-63/as-66). GCCG deck files
+    // routinely omit the optional [H|M|F|B] alignment tag on faction
+    // lines, so nothing here disambiguates by tag or set — the importer
+    // must fall back to the deck's overall alignment instead of always
+    // picking the lower (hero) card id.
+    const text = [
+      '####',
+      'Pool',
+      '####',
+      '# Minion Character (1)',
+      '1 Khamûl the Ringwraith',
+      '####',
+      'Deck',
+      '####',
+      '# Minion Resource (2)',
+      '1 Haradrim',
+      '1 Wain-easterlings',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.unmatched).toEqual([]);
+    expect(parsed.alignment).toBe('minion');
+    expect(parsed.deck.resources).toEqual([
+      { name: 'Haradrim', card: 'as-63', qty: 1 },
+      { name: 'Wain-easterlings', card: 'as-66', qty: 1 },
+    ]);
+  });
+
+  test('an untagged faction shared by hero and minion versions resolves to hero in a hero deck', () => {
+    const text = [
+      '####',
+      'Deck',
+      '####',
+      '# Hero Character (1)',
+      '1 Gandalf',
+      '# Hero Resource (1)',
+      '1 Haradrim',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.unmatched).toEqual([]);
+    expect(parsed.alignment).toBe('hero');
+    expect(parsed.deck.resources).toEqual([{ name: 'Haradrim', card: 'as-59', qty: 1 }]);
+  });
+
   test('without a category the resolved card type decides the section', () => {
     const text = [
       '####',

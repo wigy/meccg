@@ -1040,6 +1040,13 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       if (charEffects) {
         for (const effect of charEffects) {
           if (effect.type !== 'grant-action') continue;
+          // End-of-turn-only abilities (Saruman tw-181/wh-9's discard-pile
+          // spell fetch, Great Shadow ba-62) are emitted only by the
+          // dedicated end-of-turn discard-pile fetch scanner
+          // (`legal-actions/end-of-turn.ts`) — keep them out of this
+          // organization-phase default scan, mirroring `extractGrantActions`
+          // below (used for ally/item/hazard-borne grant-actions).
+          if (effect.endOfTurnOnly === true) continue;
           if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
           if (effect.oncePerTurn && grantActionUsedThisTurn(state, char.instanceId, effect.action)) continue;
 
@@ -2338,11 +2345,13 @@ export function buildPlayOptionContext(
 
 /**
  * Builds the condition context for a `play-condition` `requires:
- * 'active-company'` check. Exposes the company's current site (name/type)
- * and the aggregate names of every character, borne item, and borne ally in
- * the company — enough for a generic DSL condition to express positional win
- * prerequisites (e.g. The One Ring and Gollum at Mount Doom) without a
- * per-card keyword.
+ * 'active-company'` check. Exposes the company's current site (name/type),
+ * the aggregate names of every character, borne item, and borne ally in
+ * the company, and its `specialMovement` flag — enough for a generic DSL
+ * condition to express positional win prerequisites (e.g. The One Ring and
+ * Gollum at Mount Doom) or a same-turn special-movement prerequisite (Army of
+ * the Dead tw-193: "on the same turn that [Aragorn II] plays Paths of the
+ * Dead") without a per-card keyword.
  */
 export function buildActiveCompanyContext(
   state: GameState,
@@ -2367,7 +2376,7 @@ export function buildActiveCompanyContext(
 
   return {
     site: { name: siteName, type: siteType },
-    company: { characterNames, itemNames, allyNames },
+    company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement },
   };
 }
 

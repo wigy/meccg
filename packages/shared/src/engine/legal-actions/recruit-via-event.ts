@@ -14,6 +14,11 @@
  *   influence, the player's unused general influence, or either;
  * - an agent may be recruited only when the event says so (`allowAgents`),
  *   overriding rule 2.II.2.2.5's home-site confinement;
+ * - a character carrying its own card-specific `home-site-only` play-flag
+ *   (Frodo tw-152, Sam Gamgee tw-180) is only offered at a qualifying company
+ *   whose site is also that character's actual home site — the restriction is
+ *   on the character, not the recruitment method, and no `recruit-character`
+ *   effect currently lifts it;
  * - a Ringwraith avatar card may be recruited only as a *Ringwraith follower*
  *   of the player's revealed Ringwraith, and only when the event enables it
  *   (`allowRingwraithFollowers`, rule 2.II.2.1.R4–R5);
@@ -57,6 +62,7 @@ import {
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
+import { homesiteMatchesSite } from './organization-characters.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 
@@ -264,6 +270,15 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
         continue;
       }
 
+      // A card-specific `home-site-only` play-flag (Frodo tw-152, Sam Gamgee
+      // tw-180: "he may only be brought into play at his home site") restricts
+      // where the character itself may enter play — the recruit-via-event
+      // effect's relaxed site list does not lift it, unlike the agent
+      // home-site rule below which the event can explicitly waive via
+      // `allowAgents`. Filtered per-company below (`homeSiteOnly`), since the
+      // company's site may still happen to be the character's actual home site.
+      const homeSiteOnly = hasPlayFlag(recruitDef, 'home-site-only');
+
       // Rule 2.II.2.2.5: an agent played as a character enters play only at its
       // own home site, unless the event lifts that (We Have Come to Kill).
       if ((recruitDef.keywords ?? []).includes('agent')) {
@@ -285,6 +300,14 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
         if (companyBlocksJoins(state, company.id)) {
           logDetail(`${event.name}: company at ${company.currentSite!.definitionId as string} is closed to new joins (block-company-joins)`);
           continue;
+        }
+
+        if (homeSiteOnly) {
+          const companySiteDef = resolveDef(state, company.currentSite!.instanceId);
+          if (!isSiteCard(companySiteDef) || !homesiteMatchesSite(state, recruitDef, companySiteDef, player.alignment)) {
+            logDetail(`${event.name}: ${recruitDef.name} may only be brought into play at its home site — not offered at ${company.currentSite!.definitionId as string}`);
+            continue;
+          }
         }
 
         // General influence: the recruit is controlled by the player's own

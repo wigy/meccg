@@ -42,6 +42,7 @@ import {
   setRerenderFn,
   resetState,
   shouldOverrideToAllCompanies,
+  shouldFocusOwnCompanyAfterSelectCompany,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -302,12 +303,10 @@ export function renderCompanyViews(
   const curStep = (curPhase === Phase.MovementHazard || curPhase === Phase.Site)
     ? view.phaseState.step : null;
   const lastMhSiteStep = getLastMhSiteStep();
-  if (lastMhSiteStep === 'select-company' && curStep !== null && curStep !== 'select-company') {
-    const isSelfTurn = activeId !== null && activeId === (view.self.id as string);
-    const companies = isSelfTurn ? view.self.companies : view.opponent.companies;
+  if (shouldFocusOwnCompanyAfterSelectCompany(lastMhSiteStep, curStep, activeId, view.self.id as string)) {
     const activeIdx = (view.phaseState as { activeCompanyIndex: number }).activeCompanyIndex;
-    if (companies[activeIdx]) {
-      setFocusedCompanyId(companies[activeIdx].id);
+    if (view.self.companies[activeIdx]) {
+      setFocusedCompanyId(view.self.companies[activeIdx].id);
       setAllCompaniesOverride(false);
     }
   }

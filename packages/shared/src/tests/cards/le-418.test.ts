@@ -31,17 +31,19 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, buildTestState, buildSitePhaseState, resetMint,
+  pool, buildTestState, buildSitePhaseState, buildMinionSitePhaseState, resetMint,
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LORIEN, MINAS_TIRITH,
   viableActions, dispatch,
-  findCharInstanceId, getCharacter,
+  findCharInstanceId, getCharacter, findHandCardId,
   expectCharItemCount, expectInDiscardPile,
   attachItemToChar, recomputeDerived,
 } from '../test-helpers.js';
 import { Alignment, Phase, computeLegalActions } from '../../index.js';
-import type { ActivateGrantedAction, CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import type {
+  ActivateGrantedAction, CardDefinitionId, CharacterCard, InfluenceAttemptAction, PlayHeroResourceAction,
+} from '../../index.js';
 import { availableDI } from '../../engine/legal-actions/organization.js';
 
 const THE_ARKENSTONE = 'le-418' as CardDefinitionId;
@@ -68,8 +70,47 @@ const BLUE_MOUNTAIN_DWARF_HOLD = 'tw-377' as CardDefinitionId; // hero site for 
 // Other minion sites for non-co-location tests
 const MORIA_MINION = 'le-392' as CardDefinitionId;
 
+// A minion Ruins & Lairs with no Dragon's lair (no hoard).
+const THE_PUKEL_DEEPS = 'as-158' as CardDefinitionId;
+
 describe('The Arkenstone (le-418)', () => {
   beforeEach(() => resetMint());
+
+  // ── Effect 1: item-play-site (hoard) ──────────────────────────────────────
+
+  test('playable at a minion Dragon-lair site (le-387), a hoard site', () => {
+    // Regression test: le-387 "The Lonely Mountain" (minion/ringwraith side)
+    // has a permanent Dragon automatic-attack and must carry the `hoard`
+    // keyword, same as every other Dragon's-lair Ruins & Lairs, so The
+    // Arkenstone (a greater hoard item) is playable there.
+    const state = buildMinionSitePhaseState({
+      site: LONELY_MOUNTAIN_MINION,
+      characters: [THE_MOUTH],
+      hand: [THE_ARKENSTONE],
+    });
+    const handInst = findHandCardId(state, RESOURCE_PLAYER, THE_ARKENSTONE);
+    const mouthId = findCharInstanceId(state, RESOURCE_PLAYER, THE_MOUTH);
+
+    const plays = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-hero-resource')
+      .map(ea => ea.action as PlayHeroResourceAction);
+
+    expect(plays.some(a => a.cardInstanceId === handInst && a.attachToCharacterId === mouthId)).toBe(true);
+  });
+
+  test('NOT playable at a minion Ruins & Lairs without a hoard', () => {
+    const state = buildMinionSitePhaseState({
+      site: THE_PUKEL_DEEPS,
+      characters: [THE_MOUTH],
+      hand: [THE_ARKENSTONE],
+    });
+
+    const plays = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-hero-resource')
+      .map(ea => ea.action as PlayHeroResourceAction);
+
+    expect(plays).toHaveLength(0);
+  });
 
   // ── Effect 2: +5 DI against Dwarf characters (influence-check) ───────────
 

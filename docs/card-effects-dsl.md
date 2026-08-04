@@ -2073,6 +2073,68 @@ character, tap an ally the character controls, or choose for you to make a
 roll. If the result is greater than the character's mind plus 6, the
 character is discarded (along with all non-follower cards he controls)."
 
+### 6i-ter. `reveal-deck-choose-set-aside`
+
+Carried by a **hazard permanent-event** (typically paired with a `play-flag`
+`playable-as-resource` alt-mode and a `play-condition` `active-player-deck-size`
+gate — see §24 above). Once the host card itself enters play (the normal
+permanent-event placement into `cardsInPlay`, unaffected by this effect), it
+reveals the top `count` cards of `GameState.activePlayer`'s play deck (see the
+`active-player-deck-size` doc above for why `activePlayer` is always the
+correct target regardless of hazard-mode vs. resource self-cast mode):
+
+1. The reveal count is capped by the deck length; an empty deck fizzles with
+   no further effect.
+2. Revealed cards are recorded in `GameState.revealedInstances`. Each is
+   checked against `itemFilter` (a card-definition condition, e.g. non-special
+   non-hoard items via `{ "$and": [{ "cardType": { "$in": [...] } },
+   { "$not": { "subtype": { "$in": ["special", "hoard"] } } }] }`).
+3. If at least one revealed card is eligible, a `great-secrets-choose-item`
+   pending resolution is enqueued (actor = the deck owner — **not** the
+   card-player): they **must** choose one (`choose-set-aside-item`, no pass).
+   The chosen card is placed "off to the side" under the host via
+   `placeCardSetAside` (§module `engine/set-aside`); the remaining revealed
+   cards are shuffled and returned to the top of the deck.
+4. If no revealed card is eligible, the reveal itself already showed the cards
+   to both players — nothing more happens beyond shuffling every revealed card
+   back to the top of the deck (no pending resolution).
+
+The reveal + immediate fizzle path lives in `chain-reducer.ts` (`resolveEntry`,
+right after the generic permanent-event placement); the choice resolves via
+`legal-actions/pending.ts` (`greatSecretsChooseItemActions`) and
+`pending-reducers.ts` (`applyGreatSecretsChooseItemResolution`).
+
+A set-aside item placed this way scores no marshalling points at all — the
+`CardInPlay.setAsideNoMp` flag (stamped via `placeCardSetAside`'s `noMp`
+argument) overrides the MEAS §1 default of crediting them to the owner. The
+deck owner may later play it "as though it were in hand" via
+`PlayHeroResourceAction.fromSetAside` (see `legal-actions/site.ts`'s
+Under-deeps set-aside item merge and `reducer-site.ts`'s
+`handleSitePlayHeroResource`), which pulls it back out via
+`removeItemFromSetAside`.
+
+```json
+{
+  "type": "reveal-deck-choose-set-aside",
+  "count": 10,
+  "itemFilter": {
+    "$and": [
+      { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+      { "$not": { "subtype": { "$in": ["special", "hoard"] } } }
+    ]
+  }
+}
+```
+
+Used by *Great Secrets Buried There* (dm-63): "Opponent reveals the top ten
+cards of his play deck to himself. If one is available, opponent must choose a
+non-special, non-hoard item from the revealed cards to place off to the side
+under this card (item does not give marshalling points and is considered out
+of play). If none are available, opponent must show you the cards he revealed
+to himself. Opponent shuffles all remaining revealed cards into his play deck.
+Opponent may play this item as though it were in his hand at any Under-deeps
+site where it could be normally playable."
+
 ### 6j. `enqueue-reveal-hazards-choice`
 
 Carried by a **resource** short-event's `on-event: self-enters-play` (`target:
@@ -5130,20 +5192,11 @@ threads the newly-played character's instance id through as
 ```
 
 Getting the card into `cardsInPlay` bare in the first place — before the
-avatar exists to attach to — needs its own gate: the `play-condition`
-`requires: "avatar-not-in-play"` (no extra fields). Paired with a `play-target:
-character` effect on the same card, it is consulted only in the
-character-target branch of `playPermanentEventActions`
-(`legal-actions/organization-events.ts`), and only once that targeted mode
-finds no qualifying character in play — it offers a targetless
-`play-permanent-event` action instead of `notPlayable`, when the player has no
-avatar in play at all (`findPlayerAvatar` returns undefined). Unlike the
-top-of-function `player-state` gate above, it never blocks the card's normal
-targeted mode — it only ever adds the untargeted alternative:
-
-```json
-{ "type": "play-condition", "requires": "avatar-not-in-play" }
-```
+avatar exists to attach to — is handled by an `untargeted: true` `play-option`
+on the same card (see `play-option`'s "Organization-phase permanent events"
+paragraph below): when its `play-target: character` effect finds no
+qualifying character, the untargeted option's `when` is consulted instead of
+rejecting the play.
 
 ### 14a. `name-alias`
 
@@ -7019,6 +7072,25 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
 { "type": "play-condition", "requires": "supporters-in-region", "min": 6 }
 ```
 
+- `active-player-deck-size` — gates on `GameState.activePlayer`'s play deck
+  card count reaching `minDeckSize`. `activePlayer` is always the correct
+  party to check regardless of which "side" of the card's text is being
+  evaluated: a hazard permanent-event is only ever declared by the
+  *non*-active player against the active company's owner ("opponent" in the
+  card text = the active player), and a `playable-as-resource` self-cast
+  permanent-event is only ever declared by the active player on themself
+  ("you" = the active player). Checked in `legal-actions/movement-hazard.ts`
+  (hazard mode) and `legal-actions/organization-events.ts` /
+  `legal-actions/site.ts` (resource mode) via the shared
+  `activePlayerDeckSize` helper (`reducer-utils.ts`). Used by *Great Secrets
+  Buried There* (dm-63): "Playable if opponent has at least ten cards in his
+  play deck" / "you may play this card as a resource on yourself if you have
+  at least ten cards in your play deck."
+
+```json
+{ "type": "play-condition", "requires": "active-player-deck-size", "minDeckSize": 10 }
+```
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.
@@ -7727,6 +7799,33 @@ the two mode families never collide: an action with a `targetCharacterId` takes
 the targeted path, one without takes the untargeted path. If *every* option on a
 card is untargeted, the per-character loop is skipped entirely (no bare
 option-less action is emitted).
+
+**Organization-phase permanent events.** `playPermanentEventActions`
+(`legal-actions/organization-events.ts`) also honours an `untargeted: true`
+play-option on a character-targeting permanent event: when no character in
+the player's companies matches the `play-target` filter, the emitter falls
+back to the untargeted option's `when`, evaluated against the same
+`player`/`opponent` context as `play-condition: requires: "player-state"`
+(`buildPlayerStateContext`, e.g. `player.hasRingwraithInPlay`). If it
+matches, a single bare `play-permanent-event` action with no
+`targetCharacterId` is offered instead of the usual "no valid target"
+rejection. The card then resolves through the existing unattached path
+(`chain-reducer.ts`'s `resolvePermanentEvent` places it in `cardsInPlay`
+rather than attaching it to a character), so no dedicated `apply` kind is
+needed here — the option's `apply` is a no-op (`{ "type": "sequence", "apps":
+[] }`) and the card's own always-on effects (e.g. a `general-influence`
+`stat-modifier`, already summed from unattached `cardsInPlay` entries) take
+effect once it is in play. Used by *Bade to Rule* (le-167): "Playable ... on
+your Ringwraith ... Alternatively, playable if your Ringwraith is not in
+play. +5 general influence.":
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "target.race": "ringwraith" } },
+{ "type": "play-option", "id": "no-ringwraith", "untargeted": true,
+  "when": { "player.hasRingwraithInPlay": false },
+  "apply": { "type": "sequence", "apps": [] } }
+```
 
 The untargeted apply kind supported today is:
 

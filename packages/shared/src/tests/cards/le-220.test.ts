@@ -33,7 +33,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   resetMint,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  buildRingwraithCreatureCombat, buildTestState,
+  buildRingwraithCreatureCombat, buildTestState, makeSitePhase,
   viableActions, findAction, dispatch,
   charIdAt, companyIdAt,
 } from '../test-helpers.js';
@@ -46,6 +46,7 @@ const ORC_PATROL = 'tw-074' as CardDefinitionId;    // orc, 3 strikes (too many)
 const BARROW_WIGHT = 'tw-015' as CardDefinitionId;  // undead, 1 strike (ineligible race)
 const ORC_BRAWLER = 'le-30' as CardDefinitionId;    // minion orc, mind 1
 const MUZGASH = 'le-25' as CardDefinitionId;        // minion orc, mind 2
+const VARIAG_CAMP = 'le-411' as CardDefinitionId;   // minion border-hold site
 
 describe('Ready to His Will (le-220)', () => {
   beforeEach(() => resetMint());
@@ -114,6 +115,22 @@ describe('Ready to His Will (le-220)', () => {
         { id: PLAYER_2, hand: [], siteDeck: [], companies: [] },
       ],
     });
+    expect(state.combat).toBeNull();
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+    expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);
+  });
+
+  test('NOT offered as a generic play-permanent-event during the site phase (no attack in progress)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, hand: [READY_TO_HIS_WILL], siteDeck: [], companies: [{ site: VARIAG_CAMP, characters: [ORC_BRAWLER] }] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
     expect(state.combat).toBeNull();
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);

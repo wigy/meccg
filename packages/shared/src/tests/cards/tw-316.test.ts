@@ -20,7 +20,7 @@ import {
   CardStatus,
   ARAGORN, FARAMIR, LEGOLAS,
   MINAS_TIRITH, MORIA, LORIEN,
-  buildSitePhaseState, buildTestState, makePlayDeck,
+  buildSitePhaseState, buildDualHandSitePhaseState, buildTestState, makePlayDeck,
   resetMint, viableActions, attachItemToChar,
   findCharInstanceId, dispatch, mint,
 } from '../test-helpers.js';
@@ -65,6 +65,27 @@ describe('Return of the King (tw-316)', () => {
       site: MINAS_TIRITH,
       characters: [ARAGORN],
       hand: [RETURN_OF_THE_KING],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const act = actions[0].action as PlayPermanentEventAction;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    expect(act.targetCharacterId).toBe(aragornId);
+  });
+
+  // ── Rule 2.1.1: playable at any phase, not gated behind `enter-site` ──
+
+  test('IS playable during the site phase before enter-site, once the company is already at Minas Tirith', () => {
+    // Reproduces a reported bug: the company had already arrived at Minas
+    // Tirith (currentSite set), but the card was only offered after
+    // `enter-site` resolved — even though its text declares no site-phase
+    // timing and rule 2.1.1 allows resource permanent-events at any phase.
+    const state = buildDualHandSitePhaseState({
+      site: MINAS_TIRITH,
+      resourceCharacters: [ARAGORN],
+      resourceHand: [RETURN_OF_THE_KING],
+      step: 'enter-or-skip',
+      siteEntered: false,
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBe(1);

@@ -18,13 +18,15 @@ import { getPlayerIndex, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter } from '../../types/cards.js';
 import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified } from '../reducer-utils.js';
+import { resolveInstanceId, ownerOf } from '../../types/state.js';
+import { isSetAsideCard } from '../set-aside.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { availableDI, normalUnusedDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -199,10 +201,15 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       logDetail('Site select-company: no companies left to select — offering pass to end the phase');
       base.push({ action: { type: 'pass', player: playerId }, viable: true });
     }
-    // Rule 2.1.1: resource player may play resource short-events during
-    // any phase of their turn, including before selecting a company.
+    // Rule 2.1.1: resource player may play resource short-events and
+    // resource permanent-events during any phase of their turn, including
+    // before selecting a company. Permanent events without declared
+    // site-phase timing (e.g. Return of the King tw-316, playable "in Minas
+    // Tirith" once a company is already there) must be offered here too —
+    // otherwise they are wrongly gated behind `enter-site`.
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+      base.push(...playPermanentEventActions(state, playerId));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -221,6 +228,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // already been selected by this step, so activeCompanyIndex is valid.
     if (isActive) {
       base.push(...playResourceShortEventActions(state, playerId, new Set(), 'site'));
+      // Rule 2.1.1: resource permanent-events without declared site-phase
+      // timing remain playable here too, before the company commits to
+      // entering (e.g. Return of the King tw-316).
+      base.push(...playPermanentEventActions(state, playerId));
       // Active-player site-phase grant-actions usable at the enter-or-skip
       // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
       // before the company commits to facing them).
@@ -991,13 +1002,63 @@ function playResourcesActions(
     logDetail(`Site ${siteName}: Eddy in Fate's Tide tax ${eddyTaxTapped}/${eddyLock.taxTapCharacters} paid this site phase`);
   }
 
+  // Great Secrets Buried There (dm-63): items set aside under a host
+  // permanent-event may be played "as though in hand" at any Under-deeps site
+  // where they would normally be playable. Merge eligible set-aside items
+  // (owned by this player, from either player's `cardsInPlay` — the host may
+  // belong to the opponent) into the same hand-card loop below, so every
+  // normal item-play gate (site restriction, subtype, uniqueness, untapped
+  // character) applies unchanged. Restricted to this call's site being
+  // Under-deeps; when it is not, no candidates are injected and the loop below
+  // behaves exactly as before.
+  const siteIsUnderDeepsForSetAside = !!(siteDef && isSiteCard(siteDef) && (siteDef.keywords ?? []).includes('under-deeps'));
+  const setAsideItemCandidates = siteIsUnderDeepsForSetAside
+    ? state.players
+      .flatMap(p => p.cardsInPlay)
+      .filter(c => isSetAsideCard(c) && ownerOf(c.instanceId) === playerId)
+      .filter(c => isItemCard(defById(state, c.definitionId)))
+      .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))
+    : [];
+  const setAsideInstanceIds = new Set(setAsideItemCandidates.map(c => c.instanceId as string));
+  if (setAsideItemCandidates.length > 0) {
+    logDetail(`Site ${siteName} (Under-deeps): ${setAsideItemCandidates.length} set-aside item(s) playable as though in hand`);
+  }
+
   // Evaluate each hand card
   const evaluatedInstances = new Set<string>();
 
-  for (const handCard of player.hand) {
+  for (const handCard of [...player.hand, ...setAsideItemCandidates]) {
     const cardInstanceId = handCard.instanceId;
     const def = defById(state, handCard.definitionId);
     if (!def) continue;
+
+    // Great Secrets Buried There (dm-63): rule 2.1.1 lets a resource-style
+    // permanent event be played during any phase of the active player's
+    // turn, including the site phase. "You may play this card as a resource
+    // on yourself … you and your opponent reverse roles" — an untargeted
+    // play, evaluated the same way as organization-events.ts's mirror branch.
+    if (
+      def.cardType === 'hazard-event'
+      && def.eventType === 'permanent'
+      && hasPlayFlag(def, 'playable-as-resource')
+    ) {
+      evaluatedInstances.add(cardInstanceId as string);
+      const deckSizeCond = findPlayConditionEffect(def, 'active-player-deck-size');
+      if (deckSizeCond?.minDeckSize !== undefined) {
+        const deckSize = activePlayerDeckSize(state);
+        if (deckSize < deckSizeCond.minDeckSize) {
+          logDetail(`${def.name}: playable as a resource only with at least ${deckSizeCond.minDeckSize} cards in play deck (have ${deckSize})`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: requires at least ${deckSizeCond.minDeckSize} cards in your play deck`));
+          continue;
+        }
+      }
+      logDetail(`${def.name}: playable as a resource on yourself`);
+      actions.push({
+        action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+        viable: true,
+      });
+      continue;
+    }
 
     // MEWH §10: a Fallen-wizard may not play a hero resource that taps a minion
     // site (or a minion resource at a hero site). Wizardhavens count as both, so
@@ -1049,6 +1110,21 @@ function playResourcesActions(
         );
         if (eventPlayWindow && eventPlayWindow.phase !== Phase.Site) {
           logDetail(`Permanent event ${eventDef.name}: play-window restricts it to the ${eventPlayWindow.phase} phase — not playable during the site phase`);
+          continue;
+        }
+
+        // A `convert-creature-to-ally` effect (Ready to His Will le-220, Memories
+        // of Old Torture ba-67) is a combat-only mechanism: it is playable solely
+        // during the defending player's assign-strikes window against an eligible
+        // creature attack, and is offered exclusively by
+        // `legal-actions/combat.ts`'s `convertCreatureToAllyActions`. It must
+        // never reach the generic site-phase fallback below (which would offer
+        // it as an unconditionally playable permanent event with no target).
+        const convertCreatureToAlly = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
+        );
+        if (convertCreatureToAlly) {
+          logDetail(`Permanent event ${eventDef.name}: convert-creature-to-ally is combat-only — not offered during the site phase`);
           continue;
         }
 
@@ -1285,7 +1361,7 @@ function playResourcesActions(
         // checked against the company's aggregate item names.
         const companyContextCond = findPlayConditionEffect(eventDef, 'company-context');
         if (companyContextCond?.condition
-          && !matchesCompanyContextCondition(state, player, company, companyContextCond.condition, siteState.uniqueHeroFactionPlayedAtFreeHold ?? false, siteState.factionPlayedThisSitePhase ?? false)) {
+          && !matchesCompanyContextCondition(state, player, company, companyContextCond.condition, siteState.uniqueHeroFactionPlayedAtFreeHold ?? false)) {
           logDetail(`Permanent event ${eventDef.name}: company-context play-condition not satisfied at ${siteName}`);
           actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
           continue;
@@ -1778,7 +1854,8 @@ function playResourcesActions(
           }
         }
 
-        logDetail(`Item ${itemDef.name}: playable on ${charName}`);
+        const isFromSetAside = setAsideInstanceIds.has(cardInstanceId as string);
+        logDetail(`Item ${itemDef.name}: playable on ${charName}${isFromSetAside ? ' (from set-aside, as though in hand)' : ''}`);
         actions.push({
           action: {
             type: 'play-hero-resource',
@@ -1786,6 +1863,7 @@ function playResourcesActions(
             cardInstanceId,
             companyId: company.id,
             attachToCharacterId: ch.instanceId,
+            ...(isFromSetAside ? { fromSetAside: true } : {}),
           },
           viable: true,
         });
@@ -2070,6 +2148,19 @@ function playResourcesActions(
         continue;
       }
 
+      // play-condition: active-company — a generic DSL condition evaluated
+      // against the active company's aggregate context (site, character/item/
+      // ally names, specialMovement). Army of the Dead (tw-193): "playable …
+      // on the same turn that [Aragorn II] plays Paths of the Dead" — gated on
+      // `company.specialMovement === "paths-of-the-dead"`, which is set only
+      // while that special movement is active and is cleared at end of turn.
+      const factionActiveCompanyCond = findPlayConditionEffect(factionDef, 'active-company');
+      if (factionActiveCompanyCond?.condition && !matchesCondition(factionActiveCompanyCond.condition, buildActiveCompanyContext(state, player, company))) {
+        logDetail(`Faction ${factionDef.name}: active-company play condition not satisfied`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: play conditions not met`));
+        continue;
+      }
+
       // Check uniqueness — only one copy of a *unique* faction can be in play.
       // Non-unique factions (e.g. Snaga-hai, le-286) may have multiple copies
       // in play, so the duplicate check only applies when the faction is unique.
@@ -2104,10 +2195,19 @@ function playResourcesActions(
           const aDef = defById(state, a.definitionId);
           return isAllyCard(aDef) && hasPlayFlag(aDef, 'influences-factions');
         });
-      const factionInfluencers = [
+      let factionInfluencers = [
         ...untappedCharacters.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId, status: c.status })),
         ...influencerAllies.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId, status: a.status })),
       ];
+
+      // requiredInfluencerName — some factions may only be brought into play
+      // by one named character (Army of the Dead tw-193: "May only be played
+      // by Aragorn II"). Every other untapped character/ally in the company
+      // is excluded from the influencer pool, not just deprioritized.
+      if (factionDef.requiredInfluencerName !== undefined) {
+        const requiredName = factionDef.requiredInfluencerName;
+        factionInfluencers = factionInfluencers.filter(c => defById(state, c.definitionId)?.name === requiredName);
+      }
 
       if (factionInfluencers.length === 0) {
         logDetail(`Faction ${factionDef.name}: no untapped influencer to attempt influence`);

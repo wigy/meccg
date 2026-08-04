@@ -693,15 +693,23 @@
         }
       },
       {
+        "type": "play-option",
+        "id": "no-ringwraith",
+        "untargeted": true,
+        "when": {
+          "player.hasRingwraithInPlay": false
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": []
+        }
+      },
+      {
         "type": "play-condition",
         "requires": "site-type",
         "siteTypes": [
           "haven"
         ]
-      },
-      {
-        "type": "play-condition",
-        "requires": "avatar-not-in-play"
       },
       {
         "type": "stat-modifier",

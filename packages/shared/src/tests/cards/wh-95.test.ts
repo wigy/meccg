@@ -250,13 +250,20 @@ describe('Squire of the Hunt (wh-95)', () => {
 
   // ── Rule 3 (setup route): "(or in your starting company)" ──────────────────
 
-  test('drafted during the character draft, Squire of the Hunt attaches to the warrior starting character', () => {
+  test('drafted during the character draft, Squire of the Hunt is offered to the warrior starting character', () => {
     // Regression (bug report): drafted as a Stage resource, the engine used to
     // "put it into play" bare (CoE 1.9.F4) with no character bearer, leaving it
     // stuck in cardsInPlay — invisible and with no effect, exactly like the
-    // reported "selected in Draft but wasn't assigned to character" symptom. It
-    // must instead attach to a qualifying drafted character, per its own "(or in
-    // your starting company)" text.
+    // reported "selected in Draft but wasn't assigned to character" symptom.
+    //
+    // It must instead be assignable to a qualifying drafted character, per its
+    // own "(or in your starting company)" text — but (regression for game
+    // msdjffie-no2hyx, the Gandalf's Friend report) not auto-attached by the
+    // engine: unlike Thrall of the Voice (a rules-driven agent/mind
+    // preference), a "squire"-family card like this one has no rules-mandated
+    // "best" bearer, so it is deferred to the item-draft step for the player
+    // to assign explicitly via `assign-starting-item`, exactly like a minor
+    // item.
     const config: GameConfig = {
       players: [
         { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
@@ -276,9 +283,23 @@ describe('Squire of the Hunt (wh-95)', () => {
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ADRAZAR) },
     ]);
     // The Fallen-wizard then drafts the warrior, which empties the pool and
-    // auto-finalises the draft.
+    // auto-finalises the draft into the item-draft step.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BOROMIR) },
+    ]);
+
+    const setup = (state.phaseState as { setupStep: { step: string } }).setupStep;
+    expect(setup.step).toBe('item-draft');
+    const boromirId = findCharInstanceId(state, RESOURCE_PLAYER, BOROMIR);
+    // Not auto-attached — Boromir is the only drafted character, exactly the
+    // scenario the old "first eligible in draft order" pairing would have
+    // (coincidentally correctly) auto-picked, but a player choice must still
+    // be offered rather than the engine deciding silently.
+    expect(state.players[RESOURCE_PLAYER].characters[boromirId].items
+      .some(i => i.definitionId === SQUIRE_OF_THE_HUNT)).toBe(false);
+
+    state = runActions(state, [
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: SQUIRE_OF_THE_HUNT, characterInstanceId: boromirId },
     ]);
 
     state = recomputeDerived(state);
