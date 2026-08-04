@@ -190,6 +190,30 @@ describe('Saruman (tw-181)', () => {
     expect(actions.length).toBe(0);
   });
 
+  test('spell fetch not available during the organization phase', () => {
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [SARUMAN] }],
+          hand: [],
+          discardPile: [WIZARDS_LAUGHTER],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
+    const fetchActions = actions.filter(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'saruman-fetch-spell',
+    );
+    expect(fetchActions.length).toBe(0);
+  });
+
   test('spell fetch not available for the hazard player', () => {
     const state = buildTestState({
       phase: Phase.EndOfTurn,
