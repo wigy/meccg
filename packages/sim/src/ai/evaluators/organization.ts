@@ -151,6 +151,15 @@ export const organizationEvaluator: ActionEvaluator = {
         return movingIsWounded ? 15 : 10;
       }
 
+      case 'discard-character':
+        // This heuristic has no model of when giving up a character in play
+        // is worth it (freeing mind, shedding a liability, etc.) — falling
+        // through to the dispatcher's flat default weight made a legal-but-
+        // unscored discard as likely as a good play, so the AI would
+        // occasionally discard a perfectly healthy character for no reason.
+        // Score 0 until the heuristic actually has a reason to volunteer one.
+        return 0;
+
       case 'move-to-company':
         return 2;
 
