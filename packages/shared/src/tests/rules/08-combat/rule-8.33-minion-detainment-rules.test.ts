@@ -132,6 +132,27 @@ describe('Rule 8.33 — Minion/Balrog Detainment Rules', () => {
     })).toBe(false);
   });
 
+  test('3.II.2.R1 negative — creature keyed to Ruins&Lairs (declared) does NOT detain, even though its keyedTo also lists Shadow-hold/Dark-hold as alternatives', () => {
+    // Regression: Orc-lieutenant (tw-073) is keyed to region types
+    // Wilderness/Shadow/Dark *or* site types Ruins&Lairs/Shadow-hold/Dark-hold
+    // — all in one keyedTo entry. Played at a Ruins&Lairs site (The Worthy
+    // Hills), the declared keying match is site-type Ruins&Lairs only. The
+    // engine must not detain the attack just because the card's keyedTo
+    // entry also happens to list Dark-hold/Shadow-hold as an alternative it
+    // could have used elsewhere — only the alternative actually declared for
+    // this play counts (bug report: msf2d55o-4npqlf, seq 1191).
+    expect(isDetainmentAttack({
+      attackRace: Race.Orc,
+      attackKeyedTo: [{
+        regionTypes: [RegionType.Wilderness, RegionType.Shadow, RegionType.Dark],
+        siteTypes: [SiteType.RuinsAndLairs, SiteType.ShadowHold, SiteType.DarkHold],
+      }],
+      attackDeclaredSiteTypes: [SiteType.RuinsAndLairs],
+      attackDeclaredRegionTypes: [],
+      defendingAlignment: Alignment.Ringwraith,
+    })).toBe(false);
+  });
+
   test('3.II.2 — combat-detainment effect on the attack itself → detainment regardless of defender alignment', () => {
     const detainEffect: CombatDetainmentEffect = { type: 'combat-detainment' };
     // Hero company, Wilderness keying, no Ringwraith/Balrog conditions —
