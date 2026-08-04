@@ -140,6 +140,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "certified": "2026-06-04"
   },
@@ -174,6 +177,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "certified": "2026-06-04"
   },
@@ -208,6 +214,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "certified": "2026-06-04"
   },
@@ -253,6 +262,9 @@
       }
     ],
     "text": "Nearest Darkhaven: Geann a-Lisch Playable: Information, Items (minor, major) Automatic-attacks: Dragon — 1 strike with 14 prowess Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site.",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true
   },
   {

@@ -739,6 +739,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 13 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "certified": "2026-06-04"
   },
@@ -772,6 +775,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "certified": "2026-06-04",
     "lairOf": "td-60"
@@ -859,6 +865,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "lairOf": "tw-90",
     "certified": "2026-06-04"
@@ -889,6 +898,9 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess",
+    "keywords": [
+      "hoard"
+    ],
     "unique": true,
     "lairOf": "td-63",
     "certified": "2026-06-22"
