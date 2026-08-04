@@ -52,6 +52,31 @@ export function defOfInstance(
   return undefined;
 }
 
+/**
+ * Whether discarding the given in-play card instance (e.g. via Marvels
+ * Told's forced-discard-a-hazard-event effect) benefits the viewing player
+ * rather than their opponent.
+ *
+ * A hazard-event card attached to the opponent's character, or sitting in
+ * the opponent's `cardsInPlay`, is presumed to be hindering the opponent's
+ * side — discarding it undoes that hindrance and helps *them*, not us.
+ * Conversely, a hazard-event on one of our own characters or in our own
+ * `cardsInPlay` is presumed to be hindering us — discarding it helps us.
+ * Falls back to `true` (beneficial) when the instance can't be located, so
+ * unmodeled zones don't get suppressed to zero.
+ */
+export function discardBenefitsSelf(view: PlayerView, instanceId: CardInstanceId): boolean {
+  for (const c of Object.values(view.self.characters)) {
+    if (c.hazards.some(h => h.instanceId === instanceId)) return true;
+  }
+  for (const c of Object.values(view.opponent.characters)) {
+    if (c.hazards.some(h => h.instanceId === instanceId)) return false;
+  }
+  if (view.self.cardsInPlay.some(c => c.instanceId === instanceId)) return false;
+  if (view.opponent.cardsInPlay.some(c => c.instanceId === instanceId)) return true;
+  return true;
+}
+
 /** Find a character in either player's in-play roster by instance ID. */
 export function findCharacterInPlay(
   view: PlayerView,

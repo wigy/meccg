@@ -136,6 +136,62 @@ describe('movementHazardEvaluator play-hazard sequencing', () => {
   });
 });
 
+function marvelsTold(discardTargetInstanceId: string): GameAction {
+  return {
+    type: 'play-short-event',
+    player: 'p2',
+    cardInstanceId: 'td-134-instance',
+    targetScoutInstanceId: 'scout-instance',
+    discardTargetInstanceId,
+  } as unknown as GameAction;
+}
+
+describe('movementHazardEvaluator play-short-event discard targeting', () => {
+  // Bug report: the AI played Marvels Told (forces discard of an in-play
+  // hazard-event) and chose to discard Foolish Words off Faramir — but
+  // Faramir was in the *opponent's* company, so removing it undid the AI's
+  // own hindrance and benefited the opponent instead of the AI. Meanwhile
+  // the same legal-action set offered discarding Power Built by Waiting,
+  // an opponent-played hazard raising the limit against the AI's own
+  // company — the actually beneficial choice, left unscored alongside the
+  // harmful one.
+  test('scores discarding a hazard-event on the opponent\'s character as zero', () => {
+    const context: AiContext = {
+      view: {
+        self: { hand: [], characters: {}, cardsInPlay: [] },
+        opponent: {
+          companies: [],
+          characters: {
+            'p1-101': { hazards: [{ instanceId: 'p2-91', definitionId: 'le-112' }] },
+          },
+          cardsInPlay: [],
+        },
+      } as unknown as PlayerView,
+      cardPool: POOL,
+      legalActions: [],
+    };
+
+    expect(movementHazardEvaluator.score(marvelsTold('p2-91'), context)).toBe(0);
+  });
+
+  test('scores discarding an opponent\'s board-wide hazard event above zero', () => {
+    const context: AiContext = {
+      view: {
+        self: { hand: [], characters: {}, cardsInPlay: [] },
+        opponent: {
+          companies: [],
+          characters: {},
+          cardsInPlay: [{ instanceId: 'p1-52', definitionId: 'as-34' }],
+        },
+      } as unknown as PlayerView,
+      cardPool: POOL,
+      legalActions: [],
+    };
+
+    expect(movementHazardEvaluator.score(marvelsTold('p1-52'), context)).toBeGreaterThan(0);
+  });
+});
+
 function placeOnGuard(cardInstanceId: string): GameAction {
   return { type: 'place-on-guard', player: 'p2', cardInstanceId } as unknown as GameAction;
 }
