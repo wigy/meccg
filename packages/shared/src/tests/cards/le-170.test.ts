@@ -30,6 +30,7 @@
  * |---|------------------------------------------------------------|-------------|--------------------------------------------------------------------|
  * | 1 | Black Rider mode established on the company                 | IMPLEMENTED | `ringwraith-mode` effect read by `resolveCompanyRingwraithMode`     |
  * | 2 | Playable at a Darkhaven on the Ringwraith's company         | IMPLEMENTED | `play-target` company + `target.siteType: haven` filter             |
+ * | 2b| Only on your Ringwraith's own company (not any company)    | IMPLEMENTED | `target.hasRingwraith` filter requires a `race: ringwraith` character |
  * | 3 | The company may move to a non-Darkhaven site                | IMPLEMENTED | `ringwraithHasModeCard` lifts the Darkhaven-only movement gate       |
  * | 4 | Discard this card + Ringwraith followers at a Darkhaven org | IMPLEMENTED | `on-event: organization-phase-start` self-discard w/ `alsoDiscardCompanyFollowers` → `purgeCompanyFollowers` when `atHaven` |
  * | 5 | Cannot be duplicated on a given company                     | IMPLEMENTED | `duplication-limit` scope "company", max 1                          |
@@ -144,6 +145,21 @@ describe('Black Rider (le-170)', () => {
       hand: [BLACK_RIDER],
       site: DEAD_MARSHES,
       siteDeck: [DOL_GULDUR],
+    });
+
+    const plays = viableActions(state, PLAYER_1, 'play-permanent-event')
+      .map(ea => ea.action as PlayPermanentEventAction)
+      .filter(a => a.cardInstanceId === state.players[0].hand[0].instanceId);
+
+    expect(plays).toHaveLength(0);
+  });
+
+  test('not playable on a company at a Darkhaven that does not contain the Ringwraith', () => {
+    // Gorbag (a non-avatar orc, not the Ringwraith) leads the company alone.
+    const state = ringwraithAtDolGuldur({
+      phase: Phase.Organization,
+      hand: [BLACK_RIDER],
+      characters: [GORBAG],
     });
 
     const plays = viableActions(state, PLAYER_1, 'play-permanent-event')

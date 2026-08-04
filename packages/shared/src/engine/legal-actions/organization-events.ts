@@ -934,9 +934,15 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             const cDef = defById(state, ch.definitionId);
             return n + (cDef && 'race' in cDef && (cDef as { race: Race }).race === Race.Orc ? 1 : 0);
           }, 0);
-          const ctx = { target: { siteType, memberCount, overt, orcCount } };
+          const hasRingwraith = company.characters.some(cId => {
+            const ch = player.characters[cId];
+            if (!ch) return false;
+            const cDef = defById(state, ch.definitionId);
+            return cDef && 'race' in cDef && (cDef as { race: Race }).race === Race.Ringwraith;
+          });
+          const ctx = { target: { siteType, memberCount, overt, orcCount, hasRingwraith } };
           if (!matchesCondition(playTarget.filter, ctx)) {
-            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount})`);
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount}, hasRingwraith=${String(hasRingwraith)})`);
             continue;
           }
         }
