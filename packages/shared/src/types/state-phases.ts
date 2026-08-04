@@ -939,16 +939,6 @@ export interface SitePhaseState {
    */
   readonly uniqueHeroFactionPlayedAtFreeHold?: boolean;
   /**
-   * Whether the active company has, this site phase, successfully played **any**
-   * faction (of any type) at its current site. Set when a faction resolves
-   * (`resolveInfluenceAttemptRoll`); consulted by the `company-context`
-   * play-condition via `company.playedFactionHere` so a card can gate on "if you
-   * have played a faction there" (No Strangers at this Time, as-51). Absent
-   * (undefined → false) until such a faction is played; reset to absent when a
-   * new company's site phase begins (a fresh {@link SitePhaseState} is built).
-   */
-  readonly factionPlayedThisSitePhase?: boolean;
-  /**
    * Whether the active company has, this site phase, **successfully freed
    * characters taken prisoner while standing at Dol Guldur** — either by
    * playing Rescue Prisoners (tw-315) there and keeping it (a bearer was

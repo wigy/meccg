@@ -206,4 +206,17 @@ export interface PlayerState {
     readonly sourceCardInstanceId: CardInstanceId;
     readonly creature: CardInstance;
   }[];
+  /**
+   * Site locations (by definitionId — "any version of this site", matching
+   * the identity keying used elsewhere for this card family, e.g.
+   * `CardInPlay.attachedToSite`) where this player has, at some point in the
+   * game, successfully played a faction. Set once and never cleared — unlike
+   * `SitePhaseState.factionPlayedThisSitePhase`, which only reflects the
+   * *current* site-phase visit. Consulted by the `company-context`
+   * play-condition (`company.playedFactionHere`) for No Strangers at this
+   * Time (as-51): "Playable during the site phase … if you have played a
+   * faction there" is a persistent fact about the site, not scoped to the
+   * same visit as the faction play.
+   */
+  readonly factionsPlayedAtSites?: Readonly<Record<CardDefinitionId, true>>;
 }

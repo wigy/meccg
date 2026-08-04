@@ -3793,7 +3793,19 @@ export function resolveInfluenceAttemptRoll(
       ? { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, controlledBy: charId, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) }
       : { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) };
     const newCardsInPlay = [...player.cardsInPlay, factionEntry];
-    newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
+    // No Strangers at this Time (as-51): "if you have played a faction there"
+    // is a persistent fact about the site, so record it by definitionId
+    // (any version of this site) and never clear it — see
+    // PlayerState.factionsPlayedAtSites.
+    const siteDefIdForHistory = siteInPlay?.definitionId;
+    const newFactionsPlayedAtSites = siteDefIdForHistory
+      ? { ...player.factionsPlayedAtSites, [siteDefIdForHistory]: true as const }
+      : player.factionsPlayedAtSites;
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      cardsInPlay: newCardsInPlay,
+      ...(newFactionsPlayedAtSites ? { factionsPlayedAtSites: newFactionsPlayedAtSites } : {}),
+    };
 
     // Rule 2.V.5: a successful resource that taps the site opens the
     // additional-minor-item window. Taking the faction under control leaves
@@ -3825,7 +3837,6 @@ export function resolveInfluenceAttemptRoll(
         ...siteState,
         resourcePlayed: true,
         minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
-        factionPlayedThisSitePhase: true,
         ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);

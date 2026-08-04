@@ -2898,12 +2898,17 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
  * character-targeting permanent event).
  *
  * Exposes `{ site: { name, type, isOwnWizardhaven }, company: { characterNames,
- * itemNames, allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames`
- * aggregates every item / attached permanent event borne by any character in
- * the company, so a card can gate on "in the same company as <named card>" (the
- * named card being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold`
- * is the caller-supplied site-phase flag (true only when this company has, this
- * site phase, played a unique hero faction at a Free-hold that is not Bag End).
+ * itemNames, allyNames, playedUniqueHeroFactionAtFreeHold, playedFactionHere } }`.
+ * `itemNames` aggregates every item / attached permanent event borne by any
+ * character in the company, so a card can gate on "in the same company as
+ * <named card>" (the named card being attached to a company-mate).
+ * `playedUniqueHeroFactionAtFreeHold` is the caller-supplied site-phase flag
+ * (true only when this company has, this site phase, played a unique hero
+ * faction at a Free-hold that is not Bag End). `playedFactionHere` is derived
+ * from `player.factionsPlayedAtSites` — a persistent, never-cleared record of
+ * every site (by definitionId) where this player has ever played a faction —
+ * since "if you have played a faction there" (No Strangers at this Time,
+ * as-51) is a fact about the site, not scoped to the current site-phase visit.
  * `site.isOwnWizardhaven` is `true` when the company's current site is one of the
  * player's own Wizardhavens (a Fallen-wizard haven, or a site converted into one
  * via Hidden Haven wh-75) — this is what "at one of your Wizardhavens [{H}]"
@@ -2920,7 +2925,6 @@ export function matchesCompanyContextCondition(
   company: Company,
   condition: Condition,
   playedUniqueHeroFactionAtFreeHold: boolean,
-  playedFactionHere = false,
 ): boolean {
   const siteDefId = company.currentSite?.definitionId;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
@@ -2931,6 +2935,7 @@ export function matchesCompanyContextCondition(
     player.alignment,
     siteDefId ? { state, siteDefinitionId: siteDefId, playerId: player.id } : undefined,
   );
+  const playedFactionHere = siteDefId != null && !!player.factionsPlayedAtSites?.[siteDefId];
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];
