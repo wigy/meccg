@@ -20,7 +20,7 @@ import {
   CardStatus,
   ARAGORN, FARAMIR, LEGOLAS,
   MINAS_TIRITH, MORIA, LORIEN,
-  buildSitePhaseState, buildTestState, makePlayDeck,
+  buildSitePhaseState, buildDualHandSitePhaseState, buildTestState, makePlayDeck,
   resetMint, viableActions, attachItemToChar,
   findCharInstanceId, dispatch, mint,
 } from '../test-helpers.js';
@@ -73,7 +73,7 @@ describe('Return of the King (tw-316)', () => {
     expect(act.targetCharacterId).toBe(aragornId);
   });
 
-  // ── play-flag: any-phase-site-target (rule 2.1.1) ──
+  // ── Rule 2.1.1: playable at any phase, not gated behind `enter-site` ──
   // Bug report: RotK's text carries no "playable during the site phase"
   // wording (unlike its site-targeting siblings), so per rule 2.1.1 it must
   // remain playable during any phase of the resource player's turn — not
@@ -92,6 +92,25 @@ describe('Return of the King (tw-316)', () => {
         },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const act = actions[0].action as PlayPermanentEventAction;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    expect(act.targetCharacterId).toBe(aragornId);
+  });
+
+  test('IS playable during the site phase before enter-site, once the company is already at Minas Tirith', () => {
+    // Reproduces a reported bug: the company had already arrived at Minas
+    // Tirith (currentSite set), but the card was only offered after
+    // `enter-site` resolved — even though its text declares no site-phase
+    // timing and rule 2.1.1 allows resource permanent-events at any phase.
+    const state = buildDualHandSitePhaseState({
+      site: MINAS_TIRITH,
+      resourceCharacters: [ARAGORN],
+      resourceHand: [RETURN_OF_THE_KING],
+      step: 'enter-or-skip',
+      siteEntered: false,
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBe(1);

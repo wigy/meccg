@@ -870,11 +870,15 @@ export function playCharacterActions(
         continue;
       }
 
+      // Rule 2.II.2.2.1: playing a character under general influence is
+      // always legal "regardless of whether doing so would exceed [the]
+      // maximum general influence" — the excess is only settled once, at
+      // the end of the organization phase (CoE 3.47, see
+      // `influence-overflow.ts`), never as a play-time gate. `remainingGI`
+      // is therefore purely informational here (logging); it must not block
+      // a general-influence play the way it correctly caps a direct-influence
+      // one below.
       const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
-      // Gate on the lowest achievable cost (an agent summonable at a Darkhaven
-      // pays mind − 1 there even if the full mind is unaffordable). Per-site
-      // affordability is re-checked in the loop below.
-      const canPlayUnderGI = minCostMind <= remainingGI;
 
       // Find characters with enough DI to control this character as a follower.
       // Only characters under general influence can take followers. The Balrog
@@ -893,16 +897,6 @@ export function playCharacterActions(
         if (avail >= minCostMind) {
           diControllers.push({ instanceId: key, name: ctrlDef.name, availDI: avail });
         }
-      }
-
-      if (!canPlayUnderGI && diControllers.length === 0) {
-        logDetail(`  → blocked: mind cost ${minCostMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
-        results.push({
-          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-          viable: false,
-          reason: `${charName}: mind ${minCostMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
-        });
-        continue;
       }
 
       // Generate viable actions for each (site, controlledBy) combination
@@ -951,8 +945,10 @@ export function playCharacterActions(
         if (site.directInfluenceOnly) {
           logDetail(`  → GI play skipped at ${site.siteName}: agent may only be played under direct influence here (allow-agent-play)`);
         }
-        if (giCostHere <= remainingGI && giAllowedAtSite && !site.directInfluenceOnly) {
-          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${giCostHere}, remaining GI ${remainingGI})${influenceFreeHere ? ' — influence waived by a company-influence-exempt card' : ''}${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
+        if (giAllowedAtSite && !site.directInfluenceOnly) {
+          // Rule 2.II.2.2.1: GI play is legal even past `remainingGI` — the
+          // overflow settles at end of phase (CoE 3.47), not here.
+          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${giCostHere}, remaining GI ${remainingGI}${giCostHere > remainingGI ? ' — exceeds it, settled at end of organization phase per CoE 3.47' : ''})${influenceFreeHere ? ' — influence waived by a company-influence-exempt card' : ''}${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {
               type: 'play-character',

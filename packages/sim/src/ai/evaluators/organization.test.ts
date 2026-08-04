@@ -231,6 +231,18 @@ describe('organizationEvaluator plan-movement wounded routing', () => {
   });
 });
 
+describe('organizationEvaluator discard-character', () => {
+  // Regression: an unscored discard-character action fell through to the
+  // dispatcher's default weight (1), tying it with other weak actions and
+  // letting the AI occasionally discard a healthy, undamaged character
+  // (e.g. Glorfindel II) for no strategic reason.
+  test('scores 0 — never voluntarily discard a character in play', () => {
+    const action = { type: 'discard-character', player: 'p2', characterInstanceId: 'p2-102' } as unknown as GameAction;
+    const context: AiContext = { view: makeView([]), cardPool: POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+});
+
 describe('organizationEvaluator pass suppression', () => {
   // Regression: a healthy company holding a playable item passed the
   // organization phase instead of declaring movement to a site where the
@@ -245,5 +257,24 @@ describe('organizationEvaluator pass suppression', () => {
     const view = makeView([{ instanceId: 's2', definitionId: 'tw-408' }]);
     const context: AiContext = { view, cardPool: POOL, legalActions: [planMovement('s2'), PASS] };
     expect(organizationEvaluator.score(PASS, context)).toBe(5);
+  });
+});
+
+describe('organizationEvaluator discard-character', () => {
+  // Regression: with no case for 'discard-character', the dispatcher's flat
+  // default weight (1) made discarding a healthy, useful character as likely
+  // as any good play — the AI discarded Anborn (a follower at a haven, so
+  // rule 3.22 legally allowed the discard) for no reason (bug report:
+  // game msdenbx7-gcyhn5, stateSeq 376). The heuristic has no model of when
+  // a voluntary discard is worth it, so it must score 0 until it does.
+  function discardCharacter(characterInstanceId: string): GameAction {
+    return { type: 'discard-character', player: 'p2', characterInstanceId } as unknown as GameAction;
+  }
+
+  test('scores 0 for discarding a character', () => {
+    const view = makeView([]);
+    const action = discardCharacter('anborn');
+    const context: AiContext = { view, cardPool: POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
   });
 });

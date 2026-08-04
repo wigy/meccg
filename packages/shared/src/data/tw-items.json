@@ -1037,8 +1037,7 @@
     "unique": false,
     "subtype": "minor",
     "keywords": [
-      "starting-item",
-      "weapon"
+      "starting-item"
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",

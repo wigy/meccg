@@ -34,7 +34,7 @@ import {
   addCardInPlay, attachItemToChar,
   charIdAt, dispatch,
   RESOURCE_PLAYER, HAZARD_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, expectInPile,
 } from '../test-helpers.js';
 import type { CardDefinitionId, EndOfTurnPhaseState } from '../../index.js';
 import { computeLegalActions, Alignment } from '../../index.js';
@@ -180,8 +180,9 @@ describe('Rumor of the One (le-224)', () => {
     )).toBe(true);
 
     // Completing the exhaust (pass) fires play-deck-exhausted → self-discard.
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
-    expectInDiscardPile(afterPass, RESOURCE_PLAYER, RUMOR_OF_THE_ONE);
+    expectInPile(afterPass, RESOURCE_PLAYER, 'playDeck', RUMOR_OF_THE_ONE);
     expect(afterPass.players[RESOURCE_PLAYER].cardsInPlay.some(
       c => c.definitionId === RUMOR_OF_THE_ONE,
     )).toBe(false);

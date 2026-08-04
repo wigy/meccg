@@ -151,6 +151,15 @@ export const organizationEvaluator: ActionEvaluator = {
         return movingIsWounded ? 15 : 10;
       }
 
+      case 'discard-character':
+        // This heuristic has no model of when giving up a character in play
+        // is worth it (freeing mind, shedding a liability, etc.) — falling
+        // through to the dispatcher's flat default weight made a legal-but-
+        // unscored discard as likely as a good play, so the AI would
+        // occasionally discard a perfectly healthy character for no reason.
+        // Score 0 until the heuristic actually has a reason to volunteer one.
+        return 0;
+
       case 'move-to-company':
         return 2;
 
@@ -173,6 +182,15 @@ export const organizationEvaluator: ActionEvaluator = {
         // Never shuffle items around — the AI lacks the tactical depth to
         // know when a transfer is beneficial, and random transfers just
         // waste actions.
+        return 0;
+
+      case 'discard-character':
+        // Never voluntarily discard a character in play — the AI has no
+        // evaluation of when giving up a character's marshalling points,
+        // items, and mind investment is worth it, so an unscored discard
+        // fell through to the default weight (1) and tied with (or beat)
+        // other weak-but-harmless actions, occasionally throwing away a
+        // healthy, undamaged character for no reason.
         return 0;
 
       case 'activate-granted-action':

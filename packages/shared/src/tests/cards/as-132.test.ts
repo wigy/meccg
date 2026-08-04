@@ -27,7 +27,10 @@
  *    restriction *replaces* the site's `playableResources` gate — which is why
  *    a **greater** item is playable at Ovir Hollow (as-157) even though the
  *    site lists only minor/major items. A Ruins & Lairs that does list greater
- *    items but has no hoard (Dancing Spire as-143) is still refused.
+ *    items but has no hoard (The Pûkel-deeps as-158, keyword `under-deeps`
+ *    rather than `hoard`) is still refused. Every Dragon's-lair Ruins & Lairs
+ *    (including the minion ones, e.g. Dancing Spire as-143) carries the
+ *    `hoard` keyword per CoE g.hoa.1.
  *  - Rule 4 reads the candidate's **effective** prowess (printed + modifiers
  *    from cards already borne). The item being played is not attached yet, so
  *    its own warrior bonus never feeds its own gate.
@@ -43,7 +46,7 @@
  *  - ORC_CAPTAIN (le-31):         orc warrior, prowess 5, body 8 — ineligible bearer
  *  - REN (le-56):                 Ringwraith avatar, prowess 8, body 10, NO warrior skill
  *  - OVIR_HOLLOW (as-157):        minion Ruins & Lairs *with a hoard*
- *  - DANCING_SPIRE (as-143):      minion Ruins & Lairs, no hoard (but lists greater items)
+ *  - THE_PUKEL_DEEPS (as-158):    minion Ruins & Lairs, no hoard (lists greater items)
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -72,7 +75,8 @@ const REN = 'le-56' as CardDefinitionId;                  // no warrior skill, p
 
 // Sites.
 const OVIR_HOLLOW = 'as-157' as CardDefinitionId;   // minion R&L WITH a hoard (minor/major only)
-const DANCING_SPIRE = 'as-143' as CardDefinitionId; // minion R&L, no hoard (lists greater items)
+const DANCING_SPIRE = 'as-143' as CardDefinitionId; // minion R&L Dragon's lair (hoard)
+const THE_PUKEL_DEEPS = 'as-158' as CardDefinitionId; // minion R&L, no hoard (lists greater items)
 const DOL_GULDUR = 'le-367' as CardDefinitionId;    // minion Darkhaven
 const MINAS_TIRITH = 'tw-407' as CardDefinitionId;  // hero site for the opposing player
 const TW_RIVENDELL = 'tw-404' as CardDefinitionId;
@@ -209,9 +213,19 @@ describe('Thong of Fire (as-132)', () => {
   });
 
   test('not playable at a Ruins & Lairs without a hoard, even one that allows greater items', () => {
-    // Dancing Spire lists minor/major/greater/gold-ring but has no hoard.
-    const state = sitePhaseWith(DANCING_SPIRE, LIEUTENANT_OF_MORGUL);
+    // The Pûkel-deeps lists minor/major/greater/gold-ring but has no hoard
+    // (its keyword is `under-deeps`, not `hoard`).
+    const state = sitePhaseWith(THE_PUKEL_DEEPS, LIEUTENANT_OF_MORGUL);
     expect(eligibleBearers(state)).toHaveLength(0);
+  });
+
+  test('playable at a minion Dragon-lair Ruins & Lairs (hoard keyword, per CoE g.hoa.1)', () => {
+    // Regression test: Dancing Spire (as-143) has a permanent Dragon
+    // automatic-attack and must carry the `hoard` keyword like its hero-side
+    // counterpart (tw-383), so hoard items are playable there too.
+    const state = sitePhaseWith(DANCING_SPIRE, LIEUTENANT_OF_MORGUL);
+    const lieutenant = findCharInstanceId(state, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL);
+    expect(eligibleBearers(state)).toContain(lieutenant);
   });
 
   // ── Rule 4: may only be borne by a character with prowess 6 or more ───────

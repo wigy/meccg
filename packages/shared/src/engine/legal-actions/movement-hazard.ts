@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch, deriveFacedRaces } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch, deriveFacedRaces } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -2042,6 +2042,22 @@ function playHazardsActions(
         cardInstanceId: cardInstId,
         targetCompanyId: targetCompany.id,
       };
+
+      // play-condition: active-player-deck-size (Great Secrets Buried There
+      // dm-63: "Playable if opponent has at least ten cards in his play
+      // deck"). "Opponent" from the hazard player's perspective is always the
+      // active player — the owner of the company being hazarded.
+      {
+        const deckSizeCond = findPlayConditionEffect(def, 'active-player-deck-size');
+        if (deckSizeCond?.minDeckSize !== undefined) {
+          const deckSize = activePlayerDeckSize(state);
+          if (deckSize < deckSizeCond.minDeckSize) {
+            logDetail(`Hazard "${def.name}": requires at least ${deckSizeCond.minDeckSize} cards in ${resourcePlayer.name}'s play deck (has ${deckSize})`);
+            actions.push({ action, viable: false, reason: `${def.name}: opponent needs at least ${deckSizeCond.minDeckSize} cards in play deck` });
+            continue;
+          }
+        }
+      }
 
       // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
       // a card named by any in-play `prohibit-card-play` effect may not be

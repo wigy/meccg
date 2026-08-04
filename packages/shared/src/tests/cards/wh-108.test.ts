@@ -42,7 +42,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  viableActions, viablePlayCharacterActions, addCardInPlay, recomputeDerived,
+  viableActions, viablePlayCharacterActions, addCardInPlay, recomputeDerived, dispatch,
   effectiveGeneralInfluence, generalInfluenceControlLimit,
   ARAGORN, GLORFINDEL_II, HALDIR, BEREGOND, KILI,
   ISENGARD, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -130,7 +130,7 @@ describe('Truths of Doom (wh-108)', () => {
     });
   }
 
-  test('with Truths of Doom, a mind-2 character fits under GI but a mind-3 does not', () => {
+  test('with Truths of Doom, a mind-2 character fits under the control limit but a mind-3 overflows it', () => {
     let state = heroMax20([BEREGOND, KILI]); // BEREGOND mind 2, Kíli mind 3
     state = addCardInPlay(state, RESOURCE_PLAYER, TRUTHS_OF_DOOM);
     state = recomputeDerived(state);
@@ -146,22 +146,38 @@ describe('Truths of Doom (wh-108)', () => {
     const kiliId     = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === KILI)!.instanceId;
     const plays = viablePlayCharacterActions(state, PLAYER_1);
 
-    // Beregond (mind 2 ≤ remaining control 2) may be played under general influence.
-    expect(plays.some(a => a.characterInstanceId === beregondId && a.controlledBy === 'general')).toBe(true);
-    // Kíli (mind 3 > remaining control 2) may NOT — the +6 gave only +2 for characters.
-    expect(plays.some(a => a.characterInstanceId === kiliId && a.controlledBy === 'general')).toBe(false);
+    // Both plays are legal — CoE 2.II.2.2.1 makes a GI play legal regardless
+    // of whether it exceeds the control limit; the overflow settles at the
+    // end of the organization phase (CoE 3.47).
+    const beregondPlay = plays.find(a => a.characterInstanceId === beregondId && a.controlledBy === 'general');
+    const kiliPlay = plays.find(a => a.characterInstanceId === kiliId && a.controlledBy === 'general');
+    expect(beregondPlay).toBeDefined();
+    expect(kiliPlay).toBeDefined();
+
+    // Beregond (mind 2) exactly fills the +2 the card grants for control: no overflow.
+    const withBeregond = dispatch(state, beregondPlay!);
+    expect(withBeregond.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(22);
+
+    // Kíli (mind 3) exceeds the +2 by 1 — the +6 gave only +2 for control, so
+    // he pushes the pool one point past its limit.
+    const withKili = dispatch(state, kiliPlay!);
+    expect(withKili.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(23);
   });
 
-  test('control: without Truths of Doom, the same mind-2 character cannot be played under GI', () => {
+  test('control: without Truths of Doom, the same mind-2 character overflows the pool when played under GI', () => {
     const state = heroMax20([BEREGOND]); // no Truths of Doom in play → control budget stays 20
     expect(state.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(20);
     expect(generalInfluenceControlLimit(state, PLAYER_1)).toBe(20);
 
     const beregondId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === BEREGOND)!.instanceId;
     const plays = viablePlayCharacterActions(state, PLAYER_1);
-
-    // Remaining control influence is 0, so no general-influence play is offered.
-    expect(plays.some(a => a.characterInstanceId === beregondId && a.controlledBy === 'general')).toBe(false);
+    const beregondPlay = plays.find(a => a.characterInstanceId === beregondId && a.controlledBy === 'general');
+    // The play is still legal (CoE 2.II.2.2.1) even with the pool exhausted…
+    expect(beregondPlay).toBeDefined();
+    // …but it overflows the control limit by his full mind, to be settled at
+    // the end of the organization phase (CoE 3.47).
+    const after = dispatch(state, beregondPlay!);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(22);
   });
 
   // ─── Rule: Pallando specific ──────────────────────────────────────────────

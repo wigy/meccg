@@ -1812,6 +1812,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   for (const other of state.players) {
     for (const card of other.cardsInPlay) {
       if (card.setAsideHost === undefined) continue;
+      if (card.setAsideNoMp) continue;
       if (ownerOf(card.instanceId) !== player.id) continue;
       const def = resolveDef(state, card.instanceId);
       if (def) mp = addMP(mp, def, player.alignment);

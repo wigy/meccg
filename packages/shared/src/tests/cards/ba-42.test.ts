@@ -33,7 +33,7 @@ import {
   addCardInPlay,
   dispatch, viableActions,
   RESOURCE_PLAYER,
-  expectInDiscardPile,
+  expectInPile,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CompanyId, SitePhaseState, EndOfTurnPhaseState, Alignment } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -212,7 +212,8 @@ describe('Prone to Violence (ba-42)', () => {
     expect(afterExhaust.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === PRONE_TO_VIOLENCE)).toBe(true);
 
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
-    expectInDiscardPile(afterPass, RESOURCE_PLAYER, PRONE_TO_VIOLENCE);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expectInPile(afterPass, RESOURCE_PLAYER, 'playDeck', PRONE_TO_VIOLENCE);
     expect(afterPass.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === PRONE_TO_VIOLENCE)).toBe(false);
   });
 

@@ -3245,6 +3245,36 @@ export function desireBellyChoosePenaltyActions(
 }
 
 /**
+ * Legal actions while a `great-secrets-choose-item` resolution is pending
+ * (Great Secrets Buried There, dm-63): the deck owner must choose one of the
+ * revealed eligible items to place off to the side under the host card. One
+ * `choose-set-aside-item` action per eligible item; the choice is mandatory
+ * (no pass).
+ */
+export function greatSecretsChooseItemActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'great-secrets-choose-item') return [];
+  const { eligibleInstanceIds, deckOwnerId } = top.kind;
+  const deckOwner = playerById(state, deckOwnerId);
+  if (!deckOwner) return [];
+  const inDeck = new Set(deckOwner.playDeck.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of eligibleInstanceIds) {
+    if (!inDeck.has(id as string)) continue;
+    const card = deckOwner.playDeck.find(c => c.instanceId === id)!;
+    logDetail(`Great Secrets Buried There: offering to set aside "${cardName(state, card.definitionId)}"`);
+    actions.push({
+      action: { type: 'choose-set-aside-item' as const, player: actor, cardInstanceId: id },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Legal actions while a `tap-or-roll-choice` resolution is pending (A Lie in
  * Your Eyes, as-23): the defending player must choose one of tap the
  * character, tap an untapped ally the character controls (one action per

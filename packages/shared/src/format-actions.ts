@@ -613,6 +613,8 @@ export function describeAction(
       return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
     case 'choose-revealed-card':
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
+    case 'choose-set-aside-item':
+      return `${playerName(action.player)} sets aside revealed item ${instName(action.cardInstanceId)} (Great Secrets Buried There)`;
     case 'remove-revealed-card':
       return `${playerName(action.player)} removes revealed card ${instName(action.cardInstanceId)} from play (opponent's discard → out of play)`;
     case 'desire-choose-shown-card':

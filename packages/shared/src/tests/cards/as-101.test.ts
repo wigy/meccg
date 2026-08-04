@@ -26,7 +26,7 @@ import {
   addCardInPlay, attachItemToChar,
   dispatch,
   RESOURCE_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, expectInPile,
 } from '../test-helpers.js';
 import type { CardDefinitionId, StoreItemAction, EndOfTurnPhaseState } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -176,7 +176,10 @@ describe('Tokens to Show (as-101)', () => {
 
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
 
-    expectInDiscardPile(afterPass, RESOURCE_PLAYER, TOKENS_TO_SHOW);
+    // Tokens to Show discards, but since it's P1's own deck exhausting,
+    // CRF 22 "Exhausted" shuffles it into the new play deck along with the
+    // rest of the discard pile rather than leaving it in discardPile.
+    expectInPile(afterPass, RESOURCE_PLAYER, 'playDeck', TOKENS_TO_SHOW);
     expect(afterPass.players[RESOURCE_PLAYER].cardsInPlay.some(
       c => c.definitionId === TOKENS_TO_SHOW,
     )).toBe(false);

@@ -2185,6 +2185,16 @@ export function findPlayConditionEffect(
 }
 
 /**
+ * Number of cards in {@link GameState.activePlayer}'s play deck. Backs the
+ * `play-condition` `requires: 'active-player-deck-size'` gate (Great Secrets
+ * Buried There, dm-63) — see {@link PlayConditionEffect.minDeckSize} for why
+ * the active player is always the correct party to check.
+ */
+export function activePlayerDeckSize(state: GameState): number {
+  return state.players.find(p => p.id === state.activePlayer)?.playDeck.length ?? 0;
+}
+
+/**
  * The site name whose rescues Pass the Doors of Dol Guldur (dm-154) keys on.
  * Matched by name so that any printing of the site counts.
  */
@@ -2888,12 +2898,17 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
  * character-targeting permanent event).
  *
  * Exposes `{ site: { name, type, isOwnWizardhaven }, company: { characterNames,
- * itemNames, allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames`
- * aggregates every item / attached permanent event borne by any character in
- * the company, so a card can gate on "in the same company as <named card>" (the
- * named card being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold`
- * is the caller-supplied site-phase flag (true only when this company has, this
- * site phase, played a unique hero faction at a Free-hold that is not Bag End).
+ * itemNames, allyNames, playedUniqueHeroFactionAtFreeHold, playedFactionHere } }`.
+ * `itemNames` aggregates every item / attached permanent event borne by any
+ * character in the company, so a card can gate on "in the same company as
+ * <named card>" (the named card being attached to a company-mate).
+ * `playedUniqueHeroFactionAtFreeHold` is the caller-supplied site-phase flag
+ * (true only when this company has, this site phase, played a unique hero
+ * faction at a Free-hold that is not Bag End). `playedFactionHere` is derived
+ * from `player.factionsPlayedAtSites` — a persistent, never-cleared record of
+ * every site (by definitionId) where this player has ever played a faction —
+ * since "if you have played a faction there" (No Strangers at this Time,
+ * as-51) is a fact about the site, not scoped to the current site-phase visit.
  * `site.isOwnWizardhaven` is `true` when the company's current site is one of the
  * player's own Wizardhavens (a Fallen-wizard haven, or a site converted into one
  * via Hidden Haven wh-75) — this is what "at one of your Wizardhavens [{H}]"
@@ -2910,7 +2925,6 @@ export function matchesCompanyContextCondition(
   company: Company,
   condition: Condition,
   playedUniqueHeroFactionAtFreeHold: boolean,
-  playedFactionHere = false,
 ): boolean {
   const siteDefId = company.currentSite?.definitionId;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
@@ -2921,6 +2935,7 @@ export function matchesCompanyContextCondition(
     player.alignment,
     siteDefId ? { state, siteDefinitionId: siteDefId, playerId: player.id } : undefined,
   );
+  const playedFactionHere = siteDefId != null && !!player.factionsPlayedAtSites?.[siteDefId];
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];
@@ -3514,24 +3529,16 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * so an opponent-owned hazard goes back to the opponent's pile.
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
-  const player = state.players[playerIndex];
-  const newExhaustionCount = player.deckExhaustionCount + 1;
-  logHeading(`Deck exhaustion #${newExhaustionCount} complete for ${player.name}`);
+  const startingPlayer = state.players[playerIndex];
+  logHeading(`Deck exhaustion #${startingPlayer.deckExhaustionCount + 1} complete for ${startingPlayer.name}`);
 
-  const [newPlayDeck, newRng] = shuffle([...player.discardPile], state.rng);
-  logDetail(`Shuffled ${player.discardPile.length} card(s) from discard into new play deck`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    playDeck: newPlayDeck,
-    discardPile: [],
-    deckExhaustionCount: newExhaustionCount,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-  };
-
-  let result: GameState = { ...state, players: newPlayers, rng: newRng };
+  // CoE rule 2.4 / CRF 22 "Exhausted": cards discarded because a play deck is
+  // exhausted must land in the discard pile *before* it is shuffled into the
+  // new play deck, so they get shuffled in with the rest rather than
+  // stranded in the freshly-emptied pile. So the play-deck-exhausted discard
+  // cascade below runs first; the shuffle (at the end of this function)
+  // reads the discard pile afterward.
+  let result: GameState = state;
 
   // Fire play-deck-exhausted: discard permanent events that auto-discard on deck exhaustion.
   for (let pi = 0; pi < 2; pi++) {
@@ -3541,6 +3548,17 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
       const def = defById(result, card.definitionId);
       if (getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) {
         toDiscard.push(card);
+      }
+    }
+    // Echo of All Joy (td-110): a discarded protector's attached long-event
+    // (`CardInPlay.attachedToLongEvent`) is discarded along with it — mirrors
+    // the postReduce `sweepProtectedLongEventCascade`, applied here up front
+    // so the target lands in the discard pile before this player's shuffle.
+    for (const card of [...toDiscard]) {
+      if (card.attachedToLongEvent === undefined) continue;
+      const target = p.cardsInPlay.find(c => c.instanceId === card.attachedToLongEvent);
+      if (target && !toDiscard.some(c => c.instanceId === target.instanceId)) {
+        toDiscard.push(target);
       }
     }
     if (toDiscard.length === 0) continue;
@@ -3585,7 +3603,22 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     }
   }
 
-  return result;
+  const exhaustingPlayer = result.players[playerIndex];
+  const newExhaustionCount = exhaustingPlayer.deckExhaustionCount + 1;
+  const [newPlayDeck, newRng] = shuffle([...exhaustingPlayer.discardPile], result.rng);
+  logDetail(`Shuffled ${exhaustingPlayer.discardPile.length} card(s) from discard into new play deck`);
+
+  const newPlayers = clonePlayers(result);
+  newPlayers[playerIndex] = {
+    ...exhaustingPlayer,
+    playDeck: newPlayDeck,
+    discardPile: [],
+    deckExhaustionCount: newExhaustionCount,
+    deckExhaustPending: false,
+    deckExhaustExchangeCount: 0,
+  };
+
+  return { ...result, players: newPlayers, rng: newRng };
 }
 
 /**

@@ -1697,6 +1697,36 @@ export interface RevealDeckChoosePenaltyEffect extends EffectBase {
 }
 
 /**
+ * Great Secrets Buried There (dm-63). Reveals the top `count` cards of the
+ * **active player's** play deck (see {@link PlayConditionEffect.minDeckSize}
+ * for why `GameState.activePlayer` is always the correct target regardless of
+ * hazard-mode vs. `playable-as-resource` self-cast mode).
+ *
+ * If at least one revealed card matches `itemFilter` (a non-special,
+ * non-hoard item — CoE errata: "the item must be normally playable at the
+ * Under-deeps site"), the deck owner (not the card-player) must choose exactly
+ * one to place "off to the side" under this card ({@link
+ * module:engine/set-aside}): it scores no marshalling points and counts as out
+ * of play. The deck owner may later play it as though it were in hand, but
+ * only at an Under-deeps site where it would normally be playable (see
+ * {@link PlayHeroResourceAction.fromSetAside}). If no revealed card is
+ * eligible, the reveal already showed the cards (recorded in {@link
+ * GameState.revealedInstances}) and nothing more happens. Either way, every
+ * revealed card except the one set aside is shuffled back into the deck.
+ *
+ * Resolved via a `great-secrets-choose-item` pending resolution (actor = the
+ * deck owner) when at least one eligible item is revealed; resolves
+ * synchronously (no pending resolution) when none is.
+ */
+export interface RevealDeckChooseSetAsideEffect extends EffectBase {
+  readonly type: 'reveal-deck-choose-set-aside';
+  /** Number of cards revealed from the top of the active player's play deck. */
+  readonly count: number;
+  /** Card-definition condition an item must match to be eligible for set-aside. */
+  readonly itemFilter: Condition;
+}
+
+/**
  * Carried by a hazard short-event playable on an untapped character. When the
  * event resolves un-negated on the chain, the **defending** player (the
  * targeted character's controller — "your opponent" from the card-player's
@@ -3663,21 +3693,8 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   opens its tap window "during the same site phase the company successfully
  *   plays Rescue Prisoners at Dol Guldur". Marked when a bearer is assigned
  *   (the card is kept), never on the declined/discarded branch.
- * - `any-phase-site-target` — a resource permanent-event with a `play-target`
- *   site (and, optionally, a combined character target) whose card text
- *   declares no phase restriction of its own. Every other site-targeting
- *   resource permanent-event's text says "playable … during the site phase"
- *   (or names an untapped/tapped site requirement implying the same), so the
- *   engine defaults such cards to the site-phase-only path
- *   (`legal-actions/site.ts`). This flag opts a card out of that default and
- *   back into rule 2.1.1's general "any phase of the resource player's turn"
- *   timing, evaluated against whichever site each company currently occupies.
- *   Used by Return of the King (tw-316): "Only playable in Minas Tirith …" —
- *   no site-phase wording, so it must remain playable throughout the turn
- *   (e.g. during the end-of-turn phase) as long as Aragorn II is at Minas
- *   Tirith when it is played.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'any-phase-site-target';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -5809,7 +5826,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -6002,6 +6019,20 @@ export interface PlayConditionEffect extends EffectBase {
    * the Wizardhaven's [{H}] region or adjacent regions)."
    */
   readonly min?: number;
+  /**
+   * For `requires: 'active-player-deck-size'`: the minimum number of cards
+   * {@link GameState.activePlayer}'s play deck must hold. `GameState.activePlayer`
+   * is always the correct party to check regardless of which "side" of the
+   * card's text is being evaluated: a hazard permanent-event is only ever
+   * declared by the *non*-active player against the active company's owner
+   * ("opponent" in the card text = the active player), and a
+   * `playable-as-resource` self-cast permanent-event is only ever declared by
+   * the active player on themself ("you" = the active player). Used by Great
+   * Secrets Buried There (dm-63): "Playable if opponent has at least ten cards
+   * in his play deck" / "you may play this card as a resource on yourself if
+   * you have at least ten cards in your play deck."
+   */
+  readonly minDeckSize?: number;
 }
 
 /**
@@ -7680,6 +7711,7 @@ export type CardEffect =
   | PeekShuffleDeckTopEffect
   | RevealRemoveFromDiscardEffect
   | RevealDeckChoosePenaltyEffect
+  | RevealDeckChooseSetAsideEffect
   | OpponentChooseTapOrRollEffect
   | WithdrawAgentEffect
   | GrantActionEffect

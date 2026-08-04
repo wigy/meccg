@@ -49,6 +49,7 @@ import type { EliminateInsteadOfDiscardHost } from './eliminate-instead-of-disca
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
+import { placeCardSetAside } from './set-aside.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import {
@@ -4459,6 +4460,60 @@ export function applyDesireBellyChoosePenaltyResolution(
       `${shuffled.length} revealed card(s) shuffled back on top of the deck`,
     );
   }
+
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `great-secrets-choose-item` pending resolution (Great Secrets
+ * Buried There, dm-63): the deck owner chooses one of the revealed eligible
+ * items to place off to the side under the host card. The choice is
+ * mandatory. The remaining revealed cards (every revealed card except the
+ * chosen one) are shuffled and returned to the top of the deck.
+ */
+export function applyGreatSecretsChooseItemResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'great-secrets-choose-item') return null;
+  if (action.type !== 'choose-set-aside-item') {
+    return { state, error: `Pending great-secrets-choose-item requires choose-set-aside-item, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for great-secrets-choose-item' };
+  }
+  const { revealedInstanceIds, eligibleInstanceIds, deckOwnerId, hostInstanceId } = top.kind;
+  if (!eligibleInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} is not one of the eligible items` };
+  }
+
+  const deckOwnerIdx = getPlayerIndex(state, deckOwnerId);
+  const deck = state.players[deckOwnerIdx].playDeck;
+  const chosen = deck.find(c => c.instanceId === action.cardInstanceId);
+  if (!chosen) {
+    return { state, error: `Chosen item ${action.cardInstanceId as string} not found in ${deckOwnerId as string}'s play deck` };
+  }
+
+  const revealedSet = new Set(revealedInstanceIds as readonly string[] as string[]);
+  const rest = deck.filter(c => !revealedSet.has(c.instanceId as string));
+  const remainingRevealed = deck.filter(
+    c => revealedSet.has(c.instanceId as string) && c.instanceId !== action.cardInstanceId,
+  );
+  const [shuffled, nextRng] = shuffle(remainingRevealed, state.rng);
+
+  let newState: GameState = {
+    ...updatePlayer(state, deckOwnerIdx, p => ({
+      ...p,
+      playDeck: [...shuffled, ...rest],
+    })),
+    rng: nextRng,
+  };
+  newState = placeCardSetAside(newState, hostInstanceId, chosen, false, true);
+  logDetail(
+    `Great Secrets Buried There: ${deckOwnerId as string} sets aside "${cardName(newState, chosen.definitionId)}" ` +
+    `under the host; ${shuffled.length} card(s) shuffled back on top of the deck`,
+  );
 
   return { state: dequeueResolution(newState, top.id) };
 }
