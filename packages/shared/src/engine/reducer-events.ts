@@ -20,7 +20,7 @@ import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag } from './reducer-utils.js';
-import { triggerCouncilCall } from './reducer-end-of-turn.js';
+import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
@@ -536,8 +536,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   // Resource-side `call-council` (e.g. Sudden Call, le-235): the card
   // triggers the endgame — discard the card, bypass normal short-event
-  // effects, and apply the council-call state transition (opponent gets
-  // the last turn).
+  // effects, and flag the council call (opponent gets the last turn) without
+  // interrupting the caller's turn in progress (rule 10.2.R1: "played...as
+  // a resource on a player's own turn"). The current turn plays out
+  // normally; the existing End-of-Turn signal-end logic performs the actual
+  // player swap once it naturally ends.
   const resourceCallCouncil = def.effects?.find(
     (e): e is import('../types/effects.js').CallCouncilEffect =>
       e.type === 'call-council' && e.lastTurnFor === 'opponent',
@@ -548,7 +551,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       hand: newHand,
       discardPile: [...p.discardPile, handCard],
     }));
-    return { state: triggerCouncilCall(afterDiscard, action.player, 'opponent') };
+    return { state: flagCouncilCall(afterDiscard, action.player, 'opponent') };
   }
 
   // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double

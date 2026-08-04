@@ -672,19 +672,17 @@ function handleRunHome(state: GameState, action: GameAction): ReducerResult {
 }
 
 /**
- * Trigger a call-the-council endgame event. Marks the caller's
- * `freeCouncilCalled`, swaps the active player, increments the turn
- * counter, and sets `lastTurnFor` per the `direction`:
+ * Trigger a call-the-council endgame event at the true end of the caller's
+ * turn (rule 10.2.1-10.2.4: "may call to end the game at the end of their
+ * own turn"). Marks the caller's `freeCouncilCalled`, swaps the active
+ * player, increments the turn counter, and sets `lastTurnFor` to the
+ * caller's opponent, who gets one last turn.
  *
- * - `'opponent'` — the caller's opponent gets one last turn (normal free
- *   call, or resource-side Sudden Call).
- * - `'self'` — the caller gets one last turn (hazard-side Sudden Call
- *   played during the opponent's turn — the caller has just finished
- *   reacting, and per rule 10.41 it's the caller who gets one last turn).
- *
- * Extracted so that both the `call-free-council` action handler and the
- * upcoming `call-council` DSL effect (used by Sudden Call) share the
- * same state transition.
+ * Only valid when the caller's turn has actually finished — i.e. from the
+ * `call-free-council` action, which is offered exclusively during the
+ * End-of-Turn phase's signal-end step. Mid-turn endgame calls (Sudden Call,
+ * either mode) must use {@link flagCouncilCall} instead so the caller's
+ * current turn plays out normally before the swap happens.
  */
 export function triggerCouncilCall(
   state: GameState,
@@ -704,6 +702,40 @@ export function triggerCouncilCall(
     turnNumber: state.turnNumber + 1,
     lastTurnFor,
   });
+}
+
+/**
+ * Flag a call-the-council endgame event without interrupting the turn in
+ * progress (rule 10.2.R1/10.2.B1: Sudden Call, played either as a resource
+ * on the caller's own turn or as a hazard on the opponent's turn, "after
+ * which [the designated player] gets one last turn"). Unlike
+ * {@link triggerCouncilCall}, this does not touch `activePlayer`,
+ * `turnNumber`, or `phaseState` — the current turn continues through its
+ * remaining phases, and the existing End-of-Turn signal-end logic performs
+ * the actual player swap (and, on the designated player's own following
+ * signal-end, the transition to Free Council) once that turn naturally
+ * ends.
+ *
+ * - `'opponent'` — the caller's opponent gets one last turn (resource-side
+ *   Sudden Call, played on the caller's own turn).
+ * - `'self'` — the caller gets one last turn (hazard-side Sudden Call,
+ *   played on the opponent's turn).
+ */
+export function flagCouncilCall(
+  state: GameState,
+  caller: PlayerId,
+  direction: 'opponent' | 'self',
+): GameState {
+  const callerIndex = getPlayerIndex(state, caller);
+  const opponentIndex = (callerIndex === 0 ? 1 : 0);
+  const opponent = state.players[opponentIndex].id;
+
+  const lastTurnFor = direction === 'opponent' ? opponent : caller;
+
+  return {
+    ...updatePlayer(state, callerIndex, p => ({ ...p, freeCouncilCalled: true })),
+    lastTurnFor,
+  };
 }
 
 /**

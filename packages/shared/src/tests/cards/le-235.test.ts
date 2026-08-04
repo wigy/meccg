@@ -111,7 +111,7 @@ describe('Sudden Call (le-235)', () => {
     expect(plays.length).toBe(0);
   });
 
-  test('resource-side resolution: transitions to opponent last turn', () => {
+  test('resource-side resolution: flags opponent for the last turn without ending the caller\'s turn', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
@@ -138,7 +138,14 @@ describe('Sudden Call (le-235)', () => {
     const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
     expect(next.players[RESOURCE_PLAYER].freeCouncilCalled).toBe(true);
     expect(next.lastTurnFor).toBe(PLAYER_2);
-    expect(next.activePlayer).toBe(PLAYER_2);
+    // Regression (rule 10.2.R1: "played...on a player's own turn...after
+    // which their opponent gets one last turn"): calling the council mid-turn
+    // must not immediately end the caller's turn. The player, phase, and
+    // turn number are unchanged — only the natural end-of-turn transition
+    // hands the turn to the opponent.
+    expect(next.activePlayer).toBe(PLAYER_1);
+    expect(next.turnNumber).toBe(state.turnNumber);
+    expect(next.phaseState.phase).toBe(Phase.LongEvent);
     expect(next.players[RESOURCE_PLAYER].discardPile.map(c => c.definitionId)).toContain(SUDDEN_CALL);
     expect(next.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === SUDDEN_CALL)).toBe(false);
   });
@@ -269,6 +276,13 @@ describe('Sudden Call (le-235)', () => {
     });
     expect(next.players[HAZARD_PLAYER].freeCouncilCalled).toBe(true);
     expect(next.lastTurnFor).toBe(PLAYER_2);
+    // Regression (rule 10.2.R1: "played...as a hazard during an opponent's
+    // turn...after which the player who played Sudden Call gets one last
+    // turn"): flagging the council call mid-turn must not interrupt the
+    // opponent's turn in progress.
+    expect(next.activePlayer).toBe(PLAYER_1);
+    expect(next.turnNumber).toBe(state.turnNumber);
+    expect(next.phaseState.phase).toBe(Phase.MovementHazard);
     expect(next.players[HAZARD_PLAYER].discardPile.map(c => c.definitionId)).toContain(SUDDEN_CALL);
     expect(next.players[HAZARD_PLAYER].hand.some(c => c.definitionId === SUDDEN_CALL)).toBe(false);
   });
