@@ -22,9 +22,15 @@ import type { GameAction } from '@meccg/shared';
  * - `tapToFight: true` with no stay-untapped option → "Not tapping": the
  *   character is already tapped or wounded and cannot tap (CoE 3.iv.6), so it
  *   faces the strike without tapping.
+ *
+ * `play-strike-event` reroll-mode cards (e.g. Swift Strokes, Lucky Strike)
+ * carry the same independent `tapToFight` choice (CoE 3.iv.3) — the card's
+ * own text says nothing about tapping — so they share this labeling.
+ * Non-reroll strike-modifier modes (cancel/dodge/default) never set
+ * `tapToFight` and fall through to the generic `action.type` label below.
  */
 export function combatButtonLabel(action: GameAction, hasStayUntappedOption: boolean): string {
-  if (action.type === 'resolve-strike') {
+  if (action.type === 'resolve-strike' || (action.type === 'play-strike-event' && action.tapToFight !== undefined)) {
     if (!action.tapToFight) return 'Untapped';
     return hasStayUntappedOption ? 'Tapping' : 'Not tapping';
   }
