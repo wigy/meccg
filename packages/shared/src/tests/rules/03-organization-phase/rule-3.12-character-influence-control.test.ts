@@ -20,7 +20,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viablePlayCharacterActions, findCharInstanceId, dispatch, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, ADRAZAR, KILI, LEGOLAS,
+  ARAGORN, ADRAZAR, KILI, LEGOLAS, ELROND, GLORFINDEL_II,
   RIVENDELL, LORIEN, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../../test-helpers.js';
@@ -163,5 +163,50 @@ describe('Rule 3.12 — Character Influence Control', () => {
 
     expect(aragornCompany.characters).toContain(adrInstId);
     expect(kiliCompany.characters).not.toContain(adrInstId);
+  });
+
+  test('a character may be played under GI even when it would exceed remaining general influence', () => {
+    // Aragorn (9) + Elrond (10) already use 19 of the 20-point pool, leaving
+    // only 1 remaining GI. Glorfindel II (mind 8) in hand exceeds both that
+    // remainder and every in-play character's unused DI (Aragorn 3, Elrond 4).
+    // Regression test: the engine used to withhold the GI play entirely in
+    // this situation ("mind exceeds remaining general influence ... no
+    // character has sufficient direct influence"), but rule 2.II.2.2.1 makes
+    // GI play legal "regardless of whether doing so would exceed [the]
+    // maximum general influence" — the overflow is only settled at the end
+    // of the organization phase (CoE 3.47).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, ELROND] }],
+          hand: [GLORFINDEL_II],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    expect(state.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(19);
+
+    const glorfindelHandId = state.players[RESOURCE_PLAYER].hand.find(
+      c => c.definitionId === GLORFINDEL_II,
+    )!.instanceId;
+    const plays = viablePlayCharacterActions(state, PLAYER_1);
+    const glorfindelPlays = plays.filter(a => a.characterInstanceId === glorfindelHandId);
+
+    expect(glorfindelPlays.some(a => a.controlledBy === 'general')).toBe(true);
+
+    const giPlay = glorfindelPlays.find(a => a.controlledBy === 'general')!;
+    const after = dispatch(state, giPlay);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(27);
   });
 });
