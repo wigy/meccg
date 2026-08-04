@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.83.0 — 2026-08-04
+
+Rules bug-fix sweep and heuristic AI discipline
+
+### Cards
+
+- Certified Great Secrets Buried There (dm-63)
+
+### Game Engine
+
+- Bade to Rule (le-167) gained its alternative untargeted play mode and is playable with no Ringwraith in play
+- Sudden Call (both resource and hazard versions) no longer ends the turn immediately
+- Ready to His Will is no longer offered as a free site-phase play
+- Return of the King can be played before entering the site
+- Army of the Dead (tw-193) only lets Aragorn II influence the faction
+- Covetous Thoughts no longer counts Stage resources as items
+- Black Arrow no longer blocks real weapons from applying their prowess bonus
+- Strike rerolls (Swift Strokes) no longer always tap the defender
+- Fireworks' skip-next-untap can no longer be bypassed by non-phase untap effects, and the constraint no longer leaks to the other player
+- Home-site-only characters can no longer be recruited elsewhere via A Chance Meeting, and comma-separated home-site lists now match correctly
+- A character can now be played under general influence past the GI limit, resolving the overflow afterwards
+- Character-targeted Stage resources drafted at setup now defer their placement to player choice
+- No Strangers at this Time (as-51) keeps its faction-played condition across site-phase visits
+- Minion-side Dragon-lair sites regained their missing hoard keyword
+- Deck-exhaustion discards are no longer stranded outside the reshuffled play deck
+- Agent hazards no longer disappear from their owner's board on the opponent's turn
+- Saruman's spell-fetch granted action no longer leaks into the organization phase
+- The cancel-by-tap window reopens between a multi-attack creature's strikes
+- Ahunt-attack long-events now trigger immediately when played mid-movement
+- The Secret Book untaps its site correctly during the site phase, and deck imports no longer mix up hero/minion faction versions
+
+### AI
+
+- The heuristic AI no longer discards the opponent's corruption cards for free
+- The heuristic AI never voluntarily discards its own characters during organization
+- On-guard placement is no longer over-weighted by per-card weight duplication
+- The heuristic AI plays Doors of Night before An Unexpected Outpost
+
+### Web Client
+
+- Wounded allies are rendered visually wounded in the company view
+- Remove buttons are shown for influence-overflow discard resolutions
+
+### Infrastructure
+
+- Lobby: MC-AI narrows to 4 candidates; Real-AI remains marked experimental
+- CI stability: the replay round-trip test gets a proper timeout budget, and play-permanent-event is accepted during site-phase select-company
+
 ## 0.82.0 — 2026-08-03
 
 Fallen-wizard draft fixes and item-handling repairs

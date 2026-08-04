@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1090 | 1088 | 2 | 99.8% |
+| 1092 | 1091 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 105 | 105 | 100.0% |
 | BA | 96 | 96 | 100.0% |
-| DM | 95 | 95 | 100.0% |
-| LE | 296 | 294 | 99.3% |
+| DM | 96 | 96 | 100.0% |
+| LE | 296 | 295 | 99.7% |
 | TD | 87 | 87 | 100.0% |
-| TW | 327 | 327 | 100.0% |
+| TW | 328 | 328 | 100.0% |
 | WH | 84 | 84 | 100.0% |
 
 ## Detailed Test Matrix
@@ -54,7 +54,7 @@
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
-| as-51 | No Strangers at this Time | — | 14 | ☑ |
+| as-51 | No Strangers at this Time | — | 15 | ☑ |
 | as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
@@ -88,8 +88,8 @@
 | as-126 | Helm of Fear | — | 16 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
-| as-131 | Secret Book | — | 11 | ☑ |
-| as-132 | Thong of Fire | — | 14 | ☑ |
+| as-131 | Secret Book | — | 12 | ☑ |
+| as-132 | Thong of Fire | — | 15 | ☑ |
 | as-133 | Thrall-ring | — | 6 | ☑ |
 | as-134 | Thrór’s Map | — | 5 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
@@ -266,6 +266,7 @@
 | dm-57 | Faces of the Dead | — | 8 | ☑ |
 | dm-58 | Flies and Spiders | — | 5 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
+| dm-63 | Great Secrets Buried There | — | 9 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
 | dm-71 | The Moon Is Dead | — | 9 | ☑ |
 | dm-72 | Mordor in Arms | — | 10 | ☑ |
@@ -296,7 +297,7 @@
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
-| dm-130 | Fireworks | — | 12 | ☑ |
+| dm-130 | Fireworks | — | 14 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
 | dm-134 | Hall of Fire | — | 11 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
@@ -391,7 +392,7 @@
 | le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
-| le-90 | Slayer | — | 8 | ☑ |
+| le-90 | Slayer | — | 9 | ☑ |
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
@@ -403,7 +404,7 @@
 | le-103 | Awaken Defenders | — | 7 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-106 | Chill Them with Fear | — | 15 | ☑ |
-| le-107 | Covetous Thoughts | — | 11 | ☑ |
+| le-107 | Covetous Thoughts | — | 12 | ☑ |
 | le-108 | Darkness Under Tree | — | 5 | ☑ |
 | le-110 | Doors of Night | — | 7 | ☑ |
 | le-111 | Fell Winter | — | 11 | ☑ |
@@ -441,7 +442,7 @@
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
-| le-167 | Bade to Rule | — | 13 | ◐ |
+| le-167 | Bade to Rule | — | 13 | ☑ |
 | le-170 | Black Rider | — | 8 | ☑ |
 | le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
@@ -468,7 +469,7 @@
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-217 | Orc Stealth | — | 5 | ☑ |
 | le-219 | Poisonous Despair | — | 9 | ☑ |
-| le-220 | Ready to His Will | — | 9 | ☑ |
+| le-220 | Ready to His Will | — | 10 | ☑ |
 | le-223 | The Ring Leaves Its Mark | — | 13 | ☑ |
 | le-224 | Rumor of the One | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
@@ -613,11 +614,11 @@
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-416 | Wose Passage-hold | — | 5 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
-| le-418 | The Arkenstone | — | 16 | ☑ |
+| le-418 | The Arkenstone | — | 18 | ☑ |
 | le-203-the-lidless-eye | — | — | 11 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
-| td-4 | Bairanax Ahunt | — | 16 | ☑ |
+| td-4 | Bairanax Ahunt | — | 17 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
@@ -839,17 +840,18 @@
 | tw-178 | Radagast | — | 7 | ☑ |
 | tw-179 | Robin Smallburrow | — | 4 | ☑ |
 | tw-180 | Sam Gamgee | — | 5 | ☑ |
-| tw-181 | Saruman | — | 7 | ☑ |
+| tw-181 | Saruman | — | 8 | ☑ |
 | tw-182 | Théoden | — | 3 | ☑ |
 | tw-183 | Thorin II | — | 7 | ☑ |
 | tw-184 | Thranduil | — | 2 | ☑ |
 | tw-185 | Vôteli | — | 9 | ☑ |
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
-| tw-188 | A Chance Meeting | — | 10 | ☑ |
+| tw-188 | A Chance Meeting | — | 11 | ☑ |
 | tw-189 | A Friend or Three | — | 11 | ☑ |
 | tw-190 | Align Palantír | — | 9 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 10 | ☑ |
+| tw-193 | Army of the Dead | — | 2 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-198 | Bill the Pony | — | 11 | ☑ |
@@ -918,7 +920,7 @@
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
 | tw-314 | Reforging | — | 10 | ☑ |
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |
-| tw-316 | Return of the King | — | 6 | ☑ |
+| tw-316 | Return of the King | — | 7 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 7 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
@@ -1025,7 +1027,7 @@
 | tw-438 | Woodmen-town | — | 2 | ☑ |
 | tw-439 | Wose Passage-hold | — | 3 | ☑ |
 | tw-493 | Neeker-breekers | — | 14 | ☑ |
-| tw-494 | Black Arrow | — | 8 | ☑ |
+| tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | tw-497 | A Pack at the Door | — | 11 | ☑ |
 | tw-498 | Swordmaster | — | 16 | ☑ |
