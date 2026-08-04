@@ -39,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1109,6 +1109,18 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // No trophy offer — apply rule 8.22 alignment-based routing now.
   let stateWithRule8_22 = applyRule8_22AfterTrophyDecision(stateAfterCombat, combat);
+
+  // Any 'eliminated' strike result already removed its combatant (character or
+  // ally) from the defending company (see `eliminateCombatantFromStrike` and
+  // `discardCharacterAfterBodyCheck`) without sweeping company-bound
+  // permanent events — sweep here so a card like Fellowship (tw-240), which
+  // must be discarded whenever a character or ally joins or leaves the
+  // company, is not left stranded in play.
+  const anyCombatantEliminated = combat.strikeAssignments.some(a => a.result === 'eliminated');
+  if (anyCombatantEliminated) {
+    logDetail(`finalizeCombat: a combatant was eliminated — sweeping company-membership-changed events on company ${combat.companyId as string}`);
+    stateWithRule8_22 = sweepCompanyMembershipChangedEvents(stateWithRule8_22, [combat.companyId]);
+  }
 
   // Sweep leader-leaves-company events for any eliminated leaders
   const anyLeaderEliminated = combat.strikeAssignments.some(a => {

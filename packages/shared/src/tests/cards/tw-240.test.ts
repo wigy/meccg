@@ -32,6 +32,7 @@ import {
   viableActions, dispatch, getCharacter, handCardId,
   companyIdAt, findCharInstanceId,
   playPermanentEventAndResolve, enqueueTransferCorruptionCheck,
+  makeBodyCheckCombat, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CorruptionCheckAction } from '../../index.js';
@@ -345,5 +346,46 @@ describe('Fellowship (tw-240)', () => {
     // Fellowship is discarded when company membership changes
     expect(after.players[0].cardsInPlay).toHaveLength(0);
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
+  });
+
+  // ── Auto-discard when a character is eliminated in combat ─────────────────
+
+  test('discarded when a character is eliminated by a failed body check', () => {
+    // Fellowship is bound to a 4-character company; Bilbo (body 9) is wounded
+    // and about to fail his body check (forced roll 12, no discardBodyCheck
+    // match), which eliminates him and removes him from the company.
+    const fellowshipInPlay: CardInPlay = {
+      instanceId: 'fellowship-1' as CardInstanceId,
+      definitionId: FELLOWSHIP,
+      status: CardStatus.Untapped,
+      companyId: P1_COMPANY,
+    };
+
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI, BILBO] }], hand: [], siteDeck: [MORIA], cardsInPlay: [fellowshipInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FARAMIR] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const wounded = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
+    const ready = {
+      ...wounded,
+      combat: makeBodyCheckCombat({ companyId: P1_COMPANY, characterId: bilboId, defendingPlayerId: PLAYER_1, attackingPlayerId: PLAYER_2 }),
+      cheatRollTotal: 12,
+    };
+
+    const after = dispatch(ready, viableActions(ready, PLAYER_2, 'body-check-roll')[0].action);
+
+    // Bilbo was eliminated and removed from the company…
+    expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === bilboId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].companies[0].characters).not.toContain(bilboId);
+    // …which must discard Fellowship too, since a character left the company.
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
   });
 });
