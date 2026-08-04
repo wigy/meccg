@@ -6881,12 +6881,17 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
 - `active-company` — for site-phase resource short-events **and site-phase
   permanent-events**: a generic DSL `condition` evaluated against the active
   company's aggregate context
-  `{ site: { name, type }, company: { itemNames, characterNames, allyNames } }`.
+  `{ site: { name, type, keywords }, company: { itemNames, characterNames, allyNames } }`.
   `itemNames`/`allyNames` are the names of every item / ally borne by any
-  character in the company. Lets a card express a positional play
-  prerequisite without a per-card keyword. Used by the CoE 10.39 win cards:
-  Cracks of Doom (tw-205) requires The One Ring at Mount Doom; Gollum's Fate
-  (tw-247) additionally requires Gollum. Implemented in
+  character in the company; `site.keywords` is the active site's printed
+  keyword list (e.g. `under-deeps`, `hoard`). Lets a card express a positional
+  play prerequisite without a per-card keyword. Used by the CoE 10.39 win
+  cards: Cracks of Doom (tw-205) requires The One Ring at Mount Doom;
+  Gollum's Fate (tw-247) additionally requires Gollum. Also used by Bounty of
+  the Hoard (td-101) — rule 5.1.2 bars playing a short-event that has no
+  potential effect on the board state, and this card's only effect
+  (unlocking `hoardBountyAvailable`) can never matter at a site that isn't a
+  hoard — via `{ "site.keywords": { "$includes": "hoard" } }`. Implemented in
   `legal-actions/organization.ts` (`playResourceShortEventActions`,
   `buildActiveCompanyContext`).
 

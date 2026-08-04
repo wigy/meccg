@@ -218,6 +218,15 @@
         "phase": "site"
       },
       {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      },
+      {
         "type": "on-event",
         "event": "self-enters-play",
         "apply": {
