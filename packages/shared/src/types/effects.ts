@@ -5260,21 +5260,48 @@ export interface HalveStrikesEffect extends EffectBase {
 
 /**
  * Played from hand as a short event during the assign-strikes phase, targeting
- * a character in the defending company with the required skill. No strike from
- * the current attack may be assigned to that character for the rest of the
- * attack's assign-strikes phase.
+ * a character in the defending company meeting the eligibility gate (a
+ * required skill and/or a generic `filter`). No strike from the current
+ * attack may be assigned to that character for the rest of the attack's
+ * assign-strikes phase.
  *
  * Unlike `cancel-attack` (which cancels the entire attack), this only prevents
  * assignment to the targeted character — other characters may still be assigned
  * strikes normally.
  *
  * Used by Ruse (le-225) mode B: play on a scout facing an attack; no strikes
- * of the attack may be assigned to the scout.
+ * of the attack may be assigned to the scout — `requiredSkill: "scout"`.
+ *
+ * Sojourn in Shadows (wh-49): play on any character in a shadow-magic-using
+ * character's company — `filter: { "company.hasShadowMagicUser": true }` (the
+ * eligibility context mirrors `organization-events.ts`'s play-target context:
+ * `target.*` character fields plus `company.hasShadowMagicUser`) — and
+ * `corruptionCheck` forces the company's shadow-magic user (skipped entirely
+ * if a Ringwraith qualifies) to check at the given modifier.
  */
 export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
   readonly type: 'protect-from-strike-assignment';
   /** The skill required on the character to be protected (e.g. "scout"). */
-  readonly requiredSkill: string;
+  readonly requiredSkill?: string;
+  /**
+   * Generic eligibility filter, evaluated per candidate character against
+   * `{ target: { race, status, skills, name, mind, keywords, itemKeywords,
+   * itemNames, isAvatar, homeSiteTypes }, company: { skills, hasShadowMagicUser } }`.
+   * Combined with `requiredSkill` via AND when both are present.
+   */
+  readonly filter?: Condition;
+  /**
+   * When present, playing this protection also forces a corruption check
+   * (CoE "unless he is a Ringwraith" wording): the company's shadow-magic
+   * user (Ringwraith by race, or `skills` includes `"shadow-magic"`) makes a
+   * corruption check at `modifier`. If any qualifying shadow-magic user is a
+   * Ringwraith, no check is made at all. `on: 'shadow-magic-user'` is
+   * currently the only supported source.
+   */
+  readonly corruptionCheck?: {
+    readonly modifier: number;
+    readonly on: 'shadow-magic-user';
+  };
 }
 
 /**

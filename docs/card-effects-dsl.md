@@ -4770,6 +4770,54 @@ otherwise untap, make him tapped instead and discard this card. Cannot be
 duplicated." — `flee-from-strike` `{ characterName: "The Balrog" }` +
 `duplication-limit` scope `game` max 1.
 
+### 11b. `protect-from-strike-assignment`
+
+A short event played from hand during the **defending** player's
+`assign-strikes` sub-phase — "before strikes are assigned" — that shields one
+company member from receiving any strike of the current attack for the rest
+of that sub-phase. Unlike `cancel-attack` (cancels the whole attack) this
+only removes one character from the assignable pool; other characters may
+still be assigned strikes normally.
+
+Eligibility is checked per candidate character in the defending company:
+
+- `requiredSkill` (optional) — the *target* character must have this skill
+  (Ruse le-225 mode B: "playable on a scout facing an attack").
+- `filter` (optional, a `Condition`) — a generic eligibility gate evaluated
+  against `{ target: { race, status, skills, name }, company: { hasShadowMagicUser } }`
+  (the same context shape `organization-events.ts`'s play-target filter
+  uses). Combined with `requiredSkill` via AND when both are present.
+
+At least one of `requiredSkill`/`filter` should be present, or every company
+member is a valid target unconditionally.
+
+An optional `corruptionCheck: { modifier, on: "shadow-magic-user" }` forces a
+corruption check as a side effect of playing the card — on the target's
+company's shadow-magic user (Ringwraith by race, or `skills` includes
+`"shadow-magic"`), not on the protected target itself. If **any** qualifying
+company member is a Ringwraith, the whole company is exempt and no check is
+made; otherwise the first non-Ringwraith shadow-magic user checks. `on:
+"shadow-magic-user"` is currently the only supported source.
+
+```json
+{ "type": "protect-from-strike-assignment", "requiredSkill": "scout" }
+{ "type": "protect-from-strike-assignment",
+  "filter": { "company.hasShadowMagicUser": true },
+  "corruptionCheck": { "modifier": -4, "on": "shadow-magic-user" } }
+```
+
+Used by Ruse (le-225) mode B: "Alternatively, playable on a scout facing an
+attack. No strikes of the attack may be assigned to the scout." —
+`requiredSkill: "scout"`, no corruption check.
+
+Used by Sojourn in Shadows (wh-49): "Playable before strikes are assigned on
+a character facing an attack in a shadow-magic using character's company.
+Target character cannot be assigned a strike from the attack. Unless he is a
+Ringwraith, the shadow-magic using character makes a corruption check
+modified by -4." — `filter: { "company.hasShadowMagicUser": true }` (any
+company member is a valid target, not just the shadow-magic user) +
+`corruptionCheck: { modifier: -4, on: "shadow-magic-user" }`.
+
 ### 12. Combat-rule effects
 
 Each combat-mechanics override is a distinct effect type. The chain

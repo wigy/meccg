@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
@@ -35,7 +35,7 @@ import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findAttachment, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
@@ -1327,7 +1327,11 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
  * current attack from being assigned to them. The card is discarded.
  *
  * Used by Ruse (le-225) mode B: play on a scout; no strikes may be assigned
- * to that scout for the rest of the current attack.
+ * to that scout for the rest of the current attack. Also used by Sojourn in
+ * Shadows (wh-49): play on any character in a shadow-magic-using character's
+ * company; the effect's optional `corruptionCheck` then forces that
+ * shadow-magic user to make a corruption check (skipped if he's a
+ * Ringwraith).
  */
 export function handleProtectFromStrikeAssignment(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'protect-from-assignment') return wrongActionType(state, action, 'protect-from-assignment');
@@ -1348,19 +1352,49 @@ export function handleProtectFromStrikeAssignment(state: GameState, action: Game
   logDetail(`${cardName_} played — ${targetName_} is now protected from strike assignment this attack`);
 
   const newHand = removeById(defPlayer.hand, playedCard.instanceId);
-  const newDiscard = [...defPlayer.discardPile, toCardInstance(playedCard)];
 
   const alreadyProtected = combat.protectedFromStrikeAssignment ?? [];
   const newProtected = alreadyProtected.includes(action.targetCharacterId)
     ? alreadyProtected
     : [...alreadyProtected, action.targetCharacterId];
 
-  return {
-    state: {
-      ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-      combat: { ...combat, protectedFromStrikeAssignment: newProtected },
-    },
+  let nextState: GameState = {
+    ...discardOrRecyclePlayedEvent(
+      updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand })),
+      defPlayerIndex,
+      toCardInstance(playedCard),
+    ),
+    combat: { ...combat, protectedFromStrikeAssignment: newProtected },
   };
+
+  // Sojourn in Shadows (wh-49): "Unless he is a Ringwraith, the shadow-magic
+  // using character makes a corruption check modified by -4." If any
+  // qualifying shadow-magic user in the target's company is a Ringwraith, no
+  // check is made at all (matches A Malady Without Healing le-159's caster
+  // rule, reducer-events.ts).
+  const protEff = getCardEffects(defById(state, playedCard.definitionId))
+    .find((e): e is ProtectFromStrikeAssignmentEffect => e.type === 'protect-from-strike-assignment');
+  if (protEff?.corruptionCheck) {
+    const targetCompany = findCharacterCompany(defPlayer.companies, action.targetCharacterId);
+    const users = targetCompany ? companyShadowMagicUsers(state, defPlayer, targetCompany) : [];
+    const nonRingwraithUser = users.find(u => !u.isRingwraith);
+    if (users.some(u => u.isRingwraith)) {
+      logDetail(`${cardName_}: shadow-magic user is a Ringwraith — no corruption check`);
+    } else if (nonRingwraithUser) {
+      const modifier = protEff.corruptionCheck.modifier;
+      logDetail(`${cardName_}: shadow-magic user ${nonRingwraithUser.id as string} makes a corruption check (${formatSignedNumber(modifier)})`);
+      nextState = enqueueCorruptionCheck(nextState, {
+        source: playedCard.instanceId,
+        actor: action.player,
+        scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+        characterId: nonRingwraithUser.id,
+        reason: cardName_,
+        modifier,
+      });
+    }
+  }
+
+  return { state: nextState };
 }
 
 /**

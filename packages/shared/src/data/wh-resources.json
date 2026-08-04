@@ -757,10 +757,21 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SojourninShadows.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": ["shadow-magic"],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Shadow-magic. Playable before strikes are assigned on a character facing an attack in a shadow-magic using character’s company. Target character cannot be assigned a strike from the attack. Unless he is a Ringwraith, the shadow-magic using character makes a corruption check modified by -4."
+    "effects": [
+      {
+        "type": "protect-from-strike-assignment",
+        "filter": { "company.hasShadowMagicUser": true },
+        "corruptionCheck": {
+          "modifier": -4,
+          "on": "shadow-magic-user"
+        }
+      }
+    ],
+    "text": "Magic. Shadow-magic. Playable before strikes are assigned on a character facing an attack in a shadow-magic using character’s company. Target character cannot be assigned a strike from the attack. Unless he is a Ringwraith, the shadow-magic using character makes a corruption check modified by -4.",
+    "certified": "2026-08-04"
   },
   {
     "cardType": "minion-resource-event",
