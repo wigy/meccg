@@ -3526,19 +3526,19 @@ When the effect is declared on a **company-bound permanent-event** in
 `cardsInPlay` (`CardInPlay.companyId` set — see `play-target` `target: "company"`)
 with `cost: { "discard": "self" }`, it is sourced only for the bound company and
 only in the pre-strike cancel window. Two extra fields specialize it for *Going
-Ever Under Dark* (ba-37):
+Ever Under Dark* (ba-37) and *Crept Along Carefully* (ba-29):
 
 - `"requiresCvCC": true` — the cancel is offered only against a company-vs-company
   attack (`combat.isCvCC`) — "an attack against them by an opponent's company".
-- `"roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true }` — the
+- `"roll": { "threshold": 7, "comparison": "gt", "skillBonus": "scout" }` — the
   cancel is **not** automatic. Paying the cost discards the card and enqueues a
   2d6 `dice-check` (roller = the defending player) whose modified total must
-  satisfy `total comparison threshold` to cancel; `"scoutBonus": true` adds the
-  number of Scout-skilled characters in the defending company to the roll. On
-  success the check's `onPass: { type: "cancel-current-attack" }` verb cancels the
-  combat; on failure combat continues. Backs "Discard this card from play and
-  make a roll to attempt to cancel an attack … If the roll plus the number of
-  scouts in the company is greater than 7, the attack is canceled."
+  satisfy `total comparison threshold` to cancel; `skillBonus` (a {@link Skill})
+  adds the number of characters with that skill in the defending company to the
+  roll — `"scout"` for ba-37 ("the number of scouts in the company"), `"ranger"`
+  for ba-29 ("the number of rangers in the company"). On success the check's
+  `onPass: { type: "cancel-current-attack" }` verb cancels the combat; on failure
+  combat continues.
 
 **Dual-mode cancel / reduce-prowess.** A `prowessPenalty: N` field turns the
 card into a two-option play: the legal-action emitter offers both the outright
@@ -11509,12 +11509,14 @@ play-deck-exhausted` self-discard, and `duplication-limit` scope `game`.
 Carried by a permanent-event **bound to a company** (`play-target`
 `target: "company"`, so `CardInPlay.companyId` is set). Constrains how the bound
 company may move and how many hazards it faces while region-moving. Multiple
-restriction cards on one company stack: `noStarterMovement` OR-s, the region cap
-takes the strictest declared maximum, and hazard modifiers sum.
+restriction cards on one company stack: `noStarterMovement` and
+`noUnderDeepsMovement` each OR, the region cap takes the strictest declared
+maximum, and hazard modifiers sum.
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `noStarterMovement` | no | When `true`, the bound company may not use starter movement. |
+| `noUnderDeepsMovement` | no | When `true`, the bound company may not move to an Under-deeps site (keyword `under-deeps`). |
 | `regionMovementMax` | no | Hard cap on the number of regions the company may span in region movement ("limited in all cases to N regions maximum"). |
 | `hazardLimitModifier` | no | Added to the company's hazard limit **only when it moves via region movement** (negative reduces it). |
 | `hazardLimitFloor` | no | Floor the hazard limit is never reduced below by `hazardLimitModifier`. |
@@ -11523,15 +11525,24 @@ takes the strictest declared maximum, and hazard modifiers sum.
 { "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 }
 ```
 
+```json
+{ "type": "company-movement-restriction", "noStarterMovement": true, "noUnderDeepsMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 }
+```
+
 Behaviour (`effects/company-restrictions.ts` `companyMovementRestrictions`): the
-aggregate is read at four sites — organization plan-movement
-(`organization-companies.ts`, drops starter destinations and caps region
-distance), M/H select-company (`mh-steps.ts`, caps `phaseState.maxRegionDistance`),
-M/H declare-path (`legal-actions/movement-hazard.ts`, suppresses the starter
-path), and the hazard-limit snapshot (`mh-steps.ts` `snapshotHazardLimit`, applies
-the floored hazard modifier). The hazard modifier is gated on a region-moving
+aggregate is read at organization plan-movement (`organization-companies.ts`,
+drops starter destinations, caps region distance, and — when
+`noUnderDeepsMovement` — skips the entire Under-deeps destination pass), M/H
+select-company (`mh-steps.ts`, caps `phaseState.maxRegionDistance`), M/H
+declare-path (`legal-actions/movement-hazard.ts`, suppresses the starter path
+option and, when `noUnderDeepsMovement`, the Under-deeps declare-path option),
+and the hazard-limit snapshot (`mh-steps.ts` `snapshotHazardLimit`, applies the
+floored hazard modifier). The hazard modifier is gated on a region-moving
 company (`movementType === region`), per CRF 22: "The hazard limit reduction only
-works if the company is moving." Used by Going Ever Under Dark (ba-37).
+works if the company is moving." Used by Going Ever Under Dark (ba-37,
+`noStarterMovement` only) and Crept Along Carefully (ba-29, adds
+`noUnderDeepsMovement`: "cannot use starter movement or move to an Under-deeps
+site").
 
 ### 52b-i. `company-movement-tax`
 

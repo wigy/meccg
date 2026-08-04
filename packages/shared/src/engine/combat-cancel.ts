@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
-import { CardStatus, Skill } from '../types/common.js';
+import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
@@ -105,20 +105,21 @@ export function handleCancelAttackByInPlayFaction(
 
   const factionName = cardName(state, factionEntry.definitionId);
 
-  // Roll-to-cancel (Going Ever Under Dark ba-37): the card is discarded and a
-  // 2d6 dice-check enqueued; the attack is cancelled only if the check passes.
+  // Roll-to-cancel (Going Ever Under Dark ba-37, Crept Along Carefully ba-29):
+  // the card is discarded and a 2d6 dice-check enqueued; the attack is
+  // cancelled only if the check passes.
   if (cancelEffect?.roll) {
     const roll = cancelEffect.roll;
     const company = companyById(defPlayer.companies, combat.companyId);
-    let scoutBonus = 0;
-    if (roll.scoutBonus && company) {
+    let skillBonus = 0;
+    if (roll.skillBonus && company) {
       for (const charId of company.characters) {
         const ch = defPlayer.characters[charId];
         const cDef = ch ? defById(state, ch.definitionId) : undefined;
-        if (cDef && isCharacterCard(cDef) && cDef.skills.includes(Skill.Scout)) scoutBonus++;
+        if (cDef && isCharacterCard(cDef) && cDef.skills.includes(roll.skillBonus)) skillBonus++;
       }
     }
-    logDetail(`Cancel-attack declared: discarding ${factionName} and rolling to cancel (threshold ${roll.comparison} ${roll.threshold}, +${scoutBonus} scouts)`);
+    logDetail(`Cancel-attack declared: discarding ${factionName} and rolling to cancel (threshold ${roll.comparison} ${roll.threshold}, +${skillBonus} ${roll.skillBonus ?? 'n/a'})`);
     const discardedForRoll = updatePlayer(state, defPlayerIndex, p => ({
       ...p,
       cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
@@ -133,7 +134,7 @@ export function handleCancelAttackByInPlayFaction(
         type: 'dice-check',
         label: `${factionName}: roll to cancel attack`,
         roller: action.player,
-        modifiers: scoutBonus > 0 ? [{ kind: 'constant', value: scoutBonus }] : [],
+        modifiers: skillBonus > 0 ? [{ kind: 'constant', value: skillBonus }] : [],
         threshold: roll.threshold,
         comparison: roll.comparison,
         onPass: { type: 'cancel-current-attack' },

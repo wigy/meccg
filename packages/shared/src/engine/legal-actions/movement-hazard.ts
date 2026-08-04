@@ -452,9 +452,19 @@ function revealNewSiteActions(
   // A company-bound movement restriction (Going Ever Under Dark ba-37) forbids
   // starter movement for the bound company ("The company cannot use starter
   // movement"). The region cap is enforced separately via mhState.maxRegionDistance.
-  const noStarterRestriction = companyMovementRestrictions(player, company, state)?.noStarterMovement === true;
+  const moveRestriction = companyMovementRestrictions(player, company, state);
+  const noStarterRestriction = moveRestriction?.noStarterMovement === true;
   if (noStarterRestriction) {
     logDetail(`Company ${company.id as string}: a movement-restriction card forbids starter movement`);
+  }
+  // Crept Along Carefully (ba-29): "or move to an Under-deeps site" — the
+  // company's destination was never offered as an Under-deeps candidate during
+  // org-phase plan-movement (see organization-companies.ts), but this guards
+  // the declare-path step too in case the restriction was bound after the
+  // destination was already planned.
+  const noUnderDeepsRestriction = moveRestriction?.noUnderDeepsMovement === true;
+  if (noUnderDeepsRestriction) {
+    logDetail(`Company ${company.id as string}: a movement-restriction card forbids Under-deeps movement`);
   }
 
   // --- Starter movement ---
@@ -503,7 +513,7 @@ function revealNewSiteActions(
   }
 
   // --- Under-deeps movement ---
-  if (isUnderDeepsAdjacent(state, originDef, destDef, playerId)) {
+  if (!noUnderDeepsRestriction && isUnderDeepsAdjacent(state, originDef, destDef, playerId)) {
     logDetail(`Under-deeps movement available: ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
   }
