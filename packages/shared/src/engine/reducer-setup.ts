@@ -14,6 +14,7 @@ import { MAX_STARTING_ITEMS } from '../rules/definitions/item-draft.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isHalfOrc, printedMind } from '../types/cards.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
+import { hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from '../stage-resource-characters.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -670,17 +671,21 @@ function handleItemDraft(
     return wrongActionType(state, action, 'assign-starting-item', 'item draft');
   }
 
-  // Enforce starting item limit
-  if (assignedCount >= MAX_STARTING_ITEMS) {
-    return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
-  }
-
   // Resolve definition ID to the first matching unassigned instance
   const itemCard = itemDraft.unassignedItems.find(card => card.definitionId === action.itemDefId);
   if (!itemCard) {
     return { state, error: 'Item is not in your unassigned items' };
   }
   const itemInstanceId = itemCard.instanceId;
+  const itemDef = defById(state, itemCard.definitionId);
+
+  // Enforce starting item limit — only true minor items count toward the
+  // two-item budget (CoE 1.7.F1 / 1.9.F4 — see countStartingMinorItems); a
+  // deferred character-targeted Stage resource (Gandalf's Friend, Squire of
+  // the Hunt, etc.) is exempt.
+  if (!hasCharacterPlayTargetEffect(itemDef) && assignedCount >= MAX_STARTING_ITEMS) {
+    return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
+  }
 
   // Validate character belongs to this player's company
   const allCharIds = player.companies.flatMap(c => c.characters);
@@ -691,6 +696,17 @@ function handleItemDraft(
   const existingChar = player.characters[charKey];
   if (!existingChar) {
     return { state, error: 'Character not found' };
+  }
+
+  // A deferred Stage resource may only be assigned to a character matching
+  // its `play-target: character` filter (e.g. Squire of the Hunt: warriors
+  // only) — legal-actions already restricts the offered characters, but the
+  // reducer re-validates so a stale or hand-crafted action can't bypass it.
+  if (hasCharacterPlayTargetEffect(itemDef)) {
+    const charDef = defById(state, existingChar.definitionId);
+    if (!isCharacterCard(charDef) || !matchesCharacterPlayTarget(charDef, itemDef)) {
+      return { state, error: `${itemDef?.name ?? (action.itemDefId as string)} cannot be placed on this character` };
+    }
   }
 
   // Remove item from unassigned list

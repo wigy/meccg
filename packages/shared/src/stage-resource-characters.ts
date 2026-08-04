@@ -17,6 +17,13 @@
  * rather than floating in its own row) need the *same* pairing. This module is
  * the single source of truth for that rule so the displayed pairing always
  * matches the one the engine will actually apply.
+ *
+ * Other character-bound Stage resources without Thrall's mechanical tie-breaker
+ * (Gandalf's Friend wh-98, Squire of the Hunt wh-95, etc.) have no rules-mandated
+ * "best" character — any drafted character matching their filter is an equally
+ * legal home — so the engine does not auto-pick one. {@link matchesCharacterPlayTarget}
+ * only narrows the field; the player makes the actual choice via
+ * `assign-starting-item` during the item-draft step.
  */
 
 import type { CardDefinition, CharacterCard } from './types/cards.js';
@@ -34,14 +41,6 @@ export interface StageResourceCharacterRef {
 /** A resolved Thrall-of-the-Voice → character placement. */
 export interface ThrallCharacterPairing {
   /** The recruitment-vehicle Stage resource (Thrall of the Voice). */
-  readonly stageResourceInstanceId: CardInstanceId;
-  /** The drafted character it is placed with. */
-  readonly characterInstanceId: CardInstanceId;
-}
-
-/** A resolved character-targeting Stage resource → character placement. */
-export interface StageResourceCharacterPairing {
-  /** The character-targeting Stage resource (e.g. Squire of the Hunt). */
   readonly stageResourceInstanceId: CardInstanceId;
   /** The drafted character it is placed with. */
   readonly characterInstanceId: CardInstanceId;
@@ -75,10 +74,11 @@ function characterPlayTargetEffect(def: CardDefinition | undefined): PlayTargetE
  * True if a drafted Stage resource requires a character bearer to function —
  * a `play-target: character` effect, other than the recruitment-vehicle
  * Thrall (paired separately by {@link resolveThrallCharacterPairings}). Such
- * a card has no effect on its own, so if
- * {@link resolveCharacterTargetedStageResourcePairings} finds no qualifying
- * drafted character for it, the engine must keep it in hand rather than
- * putting it into play unattached.
+ * a card has no effect on its own, so if no drafted character matches
+ * {@link matchesCharacterPlayTarget}, the engine must keep it in hand rather
+ * than putting it into play unattached; otherwise it is deferred to the
+ * item-draft step so the player can choose which qualifying character it
+ * attaches to.
  */
 export function hasCharacterPlayTargetEffect(def: CardDefinition | undefined): boolean {
   return !isRecruitmentVehicle(def) && characterPlayTargetEffect(def) !== undefined;
@@ -147,46 +147,22 @@ function characterFilterContext(def: CharacterCard): { readonly target: Record<s
 }
 
 /**
- * Pair each drafted Stage resource with a mandatory `play-target: character`
- * effect (other than the recruitment-vehicle Thrall, paired separately by
- * {@link resolveThrallCharacterPairings}) with the first drafted character
- * matching its filter. CoE 1.9.F4: "if not duplicated, the Stage resource is
- * put into play" — for a card whose sole effect requires a character bearer
- * (Squire of the Hunt wh-95, Gandalf's Friend wh-98, Pallando's Apprentice
- * wh-104, Wizard's Myrmidon wh-84, The Forge-master wh-117), "put into play"
- * means attached to a qualifying drafted character, exactly as its card
- * text's "(or in your starting company)" clause describes.
+ * True if `charDef` satisfies the mandatory `play-target: character` filter
+ * on `def` — a drafted Stage resource other than the recruitment-vehicle
+ * Thrall (Squire of the Hunt wh-95, Gandalf's Friend wh-98, Pallando's
+ * Apprentice wh-104, Wizard's Myrmidon wh-84, The Forge-master wh-117).
  *
- * @param characters - The drafted characters, in draft order.
- * @param stageResources - The drafted Stage resources, in draft order.
- * @param lookupDef - Resolves a definition id to its card definition.
- * @param alreadyPaired - Character instance ids already claimed by another
- *   Stage resource (e.g. a Thrall pairing) — excluded from consideration so
- *   one character never carries two mandatory-target Stage resources.
- * @returns One pairing per Stage resource that found a qualifying character.
+ * Unlike the Thrall (deterministically placed on the best-fit agent by
+ * {@link resolveThrallCharacterPairings}), a card like Gandalf's Friend has no
+ * rules-mandated "best" character — any drafted character matching its filter
+ * is an equally legal home, so *which one* it lands on is the player's
+ * choice, not the engine's. This predicate only narrows the field to
+ * characters the card could legally target; the actual pick is made through
+ * `assign-starting-item` during the item-draft step (mirroring how minor
+ * items are assigned), not decided here.
  */
-export function resolveCharacterTargetedStageResourcePairings(
-  characters: readonly StageResourceCharacterRef[],
-  stageResources: readonly StageResourceCharacterRef[],
-  lookupDef: (defId: CardDefinitionId) => CardDefinition | undefined,
-  alreadyPaired: ReadonlySet<string> = new Set(),
-): readonly StageResourceCharacterPairing[] {
-  const used = new Set(alreadyPaired);
-  const pairings: StageResourceCharacterPairing[] = [];
-  for (const sr of stageResources) {
-    const def = lookupDef(sr.definitionId);
-    if (isRecruitmentVehicle(def)) continue;
-    const playTarget = characterPlayTargetEffect(def);
-    if (!playTarget) continue;
-    const target = characters.find(c => {
-      if (used.has(c.instanceId as string)) return false;
-      const cDef = lookupDef(c.definitionId);
-      if (!cDef || !isCharacterCard(cDef)) return false;
-      return !playTarget.filter || matchesCondition(playTarget.filter, characterFilterContext(cDef));
-    });
-    if (!target) continue;
-    used.add(target.instanceId as string);
-    pairings.push({ stageResourceInstanceId: sr.instanceId, characterInstanceId: target.instanceId });
-  }
-  return pairings;
+export function matchesCharacterPlayTarget(charDef: CharacterCard, def: CardDefinition | undefined): boolean {
+  const playTarget = characterPlayTargetEffect(def);
+  if (!playTarget) return false;
+  return !playTarget.filter || matchesCondition(playTarget.filter, characterFilterContext(charDef));
 }
