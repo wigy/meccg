@@ -23,7 +23,7 @@
  * | 4 | Voluntary discard during any org phase              | IMPLEMENTED   |
  * | 5 | Discard if Ringwraith moves                         | IMPLEMENTED   |
  * | 6 | Cannot be duplicated by a given player              | IMPLEMENTED   |
- * | 7 | Alternative mode: playable without Ringwraith       | NOT IMPL.     |
+ * | 7 | Alternative mode: playable without Ringwraith       | IMPLEMENTED   |
  * | 8 | Place with Ringwraith on entry                      | NOT IMPL.     |
  * | 9 | Cannot be included in a Balrog's deck               | OUT OF SCOPE  |
  */
@@ -110,10 +110,12 @@ describe('Bade to Rule (le-167)', () => {
     expect(actions.length).toBe(0);
   });
 
-  test('NOT playable on a non-Ringwraith character (The Mouth, race man)', () => {
+  test('NOT attachable to a non-Ringwraith character (The Mouth, race man) — falls back to the untargeted alternative mode since no Ringwraith is in play', () => {
     const state = orgStateAtHaven({ ringwraith: THE_MOUTH });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBe(0);
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as { targetCharacterId?: unknown };
+    expect(action.targetCharacterId).toBeUndefined();
   });
 
   // ── Rule 2: -2 direct influence ──────────────────────────────────────────
@@ -243,8 +245,38 @@ describe('Bade to Rule (le-167)', () => {
     expect(p2Actions.length).toBeGreaterThan(0);
   });
 
-  // ── Rules 7–8: Alternative play mode (deferred) ──────────────────────────
+  // ── Rule 7: Alternative play mode (no Ringwraith in play) ────────────────
 
-  test.todo('alternative mode: playable if Ringwraith is not in play, gives +5 general influence');
+  test('alternative mode: playable if Ringwraith is not in play, gives +5 general influence', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [],
+          hand: [BADE_TO_RULE],
+          siteDeck: [],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as { targetCharacterId?: unknown };
+    expect(action.targetCharacterId).toBeUndefined();
+
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, BADE_TO_RULE);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, cardId);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceBonus).toBe(5);
+  });
+
   test.todo('when played in alternative mode, placed with Ringwraith when he enters play');
 });

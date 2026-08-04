@@ -759,8 +759,28 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         }
       }
       if (!anyTarget) {
-        logDetail(`Permanent event ${def.name}: no valid target`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
+        // play-option { untargeted: true }: an alternative mode that needs no
+        // character target at all when its `when` condition holds (Bade to
+        // Rule le-167: "Alternatively, playable if your Ringwraith is not in
+        // play."). Evaluated against the same player-state context as the
+        // `player-state` play-condition above, since the option's `when`
+        // describes the *player's* situation, not a specific target.
+        const untargetedOption = def.effects?.find(
+          (e): e is import('../../types/effects.js').PlayOptionEffect =>
+            e.type === 'play-option' && e.untargeted === true,
+        );
+        const untargetedApplies = untargetedOption
+          && (!untargetedOption.when || matchesCondition(untargetedOption.when, buildPlayerStateContext(state, player, playerId)));
+        if (untargetedApplies) {
+          logDetail(`Permanent event ${def.name}: no matching character target — untargeted play-option "${untargetedOption.id}" applies`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+            viable: true,
+          });
+        } else {
+          logDetail(`Permanent event ${def.name}: no valid target`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
+        }
       }
       continue;
     }
