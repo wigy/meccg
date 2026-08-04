@@ -31,13 +31,15 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildSitePhaseState, resetMint, Phase, CardStatus,
-  viableActions, dispatch, playPermanentEventAndResolve,
+  buildSitePhaseState, resetMint, mint, Phase, CardStatus,
+  viableActions, dispatch, resolveChain, playPermanentEventAndResolve,
   findCharInstanceId, findHandCardId,
   PLAYER_1, RESOURCE_PLAYER,
   BILBO, GANDALF, GIMLI, BREE, EDORAS, MORIA,
+  AND_FORTH_HE_HASTENED,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction } from '../../index.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 const FIREWORKS = 'dm-130' as CardDefinitionId;
 // BILBO (tw-131): hobbit sage, mind 5, untapped. GANDALF (tw-156): Wizard sage,
@@ -246,5 +248,67 @@ describe('Fireworks (dm-130)', () => {
 
     const secondUntap = dispatch(toUntapPhase(firstUntap), { type: 'untap', player: PLAYER_1 });
     expect(secondUntap.players[RESOURCE_PLAYER].characters[sageId].status).toBe(CardStatus.Untapped);
+  });
+
+  // ── Bug 92d233ec4e4bb768: a non-phase untap must honor the skip too ────────
+
+  test('a resource event that untaps the sage directly (bypassing the untap phase) still triggers the skip — stays tapped, Fireworks discarded', () => {
+    // Reported in bug 92d233ec4e4bb768 (game msdp72wh-j5004s, seq 733):
+    // Fireworks installed its skip-next-untap on the sage, but before the
+    // sage's own untap phase ever arrived, And Forth He Hastened (td-98) untapped
+    // him directly. That direct untap bypassed the constraint entirely — the
+    // sage became untapped and Fireworks just sat in his items forever,
+    // never discarded. The card text ("the next time the sage would
+    // otherwise become untapped...") must intercept ANY untap attempt, not
+    // just the untap-phase sweep.
+    const state = fireworksState({ site: BREE, chars: [GANDALF] });
+    const sageId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, FIREWORKS);
+    const played = playPermanentEventAndResolve(state, PLAYER_1, cardId, sageId, { targetSiteDefinitionId: BREE });
+
+    const rolled = dispatch(
+      { ...played, cheatRollTotal: 8 },
+      { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
+    );
+    expect(rolled.players[RESOURCE_PLAYER].characters[sageId].status).toBe(CardStatus.Tapped);
+
+    // Move to the organization phase and give the sage's controller And Forth
+    // He Hastened, then play it targeting the (still tapped) sage — Gandalf
+    // is his own avatar, so he's trivially "in the Wizard's company".
+    const hastenedCardId = mint();
+    const withHastened: GameState = {
+      ...rolled,
+      phaseState: {
+        phase: Phase.Organization,
+        characterPlayedThisTurn: false,
+        sideboardFetchedThisTurn: 0,
+        sideboardFetchDestination: null,
+      } as GameState['phaseState'],
+      players: [
+        {
+          ...rolled.players[RESOURCE_PLAYER],
+          hand: [...rolled.players[RESOURCE_PLAYER].hand, { instanceId: hastenedCardId, definitionId: AND_FORTH_HE_HASTENED }],
+        },
+        rolled.players[1],
+      ] as typeof rolled.players,
+    };
+
+    const untapAction = computeLegalActions(withHastened, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .find(a => a.cardInstanceId === hastenedCardId && a.targetCharacterId === sageId);
+    expect(untapAction).toBeDefined();
+
+    const resolved = resolveChain(dispatch(withHastened, untapAction!));
+
+    // The sage stays tapped — the untap was intercepted, not applied.
+    expect(resolved.players[RESOURCE_PLAYER].characters[sageId].status).toBe(CardStatus.Tapped);
+    // Fireworks is discarded and removed from the sage's items.
+    expect(resolved.players[RESOURCE_PLAYER].characters[sageId].items.some(i => i.instanceId === cardId)).toBe(false);
+    expect(resolved.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardId)).toBe(true);
+    // The one-shot constraint is consumed.
+    expect(resolved.activeConstraints.filter(c => c.kind.type === 'skip-next-untap')).toHaveLength(0);
+    // And Forth He Hastened itself is still spent/discarded as normal.
+    expect(resolved.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === hastenedCardId)).toBe(true);
   });
 });
