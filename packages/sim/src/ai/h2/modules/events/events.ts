@@ -62,7 +62,7 @@ import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
-import { namedCharacter } from '../../core/action-fields.js';
+import { namedCharacter, namedDiscardTarget } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 import { computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
@@ -197,6 +197,40 @@ function hasRemovalTarget(removal: Effect, context: ModuleContext): boolean {
   return false;
 }
 
+/**
+ * Locates an in-play instance across both the free-standing `cardsInPlay`
+ * zone and hazards attached to characters, on either side, mirroring
+ * {@link hasRemovalTarget}. Null when the instance is not in either.
+ *
+ * `attached` matters beyond bookkeeping: a free-standing card in either
+ * zone is priced correctly regardless of whose zone lists it, because
+ * `defence` already measures its effect on *our* companies directly — a
+ * hazard event the opponent played still boosts attacks on us no matter
+ * whose bucket the engine happens to file it under. A hazard attached to a
+ * character is different: `defence` has no model for what it does to that
+ * character (corruption, say), so the only provable fact about it is *whose*
+ * character carries it — the corruption of a character we do not control
+ * cannot be a benefit to us, whatever it is.
+ */
+function findInPlay(
+  view: ModuleContext['view'],
+  instanceId: CardInstanceId,
+): { readonly ours: boolean; readonly attached: boolean; readonly definitionId: string } | null {
+  const self = view.self.cardsInPlay.find(c => c.instanceId === instanceId);
+  if (self) return { ours: true, attached: false, definitionId: self.definitionId as string };
+  const opponent = view.opponent.cardsInPlay.find(c => c.instanceId === instanceId);
+  if (opponent) return { ours: false, attached: false, definitionId: opponent.definitionId as string };
+  for (const character of Object.values(view.self.characters)) {
+    const hazard = character.hazards.find(h => h.instanceId === instanceId);
+    if (hazard) return { ours: true, attached: true, definitionId: hazard.definitionId as string };
+  }
+  for (const character of Object.values(view.opponent.characters)) {
+    const hazard = character.hazards.find(h => h.instanceId === instanceId);
+    if (hazard) return { ours: false, attached: true, definitionId: hazard.definitionId as string };
+  }
+  return null;
+}
+
 /** Every effect the card declares, including the ones nested under `apply`. */
 function flatten(effects: readonly Effect[]): Effect[] {
   return effects.flatMap(effect => (effect.apply ? [effect, ...flatten([effect.apply])] : [effect]));
@@ -271,14 +305,15 @@ function gainOf(
     // With something to reach, the card is worth what *that* card was doing.
     // One thing it might be doing is declared: a hazard event that makes every
     // attack stronger. Anything else this module still cannot price.
-    return reliefFromRemoval(removal, context);
+    return reliefFromRemoval(removal, context, action);
   }
 
   return null;
 }
 
 /**
- * What discarding the best reachable card in play is worth, or null.
+ * What discarding the reachable card this action actually names is worth, or
+ * null.
  *
  * The only thing a card in play does that this module can price is what
  * `defence` already prices from the other direction: a hazard event declaring a
@@ -287,15 +322,35 @@ function gainOf(
  * stops — summed over our companies, each facing its own size in hazards, which
  * is the same convention `characters` compares company shapes with.
  *
- * The player picks the target in a later sub-flow, so the *best* reachable card
- * is priced rather than a named one, on the assumption that they will take it.
- * A target this cannot price leaves the card declined, which is the honest
- * outcome for "it discards something, and what that something was doing is its
- * own card's text".
+ * Marvels Told, Voices of Malice, Ancient Secrets and The Cock Crows each
+ * enumerate one `play-short-event` action per eligible target, on either
+ * side of the table — the engine's legal-action generator does not restrict
+ * these to a player's own hazards, and correctly so, but the engine, not a
+ * later sub-flow, has already picked which card this specific action reaches
+ * (`namedDiscardTarget`). Every one of those actions must be priced by *that*
+ * card, not by whichever reachable card would be best. A module that priced
+ * "the best reachable card" for all of them alike used to hand every one of
+ * those actions the same score, including the ones that reach a hazard
+ * *attached to a character on the opponent's side* — discarding one of those
+ * relieves the opponent's character, not our companies, and `defence` has no
+ * model of that character-specific effect to price it by, so it is a proven
+ * zero rather than a guess.
+ *
+ * A free-standing card in either zone (Minions Stir, say) is priced by
+ * `defence` directly regardless of whose zone lists it — a hazard event the
+ * opponent played still boosts attacks on us no matter whose bucket the
+ * engine files it under, so there is no ownership override for that case.
+ * A target on our own side (or a free-standing one either side) whose relief
+ * this cannot price still declines — that is the same "cannot price it"
+ * honesty as before, just now scoped to the right card. A sweep-mode effect
+ * (Wizard's River-horses) names no single target, so it falls back to
+ * pricing the best reachable match across both sides — the sweep takes all
+ * of them, wherever they are.
  */
 function reliefFromRemoval(
   removal: Effect,
   context: ModuleContext,
+  action: GameAction,
 ): { tsd: number; reason: string } | null {
   const { view, cardPool, standing, tunables } = context;
   const defence = computeDefence(view, cardPool, standing, tunables);
@@ -304,16 +359,36 @@ function reliefFromRemoval(
     size: company.characters.length,
   }));
   const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, c.size), 0);
+  const reliefFrom = (instanceId: string): number => now - companies.reduce(
+    (sum, c) => sum + defence.harmWithout(instanceId, c.roster, c.size), 0,
+  );
 
+  const target = namedDiscardTarget(action);
+  if (target) {
+    const located = findInPlay(view, target);
+    if (located?.attached && !located.ours) {
+      return { tsd: 0, reason: 'attached to a character we do not control — discarding it relieves the '
+        + 'opponent, not us' };
+    }
+    const relief = reliefFrom(target as string);
+    if (relief <= 0) return null;
+    const def = located ? cardPool[located.definitionId] : undefined;
+    const name = (def as unknown as { name?: string } | undefined)?.name ?? (target as string);
+    return {
+      tsd: relief,
+      reason: `discarding ${name} takes ${relief.toFixed(1)} of harm off our companies — `
+        + 'the attacks it was strengthening go back to their printed numbers',
+    };
+  }
+
+  // Sweep mode: no single named target, so price the best reachable match —
+  // the effect takes all of them regardless.
   let best: { relief: number; name: string } | null = null;
   for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
     for (const card of zone) {
       const def = cardPool[card.definitionId];
       if (!couldMatch(removal.filter, def)) continue;
-      const without = companies.reduce(
-        (sum, c) => sum + defence.harmWithout(card.instanceId as string, c.roster, c.size), 0,
-      );
-      const relief = now - without;
+      const relief = reliefFrom(card.instanceId as string);
       if (relief > 0 && (!best || relief > best.relief)) {
         best = {
           relief,
