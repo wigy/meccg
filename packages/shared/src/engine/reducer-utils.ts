@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, PlayableAtEntry } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -59,6 +59,66 @@ export function isAgentCharacter(def: CardDefinition | undefined): boolean {
  */
 export function isStageResourceCard(def: CardDefinition | undefined): boolean {
   return isResourceEventCard(def) && (def.keywords ?? []).includes('starting-item');
+}
+
+/**
+ * True if `siteDef` matches a single `playableAt` entry from an ally or
+ * faction card. Shared by the site-phase play-legality check
+ * ({@link legal-actions/site.ts}) and Crown of Flowers pairing
+ * ({@link legal-actions/organization.ts}), so both agree on where a given
+ * ally/faction may be played.
+ */
+export function siteMatchesEntry(
+  siteDef: SiteCard,
+  entry: PlayableAtEntry,
+  effectiveSiteType: SiteType = siteDef.siteType,
+  regionType?: RegionType,
+  isUnderDeepsSurface = false,
+): boolean {
+  if ('region' in entry) {
+    // Region entries match any non-haven site in the named region.
+    if (effectiveSiteType === 'haven') return false;
+    return siteDef.region === entry.region;
+  }
+  // `any` entries match every site, subject only to the optional `when`
+  // condition (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
+  // non-Dark-hold site in a Wilderness"). All other entries key on a fixed
+  // site name or site type.
+  const baseMatches = 'any' in entry
+    ? true
+    : 'site' in entry
+      ? siteDef.name === entry.site
+      : effectiveSiteType === entry.siteType;
+  if (!baseMatches) return false;
+  if (!entry.when) return true;
+  const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+  const ctx: Record<string, unknown> = {
+    site: {
+      name: siteDef.name,
+      siteType: effectiveSiteType,
+      // The region *type* of the site (from the separate region card). Lets a
+      // faction gate on "Ruins & Lairs in a Wilderness" (Wild Hounds wh-40) via
+      // `when: { "site.regionType": "wilderness" }`. Only supplied by callers
+      // that have `state` in scope (the faction paths); undefined elsewhere.
+      regionType,
+      region: siteDef.region,
+      // The site's printed keywords (e.g. `under-deeps`, `hoard`). Lets an
+      // ally/faction gate on "an Under-deeps site with a Troll automatic-attack"
+      // (Cave Troll ba-35) via `when: { "site.keywords": { "$includes": "under-deeps" } }`.
+      keywords: siteDef.keywords ?? [],
+      autoAttack: { race: autoAttackRaces },
+      // The dragon whose lair this Ruins & Lairs site is (a card id) — absent
+      // for ordinary sites. Lets a faction/ally exclude Dragon's lairs via
+      // `{ "site.lairOf": { "$exists": false } }` (A Few Recruits ba-80:
+      // "non-Dragon's lair").
+      lairOf: (siteDef as { lairOf?: unknown }).lairOf,
+      // True when this site is the roll-0 surface entrance of an Under-deeps
+      // site. Together with the `under-deeps` keyword this lets a faction/ally
+      // gate on "not an Under-deeps site or surface site thereof" (ba-80).
+      isUnderDeepsSurface,
+    },
+  };
+  return matchesCondition(entry.when, ctx);
 }
 
 /**

@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -39,15 +39,6 @@ import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPl
 import { asViable as viable } from './evaluated.js';
 import { grantedAction } from './granted-action-emit.js';
 
-/**
- * Check whether a site satisfies a {@link PlayableAtEntry}.
- * Matches by exact site name (`site`), site type (`siteType`), or region
- * name (`region`). The `region` variant matches any non-haven site in the
- * named region (haven sites are never valid for region-keyed allies like
- * Noble Steed). An optional `when` condition on `site`/`siteType` entries
- * is evaluated against a context exposing `site.name`, `site.siteType`,
- * and `site.autoAttack.race`.
- */
 /**
  * MEWH §10 (site-tap alignment match): a non-Fallen-wizard resource that taps a
  * site (faction, ally, or item) may only be played at a site of the same
@@ -120,59 +111,6 @@ function givesMarshallingPoints(def: CardDefinition): boolean {
   if (!isItemCard(def) && !isAllyCard(def) && !isFactionCard(def)) return false;
   const mp = (def as { marshallingPoints?: number }).marshallingPoints;
   return typeof mp === 'number' && mp > 0;
-}
-
-function siteMatchesEntry(
-  siteDef: SiteCard,
-  entry: PlayableAtEntry,
-  effectiveSiteType: SiteType = siteDef.siteType,
-  regionType?: RegionType,
-  isUnderDeepsSurface = false,
-): boolean {
-  if ('region' in entry) {
-    // Region entries match any non-haven site in the named region.
-    if (effectiveSiteType === 'haven') return false;
-    return siteDef.region === entry.region;
-  }
-  // `any` entries match every site, subject only to the optional `when`
-  // condition (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
-  // non-Dark-hold site in a Wilderness"). All other entries key on a fixed
-  // site name or site type.
-  const baseMatches = 'any' in entry
-    ? true
-    : 'site' in entry
-      ? siteDef.name === entry.site
-      : effectiveSiteType === entry.siteType;
-  if (!baseMatches) return false;
-  if (!entry.when) return true;
-  const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
-  const ctx: Record<string, unknown> = {
-    site: {
-      name: siteDef.name,
-      siteType: effectiveSiteType,
-      // The region *type* of the site (from the separate region card). Lets a
-      // faction gate on "Ruins & Lairs in a Wilderness" (Wild Hounds wh-40) via
-      // `when: { "site.regionType": "wilderness" }`. Only supplied by callers
-      // that have `state` in scope (the faction paths); undefined elsewhere.
-      regionType,
-      region: siteDef.region,
-      // The site's printed keywords (e.g. `under-deeps`, `hoard`). Lets an
-      // ally/faction gate on "an Under-deeps site with a Troll automatic-attack"
-      // (Cave Troll ba-35) via `when: { "site.keywords": { "$includes": "under-deeps" } }`.
-      keywords: siteDef.keywords ?? [],
-      autoAttack: { race: autoAttackRaces },
-      // The dragon whose lair this Ruins & Lairs site is (a card id) — absent
-      // for ordinary sites. Lets a faction/ally exclude Dragon's lairs via
-      // `{ "site.lairOf": { "$exists": false } }` (A Few Recruits ba-80:
-      // "non-Dragon's lair").
-      lairOf: (siteDef as { lairOf?: unknown }).lairOf,
-      // True when this site is the roll-0 surface entrance of an Under-deeps
-      // site. Together with the `under-deeps` keyword this lets a faction/ally
-      // gate on "not an Under-deeps site or surface site thereof" (ba-80).
-      isUnderDeepsSurface,
-    },
-  };
-  return matchesCondition(entry.when, ctx);
 }
 
 /**
