@@ -46,7 +46,7 @@ import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, enqueueResolution, constraintsOnCompany } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1366,6 +1366,16 @@ export function findForcingEnvironment(
     const skills = charData ? getEffectiveSkills(state, charData, charDef) : [...charDef.skills];
     return skills.includes(Skill.Ranger);
   });
+
+  // Promptings of Wisdom (wh-34) / Piercing All Shadows (wh-47) / Govern the
+  // Storms (wh-45): a `cancel-return-and-site-tap` constraint on this company
+  // cancels every hazard effect that would force it back to its site of
+  // origin for the rest of the turn — checked before scanning any individual
+  // environment.
+  if (constraintsOnCompany(state, company.id).some(c => c.kind.type === 'cancel-return-and-site-tap')) {
+    logDetail(`Rule 5.31: company ${company.id as string} carries a cancel-return-and-site-tap constraint — forced return suppressed`);
+    return null;
+  }
 
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {

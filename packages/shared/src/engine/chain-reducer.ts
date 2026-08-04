@@ -33,7 +33,7 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWarded
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
-import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
+import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, constraintsOnCompany } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
@@ -3231,6 +3231,13 @@ function applyTapSitesInPlayOnResolve(
           player: { minion: ownerIsMinion },
         };
         if (eff.condition && !matchesCondition(eff.condition, ctx as unknown as Record<string, unknown>)) return co;
+        // Promptings of Wisdom (wh-34) / Piercing All Shadows (wh-47) / Govern
+        // the Storms (wh-45): a `cancel-return-and-site-tap` constraint on this
+        // company cancels this hazard site-tap for the rest of the turn.
+        if (constraintsOnCompany(newState, co.id).some(c => c.kind.type === 'cancel-return-and-site-tap')) {
+          logDetail(`tap-sites-in-play (${def?.name ?? '?'}): company ${co.id as string} carries a cancel-return-and-site-tap constraint — site "${siteDef.name}" not tapped`);
+          return co;
+        }
         tappedCount++;
         logDetail(`tap-sites-in-play (${def?.name ?? '?'}): tapping site "${siteDef.name}" (${site.instanceId as string})`);
         return { ...co, currentSite: { ...site, status: CardStatus.Tapped } };
