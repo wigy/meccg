@@ -231,6 +231,18 @@ describe('organizationEvaluator plan-movement wounded routing', () => {
   });
 });
 
+describe('organizationEvaluator discard-character', () => {
+  // Regression: an unscored discard-character action fell through to the
+  // dispatcher's default weight (1), tying it with other weak actions and
+  // letting the AI occasionally discard a healthy, undamaged character
+  // (e.g. Glorfindel II) for no strategic reason.
+  test('scores 0 — never voluntarily discard a character in play', () => {
+    const action = { type: 'discard-character', player: 'p2', characterInstanceId: 'p2-102' } as unknown as GameAction;
+    const context: AiContext = { view: makeView([]), cardPool: POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+});
+
 describe('organizationEvaluator pass suppression', () => {
   // Regression: a healthy company holding a playable item passed the
   // organization phase instead of declaring movement to a site where the
