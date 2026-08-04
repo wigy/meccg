@@ -1299,7 +1299,10 @@ function handleSiteAutomaticAttacks(
 
     // Before advancing, check for auto-attack-duplicate constraints
     // (Incite Defenders). The duplicate re-uses the first auto-attack's
-    // stats and is faced as an additional combat.
+    // stats and combat rules — including `each-character`, which must
+    // pre-assign one strike per company character (and facing allies)
+    // rather than a single flat strike, exactly like the original attack —
+    // and is faced as an additional combat.
     const dupConstraint = state.activeConstraints.find(c =>
       c.target.kind === 'company'
       && c.target.companyId === company.id
@@ -1313,7 +1316,21 @@ function handleSiteAutomaticAttacks(
       const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx, false, effectiveSiteType);
       const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType);
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
-      logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
+      const dupIsEachCharacter = aa.combatRules?.includes('each-character') ?? false;
+      const dupEachCharacterCompany = siteState.soloAutoAttackCharacterId
+        ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
+        : company;
+      const dupFacingAllies = dupIsEachCharacter
+        ? facingAlliesFor(state, state.players[activePlayerIndex], dupEachCharacterCompany)
+        : [];
+      const dupPreAssignedStrikes: StrikeAssignment[] = dupIsEachCharacter
+        ? [
+            ...dupEachCharacterCompany.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
+            ...dupFacingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
+          ]
+        : [];
+      const dupStrikesTotal = dupIsEachCharacter ? dupPreAssignedStrikes.length : dupStrikes;
+      logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikesTotal} strikes, ${dupProwess} prowess${dupIsEachCharacter ? ', each-character mode' : ''})`);
       const dupState = removeConstraint(state, dupConstraint.id);
       const dupDetainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
         attackEffects: siteDef.effects,
@@ -1327,20 +1344,31 @@ function handleSiteAutomaticAttacks(
       const dupAttackerChooses = resolveAttackerChoosesDefenders(
         state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace2,
       );
-      const dupCombat: CombatState = makeCombatState({
+      const dupBaseCombat: CombatState = {
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
         companyId: company.id,
         defendingPlayerId: state.activePlayer!,
         attackingPlayerId: hazardPlayer(state).id,
-        strikesTotal: dupStrikes,
+        strikesTotal: dupStrikesTotal,
         strikeProwess: dupProwess,
         creatureBody: dupBody,
         creatureRace: creatureRace2,
-        assignmentPhase: dupAttackerChooses ? 'cancel-window' : 'defender',
+        strikeAssignments: dupPreAssignedStrikes,
+        currentStrikeIndex: 0,
+        phase: dupIsEachCharacter ? 'resolve-strike' : 'assign-strikes',
+        assignmentPhase: dupIsEachCharacter ? 'done' : (dupAttackerChooses ? 'cancel-window' : 'defender'),
+        bodyCheckTarget: null,
         detainment: dupDetainment,
         ...(dupAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+        ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+        ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+        ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
+        ...(dupIsEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
         ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
-      });
+      };
+      const dupCombat: CombatState = dupIsEachCharacter && dupPreAssignedStrikes.length > 1
+        ? { ...dupBaseCombat, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null }
+        : dupBaseCombat;
       return {
         state: {
           ...dupState,
