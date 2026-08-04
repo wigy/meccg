@@ -128,6 +128,9 @@ export type {
   AgentTapAttackAction,
   AgentDiscardReturnToOriginAction,
   UnderDeepsRollAction,
+  GangwaysExtraMoveAction,
+  ExtraMHMoveAction,
+  AllyTapExtraMHPhaseAction,
 } from './actions-movement-hazard.js';
 
 // ---- Site phase actions ----
