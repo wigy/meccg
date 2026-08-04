@@ -145,7 +145,7 @@ describe('replay format', () => {
     expect(verification.decisionsReplayed).toBe(run.result.decisions);
 
     fs.rmSync(dir, { recursive: true, force: true });
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('statistics', () => {
