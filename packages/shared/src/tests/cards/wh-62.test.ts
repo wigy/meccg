@@ -12,18 +12,19 @@
  *
  * CERTIFIED. Every printed rule is exercised through the engine:
  *   1. `stage-points` (4) — contributes 4 stage points to the FW controller.
- *   2. `play-condition` (player-state): playable only if the player counts as
+ *   2. Printed marshalling points (1, misc) — contributes 1 misc MP while in play.
+ *   3. `play-condition` (player-state): playable only if the player counts as
  *      Radagast or Alatar, has ≥6 stage points, and controls a protected
  *      Wizardhaven.
- *   3. `grant-ally-play` (`atProtectedWizardhavens`, `allowTappedSite`): a
+ *   4. `grant-ally-play` (`atProtectedWizardhavens`, `allowTappedSite`): a
  *      non-unique 1-mind ally becomes playable at one of the player's own
  *      protected Wizardhavens — tapped or untapped — bypassing the ally's
  *      printed `playableAt`. The grant's `filter` excludes unique / non-1-mind
  *      allies, and does not fire at an unprotected site or a non-Wizardhaven.
- *   4. `grant-ally-play` `oncePerSitePhase`: only one such ally may be played
+ *   5. `grant-ally-play` `oncePerSitePhase`: only one such ally may be played
  *      through the grant each site phase (a turn-scoped lock is recorded on the
  *      granting card).
- *   5. `duplication-limit` (scope `player`) — "Cannot be duplicated by a given
+ *   6. `duplication-limit` (scope `player`) — "Cannot be duplicated by a given
  *      player" (a second copy in hand is not playable).
  */
 
@@ -132,7 +133,31 @@ describe('An Untimely Brood (wh-62)', () => {
     expect(state.players[RESOURCE_PLAYER].stagePoints).toBe(4);
   });
 
-  // ─── Rule 2: play-condition ────────────────────────────────────────────────
+  // ─── Rule 2: marshalling points ─────────────────────────────────────────────
+
+  test('contributes 1 misc marshalling point while in play', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD_FW, characters: [RADAGAST] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    state = addCardInPlay(state, RESOURCE_PLAYER, UNTIMELY_BROOD);
+    state = recomputeDerived(state);
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
+  });
+
+  // ─── Rule 3: play-condition ────────────────────────────────────────────────
 
   test('playable from hand when you are Radagast, have ≥6 stage points, and control a protected Wizardhaven', () => {
     let state = buildTestState({
@@ -220,7 +245,7 @@ describe('An Untimely Brood (wh-62)', () => {
       .filter(ea => (ea.action as { cardInstanceId?: string }).cardInstanceId === handId)).toHaveLength(0);
   });
 
-  // ─── Rule 3: grant a non-unique 1-mind ally at a protected Wizardhaven ──────
+  // ─── Rule 4: grant a non-unique 1-mind ally at a protected Wizardhaven ──────
 
   test('baseline: Noble Steed is NOT playable at a Wizardhaven without An Untimely Brood', () => {
     // Same fixture minus the permanent-event: build directly.
@@ -271,7 +296,7 @@ describe('An Untimely Brood (wh-62)', () => {
     expect(grantedPlayInstIds(state, GOLDBERRY)).toHaveLength(0);
   });
 
-  // ─── Rule 4: only one such ally per site phase ─────────────────────────────
+  // ─── Rule 5: only one such ally per site phase ─────────────────────────────
 
   test('playing the granted ally attaches it, taps the site, and blocks a second grant-play this phase', () => {
     const state = broodSitePhase({ site: ISENGARD_FW, hand: [NOBLE_STEED, NOBLE_STEED], protect: true });
@@ -305,7 +330,7 @@ describe('An Untimely Brood (wh-62)', () => {
     expect(blocked?.reason ?? '').toContain('one ally');
   });
 
-  // ─── Rule 5: cannot be duplicated by a given player ────────────────────────
+  // ─── Rule 6: cannot be duplicated by a given player ────────────────────────
 
   test('a second An Untimely Brood cannot be played by the same player', () => {
     let state = buildTestState({
