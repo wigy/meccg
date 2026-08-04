@@ -1113,6 +1113,21 @@ function playResourcesActions(
           continue;
         }
 
+        // A `convert-creature-to-ally` effect (Ready to His Will le-220, Memories
+        // of Old Torture ba-67) is a combat-only mechanism: it is playable solely
+        // during the defending player's assign-strikes window against an eligible
+        // creature attack, and is offered exclusively by
+        // `legal-actions/combat.ts`'s `convertCreatureToAllyActions`. It must
+        // never reach the generic site-phase fallback below (which would offer
+        // it as an unconditionally playable permanent event with no target).
+        const convertCreatureToAlly = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
+        );
+        if (convertCreatureToAlly) {
+          logDetail(`Permanent event ${eventDef.name}: convert-creature-to-ally is combat-only — not offered during the site phase`);
+          continue;
+        }
+
         const stageActiveCompanyCond = (eventDef as { alignment?: string }).alignment === 'stage'
           ? findPlayConditionEffect(eventDef, 'active-company')
           : undefined;
