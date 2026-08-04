@@ -32,9 +32,27 @@ import {
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, GameState, SitePhaseState } from '../../index.js';
 
 const FLATTER_A_FOE = 'td-116' as CardDefinitionId;
+
+const SITE_PLAY_RESOURCES_PHASE: SitePhaseState = {
+  phase: Phase.Site,
+  step: 'play-resources',
+  activeCompanyIndex: 0,
+  handledCompanyIds: [],
+  siteEntered: true,
+  resourcePlayed: false,
+  minorItemAvailable: false,
+  hoardBountyAvailable: false,
+  thoroughSearchAvailable: false,
+  declaredAgentAttack: null,
+  automaticAttacksResolved: 0,
+  awaitingOnGuardReveal: false,
+  pendingResourceAction: null,
+  opponentInteractionThisTurn: null,
+  pendingOpponentInfluence: null,
+};
 
 describe('Flatter a Foe (td-116)', () => {
   beforeEach(() => resetMint());
@@ -229,6 +247,45 @@ describe('Flatter a Foe (td-116)', () => {
     );
     expect(notPlayable).toBeDefined();
     expect((notPlayable as { reason?: string }).reason).toContain('combat');
+  });
+
+  test('NOT playable outside combat (site phase, play-resources step, no attack)', () => {
+    // Regression: game msf2o9tq-ozptpq, seq 117 — Flatter a Foe was offered as
+    // a generic play-short-event action during the site phase's play-resources
+    // step, with no attack underway. The site/organization-phase short-event
+    // emitter (playResourceShortEventActions in organization.ts) keeps its own
+    // combatOnlyTypes set, separate from heroResourceShortEventActions's
+    // (long-event.ts), and that copy was missing 'flattery-cancel-attack' —
+    // so the card's lone effect wasn't recognised as combat-only there and it
+    // fell through to being offered as playable at every phase.
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state: GameState = { ...base, phaseState: SITE_PLAY_RESOURCES_PHASE };
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const actions = computeLegalActions(state, PLAYER_1);
+
+    const playForCard = actions.filter(
+      ea => ea.viable
+        && (ea.action.type === 'play-short-event' || ea.action.type === 'cancel-attack')
+        && (ea.action as { cardInstanceId?: unknown }).cardInstanceId === flatCard,
+    );
+    expect(playForCard).toHaveLength(0);
+
+    // Site-phase combat-only short-events are left unevaluated by
+    // playResourceShortEventActions and picked up by site.ts's generic
+    // catch-all, which annotates a phase-level (not combat-specific) reason.
+    const notPlayable = actions.find(
+      ea => ea.action.type === 'not-playable'
+        && (ea.action as { cardInstanceId?: unknown }).cardInstanceId === flatCard,
+    );
+    expect(notPlayable).toBeDefined();
   });
 
   // ── Chain resolution → flattery-attempt pending ───────────────────────────
