@@ -40,6 +40,13 @@ const REMOVAL = 'ev-removal';
 const LONG_HAZARD = 'hz-long';
 /** A corrupting hazard *attached to a character* — a different thing entirely. */
 const ATTACHED_HAZARD = 'hz-attached';
+/**
+ * A corruption hazard-event attached to a character — Lure of Nature's real
+ * shape (`cardType: hazard-event`, unlike {@link ATTACHED_HAZARD}'s
+ * `hazard-creature`), so it actually matches a removal's `cardType:
+ * hazard-event` filter and reaches {@link findInPlay}'s attached branch.
+ */
+const ATTACHED_EVENT = 'hz-attached-event';
 
 const POOL = {
   [RECOVERY]: {
@@ -82,6 +89,12 @@ const POOL = {
   [ATTACHED_HAZARD]: {
     cardType: 'hazard-creature',
     name: 'Lure of Nature',
+    effects: [{ type: 'stat-modifier', stat: 'corruption-points', value: 5 }],
+  },
+  [ATTACHED_EVENT]: {
+    cardType: 'hazard-event',
+    name: 'Lure of Nature',
+    eventType: 'permanent',
     effects: [{ type: 'stat-modifier', stat: 'corruption-points', value: 5 }],
   },
 } as unknown as ModuleContext['cardPool'];
@@ -131,6 +144,17 @@ function context(): ModuleContext {
 /** Playing one of the two events in hand. */
 const play = (instanceId: string): GameAction =>
   ({ type: 'play-short-event', player: 'p1', cardInstanceId: instanceId } as unknown as GameAction);
+
+/**
+ * Playing a removal event with the specific in-play target the engine's
+ * legal-action generator already chose for this action — the one-action-per-
+ * target shape Marvels Told, Voices of Malice, Ancient Secrets and The Cock
+ * Crows all use.
+ */
+const playDiscarding = (instanceId: string, discardTargetInstanceId: string): GameAction =>
+  ({
+    type: 'play-short-event', player: 'p1', cardInstanceId: instanceId, discardTargetInstanceId,
+  } as unknown as GameAction);
 
 describe('a family it recognises', () => {
   test('a card recovered is worth what a draw is worth, and says it is a floor', () => {
@@ -194,6 +218,33 @@ describe('a card that will do nothing', () => {
       { instanceId: 'in-play-1', definitionId: LONG_HAZARD },
     ];
     expect(eventsModule.evaluate(play('c-removal'), withTarget)).toBeNull();
+  });
+
+  test('a removal named at a hazard attached to the opponent\'s own character is refused, not credited', () => {
+    // Regression: The Cock Crows was played by the AI targeting a corruption
+    // card (Lure of Nature) attached to the *opponent's* character. Discarding
+    // it relieves the opponent, not us — the engine correctly still offers
+    // both players' attached hazards as legal targets (the legal-action
+    // generator is not scoped to one side), but the module that used to
+    // price "the best reachable card" board-wide, blind to which target this
+    // specific action names, credited the action as if it helped us. It must
+    // instead recognise that this named target sits on the opponent's side
+    // and price it at zero, so the game's action-selection prefers passing
+    // over spending a card to help the opponent.
+    const opponentCorrupted = context();
+    (opponentCorrupted.view.opponent as { characters: Record<string, unknown> }).characters = {
+      victim: {
+        instanceId: 'victim',
+        definitionId: 'victim-def',
+        effectiveStats: { corruptionPoints: 5 },
+        items: [], allies: [], followers: [],
+        hazards: [{ instanceId: 'h1', definitionId: ATTACHED_EVENT }],
+      },
+    };
+    const evaluation = eventsModule.evaluate(playDiscarding('c-removal', 'h1'), opponentCorrupted)!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('we do not control');
   });
 
   test('a removal is never priced as corruption relief on our own characters', () => {

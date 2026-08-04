@@ -70,6 +70,18 @@ const GIVEN_UP_FIELDS = [
   'discardCardInstanceId',
 ] as const;
 
+/**
+ * Fields naming an in-play card an action discards *as its effect* — Marvels
+ * Told, Voices of Malice, Ancient Secrets and The Cock Crows each enumerate
+ * one `play-short-event` action per eligible target, carrying the chosen
+ * instance here. Distinct from {@link GIVEN_UP_FIELDS}: that names a card
+ * leaving the actor's own zone as a cost; this names a card elsewhere in play
+ * — on either side of the table — that the effect removes.
+ */
+const DISCARD_TARGET_FIELDS = [
+  'discardTargetInstanceId',
+] as const;
+
 /** The first of `fields` the action carries, or undefined. */
 function firstOf(action: GameAction, fields: readonly string[]): CardInstanceId | undefined {
   const record = action as unknown as Record<string, unknown>;
@@ -95,9 +107,15 @@ export function namedGivenUpCard(action: GameAction): CardInstanceId | undefined
   return firstOf(action, GIVEN_UP_FIELDS);
 }
 
+/** The in-play card an action's effect discards, under any spelling the engine uses. */
+export function namedDiscardTarget(action: GameAction): CardInstanceId | undefined {
+  return firstOf(action, DISCARD_TARGET_FIELDS);
+}
+
 /** Every spelling this module knows, for the test that keeps the list honest. */
 export const KNOWN_FIELDS = {
   card: CARD_FIELDS,
   character: CHARACTER_FIELDS,
   givenUp: GIVEN_UP_FIELDS,
+  discardTarget: DISCARD_TARGET_FIELDS,
 } as const;
