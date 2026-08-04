@@ -135,3 +135,37 @@ describe('movementHazardEvaluator play-hazard sequencing', () => {
     expect(doorsScore).toBe(5);
   });
 });
+
+function placeOnGuard(cardInstanceId: string): GameAction {
+  return { type: 'place-on-guard', player: 'p2', cardInstanceId } as unknown as GameAction;
+}
+
+describe('movementHazardEvaluator place-on-guard weighting', () => {
+  // Bug report: "the AI always places a card on guard". One place-on-guard
+  // action exists per hand card (any card can be the face-down bluff), so a
+  // flat per-action weight let the category's combined odds scale with hand
+  // size, drowning out "pass" whenever the hand had more than a couple of
+  // cards.
+  test('splits a fixed total weight across all place-on-guard options instead of scoring each one flatly', () => {
+    const manyOptions = Array.from({ length: 8 }, (_, i) => placeOnGuard(`h${i}`));
+    const context: AiContext = {
+      ...makeContext(['as-30']),
+      legalActions: [...manyOptions, { type: 'pass', player: 'p2' } as unknown as GameAction],
+    };
+
+    const perActionScore = movementHazardEvaluator.score(manyOptions[0], context)!;
+    const totalGuardWeight = perActionScore * manyOptions.length;
+
+    // The combined weight of "place something on guard" stays at the
+    // original single-decision magnitude regardless of hand size.
+    expect(totalGuardWeight).toBeCloseTo(4);
+  });
+
+  test('scores the single-option case the same as before the fix', () => {
+    const context: AiContext = {
+      ...makeContext(['as-30']),
+      legalActions: [placeOnGuard('h0'), { type: 'pass', player: 'p2' } as unknown as GameAction],
+    };
+    expect(movementHazardEvaluator.score(placeOnGuard('h0'), context)).toBe(4);
+  });
+});
