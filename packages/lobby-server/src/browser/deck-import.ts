@@ -57,6 +57,11 @@ const TAG_ALIGNMENTS: Record<string, string[]> = {
   B: ['balrog'],
 };
 
+/** Deck alignment (as inferred by {@link inferAlignment}) → the GCCG tag whose {@link TAG_ALIGNMENTS} narrow to it. */
+const DECK_ALIGNMENT_TAG: Record<string, string> = {
+  hero: 'H', minion: 'M', 'fallen-wizard': 'F', balrog: 'B',
+};
+
 /** Card races that mark a card as an avatar, mapped to the deck alignment. */
 const AVATAR_RACE_TO_ALIGNMENT: Partial<Record<Race, string>> = {
   [Race.Wizard]: 'hero',
@@ -149,18 +154,24 @@ function buildNameIndex(): NameIndex {
   return { exact, folded };
 }
 
+/** A card-line resolution: the chosen id (if any) plus the candidate ids it was chosen from. */
+interface CardResolution { card: string | null; candidates: string[] }
+
 /**
  * Resolve a parsed card line to a card id: candidates sharing the name are
  * narrowed by set code and alignment tag when given. If the narrowing
  * eliminates every candidate (e.g. a set we do not carry), fall back to the
  * unnarrowed name matches rather than losing the card. Ties resolve to the
- * lexicographically first id so imports are deterministic.
+ * lexicographically first id so imports are deterministic; the full narrowed
+ * candidate list is also returned so the caller can flag lines whose
+ * candidates span more than one alignment for a later, alignment-aware
+ * re-resolution (see {@link resolveAmbiguousEntries}).
  */
 function resolveCard(
   index: NameIndex, name: string, tag: string | undefined, set: string | undefined,
-): string | null {
+): CardResolution {
   const candidates = index.exact.get(nameKey(name)) ?? index.folded.get(foldKey(name)) ?? [];
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return { card: null, candidates: [] };
   let narrowed = candidates;
   const prefix = set ? SET_PREFIXES[set.toUpperCase()] : undefined;
   if (prefix) {
@@ -172,7 +183,30 @@ function resolveCard(
     const byTag = narrowed.filter(id => alignments.includes(traits(cardPool[id]).alignment ?? ''));
     if (byTag.length > 0) narrowed = byTag;
   }
-  return [...narrowed].sort()[0];
+  return { card: [...narrowed].sort()[0], candidates: narrowed };
+}
+
+/**
+ * Re-resolve card lines whose name matched candidates spanning more than one
+ * alignment that the line's GCCG tag/set couldn't narrow down — e.g. a
+ * faction's hero-manifestation and minion versions share a name within a set
+ * (Haradrim, Wain-easterlings), and GCCG deck files often omit the alignment
+ * tag on faction lines. `resolveCard`'s lexicographic tie-break always picked
+ * the lower-numbered id (the hero manifestation) regardless of the deck's
+ * actual alignment; this narrows those candidates by the deck's now-known
+ * alignment instead, once every line has been parsed.
+ */
+function resolveAmbiguousEntries(parsed: ParsedGccgDeck, ambiguous: { entry: DeckListEntry; candidates: string[] }[]): void {
+  const tag = DECK_ALIGNMENT_TAG[parsed.alignment];
+  const alignments = tag ? TAG_ALIGNMENTS[tag] : undefined;
+  if (!alignments) return;
+  for (const { entry, candidates } of ambiguous) {
+    const byAlignment = candidates.filter(id => alignments.includes(traits(cardPool[id]).alignment ?? ''));
+    if (byAlignment.length === 0) continue;
+    const card = [...byAlignment].sort()[0];
+    entry.card = card;
+    entry.name = cardPool[card].name;
+  }
 }
 
 /** Whether a line is a `####`-style section fence. */
@@ -245,6 +279,11 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     return /\bf(w|allen)/.test(name) ? 'sideboard vs fw' : 'sideboard';
   };
 
+  // Lines whose name matched candidates spanning more than one alignment,
+  // left unresolved by the line's own tag/set — revisited once the deck's
+  // overall alignment is known (see resolveAmbiguousEntries).
+  const ambiguous: { entry: DeckListEntry; candidates: string[] }[] = [];
+
   let section = '';
   let category = '';
   for (let i = 0; i < lines.length; i++) {
@@ -279,10 +318,17 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     // like "Doeth (Durthak)" carry one in the card name itself — when the
     // set-code reading matches nothing, retry with the parenthetical
     // restored into the name.
-    const card = resolveCard(index, name, tag, set)
-      ?? (set ? resolveCard(index, `${name} (${set})`, tag, undefined) : null);
+    const primaryResolution = resolveCard(index, name, tag, set);
+    const resolution = primaryResolution.card !== null
+      ? primaryResolution
+      : (set ? resolveCard(index, `${name} (${set})`, tag, undefined) : primaryResolution);
+    const card = resolution.card;
     if (!card) parsed.unmatched.push(`${qty}x ${name}`);
     const entry: DeckListEntry = { name: card ? cardPool[card].name : name, card, qty };
+    if (card && resolution.candidates.length > 1) {
+      const distinctAlignments = new Set(resolution.candidates.map(id => traits(cardPool[id]).alignment ?? ''));
+      if (distinctAlignments.size > 1) ambiguous.push({ entry, candidates: resolution.candidates });
+    }
 
     if (section === 'pool') parsed.pool.push(entry);
     else if (section === 'sideboard') parsed.sideboard.push(entry);
@@ -313,6 +359,7 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
   }
 
   parsed.alignment = inferAlignment(parsed);
+  resolveAmbiguousEntries(parsed, ambiguous);
 
   // Agents: GCCG exports agent cards under a "Minion Character" category,
   // but hero (CoE 1.3.W2) and Balrog (CoE 1.3.B2) players treat agents as
