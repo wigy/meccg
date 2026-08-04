@@ -865,7 +865,9 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         // Rule le-167: "Alternatively, playable if your Ringwraith is not in
         // play."). Evaluated against the same player-state context as the
         // `player-state` play-condition above, since the option's `when`
-        // describes the *player's* situation, not a specific target.
+        // describes the *player's* situation, not a specific target. The card
+        // enters play bare in `cardsInPlay` and, for le-167, later attaches
+        // itself via `on-event: avatar-enters-play`.
         const untargetedOption = def.effects?.find(
           (e): e is import('../../types/effects.js').PlayOptionEffect =>
             e.type === 'play-option' && e.untargeted === true,

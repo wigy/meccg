@@ -5179,6 +5179,25 @@ the new `player.avatarInPlay` context field (`false` while no avatar is in play)
   "condition": { "player.avatarInPlay": false } }
 ```
 
+The `move` apply's `to` need not be `discard`: *Bade to Rule* (le-167) instead
+declares `to: "in-play-on-character"`, so instead of discarding itself the bare
+card **attaches** itself onto the just-entered avatar ("Place this card with
+your Ringwraith when he comes into play"). `applyAvatarEntersPlayEffects`
+threads the newly-played character's instance id through as
+`ctx.targetCharacterId`, which `in-play-on-character` resolves as its bearer:
+
+```json
+{ "type": "on-event", "event": "avatar-enters-play",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "in-play-on-character" } }
+```
+
+Getting the card into `cardsInPlay` bare in the first place — before the
+avatar exists to attach to — is handled by an `untargeted: true` `play-option`
+on the same card (see `play-option`'s "Organization-phase permanent events"
+paragraph below): when its `play-target: character` effect finds no
+qualifying character, the untargeted option's `when` is consulted instead of
+rejecting the play.
+
 ### 14a. `name-alias`
 
 Makes the card count as another named card for the purpose of `inPlay`

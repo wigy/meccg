@@ -261,6 +261,14 @@ function handleSiteSelectCompany(
     return handlePlayResourceShortEvent(state, action);
   }
 
+  // Rule 2.1.1: resource permanent-events without declared site-phase timing
+  // are likewise offered at this step (`siteActions` pushes
+  // `playPermanentEventActions` here too) — the reducer must accept them for
+  // the same reason as the short-event case above.
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
+  }
+
   // Pass is only offered (and only accepted) when no unhandled company is
   // left to select — every remaining company dissolved mid-phase (e.g. its
   // last character died to a corruption check), so nothing can advance the
@@ -492,6 +500,14 @@ function handleSiteEnterOrSkip(
   // without changing the step, leaving the enter-or-skip choice pending.
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
+  }
+
+  // Rule 2.1.1: resource permanent-events without declared site-phase timing
+  // remain playable at the enter-or-skip decision window too (`siteActions`
+  // offers them here) — accept them for the same reason as the short-event
+  // case above: the engine must never reject an action it advertised as legal.
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
   }
 
   // The selected company may have dissolved before the enter-or-skip choice

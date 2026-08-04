@@ -24,7 +24,7 @@
  * | 5 | Discard if Ringwraith moves                         | IMPLEMENTED   |
  * | 6 | Cannot be duplicated by a given player              | IMPLEMENTED   |
  * | 7 | Alternative mode: playable without Ringwraith       | IMPLEMENTED   |
- * | 8 | Place with Ringwraith on entry                      | NOT IMPL.     |
+ * | 8 | Place with Ringwraith on entry                      | IMPLEMENTED   |
  * | 9 | Cannot be included in a Balrog's deck               | OUT OF SCOPE  |
  */
 
@@ -34,6 +34,7 @@ import {
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
   viableActions,
+  viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   attachItemToChar,
   playPermanentEventAndResolve,
@@ -245,7 +246,7 @@ describe('Bade to Rule (le-167)', () => {
     expect(p2Actions.length).toBeGreaterThan(0);
   });
 
-  // ── Rule 7: Alternative play mode (no Ringwraith in play) ────────────────
+  // ── Rules 7–8: Alternative play mode ──────────────────────────────────────
 
   test('alternative mode: playable if Ringwraith is not in play, gives +5 general influence', () => {
     const state = buildTestState({
@@ -256,7 +257,7 @@ describe('Bade to Rule (le-167)', () => {
           id: PLAYER_1,
           companies: [],
           hand: [BADE_TO_RULE],
-          siteDeck: [],
+          siteDeck: [DOL_GULDUR],
           playDeck: makePlayDeck(),
         },
         {
@@ -276,7 +277,50 @@ describe('Bade to Rule (le-167)', () => {
     const cardId = findHandCardId(state, RESOURCE_PLAYER, BADE_TO_RULE);
     const after = playPermanentEventAndResolve(state, PLAYER_1, cardId);
     expect(after.players[RESOURCE_PLAYER].generalInfluenceBonus).toBe(5);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BADE_TO_RULE)).toBe(true);
   });
 
-  test.todo('when played in alternative mode, placed with Ringwraith when he enters play');
+  test('when played in alternative mode, placed with Ringwraith when he enters play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [],
+          hand: [BADE_TO_RULE, ADUNAPHEL],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, BADE_TO_RULE);
+    const bare = playPermanentEventAndResolve(state, PLAYER_1, cardId);
+    expect(bare.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BADE_TO_RULE)).toBe(true);
+
+    // A second copy must not be offered while the first sits bare in play.
+    const secondCopyActions = viableActions(bare, PLAYER_1, 'play-permanent-event');
+    expect(secondCopyActions.length).toBe(0);
+
+    // Bring the Ringwraith into play — Bade to Rule should attach to him and
+    // leave `cardsInPlay`.
+    const playRw = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, ADUNAPHEL));
+    expect(playRw).toBeDefined();
+    const withRw = dispatch(bare, playRw!);
+
+    expect(withRw.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BADE_TO_RULE)).toBe(false);
+    const rw = getCharacter(withRw, RESOURCE_PLAYER, ADUNAPHEL);
+    expect(rw.items.some(i => i.definitionId === BADE_TO_RULE)).toBe(true);
+    const pool = withRw.cardPool[ADUNAPHEL] as { directInfluence: number };
+    expect(rw.effectiveStats.directInfluence).toBe(pool.directInfluence - 2);
+    expect(withRw.players[RESOURCE_PLAYER].generalInfluenceBonus).toBe(5);
+  });
 });
