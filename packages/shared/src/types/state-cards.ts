@@ -243,6 +243,13 @@ export interface CardInPlay {
    */
   readonly setAsideKeepOnRemoval?: boolean;
   /**
+   * When true, this set-aside card scores **no** marshalling points at all —
+   * overriding the MEAS §1 default of crediting them to {@link ownerOf}. Great
+   * Secrets Buried There (dm-63): "item does not give marshalling points and
+   * is considered out of play." Captured at set-aside time.
+   */
+  readonly setAsideNoMp?: boolean;
+  /**
    * For a faction placed *under the control of a specific leader* (the LE
    * "Orcs of Udûn"-style factions, e.g. le-262, le-275, le-279, le-281,
    * le-282, le-291): the instance ID of the controlling character. Set when

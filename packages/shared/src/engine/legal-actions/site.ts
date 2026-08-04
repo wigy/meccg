@@ -18,8 +18,9 @@ import { getPlayerIndex, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter } from '../../types/cards.js';
 import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified } from '../reducer-utils.js';
+import { resolveInstanceId, ownerOf } from '../../types/state.js';
+import { isSetAsideCard } from '../set-aside.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -991,13 +992,63 @@ function playResourcesActions(
     logDetail(`Site ${siteName}: Eddy in Fate's Tide tax ${eddyTaxTapped}/${eddyLock.taxTapCharacters} paid this site phase`);
   }
 
+  // Great Secrets Buried There (dm-63): items set aside under a host
+  // permanent-event may be played "as though in hand" at any Under-deeps site
+  // where they would normally be playable. Merge eligible set-aside items
+  // (owned by this player, from either player's `cardsInPlay` — the host may
+  // belong to the opponent) into the same hand-card loop below, so every
+  // normal item-play gate (site restriction, subtype, uniqueness, untapped
+  // character) applies unchanged. Restricted to this call's site being
+  // Under-deeps; when it is not, no candidates are injected and the loop below
+  // behaves exactly as before.
+  const siteIsUnderDeepsForSetAside = !!(siteDef && isSiteCard(siteDef) && (siteDef.keywords ?? []).includes('under-deeps'));
+  const setAsideItemCandidates = siteIsUnderDeepsForSetAside
+    ? state.players
+      .flatMap(p => p.cardsInPlay)
+      .filter(c => isSetAsideCard(c) && ownerOf(c.instanceId) === playerId)
+      .filter(c => isItemCard(defById(state, c.definitionId)))
+      .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))
+    : [];
+  const setAsideInstanceIds = new Set(setAsideItemCandidates.map(c => c.instanceId as string));
+  if (setAsideItemCandidates.length > 0) {
+    logDetail(`Site ${siteName} (Under-deeps): ${setAsideItemCandidates.length} set-aside item(s) playable as though in hand`);
+  }
+
   // Evaluate each hand card
   const evaluatedInstances = new Set<string>();
 
-  for (const handCard of player.hand) {
+  for (const handCard of [...player.hand, ...setAsideItemCandidates]) {
     const cardInstanceId = handCard.instanceId;
     const def = defById(state, handCard.definitionId);
     if (!def) continue;
+
+    // Great Secrets Buried There (dm-63): rule 2.1.1 lets a resource-style
+    // permanent event be played during any phase of the active player's
+    // turn, including the site phase. "You may play this card as a resource
+    // on yourself … you and your opponent reverse roles" — an untargeted
+    // play, evaluated the same way as organization-events.ts's mirror branch.
+    if (
+      def.cardType === 'hazard-event'
+      && def.eventType === 'permanent'
+      && hasPlayFlag(def, 'playable-as-resource')
+    ) {
+      evaluatedInstances.add(cardInstanceId as string);
+      const deckSizeCond = findPlayConditionEffect(def, 'active-player-deck-size');
+      if (deckSizeCond?.minDeckSize !== undefined) {
+        const deckSize = activePlayerDeckSize(state);
+        if (deckSize < deckSizeCond.minDeckSize) {
+          logDetail(`${def.name}: playable as a resource only with at least ${deckSizeCond.minDeckSize} cards in play deck (have ${deckSize})`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: requires at least ${deckSizeCond.minDeckSize} cards in your play deck`));
+          continue;
+        }
+      }
+      logDetail(`${def.name}: playable as a resource on yourself`);
+      actions.push({
+        action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+        viable: true,
+      });
+      continue;
+    }
 
     // MEWH §10: a Fallen-wizard may not play a hero resource that taps a minion
     // site (or a minion resource at a hero site). Wizardhavens count as both, so
@@ -1778,7 +1829,8 @@ function playResourcesActions(
           }
         }
 
-        logDetail(`Item ${itemDef.name}: playable on ${charName}`);
+        const isFromSetAside = setAsideInstanceIds.has(cardInstanceId as string);
+        logDetail(`Item ${itemDef.name}: playable on ${charName}${isFromSetAside ? ' (from set-aside, as though in hand)' : ''}`);
         actions.push({
           action: {
             type: 'play-hero-resource',
@@ -1786,6 +1838,7 @@ function playResourcesActions(
             cardInstanceId,
             companyId: company.id,
             attachToCharacterId: ch.instanceId,
+            ...(isFromSetAside ? { fromSetAside: true } : {}),
           },
           viable: true,
         });

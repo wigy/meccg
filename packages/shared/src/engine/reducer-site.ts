@@ -40,6 +40,7 @@ import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestatio
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
+import { removeItemFromSetAside } from './set-aside.js';
 import type { AgentAttackModifierEffect, MoveEffect, SiteEntryAttackSpec, SiteEntryRollAttackEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
 import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 
@@ -2817,12 +2818,27 @@ function handleSitePlayHeroResource(
   const company = player.companies[siteState.activeCompanyIndex];
 
   // Glove of Radagast (wh-111): a granted ally may be sourced from the discard
-  // pile instead of the hand (`fromDiscard`). Otherwise the card is in hand.
+  // pile instead of the hand (`fromDiscard`). Great Secrets Buried There
+  // (dm-63): an item set aside under a host permanent-event may be sourced
+  // from there instead (`fromSetAside`) — its host may belong to either
+  // player, so it is found by searching both players' `cardsInPlay` rather
+  // than this player's hand/discard pile. Otherwise the card is in hand.
   const fromDiscard = action.fromDiscard === true;
-  const handCard = fromDiscard
-    ? findById(player.discardPile, action.cardInstanceId)
-    : findById(player.hand, action.cardInstanceId);
-  if (!handCard) return { state, error: fromDiscard ? 'Card not found in discard pile' : 'Card not found in hand' };
+  const fromSetAside = action.fromSetAside === true;
+  const setAsideEntry = fromSetAside
+    ? state.players.flatMap(p => p.cardsInPlay).find(c => c.instanceId === action.cardInstanceId)
+    : undefined;
+  const handCard = fromSetAside
+    ? (setAsideEntry ? { instanceId: setAsideEntry.instanceId, definitionId: setAsideEntry.definitionId } : undefined)
+    : fromDiscard
+      ? findById(player.discardPile, action.cardInstanceId)
+      : findById(player.hand, action.cardInstanceId);
+  if (!handCard) {
+    return {
+      state,
+      error: fromSetAside ? 'Card not found in set-aside slot' : fromDiscard ? 'Card not found in discard pile' : 'Card not found in hand',
+    };
+  }
   const def = defById(state, handCard.definitionId)!;
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
@@ -2838,11 +2854,13 @@ function handleSitePlayHeroResource(
   // neither the controlling character nor the site ("need not tap himself or
   // the site to do so"). The controller keeps its current status.
   const noTapOnPlay = isAlly && hasPlayFlag(def, 'no-tap-on-play');
-  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''}${noTapOnPlay ? ' — no-tap-on-play (leaving character and site untapped)' : ' — tapping character and site'}`);
+  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''}${fromSetAside ? ' (from set-aside, as though in hand)' : ''}${noTapOnPlay ? ' — no-tap-on-play (leaving character and site untapped)' : ' — tapping character and site'}`);
 
   // Remove card from its source zone (hand, or the discard pile for a granted
-  // discard-sourced ally).
-  const newHand = fromDiscard ? player.hand : removeById(player.hand, handCard.instanceId);
+  // discard-sourced ally, or the set-aside slot — left in place here and
+  // pulled out via `removeItemFromSetAside` just before the final return,
+  // since the host may live in the *other* player's `cardsInPlay`).
+  const newHand = (fromDiscard || fromSetAside) ? player.hand : removeById(player.hand, handCard.instanceId);
   const newDiscardPile = fromDiscard
     ? removeById(player.discardPile, handCard.instanceId)
     : player.discardPile;
@@ -3062,6 +3080,14 @@ function handleSitePlayHeroResource(
   if (isItem) {
     const trapped = maybeTriggerSiteItemTrap(afterAttach, playerIndex, siteState.activeCompanyIndex);
     if (trapped) return { state: trapped };
+  }
+
+  // Great Secrets Buried There (dm-63): pull the played item out of its
+  // set-aside slot now that it has been attached — its host may live in
+  // either player's `cardsInPlay`, so this is a global lookup rather than a
+  // per-player removal like `newHand`/`newDiscardPile` above.
+  if (fromSetAside) {
+    afterAttach = removeItemFromSetAside(afterAttach, action.cardInstanceId);
   }
 
   return { state: afterAttach };
