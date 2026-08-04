@@ -2133,6 +2133,19 @@ function playResourcesActions(
         continue;
       }
 
+      // play-condition: active-company — a generic DSL condition evaluated
+      // against the active company's aggregate context (site, character/item/
+      // ally names, specialMovement). Army of the Dead (tw-193): "playable …
+      // on the same turn that [Aragorn II] plays Paths of the Dead" — gated on
+      // `company.specialMovement === "paths-of-the-dead"`, which is set only
+      // while that special movement is active and is cleared at end of turn.
+      const factionActiveCompanyCond = findPlayConditionEffect(factionDef, 'active-company');
+      if (factionActiveCompanyCond?.condition && !matchesCondition(factionActiveCompanyCond.condition, buildActiveCompanyContext(state, player, company))) {
+        logDetail(`Faction ${factionDef.name}: active-company play condition not satisfied`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: play conditions not met`));
+        continue;
+      }
+
       // Check uniqueness — only one copy of a *unique* faction can be in play.
       // Non-unique factions (e.g. Snaga-hai, le-286) may have multiple copies
       // in play, so the duplicate check only applies when the faction is unique.
@@ -2167,10 +2180,19 @@ function playResourcesActions(
           const aDef = defById(state, a.definitionId);
           return isAllyCard(aDef) && hasPlayFlag(aDef, 'influences-factions');
         });
-      const factionInfluencers = [
+      let factionInfluencers = [
         ...untappedCharacters.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId, status: c.status })),
         ...influencerAllies.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId, status: a.status })),
       ];
+
+      // requiredInfluencerName — some factions may only be brought into play
+      // by one named character (Army of the Dead tw-193: "May only be played
+      // by Aragorn II"). Every other untapped character/ally in the company
+      // is excluded from the influencer pool, not just deprioritized.
+      if (factionDef.requiredInfluencerName !== undefined) {
+        const requiredName = factionDef.requiredInfluencerName;
+        factionInfluencers = factionInfluencers.filter(c => defById(state, c.definitionId)?.name === requiredName);
+      }
 
       if (factionInfluencers.length === 0) {
         logDetail(`Faction ${factionDef.name}: no untapped influencer to attempt influence`);

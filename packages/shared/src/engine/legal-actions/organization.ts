@@ -2338,11 +2338,13 @@ export function buildPlayOptionContext(
 
 /**
  * Builds the condition context for a `play-condition` `requires:
- * 'active-company'` check. Exposes the company's current site (name/type)
- * and the aggregate names of every character, borne item, and borne ally in
- * the company — enough for a generic DSL condition to express positional win
- * prerequisites (e.g. The One Ring and Gollum at Mount Doom) without a
- * per-card keyword.
+ * 'active-company'` check. Exposes the company's current site (name/type),
+ * the aggregate names of every character, borne item, and borne ally in
+ * the company, and its `specialMovement` flag — enough for a generic DSL
+ * condition to express positional win prerequisites (e.g. The One Ring and
+ * Gollum at Mount Doom) or a same-turn special-movement prerequisite (Army of
+ * the Dead tw-193: "on the same turn that [Aragorn II] plays Paths of the
+ * Dead") without a per-card keyword.
  */
 export function buildActiveCompanyContext(
   state: GameState,
@@ -2367,7 +2369,7 @@ export function buildActiveCompanyContext(
 
   return {
     site: { name: siteName, type: siteType },
-    company: { characterNames, itemNames, allyNames },
+    company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement },
   };
 }
 

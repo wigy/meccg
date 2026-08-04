@@ -2239,7 +2239,16 @@
         "site": "Vale of Erech"
       }
     ],
-    "effects": [],
+    "requiredInfluencerName": "Aragorn II",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": {
+          "company.specialMovement": "paths-of-the-dead"
+        }
+      }
+    ],
     "text": "Unique. Playable at Vale of Erech. May only be played by Aragorn II on the same turn that he plays Paths of the Dead. May not be influenced by an opponent."
   },
   {
