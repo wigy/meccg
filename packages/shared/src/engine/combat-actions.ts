@@ -41,7 +41,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
-import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
+import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
@@ -559,7 +559,7 @@ function discardCharacterAfterBodyCheck(
   effects: GameEffect[],
 ): ReducerResult {
   const assignments = combat.strikeAssignments.map((a, i) => {
-    if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+    if (i === combat.currentStrikeIndex) return { ...a, resolved: true, result: 'eliminated' as const };
     if (!a.resolved && a.characterId === strike.characterId) {
       logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
       return { ...a, resolved: true, result: 'success' as const };
@@ -870,7 +870,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         logDetail(`Ringwraith body check roll is ${rollTotal} (7 or 8 unmodified) — Ringwraith returned to hand (MELE §8.R1)`);
         noteOutcome(`${targetName} returns to hand instead of being eliminated (body check ${rollTotal})`);
         const newAssignmentsRW = combat.strikeAssignments.map((a, i) => {
-          if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+          if (i === combat.currentStrikeIndex) return { ...a, resolved: true, result: 'eliminated' as const };
           if (!a.resolved && a.characterId === strike.characterId) {
             logDetail(`Strike ${i} auto-resolved (Ringwraith returned to hand, CoE 3.i.5)`);
             return { ...a, resolved: true, result: 'success' as const };
@@ -950,14 +950,9 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
           logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — discard suppressed by protect-from-body-check; character survives wounded`);
           noteOutcome(`${targetName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
           const survivedAssignments = combat.strikeAssignments.map((a, i) =>
-            i === combat.currentStrikeIndex ? { ...a, result: 'wounded' as const } : a,
+            i === combat.currentStrikeIndex ? { ...a, resolved: true, result: 'wounded' as const } : a,
           );
-          const combatSurvived = { ...combat, strikeAssignments: survivedAssignments };
-          const nextSurvived = nextStrikePhase(combatSurvived);
-          if (nextSurvived) {
-            return { state: { ...stateWithRoll, combat: { ...combatSurvived, ...nextSurvived } }, effects };
-          }
-          return finalizeCombat(stateWithRoll, effects);
+          return advanceStrikeOrFinalize(stateWithRoll, { ...combat, strikeAssignments: survivedAssignments }, effects);
         }
         logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — character discarded to discard pile`);
         noteOutcome(`${targetName} is discarded by the body check (rolled ${effectiveRoll})`);
@@ -992,9 +987,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
 
     logDetail(`${allyMatch ? 'Ally' : 'Character'} survives body check`);
     noteOutcome(`${targetName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
-    // Advance to next strike or finalize (`combat` is unchanged here, so
-    // re-merging it into `stateWithRoll` is a no-op on the finalize path).
-    return advanceStrikeOrFinalize(stateWithRoll, combat, effects);
+    // CvCC strikes (resolveStrikeCvCC) leave `resolved: false` on the pending
+    // body check so it can be finalized here; mark it resolved now or
+    // `nextStrikePhase` will treat this strike as still pending and re-enter
+    // resolve-strike for the same character (CvCC combat would loop forever).
+    const survivedAssignments = combat.strikeAssignments.map((a, i) =>
+      i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
+    );
+    return advanceStrikeOrFinalize(stateWithRoll, { ...combat, strikeAssignments: survivedAssignments }, effects);
   }
 
   if (combat.bodyCheckTarget === 'attacker-character') {

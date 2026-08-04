@@ -176,6 +176,39 @@ describe('Rule 8.39 — CvCC Strike Sequence', () => {
     }
   });
 
+  test('CvCC: strike is not re-fought after the defender survives the body check', () => {
+    // Bug report: attacking with a single character (e.g. Akhôrahil) against a
+    // single defender caused the engine to re-roll the same strike forever
+    // instead of concluding after one body check, because resolveStrikeCvCC
+    // leaves the strike `resolved: false` pending its body check and the
+    // "survives" outcome never flipped it back to `true`.
+    let state = buildCvCCInResolveStrike();
+
+    // Attacker (Aragorn, prowess 6) taps to fight.
+    state = dispatch(state, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+
+    // Force the attacker's roll to the maximum (12 + prowess 6 = 18), which
+    // beats any possible defender roll (Perchen, prowess 3: max 12 + 3 = 15) —
+    // deterministically wins the strike regardless of RNG.
+    state = { ...state, cheatRollTotal: 12 };
+    state = dispatch(state, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(state.combat?.phase).toBe('body-check');
+    expect(state.combat?.bodyCheckTarget).toBe('character');
+    expect(state.combat?.strikeAssignments[0].resolved).toBe(false);
+
+    // Force the body check roll low (2), which survives against Perchen's body 9.
+    state = { ...state, cheatRollTotal: 2 };
+    const bodyCheckActions = viableActions(state, PLAYER_1, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    state = dispatch(state, bodyCheckActions[0].action);
+
+    // With only one strike assigned, a resolved (surviving) strike must
+    // finalize combat rather than looping back into resolve-strike for the
+    // same, already-fought strike.
+    expect(state.combat).toBeNull();
+  });
+
   test('CvCC: attacker distributes excess strikes as -1 prowess each', () => {
     // P1 has 2 attackers (Aragorn + Legolas) vs P2's single defender (Perchen).
     // After Aragorn is assigned to Perchen, Legolas has no defender to pair with
