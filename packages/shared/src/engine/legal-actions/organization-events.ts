@@ -505,6 +505,76 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         continue;
       }
 
+      // Return of the King (tw-316): "Only playable in Minas Tirith and only
+      // if Denethor II is not in play." Like The White Tree above, its text
+      // declares no site-phase timing and it has no tapping/attack/transform
+      // mechanics tying it to the site's play-resources step, so under rule
+      // 2.1.1 it is playable during any phase as soon as the company is
+      // physically at the matching site — evaluated directly here rather than
+      // deferred to the site phase (which would wrongly require `enter-site`
+      // first even though the card never asked for that).
+      const cardNotInPlayConds = findPlayConditionEffects(def, 'card-not-in-play');
+      if (!orgPhaseSiteTiming && cardNotInPlayConds.length > 0) {
+        const charPlayTarget = def.effects?.find(
+          (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+        );
+        let blockedByCardInPlay = false;
+        for (const cond of cardNotInPlayConds) {
+          if (cond.cardName && isCardNameInPlayOrCharacters(state, cond.cardName)) {
+            logDetail(`Permanent event ${def.name}: blocked because ${cond.cardName} is in play`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: cannot be played while ${cond.cardName} is in play`));
+            blockedByCardInPlay = true;
+            break;
+          }
+        }
+        if (blockedByCardInPlay) continue;
+
+        let anyPlayable = false;
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          const siteDef = defById(state, siteDefId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (sitePlayTarget.filter) {
+            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          const charFilter = charPlayTarget?.filter;
+          let targetCharacterId: CardInstanceId | undefined;
+          if (charFilter) {
+            const eligibleCharId = company.characters.find(charId => {
+              const ch = player.characters[charId];
+              const charDef = ch && defById(state, ch.definitionId);
+              if (!ch || !charDef || !isCharacterCard(charDef)) return false;
+              const ctx = { target: { name: charDef.name, skills: getEffectiveSkills(state, ch, charDef) } };
+              return matchesCondition(charFilter, ctx);
+            });
+            if (!eligibleCharId) {
+              logDetail(`Permanent event ${def.name}: no eligible character at ${siteDef.name}`);
+              continue;
+            }
+            targetCharacterId = eligibleCharId;
+          }
+          anyPlayable = true;
+          logDetail(`Permanent event ${def.name}: playable at ${siteDef.name}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event', player: playerId, cardInstanceId,
+              targetSiteDefinitionId: siteDefId,
+              ...(targetCharacterId ? { targetCharacterId } : {}),
+            },
+            viable: true,
+          });
+        }
+        if (!anyPlayable) {
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site/character target`));
+        }
+        continue;
+      }
+
       if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));

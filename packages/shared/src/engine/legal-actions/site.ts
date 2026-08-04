@@ -26,6 +26,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { availableDI, normalUnusedDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -200,10 +201,15 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       logDetail('Site select-company: no companies left to select — offering pass to end the phase');
       base.push({ action: { type: 'pass', player: playerId }, viable: true });
     }
-    // Rule 2.1.1: resource player may play resource short-events during
-    // any phase of their turn, including before selecting a company.
+    // Rule 2.1.1: resource player may play resource short-events and
+    // resource permanent-events during any phase of their turn, including
+    // before selecting a company. Permanent events without declared
+    // site-phase timing (e.g. Return of the King tw-316, playable "in Minas
+    // Tirith" once a company is already there) must be offered here too —
+    // otherwise they are wrongly gated behind `enter-site`.
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+      base.push(...playPermanentEventActions(state, playerId));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -222,6 +228,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // already been selected by this step, so activeCompanyIndex is valid.
     if (isActive) {
       base.push(...playResourceShortEventActions(state, playerId, new Set(), 'site'));
+      // Rule 2.1.1: resource permanent-events without declared site-phase
+      // timing remain playable here too, before the company commits to
+      // entering (e.g. Return of the King tw-316).
+      base.push(...playPermanentEventActions(state, playerId));
       // Active-player site-phase grant-actions usable at the enter-or-skip
       // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
       // before the company commits to facing them).
