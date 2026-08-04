@@ -693,6 +693,18 @@
         }
       },
       {
+        "type": "play-option",
+        "id": "no-ringwraith",
+        "untargeted": true,
+        "when": {
+          "player.hasRingwraithInPlay": false
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": []
+        }
+      },
+      {
         "type": "play-condition",
         "requires": "site-type",
         "siteTypes": [

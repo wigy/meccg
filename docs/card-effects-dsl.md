@@ -7781,6 +7781,33 @@ the targeted path, one without takes the untargeted path. If *every* option on a
 card is untargeted, the per-character loop is skipped entirely (no bare
 option-less action is emitted).
 
+**Organization-phase permanent events.** `playPermanentEventActions`
+(`legal-actions/organization-events.ts`) also honours an `untargeted: true`
+play-option on a character-targeting permanent event: when no character in
+the player's companies matches the `play-target` filter, the emitter falls
+back to the untargeted option's `when`, evaluated against the same
+`player`/`opponent` context as `play-condition: requires: "player-state"`
+(`buildPlayerStateContext`, e.g. `player.hasRingwraithInPlay`). If it
+matches, a single bare `play-permanent-event` action with no
+`targetCharacterId` is offered instead of the usual "no valid target"
+rejection. The card then resolves through the existing unattached path
+(`chain-reducer.ts`'s `resolvePermanentEvent` places it in `cardsInPlay`
+rather than attaching it to a character), so no dedicated `apply` kind is
+needed here — the option's `apply` is a no-op (`{ "type": "sequence", "apps":
+[] }`) and the card's own always-on effects (e.g. a `general-influence`
+`stat-modifier`, already summed from unattached `cardsInPlay` entries) take
+effect once it is in play. Used by *Bade to Rule* (le-167): "Playable ... on
+your Ringwraith ... Alternatively, playable if your Ringwraith is not in
+play. +5 general influence.":
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "target.race": "ringwraith" } },
+{ "type": "play-option", "id": "no-ringwraith", "untargeted": true,
+  "when": { "player.hasRingwraithInPlay": false },
+  "apply": { "type": "sequence", "apps": [] } }
+```
+
 The untargeted apply kind supported today is:
 
 - `force-discard-stage-card` — "your opponent must discard one stage card of
