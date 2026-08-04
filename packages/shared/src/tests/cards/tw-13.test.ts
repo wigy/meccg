@@ -410,7 +410,9 @@ describe('Bane of the Ithil-stone (tw-13)', () => {
     const afterExhaust = dispatch(state, { type: 'deck-exhaust', player: PLAYER_2 });
     const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_2 });
     expect(afterPass.players[1].cardsInPlay.some(c => c.definitionId === BANE)).toBe(false);
-    expect(afterPass.players[1].discardPile.some(c => c.definitionId === BANE)).toBe(true);
+    // Own deck exhausting: CRF 22 "Exhausted" shuffles the discard into the new play deck.
+    expect(afterPass.players[1].discardPile.some(c => c.definitionId === BANE)).toBe(false);
+    expect(afterPass.players[1].playDeck.some(c => c.definitionId === BANE)).toBe(true);
   });
 
   // ─── the doubling is gone once the Bane is discarded on exhaustion ────────

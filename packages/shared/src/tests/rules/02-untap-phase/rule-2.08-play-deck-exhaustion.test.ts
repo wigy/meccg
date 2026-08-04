@@ -18,14 +18,16 @@ import {
   buildTestState, resetMint, dispatch, makeMHState, addCardInPlay, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   GANDALF, LEGOLAS,
-  DAGGER_OF_WESTERNESSE, CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  DAGGER_OF_WESTERNESSE, CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, SUN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { CardDefinitionId, CardInstance, CardInstanceId } from '../../../index.js';
+import type { CardDefinitionId, CardInstance, CardInstanceId, GameState } from '../../../index.js';
 
 // Safe from the Shadow (as-54): permanent event that discards when any play deck is exhausted
 const SAFE_FROM_THE_SHADOW = 'as-54' as CardDefinitionId;
+// Echo of All Joy (td-110): "Discard Echo of All Joy and target long-event when any play deck is exhausted"
+const ECHO_OF_ALL_JOY = 'td-110' as CardDefinitionId;
 
 describe('Rule 2.08 — Play Deck Exhaustion', () => {
   beforeEach(() => resetMint());
@@ -122,7 +124,9 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
   test('Exhaustion discards cards in play that trigger on deck exhaustion', () => {
     // Set up P1 with Safe from the Shadow (as-54) in cardsInPlay.
     // Safe from the Shadow has: on-event play-deck-exhausted → discard-self.
-    // When deck exhaustion fires, the card should leave cardsInPlay and go to discardPile.
+    // When deck exhaustion fires, the card should leave cardsInPlay and, per
+    // CRF 22 "Exhausted", be shuffled into the new play deck along with the
+    // rest of the discard pile rather than left sitting in discardPile.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.EndOfTurn,
@@ -160,8 +164,71 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     const p1 = afterComplete.players[RESOURCE_PLAYER];
     // Safe from the Shadow must no longer be in cardsInPlay
     expect(p1.cardsInPlay.some(c => c.instanceId === sftsInst.instanceId)).toBe(false);
-    // It must be in discardPile
-    expect(p1.discardPile.some(c => c.instanceId === sftsInst.instanceId)).toBe(true);
+    // It must be shuffled into the new play deck, not stranded in discardPile.
+    expect(p1.discardPile.some(c => c.instanceId === sftsInst.instanceId)).toBe(false);
+    expect(p1.playDeck.some(c => c.instanceId === sftsInst.instanceId)).toBe(true);
+  });
+
+  test('Echo of All Joy: protector and its protected long-event are shuffled into the new play deck, not stranded in discard', () => {
+    // Regression test (bug report, game msd9dixh-m9voxl seq 837): the
+    // play-deck-exhausted discard cascade ran *after* completeDeckExhaust had
+    // already shuffled the discard pile into the new play deck, so Echo of
+    // All Joy and the long-event it protects landed in the just-emptied
+    // discard pile instead — stranded and inaccessible until the next
+    // exhaustion. CRF 22 "Exhausted": permanent-events discarded when the
+    // play deck is exhausted are shuffled into the new play deck.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [],
+          playDeck: [],
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    // Sun (tw-335), a resource long-event in play, protected by Echo of All Joy.
+    const withSun = addCardInPlay(base, RESOURCE_PLAYER, SUN);
+    const sunInst = withSun.players[RESOURCE_PLAYER].cardsInPlay[0];
+    const withEcho = addCardInPlay(withSun, RESOURCE_PLAYER, ECHO_OF_ALL_JOY);
+    const echoInst = withEcho.players[RESOURCE_PLAYER].cardsInPlay[1];
+
+    const stateWithAttachment: GameState = {
+      ...withEcho,
+      players: withEcho.players.map((p, idx) => (idx !== RESOURCE_PLAYER ? p : {
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => (
+          c.instanceId === echoInst.instanceId ? { ...c, attachedToLongEvent: sunInst.instanceId } : c
+        )),
+      })) as unknown as typeof withEcho.players,
+    };
+
+    // Advance to reset-hand step, then trigger and complete deck exhaustion.
+    const p1Pass = dispatch(stateWithAttachment, { type: 'pass', player: PLAYER_1 });
+    const p2Pass = dispatch(p1Pass, { type: 'pass', player: PLAYER_2 });
+    const afterExhaust = dispatch(p2Pass, { type: 'deck-exhaust', player: PLAYER_1 });
+    const afterComplete = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
+
+    const p1 = afterComplete.players[RESOURCE_PLAYER];
+    // Both cards left cardsInPlay...
+    expect(p1.cardsInPlay.some(c => c.instanceId === echoInst.instanceId)).toBe(false);
+    expect(p1.cardsInPlay.some(c => c.instanceId === sunInst.instanceId)).toBe(false);
+    // ...and neither is stranded in discard — both were shuffled into the new play deck.
+    expect(p1.discardPile.some(c => c.instanceId === echoInst.instanceId)).toBe(false);
+    expect(p1.discardPile.some(c => c.instanceId === sunInst.instanceId)).toBe(false);
+    expect(p1.playDeck.some(c => c.instanceId === echoInst.instanceId)).toBe(true);
+    expect(p1.playDeck.some(c => c.instanceId === sunInst.instanceId)).toBe(true);
   });
 
   test('Site cards from discard pile return to location deck on exhaustion', () => {
