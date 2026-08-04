@@ -174,6 +174,36 @@ export function boostsCreatureAttack(
   return false;
 }
 
+/**
+ * Whether playing `eventDef` would satisfy an `{ inPlay: eventDef.name }`
+ * condition gating a bonus effect on some *other* hazard-event card still in
+ * hand — e.g. An Unexpected Outpost (dm-45) has a second `move` effect gated
+ * on `{ inPlay: "Doors of Night" }` that doubles its fetch. Doors of Night
+ * (tw-28) is a permanent event: once played it stays in play for the rest of
+ * the game (see `buildInPlayNames` in
+ * `packages/shared/src/engine/recompute-derived.ts`), so playing it *before*
+ * the dependent card unlocks the bonus, while playing it after wastes it.
+ * Sequencing here mirrors {@link boostsCreatureAttack}: the enabler should
+ * outscore the plain hazard-event baseline so it gets played first.
+ */
+export function enablesHandCardBonus(
+  eventDef: CardDefinition,
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+): boolean {
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (!def || def.id === eventDef.id) continue;
+    const effects = (def as { effects?: readonly Record<string, unknown>[] }).effects;
+    if (!effects) continue;
+    for (const effect of effects) {
+      const when = effect.when as Record<string, unknown> | undefined;
+      if (when?.inPlay === eventDef.name) return true;
+    }
+  }
+  return false;
+}
+
 /** Mind cost (general influence) of a character, defaulting to 0 for avatars. */
 export function mindCost(def: CardDefinition | undefined): number {
   if (!def || !isCharacter(def)) return 0;
