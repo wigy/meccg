@@ -444,6 +444,7 @@
         "cost": {
           "discard": "self"
         },
+        "activeSitePhase": true,
         "when": {
           "bearer.siteType": {
             "$in": [

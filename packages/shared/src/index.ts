@@ -16,8 +16,8 @@ export { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments
 export { cardsAttachedToCompany, isAttachedToPresentCompany } from './company-attachments.js';
 export { effectiveItemCorruptionPoints, collectItemModifiersFromDefs, itemModifierDeltas } from './item-corruption.js';
 export type { InPlayItemModifier } from './item-corruption.js';
-export { resolveThrallCharacterPairings, resolveCharacterTargetedStageResourcePairings, hasCharacterPlayTargetEffect } from './stage-resource-characters.js';
-export type { StageResourceCharacterRef, ThrallCharacterPairing, StageResourceCharacterPairing } from './stage-resource-characters.js';
+export { resolveThrallCharacterPairings, hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from './stage-resource-characters.js';
+export type { StageResourceCharacterRef, ThrallCharacterPairing } from './stage-resource-characters.js';
 export { buildMovementMap, getReachableSites, findRegionPaths } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
 export { effectiveGeneralInfluence, generalInfluenceControlLimit } from './engine/reducer-utils.js';

@@ -5179,6 +5179,25 @@ the new `player.avatarInPlay` context field (`false` while no avatar is in play)
   "condition": { "player.avatarInPlay": false } }
 ```
 
+The `move` apply's `to` need not be `discard`: *Bade to Rule* (le-167) instead
+declares `to: "in-play-on-character"`, so instead of discarding itself the bare
+card **attaches** itself onto the just-entered avatar ("Place this card with
+your Ringwraith when he comes into play"). `applyAvatarEntersPlayEffects`
+threads the newly-played character's instance id through as
+`ctx.targetCharacterId`, which `in-play-on-character` resolves as its bearer:
+
+```json
+{ "type": "on-event", "event": "avatar-enters-play",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "in-play-on-character" } }
+```
+
+Getting the card into `cardsInPlay` bare in the first place — before the
+avatar exists to attach to — is handled by an `untargeted: true` `play-option`
+on the same card (see `play-option`'s "Organization-phase permanent events"
+paragraph below): when its `play-target: character` effect finds no
+qualifying character, the untargeted option's `when` is consulted instead of
+rejecting the play.
+
 ### 14a. `name-alias`
 
 Makes the card count as another named card for the purpose of `inPlay`
@@ -7780,6 +7799,33 @@ the two mode families never collide: an action with a `targetCharacterId` takes
 the targeted path, one without takes the untargeted path. If *every* option on a
 card is untargeted, the per-character loop is skipped entirely (no bare
 option-less action is emitted).
+
+**Organization-phase permanent events.** `playPermanentEventActions`
+(`legal-actions/organization-events.ts`) also honours an `untargeted: true`
+play-option on a character-targeting permanent event: when no character in
+the player's companies matches the `play-target` filter, the emitter falls
+back to the untargeted option's `when`, evaluated against the same
+`player`/`opponent` context as `play-condition: requires: "player-state"`
+(`buildPlayerStateContext`, e.g. `player.hasRingwraithInPlay`). If it
+matches, a single bare `play-permanent-event` action with no
+`targetCharacterId` is offered instead of the usual "no valid target"
+rejection. The card then resolves through the existing unattached path
+(`chain-reducer.ts`'s `resolvePermanentEvent` places it in `cardsInPlay`
+rather than attaching it to a character), so no dedicated `apply` kind is
+needed here — the option's `apply` is a no-op (`{ "type": "sequence", "apps":
+[] }`) and the card's own always-on effects (e.g. a `general-influence`
+`stat-modifier`, already summed from unattached `cardsInPlay` entries) take
+effect once it is in play. Used by *Bade to Rule* (le-167): "Playable ... on
+your Ringwraith ... Alternatively, playable if your Ringwraith is not in
+play. +5 general influence.":
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "target.race": "ringwraith" } },
+{ "type": "play-option", "id": "no-ringwraith", "untargeted": true,
+  "when": { "player.hasRingwraithInPlay": false },
+  "apply": { "type": "sequence", "apps": [] } }
+```
 
 The untargeted apply kind supported today is:
 

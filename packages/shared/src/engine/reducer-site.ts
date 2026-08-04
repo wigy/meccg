@@ -262,9 +262,10 @@ function handleSiteSelectCompany(
   }
 
   // Rule 2.1.1: resource permanent-events without declared site-phase timing
-  // (e.g. Return of the King tw-316) are likewise offered here by
-  // `siteActions` — the reducer must accept them for the same reason as
-  // resource short-events above.
+  // (e.g. Return of the King tw-316) are likewise offered at this step
+  // (`siteActions` pushes `playPermanentEventActions` here too) — the
+  // reducer must accept them for the same reason as the short-event case
+  // above.
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
   }
@@ -505,8 +506,9 @@ function handleSiteEnterOrSkip(
   // Rule 2.1.1: resource permanent-events without declared site-phase timing
   // (e.g. Return of the King tw-316, playable once a company is already at
   // the matching site) remain playable at the enter-or-skip decision window
-  // (`siteActions` offers them here too). Accept them for the same reason as
-  // resource short-events above.
+  // too (`siteActions` offers them here) — accept them for the same reason
+  // as the short-event case above: the engine must never reject an action
+  // it advertised as legal.
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
   }

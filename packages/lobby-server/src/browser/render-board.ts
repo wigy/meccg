@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CharacterInPlay, SiteInPlay, ViewCard, Alignment } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings, resolveCharacterTargetedStageResourcePairings } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { getCachedInstanceLookup } from './render-text-format.js';
 import { getSelectedItemDefId, setSelectedItemDefId, setTargetingInstruction } from './render-selection-state.js';
@@ -84,6 +84,13 @@ function renderDraftedStageResources(
  * {@link resolveThrallCharacterPairings} so the display matches the placement the
  * engine applies when the draft is finalised.
  *
+ * Other character-bound Stage resources (Gandalf's Friend, Squire of the Hunt,
+ * etc.) have no rules-mandated "best" character the way Thrall's agent/mind
+ * preference does, so — unlike Thrall — they are NOT paired here. The engine
+ * defers them to the item-draft step for the player to assign explicitly (see
+ * `applyDraftResults`), so they render full-size in the Stage-resource row
+ * like any other unpaired resource until then.
+ *
  * @returns the instance ids of the Stage resources rendered beside a character,
  *   so the caller can omit them from the separate Stage-resource row.
  */
@@ -94,12 +101,7 @@ function renderDraftedCharactersWithThralls(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): ReadonlySet<string> {
   const charRefs = drafted.filter(c => isCharacterCard(cardPool[c.definitionId as string]));
-  const thrallPairings = resolveThrallCharacterPairings(charRefs, draftedStageResources, defId => cardPool[defId as string]);
-  const characterTargetPairings = resolveCharacterTargetedStageResourcePairings(
-    charRefs, draftedStageResources, defId => cardPool[defId as string],
-    new Set(thrallPairings.map(p => p.characterInstanceId as string)),
-  );
-  const pairings = [...thrallPairings, ...characterTargetPairings];
+  const pairings = resolveThrallCharacterPairings(charRefs, draftedStageResources, defId => cardPool[defId as string]);
   const thrallsByChar = new Map<string, { definitionId: CardDefinitionId; instanceId: CardInstanceId }[]>();
   const pairedResourceIds = new Set<string>();
   for (const pairing of pairings) {

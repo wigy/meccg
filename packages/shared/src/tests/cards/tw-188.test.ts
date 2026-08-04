@@ -24,6 +24,7 @@
  * | 1 | A non-Wizard character may be brought in with direct influence | OK     |
  * | 2 | …at a Free-hold, Border-hold, or Ruins & Lairs (not a haven)   | OK     |
  * | 3 | Even a Hobbit                                                  | OK     |
+ * | 3.1 | …unless it has its own card-specific home-site-only restriction (Sam Gamgee, Frodo) | OK |
  * | 4 | Wizards may not be brought in                                  | OK     |
  * | 5 | Requires a controller with enough unused direct influence      | OK     |
  * | 6 | Does not count against the one-character-per-turn limit        | OK     |
@@ -52,6 +53,7 @@ const BAG_END = 'tw-372' as CardDefinitionId;        // free-hold
 const BREE = 'tw-378' as CardDefinitionId;           // border-hold
 const BANDIT_LAIR = 'tw-373' as CardDefinitionId;    // ruins-and-lairs
 const FILLER = 'tw-155' as CardDefinitionId;         // Gamling — opponent filler
+const SAM_GAMGEE = 'tw-180' as CardDefinitionId;     // hobbit, mind 4, DI 0 — card-specific home-site-only (Bag End)
 
 /**
  * Recruit plays = viable play-character actions carrying viaEventInstanceId.
@@ -124,6 +126,20 @@ describe('A Chance Meeting (tw-188)', () => {
         return act.viaEventInstanceId === eventId && act.characterInstanceId === fattyId;
       });
     expect(recruit.length).toBeGreaterThan(0);
+  });
+
+  // ── Rule 3 (negative): a card-specific home-site-only character is excluded ─
+
+  test('does not emit a recruit play for a home-site-only character away from its home site (Sam Gamgee)', () => {
+    const state = buildOrg(BREE, [ELROND], [A_CHANCE_MEETING, SAM_GAMGEE]);
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+    const samId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === SAM_GAMGEE)!.instanceId;
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .filter(a => {
+        const act = a.action as { characterInstanceId: CardInstanceId; viaEventInstanceId?: CardInstanceId };
+        return act.viaEventInstanceId === eventId && act.characterInstanceId === samId;
+      });
+    expect(recruit).toHaveLength(0);
   });
 
   // ── Rule 4: Wizards are excluded ────────────────────────────────────────────

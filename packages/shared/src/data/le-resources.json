@@ -693,6 +693,18 @@
         }
       },
       {
+        "type": "play-option",
+        "id": "no-ringwraith",
+        "untargeted": true,
+        "when": {
+          "player.hasRingwraithInPlay": false
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": []
+        }
+      },
+      {
         "type": "play-condition",
         "requires": "site-type",
         "siteTypes": [
@@ -731,6 +743,16 @@
         }
       },
       {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
         "type": "duplication-limit",
         "scope": "player",
         "max": 1
@@ -747,7 +769,7 @@
       }
     ],
     "text": "Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith. -2 to his direct influence, +5 general influence. You may discard this card during any of your organization phases. Discard this card if your Ringwraith moves. Alternatively, playable if your Ringwraith is not in play. +5 general influence. Place this card with your Ringwraith when he comes into play. Cannot be duplicated by a given player.Cannot be included in a Balrog's deck.",
-    "certified": "2026-05-31"
+    "certified": "2026-08-03"
   },
   {
     "cardType": "minion-resource-event",

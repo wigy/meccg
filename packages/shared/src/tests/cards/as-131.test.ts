@@ -146,6 +146,22 @@ describe('Secret Book (as-131)', () => {
     expect(grantedActionsFor(state, burat, 'untap-site', PLAYER_1).length).toBe(0);
   });
 
+  test('untap-site is offered during the site phase (play-resources step), not just organization', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: EAGLES_EYRIE, characters: [{ defId: BURAT, items: [SECRET_BOOK] }] }], hand: [], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [EAGLES_EYRIE] },
+      ],
+    });
+    (base.players[RESOURCE_PLAYER].companies[0].currentSite as { status: CardStatus }).status = CardStatus.Tapped;
+    const state: GameState = { ...base, phaseState: SITE_PHASE };
+
+    const burat = findCharInstanceId(state, RESOURCE_PLAYER, BURAT);
+    expect(grantedActionsFor(state, burat, 'untap-site', PLAYER_1).length).toBe(1);
+  });
+
   test('activating untap-site untaps the Border-hold and discards the item', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

@@ -5821,7 +5821,6 @@ export interface DeckRestrictionEffect extends EffectBase {
  *   field (comma-separated entries are split). Used for restrictions like
  *   "May not be played against a company containing a character with
  *   Edoras as a home site" (Horse-lords).
- *
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {

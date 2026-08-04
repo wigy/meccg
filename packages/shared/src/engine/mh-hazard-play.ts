@@ -21,7 +21,7 @@ import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKe
 import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
-import { triggerCouncilCall } from './reducer-end-of-turn.js';
+import { flagCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
@@ -646,22 +646,25 @@ export function handlePlayHazardCard(
 
   // --- Resource-as-hazard (e.g. Sudden Call) with call-council effect ---
   // Playing a resource-event as a hazard on the opponent's turn, solely
-  // to trigger the endgame. Bypasses the chain: the effect resolves
-  // immediately with the Sudden Call player getting one last turn.
+  // to trigger the endgame. Bypasses the chain: the card is discarded and
+  // the council call is flagged (caller gets the last turn) without
+  // interrupting the opponent's turn in progress — the opponent's turn
+  // plays out normally, and the existing End-of-Turn signal-end logic
+  // performs the actual player swap once it naturally ends.
   const hazardCallCouncil = getCardEffects(def).find(
     (e): e is CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'self',
   );
   if (hazardCallCouncil
     && (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event')
     && hasPlayFlag(def, 'playable-as-hazard')) {
-    logDetail(`Play-hazards: ${action.player as string} plays resource-as-hazard "${def.name}" → triggering endgame (caller gets last turn)`);
+    logDetail(`Play-hazards: ${action.player as string} plays resource-as-hazard "${def.name}" → flagging endgame (caller gets last turn)`);
     const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
     const afterDiscard = updatePlayer(state, hazardIndex, p => ({
       ...p,
       hand: newHand,
       discardPile: [...p.discardPile, handCard],
     }));
-    return { state: triggerCouncilCall(afterDiscard, action.player, 'self') };
+    return { state: flagCouncilCall(afterDiscard, action.player, 'self') };
   }
 
   // --- Dual-mode creature played as a short-event (creature-alt-event) ---
