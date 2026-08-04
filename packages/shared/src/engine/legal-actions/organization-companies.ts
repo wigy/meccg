@@ -823,12 +823,18 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
 
     if (hasRingwraithAvatar) {
       const hasModeCard = ringwraithHasModeCard(state, company, player);
+      const originIsDarkhaven = isDarkhavenSiteDef(currentSiteDef);
 
-      // Gate: without a mode card, Ringwraith may only move to Darkhaven (siteType: haven).
-      if (!hasModeCard) {
+      // Gate (rule 2.II.7.R1): a company containing a Ringwraith may only move to a
+      // non-Darkhaven site if the Ringwraith is in a mode AND its site of origin is a
+      // Darkhaven. Without either condition, only Darkhaven destinations are legal —
+      // a Ringwraith in mode cannot hop between non-Darkhaven sites indefinitely; it
+      // must return to a Darkhaven before leaving for another non-Darkhaven site.
+      if (!hasModeCard || !originIsDarkhaven) {
         const before = reachable.length;
         reachable = reachable.filter(r => r.site.siteType === SiteType.Haven);
-        logDetail(`Company ${company.id as string}: Ringwraith has no mode card — restricted to Darkhaven destinations (${before} → ${reachable.length})`);
+        const why = !hasModeCard ? 'no mode card' : `origin ${currentSiteDef.name} is not a Darkhaven`;
+        logDetail(`Company ${company.id as string}: Ringwraith ${why} — restricted to Darkhaven destinations (${before} → ${reachable.length})`);
       }
 
       // Ringwraith companies may never move through Coastal Seas regions (MELE §1.1).
