@@ -261,14 +261,28 @@ export function renderCompanyBlock(
   // Characters — title character always rendered first (leftmost after site).
   // Followers are rendered nested under their controlling character, not as
   // separate columns, so collect follower IDs to skip in the main loop.
+  //
+  // Direct influence (controlledBy/followers) is independent of physical
+  // company membership (CoE 2.II.2.2) — e.g. Seized by Terror (dm-88) can
+  // split a follower off into its own company while it remains under its
+  // controller's direct influence. Only nest a follower under its controller
+  // here if it is still physically present in *this* company; otherwise it
+  // renders as its own standalone column in its actual company, and nesting
+  // it here too would show the same character in two companies at once.
+  const companyCharacterIds = new Set(company.characters as readonly string[]);
   const followerIds = new Set<string>();
   for (const charInstId of company.characters) {
     const char = charMap[charInstId as string];
     if (!char) continue;
     for (const fId of char.followers) {
-      followerIds.add(fId as string);
+      if (companyCharacterIds.has(fId as string)) followerIds.add(fId as string);
     }
   }
+  /** Restrict a character's followers to those physically present in this company. */
+  const withPresentFollowers = (char: CharacterInPlay): CharacterInPlay =>
+    char.followers.some(fId => !companyCharacterIds.has(fId as string))
+      ? { ...char, followers: char.followers.filter(fId => companyCharacterIds.has(fId as string)) }
+      : char;
 
   const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
 
@@ -982,14 +996,14 @@ export function renderCompanyBlock(
   const bearerAlignment = owner === 'self' ? view.self.alignment : view.opponent.alignment;
 
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
+    row.appendChild(renderCharacterColumn(withPresentFollowers(titleChar), cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
+    row.appendChild(renderCharacterColumn(withPresentFollowers(char), cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
   }
 
   // Company-targeting permanent events bound to this company (e.g. Fellowship,
