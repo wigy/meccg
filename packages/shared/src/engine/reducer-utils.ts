@@ -5766,6 +5766,22 @@ export function regionTypeCounts(path: readonly RegionType[]): RegionTypeCounts 
  * (but which need not be consecutive)."
  */
 export function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
+  return satisfiedRegionTypes(required, path).length > 0;
+}
+
+/**
+ * Which of a creature's required region types are individually satisfied by
+ * a site path, honoring per-type count thresholds (e.g. Rain-drake td-57:
+ * three Wilderness icons OR one Coastal Sea icon — a path with a single
+ * Wilderness must not be reported as satisfying the Wilderness keying just
+ * because a different type, Coastal Sea, separately meets its own count).
+ *
+ * Callers that only need a yes/no answer should use {@link regionTypesMatch}.
+ * Callers that report *which* type justified the match (e.g. building the
+ * `keyedBy` reason attached to a play action) must use this instead of
+ * checking `path.includes(rt)`, which ignores the count requirement.
+ */
+export function satisfiedRegionTypes(required: readonly RegionType[], path: readonly RegionType[]): RegionType[] {
   // Count how many of each type the creature requires
   const requiredCounts = new Map<RegionType, number>();
   for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
@@ -5773,10 +5789,11 @@ export function regionTypesMatch(required: readonly RegionType[], path: readonly
   const pathCounts = new Map<RegionType, number>();
   for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
   // Any type with enough matches in the path is sufficient (OR)
+  const satisfied: RegionType[] = [];
   for (const [rt, need] of requiredCounts) {
-    if ((pathCounts.get(rt) ?? 0) >= need) return true;
+    if ((pathCounts.get(rt) ?? 0) >= need) satisfied.push(rt);
   }
-  return false;
+  return satisfied;
 }
 
 /**

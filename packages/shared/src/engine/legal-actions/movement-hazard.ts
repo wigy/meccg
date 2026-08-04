@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch, deriveFacedRaces } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -4097,13 +4097,14 @@ function findCreatureKeyingMatches(
     // Region type matches — try the effective path plus each boosted variant.
     if (key.regionTypes && key.regionTypes.length > 0) {
       for (const candidate of candidateRegionPaths) {
-        if (!regionTypesMatch(key.regionTypes, candidate)) continue;
-        // Report each matching region type individually
-        for (const rt of key.regionTypes) {
-          if (candidate.includes(rt)) {
-            const k = `region-type:${rt}`;
-            if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-type', value: rt }); }
-          }
+        // Only report the region type(s) whose own count requirement is met
+        // by this candidate — a type merely present below its required
+        // count (e.g. a single Wilderness when three are required) must not
+        // be offered as a keying reason just because another type on the
+        // same card separately satisfies its own count.
+        for (const rt of satisfiedRegionTypes(key.regionTypes, candidate)) {
+          const k = `region-type:${rt}`;
+          if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-type', value: rt }); }
         }
       }
     }
