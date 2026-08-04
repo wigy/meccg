@@ -55,6 +55,7 @@ const DOL_GULDUR = 'le-367' as CardDefinitionId;    // minion-site, haven
 const ETTENMOORS = 'le-373' as CardDefinitionId;    // minion-site, ruins-and-lairs
 const RED_BOOK = 'le-339' as CardDefinitionId;          // minion item, corruptionPoints: 2
 const STRANGE_RATIONS = 'le-345' as CardDefinitionId;  // minion item, corruptionPoints: 1
+const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource-event, not an item card
 
 describe('Covetous Thoughts (le-107)', () => {
   beforeEach(() => resetMint());
@@ -370,5 +371,28 @@ describe('Covetous Thoughts (le-107)', () => {
     expect(next.phaseState.phase).toBe(Phase.EndOfTurn);
     const pending = next.pendingResolutions.filter(r => r.actor === PLAYER_1);
     expect(pending).toHaveLength(0);
+  });
+
+  test('end-of-turn: Stage resources (e.g. Thrall of the Voice) riding in items do not trigger checks', () => {
+    // Thrall of the Voice (wh-82) is a resource-event that rides in a
+    // character's `items` array (it is "placed with" the character), not a
+    // true item card — it must not count as a company item Covetous Thoughts
+    // checks for. Shagrat bears one real item (Red Book, cp 2) plus Thrall of
+    // the Voice: only the real item should produce a check.
+    const base = buildSitePhaseState({
+      site: DOL_GULDUR,
+      characters: [GORBAG, SHAGRAT],
+    });
+    const withCT = attachHazardToChar(base, RESOURCE_PLAYER, GORBAG, COVETOUS_THOUGHTS);
+    const withStage = attachItemToChar(withCT, RESOURCE_PLAYER, SHAGRAT, THRALL_OF_THE_VOICE);
+    const withItem = attachItemToChar(withStage, RESOURCE_PLAYER, SHAGRAT, RED_BOOK);
+
+    const next = dispatch(withItem, { type: 'pass', player: PLAYER_1 });
+
+    expect(next.phaseState.phase).toBe(Phase.EndOfTurn);
+    const pending = next.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    const check = pending[0].kind as { type: 'corruption-check'; modifier: number };
+    expect(check.modifier).toBe(-2);
   });
 });

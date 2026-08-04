@@ -4693,7 +4693,8 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
 
           const otherItems = company.characters
             .filter(oid => oid !== charId)
-            .flatMap(oid => resourcePlayer.characters[oid]?.items ?? []);
+            .flatMap(oid => resourcePlayer.characters[oid]?.items ?? [])
+            .filter(item => isItemCard(defById(newState, item.definitionId)));
 
           if (otherItems.length === 0) {
             logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — no other-company items, skipping`);
