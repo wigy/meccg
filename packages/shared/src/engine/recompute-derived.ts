@@ -48,7 +48,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState, hasRecruitmentVehicleEffect } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
@@ -1301,6 +1301,20 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
   // mistaken for one.
   for (const card of player.killPile) {
     if (!isStageCardDef(state, card.definitionId)) continue;
+    stagePoints += stagePointsOfCard(defById(state, card.definitionId));
+  }
+  // CoE 1.9.F4: a drafted recruitment-vehicle Stage resource (Thrall of the
+  // Voice wh-82) with no gated character to pair with at finalize is kept in
+  // the player's hand rather than attached (see `applyDraftResults` and
+  // `recruitmentVehicleInHand`, which reads it back from there to bring in a
+  // bonus character later) — but it was still drafted and not discarded for
+  // duplication, so its point still counts while it waits there. Restricted to
+  // the recruitment-vehicle effect specifically: an *ordinary* Stage resource
+  // never legitimately sits in hand pre-play (its `starting-item` keyword
+  // keeps it out of the normal deck), so only this one finalize-time carve-out
+  // needs the hand scan.
+  for (const card of player.hand) {
+    if (!hasRecruitmentVehicleEffect(defById(state, card.definitionId))) continue;
     stagePoints += stagePointsOfCard(defById(state, card.definitionId));
   }
   // A stage permanent-event played "on a character" (Wizard's Myrmidon wh-84,
