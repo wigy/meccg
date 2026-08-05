@@ -196,8 +196,13 @@ export function renderCompanyBlock(
 
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
-  let isInactive = view.phaseState.phase !== Phase.FreeCouncil
-    && ((owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn));
+  // Free Council used to be excluded from dimming because `activePlayer`
+  // wasn't kept in sync with the corruption-check sub-turn (fixed by
+  // reducer-free-council.ts's pass handler), which left dimming stuck on
+  // the first checker. Now that activePlayer tracks the current checker,
+  // dimming the other side makes it clear whose corruption checks are
+  // being resolved instead of showing both companies as equally active.
+  let isInactive = (owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn);
 
   // During M/H or Site phase (after select-company), dim all companies except the active one
   if (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site) {
