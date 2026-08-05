@@ -7,7 +7,7 @@
  */
 
 import type { CardDefinition, Company, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
-import { Alignment, Phase } from './types/index.js';
+import { Alignment, Phase, Race } from './types/index.js';
 import { isCharacterCard } from './types/cards.js';
 import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
 
@@ -207,6 +207,28 @@ export function companyContainsBalrogAvatar(state: GameState, player: PlayerStat
     const charData = player.characters[charId];
     if (!charData) return false;
     return isBalrogAvatarDef(state.cardPool[charData.definitionId]);
+  });
+}
+
+/**
+ * True if `def` is a Ringwraith avatar character (mind: null, race: Ringwraith)
+ * rather than a Ringwraith follower. Used wherever a rule applies specifically
+ * to the avatar rather than to any Ringwraith-aligned character.
+ */
+export function isRingwraithAvatarDef(def: CardDefinition | undefined): boolean {
+  return isCharacterCard(def) && def.mind === null && def.race === Race.Ringwraith;
+}
+
+/**
+ * True if the given company contains a Ringwraith avatar character (CoE rule
+ * 2.II.7.R1). Such a company can only use Starter Movement or Under-deeps
+ * Movement — Region Movement is never available, mode or no mode.
+ */
+export function companyContainsRingwraithAvatar(state: GameState, player: PlayerState, company: Company): boolean {
+  return company.characters.some(charId => {
+    const charData = player.characters[charId];
+    if (!charData) return false;
+    return isRingwraithAvatarDef(state.cardPool[charData.definitionId]);
   });
 }
 
