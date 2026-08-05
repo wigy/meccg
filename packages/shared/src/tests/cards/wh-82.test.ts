@@ -300,4 +300,50 @@ describe('Thrall of the Voice (wh-82)', () => {
     expect(gimli.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(true);
     expect(balin.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(false);
   });
+
+  test('a surplus Thrall with no gated character left to pair stays in hand for a later organization phase', () => {
+    // Bug: drafting one Thrall per gated character is a common pattern (e.g. two
+    // agents), but if a player drafts more Thralls than they use during the
+    // character draft, the leftover copy must stay in hand — playable later via
+    // `viaRecruitmentInstanceId` (rules 2–3 above) — rather than being
+    // force-attached to an ordinary mind ≤ 5, non-agent character, which would
+    // waste it for no rules benefit and strand it out of reach for a later
+    // organization-phase recruitment.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, THRALL_OF_THE_VOICE, IVIC, BALIN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Both Thralls first — each resolves immediately (CoE 1.9.F4) without using a
+    // character pick; the opponent's single pick empties their pool.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
+    ]);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+    ]);
+    // One gated agent (Ivic, mind 6) consumes the first vehicle; a mind-5 filler
+    // (Balin, not gated) needs no vehicle at all — the second Thrall has nothing
+    // left to pair with.
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, IVIC) }]);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) }]);
+
+    state = recomputeDerived(state);
+    const ivic = getCharacter(state, RESOURCE_PLAYER, IVIC);
+    const balin = getCharacter(state, RESOURCE_PLAYER, BALIN);
+    expect(ivic.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(true);
+    expect(balin.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(false);
+
+    // The surplus Thrall lands in hand, not lost, and remains playable as a
+    // recruitment vehicle for a later organization phase.
+    const hand = state.players[RESOURCE_PLAYER].hand;
+    expect(hand.filter(c => c.definitionId === THRALL_OF_THE_VOICE)).toHaveLength(1);
+  });
 });
