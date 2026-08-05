@@ -57,8 +57,9 @@ import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
 import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
-import { resolveItemClick } from './company-actions.js';
+import { resolveItemClick, isSelfDiscardGrantedAction } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
+import { showConfirm } from './dialog.js';
 
 /**
  * All viable influence-attempt actions for a given (faction, character) pair.
@@ -460,13 +461,24 @@ export function renderCompanyBlock(
       };
     }
 
-    // Only a granted action is available — commit it directly.
+    // Only a granted action is available — commit it directly, unless its
+    // cost discards the card itself: that loss can't be undone, so a
+    // misclick (bug report 95b2e034703ec1d0: Secret Book as-131 discarded
+    // instantly by one accidental click) needs a confirmation first.
     if (resolution.kind === 'granted') {
+      const action = resolution.action;
+      const needsConfirm = isSelfDiscardGrantedAction(action, cardPool);
       return {
         cls: 'company-card--transfer-source',
         handler: (e) => {
           e.stopPropagation();
-          onAction(resolution.action);
+          if (!needsConfirm) {
+            onAction(action);
+            return;
+          }
+          void showConfirm(`Discard ${itemName ?? 'this card'}?`).then(ok => {
+            if (ok) onAction(action);
+          });
         },
       };
     }
