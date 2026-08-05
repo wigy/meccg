@@ -213,4 +213,21 @@ describe('Palantír of Orthanc (le-334)', () => {
     expect(pending.length).toBe(1);
     expect(pending[0].kind.type).toBe('corruption-check');
   });
+
+  // ── Storing (CoE rule 2.II.4) ──
+
+  test('storable at Dol Guldur (a Haven) despite being a special-subtype item', () => {
+    // Bug report: a Ringwraith player could not store the Palantír at Dol
+    // Guldur. Rule 2.II.4 places no subtype restriction on storing items at
+    // a Haven — the only blanket exception is The One Ring (rule g.sto.1).
+    const state = buildOrgState({});
+    const charId = findCharInstanceId(state, RESOURCE_PLAYER, CALENDAL);
+    const palantirInstId = state.players[0].characters[charId].items[0].instanceId;
+
+    const stores = viableActions(state, PLAYER_1, 'store-item');
+    expect(stores.some(ea =>
+      'itemInstanceId' in ea.action && ea.action.itemInstanceId === palantirInstId &&
+      'characterId' in ea.action && ea.action.characterId === charId,
+    )).toBe(true);
+  });
 });
