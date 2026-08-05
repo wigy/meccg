@@ -39,10 +39,11 @@ import {
   PLAYER_1, PLAYER_2, RIVENDELL, Alignment,
   createGame, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   ADRAZAR, FRODO, FARAMIR, BILBO,
+  advanceSetupToInitialDraw, Phase,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import { reduce } from '../../../engine/reducer.js';
-import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
+import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId, DrawCardsAction } from '../../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource (recruitment vehicle)
 const GLOVE_OF_RADAGAST = 'wh-111' as CardDefinitionId;  // Stage resource (unique, Radagast specific)
@@ -547,5 +548,79 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
     ]);
     expect(computeLegalActions(afterThrall, PLAYER_1).find(a => a.action.type === 'draft-stop')?.viable).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] a Stage resource deferred to hand (no qualifying drafted bearer) survives the initial draw (regression for bug report e0d8a2caee49ba6b)', () => {
+    // Report: Glove of Radagast was "playable during draft, but disappeared
+    // immediately afterwards, was also not listed in the summary of Stage
+    // resources". Root cause: Glove of Radagast targets a character literally
+    // named "Radagast" (`play-target` filter `{ target.name: "Radagast" }`),
+    // but a Fallen-wizard's own Radagast avatar is never a drafted character —
+    // it enters play later via an ordinary play-character action, not the
+    // character-draft pool. With no qualifying drafted bearer, draft
+    // finalization (init.ts) correctly defers the card to the player's hand
+    // rather than losing it (CoE 1.9.F4). But the initial-draw handler
+    // (handleInitialDraw, reducer-setup.ts) replaced the hand outright with a
+    // fresh draw from the play deck instead of drawing on top of it, silently
+    // discarding the deferred Glove instance — a no-card-disappears violation.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [GLOVE_OF_RADAGAST, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GLOVE_OF_RADAGAST) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+    // Bob's pool is now exhausted (auto-stopped); Alice continues solo to
+    // draft Balin — who does not qualify as "Radagast" — exhausting her pool
+    // too and finalizing the draft.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+    ]);
+
+    const gloveInstanceId = state.players[0].hand.find(c => c.definitionId === GLOVE_OF_RADAGAST)?.instanceId;
+    expect(gloveInstanceId).toBeDefined();
+
+    state = advanceSetupToInitialDraw(state);
+    if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'initial-draw') {
+      throw new Error(`Expected initial-draw step, got ${JSON.stringify(state.phaseState)}`);
+    }
+
+    // The legal draw-cards count must already account for the Glove sitting in
+    // hand (CoE 1.11: "draws up to their base hand size of eight cards").
+    const drawAction = computeLegalActions(state, PLAYER_1)
+      .map(ea => ea.action)
+      .find((a): a is DrawCardsAction => a.type === 'draw-cards');
+    expect(drawAction?.count).toBe(7);
+
+    const result = reduce(state, drawAction!);
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // The Glove is still in hand — same instance, not lost — and the total
+    // hand is exactly the base hand size, not 9.
+    expect(state.players[0].hand).toHaveLength(8);
+    expect(state.players[0].hand.some(c => c.instanceId === gloveInstanceId)).toBe(true);
   });
 });
