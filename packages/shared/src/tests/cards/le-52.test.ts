@@ -22,6 +22,7 @@
  * | 5 | Can use sorcery                                      | FLAVOR      | No certified sorcery consumer today; deferred            |
  * | 6 | -3 DI in Heralded Lord / -1 prowess in Fell Rider    | IMPLEMENTED | per-mode stat-modifiers on the avatar gated on `bearer.ringwraithMode` |
  * | 7 | Manifestation of Dwar of Waw (tw-31)                 | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
+ * | 8 | Activate during any phase of the player's turn (2.1.1) | IMPLEMENTED | grant-action carries `anyPhase: true` in JSON           |
  *
  * Playable: YES.
  */
@@ -33,6 +34,7 @@ import {
   findCharInstanceId, getCharacter, companyIdAt, addCardInPlay, recomputeDerived,
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER, HAZARD_PLAYER,
+  makeMHState,
 } from '../test-helpers.js';
 import { Alignment, CardStatus } from '../../index.js';
 import type {
@@ -124,6 +126,36 @@ describe('Dwar the Ringwraith (le-52)', () => {
     const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'company-stat-boost');
     expect(actions.length).toBe(2);
+  });
+
+  // ── Rule 2.1.1: any-phase availability ───────────────────────────────────
+
+  test('company-stat-boost grant-action available during movement/hazard phase, not just organization', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [DWAR] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MINAS_TIRITH, characters: [LUITPRAND] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'company-stat-boost');
+    expect(actions.length).toBe(1);
   });
 
   // ── Negative: gates ────────────────────────────────────────────────────────
