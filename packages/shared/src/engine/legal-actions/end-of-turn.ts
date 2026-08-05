@@ -24,6 +24,7 @@ import { resolveHandSize } from '../effects/index.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
 import { heroResourceShortEventActions } from './long-event.js';
+import { recruitViaEventActions } from './recruit-via-event.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { storeItemActions } from './organization-companies.js';
 import { playPermanentEventActions } from './organization-events.js';
@@ -43,6 +44,11 @@ import { grantedAction } from './granted-action-emit.js';
  * `discard` and `signal-end` steps. They are not offered during
  * `reset-hand`, which is a mandatory draw/discard step enforced
  * sequentially by the reducer.
+ *
+ * CRF 22 (A Chance Meeting tw-188): "May be played on your turn during any
+ * phase the company is at a site" — this includes end-of-turn, so
+ * character-recruitment events are also offered here via
+ * {@link recruitViaEventActions}.
  */
 export function endOfTurnActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const eotState = requirePhaseState(state, Phase.EndOfTurn);
@@ -55,6 +61,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
       if (state.activePlayer === playerId) {
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
+        base.push(...recruitViaEventActions(state, playerId));
       }
       return base;
     }
@@ -65,6 +72,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
       if (state.activePlayer === playerId) {
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
+        base.push(...recruitViaEventActions(state, playerId));
       }
       return base;
     }

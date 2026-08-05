@@ -215,6 +215,15 @@ export function heroResourceShortEventActions(
     const cardInstanceId = handCard.instanceId;
     const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def)) continue;
+    // Character-recruitment events (A Chance Meeting tw-188, We Have Come to
+    // Kill le-252): rule 5.1 — "Short-events can only be played if they would
+    // have an immediate effect on the game other than the play of the card
+    // itself". These cards' only effect is `recruit-character`, resolved
+    // exclusively via `recruitViaEventActions`'s paired `play-character`
+    // action. Falling through to the generic handling below would offer a
+    // bare no-op `play-short-event` (no recruit target) that discards the
+    // card for zero effect.
+    if (def.effects?.some(e => e.type === 'recruit-character')) continue;
     // A "Permanent-event/Short-event" card (Great Army of the North ba-38) is a
     // permanent event that also carries an alternative short-event reshuffle
     // mode; admit it here alongside true short events. It is viable only when

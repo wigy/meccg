@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { completeDeckExhaust, defById, findById, handleExchangeSideboard, removeById, startDeckExhaust, toCardInstance, updatePlayer } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
-import { handleStoreItem } from './reducer-organization.js';
+import { handleStoreItem, handlePlayCharacter } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { endGame } from './reducer-free-council.js';
@@ -156,6 +156,16 @@ function handleEndOfTurnDiscard(
   // discard step (see `legal-actions/end-of-turn.ts`'s `playPermanentEventActions`).
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
+  }
+
+  // CRF 22 (A Chance Meeting tw-188): "may be played on your turn during any
+  // phase the company is at a site" — the recruit is offered here as a
+  // `play-character` carrying `viaEventInstanceId` (see
+  // `legal-actions/end-of-turn.ts`'s `recruitViaEventActions` call). Shared
+  // with the organization/M-H/site phases; guarded there on not being the
+  // organization phase for the one-character-per-turn bookkeeping.
+  if (action.type === 'play-character') {
+    return handlePlayCharacter(state, action);
   }
 
   if (action.type === 'haven-return') {
@@ -453,6 +463,12 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
   // signal-end step (see `legal-actions/end-of-turn.ts`'s `playPermanentEventActions`).
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
+  }
+
+  // CRF 22 (A Chance Meeting tw-188): recruit offered via `recruitViaEventActions`
+  // during the signal-end step too — see the discard-step handler above.
+  if (action.type === 'play-character') {
+    return handlePlayCharacter(state, action);
   }
 
   if (action.type === 'haven-return') {

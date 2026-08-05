@@ -13,11 +13,11 @@
  * Modelled with a single `recruit-character` effect (controlledBy
  * "direct-influence", siteTypes Free-hold/Border-hold/Ruins & Lairs, filter
  * excluding Wizards, bypassOneCharacterLimit). The legal-action helper
- * `recruitViaEventActions` is wired into the organization, movement/hazard, and
- * site phase aggregators and emits a `play-character` carrying
- * `viaEventInstanceId` for each eligible (recruit, qualifying site, DI
- * controller) combination. `handlePlayCharacter` discards the event card and
- * skips the one-character-per-turn bookkeeping for such plays.
+ * `recruitViaEventActions` is wired into the organization, movement/hazard,
+ * site, and end-of-turn phase aggregators and emits a `play-character`
+ * carrying `viaEventInstanceId` for each eligible (recruit, qualifying site,
+ * DI controller) combination. `handlePlayCharacter` discards the event card
+ * and skips the one-character-per-turn bookkeeping for such plays.
  *
  * | # | Rule                                                          | Status |
  * |---|---------------------------------------------------------------|--------|
@@ -243,5 +243,36 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(getCharacter(after, RESOURCE_PLAYER, EOWYN)).toBeDefined();
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
     expect(after.phaseState.phase).toBe(Phase.Site);
+  });
+
+  // Regression: playing A Chance Meeting during the end-of-turn phase (with
+  // a non-Wizard character in hand and the company at a qualifying site)
+  // offered only a bare no-op play-short-event, discarding the card with no
+  // recruit ever happening — CRF 22's "any phase the company is at a site"
+  // ruling was not wired into the end-of-turn phase aggregator.
+  test('the recruit action is offered during the end-of-turn phase, not a bare no-op discard', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BAG_END, characters: [ELROND] }], hand: [A_CHANCE_MEETING, EOWYN], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FILLER] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+
+    const bareShortEvent = viableActions(state, PLAYER_1, 'play-short-event')
+      .filter(a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === eventId);
+    expect(bareShortEvent).toHaveLength(0);
+
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
+    expect(recruit).toBeDefined();
+
+    const after = dispatch(state, recruit!.action);
+    expect(getCharacter(after, RESOURCE_PLAYER, EOWYN)).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
+    expect(after.phaseState.phase).toBe(Phase.EndOfTurn);
   });
 });
