@@ -26,6 +26,8 @@
  * | 7 | Alternative mode: playable without Ringwraith       | IMPLEMENTED   |
  * | 8 | Place with Ringwraith on entry                      | IMPLEMENTED   |
  * | 9 | Cannot be included in a Balrog's deck               | OUT OF SCOPE  |
+ * | 10| Alternative mode offered in any phase (rule 2.1.1), | IMPLEMENTED   |
+ * |   | not just the organization phase                     |               |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -40,6 +42,7 @@ import {
   playPermanentEventAndResolve,
   dispatch,
   getCharacter,
+  makeMHState,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import { Phase } from '../../index.js';
@@ -322,5 +325,35 @@ describe('Bade to Rule (le-167)', () => {
     const pool = withRw.cardPool[ADUNAPHEL] as { directInfluence: number };
     expect(rw.effectiveStats.directInfluence).toBe(pool.directInfluence - 2);
     expect(withRw.players[RESOURCE_PLAYER].generalInfluenceBonus).toBe(5);
+  });
+
+  // ── Rule 10: Any-phase allowance (rule 2.1.1) ──────────────────────────────
+
+  test('alternative mode is offered during the movement/hazard phase\'s select-company step, before a company is chosen', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: DOL_GULDUR, characters: [THE_MOUTH] }],
+          hand: [BADE_TO_RULE],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const withMHState = { ...state, phaseState: makeMHState({ step: 'select-company' }) };
+    const actions = viableActions(withMHState, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as { targetCharacterId?: unknown };
+    expect(action.targetCharacterId).toBeUndefined();
   });
 });
