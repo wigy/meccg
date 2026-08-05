@@ -96,6 +96,22 @@ describe('Records Unread (as-130)', () => {
     expect(grantedActionsFor(state, burat, 'untap-site', PLAYER_1).length).toBe(1);
   });
 
+  test('untap-site is offered during the site phase, not just organization', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DEAD_MARSHES, characters: [{ defId: BURAT, items: [RECORDS_UNREAD] }] }], hand: [], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [DEAD_MARSHES] },
+      ],
+    });
+    const state: GameState = { ...base, phaseState: SITE_PHASE };
+    (state.players[RESOURCE_PLAYER].companies[0].currentSite as { status: CardStatus }).status = CardStatus.Tapped;
+
+    const burat = findCharInstanceId(state, RESOURCE_PLAYER, BURAT);
+    expect(grantedActionsFor(state, burat, 'untap-site', PLAYER_1).length).toBe(1);
+  });
+
   test('untap-site is NOT offered when the Shadow-hold is untapped', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

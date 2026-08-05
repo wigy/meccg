@@ -387,6 +387,7 @@
         "cost": {
           "discard": "self"
         },
+        "activeSitePhase": true,
         "when": {
           "bearer.siteType": "shadow-hold",
           "site.isTapped": true
