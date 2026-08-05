@@ -180,6 +180,7 @@ function gameWithPartlyRevealedAliceHand(): {
       base.players[1],
     ],
     revealedInstances: { ...base.revealedInstances, [known]: ARAGORN },
+    handRevealedInstances: { ...base.handRevealedInstances, [known]: ARAGORN },
   };
   return { state, known, secret };
 }
@@ -201,6 +202,80 @@ describe('Revealed opponent hand cards (wh-29 Rolled down to the Sea)', () => {
       aliceView.self.hand.find(c => c.instanceId === id);
     expect(handById(known)?.definitionId).toBe(ARAGORN);
     expect(handById(secret)?.definitionId).toBe(BALIN);
+  });
+});
+
+/**
+ * Regression for bug d28b5032a916311d (game msefhs53-znd4eu, seq 364):
+ * Ill-favoured Fellow (wh-5) was played into a company — a public zone, so
+ * `accrueRevealedInstances` recorded its identity in `revealedInstances` — and
+ * later returned to Alice's hand by a CoE 2.II.8 general-influence-overflow
+ * discard. Because `revealedInstances` is append-only, the stale entry
+ * persisted, and `buildOpponentView` reused that same map for hand redaction,
+ * so Bob's view kept showing the real card instead of `UNKNOWN_CARD` even
+ * though the character was back in Alice's private hand. Unlike a genuine
+ * hand-reveal effect, this instance was never explicitly revealed while
+ * sitting in the hand, so it must not appear in `handRevealedInstances`.
+ */
+function gameWithCharacterReturnedToHandAfterOverflow(): {
+  state: GameState;
+  returned: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const returned = 'p1-overflow-returned' as CardInstanceId;
+  // Simulate the pre-overflow state: the character sits in `characters` (a
+  // public zone), so accrual has already recorded it in `revealedInstances`.
+  const inPlay: GameState = {
+    ...base,
+    players: [
+      { ...base.players[0], characters: {
+        [returned]: {
+          instanceId: returned, definitionId: ARAGORN, status: CardStatus.Untapped,
+          items: [], allies: [], hazards: [], followers: [], controlledBy: 'general',
+          effectiveStats: { prowess: 4, body: 6, directInfluence: 0, corruptionPoints: 0 },
+        },
+      } },
+      base.players[1],
+    ],
+  };
+  const revealed = { ...inPlay, revealedInstances: { ...inPlay.revealedInstances, [returned]: ARAGORN } };
+  // Now the influence-overflow-discard settles: the character leaves
+  // `characters` and lands back in hand — `revealedInstances` is untouched
+  // (append-only), and no explicit hand-reveal ever touched this instance.
+  const state: GameState = {
+    ...revealed,
+    players: [
+      { ...revealed.players[0], characters: {}, hand: [{ instanceId: returned, definitionId: ARAGORN }] },
+      revealed.players[1],
+    ],
+  };
+  return { state, returned };
+}
+
+describe('A character returned to hand by influence overflow stays hidden (CoE 2.II.8)', () => {
+  test("the opponent's view redacts it even though it was once publicly in play", () => {
+    const { state, returned } = gameWithCharacterReturnedToHandAfterOverflow();
+    const bobView = projectPlayerView(state, BOB);
+    const handById = (id: CardInstanceId): ViewCard | undefined =>
+      bobView.opponent.hand.find(c => c.instanceId === id);
+    expect(handById(returned)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test("the owner still sees their own hand fully (unchanged)", () => {
+    const { state, returned } = gameWithCharacterReturnedToHandAfterOverflow();
+    const aliceView = projectPlayerView(state, ALICE);
+    const handById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.self.hand.find(c => c.instanceId === id);
+    expect(handById(returned)?.definitionId).toBe(ARAGORN);
   });
 });
 
@@ -320,6 +395,7 @@ function gameWithPartlyRevealedAliceDeckTop(): {
       base.players[1],
     ],
     revealedInstances: { ...base.revealedInstances, [known]: ARAGORN },
+    handRevealedInstances: { ...base.handRevealedInstances, [known]: ARAGORN },
   };
   return { state, known, secret };
 }

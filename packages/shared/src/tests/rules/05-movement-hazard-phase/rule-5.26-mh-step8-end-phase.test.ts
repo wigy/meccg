@@ -18,7 +18,7 @@ import {
   buildTestState, resetMint, dispatch, makeMHState, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
-  LORIEN, HENNETH_ANNUN, MINAS_TIRITH,
+  LORIEN, HENNETH_ANNUN, MINAS_TIRITH, RIVENDELL,
   DAGGER_OF_WESTERNESSE, ORC_PATROL, CAVE_DRAKE,
 } from '../../test-helpers.js';
 import { CardStatus } from '../../../index.js';
@@ -352,5 +352,93 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
     const arrivedCompany = afterBothPass.players[0].companies.find(c => c.id === company0.id)!;
     expect(arrivedCompany.currentSite?.instanceId).toBe(sharedHenneth.instanceId);
     expect(arrivedCompany.currentSite?.status).toBe(CardStatus.Tapped);
+  });
+
+  test('site of origin remains in play and syncs its tapped status when a sibling company is already traveling there (rule 2.IV.vii / 2.II.7.2)', () => {
+    // Regression test: Moria showed as untapped for a company arriving there
+    // even though a sibling company had tapped it earlier the same turn
+    // (playing an item) and then moved away. Root cause — Step 8's site-of-
+    // origin handling only checked for a sibling still AT the site
+    // (currentSite) before discarding a tapped origin; it missed a sibling
+    // already traveling THERE (destinationSite). The tapped card got
+    // discarded out from under the inbound sibling, which then arrived at a
+    // phantom fresh untapped copy of the same instance id — duplicating the
+    // site (one copy tapped in the discard pile, one untapped in play) and
+    // letting a second item be played at a site that should still be tapped.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN], destinationSite: HENNETH_ANNUN },
+            { site: RIVENDELL, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const [company0, company1] = built.players[0].companies;
+    const sharedMinasTirith = { ...company0.currentSite!, status: CardStatus.Tapped };
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [
+            {
+              ...company0,
+              currentSite: sharedMinasTirith,
+              siteCardOwned: true,
+              siteOfOrigin: sharedMinasTirith.instanceId,
+            },
+            {
+              ...company1,
+              destinationSite: { instanceId: sharedMinasTirith.instanceId, definitionId: sharedMinasTirith.definitionId, status: CardStatus.Untapped },
+            },
+          ],
+        },
+        built.players[1],
+      ],
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[0];
+    // Not discarded, not returned to the location deck — it's still "in
+    // play" via the inbound sibling company.
+    expect(p1.siteDeck.some(c => c.instanceId === sharedMinasTirith.instanceId)).toBe(false);
+    expect(p1.siteDiscardPile.some(c => c.instanceId === sharedMinasTirith.instanceId)).toBe(false);
+
+    const inbound = p1.companies.find(c => c.id === company1.id)!;
+    expect(inbound.destinationSite?.status).toBe(CardStatus.Tapped);
+
+    // Resolve the inbound sibling's own Step 8 arrival — it must inherit the
+    // tapped status instead of defaulting to a fresh untapped copy.
+    const arrivalState: GameState = {
+      ...afterBothPass,
+      phaseState: makeMHState({
+        activeCompanyIndex: p1.companies.findIndex(c => c.id === company1.id),
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+    };
+    const arrivalAfterResourcePass = dispatch(arrivalState, { type: 'pass', player: PLAYER_1 });
+    const arrivalAfterBothPass = dispatch(arrivalAfterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const arrivedCompany1 = arrivalAfterBothPass.players[0].companies.find(c => c.id === company1.id)!;
+    expect(arrivedCompany1.currentSite?.instanceId).toBe(sharedMinasTirith.instanceId);
+    expect(arrivedCompany1.currentSite?.status).toBe(CardStatus.Tapped);
   });
 });

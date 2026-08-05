@@ -41,6 +41,7 @@ import { isDetainmentAttack } from './detainment.js';
 import { manifestIdOf } from './manifestations.js';
 import { advanceAfterCompanyMH } from './mh-hazard-play.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
+import { handlePlayPermanentEvent } from './reducer-events.js';
 
 /**
  * Snapshot the hazard limit and immediately process order-effects,
@@ -139,6 +140,17 @@ export function handleSelectCompany(
   // class: an offered action must never be rejected by the reducer).
   if (action.type === 'activate-granted-action') {
     return handleGrantActionApply(state, action);
+  }
+
+  // Rule 2.1.1: resource permanent-events without declared timing (e.g.
+  // Bade to Rule's untargeted mode, le-167) are offered at this step
+  // (movement-hazard.ts's select-company handler pushes
+  // playPermanentEventActions here too) — the reducer must accept them for
+  // the same reason as the site phase's equivalent select-company step
+  // (reducer-site.ts's handleSiteSelectCompany), otherwise the engine
+  // rejects an action it advertised as legal.
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
   }
 
   if (action.type !== 'select-company') {

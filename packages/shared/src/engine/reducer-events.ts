@@ -1955,6 +1955,10 @@ function applyShortEventOnEntersPlay(
         modifier,
         reason: def.name,
         onSuccess: onEvent.apply.onSuccess,
+        // CoE 7.1.1: any corruption check declared but not yet resolved may
+        // be supported by tapping untapped company mates for +1 each, not
+        // just item-transfer/store checks — see rule-3.35's transfer fix.
+        allowSupport: true,
       });
       continue;
     }
@@ -2138,6 +2142,20 @@ function applyShortEventOnEntersPlay(
       // Preserve the historical default: a set-character-status apply with no
       // declared status inverts (wounds) the target here.
       const statusEnum = nextStatus === undefined ? CardStatus.Inverted : cardStatusFromName(nextStatus);
+      // Per the glossary, "untap" requires the target be tapped (not wounded
+      // or already untapped) and "tap" requires the target be untapped (not
+      // wounded or already tapped); "wound" always applies regardless of
+      // current status. Hundreds of Butterflies (dm-142) untapping a wounded
+      // Gildor Inglorion is exactly this: an untap attempt on an Inverted
+      // (wounded) character must be a no-op, not silently clear the wound.
+      if (statusEnum === CardStatus.Untapped && targetChar.status !== CardStatus.Tapped) {
+        logDetail(`"${def.name}": set-character-status — untap requires a tapped target (${characterId as string} is ${targetChar.status}) — no effect`);
+        continue;
+      }
+      if (statusEnum === CardStatus.Tapped && targetChar.status !== CardStatus.Untapped) {
+        logDetail(`"${def.name}": set-character-status — tap requires an untapped target (${characterId as string} is ${targetChar.status}) — no effect`);
+        continue;
+      }
       logDetail(`"${def.name}" played — set ${characterId as string} status → ${nextStatus ?? 'unknown'}`);
       state = updatePlayer(state, playerIndex, p => ({
         ...p,

@@ -29,6 +29,8 @@ import type {
   SelectCardBearerAction,
   RevealAgentAction,
   AgentMoveAction,
+  CardDefinition,
+  GrantActionEffect,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -315,4 +317,25 @@ export function resolveItemClick(
   if (grantedActions.length === 1) return { kind: 'granted', action: grantedActions[0] };
   if (hasStore) return { kind: 'store', action: storeAction };
   return { kind: 'transfer' };
+}
+
+/**
+ * True when activating `action` pays its cost by discarding its own source
+ * card (e.g. Secret Book as-131's untap-site, Bade to Rule le-167's
+ * discard-self) — an irreversible loss of the card a misclick can't undo,
+ * unlike a tap-only cost that merely taps a character until untap.
+ *
+ * Looked up from card data rather than the action itself: `ActivateGrantedAction`
+ * carries only routing fields (which ability, which card), not its cost.
+ */
+export function isSelfDiscardGrantedAction(
+  action: ActivateGrantedAction,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): boolean {
+  const def = cardPool[action.sourceCardDefinitionId as string];
+  const effects = def && 'effects' in def ? def.effects ?? [] : [];
+  const effect = effects.find(
+    (e): e is GrantActionEffect => e.type === 'grant-action' && e.action === action.actionId,
+  );
+  return effect?.cost.discard === 'self';
 }

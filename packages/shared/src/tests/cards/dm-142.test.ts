@@ -197,6 +197,32 @@ describe('Hundreds of Butterflies (dm-142)', () => {
     expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
 
+  test('playing the card on a wounded character leaves it wounded (untap requires tapped, not wounded)', () => {
+    // Regression: game msenkvsc-3y5o11 seq 590 — Hundreds of Butterflies played
+    // on a wounded Gildor Inglorion untapped him outright, silently clearing
+    // the wound. Per the glossary, "untap" requires the target be initially
+    // tapped (not wounded or already untapped); a wounded target must stay
+    // wounded.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }], hand: [HUNDREDS_OF_BUTTERFLIES], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
+
+    expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const after = dispatch(state, playActions[0].action);
+
+    expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
+  });
+
   // ── Hazard-limit constraint ─────────────────────────────────────────────────
 
   test('playing the card adds hazard-limit-modifier +1 on the company (company-mh-phase scope)', () => {

@@ -48,18 +48,21 @@ function hiddenCardPile(pile: readonly { readonly instanceId: CardInstanceId; re
 /**
  * Redacts a pile like {@link hiddenCardPile}, but keeps the true identity of
  * any instance whose identity is already public per
- * {@link GameState.revealedInstances}. Used for the opponent's hand so that a
- * card a reveal effect has made public (e.g. Rolled down to the Sea, wh-29,
- * which forces the opponent to reveal his whole hand) stays visible to the
- * player who saw it, while freshly drawn cards the opponent picked up
- * afterwards remain hidden.
+ * {@link GameState.handRevealedInstances}. Used for the opponent's hand and
+ * play deck so that a card a reveal effect has made public (e.g. Rolled down
+ * to the Sea, wh-29, which forces the opponent to reveal his whole hand)
+ * stays visible to the player who saw it, while freshly drawn cards the
+ * opponent picked up afterwards remain hidden. Deliberately narrower than
+ * {@link GameState.revealedInstances}: a card merely passing through an
+ * unrelated public zone (e.g. a character played into a company, later
+ * returned to hand by a general-influence overflow) must not leak here.
  */
 function revealedCardPile(
   pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
-  revealed: GameState['revealedInstances'],
+  revealed: GameState['handRevealedInstances'] | undefined,
 ): readonly ViewCard[] {
   return pile.map(c =>
-    revealed[c.instanceId] !== undefined
+    revealed?.[c.instanceId] !== undefined
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
   );
@@ -203,8 +206,8 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
 
   return {
     ...commonViewFields(state, player),
-    hand: revealedCardPile(player.hand, state.revealedInstances),
-    playDeck: revealedCardPile(player.playDeck, state.revealedInstances),
+    hand: revealedCardPile(player.hand, state.handRevealedInstances),
+    playDeck: revealedCardPile(player.playDeck, state.handRevealedInstances),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
     discardPile: hiddenCardPile(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),

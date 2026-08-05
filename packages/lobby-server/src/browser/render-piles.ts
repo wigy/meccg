@@ -185,6 +185,16 @@ let siteSelectionMatcher: ((card: { instanceId: CardInstanceId }) => EvaluatedAc
 let siteSelectionInPlayInstanceIds: ReadonlySet<string> = new Set();
 
 /**
+ * Whether the arrange-deck-top sub-flow's browser modal has been opened by
+ * the player at least once. Once set, `prepareArrangeDeckTop` re-populates
+ * the grid on every subsequent call (i.e. after every pick, when the next
+ * server state arrives) instead of leaving the modal closed -- this is a
+ * mandatory, multi-step, no-pass ordering flow, so forcing a fresh pile
+ * click to reopen it after every single card would be tedious.
+ */
+let arrangeDeckTopBrowserOpened = false;
+
+/**
  * Open the pile browser modal showing a list of cards (known or unknown).
  * Used by site deck, sideboard, and victory display piles.
  */
@@ -291,7 +301,18 @@ function populateBrowserGrid(): void {
           const action = ea.action;
           img.addEventListener('click', () => {
             siteSelectionCallback!(action);
-            closeSelectionViewer();
+            if (action.type === 'arrange-deck-top-card') {
+              // Mandatory multi-step ordering, no pass path -- leave the
+              // browser open. prepareArrangeDeckTop() re-populates the grid
+              // once the next server state (with this pick removed from the
+              // legal actions) arrives, instead of forcing the player to
+              // re-click the deck pile after every card.
+              arrangeDeckTopBrowserOpened = true;
+              img.classList.remove('site-selectable');
+              img.classList.add('site-dimmed');
+            } else {
+              closeSelectionViewer();
+            }
           });
         }
       } else if (ea && !ea.viable) {
@@ -713,6 +734,16 @@ export function prepareArrangeDeckTop(
       && ea.action.cardInstanceId === card.instanceId,
   );
   siteSelectionCallback = onAction;
+
+  // If the browser was already opened for this flow, re-populate it now with
+  // the updated legal actions instead of leaving it hidden after the pick
+  // that triggered this state update -- see arrangeDeckTopBrowserOpened.
+  if (arrangeDeckTopBrowserOpened) {
+    cachedBrowserCards = view.self.playDeck;
+    cachedBrowserTitle = 'Play Deck';
+    cachedBrowserBackImage = '/images/card-back.jpg';
+    populateBrowserGrid();
+  }
 }
 
 /** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard, arrange-deck-top) is active (pile highlights should persist). */
@@ -740,6 +771,7 @@ export function clearSelectionState(): void {
   siteSelectionMatcher = null;
   siteSelectionInPlayInstanceIds = new Set();
   pileSubFlowActive = false;
+  arrangeDeckTopBrowserOpened = false;
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
   document.getElementById('self-sideboard-pile')?.classList.remove('pile--fetch-active');

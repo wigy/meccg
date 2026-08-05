@@ -146,4 +146,41 @@ describe('arrange-deck-top sub-flow (Revealed to all Watchers, dm-85)', () => {
 
     expect(byId['self-deck-pile'].classList.contains('pile--fetch-active')).toBe(false);
   });
+
+  // Regression test for bug report dae1df37414d35d9 (game msd9dixh-m9voxl,
+  // seq 1060): picking a card closed the pile browser every time, forcing the
+  // player to re-click the deck pile before every single pick in this
+  // mandatory, no-pass, multi-step ordering flow -- "totally tedious", per
+  // the reporter.
+  test('keeps the browser open across successive picks instead of closing it every click', () => {
+    renderDeckPiles(view, pool);
+    const sent: unknown[] = [];
+    prepareArrangeDeckTop(view, pool, action => { sent.push(action); });
+
+    // Player opens the browser once, then picks the first card.
+    byId['self-deck-pile'].click();
+    const firstPick = byId['pile-browser-grid'].children.find(
+      img => img.dataset.instanceId === 'browser:p1-58',
+    )!;
+    firstPick.click();
+
+    expect(sent).toEqual([
+      { type: 'arrange-deck-top-card', player: SELF_ID, cardInstanceId: 'p1-58' },
+    ]);
+    // The modal must stay open, not close after the pick.
+    expect(byId['pile-browser-modal'].classList.contains('hidden')).toBe(false);
+
+    // The next server state arrives with the picked card no longer offered.
+    const remainingLegalActions = legalActions.filter(
+      ea => (ea.action as { cardInstanceId: string }).cardInstanceId !== 'p1-58',
+    );
+    const nextView = { ...view, legalActions: remainingLegalActions } as unknown as PlayerView;
+    prepareArrangeDeckTop(nextView, pool, action => { sent.push(action); });
+
+    // The browser auto-refreshes/reopens without another pile click.
+    expect(byId['pile-browser-modal'].classList.contains('hidden')).toBe(false);
+    const selectable = byId['pile-browser-grid'].children.filter(img => img.classList.contains('site-selectable'));
+    expect(selectable.map(img => img.dataset.instanceId)).not.toContain('browser:p1-58');
+    expect(selectable.length).toBe(selfPlayDeck.length - 1);
+  });
 });
