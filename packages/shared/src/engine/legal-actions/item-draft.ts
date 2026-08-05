@@ -15,7 +15,7 @@ import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { matchesCharacterPlayTarget } from '../../stage-resource-characters.js';
 import { logDetail } from './log.js';
-import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter } from '../reducer-utils.js';
+import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter, hasUnassignedMandatoryStageResource } from '../reducer-utils.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
@@ -178,8 +178,14 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     }
   }
 
-  // Can always pass
-  evaluated.push({ action: { type: 'pass', player: playerId }, viable: true });
+  // Pass — unless a mandatory Stage resource (CoE 1.9.F4) is still unassigned
+  // and has a legal character to land on; passing must not be allowed to
+  // discard it the way it discards leftover optional minor items.
+  if (hasUnassignedMandatoryStageResource(state, player, itemDraft)) {
+    logDetail('Pass withheld — a mandatory Stage resource still needs a character (CoE 1.9.F4)');
+  } else {
+    evaluated.push({ action: { type: 'pass', player: playerId }, viable: true });
+  }
 
   return evaluated;
 }
