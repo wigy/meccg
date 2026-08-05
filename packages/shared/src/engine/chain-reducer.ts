@@ -33,7 +33,7 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWarded
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
-import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
+import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
@@ -3217,6 +3217,14 @@ function applyTapSitesInPlayOnResolve(
       const companies = player.companies.map(co => {
         const site = co.currentSite;
         if (!site || site.status === CardStatus.Tapped) return co;
+        // Promptings of Wisdom (wh-34) / Piercing All Shadows (wh-47) /
+        // Govern the Storms (wh-45): a `cancel-return-and-site-tap`
+        // constraint on this company negates a hazard effect that would tap
+        // its current or new site.
+        if (hasCancelReturnAndSiteTap(newState, co.id)) {
+          logDetail(`tap-sites-in-play (${def?.name ?? '?'}): company ${co.id as string} is shielded by cancel-return-and-site-tap — site not tapped`);
+          return co;
+        }
         const siteDef = defById(newState, site.definitionId);
         if (!siteDef || !isSiteCard(siteDef)) return co;
         const ctx = {

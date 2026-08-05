@@ -28,7 +28,7 @@ import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, regionTypesMatch, deriveFacedRaces } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
-import { countConstraintsFromDefinition } from '../pending.js';
+import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
@@ -1291,6 +1291,14 @@ function agentDiscardReturnToOriginActions(
   // The company must be moving to a new site (revealed) and not already returned.
   if (!company.destinationSite || !mhState.destinationSiteName) return [];
   if (mhState.returnedToOrigin) return [];
+
+  // Promptings of Wisdom (wh-34) / Piercing All Shadows (wh-47) / Govern the
+  // Storms (wh-45): a `cancel-return-and-site-tap` constraint on this company
+  // negates rule 2.IV.4 force-return-to-origin for the rest of the turn.
+  if (hasCancelReturnAndSiteTap(state, company.id)) {
+    logDetail(`Agent discard-return-to-origin: company ${company.id as string} is shielded by cancel-return-and-site-tap — not offered`);
+    return [];
+  }
 
   for (const agent of hazardPlayer.agents) {
     if (!agent.inPlayAtTurnStart) continue;

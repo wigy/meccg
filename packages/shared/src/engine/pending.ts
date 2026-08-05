@@ -197,6 +197,20 @@ export function constraintsOnCompany(
 }
 
 /**
+ * True when the given company is currently shielded by a
+ * `cancel-return-and-site-tap` constraint (Promptings of Wisdom wh-34,
+ * Piercing All Shadows wh-47, Govern the Storms wh-45): hazard effects that
+ * would force the company to return to its site of origin, or that would tap
+ * its current or new site, are negated for the rest of the turn. Consulted by
+ * every mechanism capable of producing either effect — CoE rule 5.31
+ * environment enforcement (`findForcingEnvironment`), CoE rule 2.IV.4
+ * successful-strike/agent-discard return-to-origin, and `tap-sites-in-play`.
+ */
+export function hasCancelReturnAndSiteTap(state: GameState, companyId: CompanyId): boolean {
+  return constraintsOnCompany(state, companyId).some(c => c.kind.type === 'cancel-return-and-site-tap');
+}
+
+/**
  * Count active constraints sourced from the given card definition. Used to
  * enforce `duplication-limit` effects: each play of the card leaves a
  * constraint behind, so the active count is how many copies are "in force".

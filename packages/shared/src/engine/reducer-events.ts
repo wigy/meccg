@@ -2436,6 +2436,13 @@ function applyShortEventOnEntersPlay(
         case 'deny-scout-resources':
           kind = { type: 'deny-scout-resources' };
           break;
+        case 'cancel-return-and-site-tap':
+          // Govern the Storms (wh-45): cancels, for the rest of the turn,
+          // every hazard effect that would force this company back to its
+          // site of origin or tap its current/new site — see
+          // `hasCancelReturnAndSiteTap` (pending.ts) for every call site.
+          kind = { type: 'cancel-return-and-site-tap' };
+          break;
         case 'hazard-limit-modifier': {
           if (typeof onEvent.apply.value !== 'number') {
             logDetail(`add-constraint(hazard-limit-modifier): missing numeric value — fizzle`);
