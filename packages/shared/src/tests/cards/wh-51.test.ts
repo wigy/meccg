@@ -34,8 +34,8 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  buildSitePhaseState, buildTestState, resetMint,
-  viableActions, viableActionsForHandCard, attachItemToChar,
+  buildSitePhaseState, buildTestState, resetMint, recomputeDerived,
+  viableActions, viableActionsForHandCard, attachItemToChar, getCharacter,
   findCharInstanceId, findHandCardId, companyIdAt, dispatch, phaseStateAs,
   pool, LORIEN, MORIA, MINAS_TIRITH, LEGOLAS,
 } from '../test-helpers.js';
@@ -82,6 +82,22 @@ const ENTER_OR_SKIP_STEP: SitePhaseState = {
 
 describe('Blasting Fire (wh-51)', () => {
   beforeEach(() => resetMint());
+
+  // ─── Card stat: corruption points ────────────────────────────────────────────
+
+  test('bearing Blasting Fire adds 1 corruption point to the bearer', () => {
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: GOBLIN_GATE, characters: [ASTERNAK] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withItem = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ASTERNAK, BLASTING_FIRE));
+
+    expect(getCharacter(withItem, RESOURCE_PLAYER, ASTERNAK).effectiveStats.corruptionPoints).toBe(1);
+  });
 
   // ─── Effect 1: item-play-site playability ────────────────────────────────────
 
