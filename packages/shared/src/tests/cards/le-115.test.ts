@@ -24,7 +24,7 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BREE,
   buildTestState, resetMint,
-  viableActions, makeMHState, makeSitePhase,
+  viableActions, makeMHState, makeSitePhase, setupRingwraithAutoAttack,
   P1_COMPANY,
   handCardId, dispatch, playHazardAndResolve, phaseStateAs, HAZARD_PLAYER,
 } from '../test-helpers.js';
@@ -403,6 +403,50 @@ describe('Incite Defenders (le-115)', () => {
     s = dispatch(s, { type: 'pass', player: PLAYER_1 });
     expect(s.combat).toBeNull();
     expect(phaseStateAs<SitePhaseState>(s).step).toBe('declare-agent-attack');
+  });
+
+  test('duplicate of an each-character attack pre-assigns one strike per company character (Thranduil\'s Halls)', () => {
+    // Bug report: at Thranduil's Halls (le-408), the first automatic-attack
+    // is Elves "each character faces 1 strike" (1@9). Incite Defenders'
+    // duplicate must copy that each-character rule too — one strike per
+    // company character — not a single flat 1-strike attack.
+    const THRANDUILS_HALLS = 'le-408' as CardDefinitionId;
+    const THE_MOUTH = 'le-24' as CardDefinitionId;
+    const ASTERNAK = 'le-1' as CardDefinitionId;
+
+    let s = setupRingwraithAutoAttack(THRANDUILS_HALLS, [THE_MOUTH, ASTERNAK]);
+
+    s = addConstraint(s, {
+      source: 'incite-1' as CardInstanceId,
+      sourceDefinitionId: INCITE_DEFENDERS,
+      scope: { kind: 'company-site-phase', companyId: P1_COMPANY },
+      target: { kind: 'company', companyId: P1_COMPANY },
+      kind: { type: 'auto-attack-duplicate' },
+    });
+
+    // First pass → the printed each-character Elves attack (1@9), pre-assigned
+    // one strike per character.
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    expect(s.combat).not.toBeNull();
+    expect(s.combat!.creatureRace).toBe('elf');
+    expect(s.combat!.strikeProwess).toBe(9);
+    expect(s.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(s.combat!.strikesTotal).toBe(2);
+    s = { ...s, combat: null };
+
+    // Second pass → the printed overt-only Elves attack (3@10) is skipped
+    // (the Men company is covert), so this same pass immediately fires the
+    // duplicate of the first (each-character) attack.
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    expect(s.combat).not.toBeNull();
+    expect(s.combat!.creatureRace).toBe('elf');
+    expect(s.combat!.strikeProwess).toBe(9);
+    expect(s.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(s.combat!.strikesTotal).toBe(2);
+    expect(s.combat!.strikeAssignments).toHaveLength(2);
+
+    // Constraint should be consumed.
+    expect(s.activeConstraints.find(c => c.kind.type === 'auto-attack-duplicate')).toBeUndefined();
   });
 
   test('no duplicate fires when constraint is absent', () => {
