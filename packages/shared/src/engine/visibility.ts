@@ -23,7 +23,21 @@
  * even if it later moves into a private location (e.g. a played short
  * event ends up face-down in its owner's discard pile — the opponent
  * already saw the identity when the card transited the chain, so the
- * record persists).
+ * record persists). It drives only the opponent's *toast* naming
+ * ({@link extractActionCardDefs}) — never the hand/play-deck redaction in
+ * `projection.ts`.
+ *
+ * A second, narrower map, {@link GameState.handRevealedInstances}, tracks
+ * identities an explicit effect revealed while the card sat in a
+ * normally-private pile (a forced hand reveal, a deck peek). It is grown
+ * only by {@link revealInstances} — never by the automatic accrual pass —
+ * and is what `projection.ts` consults to redact the opponent's hand and
+ * play deck. The split matters because {@link accrueRevealedInstances}
+ * also picks up identities from zones that can later become private again
+ * (e.g. a character played into a company, then returned to hand by a
+ * CoE 2.II.8 general-influence overflow): the opponent legitimately knew
+ * the identity while the character was in play, but that must not leak
+ * into the hand view once it is back in a private hand.
  */
 
 import type { GameState, CardInstance } from '../types/state.js';
@@ -36,12 +50,23 @@ import { activePlayerState } from './reducer-utils.js';
  * for reducer paths that play a card without transiting a public pile
  * (e.g. a short event that skips the chain and goes straight to its
  * owner's face-down discard — see CoE rule on card plays always being
- * public). The post-reducer accrual would otherwise miss these, because
- * the final state has the instance in a private location.
+ * public), or that force a genuine reveal of cards sitting in an
+ * otherwise-private pile (e.g. Rolled down to the Sea, wh-29, forcing the
+ * opponent to reveal their hand; Riddling Talk, td-148, revealing it for a
+ * guess). The post-reducer accrual would otherwise miss these: the played
+ * card's final location is private, and hand/play-deck contents are never
+ * swept by {@link accrueRevealedInstances} at all.
+ *
+ * Also grows {@link GameState.handRevealedInstances}, which drives the
+ * opponent's hand/play-deck redaction in `projection.ts`. That map only
+ * ever grows from explicit calls like this one — never from the automatic
+ * public-occupancy accrual — so an instance that merely passed through an
+ * unrelated public zone (e.g. a character played into a company) does not
+ * leak its identity if it later lands back in a private hand.
  *
  * TODO: when the reducer is refactored so short events always transit
  * the chain (the chain is public, so accrual picks them up naturally),
- * these explicit calls can be dropped.
+ * the play-without-transiting-a-pile calls can be dropped.
  */
 export function revealInstances(
   state: GameState,
@@ -49,16 +74,26 @@ export function revealInstances(
 ): GameState {
   if (instances.length === 0) return state;
   const next: Record<string, CardDefinitionId> = { ...state.revealedInstances };
+  const nextHand: Record<string, CardDefinitionId> = { ...state.handRevealedInstances };
   let changed = false;
+  let handChanged = false;
   for (const inst of instances) {
     const key = inst.instanceId as string;
     if (next[key] !== inst.definitionId) {
       next[key] = inst.definitionId;
       changed = true;
     }
+    if (nextHand[key] !== inst.definitionId) {
+      nextHand[key] = inst.definitionId;
+      handChanged = true;
+    }
   }
-  if (!changed) return state;
-  return { ...state, revealedInstances: next };
+  if (!changed && !handChanged) return state;
+  return {
+    ...state,
+    revealedInstances: changed ? next : state.revealedInstances,
+    handRevealedInstances: handChanged ? nextHand : state.handRevealedInstances,
+  };
 }
 
 /**

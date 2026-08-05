@@ -562,6 +562,13 @@ export function connect(name: string): void {
         if (!hiddenHavenPairing && getTargetingInstruction() === HIDDEN_HAVEN_PAIR_HINT) {
           setTargetingInstruction(null);
         }
+        const ARRANGE_DECK_TOP_HINT = 'Click your play deck\'s set-aside cards in the order you want them drawn — your first pick becomes the very top card';
+        const arrangingDeckTop = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'arrange-deck-top-card');
+        // Same lifecycle as the Hidden Haven hint above — clear it once the
+        // arrange-deck-top resolution finishes.
+        if (!arrangingDeckTop && getTargetingInstruction() === ARRANGE_DECK_TOP_HINT) {
+          setTargetingInstruction(null);
+        }
         if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
           prepareSiteSelection(msg.view, cardPool, sendAction);
         } else if (hiddenHavenPairing) {
@@ -574,8 +581,9 @@ export function connect(name: string): void {
           prepareFetchFromPile(msg.view, cardPool, sendAction);
         } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'remove-revealed-card')) {
           prepareRevealRemoveFromDiscard(msg.view, cardPool, sendAction);
-        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'arrange-deck-top-card')) {
+        } else if (arrangingDeckTop) {
           prepareArrangeDeckTop(msg.view, cardPool, sendAction);
+          setTargetingInstruction(ARRANGE_DECK_TOP_HINT);
         } else {
           clearSelectionState();
         }

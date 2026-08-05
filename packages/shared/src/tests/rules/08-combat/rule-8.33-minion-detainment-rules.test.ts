@@ -153,6 +153,29 @@ describe('Rule 8.33 — Minion/Balrog Detainment Rules', () => {
     })).toBe(false);
   });
 
+  test('3.II.2.R2 negative — creature keyed to Wilderness (declared) does NOT detain, even though its keyedTo also lists Shadow/Dark as alternatives', () => {
+    // Regression: Little Snuffler (dm-108) is keyed to region types
+    // Wilderness/Shadow/Dark — all in one keyedTo entry — with no
+    // alternative site types. Played keyed by region-type Wilderness
+    // against a Ringwraith company, the declared keying match is
+    // region-type Wilderness only. The engine must not detain the attack
+    // just because the card's keyedTo entry also lists Shadow (which,
+    // combined with the Orc race, would otherwise satisfy §3.II.2.R2) —
+    // only the alternative actually declared for this play counts
+    // (bug report: msd5rpsh-fhc6rm, seq 1363 — Little Snuffler was
+    // wrongly discarded instead of placed in the defender's kill pile).
+    expect(isDetainmentAttack({
+      attackRace: Race.Orc,
+      attackKeyedTo: [{
+        regionTypes: [RegionType.Wilderness, RegionType.Shadow, RegionType.Dark],
+        siteTypes: [SiteType.RuinsAndLairs, SiteType.ShadowHold, SiteType.DarkHold],
+      }],
+      attackDeclaredSiteTypes: [],
+      attackDeclaredRegionTypes: [RegionType.Wilderness],
+      defendingAlignment: Alignment.Ringwraith,
+    })).toBe(false);
+  });
+
   test('3.II.2 — combat-detainment effect on the attack itself → detainment regardless of defender alignment', () => {
     const detainEffect: CombatDetainmentEffect = { type: 'combat-detainment' };
     // Hero company, Wilderness keying, no Ringwraith/Balrog conditions —

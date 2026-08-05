@@ -191,6 +191,7 @@ export function createGame(
     cheatRollTotal: null,
     cheated: false,
     revealedInstances: {},
+    handRevealedInstances: {},
     ...(config.orderedDecks ? { orderedDecks: true } : {}),
   };
 }
@@ -739,6 +740,7 @@ export function createGameQuickStart(
     cheatRollTotal: null,
     cheated: false,
     revealedInstances: {},
+    handRevealedInstances: {},
   });
 }
 

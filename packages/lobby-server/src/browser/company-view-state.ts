@@ -130,11 +130,41 @@ export function shouldFocusOwnCompanyAfterSelectCompany(
   return justResolvedSelectCompany && isSelfTurn;
 }
 
+/**
+ * Decide whether the start of a new combat should clear an all-companies
+ * override that was auto-forced on for the opponent's turn (by {@link
+ * shouldOverrideToAllCompanies}).
+ *
+ * Without this, a hazard-triggered strike or body-check arising during the
+ * opponent's movement/hazard phase would stay hidden behind the overview —
+ * which also hides the local player's hand via CSS — because the override
+ * takes precedence over the combat view for as long as it is set. Clearing
+ * it only on the *start* of a new combat (as opposed to every re-render
+ * while combat is ongoing) preserves a manual toggle back to the overview
+ * that the player takes once the combat view is already showing.
+ *
+ * @param combatActive - Whether combat is active in the current render.
+ * @param lastCombatActive - Whether combat was active in the previous render.
+ * @returns True if the all-companies override should be cleared.
+ */
+export function shouldClearOverrideForNewCombat(
+  combatActive: boolean,
+  lastCombatActive: boolean,
+): boolean {
+  return combatActive && !lastCombatActive;
+}
+
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 
 /** Track the last M/H or Site step so we can detect select-company transitions. */
 let lastMhSiteStep: string | null = null;
+
+/**
+ * Track whether combat was active on the last render, so we can detect the
+ * start of a new combat (as opposed to a re-render mid-combat).
+ */
+let lastCombatActive = false;
 
 // ---- Cached render arguments ----
 
@@ -190,6 +220,9 @@ export function getLastActivePlayer(): string | null { return lastActivePlayer; 
 /** Get the last M/H or Site step. */
 export function getLastMhSiteStep(): string | null { return lastMhSiteStep; }
 
+/** Get whether combat was active on the last render. */
+export function getLastCombatActive(): boolean { return lastCombatActive; }
+
 /** Get the cached instance lookup function. */
 export function getCachedInstanceLookup(): (id: CardInstanceId) => CardDefinitionId | undefined { return cachedInstanceLookup; }
 
@@ -240,6 +273,9 @@ export function setLastActivePlayer(id: string | null): void { lastActivePlayer 
 /** Set the last M/H or Site step. */
 export function setLastMhSiteStep(step: string | null): void { lastMhSiteStep = step; }
 
+/** Set whether combat was active on the last render. */
+export function setLastCombatActive(v: boolean): void { lastCombatActive = v; }
+
 /** Set the cached instance lookup function. */
 export function setCachedInstanceLookup(fn: (id: CardInstanceId) => CardDefinitionId | undefined): void { cachedInstanceLookup = fn; }
 
@@ -269,6 +305,7 @@ export function resetState(): void {
   allCompaniesOverride = false;
   lastActivePlayer = null;
   lastMhSiteStep = null;
+  lastCombatActive = false;
   lastOnAction = null;
   lastView = null;
   lastCardPool = null;

@@ -1524,7 +1524,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     // picks whichever company happened to be listed first.
     const arrivalStatus = sharedDestinationOwner
       ? sharedDestinationOwner.currentSite!.status
-      : (arrivesTapped ? CardStatus.Tapped : CardStatus.Untapped);
+      : (arrivesTapped ? CardStatus.Tapped : company.destinationSite.status);
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
@@ -1550,6 +1550,17 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         (c, idx) => idx !== mhState.activeCompanyIndex
           && c.currentSite?.instanceId === originSite.instanceId,
       );
+      // A sibling company may have already declared this same site as its
+      // destination (Rule 2.II.7.2) without having arrived yet. The physical
+      // card must not be discarded/returned out from under it — that would
+      // let the inbound company's own Step 8 arrival fabricate a fresh
+      // untapped copy of a site that is really still tapped, duplicating the
+      // instance (one copy "arriving" untapped while the real card sits in
+      // the discard pile).
+      const inboundSiblingIdx = siblingAtOriginIdx !== -1 ? -1 : resourcePlayer.companies.findIndex(
+        (c, idx) => idx !== mhState.activeCompanyIndex
+          && c.destinationSite?.instanceId === originSite.instanceId,
+      );
       if (siblingAtOriginIdx !== -1) {
         // The departing company no longer holds the physical card at all
         // (it moved elsewhere), so if it was the one holding the card, that
@@ -1563,6 +1574,17 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         } else {
           logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
         }
+      } else if (inboundSiblingIdx !== -1) {
+        // Sync the real status onto the inbound sibling's pending destination
+        // so its own arrival (which no longer finds a `currentSite` sibling to
+        // inherit from) picks up the correct tapped/untapped state instead of
+        // defaulting to a fresh untapped draw.
+        const inbound = updatedCompanies[inboundSiblingIdx];
+        updatedCompanies[inboundSiblingIdx] = {
+          ...inbound,
+          destinationSite: { ...inbound.destinationSite!, status: originSite.status },
+        };
+        logDetail(`Step 8: site of origin remains in play — sibling company ${inbound.id as string} is already traveling there, syncing status (${originSite.status as string})`);
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';

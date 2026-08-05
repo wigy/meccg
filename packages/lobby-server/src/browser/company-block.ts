@@ -57,8 +57,9 @@ import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
 import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
-import { resolveItemClick } from './company-actions.js';
+import { resolveItemClick, isSelfDiscardGrantedAction } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
+import { showConfirm } from './dialog.js';
 
 /**
  * All viable influence-attempt actions for a given (faction, character) pair.
@@ -196,8 +197,13 @@ export function renderCompanyBlock(
 
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
-  let isInactive = view.phaseState.phase !== Phase.FreeCouncil
-    && ((owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn));
+  // Free Council used to be excluded from dimming because `activePlayer`
+  // wasn't kept in sync with the corruption-check sub-turn (fixed by
+  // reducer-free-council.ts's pass handler), which left dimming stuck on
+  // the first checker. Now that activePlayer tracks the current checker,
+  // dimming the other side makes it clear whose corruption checks are
+  // being resolved instead of showing both companies as equally active.
+  let isInactive = (owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn);
 
   // During M/H or Site phase (after select-company), dim all companies except the active one
   if (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site) {
@@ -455,13 +461,24 @@ export function renderCompanyBlock(
       };
     }
 
-    // Only a granted action is available — commit it directly.
+    // Only a granted action is available — commit it directly, unless its
+    // cost discards the card itself: that loss can't be undone, so a
+    // misclick (bug report 95b2e034703ec1d0: Secret Book as-131 discarded
+    // instantly by one accidental click) needs a confirmation first.
     if (resolution.kind === 'granted') {
+      const action = resolution.action;
+      const needsConfirm = isSelfDiscardGrantedAction(action, cardPool);
       return {
         cls: 'company-card--transfer-source',
         handler: (e) => {
           e.stopPropagation();
-          onAction(resolution.action);
+          if (!needsConfirm) {
+            onAction(action);
+            return;
+          }
+          void showConfirm(`Discard ${itemName ?? 'this card'}?`).then(ok => {
+            if (ok) onAction(action);
+          });
         },
       };
     }
@@ -880,6 +897,7 @@ export function renderCompanyBlock(
           } else {
             setMergeSourceCompanyId(company.id);
             setTargetingInstruction('Click a company to join into');
+            switchToAllCompanies();
             rerender();
           }
         },

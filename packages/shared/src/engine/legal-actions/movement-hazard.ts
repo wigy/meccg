@@ -85,7 +85,20 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   // before this function is reached.
 
   if (mhState.step === 'select-company') {
-    return viable(selectCompanyActions(state, playerId, mhState.handledCompanyIds));
+    const base = viable(selectCompanyActions(state, playerId, mhState.handledCompanyIds));
+    // Rule 2.1.1: resource player may play resource short-events and
+    // resource permanent-events during any phase of their turn, including
+    // before selecting which company moves next — e.g. Bade to Rule
+    // (le-167)'s untargeted alternative mode ("playable if your Ringwraith
+    // is not in play"), which has no site/company target and so was
+    // wrongly gated behind company selection. Mirrors the equivalent
+    // allowance already offered at the site phase's own select-company step
+    // (legal-actions/site.ts).
+    if (isActive) {
+      base.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
+      base.push(...playPermanentEventActions(state, playerId));
+    }
+    return base;
   }
 
   if (mhState.step === 'reveal-new-site') {

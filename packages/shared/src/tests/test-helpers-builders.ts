@@ -162,13 +162,17 @@ function siteSelectionCatchUpActions(state: GameState): GameAction[] {
 }
 
 /**
- * Run through the entire setup from draft to Untap, including item assignment,
- * deck draft, site selection, placement, shuffle, draw, and initiative roll.
- * Returns the state at the start of turn 1 (Untap phase).
+ * Advances from wherever the character draft left off (item assignment, deck
+ * draft, site selection, placement, shuffle) up to — but not including — the
+ * initial-draw step. Shared by every setup runner below so each only differs
+ * in how it handles the initial draw itself. Exported so a test that drives
+ * its own custom draft (e.g. a non-default `draftPool`, where `runSimpleDraft`'s
+ * hardcoded picks don't apply) can still reuse the rest of the setup pipeline
+ * and dispatch `draw-cards` itself — e.g. to exercise the actual
+ * legal-action-computed count rather than a hardcoded one, or to inspect the
+ * pre-draw hand.
  */
-export function runFullSetup(config?: GameConfig): GameState {
-  let state = runSimpleDraft(config);
-
+export function advanceSetupToInitialDraw(state: GameState): GameState {
   // Item draft: assign all items to first character
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
     const p1Char = state.players[0].companies[0].characters[0];
@@ -225,6 +229,17 @@ export function runFullSetup(config?: GameConfig): GameState {
     ]);
   }
 
+  return state;
+}
+
+/**
+ * Run through the entire setup from draft to Untap, including item assignment,
+ * deck draft, site selection, placement, shuffle, draw, and initiative roll.
+ * Returns the state at the start of turn 1 (Untap phase).
+ */
+export function runFullSetup(config?: GameConfig): GameState {
+  let state = advanceSetupToInitialDraw(runSimpleDraft(config));
+
   // Initial draw
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'initial-draw') {
     state = runActions(state, [
@@ -250,56 +265,7 @@ export function runFullSetup(config?: GameConfig): GameState {
  * control the dice via {@link GameState.cheatRollTotal}.
  */
 export function runSetupToInitiativeRoll(config?: GameConfig): GameState {
-  let state = runSimpleDraft(config);
-
-  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
-    const p1Char = state.players[0].companies[0].characters[0];
-    const p2Char = state.players[1].companies[0].characters[0];
-    const p1Items = state.phaseState.setupStep.itemDraftState[0].unassignedItems;
-    const p2Items = state.phaseState.setupStep.itemDraftState[1].unassignedItems;
-    for (const _item of p1Items) {
-      const result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char });
-      if (result.error) throw new Error(result.error);
-      state = result.state;
-    }
-    for (const _item of p2Items) {
-      const result = reduce(state, { type: 'assign-starting-item', player: PLAYER_2, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p2Char });
-      if (result.error) throw new Error(result.error);
-      state = result.state;
-    }
-  }
-
-  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-deck-draft') {
-    state = runActions(state, [
-      { type: 'pass', player: PLAYER_1 },
-      { type: 'pass', player: PLAYER_2 },
-    ]);
-  }
-
-  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'starting-site-selection') {
-    state = runActions(state, siteSelectionCatchUpActions(state));
-  }
-
-  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-placement') {
-    const step = state.phaseState.setupStep;
-    if (!step.placementDone[0]) {
-      const r = reduce(state, { type: 'pass', player: PLAYER_1 });
-      if (r.error) throw new Error(r.error);
-      state = r.state;
-    }
-    if (!step.placementDone[1]) {
-      const r = reduce(state, { type: 'pass', player: PLAYER_2 });
-      if (r.error) throw new Error(r.error);
-      state = r.state;
-    }
-  }
-
-  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'deck-shuffle') {
-    state = runActions(state, [
-      { type: 'shuffle-play-deck', player: PLAYER_1 },
-      { type: 'shuffle-play-deck', player: PLAYER_2 },
-    ]);
-  }
+  let state = advanceSetupToInitialDraw(runSimpleDraft(config));
 
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'initial-draw') {
     state = runActions(state, [

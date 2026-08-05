@@ -503,6 +503,7 @@ export function showCharacterActionTooltip(
           // Multiple targets — enter targeting mode
           setMergeSourceCompanyId(options.companyId!);
           setTargetingInstruction('Click a company to join into');
+          switchToAllCompanies();
           rerender();
         }
       },

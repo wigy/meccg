@@ -246,6 +246,25 @@ describe('Barrow-blade (dm-119)', () => {
     }
   });
 
+  // ── Marshalling points: yields 1 Item-MP once attached ──────────────────────
+
+  test('yields 1 item marshalling point once attached to the Dagger', () => {
+    const base = buildSitePhaseState({
+      site: BARROW_DOWNS,
+      characters: [{ defId: ARAGORN, items: [DAGGER_OF_WESTERNESSE] }],
+      hand: [BARROW_BLADE],
+    });
+    const daggerId = findItemInstanceId(base, RESOURCE_PLAYER, DAGGER_OF_WESTERNESSE);
+    const beforeItemMp = base.players[RESOURCE_PLAYER].marshallingPoints.item;
+
+    const cardId = base.players[0].hand.find(c => c.definitionId === BARROW_BLADE)!.instanceId;
+    const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, undefined, {
+      targetItemInstanceId: daggerId,
+    });
+
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(beforeItemMp + 1);
+  });
+
   // ── Orphan cleanup: discarded when its host Dagger leaves play ───────────────
 
   test('discarded from play once its host Dagger leaves play', () => {
