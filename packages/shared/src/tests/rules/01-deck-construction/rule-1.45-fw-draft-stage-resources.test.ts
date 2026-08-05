@@ -39,6 +39,7 @@ import {
   PLAYER_1, PLAYER_2, RIVENDELL, Alignment,
   createGame, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   ADRAZAR, FRODO, FARAMIR, BILBO,
+  FATTY_BOLGER, HALDIR, EOWYN, BEREGOND, ANBORN, KILI, PEATH, BARD_BOWMAN,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import { reduce } from '../../../engine/reducer.js';
@@ -495,6 +496,71 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(draftOffered(state, PLAYER_1, 0, BLIND_TO_ALL_ELSE)).toBe(true);
     expect(draftOffered(state, PLAYER_1, 0, BOW_OF_ALATAR)).toBe(true);
     expect(draftOffered(state, PLAYER_1, 0, THE_FORTRESS_OF_ISEN)).toBe(false);
+  });
+
+  test('[FALLEN-WIZARD] hitting the 5-character company cap does not auto-stop a Fallen-wizard with an undrafted Stage resource still in the pool (regression for bug report 5a26c992916d27cc, game msdlgbmh-qxblya seq 21)', () => {
+    // Report: a Fallen-wizard ended the character draft having drafted only 1 of
+    // the 3 stage points their deck required, with the remaining Stage resources
+    // left stranded, undrafted, in their draft pool. Root cause:
+    // `resolveDraftRound`'s auto-stop check (drafted.length >= max company size)
+    // stopped the Fallen-wizard the instant their 5th character resolved, without
+    // checking whether a Stage resource was still a legal pick in their pool —
+    // unlike the manual `draft-stop` action and the legal-action computation,
+    // which both already enforce CoE 1.9.F4 ("must also attempt to draft the
+    // Stage resource(s) in their pool simultaneously with their characters").
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, FATTY_BOLGER, HALDIR, EOWYN, BEREGOND, ANBORN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [ADRAZAR, KILI, PEATH, BARD_BOWMAN, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Five rounds: the Fallen-wizard drafts five characters (never touching
+    // Thrall of the Voice), reaching the company cap — while Thrall sits
+    // undrafted in the pool the whole time.
+    const p1Chars = [FATTY_BOLGER, HALDIR, EOWYN, BEREGOND, ANBORN];
+    const p2Chars = [ADRAZAR, KILI, PEATH, BARD_BOWMAN, BALIN];
+    for (let i = 0; i < 5; i++) {
+      state = runActions(state, [
+        { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, p1Chars[i]) },
+        { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, p2Chars[i]) },
+      ]);
+    }
+
+    // Company cap reached — but the Fallen-wizard must NOT be auto-stopped:
+    // Thrall of the Voice is still a legal pick in their pool.
+    expect(draftStep(state).draftState[0].drafted).toHaveLength(5);
+    expect(draftStep(state).draftState[0].stopped).toBe(false);
+    expect(draftOffered(state, PLAYER_1, 0, THRALL_OF_THE_VOICE)).toBe(true);
+    const legal = computeLegalActions(state, PLAYER_1);
+    expect(legal.find(a => a.action.type === 'draft-stop')?.viable ?? false).toBe(false);
+
+    // Drafting the last Stage resource empties the pool, so both players are
+    // now stopped and the draft finalizes on its own (no explicit draft-stop
+    // needed) — with all 3 stage points (Thrall's 1) accounted for.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+    ]);
+    expect((state.phaseState as { setupStep?: { step: string } }).setupStep?.step).not.toBe('character-draft');
+    expect(state.players[0].stagePoints).toBe(1);
   });
 
   test('[FALLEN-WIZARD] draft-stop is not offered while a Stage resource in the pool is still a legal pick (regression for game msd1yp91-j5yc2m seq 8)', () => {
