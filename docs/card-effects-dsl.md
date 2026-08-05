@@ -2470,16 +2470,15 @@ Actions:
   organization to add a turn-scoped constraint cancelling hazard
   effects that force return to site of origin or tap the company's
   site. Bearer makes a corruption check (implemented in
-  `reducer-organization.ts`). The same constraint kind can also be
-  added directly by a short-event's `on-event: self-enters-play` →
-  `add-constraint` (`reducer-events.ts`, company resolved from
-  `action.targetCharacterId`) — used by Govern the Storms (wh-45) on a
-  sorcery-using character rather than a tapping ranger. Enforcement:
-  `findForcingEnvironment` (`mh-hazard-play.ts`, rule 5.31) treats a
-  company carrying this constraint as facing no forcing environment,
-  and `applyTapSitesInPlayOnResolve` (`chain-reducer.ts`,
-  `tap-sites-in-play`) skips tapping that company's current site —
-  both checked via `constraintsOnCompany` (`pending.ts`).
+  `reducer-organization.ts`). The constraint is consulted at every
+  point the engine can force a return-to-origin or a site tap — see
+  `docs/certification-engine-support.md` for the full list of call
+  sites. The same constraint kind can also be added directly by a
+  short event's `on-event: self-enters-play` → `add-constraint`
+  (`reducer-events.ts`, company resolved from
+  `action.targetCharacterId`, no `grant-action`/tap-bearer step) — used
+  by Govern the Storms (wh-45) on a sorcery-using character rather than
+  a tapping ranger.
 - `cancel-character-discard` — tap the source item (cost
   `{ "tap": "self" }`) to add a turn-scoped
   `cancel-character-discard` constraint to the bearer's company and

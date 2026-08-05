@@ -715,19 +715,15 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "when": {
-          "$not": {
-            "target.race": "ringwraith"
-          }
-        },
+        "when": { "$not": { "target.race": "ringwraith" } },
         "apply": {
           "type": "enqueue-corruption-check",
           "modifier": -4
         }
       }
     ],
-    "text": "Magic. Sorcery. Cancel all hazard effects for the rest of the turn that: force a sorcery-using character’s company to return to its site of origin or would tap its current or new site. Unless he is a Ringwraith, the sorcery using character makes a corruption check modified by -4.",
-    "certified": "2026-08-04"
+    "certified": "2026-08-05",
+    "text": "Magic. Sorcery. Cancel all hazard effects for the rest of the turn that: force a sorcery-using character’s company to return to its site of origin or would tap its current or new site. Unless he is a Ringwraith, the sorcery using character makes a corruption check modified by -4."
   },
   {
     "cardType": "minion-resource-event",

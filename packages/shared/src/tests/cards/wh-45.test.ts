@@ -22,24 +22,29 @@
  *      targeting the chosen character's company. This is the SAME constraint
  *      kind installed by Promptings of Wisdom (wh-34) / Piercing All Shadows
  *      (wh-47); its real enforcement (added alongside this certification)
- *      lives in `findForcingEnvironment` (mh-hazard-play.ts, rule 5.31) and
- *      `applyTapSitesInPlayOnResolve` (chain-reducer.ts, `tap-sites-in-play`).
+ *      lives in `findForcingEnvironment` (mh-hazard-play.ts, rule 5.31),
+ *      `combat-finalize.ts`'s `attack-strike-successful` handler (rule
+ *      2.IV.4), the `agent-discard-return-to-origin` legal-action emitter
+ *      (`legal-actions/movement-hazard.ts`), and `applyTapSitesInPlayOnResolve`
+ *      (chain-reducer.ts, `tap-sites-in-play`) — see `hasCancelReturnAndSiteTap`
+ *      (`pending.ts`) for every call site.
  *   3. Corruption check — a second `on-event self-enters-play` ->
  *      `enqueue-corruption-check modifier -4`, gated `when $not target.race
  *      ringwraith`.
  *
  * Rule coverage:
- * | # | Rule                                                                      | Status      |
- * |---|----------------------------------------------------------------------------|-------------|
- * | 1 | Playable on a Ringwraith without the sorcery skill (Adûnaphel)              | IMPLEMENTED |
- * | 2 | Playable on a non-Ringwraith sorcery-skill character (The Grimburgoth)      | IMPLEMENTED |
- * | 3 | NOT playable on a non-Ringwraith, non-sorcery character (Gorbag)            | IMPLEMENTED |
- * | 4 | Playing it adds a turn-scoped cancel-return-and-site-tap constraint         | IMPLEMENTED |
- * | 5 | The constraint suppresses a hazard environment's forced return to origin   | IMPLEMENTED |
- * | 6 | The constraint suppresses the environment's site-tap (Doors of Night)      | IMPLEMENTED |
- * | 7 | An unprotected company is unaffected by the constraint (still tapped/returned) | IMPLEMENTED |
- * | 8 | Ringwraith target makes NO corruption check                                | IMPLEMENTED |
- * | 9 | Non-Ringwraith target makes a corruption check modified by -4              | IMPLEMENTED |
+ * | #  | Rule                                                                      | Status      |
+ * |----|----------------------------------------------------------------------------|-------------|
+ * | 1  | Playable on a Ringwraith without the sorcery skill (Adûnaphel)              | IMPLEMENTED |
+ * | 2  | Playable on a non-Ringwraith sorcery-skill character (The Grimburgoth)      | IMPLEMENTED |
+ * | 3  | NOT playable on a non-Ringwraith, non-sorcery character (Gorbag)            | IMPLEMENTED |
+ * | 4  | Playing it adds a turn-scoped cancel-return-and-site-tap constraint         | IMPLEMENTED |
+ * | 5  | The constraint suppresses a hazard environment's forced return (rule 5.31) | IMPLEMENTED |
+ * | 6  | The constraint suppresses the environment's site-tap (Doors of Night)      | IMPLEMENTED |
+ * | 7  | An unprotected company is unaffected by the constraint (still tapped/returned) | IMPLEMENTED |
+ * | 8  | The constraint suppresses a successful-strike forced return (rule 2.IV.4)  | IMPLEMENTED |
+ * | 9  | Ringwraith target makes NO corruption check                                | IMPLEMENTED |
+ * | 10 | Non-Ringwraith target makes a corruption check modified by -4              | IMPLEMENTED |
  *
  * Playable: YES
  *
@@ -55,6 +60,8 @@
  *   LONG_WINTER (le-117)   - hazard environment: force-return-to-origin +
  *                            tap-sites-in-play (Doors of Night), no minion gate
  *   DOORS_OF_NIGHT (tw-28) - enables Long Winter's site-tap clause
+ *   FELL_TURTLE (tw-34)    - hazard creature: successful strike forces the
+ *                            defending company to return to origin (2.IV.4)
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -64,9 +71,10 @@ import {
   ARAGORN, RIVENDELL, MINAS_TIRITH,
   viableActions, getCharacter, findHandCardId, expectInDiscardPile,
   makeMHState, addCardInPlay, resolveChain, mint,
+  findCharInstanceId, playCreatureHazardAndResolve, runCreatureCombat,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameState, PlayShortEventAction } from '../../index.js';
-import { Alignment, CardStatus, RegionType } from '../../index.js';
+import { Alignment, CardStatus, RegionType, SiteType } from '../../index.js';
 import { initiateChain } from '../../engine/chain-reducer.js';
 
 const GOVERN_STORMS = 'wh-45' as CardDefinitionId;
@@ -79,6 +87,8 @@ const STONE_CIRCLE = 'le-405' as CardDefinitionId;
 const MORIA_MINION = 'le-392' as CardDefinitionId;
 const LONG_WINTER = 'le-117' as CardDefinitionId;
 const DOORS_OF_NIGHT = 'tw-28' as CardDefinitionId;
+const FELL_TURTLE = 'tw-34' as CardDefinitionId;
+const COASTAL_KEYING = { method: 'region-type' as const, value: RegionType.Coastal };
 
 /** Org-phase state for the Ringwraith player with the given company + hand. */
 function orgState(opts: {
@@ -269,5 +279,76 @@ describe('Govern the Storms (wh-45)', () => {
 
     expect(protectedCompany.currentSite?.status).toBe(CardStatus.Untapped);
     expect(unprotectedCompany.currentSite?.status).toBe(CardStatus.Tapped);
+  });
+
+  // ── Enforcement: cancels a rule-2.IV.4 forced return after a successful strike ──
+
+  test('the constraint cancels rule-2.IV.4 forced return to origin after a successful creature strike (Fell Turtle)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [GRIMBURGOTH] }],
+          hand: [GOVERN_STORMS],
+          siteDeck: [MORIA_MINION],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [FELL_TURTLE],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const grimId = getCharacter(state, RESOURCE_PLAYER, GRIMBURGOTH).instanceId;
+    const played = dispatch(state, stormsActionsFor(state, grimId)[0]);
+    const ccAction = viableActions(played, PLAYER_1, 'corruption-check')[0].action;
+    const afterPlay = dispatch(played, ccAction);
+
+    const company = afterPlay.players[RESOURCE_PLAYER].companies[0];
+    const companyId = company.id;
+    const dest = afterPlay.players[RESOURCE_PLAYER].siteDeck.find(c => c.definitionId === MORIA_MINION)!;
+
+    const withMovement: GameState = {
+      ...afterPlay,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Coastal],
+        resolvedSitePathNames: ['Bay of Belfalas'],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Moria',
+      }),
+      players: [
+        {
+          ...afterPlay.players[RESOURCE_PLAYER],
+          companies: [{
+            ...company,
+            siteCardOwned: true,
+            destinationSite: { instanceId: dest.instanceId, definitionId: dest.definitionId, status: CardStatus.Untapped },
+          }],
+        },
+        afterPlay.players[HAZARD_PLAYER],
+      ] as unknown as GameState['players'],
+    };
+
+    const turtleId = findHandCardId(withMovement, HAZARD_PLAYER, FELL_TURTLE);
+    const afterChain = playCreatureHazardAndResolve(withMovement, PLAYER_2, turtleId, companyId, COASTAL_KEYING);
+
+    // Grimburgoth prowess 7 + low roll 2 = 9 <= creature prowess 15 -> strike hits.
+    // Body check: body 9, roll 5 <= 9 -> survives, stays wounded.
+    const afterWound = runCreatureCombat(afterChain, GRIMBURGOTH, 2, 5);
+
+    expect(afterWound.combat).toBeNull();
+    const grimAfterId = findCharInstanceId(afterWound, RESOURCE_PLAYER, GRIMBURGOTH);
+    expect(afterWound.players[RESOURCE_PLAYER].characters[grimAfterId]?.status).toBe(CardStatus.Inverted);
+
+    // Rule 2.IV.4 would normally force the company back to its site of
+    // origin after a successful strike — the constraint from Govern the
+    // Storms cancels that.
+    expect((afterWound.phaseState as { returnedToOrigin?: boolean }).returnedToOrigin).toBeFalsy();
+    expect(afterWound.activeConstraints.some(c => c.kind.type === 'site-phase-do-nothing')).toBe(false);
   });
 });

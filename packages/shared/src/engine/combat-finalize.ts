@@ -43,7 +43,7 @@ import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChooses
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint, hasCancelReturnAndSiteTap } from './pending.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 
@@ -697,6 +697,13 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       const defIdxSS = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
       const companySS = companyById(stateAfterCombat.players[defIdxSS].companies, combat.companyId);
       if (!companySS || !companySS.destinationSite) continue;
+      // Promptings of Wisdom (wh-34) / Piercing All Shadows (wh-47) / Govern
+      // the Storms (wh-45): a `cancel-return-and-site-tap` constraint on the
+      // defending company negates rule 2.IV.4 force-return-to-origin.
+      if (hasCancelReturnAndSiteTap(stateAfterCombat, combat.companyId)) {
+        logDetail(`Successful strike — company ${combat.companyId as string} is shielded by cancel-return-and-site-tap — return-to-origin negated`);
+        continue;
+      }
       const creatureSource = attackSourceCreatureInstanceId(combat);
       if (!creatureSource) continue;
       const creatureDefId = resolveInstanceId(state, creatureSource);
