@@ -140,6 +140,52 @@ describe('Rain-drake (td-57)', () => {
     })).toBe(true);
   });
 
+  test('keyable via coastal only — must not also offer wilderness when path has fewer than three wildernesses (regression)', () => {
+    // Reported bug: a path of Andrast Coast (c), Eriadoran Coast (c), Old
+    // Pukel-land (w), Gap of Isen (b) — two coastal, one wilderness, one
+    // border — satisfies the base keying via coastal (>=1) but NOT via
+    // wilderness (needs >=3, path has only 1). The engine incorrectly
+    // offered both a coastal-keyed AND a wilderness-keyed play because the
+    // match-reporting loop checked mere presence of each region type in the
+    // path instead of each type's own count requirement.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [RAIN_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [RegionType.Coastal, RegionType.Coastal, RegionType.Wilderness, RegionType.Border],
+      resolvedSitePathNames: ['Andrast Coast', 'Eriadoran Coast', 'Old Pukel-land', 'Gap of Isen'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'region-type' && a.keyedBy?.value === RegionType.Coastal;
+    })).toBe(true);
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'region-type' && a.keyedBy?.value === RegionType.Wilderness;
+    })).toBe(false);
+  });
+
   test('keyable via wilderness when path has three wildernesses', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
