@@ -59,10 +59,10 @@ function hiddenCardPile(pile: readonly { readonly instanceId: CardInstanceId; re
  */
 function revealedCardPile(
   pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
-  revealed: GameState['handRevealedInstances'],
+  revealed: GameState['handRevealedInstances'] | undefined,
 ): readonly ViewCard[] {
   return pile.map(c =>
-    revealed[c.instanceId] !== undefined
+    revealed?.[c.instanceId] !== undefined
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
   );
