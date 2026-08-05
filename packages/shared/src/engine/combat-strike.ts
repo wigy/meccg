@@ -23,7 +23,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import type { AbsorbWoundEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
@@ -692,8 +692,24 @@ export function eliminateCombatantFromStrike(
   newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
 
   // Per CoE rule 3.I.2: for each unwounded character in the same company,
-  // an item the eliminated character controlled may be transferred (one per recipient).
-  const salvageItems = charData.items;
+  // an item the eliminated character controlled may be transferred (one per
+  // recipient); "all other non-follower cards" the character controlled are
+  // discarded immediately. `charData.items` also holds permanent events
+  // attached via `in-play-on-character` (e.g. Align Palantír tw-190, which
+  // is not itself an item but is stored alongside items for its bearer) —
+  // those are not salvageable and go straight to the discard pile.
+  const salvageItems = charData.items.filter(item => isItemCard(defById(state, item.definitionId)));
+  const nonItemPermanentEvents = charData.items.filter(item => !isItemCard(defById(state, item.definitionId)));
+  for (const item of nonItemPermanentEvents) {
+    const itemDef = defById(state, item.definitionId);
+    logDetail(`Discarding non-item permanent event "${itemDef?.name ?? item.instanceId as string}" from eliminated character (not salvageable, CoE 3.I.2)`);
+  }
+  if (nonItemPermanentEvents.length > 0) {
+    newPlayers2[defPlayerIndex] = {
+      ...newPlayers2[defPlayerIndex],
+      discardPile: [...newPlayers2[defPlayerIndex].discardPile, ...nonItemPermanentEvents.map(toCardInstance)],
+    };
+  }
   const unwoundedRecipients: CardInstanceId[] = company
     ? company.characters
       .filter(ch => ch !== strike.characterId)
