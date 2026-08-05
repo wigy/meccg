@@ -15,6 +15,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
+import { hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from '../stage-resource-characters.js';
 import { CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -247,6 +248,34 @@ export function countStartingMinorItems(state: GameState, player: PlayerState): 
     }
   }
   return count;
+}
+
+/**
+ * True when a player still has an unassigned Stage resource during item draft
+ * whose sole effect requires a character bearer (Gandalf's Friend wh-98,
+ * Squire of the Hunt wh-95, etc. — deferred by {@link applyDraftResults}) and
+ * at least one drafted character it could legally attach to.
+ *
+ * CoE 1.9.F4: a drafted, non-duplicated Stage resource "is put into play" —
+ * placement is mandatory, only *which* character it lands on is the player's
+ * choice — unlike an ordinary minor item, which CoE 1.7 makes optional ("you
+ * *can* place up to two minor items"). `pass` must not be allowed to discard
+ * a mandatory Stage resource the way it discards leftover optional items.
+ */
+export function hasUnassignedMandatoryStageResource(
+  state: GameState,
+  player: PlayerState,
+  itemDraft: { readonly unassignedItems: readonly CardInstance[] },
+): boolean {
+  const allCharIds = player.companies.flatMap(c => c.characters);
+  return itemDraft.unassignedItems.some(card => {
+    const def = defById(state, card.definitionId);
+    if (isItemCard(def) || !hasCharacterPlayTargetEffect(def)) return false;
+    return allCharIds.some(charId => {
+      const charDef = defById(state, player.characters[charId]?.definitionId);
+      return isCharacterCard(charDef) && matchesCharacterPlayTarget(charDef, def);
+    });
+  });
 }
 
 /**

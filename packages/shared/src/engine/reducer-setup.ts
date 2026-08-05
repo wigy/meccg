@@ -20,7 +20,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -567,8 +567,14 @@ function handleItemDraft(
     return { state, error: 'You have already finished item assignment' };
   }
 
-  // Pass: skip remaining item assignments
+  // Pass: skip remaining item assignments. A mandatory Stage resource (CoE
+  // 1.9.F4 — "the Stage resource is put into play") may not be discarded this
+  // way, unlike an ordinary optional minor item; the player must place it on
+  // one of its eligible characters first.
   if (action.type === 'pass') {
+    if (hasUnassignedMandatoryStageResource(state, state.players[playerIndex], itemDraft)) {
+      return { state, error: 'A drafted Stage resource must be placed with a character before you can pass (CoE 1.9.F4)' };
+    }
     const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
     newItemDraftState[playerIndex] = { unassignedItems: [], done: true };
 

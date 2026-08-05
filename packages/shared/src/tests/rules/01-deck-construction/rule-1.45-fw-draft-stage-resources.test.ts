@@ -417,6 +417,78 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(state.players[0].characters[balinId].items.some(i => i.definitionId === GANDALFS_FRIEND)).toBe(false);
   });
 
+  test('[FALLEN-WIZARD] passing item draft cannot discard an unassigned mandatory Stage resource (regression for game msgd0dft-euql7p seq 33)', () => {
+    // Report: "I played Gandalf's friend in Draft, followed by Adrazar. But it
+    // doesnt show up." The player drafted Gandalf's Friend (deferred to item
+    // draft for character assignment, same as the test above) and Adrazar, but
+    // passed the item-draft step without ever issuing `assign-starting-item`.
+    // Root cause: `handleItemDraft`'s `pass` branch unconditionally cleared
+    // `unassignedItems` to `[]` — discarding the drafted, non-duplicated Stage
+    // resource entirely instead of putting it into play as CoE 1.9.F4 requires
+    // ("if not duplicated, the Stage resource is put into play"). Unlike an
+    // ordinary optional minor item (CoE 1.7: "you *can* place up to two"), a
+    // mandatory Stage resource with an eligible character must not vanish this
+    // way — it also violated the "no card instance may ever disappear" engine
+    // invariant.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [BALIN, GANDALFS_FRIEND, ADRAZAR],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GANDALFS_FRIEND) },
+    ]);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ADRAZAR) },
+    ]);
+
+    const setup = (state.phaseState as { setupStep: { step: string } }).setupStep;
+    expect(setup.step).toBe('item-draft');
+
+    // `pass` must not be offered while Gandalf's Friend still needs a bearer.
+    const passOffered = computeLegalActions(state, PLAYER_1)
+      .some(ea => ea.viable && ea.action.type === 'pass');
+    expect(passOffered).toBe(false);
+
+    // A hand-crafted `pass` (bypassing legal-actions) must also be rejected by
+    // the reducer, and must leave the card instance in place rather than
+    // discarding it.
+    const before = state;
+    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeTruthy();
+    state = result.state;
+    expect(state).toBe(before);
+
+    const itemDraft = (state.phaseState as {
+      setupStep: { itemDraftState: readonly { unassignedItems: readonly { definitionId: CardDefinitionId }[] }[] };
+    }).setupStep.itemDraftState[0];
+    expect(itemDraft.unassignedItems.some(c => c.definitionId === GANDALFS_FRIEND)).toBe(true);
+  });
+
   test('[FALLEN-WIZARD] Glove of Radagast is draftable as a Stage resource (regression for bug report f5b68841a24ffeb4)', () => {
     // Report: a Fallen-wizard (Radagast) drafting from a pool containing Glove
     // of Radagast (wh-111) found it not offered as a Stage resource pick and
