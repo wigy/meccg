@@ -39,6 +39,7 @@ import type { CardDefinitionId, CardInPlay } from '../../index.js';
 import { CardStatus } from '../../index.js';
 
 const CROWN_OF_FLOWERS = 'dm-121' as CardDefinitionId;
+const GOLLUM = 'tw-246' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,55 @@ describe('Crown of Flowers (dm-121)', () => {
       c => c.definitionId === CROWN_OF_FLOWERS,
     ) as CardInPlay;
     expect(cofInPlay.linkedInstanceId).toBe(sunInPlay.instanceId);
+  });
+
+  // Regression (Bug Report: Crown of Flowers / Gollum, game msf2o9tq-ozptpq
+  // seq 34): Crown of Flowers only re-interprets the *text* of the paired
+  // resource (as though Gates of Morning were in play and Doors of Night were
+  // not) — it does not waive the resource's other play requirements. Gollum
+  // (tw-246) is "Playable at Goblin-gate or Moria"; pairing him with an
+  // in-play Crown of Flowers while the company sits at Rivendell must not be
+  // offered, or the Crown would let any site-restricted ally (or The One
+  // Ring) enter play from anywhere for free.
+  test('does not offer to pair a site-restricted ally when no company is at a qualifying site', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, GOLLUM], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
+  });
+
+  test('offers and allows pairing a site-restricted ally once a company is at a qualifying site', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, GOLLUM], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    const pairActions = viableActions(resolved, PLAYER_1, 'pair-resource-with-cof');
+    expect(pairActions).toHaveLength(1);
+
+    const afterPair = dispatch(resolved, pairActions[0].action);
+    const gollumInPlay = afterPair.players[RESOURCE_PLAYER].cardsInPlay.find(
+      c => c.definitionId === GOLLUM,
+    ) as CardInPlay;
+    expect(gollumInPlay).toBeDefined();
   });
 
   test('discarding CoF also discards the paired resource (cascade)', () => {

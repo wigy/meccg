@@ -27,7 +27,7 @@ import type {
 } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
 import { requirePhaseState, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -40,7 +40,7 @@ import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-deriv
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -476,6 +476,28 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
         def.cardType !== 'hero-resource-ally' &&
         def.cardType !== 'hero-resource-faction'
       ) continue;
+
+      // Crown of Flowers only re-interprets the resource's own text as though
+      // Gates of Morning were in play and Doors of Night were not — it "does
+      // not affect the interpretation of any card except the resource played
+      // with it" and does not waive the resource's other play requirements.
+      // Allies/factions still need a company at a site matching their printed
+      // `playableAt` (e.g. Gollum requires Goblin-gate or Moria); otherwise
+      // Crown of Flowers would let any site-restricted ally or faction — or
+      // The One Ring's ally-like effects — enter play from anywhere for free.
+      if (isAllyCard(def) || isFactionCard(def)) {
+        const hasQualifyingSite = player.companies.some(company => {
+          if (!company.currentSite) return false;
+          const siteDef = defById(state, company.currentSite.definitionId);
+          return siteDef !== undefined && isSiteCard(siteDef)
+            && def.playableAt.some(entry => siteMatchesEntry(siteDef, entry));
+        });
+        if (!hasQualifyingSite) {
+          logDetail(`${cofDef.name}: ${def.name} not offered as pair — no company at a site matching its playableAt`);
+          continue;
+        }
+      }
+
       logDetail(`${cofDef.name}: offering ${def.name} (${card.instanceId as string}) as pair`);
       actions.push({
         action: {
