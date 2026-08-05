@@ -255,13 +255,19 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // entry in `character.items` toward the two-item limit, so a Thrall placed
     // with a character wrongly consumed item budget and blocked real minor items
     // (Dagger of Westernesse, Horn of Anor) from being assigned.
+    //
+    // Gimli (mind 6) is drafted, not Balin (mind 5): Thrall only attaches to a
+    // character that actually needed its draft gate (mind > 5 or agent — rule
+    // 1.42/1.44); a mind ≤ 5, non-agent character has no rules-mandated use for
+    // it, so pairing it there would just be the pairing bug this suite guards
+    // against elsewhere (a surplus Thrall must stay in hand).
     const config: GameConfig = {
       players: [
         {
           id: PLAYER_1,
           name: 'Alice',
           alignment: Alignment.FallenWizard,
-          draftPool: [THRALL_OF_THE_VOICE, BALIN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
+          draftPool: [THRALL_OF_THE_VOICE, GIMLI, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
           playDeck: makePlayDeck(),
           siteDeck: [RIVENDELL],
           sideboard: [],
@@ -287,11 +293,12 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
     ]);
-    // Round 2: P1 drafts its character (Balin) solo, then stops → the draft
-    // finalises and the leftover pool items (Dagger, Horn) flow into the item
-    // draft. Thrall attaches to the drafted character at finalize.
+    // Round 2: P1 drafts its character (Gimli, gated by the Thrall drafted above)
+    // solo, then stops → the draft finalises and the leftover pool items (Dagger,
+    // Horn) flow into the item draft. Thrall attaches to the drafted character at
+    // finalize.
     state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) },
       { type: 'draft-stop', player: PLAYER_1 },
     ]);
 
@@ -300,7 +307,7 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
 
     // Thrall is attached to the drafted character but must not occupy item budget:
     // both pool minor items are offered as viable starting-item assignments.
-    const balin = state.players[0].companies[0].characters[0];
+    const gimli = state.players[0].companies[0].characters[0];
     const assignableItems = (): CardDefinitionId[] => computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'assign-starting-item')
       .map(ea => (ea.action as { itemDefId: CardDefinitionId }).itemDefId);
@@ -311,15 +318,15 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // Assign the first minor item. The second must STILL be offered: with the bug,
     // Thrall (1) + Dagger (1) hit the 2/2 limit and Horn was rejected.
     state = runActions(state, [
-      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: balin },
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: gimli },
     ]);
     expect(assignableItems()).toContain(HORN_OF_ANOR);
 
     // The second minor item assigns successfully, leaving Thrall + both items.
     state = runActions(state, [
-      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: HORN_OF_ANOR, characterInstanceId: balin },
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: HORN_OF_ANOR, characterInstanceId: gimli },
     ]);
-    const items = state.players[0].characters[balin].items.map(i => i.definitionId);
+    const items = state.players[0].characters[gimli].items.map(i => i.definitionId);
     expect(items).toContain(THRALL_OF_THE_VOICE);
     expect(items).toContain(DAGGER_OF_WESTERNESSE);
     expect(items).toContain(HORN_OF_ANOR);

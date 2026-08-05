@@ -51,10 +51,15 @@ function isAgent(def: CardDefinition | undefined): boolean {
   return isCharacterCard(def) && (def.keywords ?? []).includes('agent');
 }
 
+/** The `recruitment-vehicle` effect on `def` (Thrall of the Voice), if any. */
+function recruitmentVehicleEffect(def: CardDefinition | undefined): { readonly agentRecruit?: boolean } | undefined {
+  const effects = (def as { effects?: readonly { type: string; agentRecruit?: boolean }[] } | undefined)?.effects ?? [];
+  return effects.find(e => e.type === 'recruitment-vehicle');
+}
+
 /** True if `def` carries a `recruitment-vehicle` effect (Thrall of the Voice). */
 function isRecruitmentVehicle(def: CardDefinition | undefined): boolean {
-  const effects = (def as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
-  return effects.some(e => e.type === 'recruitment-vehicle');
+  return recruitmentVehicleEffect(def) !== undefined;
 }
 
 /**
@@ -90,18 +95,37 @@ function mindOf(def: CardDefinition | undefined): number {
 }
 
 /**
+ * True if `def` actually needed `vehicle`'s draft gate to be drafted.
+ *
+ * The agent-summons variant (`agentRecruit: true` — Open to the Summons wh-46,
+ * usable by a Ringwraith or a Fallen-wizard) gates only agent characters (rule
+ * 1.9.R2) — it does **not** lift the Fallen-wizard mind-5 cap. The plain
+ * variant (Thrall of the Voice wh-82, Fallen-wizard only) gates both agents
+ * and characters with mind greater than five (rules 1.9.F1/1.9.F3). A
+ * character that clears the draft on its own has no use for a pairing.
+ */
+function isGated(def: CardDefinition | undefined, vehicle: { readonly agentRecruit?: boolean }): boolean {
+  if (vehicle.agentRecruit) return isAgent(def);
+  return isAgent(def) || mindOf(def) > 5;
+}
+
+/**
  * Pair each `recruitment-vehicle` Stage resource (Thrall of the Voice) with the
  * drafted character it is placed with. Stage resources are processed in order;
- * each consumes a distinct character, preferring an as-yet-unthralled agent and
- * otherwise the highest-mind character. A Thrall with no remaining character to
- * pair (every drafted character already carries one, or there are none) is
- * omitted — the engine keeps such a card in hand, and the client shows it
+ * each consumes a distinct character that actually needed the draft gate
+ * (an agent, or mind greater than five — see {@link isGated}), preferring an
+ * as-yet-unthralled agent and otherwise the highest-mind gated character. A
+ * Thrall with no remaining *gated* character to pair — every gated character
+ * already carries one, or none was drafted at all — is omitted: the engine
+ * keeps such a card in hand so it stays available for a later organization
+ * phase (CoE: "during your organization phase you may bring into play one
+ * character ... place this card with the character"), and the client shows it
  * full-size.
  *
  * @param characters - The drafted characters, in draft order.
  * @param stageResources - The drafted Stage resources, in draft order.
  * @param lookupDef - Resolves a definition id to its card definition.
- * @returns One pairing per Thrall that found a character.
+ * @returns One pairing per Thrall that found a gated character.
  */
 export function resolveThrallCharacterPairings(
   characters: readonly StageResourceCharacterRef[],
@@ -111,8 +135,9 @@ export function resolveThrallCharacterPairings(
   const used = new Set<string>();
   const pairings: ThrallCharacterPairing[] = [];
   for (const sr of stageResources) {
-    if (!isRecruitmentVehicle(lookupDef(sr.definitionId))) continue;
-    const candidates = characters.filter(c => !used.has(c.instanceId as string));
+    const vehicle = recruitmentVehicleEffect(lookupDef(sr.definitionId));
+    if (!vehicle) continue;
+    const candidates = characters.filter(c => !used.has(c.instanceId as string) && isGated(lookupDef(c.definitionId), vehicle));
     if (candidates.length === 0) continue;
     const agents = candidates.filter(c => isAgent(lookupDef(c.definitionId)));
     const pickFrom = agents.length > 0 ? agents : candidates;
