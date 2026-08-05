@@ -19,7 +19,7 @@ import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharact
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
-import { getEffectiveSiteType, siteConstraintFilterMatches, buildSiteFilterContext } from '../effective.js';
+import { getEffectiveSiteType, buildSiteFilterContext, resolveCreatureKeyingSiteType } from '../effective.js';
 import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal, balrogOutHeSprangRegionAllowance } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -4049,35 +4049,25 @@ function findCreatureKeyingMatches(
   const matches: CreatureKeyingMatch[] = [];
   const seen = new Set<string>();
 
-  // Gather attribute-modifier overrides in scope for this company's
-  // arrival. See `ActiveConstraint.kind.attribute-modifier`.
-  const destSiteDefId = targetCompany.destinationSite?.instanceId
-    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
-    : null;
-  const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
-  if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
-  const destSiteDefForOverride = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  const destSiteDefName = destSiteDefForOverride?.name;
-  const destSitePrintedType = destSiteDefForOverride && isSiteCard(destSiteDefForOverride)
-    ? destSiteDefForOverride.siteType
-    : undefined;
-  for (const c of state.activeConstraints) {
-    if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
-    if (destSiteDefId === null) continue;
-    if (!siteConstraintFilterMatches(c.kind.filter, destSiteDefId, destSiteDefName, destSitePrintedType)) continue;
-    const overrideType = c.kind.value as import('../../types/common.js').SiteType;
-    if (!effectiveSiteTypes.includes(overrideType)) {
-      effectiveSiteTypes.push(overrideType);
-    }
-  }
-
-  const inPlayNames = buildInPlayNames(state);
-  const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  // The destination belongs to the active (moving) player. When the by-name
-  // fallback below is used, restrict it to that player's alignment so a
+  // The destination belongs to the active (moving) player. When a by-name
+  // fallback is used below, restrict it to that player's alignment so a
   // same-named site of another side isn't picked (e.g. the three printings of
   // The Under-gates: hero, minion, balrog — with different types/keywords).
   const moverAlignment = state.players[getPlayerIndex(state, state.activePlayer ?? state.players[0].id)]?.alignment;
+
+  // The effective site type this company's destination presents to creature
+  // keying — an active site-type override (Rebuild the Town, Choking
+  // Shadows, …) replaces the printed type, it does not add to it. See
+  // `resolveCreatureKeyingSiteType`.
+  const effectiveSiteTypes = resolveCreatureKeyingSiteType(
+    state, targetCompany, mhState.destinationSiteName, mhState.destinationSiteType, moverAlignment,
+  );
+
+  const inPlayNames = buildInPlayNames(state);
+  const destSiteDefId = targetCompany.destinationSite?.instanceId
+    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
+    : null;
+  const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
   const destSitePath = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef.sitePath : [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
