@@ -2755,7 +2755,7 @@ export function playResourceShortEventActions(
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'company-combat-boost']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'company-combat-boost', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt']);
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
