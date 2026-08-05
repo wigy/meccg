@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.84.0 — 2026-08-05
+
+Fixes
+
+### Cards
+
+- Certified Govern the Storms (wh-45), Sojourn in Shadows (wh-49) and Crept Along Carefully (ba-29)
+- An Untimely Brood (wh-62) regained its missing marshalling point
+- Blasting Fire (wh-51) regained its missing corruption points
+
+### Game Engine
+
+- Site-type overrides (Rebuild the Town) now replace the site's type for hazard creature keying instead of stacking additively, and keying resolution trusts the moving company's captured site type
+- Fell Rider and Black Rider are again restricted to the Ringwraith's own company
+- Creatures with mixed-type keying boxes (Rain-drake style) no longer offer a spurious region-type keying option
+- Detainment is no longer falsely applied when a creature keys to Ruins & Lairs via a non-dark alternative
+- Crown of Flowers no longer lets site-restricted allies and factions bypass their playable-at requirements
+- Incite Defenders' duplicate attack keeps the each-character-faces-one-strike rule
+- Combat-only short-events (Flatter a Foe) are no longer offered outside combat
+- The Fellowship is discarded when its bearer's company loses a character in combat
+- A Ringwraith mode card can no longer let the company hop between non-Darkhaven sites indefinitely
+- Company-versus-company combat no longer loops forever when a strike is survived
+- Bounty of the Hoard is no longer playable at non-hoard sites
+- Return of the King is playable with correct any-phase timing instead of only during the site phase
+- Permanent events are accepted during the site-phase select-company and enter-or-skip steps
+
+### Web Client
+
+- Clicks on opponent-company characters targeted by hazards are no longer ignored (both overview and grid view)
+- A character is no longer rendered in two companies at once after a company split (Seized by Terror)
+- Forced March's extra-move offer now shows clickable destination buttons
+- The Fetch from Sideboard modal regained its hover card preview
+- Non-active companies are dimmed again during the Site phase
+
+### AI
+
+- The heuristic AI no longer discards its own hazard-events with Marvels Told
+
+### Infrastructure
+
+- The replay round-trip CI test now gets the same timeout budget as other game-playing tests
+
 ## 0.83.0 — 2026-08-04
 
 Rules bug-fix sweep and heuristic AI discipline

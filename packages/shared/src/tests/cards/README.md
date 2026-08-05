@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1092 | 1091 | 1 | 99.9% |
+| 1095 | 1094 | 1 | 99.9% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
 | AS | 105 | 105 | 100.0% |
-| BA | 96 | 96 | 100.0% |
+| BA | 97 | 97 | 100.0% |
 | DM | 96 | 96 | 100.0% |
 | LE | 296 | 295 | 99.7% |
 | TD | 87 | 87 | 100.0% |
 | TW | 328 | 328 | 100.0% |
-| WH | 84 | 84 | 100.0% |
+| WH | 86 | 86 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -156,6 +156,7 @@
 | ba-26 | Unabated in Malice | — | 11 | ☑ |
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
+| ba-29 | Crept Along Carefully | — | 17 | ☑ |
 | ba-30 | Longbottom Leaf | — | 8 | ☑ |
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
 | ba-35 | Cave Troll | — | 9 | ☑ |
@@ -292,7 +293,7 @@
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 9 | ☑ |
 | dm-120 | Choice of Lúthien | — | 12 | ☑ |
-| dm-121 | Crown of Flowers | — | 6 | ☑ |
+| dm-121 | Crown of Flowers | — | 8 | ☑ |
 | dm-123 | Dark Numbers | — | 14 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
@@ -305,7 +306,7 @@
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 10 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
-| dm-155 | Rebuild the Town | — | 5 | ☑ |
+| dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-159 | Smoke Rings | — | 12 | ☑ |
 | dm-160 | Token of Goodwill | — | 11 | ☑ |
@@ -411,7 +412,7 @@
 | le-112 | Foolish Words | — | 8 | ☑ |
 | le-113 | Greed | — | 11 | ☑ |
 | le-114 | Heedless Revelry | — | 11 | ☑ |
-| le-115 | Incite Defenders | — | 11 | ☑ |
+| le-115 | Incite Defenders | — | 12 | ☑ |
 | le-116 | Incite Denizens | — | 9 | ☑ |
 | le-117 | Long Winter | — | 8 | ☑ |
 | le-122 | Lure of Expedience | — | 12 | ☑ |
@@ -443,7 +444,7 @@
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ☑ |
-| le-170 | Black Rider | — | 8 | ☑ |
+| le-170 | Black Rider | — | 9 | ☑ |
 | le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 14 | ☑ |
@@ -455,7 +456,7 @@
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
-| le-183 | Fell Rider | — | 12 | ☑ |
+| le-183 | Fell Rider | — | 13 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-185 | Forced March | — | 6 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
@@ -641,7 +642,7 @@
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
-| td-57 | Rain-drake | — | 10 | ☑ |
+| td-57 | Rain-drake | — | 11 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
 | td-60 | Scatha | — | 8 | ☑ |
 | td-61 | Scatha Ahunt | — | 16 | ☑ |
@@ -669,13 +670,13 @@
 | td-95 | A Short Rest | — | 6 | ☑ |
 | td-96 | Adamant Helmet | — | 10 | ☑ |
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
-| td-101 | Bounty of the Hoard | — | 12 | ☑ |
+| td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-103 | Burglary  | — | 12 | ☑ |
 | td-105 | Cram | — | 16 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
-| td-116 | Flatter a Foe | — | 20 | ☑ |
+| td-116 | Flatter a Foe | — | 21 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
@@ -874,7 +875,7 @@
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 11 | ☑ |
+| tw-240 | Fellowship | — | 12 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
@@ -920,7 +921,7 @@
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
 | tw-314 | Reforging | — | 10 | ☑ |
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |
-| tw-316 | Return of the King | — | 7 | ☑ |
+| tw-316 | Return of the King | — | 8 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 7 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
@@ -1062,9 +1063,11 @@
 | wh-38 | Beasts of the Wood | — | 16 | ☑ |
 | wh-40 | Wild Hounds | — | 15 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 5 | ☑ |
+| wh-45 | Govern the Storms | — | 9 | ☑ |
 | wh-46 | Open to the Summons | — | 11 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
-| wh-51 | Blasting Fire | — | 9 | ☑ |
+| wh-49 | Sojourn in Shadows | — | 8 | ☑ |
+| wh-51 | Blasting Fire | — | 10 | ☑ |
 | wh-52 | Liquid Fire | — | 10 | ☑ |
 | wh-53 | Mechanical Bow | — | 8 | ☑ |
 | wh-54 | Vile Fumes | — | 12 | ☑ |
@@ -1074,7 +1077,7 @@
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
 | wh-61 | A Strident Spawn | — | 10 | ☑ |
-| wh-62 | An Untimely Brood | — | 13 | ☑ |
+| wh-62 | An Untimely Brood | — | 14 | ☑ |
 | wh-63 | Bad Company | — | 11 | ☑ |
 | wh-65 | Delver’s Harvest | — | 4 | ☑ |
 | wh-66 | Double-dealing | — | 10 | ☑ |
