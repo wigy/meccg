@@ -199,12 +199,12 @@ export function renderCompanyBlock(
   let isInactive = view.phaseState.phase !== Phase.FreeCouncil
     && ((owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn));
 
-  // During M/H phase (after select-company), dim all companies except the active one
-  if (view.phaseState.phase === Phase.MovementHazard) {
-    const mh = view.phaseState;
-    if (mh.step !== 'select-company') {
+  // During M/H or Site phase (after select-company), dim all companies except the active one
+  if (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site) {
+    const mhOrSite = view.phaseState;
+    if (mhOrSite.step !== 'select-company') {
       const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
-      const activeCompany = resourceCompanies[mh.activeCompanyIndex];
+      const activeCompany = resourceCompanies[mhOrSite.activeCompanyIndex];
       if (activeCompany && company.id !== activeCompany.id) {
         isInactive = true;
       }
