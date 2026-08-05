@@ -374,7 +374,7 @@ export function renderAllCompaniesView(
     : [];
 
   for (const company of view.opponent.companies) {
-    const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent', { renderedSiteInstances });
+    const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent', { onAction: lastOnAction, renderedSiteInstances });
 
     // When targeting, add click handlers to opponent cards
     if (oppInfluencer && oppInfluenceActions.length > 0 && lastOnAction) {
