@@ -13,6 +13,7 @@
  * |---|--------------------------------------------------|-------------|-------------------------------------------|
  * | 1 | +2 to direct influence                           | IMPLEMENTED | stat-modifier effect                      |
  * | 2 | Eligible as replacement for any gold-ring result | IMPLEMENTED | keyword lesser-ring matches null min/max  |
+ * | 3 | 1 corruption point                               | IMPLEMENTED | data/cards.json TW-266 attributes.corruption |
  *
  * The Lesser Ring's entire printed effect is "+2 to direct influence" (see the
  * authoritative text in data/cards.json TW-266). It has NO corruption-check
@@ -62,6 +63,26 @@ describe('Lesser Ring (tw-266)', () => {
     const ringDI = withRing.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.directInfluence;
 
     expect(ringDI).toBe(baseDI + 2);
+  });
+
+  test('bearer gains 1 corruption point while ring is held', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const baseCp = base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints;
+
+    const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, LESSER_RING));
+    const ringCp = withRing.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints;
+
+    expect(ringCp).toBe(baseCp + 1);
   });
 
   test('lesser-ring is eligible for any gold-ring test result — offered after any roll total', () => {
