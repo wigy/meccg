@@ -2507,7 +2507,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GirdleofRadagast.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [
       {

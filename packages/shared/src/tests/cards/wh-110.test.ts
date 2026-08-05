@@ -18,6 +18,7 @@
  * Modelled effects (see `data/wh-resources.json`):
  *  - `stage-points: 3` — contributes 3 stage points to a Fallen-wizard who has
  *    it in play (summed by `recompute-derived`).
+ *  - Printed marshalling points (5, misc) — contributes 5 misc MP while in play.
  *  - `play-target` site `{ effectiveSiteType: "haven" }` — only offered while
  *    the active company is at a (Wizard)haven; the play binds the card to that
  *    site (`attachedToSite`).
@@ -42,6 +43,7 @@
  * | # | Rule                                                          | Status |
  * |---|---------------------------------------------------------------|--------|
  * | 1 | carries 3 stage points (Fallen-wizard only)                   | OK     |
+ * | - | carries 5 misc marshalling points while in play               | OK     |
  * | 2 | playable only if your avatar is Radagast                      | OK     |
  * | 3 | playable only on a protected Wizardhaven                      | OK     |
  * | 4 | requires at least 12 stage points                             | OK     |
@@ -249,6 +251,17 @@ describe('Girdle of Radagast (wh-110)', () => {
       ],
     });
     expect(recomputeDerived(state).players[RESOURCE_PLAYER].stagePoints).toBe(0);
+  });
+
+  test('contributes 5 misc marshalling points while in play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Organization, recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: MORIA, characters: [RADAGAST] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [girdleInPlay(RHOSGOBEL)] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    expect(recomputeDerived(state).players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(5);
   });
 
   // ── Rules 2-5: play restrictions ───────────────────────────────────────────
