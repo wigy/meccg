@@ -32,7 +32,7 @@ import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { isUnderDeepsSurfaceSite } from './organization-companies.js';
+import { isUnderDeepsSurfaceSite, isDeepMinesSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
@@ -1675,8 +1675,21 @@ function playResourcesActions(
         const autoAttackRaces = siteDef && isSiteCard(siteDef)
           ? siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType))
           : [];
+        // Deep Mines (wh-55) is an Under-deeps site (CoE g.sur.F1: a
+        // Wizardhaven is not a surface site to an Under-deeps site "unless
+        // Deep Mines has been played on it") but carries no printed
+        // `under-deeps` keyword of its own — its adjacency is a bespoke
+        // roll-0 link to a protected Wizardhaven, not the generic
+        // `adjacentSites` map the keyword drives elsewhere. Items playable
+        // "at any Under-deeps site" (Dwarven Light-stone dm-168) must still
+        // see it as one for filter purposes.
+        const siteKeywords = siteDef && isSiteCard(siteDef)
+          ? (isDeepMinesSite(siteDef) && !siteDef.keywords?.includes('under-deeps')
+            ? [...(siteDef.keywords ?? []), 'under-deeps']
+            : siteDef.keywords)
+          : undefined;
         const matchesFilter = siteRestriction.filter
-          ? matchesContext(siteRestriction.filter, { site: { ...siteDef, autoAttackRaces } })
+          ? matchesContext(siteRestriction.filter, { site: { ...siteDef, autoAttackRaces, keywords: siteKeywords } })
           : false;
         // Either form satisfies; if both are absent the restriction is
         // empty and trivially fails (a malformed effect).

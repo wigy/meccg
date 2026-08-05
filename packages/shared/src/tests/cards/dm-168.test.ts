@@ -29,7 +29,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   Alignment, CardStatus,
-  buildTestState, buildSitePhaseState, resetMint, makeMHState,
+  buildTestState, buildSitePhaseState, buildFallenWizardSitePhaseState, resetMint, makeMHState,
   reduce, dispatch,
   findHandCardId, findCharInstanceId,
   attachItemToChar, makeCancelWindowCombat, viableActions,
@@ -42,6 +42,8 @@ import { computeLegalActions } from '../../index.js';
 import type { CardDefinitionId, MovementHazardPhaseState, ModifyAttackAction } from '../../index.js';
 
 const LIGHT_STONE = 'dm-168' as CardDefinitionId;
+const DEEP_MINES = 'wh-55' as CardDefinitionId;   // Fallen-wizard Ruins & Lairs, Under-deeps analog
+const SARUMAN_FW = 'wh-9' as CardDefinitionId;    // Fallen-wizard avatar (company character)
 
 // DM Under-deeps sites (canonical hero-map versions), one per site type, to
 // prove the "any Under-deeps site" playability.
@@ -81,6 +83,22 @@ describe('Dwarven Light-stone (dm-168)', () => {
   test('NOT playable at a non-Under-deeps site (Moria)', () => {
     const state = buildSitePhaseState({ site: MORIA, characters: [ARAGORN], hand: [LIGHT_STONE] });
     expect(lightStonePlays(state)).toHaveLength(0);
+  });
+
+  test('playable at Deep Mines (wh-55) — an Under-deeps site without the printed keyword', () => {
+    // Deep Mines carries no printed `under-deeps` keyword (its adjacency is a
+    // bespoke roll-0 link to a protected Wizardhaven, not the generic
+    // `adjacentSites` map), but CoE g.sur.F1 calls it an Under-deeps site
+    // outright — "a Wizardhaven is not considered to be a surface site to an
+    // Under-deeps site unless Deep Mines has been played on it". Under-deeps
+    // item-play-site filters must still match it.
+    const state = buildFallenWizardSitePhaseState({ site: DEEP_MINES, characters: [SARUMAN_FW], hand: [LIGHT_STONE] });
+    const stoneId = findHandCardId(state, RESOURCE_PLAYER, LIGHT_STONE);
+    const plays = computeLegalActions(state, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'play-hero-resource'
+        && (ea.action as { cardInstanceId?: string }).cardInstanceId === (stoneId as string),
+    );
+    expect(plays.length).toBeGreaterThanOrEqual(1);
   });
 
   // ─── Rule 2: +2 to rolls required to move to adjacent Under-deeps sites ────
