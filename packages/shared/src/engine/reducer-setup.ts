@@ -1247,8 +1247,17 @@ function handleInitialDraw(
   }
 
   const player = state.players[playerIndex];
-  const hand = player.playDeck.slice(0, action.count);
+  // Stage resources deferred to hand during draft finalization (e.g. a
+  // character-bound Stage resource with no qualifying drafted character,
+  // held until its bearer enters play) must not be lost here — draw on top
+  // of the existing hand rather than replacing it (CoE 1.11: "draws up to
+  // their base hand size of eight cards").
+  const drawn = player.playDeck.slice(0, action.count);
+  const hand = [...player.hand, ...drawn];
   const playDeck = player.playDeck.slice(action.count);
+  if (player.hand.length > 0) {
+    logDetail(`${player.name} draws ${drawn.length} on top of ${player.hand.length} Stage resource(s) already in hand`);
+  }
 
   const stateWithDraw = updatePlayer(state, playerIndex, p => ({ ...p, hand, playDeck }));
 

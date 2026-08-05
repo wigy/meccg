@@ -21,6 +21,10 @@ export function initialDrawActions(state: GameState, playerId: PlayerId): GameAc
     return [];
   }
 
-  logDetail(`Must draw initial hand (${HAND_SIZE} cards)`);
-  return [{ type: 'draw-cards', player: playerId, count: HAND_SIZE }];
+  // CoE 1.11: draws "up to" the base hand size — a Stage resource already in
+  // hand (deferred to hand during draft finalization) counts toward it.
+  const player = state.players[playerIndex];
+  const count = Math.max(0, HAND_SIZE - player.hand.length);
+  logDetail(`Must draw initial hand (${count} card(s) to reach ${HAND_SIZE}, ${player.hand.length} already in hand)`);
+  return [{ type: 'draw-cards', player: playerId, count }];
 }
