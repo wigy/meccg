@@ -40,6 +40,34 @@ import { asViable as viable } from './evaluated.js';
 import { grantedAction } from './granted-action-emit.js';
 
 /**
+ * Company-targeting permanent events (Fellowship tw-240, Great Ship tw-248,
+ * Fell Rider le-183, Black Rider le-170, …) are, without exception, worded
+ * "during the organization phase" on their card text. `playPermanentEventActions`
+ * (the organization-phase emitter) has no notion of the site phase's
+ * per-company steps and would otherwise offer them at the select-company /
+ * enter-or-skip steps too, under rule 2.1.1's "any phase" carve-out meant for
+ * permanent events that declare no such restriction (e.g. Return of the King
+ * tw-316). `playResourcesActions` already excludes these from its own
+ * play-resources-step loop (see its `companyPlayTargetGate` check) — this
+ * mirrors that exclusion for the two earlier site-phase steps.
+ */
+function withoutCompanyTargetPermanentEvents(state: GameState, actions: EvaluatedAction[]): EvaluatedAction[] {
+  return actions.filter(ea => {
+    if (ea.action.type !== 'play-permanent-event') return true;
+    const definitionId = resolveInstanceId(state, ea.action.cardInstanceId);
+    const def = definitionId ? state.cardPool[definitionId] : undefined;
+    const companyPlayTargetGate = getCardEffects(def).find(
+      (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'company',
+    );
+    if (companyPlayTargetGate) {
+      logDetail(`Permanent event ${def?.name ?? definitionId}: company-targeting resource — only playable during the organization phase (not offered outside play-resources)`);
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
  * MEWH §10 (site-tap alignment match): a non-Fallen-wizard resource that taps a
  * site (faction, ally, or item) may only be played at a site of the same
  * alignment class — a hero resource at a hero site, a minion resource at a
@@ -147,7 +175,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // otherwise they are wrongly gated behind `enter-site`.
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
-      base.push(...playPermanentEventActions(state, playerId));
+      base.push(...withoutCompanyTargetPermanentEvents(state, playPermanentEventActions(state, playerId)));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -169,7 +197,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // Rule 2.1.1: resource permanent-events without declared site-phase
       // timing remain playable here too, before the company commits to
       // entering (e.g. Return of the King tw-316).
-      base.push(...playPermanentEventActions(state, playerId));
+      base.push(...withoutCompanyTargetPermanentEvents(state, playPermanentEventActions(state, playerId)));
       // Active-player site-phase grant-actions usable at the enter-or-skip
       // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
       // before the company commits to facing them).
