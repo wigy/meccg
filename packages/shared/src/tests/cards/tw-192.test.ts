@@ -35,13 +35,14 @@ import {
   buildSitePhaseState,
   buildTestState, makePlayDeck,
   findCharInstanceId,
-  viableActions, dispatch, resolveChain,
+  viableActions, viableFor, dispatch, resolveChain,
   GALADRIEL, ARAGORN, RIVENDELL, LORIEN, LEGOLAS,
   mint, addToPile,
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { Phase } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction } from '../../index.js';
+import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const ANDURIL = 'tw-192' as CardDefinitionId;
 const AMON_HEN = 'tw-371' as CardDefinitionId; // ruins-and-lairs, Information playable
@@ -123,6 +124,33 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
     );
     expect(corruptionChecks).toHaveLength(1);
     expect((corruptionChecks[0].kind as { modifier: number }).modifier).toBe(-3);
+  });
+
+  test('CoE 7.1.1: an untapped company mate may tap in support of the corruption check on play', () => {
+    // Bug report (game msdfe1fe-2pnv8f, seq 443): Andúril was played on
+    // Ioreth (sage) while Boromir II, an untapped company mate, stood by.
+    // The engine enqueued Ioreth's corruption check but never offered
+    // Boromir's tap-in-support option (CoE 7.1.1), which applies to any
+    // corruption check that has been declared but not yet resolved — not
+    // just the item-transfer/store checks it was already wired up for.
+    const state = buildSitePhaseState({
+      characters: [GALADRIEL, ARAGORN],
+      site: AMON_HEN,
+      hand: [ANDURIL],
+    });
+    const action = viableActions(state, PLAYER_1, 'play-permanent-event')[0].action;
+    const after = resolveChain(dispatch(state, action));
+
+    const galadrielId = findCharInstanceId(after, RESOURCE_PLAYER, GALADRIEL);
+    const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
+
+    const supports = viableFor(after, PLAYER_1)
+      .filter(a => a.action.type === 'support-corruption-check') as { action: SupportCorruptionCheckAction }[];
+
+    expect(supports.some(a =>
+      a.action.supportingCharacterId === aragornId &&
+      a.action.targetCharacterId === galadrielId,
+    )).toBe(true);
   });
 
   // ── Storable-at Haven + bearer-cannot-untap-until-stored ──

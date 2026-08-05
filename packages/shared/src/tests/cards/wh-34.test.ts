@@ -25,9 +25,11 @@ import {
   viableActions, CardStatus,
   charIdAt, dispatch, setCharStatus,
   expectCharStatus, attachItemToChar, RESOURCE_PLAYER,
+  getCharacter,
 } from '../test-helpers.js';
 import type { PlayPermanentEventAction, ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
+import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const PROMPTINGS_OF_WISDOM = 'wh-34' as CardDefinitionId;
 
@@ -121,6 +123,25 @@ describe('Promptings of Wisdom (wh-34)', () => {
     const target = (playActions[0].action as PlayPermanentEventAction).targetCharacterId;
     const faramirId = charIdAt(withPoW, RESOURCE_PLAYER, 1, 0);
     expect(target).toBe(faramirId);
+  });
+
+  // ── Corruption points: bearer's corruption point total ─────────────
+
+  test('attached card adds 2 corruption points to the bearer', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    expect(getCharacter(base, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(0);
+
+    const withPoW = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PROMPTINGS_OF_WISDOM));
+    expect(getCharacter(withPoW, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(2);
   });
 
   // ── Effect 3: grant-action — cancel-return-and-site-tap ────────────

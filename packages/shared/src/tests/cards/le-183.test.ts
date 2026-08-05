@@ -213,6 +213,27 @@ describe('Fell Rider (le-183)', () => {
     expect(plays).toHaveLength(0);
   });
 
+  test('not offered during the site phase select-company or enter-or-skip steps', () => {
+    // Regression: rule 2.1.1's "any phase" carve-out for permanent events
+    // without declared site-phase timing (e.g. Return of the King tw-316) was
+    // also handing Fell Rider to the site phase's select-company and
+    // enter-or-skip steps via the shared `playPermanentEventActions` call —
+    // even though Fell Rider's own text restricts it to the organization
+    // phase, and `playResourcesActions` (the site phase's later
+    // play-resources step) already excludes it.
+    const state = ringwraithAtDolGuldur({ phase: Phase.Organization, hand: [FELL_RIDER] });
+    const fellRiderId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    for (const step of ['select-company', 'enter-or-skip'] as const) {
+      const siteState: SitePhaseState = { ...PLAY_RESOURCES_STEP, step, siteEntered: false };
+      const withSiteState = { ...state, phaseState: siteState };
+      const plays = computeLegalActions(withSiteState, PLAYER_1).filter(
+        a => a.viable && a.action.type === 'play-permanent-event' && a.action.cardInstanceId === fellRiderId,
+      );
+      expect(plays).toHaveLength(0);
+    }
+  });
+
   // ─── Rule #4: cannot be duplicated on a given company ────────────────────────
 
   test('a second copy cannot be played on a company that already has Fell Rider', () => {

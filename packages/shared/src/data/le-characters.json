@@ -1110,6 +1110,7 @@
       {
         "type": "grant-action",
         "action": "company-stat-boost",
+        "anyPhase": true,
         "cost": {
           "tap": "self"
         },

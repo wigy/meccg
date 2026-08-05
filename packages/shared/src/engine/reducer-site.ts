@@ -3812,13 +3812,17 @@ export function resolveInfluenceAttemptRoll(
   }
 
   // Tap the site, unless it carries the `never-taps` site-rule
-  // (e.g. The Worthy Hills — influence attempts there do not tap the site)
-  // or the leader is taking the faction under control (untapped per text).
+  // (e.g. The Worthy Hills — influence attempts there do not tap the site),
+  // the leader is taking the faction under control (untapped per text), or
+  // the attempt failed. CoE 2.V.1.1 / 2.V.3: the site "is tapped upon
+  // successful resolution of the resource" — a failed influence check never
+  // taps the site, it only discards the faction.
   const neverTaps = siteNeverTaps(state, siteInPlay);
   if (neverTaps) {
     logDetail(`Site: influence at ${def.name} — site has never-taps, leaving site untapped`);
   }
-  const skipSiteTap = neverTaps || willPlaceUnderControl;
+  const succeeded = total >= influenceNumber;
+  const skipSiteTap = neverTaps || willPlaceUnderControl || !succeeded;
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,

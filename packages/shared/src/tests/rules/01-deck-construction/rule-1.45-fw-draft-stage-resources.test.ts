@@ -39,10 +39,12 @@ import {
   PLAYER_1, PLAYER_2, RIVENDELL, Alignment,
   createGame, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   ADRAZAR, FRODO, FARAMIR, BILBO,
+  advanceSetupToInitialDraw, Phase,
+  FATTY_BOLGER, HALDIR, EOWYN, BEREGOND, ANBORN, KILI, PEATH, BARD_BOWMAN,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import { reduce } from '../../../engine/reducer.js';
-import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
+import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId, DrawCardsAction } from '../../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId; // Stage resource (recruitment vehicle)
 const GLOVE_OF_RADAGAST = 'wh-111' as CardDefinitionId;  // Stage resource (unique, Radagast specific)
@@ -255,13 +257,19 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // entry in `character.items` toward the two-item limit, so a Thrall placed
     // with a character wrongly consumed item budget and blocked real minor items
     // (Dagger of Westernesse, Horn of Anor) from being assigned.
+    //
+    // Gimli (mind 6) is drafted, not Balin (mind 5): Thrall only attaches to a
+    // character that actually needed its draft gate (mind > 5 or agent — rule
+    // 1.42/1.44); a mind ≤ 5, non-agent character has no rules-mandated use for
+    // it, so pairing it there would just be the pairing bug this suite guards
+    // against elsewhere (a surplus Thrall must stay in hand).
     const config: GameConfig = {
       players: [
         {
           id: PLAYER_1,
           name: 'Alice',
           alignment: Alignment.FallenWizard,
-          draftPool: [THRALL_OF_THE_VOICE, BALIN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
+          draftPool: [THRALL_OF_THE_VOICE, GIMLI, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
           playDeck: makePlayDeck(),
           siteDeck: [RIVENDELL],
           sideboard: [],
@@ -287,11 +295,12 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
     ]);
-    // Round 2: P1 drafts its character (Balin) solo, then stops → the draft
-    // finalises and the leftover pool items (Dagger, Horn) flow into the item
-    // draft. Thrall attaches to the drafted character at finalize.
+    // Round 2: P1 drafts its character (Gimli, gated by the Thrall drafted above)
+    // solo, then stops → the draft finalises and the leftover pool items (Dagger,
+    // Horn) flow into the item draft. Thrall attaches to the drafted character at
+    // finalize.
     state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) },
       { type: 'draft-stop', player: PLAYER_1 },
     ]);
 
@@ -300,7 +309,7 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
 
     // Thrall is attached to the drafted character but must not occupy item budget:
     // both pool minor items are offered as viable starting-item assignments.
-    const balin = state.players[0].companies[0].characters[0];
+    const gimli = state.players[0].companies[0].characters[0];
     const assignableItems = (): CardDefinitionId[] => computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'assign-starting-item')
       .map(ea => (ea.action as { itemDefId: CardDefinitionId }).itemDefId);
@@ -311,15 +320,15 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // Assign the first minor item. The second must STILL be offered: with the bug,
     // Thrall (1) + Dagger (1) hit the 2/2 limit and Horn was rejected.
     state = runActions(state, [
-      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: balin },
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: gimli },
     ]);
     expect(assignableItems()).toContain(HORN_OF_ANOR);
 
     // The second minor item assigns successfully, leaving Thrall + both items.
     state = runActions(state, [
-      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: HORN_OF_ANOR, characterInstanceId: balin },
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: HORN_OF_ANOR, characterInstanceId: gimli },
     ]);
-    const items = state.players[0].characters[balin].items.map(i => i.definitionId);
+    const items = state.players[0].characters[gimli].items.map(i => i.definitionId);
     expect(items).toContain(THRALL_OF_THE_VOICE);
     expect(items).toContain(DAGGER_OF_WESTERNESSE);
     expect(items).toContain(HORN_OF_ANOR);
@@ -497,6 +506,71 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(draftOffered(state, PLAYER_1, 0, THE_FORTRESS_OF_ISEN)).toBe(false);
   });
 
+  test('[FALLEN-WIZARD] hitting the 5-character company cap does not auto-stop a Fallen-wizard with an undrafted Stage resource still in the pool (regression for bug report 5a26c992916d27cc, game msdlgbmh-qxblya seq 21)', () => {
+    // Report: a Fallen-wizard ended the character draft having drafted only 1 of
+    // the 3 stage points their deck required, with the remaining Stage resources
+    // left stranded, undrafted, in their draft pool. Root cause:
+    // `resolveDraftRound`'s auto-stop check (drafted.length >= max company size)
+    // stopped the Fallen-wizard the instant their 5th character resolved, without
+    // checking whether a Stage resource was still a legal pick in their pool —
+    // unlike the manual `draft-stop` action and the legal-action computation,
+    // which both already enforce CoE 1.9.F4 ("must also attempt to draft the
+    // Stage resource(s) in their pool simultaneously with their characters").
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, FATTY_BOLGER, HALDIR, EOWYN, BEREGOND, ANBORN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [ADRAZAR, KILI, PEATH, BARD_BOWMAN, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Five rounds: the Fallen-wizard drafts five characters (never touching
+    // Thrall of the Voice), reaching the company cap — while Thrall sits
+    // undrafted in the pool the whole time.
+    const p1Chars = [FATTY_BOLGER, HALDIR, EOWYN, BEREGOND, ANBORN];
+    const p2Chars = [ADRAZAR, KILI, PEATH, BARD_BOWMAN, BALIN];
+    for (let i = 0; i < 5; i++) {
+      state = runActions(state, [
+        { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, p1Chars[i]) },
+        { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, p2Chars[i]) },
+      ]);
+    }
+
+    // Company cap reached — but the Fallen-wizard must NOT be auto-stopped:
+    // Thrall of the Voice is still a legal pick in their pool.
+    expect(draftStep(state).draftState[0].drafted).toHaveLength(5);
+    expect(draftStep(state).draftState[0].stopped).toBe(false);
+    expect(draftOffered(state, PLAYER_1, 0, THRALL_OF_THE_VOICE)).toBe(true);
+    const legal = computeLegalActions(state, PLAYER_1);
+    expect(legal.find(a => a.action.type === 'draft-stop')?.viable ?? false).toBe(false);
+
+    // Drafting the last Stage resource empties the pool, so both players are
+    // now stopped and the draft finalizes on its own (no explicit draft-stop
+    // needed) — with all 3 stage points (Thrall's 1) accounted for.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+    ]);
+    expect((state.phaseState as { setupStep?: { step: string } }).setupStep?.step).not.toBe('character-draft');
+    expect(state.players[0].stagePoints).toBe(1);
+  });
+
   test('[FALLEN-WIZARD] draft-stop is not offered while a Stage resource in the pool is still a legal pick (regression for game msd1yp91-j5yc2m seq 8)', () => {
     // Report: a Fallen-wizard called draft-stop on the very first round, with
     // stagePoints still at 0 and an undrafted Thrall of the Voice sitting in
@@ -547,5 +621,79 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
     ]);
     expect(computeLegalActions(afterThrall, PLAYER_1).find(a => a.action.type === 'draft-stop')?.viable).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] a Stage resource deferred to hand (no qualifying drafted bearer) survives the initial draw (regression for bug report e0d8a2caee49ba6b)', () => {
+    // Report: Glove of Radagast was "playable during draft, but disappeared
+    // immediately afterwards, was also not listed in the summary of Stage
+    // resources". Root cause: Glove of Radagast targets a character literally
+    // named "Radagast" (`play-target` filter `{ target.name: "Radagast" }`),
+    // but a Fallen-wizard's own Radagast avatar is never a drafted character —
+    // it enters play later via an ordinary play-character action, not the
+    // character-draft pool. With no qualifying drafted bearer, draft
+    // finalization (init.ts) correctly defers the card to the player's hand
+    // rather than losing it (CoE 1.9.F4). But the initial-draw handler
+    // (handleInitialDraw, reducer-setup.ts) replaced the hand outright with a
+    // fresh draw from the play deck instead of drawing on top of it, silently
+    // discarding the deferred Glove instance — a no-card-disappears violation.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [GLOVE_OF_RADAGAST, BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GLOVE_OF_RADAGAST) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+    // Bob's pool is now exhausted (auto-stopped); Alice continues solo to
+    // draft Balin — who does not qualify as "Radagast" — exhausting her pool
+    // too and finalizing the draft.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+    ]);
+
+    const gloveInstanceId = state.players[0].hand.find(c => c.definitionId === GLOVE_OF_RADAGAST)?.instanceId;
+    expect(gloveInstanceId).toBeDefined();
+
+    state = advanceSetupToInitialDraw(state);
+    if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'initial-draw') {
+      throw new Error(`Expected initial-draw step, got ${JSON.stringify(state.phaseState)}`);
+    }
+
+    // The legal draw-cards count must already account for the Glove sitting in
+    // hand (CoE 1.11: "draws up to their base hand size of eight cards").
+    const drawAction = computeLegalActions(state, PLAYER_1)
+      .map(ea => ea.action)
+      .find((a): a is DrawCardsAction => a.type === 'draw-cards');
+    expect(drawAction?.count).toBe(7);
+
+    const result = reduce(state, drawAction!);
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // The Glove is still in hand — same instance, not lost — and the total
+    // hand is exactly the base hand size, not 9.
+    expect(state.players[0].hand).toHaveLength(8);
+    expect(state.players[0].hand.some(c => c.instanceId === gloveInstanceId)).toBe(true);
   });
 });
