@@ -447,7 +447,7 @@ export function applyDraftResults(
         } else {
           // No drafted character to place it with — keep it in hand so it is
           // never lost and can be played as a recruitment vehicle later.
-          handAdditions.push(card);
+          handAdditions.push({ ...card, deferredStagePoints: true });
         }
       } else if (stageResourceNeedsSite(def)) {
         const pairing = myPairings.find(p => p.stageResourceInstanceId === card.instanceId);
@@ -455,12 +455,12 @@ export function applyDraftResults(
           // Defensive: a site-targeting Stage resource with no pairing — keep it
           // in hand so it is never lost and can be played later.
           logDetail(`${def?.name ?? (card.definitionId as string)} has no paired site — keeping in hand`);
-          handAdditions.push(card);
+          handAdditions.push({ ...card, deferredStagePoints: true });
         } else if (collisionSiteDefIds.has(pairing.siteDefId as string)) {
           // CRF 22: both players paired the same site definition — set aside to
           // hand; the site stays in the deck and the conversion does not apply.
           logDetail(`${def?.name ?? (card.definitionId as string)} set aside (site collision) — to hand`);
-          handAdditions.push(card);
+          handAdditions.push({ ...card, deferredStagePoints: true });
         } else {
           // Non-colliding pairing: the site becomes a starting Wizardhaven and
           // Hidden Haven enters play bound to it.
@@ -477,7 +477,7 @@ export function applyDraftResults(
       } else if (hasStartingCompanyPlacementEffect(def)) {
         // Placed with the starting company "in lieu of a minor item" during the
         // item-draft step — keep it in hand until then.
-        handAdditions.push(card);
+        handAdditions.push({ ...card, deferredStagePoints: true });
       } else if (hasCharacterPlayTargetEffect(def)) {
         // A card whose sole effect requires a character bearer (Squire of the
         // Hunt wh-95 and its family, Gandalf's Friend wh-98) has no
@@ -496,7 +496,7 @@ export function applyDraftResults(
           deferredStageResources.push(card);
         } else {
           logDetail(`${def?.name ?? (card.definitionId as string)} has no qualifying drafted character — keeping in hand`);
-          handAdditions.push(card);
+          handAdditions.push({ ...card, deferredStagePoints: true });
         }
       } else {
         // CoE 1.9.F4: a drafted Stage resource that needs neither a character nor

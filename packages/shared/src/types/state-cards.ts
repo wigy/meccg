@@ -37,6 +37,17 @@ export interface CardInstance {
    * [{H}] if Sapling of the White Tree is stored there."
    */
   readonly storedAtSite?: CardDefinitionId;
+  /**
+   * Set when a drafted Stage resource is parked in `hand` at draft-finalize
+   * because its physical placement (character bearer, site pairing, or
+   * item-draft assignment) could not be resolved yet — e.g. an unpaired
+   * Thrall of the Voice, or a Hidden Haven with no eligible site. Per CoE
+   * 1.9.F4 the card's stage points are owed from draft-finalize regardless of
+   * placement, so `playerStagePoints` sums this flag over `hand` rather than
+   * assuming every hand card is unplayed. Never set outside
+   * {@link applyDraftResults}; irrelevant once the card leaves `hand`.
+   */
+  readonly deferredStagePoints?: true;
 }
 
 // ---- Characters in play ----
