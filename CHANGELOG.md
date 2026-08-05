@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.85.0 — 2026-08-05
+
+Fixes
+
+### Cards
+
+- Barrow-blade (dm-119) regained its missing item marshalling points
+- Girdle of Radagast (wh-110) regained its missing marshalling point
+- Lesser Ring (tw-266) regained its missing corruption point
+- Promptings of Wisdom (wh-34) now yields its corruption points
+- Dwarven Light-stone is playable at Deep Mines again
+
+### Game Engine
+
+- Failed faction influence attempts no longer tap the site
+- Company mates can again tap in support of on-play corruption checks (Andúril)
+- Untap-on-play events no longer clear a character's wounded status
+- Special-subtype items (e.g. Palantíri) can be stored at Havens again
+- Align Palantír is no longer salvageable when its bearer is eliminated
+- A tapped site no longer reverts to untapped when handed off mid-turn to an inbound sibling company
+- Ringwraith companies can no longer plan or declare Region Movement
+- Fell Rider and Black Rider are restricted to the organization phase (both the Ringwraith-company timing and the early site-phase steps)
+- Fellowship (tw-240) is no longer playable outside the organization phase
+- Dwar the Ringwraith's tap ability is no longer restricted to the organization phase
+- Bade to Rule is playable before the movement/hazard company selection
+- A Chance Meeting no longer discards with no effect during end-of-turn
+- Records Unread's untap-site option is offered during the site phase
+- A surplus Thrall of the Voice is no longer force-attached to a character that did not need its gate — it stays in hand as a recruitment vehicle
+- A Fallen-wizard is no longer auto-stopped mid-draft with Stage resources stranded in the pool
+- An unassigned mandatory Stage resource is no longer discarded when passing during the item draft
+- The initial hand draw no longer overwrites Stage resources deferred to hand during draft finalization
+- The opponent's hand view no longer leaks card identity after an influence-overflow return
+
+### Web Client
+
+- The combat view is no longer hidden behind the opponent-turn overview during hazard strikes
+- A confirmation is asked before an item's self-discarding granted action fires
+- Inactive companies are dimmed during the Free Council too
+- The merge-companies targeting mode no longer switches to the all-companies view
+- The arrange-deck-top pile browser stays open across picks
+
 ## 0.84.0 — 2026-08-05
 
 Fixes

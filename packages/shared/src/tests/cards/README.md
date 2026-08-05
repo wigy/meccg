@@ -87,7 +87,7 @@
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
 | as-126 | Helm of Fear | — | 16 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
-| as-130 | Records Unread | — | 10 | ☑ |
+| as-130 | Records Unread | — | 11 | ☑ |
 | as-131 | Secret Book | — | 12 | ☑ |
 | as-132 | Thong of Fire | — | 15 | ☑ |
 | as-133 | Thrall-ring | — | 6 | ☑ |
@@ -291,7 +291,7 @@
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
-| dm-119 | Barrow-blade | — | 9 | ☑ |
+| dm-119 | Barrow-blade | — | 10 | ☑ |
 | dm-120 | Choice of Lúthien | — | 12 | ☑ |
 | dm-121 | Crown of Flowers | — | 8 | ☑ |
 | dm-123 | Dark Numbers | — | 14 | ☑ |
@@ -304,7 +304,7 @@
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
-| dm-142 | Hundreds of Butterflies | — | 10 | ☑ |
+| dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
@@ -315,7 +315,7 @@
 | dm-165 | Withdrawn to Mordor | — | 10 | ☑ |
 | dm-166 | Aiglos | — | 22 | ☑ |
 | dm-167 | Dragon-helm | — | 14 | ☑ |
-| dm-168 | Dwarven Light-stone | — | 12 | ☑ |
+| dm-168 | Dwarven Light-stone | — | 13 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-178 | Mistress Lobelia | — | 13 | ☑ |
 | dm-179 | Noble Hound | — | 7 | ☑ |
@@ -366,7 +366,7 @@
 | le-49 | Ulkaur the Tongueless | — | 12 | ☑ |
 | le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
 | le-51 | Akhôrahil the Ringwraith | — | 7 | ☑ |
-| le-52 | Dwar the Ringwraith | — | 10 | ☑ |
+| le-52 | Dwar the Ringwraith | — | 11 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
 | le-54 | Indûr the Ringwraith | — | 9 | ☑ |
 | le-55 | Khamûl the Ringwraith | — | 9 | ☑ |
@@ -443,8 +443,8 @@
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
-| le-167 | Bade to Rule | — | 13 | ☑ |
-| le-170 | Black Rider | — | 9 | ☑ |
+| le-167 | Bade to Rule | — | 14 | ☑ |
+| le-170 | Black Rider | — | 10 | ☑ |
 | le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 14 | ☑ |
@@ -456,7 +456,7 @@
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
-| le-183 | Fell Rider | — | 13 | ☑ |
+| le-183 | Fell Rider | — | 15 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-185 | Forced March | — | 6 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
@@ -537,7 +537,7 @@
 | le-328 | Orc-draughts | — | 12 | ☑ |
 | le-332 | Palantír of Elostirion | — | 22 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
-| le-334 | Palantír of Orthanc | — | 10 | ☑ |
+| le-334 | Palantír of Orthanc | — | 11 | ☑ |
 | le-339 | Red Book of Westmarch | — | 11 | ☑ |
 | le-341 | Sable Shield | — | 6 | ☑ |
 | le-342 | Saw-toothed Blade | — | 3 | ☑ |
@@ -848,10 +848,10 @@
 | tw-185 | Vôteli | — | 9 | ☑ |
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
-| tw-188 | A Chance Meeting | — | 11 | ☑ |
+| tw-188 | A Chance Meeting | — | 12 | ☑ |
 | tw-189 | A Friend or Three | — | 11 | ☑ |
-| tw-190 | Align Palantír | — | 9 | ☑ |
-| tw-192 | Andúril, the Flame of the West | — | 10 | ☑ |
+| tw-190 | Align Palantír | — | 10 | ☑ |
+| tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
 | tw-193 | Army of the Dead | — | 2 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
@@ -875,7 +875,7 @@
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 12 | ☑ |
+| tw-240 | Fellowship | — | 13 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
@@ -894,7 +894,7 @@
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
 | tw-264 | Lapse of Will | — | 5 | ☑ |
-| tw-266 | Lesser Ring | — | 3 | ☑ |
+| tw-266 | Lesser Ring | — | 4 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
@@ -1058,7 +1058,7 @@
 | wh-29 | Rolled down to the Sea | — | 5 | ☑ |
 | wh-31 | Whole Villages Roused | — | 17 | ☑ |
 | wh-33 | Noble Steed | — | 11 | ☑ |
-| wh-34 | Promptings of Wisdom | — | 7 | ☑ |
+| wh-34 | Promptings of Wisdom | — | 8 | ☑ |
 | wh-37 | A Panoply of Wings | — | 11 | ☑ |
 | wh-38 | Beasts of the Wood | — | 16 | ☑ |
 | wh-40 | Wild Hounds | — | 15 | ☑ |
@@ -1089,7 +1089,7 @@
 | wh-75 | Hidden Haven | — | 26 | ☑ |
 | wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
-| wh-82 | Thrall of the Voice | — | 14 | ☑ |
+| wh-82 | Thrall of the Voice | — | 15 | ☑ |
 | wh-84 | Wizard’s Myrmidon | — | 7 | ☑ |
 | wh-85 | Wizard’s Trove | — | 12 | ☑ |
 | wh-86 | Greater Half-orcs | — | 11 | ☑ |
@@ -1111,7 +1111,7 @@
 | wh-106 | Prophet of Doom | — | 15 | ☑ |
 | wh-107 | Stave of Pallando | — | 9 | ☑ |
 | wh-108 | Truths of Doom | — | 9 | ☑ |
-| wh-110 | Girdle of Radagast | — | 18 | ☑ |
+| wh-110 | Girdle of Radagast | — | 19 | ☑ |
 | wh-111 | Glove of Radagast | — | 11 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
