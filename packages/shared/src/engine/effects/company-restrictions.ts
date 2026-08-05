@@ -8,14 +8,17 @@
  * Used by Going Ever Under Dark (ba-37): "The company cannot use starter
  * movement. In addition, if they move with region movement, they are limited
  * in all cases to 3 regions maximum and their hazard limit is reduced by one
- * (to a minimum of two)."
+ * (to a minimum of two)." Also used by Crept Along Carefully (ba-29), whose
+ * text additionally forbids Under-deeps movement ("or move to an Under-deeps
+ * site") via `noUnderDeepsMovement`.
  *
- * The restriction is read at four sites:
+ * The restriction is read at five sites:
  * - organization plan-movement (`legal-actions/organization-companies.ts`) —
- *   drop starter destinations, cap the region distance;
+ *   drop starter destinations, cap the region distance, drop the Under-deeps
+ *   destination pass;
  * - M/H select-company (`mh-steps.ts`) — cap the recomputed region distance;
  * - M/H declare-path (`legal-actions/movement-hazard.ts`) — suppress the
- *   starter path option;
+ *   starter path option and the Under-deeps declare-path option;
  * - the hazard-limit snapshot (`mh-steps.ts`) — apply the (floored) hazard
  *   modifier for a region-moving company.
  */
@@ -40,12 +43,14 @@ export function companyMovementRestrictions(
   state: GameState,
 ): {
   readonly noStarterMovement: boolean;
+  readonly noUnderDeepsMovement: boolean;
   readonly regionMovementMax: number | null;
   readonly hazardLimitModifier: number;
   readonly hazardLimitFloor: number;
 } | null {
   let found = false;
   let noStarterMovement = false;
+  let noUnderDeepsMovement = false;
   let regionMovementMax: number | null = null;
   let hazardLimitModifier = 0;
   let hazardLimitFloor = 0;
@@ -58,6 +63,7 @@ export function companyMovementRestrictions(
       const e: CompanyMovementRestrictionEffect = eff;
       found = true;
       if (e.noStarterMovement) noStarterMovement = true;
+      if (e.noUnderDeepsMovement) noUnderDeepsMovement = true;
       if (e.regionMovementMax !== undefined) {
         regionMovementMax = regionMovementMax === null
           ? e.regionMovementMax
@@ -69,7 +75,7 @@ export function companyMovementRestrictions(
   }
 
   if (!found) return null;
-  return { noStarterMovement, regionMovementMax, hazardLimitModifier, hazardLimitFloor };
+  return { noStarterMovement, noUnderDeepsMovement, regionMovementMax, hazardLimitModifier, hazardLimitFloor };
 }
 
 /**

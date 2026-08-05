@@ -868,7 +868,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     // --- Under-deeps movement pass ---
-    const udReachable = getUnderDeepsReachable(state, currentSiteDef, candidateSites, playerId);
+    // A company-bound movement restriction (Crept Along Carefully ba-29) may
+    // forbid Under-deeps movement outright ("cannot … move to an Under-deeps
+    // site") — skip the entire pass rather than offering destinations that
+    // would never be declarable.
+    const udReachable = moveRestriction?.noUnderDeepsMovement
+      ? []
+      : getUnderDeepsReachable(state, currentSiteDef, candidateSites, playerId);
+    if (moveRestriction?.noUnderDeepsMovement) {
+      logDetail(`Company ${company.id as string}: movement-restriction forbids Under-deeps movement — pass skipped`);
+    }
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${udReachable.length} Under-deeps destination(s)`);
     for (const dest of udReachable) {
       const destInstId = siteInstMap.get(dest.name);

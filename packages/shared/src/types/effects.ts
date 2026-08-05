@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, CompanyId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, CompanyId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType, Skill } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
 
 // ---- Value Expressions ----
@@ -4160,6 +4160,12 @@ export interface CompanyMovementRestrictionEffect extends EffectBase {
   readonly type: 'company-movement-restriction';
   /** When true, the bound company may not use starter movement. */
   readonly noStarterMovement?: true;
+  /**
+   * When true, the bound company may not move to an Under-deeps site (keyword
+   * `under-deeps`). Used by Crept Along Carefully (ba-29): "The company cannot
+   * use starter movement or move to an Under-deeps site."
+   */
+  readonly noUnderDeepsMovement?: true;
   /** Hard cap on the number of regions the bound company may span in region movement. */
   readonly regionMovementMax?: number;
   /**
@@ -4963,16 +4969,18 @@ export interface CancelAttackEffect extends EffectBase {
    * dice-check that only cancels the attack on success. Backs "make a roll to
    * attempt to cancel an attack … If the roll plus the number of scouts in the
    * company is greater than 7, the attack is canceled" (Going Ever Under Dark
-   * ba-37). The roller is the defending player; the modified 2d6 total is
-   * compared to `threshold` via `comparison`.
+   * ba-37, `skillBonus: "scout"`) and "…the number of rangers in the company…"
+   * (Crept Along Carefully ba-29, `skillBonus: "ranger"`). The roller is the
+   * defending player; the modified 2d6 total is compared to `threshold` via
+   * `comparison`.
    */
   readonly roll?: {
     /** Success requires `roll (+ bonuses) comparison threshold`. */
     readonly threshold: number;
     /** `'gt'` (strictly greater) or `'gte'` (≥). */
     readonly comparison: 'gt' | 'gte';
-    /** When true, add the number of Scout-skilled characters in the company to the roll. */
-    readonly scoutBonus?: true;
+    /** When set, add the number of characters with this skill in the company to the roll. */
+    readonly skillBonus?: Skill;
   };
   /**
    * Site-swap cancellation (Farmer Maggot as-48): "If one of your companies

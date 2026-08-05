@@ -78,8 +78,15 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company during the organization phase. The company cannot use starter movement or move to an Under-deeps site. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of rangers in the company is greater than 7, the attack is canceled. Discard when any play deck is exhausted or, if you choose, during your organization phase."
+    "effects": [
+      { "type": "play-target", "target": "company" },
+      { "type": "company-movement-restriction", "noStarterMovement": true, "noUnderDeepsMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
+      { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "skillBonus": "ranger" } },
+      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } },
+      { "type": "voluntary-discard", "phase": "organization" }
+    ],
+    "text": "Playable on a company during the organization phase. The company cannot use starter movement or move to an Under-deeps site. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of rangers in the company is greater than 7, the attack is canceled. Discard when any play deck is exhausted or, if you choose, during your organization phase.",
+    "certified": "2026-08-04"
   },
   {
     "cardType": "hero-resource-event",
@@ -282,7 +289,7 @@
     "effects": [
       { "type": "play-target", "target": "company" },
       { "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
-      { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true } },
+      { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "skillBonus": "scout" } },
       { "type": "voluntary-discard", "phase": "organization" },
       { "type": "duplication-limit", "scope": "company", "max": 1 }
     ],
