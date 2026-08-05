@@ -51,7 +51,7 @@ import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
-import { siteConstraintFilterMatches } from './effective.js';
+import { resolveCreatureKeyingSiteType } from './effective.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence } from './mh-agents.js';
 
 /**
@@ -2784,18 +2784,13 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     state, mhState.resolvedSitePath, mhState.resolvedSitePathNames, inPlayNames,
   );
 
-  // Site-type override constraints (e.g. Hold Rebuilt and Repaired, as-88:
-  // the Ruins & Lairs becomes a Shadow-hold) widen the destination's
-  // effective type — mirror of the offering side in findCreatureKeyingMatches.
-  const effectiveSiteTypes: import('../types/common.js').SiteType[] = [];
-  if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
-  for (const c of state.activeConstraints) {
-    if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
-    if (!destSiteCard) continue;
-    if (!siteConstraintFilterMatches(c.kind.filter, destSiteCard.id, destSiteCard.name, destSiteCard.siteType)) continue;
-    const overrideType = c.kind.value as import('../types/common.js').SiteType;
-    if (!effectiveSiteTypes.includes(overrideType)) effectiveSiteTypes.push(overrideType);
-  }
+  // The effective site type this creature is being keyed against — an active
+  // site-type override (Hold Rebuilt and Repaired as-88, Rebuild the Town
+  // dm-155, Choking Shadows tw-21, …) replaces the printed type, it does not
+  // add to it. Mirror of the offering side in findCreatureKeyingMatches.
+  const effectiveSiteTypes = resolveCreatureKeyingSiteType(
+    state, {}, mhState.destinationSiteName, mhState.destinationSiteType, moverAlignment,
+  );
 
   for (const key of def.keyedTo) {
     // When-condition guards the entry (DoN, sitePath-count conditions, etc.)

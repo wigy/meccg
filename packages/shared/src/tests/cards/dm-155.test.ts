@@ -24,11 +24,11 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
-  buildTestState, buildSitePhaseState, resetMint,
-  viableActions, handCardId, dispatch, companyIdAt, phaseStateAs, RESOURCE_PLAYER,
+  buildTestState, buildSitePhaseState, resetMint, makeMHState,
+  viableActions, handCardId, dispatch, companyIdAt, phaseStateAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, SitePhaseState } from '../../index.js';
+import { computeLegalActions, reduce, Phase, SiteType, ORC_WARBAND } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, MovementHazardPhaseState, SitePhaseState } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
 
 const REBUILD_THE_TOWN = 'dm-155' as CardDefinitionId;
@@ -164,5 +164,65 @@ describe('Rebuild the Town (dm-155)', () => {
     // Entering site should skip automatic attacks and go to declare-agent-attack
     const enteredWithSkip = dispatch(withConstraint, { type: 'enter-site', player: PLAYER_1, companyId: cid });
     expect(phaseStateAs<SitePhaseState>(enteredWithSkip).step).toBe('declare-agent-attack');
+  });
+
+  test('once the site is a Border-hold, a creature keyed only to Ruins & Lairs can no longer key to it', () => {
+    // Regression: a hazard creature keyed only to Ruins & Lairs (Orc-warband,
+    // tw-076) was still offered and accepted after Rebuild the Town converted
+    // the site to a Border-hold — the site-type-override was folded
+    // additively (printed type kept alongside the override) instead of
+    // replacing the printed type, as `getEffectiveSiteType` does for every
+    // other consumer (movement, item/faction/ally playability, untap).
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BANDIT_LAIR, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_WARBAND], siteDeck: [] },
+      ],
+    });
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Bandit Lair',
+    });
+    const state: GameState = { ...base, phaseState: mh };
+    const p1CompanyId = companyIdAt(state, RESOURCE_PLAYER);
+    const orcId = handCardId(state, HAZARD_PLAYER);
+
+    // Control: without the override, Orc-warband keys to the printed Ruins & Lairs type.
+    const beforeOffers = viableActions(state, PLAYER_2, 'play-hazard').filter(
+      a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === orcId,
+    );
+    expect(beforeOffers.length).toBeGreaterThan(0);
+
+    const withOverride = addConstraint(state, {
+      source: 'rebuild-src' as CardInstanceId,
+      sourceDefinitionId: REBUILD_THE_TOWN,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'company', companyId: p1CompanyId },
+      kind: {
+        type: 'attribute-modifier',
+        attribute: 'site.type',
+        op: 'override',
+        value: SiteType.BorderHold,
+        filter: { 'site.definitionId': BANDIT_LAIR as string },
+      },
+    });
+
+    // The offering side no longer proposes Orc-warband keyed to Ruins & Lairs.
+    const afterOffers = viableActions(withOverride, PLAYER_2, 'play-hazard').filter(
+      a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === orcId,
+    );
+    expect(afterOffers).toHaveLength(0);
+
+    // The reducer rejects a direct attempt too (offer/validate symmetry).
+    const result = reduce(withOverride, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcId,
+      targetCompanyId: p1CompanyId,
+      keyedBy: { method: 'site-type', value: SiteType.RuinsAndLairs },
+    });
+    expect(result.error).toBeDefined();
   });
 });

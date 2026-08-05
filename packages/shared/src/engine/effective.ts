@@ -14,10 +14,11 @@
 
 import type { CardDefinition, GameState } from '../index.js';
 import type { ActiveConstraint, AttributePath, ConstraintId } from '../types/pending.js';
-import type { CardDefinitionId, CardInstanceId, RegionType, SiteType } from '../types/common.js';
+import type { Alignment, CardDefinitionId, CardInstanceId, RegionType, SiteType } from '../types/common.js';
 import type { SiteInstanceTransformEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { isSiteCard } from '../types/cards.js';
+import { resolveInstanceId } from '../types/state.js';
 import { hasSiteFlag, getCardEffects, defById, siteRegionTypeOf, isSiteProtectedForPlayer, isWizardhavenConversionFor } from './reducer-utils.js';
 
 /**
@@ -228,6 +229,60 @@ export function getEffectiveSiteType(
     value = c.kind.value as SiteType;
   }
   return value;
+}
+
+/**
+ * Resolve the effective site type a hazard creature may key against for a
+ * target company, applying {@link getEffectiveSiteType}'s **replacement**
+ * semantics: an active site-type override (Rebuild the Town dm-155 — "the
+ * site becomes a Border-hold"; Choking Shadows tw-21 — "treat one Ruins &
+ * Lairs as a Shadow-hold") replaces the printed type for keying purposes, it
+ * does not add to it. A creature keyed only to the printed type (e.g.
+ * Orc-warband, Ruins & Lairs) is no longer keyable once such an override is
+ * active.
+ *
+ * Resolves the site by instance — destination if the company is moving,
+ * else its current site — so an override bound to that specific in-play
+ * copy is honoured. Falls back to a by-name lookup (restricted to
+ * `moverAlignment` when given, so same-named sites of another alignment
+ * aren't picked) for callers that only carry a destination site name, and
+ * finally to `fallbackPrintedType` when no site can be resolved at all.
+ *
+ * Shared by the offering side (`findCreatureKeyingMatches`) and the
+ * validating side (`checkCreatureKeying`) so they can never disagree.
+ */
+export function resolveCreatureKeyingSiteType(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  fallbackSiteName: string | null | undefined,
+  fallbackPrintedType: SiteType | null | undefined,
+  moverAlignment?: Alignment,
+): SiteType[] {
+  const siteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? undefined;
+  const siteDefId = siteInstanceId ? resolveInstanceId(state, siteInstanceId) : undefined;
+  let siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+  if ((!siteDef || !isSiteCard(siteDef)) && fallbackSiteName) {
+    siteDef = Object.values(state.cardPool).find(
+      c => isSiteCard(c) && c.name === fallbackSiteName
+        && (moverAlignment === undefined || c.alignment === moverAlignment),
+    );
+  }
+  if (siteDef && isSiteCard(siteDef)) {
+    // The resolved site card locates override constraints and keywords by
+    // definitionId — it is not the printed-type basis. The caller's
+    // `fallbackPrintedType` (mhState.destinationSiteType, captured from the
+    // actual destination at the time the company arrived) is the printed
+    // type as far as keying is concerned; falling back to the resolved
+    // card's own siteType only when the caller has none to offer.
+    const printedType = fallbackPrintedType ?? siteDef.siteType;
+    return [getEffectiveSiteType(state, siteDef.id, printedType, siteInstanceId)];
+  }
+  return fallbackPrintedType ? [fallbackPrintedType] : [];
 }
 
 /**
