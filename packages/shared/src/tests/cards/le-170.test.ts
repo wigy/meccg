@@ -31,6 +31,7 @@
  * | 1 | Black Rider mode established on the company                 | IMPLEMENTED | `ringwraith-mode` effect read by `resolveCompanyRingwraithMode`     |
  * | 2 | Playable at a Darkhaven on the Ringwraith's company         | IMPLEMENTED | `play-target` company + `target.siteType: haven` filter             |
  * | 2b| Only on your Ringwraith's own company (not any company)    | IMPLEMENTED | `target.hasRingwraith` filter requires a `race: ringwraith` character |
+ * | 2c| Playable only during the organization phase                | IMPLEMENTED | `play-condition` requires `"phase"`, `phases: ["organization"]`      |
  * | 3 | The company may move to a non-Darkhaven site                | IMPLEMENTED | `ringwraithHasModeCard` lifts the Darkhaven-only movement gate       |
  * | 4 | Discard this card + Ringwraith followers at a Darkhaven org | IMPLEMENTED | `on-event: organization-phase-start` self-discard w/ `alsoDiscardCompanyFollowers` → `purgeCompanyFollowers` when `atHaven` |
  * | 5 | Cannot be duplicated on a given company                     | IMPLEMENTED | `duplication-limit` scope "company", max 1                          |
@@ -49,8 +50,27 @@ import {
   LEGOLAS, LORIEN,
 } from '../test-helpers.js';
 import { validateDeck } from '../../index.js';
-import type { CardDefinitionId, GameAction, DeckList } from '../../index.js';
+import type { CardDefinitionId, GameAction, DeckList, SitePhaseState } from '../../index.js';
 import type { PlanMovementAction, PlayPermanentEventAction } from '../../types/actions-organization.js';
+
+/** A site-phase state for the active company at the play-resources step. */
+const PLAY_RESOURCES_STEP: SitePhaseState = {
+  phase: Phase.Site,
+  step: 'play-resources',
+  activeCompanyIndex: 0,
+  handledCompanyIds: [],
+  siteEntered: true,
+  resourcePlayed: false,
+  minorItemAvailable: false,
+  hoardBountyAvailable: false,
+  thoroughSearchAvailable: false,
+  declaredAgentAttack: null,
+  automaticAttacksResolved: 0,
+  awaitingOnGuardReveal: false,
+  pendingResourceAction: null,
+  opponentInteractionThisTurn: null,
+  pendingOpponentInfluence: null,
+};
 
 const BLACK_RIDER = 'le-170' as CardDefinitionId;
 // le-58: The Witch-king — Ringwraith avatar (mind null, race ringwraith).
@@ -161,6 +181,17 @@ describe('Black Rider (le-170)', () => {
       hand: [BLACK_RIDER],
       characters: [GORBAG],
     });
+
+    const plays = viableActions(state, PLAYER_1, 'play-permanent-event')
+      .map(ea => ea.action as PlayPermanentEventAction)
+      .filter(a => a.cardInstanceId === state.players[0].hand[0].instanceId);
+
+    expect(plays).toHaveLength(0);
+  });
+
+  test('not playable during the site phase, even while the company is at a Darkhaven with the Ringwraith', () => {
+    const built = ringwraithAtDolGuldur({ phase: Phase.Organization, hand: [BLACK_RIDER] });
+    const state = { ...built, phaseState: PLAY_RESOURCES_STEP };
 
     const plays = viableActions(state, PLAYER_1, 'play-permanent-event')
       .map(ea => ea.action as PlayPermanentEventAction)
