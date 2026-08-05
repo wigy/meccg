@@ -27,6 +27,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
   document.querySelectorAll('.gold-ring-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.great-hunt-choice-btn').forEach(b => b.remove());
+  document.querySelectorAll('.influence-overflow-discard-btn').forEach(b => b.remove());
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
   // (which would otherwise show permanently, since they have no legal actions).

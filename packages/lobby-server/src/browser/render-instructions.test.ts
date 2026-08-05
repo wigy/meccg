@@ -21,6 +21,8 @@ import type { PlayerView, EvaluatedAction, CardInstanceId, CardDefinitionId } fr
 import { renderPassButton } from './render-instructions.js';
 import { appState } from './app-state.js';
 
+let allCreated: StubEl[] = [];
+
 class StubEl {
   tagName: string;
   textContent = '';
@@ -37,8 +39,17 @@ class StubEl {
     },
     contains: (c: string) => this.classList.classes.has(c),
   };
-  constructor(tagName: string) { this.tagName = tagName; }
-  appendChild(child: StubEl): StubEl { this.children.push(child); return child; }
+  constructor(tagName: string) { this.tagName = tagName; allCreated.push(this); }
+  set className(value: string) { this.classList.classes = new Set(value.split(/\s+/).filter(Boolean)); }
+  get className(): string { return [...this.classList.classes].join(' '); }
+  appendChild(child: StubEl): StubEl { child.parentElement = this; this.children.push(child); return child; }
+  remove(): void {
+    allCreated = allCreated.filter(e => e !== this);
+    if (this.parentElement) {
+      this.parentElement.children = this.parentElement.children.filter(c => c !== this);
+      this.parentElement = null;
+    }
+  }
 }
 
 let passBtn: StubEl;
@@ -46,6 +57,7 @@ let waitingEl: StubEl;
 let visualPanel: StubEl;
 
 beforeEach(() => {
+  allCreated = [];
   passBtn = new StubEl('button');
   waitingEl = new StubEl('div');
   visualPanel = new StubEl('div');
@@ -57,7 +69,10 @@ beforeEach(() => {
   (globalThis as unknown as { document: unknown }).document = {
     createElement: (tag: string) => new StubEl(tag),
     getElementById: (id: string) => (id in byId ? byId[id] : null),
-    querySelectorAll: () => [],
+    querySelectorAll: (selector: string) => {
+      const cls = selector.replace(/^\./, '');
+      return allCreated.filter(e => e.classList.contains(cls));
+    },
   };
 });
 
@@ -482,5 +497,28 @@ describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-infl
     visualPanel.children[0].onclick?.();
 
     expect(sent).toEqual(onlyCandidate.action);
+  });
+
+  /**
+   * Regression test for bug report 1f3685826a5c1f2c (game msgd0dft-euql7p,
+   * seq 638): "The msg Remove Erkenbrand didnt go away for the whole turn."
+   * The `influence-overflow-discard-btn` created above is appended to
+   * `#visual-panel` but was missing from the stale-button cleanup preamble at
+   * the top of {@link renderPassButton} (which removes `.hazard-sb-btn`,
+   * `.gold-ring-choice-btn`, `.great-hunt-choice-btn`, …). Once the resolution
+   * was resolved (here, by the character actually being discarded), the
+   * "Remove <character>" button had no matching class in the cleanup list and
+   * was never removed from the DOM, leaving it visible for the rest of the
+   * turn even though clicking it no longer did anything relevant.
+   */
+  test('removes a stale "Remove <character>" button once the resolution is gone', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p1-108': 'tw-148' }); // Erkenbrand
+
+    renderPassButton(viewWith([influenceOverflowDiscard('p1-108')]), () => { /* no-op */ });
+    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Remove Erkenbrand']);
+
+    renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
+
+    expect(visualPanel.children.map(c => c.textContent)).not.toContain('Remove Erkenbrand');
   });
 });
