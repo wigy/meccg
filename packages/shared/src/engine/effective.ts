@@ -273,7 +273,14 @@ export function resolveCreatureKeyingSiteType(
     );
   }
   if (siteDef && isSiteCard(siteDef)) {
-    return [getEffectiveSiteType(state, siteDef.id, siteDef.siteType, siteInstanceId)];
+    // The resolved site card locates override constraints and keywords by
+    // definitionId — it is not the printed-type basis. The caller's
+    // `fallbackPrintedType` (mhState.destinationSiteType, captured from the
+    // actual destination at the time the company arrived) is the printed
+    // type as far as keying is concerned; falling back to the resolved
+    // card's own siteType only when the caller has none to offer.
+    const printedType = fallbackPrintedType ?? siteDef.siteType;
+    return [getEffectiveSiteType(state, siteDef.id, printedType, siteInstanceId)];
   }
   return fallbackPrintedType ? [fallbackPrintedType] : [];
 }
