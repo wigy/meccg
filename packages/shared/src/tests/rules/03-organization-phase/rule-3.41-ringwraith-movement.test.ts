@@ -42,6 +42,13 @@ const FELL_RIDER = 'le-183' as CardDefinitionId;
 // via region movement, but not via starter movement (neither site is a haven,
 // and its nearestHaven is Dol Guldur, not Dead Marshes).
 const RHOSGOBEL = 'as-159' as CardDefinitionId;
+// le-359: Carn Dûm — Darkhaven (siteType: haven) in Angmar; connected to Dol
+// Guldur via havenPath (starter movement).
+const CARN_DUM = 'le-359' as CardDefinitionId;
+// as-144: Eagles' Eyrie — free-hold (not a Darkhaven) in Anduin Vales, 3
+// regions from Angmar — reachable via region movement, but its nearestHaven
+// is Dol Guldur (not Carn Dûm), so it is NOT reachable via starter movement.
+const EAGLES_EYRIE = 'as-144' as CardDefinitionId;
 
 describe('Rule 3.41 — Ringwraith Movement Restrictions', () => {
   beforeEach(() => resetMint());
@@ -90,9 +97,11 @@ describe('Rule 3.41 — Ringwraith Movement Restrictions', () => {
     // non-Darkhaven site it presumably already reached from a Darkhaven).
     // Rule 2.II.7.R1 requires the site of *origin* to be a Darkhaven for a
     // non-Darkhaven destination to be legal — having a mode card is not
-    // enough on its own. Only the Darkhaven destination (Minas Morgul) must
-    // be offered; the other non-Darkhaven site (Rhosgobel) — reachable via
-    // region movement — must be excluded.
+    // enough on its own. Only the Darkhaven destination reachable via starter
+    // movement (Dol Guldur — Dead Marshes' nearestHaven) must be offered;
+    // Minas Morgul (a Darkhaven reachable only via region movement, which is
+    // never legal for a Ringwraith company per 2.II.7.R1) and Rhosgobel (a
+    // non-Darkhaven reachable via region movement) must both be excluded.
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -102,7 +111,7 @@ describe('Rule 3.41 — Ringwraith Movement Restrictions', () => {
           alignment: Alignment.Ringwraith,
           companies: [{ site: DEAD_MARSHES, characters: [THE_WITCH_KING] }],
           hand: [],
-          siteDeck: [MINAS_MORGUL, RHOSGOBEL],
+          siteDeck: [DOL_GULDUR, MINAS_MORGUL, RHOSGOBEL],
         },
         {
           id: PLAYER_2,
@@ -115,12 +124,55 @@ describe('Rule 3.41 — Ringwraith Movement Restrictions', () => {
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
     state = addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyId);
 
+    const dolGuldurInst = state.players[0].siteDeck.find(s => s.definitionId === DOL_GULDUR)!.instanceId;
     const minasInst = state.players[0].siteDeck.find(s => s.definitionId === MINAS_MORGUL)!.instanceId;
     const rhosgobelInst = state.players[0].siteDeck.find(s => s.definitionId === RHOSGOBEL)!.instanceId;
 
     const plans = viableActions(state, PLAYER_1, 'plan-movement');
 
-    expect(plans.some(ea => (ea.action as PlanMovementAction).destinationSite === minasInst)).toBe(true);
+    expect(plans.some(ea => (ea.action as PlanMovementAction).destinationSite === dolGuldurInst)).toBe(true);
+    expect(plans.every(ea => (ea.action as PlanMovementAction).destinationSite !== minasInst)).toBe(true);
     expect(plans.every(ea => (ea.action as PlanMovementAction).destinationSite !== rhosgobelInst)).toBe(true);
+  });
+
+  test('[MINION] With a mode card and a Darkhaven origin, a Ringwraith company still cannot use Region Movement', () => {
+    // The Witch-king with Fell Rider bound, stationed at Carn Dûm (a
+    // Darkhaven) — the mode gate is satisfied, so a non-Darkhaven destination
+    // is not blocked by rule 2.II.7.R1's first clause. But that rule's second
+    // clause is unconditional: "a company that contains a Ringwraith can only
+    // use Starter Movement or Under-deeps Movement" — Region Movement must
+    // never be offered, mode or no mode. Eagles' Eyrie is 3 regions away (within
+    // the 4-region cap) but not on Carn Dûm's starter path, so it must be
+    // excluded. Dol Guldur (a Darkhaven reachable via starter movement) must
+    // still be offered.
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [THE_WITCH_KING] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR, EAGLES_EYRIE],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    state = addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyId);
+
+    const dolGuldurInst = state.players[0].siteDeck.find(s => s.definitionId === DOL_GULDUR)!.instanceId;
+    const eaglesEyrieInst = state.players[0].siteDeck.find(s => s.definitionId === EAGLES_EYRIE)!.instanceId;
+
+    const plans = viableActions(state, PLAYER_1, 'plan-movement');
+
+    expect(plans.some(ea => (ea.action as PlanMovementAction).destinationSite === dolGuldurInst)).toBe(true);
+    expect(plans.every(ea => (ea.action as PlanMovementAction).destinationSite !== eaglesEyrieInst)).toBe(true);
   });
 });

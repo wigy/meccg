@@ -24,7 +24,7 @@ import type {
 import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
-import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
+import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
@@ -37,7 +37,7 @@ import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { viableWithRegress } from '../reverse-actions.js';
-import { isBalrogAvatarDef, companyContainsBalrogAvatar, totalMarshallingPoints } from '../../state-utils.js';
+import { isBalrogAvatarDef, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
@@ -814,12 +814,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
 
     // MELE §1.2: Ringwraith movement restrictions.
     // Check whether this company has a Ringwraith avatar.
-    const hasRingwraithAvatar = player.alignment === 'ringwraith' && company.characters.some(cId => {
-      const char = player.characters[cId];
-      if (!char) return false;
-      const def = defById(state, char.definitionId);
-      return def && isCharacterCard(def) && isAvatarCharacter(def) && def.race === Race.Ringwraith;
-    });
+    const hasRingwraithAvatar = player.alignment === 'ringwraith' && companyContainsRingwraithAvatar(state, player, company);
 
     if (hasRingwraithAvatar) {
       const hasModeCard = ringwraithHasModeCard(state, company, player);
@@ -842,6 +837,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       reachable = reachable.filter(r => !(r.site.sitePath ?? []).includes(RegionType.Coastal));
       if (reachable.length !== beforeCoastal) {
         logDetail(`Company ${company.id as string}: filtered out ${beforeCoastal - reachable.length} Coastal Seas destination(s) for Ringwraith`);
+      }
+
+      // Rule 2.II.7.R1: a company that contains a Ringwraith can only use
+      // Starter Movement or Under-deeps Movement — Region Movement is never
+      // available, mode or no mode. (Under-deeps candidates are computed in a
+      // separate pass below, so only Region-movement entries need dropping here.)
+      const beforeRegion = reachable.length;
+      reachable = reachable.filter(r => r.movementType !== 'region');
+      if (reachable.length !== beforeRegion) {
+        logDetail(`Company ${company.id as string}: filtered out ${beforeRegion - reachable.length} Region-movement destination(s) — Ringwraith companies may only use Starter or Under-deeps movement`);
       }
     }
 

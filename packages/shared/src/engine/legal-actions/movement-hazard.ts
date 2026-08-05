@@ -13,7 +13,7 @@ import { matchesCondition, matchesContext } from '../../effects/condition-matche
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
-import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, requirePhaseState } from '../../state-utils.js';
+import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
 import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
@@ -448,6 +448,13 @@ function revealNewSiteActions(
   // this lock; it only *removes* starter movement and caps region distance for
   // whatever company it is bound to.)
   const balrogMovementLocked = companyContainsBalrogAvatar(state, player, company);
+  // CoE 2.II.7.R1: a company containing a Ringwraith avatar can only use
+  // Starter Movement or Under-deeps Movement, mode or no mode — Region
+  // Movement is never available to it.
+  const ringwraithRegionLocked = companyContainsRingwraithAvatar(state, player, company);
+  if (ringwraithRegionLocked) {
+    logDetail(`Company ${company.id as string} contains a Ringwraith avatar — region movement suppressed (2.II.7.R1)`);
+  }
   // Out He Sprang (ba-71): lifts the region-movement half of the Balrog lock for
   // movement to/from an Under-deeps surface site (Great Shadow must not be in
   // play). The returned allowance is a fixed region cap not modifiable by any
@@ -489,7 +496,7 @@ function revealNewSiteActions(
   // --- Region movement ---
   const originRegion = movementMap.siteRegion.get(originDef.name);
   const destRegion = movementMap.siteRegion.get(destDef.name);
-  if (!isUnderDeepsMovement && (!balrogMovementLocked || balrogRegionAllowed) && originRegion && destRegion) {
+  if (!isUnderDeepsMovement && (!balrogMovementLocked || balrogRegionAllowed) && !ringwraithRegionLocked && originRegion && destRegion) {
     // Build region name → definition ID map for converting path names to IDs
     const regionNameToId = buildRegionNameMap(state);
     // Out He Sprang fixes the Balrog's region distance at its MP-derived
