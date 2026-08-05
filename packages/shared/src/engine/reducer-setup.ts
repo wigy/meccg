@@ -476,6 +476,15 @@ function resolveDraftRound(
         logDetail(`Player ${i} not auto-stopped: a Stage resource still needs a paired site`);
         continue;
       }
+      // CoE 1.9.F4: a Fallen-wizard must attempt to draft every Stage resource
+      // still legal to pick from their pool before stopping — hitting the
+      // company-size cap must not auto-stop them out from under that
+      // obligation (mirrors the manual `draft-stop` guard above).
+      if (state.players[i].alignment === Alignment.FallenWizard
+        && fwHasViableStageResourcePick(state, newDraft[i])) {
+        logDetail(`Player ${i} not auto-stopped: a Stage resource in the pool is still a legal pick (CoE 1.9.F4)`);
+        continue;
+      }
       const mind = newDraft[i].drafted.reduce((sum, card) => {
         const def = defById(state, card.definitionId);
         return sum + printedMind(def);
