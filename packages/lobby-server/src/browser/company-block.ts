@@ -880,6 +880,7 @@ export function renderCompanyBlock(
           } else {
             setMergeSourceCompanyId(company.id);
             setTargetingInstruction('Click a company to join into');
+            switchToAllCompanies();
             rerender();
           }
         },
