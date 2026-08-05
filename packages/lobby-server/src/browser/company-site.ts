@@ -16,6 +16,7 @@ import type {
   Company,
   OpponentCompanyView,
   DeclarePathAction,
+  ExtraMHMoveAction,
   RegionType,
   ActivateGrantedAction,
   DeclareAgentAttackAction,
@@ -313,6 +314,45 @@ export function renderSiteArea(
         pathList.appendChild(btn);
       }
       area.appendChild(pathList);
+    }
+  }
+
+  // Extra-move choice list during the extra-mh-move-offer step
+  // (`grant-extra-mh-phase` resources — Forced March le-185, Bridge tw-202,
+  // Leg It Double Quick le-202, Ûvatha Unleashed le-248, World Gnawed by the
+  // Nameless as-110): the engine legally offers `extra-mh-move` to send the
+  // company that just finished its M/H phase to an additional site, but the
+  // board gave no way to trigger it — only the generic "Pass" button was
+  // visible, indistinguishable from declining the option. List the offered
+  // destinations as clickable buttons, mirroring the declare-path list above.
+  if (options?.onAction && view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'extra-mh-move-offer') {
+    const isSelfTurn = view.activePlayer === view.self.id;
+    const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const mhActiveCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+    const isActiveCompany = mhActiveCompany && company.id === mhActiveCompany.id;
+    const moveActions = isActiveCompany ? viableActions(view.legalActions).filter(
+      (a): a is ExtraMHMoveAction => a.type === 'extra-mh-move',
+    ) : [];
+    if (moveActions.length > 0) {
+      const moveList = document.createElement('div');
+      moveList.className = 'path-choice-list';
+      for (const action of moveActions) {
+        const destDef = resolveCardDef(action.destinationSite, view, cardPool);
+        const btn = document.createElement('button');
+        btn.className = 'char-action-tooltip__btn';
+
+        const label = document.createElement('div');
+        label.textContent = `Move to ${destDef?.name ?? action.destinationSite as string}`;
+        btn.appendChild(label);
+
+        const onAction = options.onAction;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(action);
+        });
+        moveList.appendChild(btn);
+      }
+      area.appendChild(moveList);
     }
   }
 
