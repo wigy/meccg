@@ -74,6 +74,31 @@ describe('Return of the King (tw-316)', () => {
   });
 
   // ── Rule 2.1.1: playable at any phase, not gated behind `enter-site` ──
+  // Bug report: RotK's text carries no "playable during the site phase"
+  // wording (unlike its site-targeting siblings), so per rule 2.1.1 it must
+  // remain playable during any phase of the resource player's turn — not
+  // just the site phase.
+
+  test('IS playable during the end-of-turn phase when Aragorn II is at Minas Tirith', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }],
+          hand: [RETURN_OF_THE_KING],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const act = actions[0].action as PlayPermanentEventAction;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    expect(act.targetCharacterId).toBe(aragornId);
+  });
 
   test('IS playable during the site phase before enter-site, once the company is already at Minas Tirith', () => {
     // Reproduces a reported bug: the company had already arrived at Minas
