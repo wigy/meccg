@@ -292,6 +292,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     cheatRollTotal: null,
     cheated: false,
     revealedInstances: {},
+    handRevealedInstances: {},
   } as unknown as GameState;
 
   const seeded = accrueRevealedInstances(baseState);

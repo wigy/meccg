@@ -225,6 +225,25 @@ export interface GameState {
    * per-reducer-path instrumentation is required.
    */
   readonly revealedInstances: ById<CardDefinitionId>;
+  /**
+   * Identities (instanceId → definitionId) of card instances an explicit
+   * game effect has revealed while they sit in a normally-private pile
+   * (e.g. Rolled down to the Sea, wh-29, forcing the opponent to reveal
+   * their hand; Riddling Talk, td-148, revealing the opponent's hand for a
+   * guess; a peek/fetch effect showing specific play-deck or hand cards).
+   *
+   * Unlike {@link revealedInstances}, this map is populated only by
+   * explicit reveal call sites — never by the automatic public-occupancy
+   * accrual. That distinction matters because a card can become publicly
+   * known merely by passing through an unrelated public zone (e.g. a
+   * character played into a company) and later return to a private hand:
+   * the opponent legitimately knew its identity while it was in play, but
+   * that knowledge must not leak into the *hand* view once the character
+   * is back in hand — CoE 2.II.8 returns overflowing characters to hand
+   * precisely because they are being treated as unplayed again. Consumed
+   * by the opponent's hand and play-deck redaction in `projection.ts`.
+   */
+  readonly handRevealedInstances: ById<CardDefinitionId>;
 }
 
 // ---- Instance resolution helpers ----
