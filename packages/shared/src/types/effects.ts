@@ -6189,6 +6189,39 @@ export interface ForceCheckAllInPlayEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves, **every faction in play — both
+ * players'** — is rolled for and discarded on a bad result. Untargeted (no
+ * `play-target`): the card's own text names the scope ("each player" /
+ * "each faction he has in play"), so it needs no per-faction action —
+ * generalizes the single-faction `play-target: "faction"` + `dice-check`
+ * shape (Muster Disperses le-126/tw-67) to a sweep of every faction card
+ * currently in either player's `cardsInPlay`.
+ *
+ * One `dice-check` {@link PendingResolution} is enqueued per faction found,
+ * roller = that faction's own controller, modifier = that controller's
+ * unused general influence, `onFail` discards the faction to its owner's
+ * discard pile. All entries share `continuation: { kind: 'chain-entry',
+ * match: 'source', drainSameSource: true }` so the chain entry stays
+ * unresolved until every faction's roll is in — mirrors the
+ * `force-check-all-company` "all company members" pattern. A faction whose
+ * roll matches `alwaysFailRolls` (the card's "result is 2 or 3" clause)
+ * discards regardless of the modified total.
+ *
+ * Used by News of Doom (le-127): "Each player makes a roll for each faction
+ * he has in play. Discard any faction if its result is 2 or 3, or if its
+ * result plus that player's unused general influence is less than 10."
+ */
+export interface MultiFactionCheckEffect extends EffectBase {
+  readonly type: 'multi-faction-check';
+  /** Pre-resolved threshold the modified total (roll + unused GI) must reach to survive. */
+  readonly threshold: number;
+  /** Pass condition: `'gt'` (strictly greater) or `'gte'` (≥). */
+  readonly comparison: 'gt' | 'gte';
+  /** Raw (pre-modifier) 2d6 values that always discard the faction regardless of the modified total. */
+  readonly alwaysFailRolls?: readonly number[];
+}
+
+/**
  * When this short-event resolves, the **target character's controller** must
  * discard one item borne by that character — the choosing player picks which,
  * so the effect is a forced discard with an owner-chosen victim.
@@ -7814,6 +7847,7 @@ export type CardEffect =
   | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect
   | ForceCheckAllInPlayEffect
+  | MultiFactionCheckEffect
   | ForceDiscardTargetItemEffect
   | AttackRaceBoostEffect
   | TargetCharacterStatModifierEffect
