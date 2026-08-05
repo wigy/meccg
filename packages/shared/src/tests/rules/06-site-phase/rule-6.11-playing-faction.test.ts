@@ -61,6 +61,32 @@ describe('Rule 6.11 — Playing a Faction', () => {
     expect(tappedAttempts).toHaveLength(0);
   });
 
+  test('a failed influence attempt discards the faction but leaves the site untapped', () => {
+    // 2.V.1.1 / 2.V.3: the site "is tapped upon successful resolution of the
+    // resource" — a failed influence check only discards the faction, it
+    // must not tap the site (seed mseo5p0k-dcvpu8, stateSeq 122).
+    const state = buildSitePhaseState({
+      site: BREE,
+      characters: [ARAGORN],
+      hand: [RANGERS_OF_THE_NORTH],
+    });
+
+    const factionInstId = handCardId(state, RESOURCE_PLAYER);
+    const aragornInstId = charIdAt(state, RESOURCE_PLAYER);
+    const attempt = (viableActions(state, PLAYER_1, 'influence-attempt') as { action: InfluenceAttemptAction }[])
+      .find(a => a.action.factionInstanceId === factionInstId && a.action.influencingCharacterId === aragornInstId)!;
+
+    const afterChain = resolveChain(dispatch(state, attempt.action));
+    const rollAction = viableActions(afterChain, PLAYER_1, 'faction-influence-roll')[0].action;
+    // Minimum dice roll (2) + Aragorn's +6 modifier = 8, well under the
+    // influence number of 10 — guaranteed failure.
+    const resolved = dispatch({ ...afterChain, cheatRollTotal: 2 }, rollAction);
+
+    expect(resolved.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === factionInstId)).toBe(true);
+    expect(resolved.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === factionInstId)).toBe(false);
+    expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Untapped);
+  });
+
   test('losing the influencer before the roll fails the attempt and discards the faction', () => {
     // The chain deliberately leaves an influence-attempt entry unresolved
     // while the pending faction-influence-roll awaits the player's commit.
