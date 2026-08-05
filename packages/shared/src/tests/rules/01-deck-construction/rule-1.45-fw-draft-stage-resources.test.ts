@@ -635,12 +635,19 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
 
     // Drafting the last Stage resource empties the pool, so both players are
     // now stopped and the draft finalizes on its own (no explicit draft-stop
-    // needed) — with all 3 stage points (Thrall's 1) accounted for.
+    // needed). None of Alice's five drafted characters is mind > 5 or an agent
+    // (Thrall was never in play to lift that gate before them), so Thrall has
+    // no gated character to be placed with (fix bddd28462: a surplus
+    // recruitment vehicle is no longer forced onto a non-gated filler) — it
+    // stays in Alice's hand, playable as a recruitment vehicle during a later
+    // organization phase per its own card text, and contributes no stage
+    // points until then.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
     ]);
     expect((state.phaseState as { setupStep?: { step: string } }).setupStep?.step).not.toBe('character-draft');
-    expect(state.players[0].stagePoints).toBe(1);
+    expect(state.players[0].hand.map(c => c.definitionId)).toContain(THRALL_OF_THE_VOICE);
+    expect(state.players[0].stagePoints).toBe(0);
   });
 
   test('[FALLEN-WIZARD] draft-stop is not offered while a Stage resource in the pool is still a legal pick (regression for game msd1yp91-j5yc2m seq 8)', () => {
