@@ -22,6 +22,7 @@ import {
   viableActions, dispatch, makePlayDeck,
   playPermanentEventAndResolve,
   findCharInstanceId, getCharacter, makeMHState, RESOURCE_PLAYER,
+  makeShadowMHState, makeBodyCheckCombat, setCharStatus, companyIdAt,
 } from '../test-helpers.js';
 import type {
   PlayPermanentEventAction,
@@ -319,5 +320,57 @@ describe('Align Palantír (tw-190)', () => {
     const sarumanId = findCharInstanceId(stateAtMH, RESOURCE_PLAYER, SARUMAN);
     const charAfter = afterHazardPass.players[0].characters[sarumanId];
     expect(charAfter.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(true);
+  });
+
+  // ── CoE rule 3.I.2: elimination — only true items are salvageable ──
+
+  test('Align Palantír is NOT salvageable when its bearer is eliminated — discarded immediately', () => {
+    // Saruman bears Palantír of Orthanc + Align Palantír; Aragorn is an
+    // unwounded companion. Saruman fails a body check and is eliminated.
+    // Per CoE 3.I.2, only true items may be transferred to the unwounded
+    // companion — Align Palantír (a permanent event, not an item) must be
+    // discarded immediately along with any other non-item, non-follower cards.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: LORIEN,
+            characters: [
+              { defId: SARUMAN, items: [PALANTIR_OF_ORTHANC, ALIGN_PALANTIR] },
+              ARAGORN,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: MORIA, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const sarumanId = findCharInstanceId(state, RESOURCE_PLAYER, SARUMAN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, SARUMAN, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: sarumanId }),
+      cheatRollTotal: 12,
+    };
+    const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+
+    // Only the Palantír itself is offered for salvage — Align Palantír is not.
+    expect(nextState.combat).toBeDefined();
+    expect(nextState.combat!.phase).toBe('item-salvage');
+    expect(nextState.combat!.salvageItems).toHaveLength(1);
+    expect(nextState.combat!.salvageItems![0].definitionId).toBe(PALANTIR_OF_ORTHANC);
+
+    // Align Palantír already went to the discard pile, not the salvage pool.
+    expect(nextState.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === ALIGN_PALANTIR)).toBe(true);
   });
 });
