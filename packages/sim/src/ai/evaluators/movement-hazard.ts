@@ -22,6 +22,7 @@ import {
   freeDi,
   boostsCreatureAttack,
   enablesHandCardBonus,
+  discardBenefitsSelf,
 } from './common.js';
 
 /** Estimate how dangerous a creature is against a target company. */
@@ -118,6 +119,21 @@ export const movementHazardEvaluator: ActionEvaluator = {
           return 5;
         }
         return 3;
+      }
+
+      case 'play-short-event': {
+        // A short event that forces the discard of an in-play hazard-event
+        // (e.g. Marvels Told) offers one legal action per eligible target.
+        // Left unscored, both a self-hurting target (discard my own hazard,
+        // helping the opponent) and a self-helping target (discard the
+        // opponent's hazard, helping me) get the same default weight — a
+        // coin flip that regularly had the AI un-hindering its own hazard
+        // placement on the opponent's character (bug report: Marvels Told
+        // removing Foolish Words from Faramir, an opponent character).
+        if (action.discardTargetInstanceId) {
+          return discardBenefitsSelf(view, action.discardTargetInstanceId) ? 20 : 0;
+        }
+        return null;
       }
 
       case 'place-on-guard': {
