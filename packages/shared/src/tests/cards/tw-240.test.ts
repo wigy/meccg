@@ -102,6 +102,20 @@ describe('Fellowship (tw-240)', () => {
     expect(actions).toHaveLength(0);
   });
 
+  test('not playable during the movement/hazard phase, even on a qualifying company at a Haven', () => {
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI, BILBO] }], hand: [FELLOWSHIP], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FARAMIR] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions).toHaveLength(0);
+  });
+
   // ── After resolve: card in cardsInPlay with companyId set ──────────────────
 
   test('resolves to cardsInPlay with companyId bound to the target company', () => {
