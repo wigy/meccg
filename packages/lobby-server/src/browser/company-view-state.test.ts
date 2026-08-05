@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { shouldOverrideToAllCompanies, shouldFocusOwnCompanyAfterSelectCompany } from './company-view-state.js';
+import {
+  shouldOverrideToAllCompanies,
+  shouldFocusOwnCompanyAfterSelectCompany,
+  shouldClearOverrideForNewCombat,
+} from './company-view-state.js';
 
 /**
  * Regression tests for the turn-change focus decision.
@@ -70,5 +74,32 @@ describe('shouldFocusOwnCompanyAfterSelectCompany', () => {
 
   it('does NOT focus when there is no active player', () => {
     expect(shouldFocusOwnCompanyAfterSelectCompany('select-company', 'draw-cards', null, SELF)).toBe(false);
+  });
+});
+
+/**
+ * Regression tests for bug report 7ff9464e440e22ed (game msenkvsc-3y5o11, seq
+ * 581): "When opponnent moves it is staying in the overview screen, not
+ * showing the party and my cards". The opponent's movement/hazard phase
+ * forces the all-companies overview on for the whole turn (so self-agents
+ * stay visible), but a hazard-triggered strike/body-check needs the combat
+ * view instead — and the overview's CSS hides the local player's hand. The
+ * override must be cleared the moment a new combat starts.
+ */
+describe('shouldClearOverrideForNewCombat', () => {
+  it('clears the override when a new combat starts', () => {
+    expect(shouldClearOverrideForNewCombat(true, false)).toBe(true);
+  });
+
+  it('does NOT clear the override on a re-render while combat is still ongoing', () => {
+    expect(shouldClearOverrideForNewCombat(true, true)).toBe(false);
+  });
+
+  it('does NOT clear the override when there is no combat', () => {
+    expect(shouldClearOverrideForNewCombat(false, false)).toBe(false);
+  });
+
+  it('does NOT clear the override when combat just ended', () => {
+    expect(shouldClearOverrideForNewCombat(false, true)).toBe(false);
   });
 });

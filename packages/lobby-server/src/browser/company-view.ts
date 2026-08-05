@@ -36,6 +36,7 @@ import {
   getMergeSourceCompanyId, setMergeSourceCompanyId,
   getLastActivePlayer, setLastActivePlayer,
   getLastMhSiteStep, setLastMhSiteStep,
+  getLastCombatActive, setLastCombatActive,
   setLastOnAction, setLastView, setLastCardPool,
   setCachedInstanceLookup,
   getCachedInstanceLookup,
@@ -43,6 +44,7 @@ import {
   resetState,
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
+  shouldClearOverrideForNewCombat,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -421,6 +423,14 @@ export function renderCompanyViews(
     (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site)
     && view.phaseState.step === 'select-company';
   const inFreeCouncil = view.phaseState.phase === Phase.FreeCouncil;
+
+  // Clear an opponent-turn all-companies override at the start of a new combat
+  // so the combat view isn't left hidden behind it (see shouldClearOverrideForNewCombat).
+  const combatActive = view.combat !== null;
+  if (shouldClearOverrideForNewCombat(combatActive, getLastCombatActive())) {
+    setAllCompaniesOverride(false);
+  }
+  setLastCombatActive(combatActive);
 
   const board = $('visual-board');
   // The guided-tutorial panel lives on document.body (fixed overlay), so
