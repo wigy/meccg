@@ -48,7 +48,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, isStageResourceCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
@@ -1302,6 +1302,23 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
   for (const card of player.killPile) {
     if (!isStageCardDef(state, card.definitionId)) continue;
     stagePoints += stagePointsOfCard(defById(state, card.definitionId));
+  }
+  // A drafted Stage resource can be stranded in hand at draft finalize rather
+  // than entering play immediately: a recruitment vehicle (Thrall of the
+  // Voice wh-82) with no gated character to place it with waits there until
+  // an organization phase actually recruits a character through it (CoE:
+  // "during your organization phase you may bring into play one character
+  // ... place this card with the character"), and a site-targeting Hidden
+  // Haven (wh-75) with no paired site, or a colliding pairing (CRF 22), is
+  // set aside to hand. Either way it was already counted toward the running
+  // total mid-draft (see the character-draft branch below) and CoE 1.7.F1
+  // ("building toward exactly 3") gives no basis for that count to regress
+  // just because the card has not yet found a home — so still-drafted Stage
+  // resources sitting in hand keep contributing.
+  for (const card of player.hand) {
+    const def = defById(state, card.definitionId);
+    if (!isStageResourceCard(def)) continue;
+    stagePoints += stagePointsOfCard(def);
   }
   // A stage permanent-event played "on a character" (Wizard's Myrmidon wh-84,
   // The Forge-master wh-117) is attached to the bearer's `items`, not to
