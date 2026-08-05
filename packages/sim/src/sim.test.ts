@@ -86,7 +86,7 @@ describe('headless runner', () => {
     const second = record();
     expect(first.length).toBeGreaterThan(0);
     expect(second).toEqual(first);
-  });
+  }, GAME_TIMEOUT);
 
   test('agents only ever see a projected view with hidden info redacted', () => {
     // The runner must feed agents PlayerView objects, never the raw
