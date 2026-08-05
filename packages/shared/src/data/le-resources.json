@@ -1410,6 +1410,11 @@
         "reason": "rule 1.23"
       },
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "company",
         "filter": {
@@ -1544,6 +1549,11 @@
           "deck.alignment": "balrog"
         },
         "reason": "rule 1.23"
+      },
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
       },
       {
         "type": "play-target",
