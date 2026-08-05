@@ -528,8 +528,8 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Barrowblade.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
-    "marshallingCategory": "misc",
+    "marshallingPoints": 1,
+    "marshallingCategory": "item",
     "effects": [
       {
         "type": "play-condition",
