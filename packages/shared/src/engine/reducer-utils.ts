@@ -20,7 +20,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
-import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
+import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { evaluateRules } from '../rules/evaluator.js';
@@ -1621,6 +1621,33 @@ export function companyHasRingwraith(state: GameState, owner: PlayerState, compa
     if (charDef && isCharacterCard(charDef) && charDef.race === Race.Ringwraith) return true;
   }
   return false;
+}
+
+/**
+ * The characters in `company` who "use shadow-magic": Ringwraiths by race
+ * (CoE rule — a Ringwraith can always use shadow-magic) plus any character
+ * whose effective skills include `"shadow-magic"`. Order follows
+ * `company.characters`. Shared by shadow-magic play-target eligibility
+ * (`company.hasShadowMagicUser` context, `legal-actions/organization-events.ts`)
+ * and by cards that force a corruption check on "the shadow-magic using
+ * character" in a company (Sojourn in Shadows wh-49).
+ */
+export function companyShadowMagicUsers(
+  state: GameState,
+  owner: PlayerState,
+  company: Company,
+): { readonly id: CardInstanceId; readonly isRingwraith: boolean }[] {
+  const users: { id: CardInstanceId; isRingwraith: boolean }[] = [];
+  for (const charInstId of company.characters) {
+    const charData = owner.characters[charInstId];
+    if (!charData) continue;
+    const charDef = defById(state, charData.definitionId);
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    const isRingwraith = charDef.race === Race.Ringwraith;
+    const usesShadowMagic = isRingwraith || getEffectiveSkills(state, charData, charDef).includes('shadow-magic');
+    if (usesShadowMagic) users.push({ id: charInstId, isRingwraith });
+  }
+  return users;
 }
 
 /**

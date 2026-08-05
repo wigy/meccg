@@ -28,7 +28,7 @@ import { resolveDef, enemyRaceContext } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -2843,16 +2843,35 @@ function protectFromStrikeAssignmentActions(
     );
     if (!protEff) continue;
 
+    // Shared once per card: used both by the `filter`'s `company.hasShadowMagicUser`
+    // context (Sojourn in Shadows wh-49) and, on play, by the corruptionCheck target.
+    const hasShadowMagicUser = companyShadowMagicUsers(state, player, company).length > 0;
+
     for (const charId of company.characters) {
       const charData = player.characters[charId];
       if (!charData) continue;
       const charDef = defById(state, charData.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
-      if (!charDef.skills.includes(protEff.requiredSkill as import('../../types/common.js').Skill)) {
+      if (protEff.requiredSkill && !charDef.skills.includes(protEff.requiredSkill as import('../../types/common.js').Skill)) {
         logDetail(`protect-from-assignment ${handCard.definitionId as string}: ${charDef.name ?? charId as string} lacks skill "${protEff.requiredSkill}" — skipping`);
         continue;
       }
-      logDetail(`protect-from-assignment available: ${handCard.definitionId as string} can protect ${charDef.name ?? charId as string} (skill: ${protEff.requiredSkill})`);
+      if (protEff.filter) {
+        const ctx = {
+          target: {
+            race: charDef.race,
+            status: charData.status,
+            skills: charDef.skills,
+            name: charDef.name,
+          },
+          company: { hasShadowMagicUser },
+        };
+        if (!matchesCondition(protEff.filter, ctx)) {
+          logDetail(`protect-from-assignment ${handCard.definitionId as string}: ${charDef.name ?? charId as string} fails filter — skipping`);
+          continue;
+        }
+      }
+      logDetail(`protect-from-assignment available: ${handCard.definitionId as string} can protect ${charDef.name ?? charId as string}`);
       actions.push({
         action: {
           type: 'protect-from-assignment',
