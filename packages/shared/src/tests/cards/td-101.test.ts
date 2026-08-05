@@ -5,7 +5,11 @@
  * Type: hero-resource-event (short, wizard alignment)
  * Effects:
  *   1. play-window: phase "site" — only playable during the site phase
- *   2. on-event: self-enters-play → set-site-phase-flag(hoardBountyAvailable) — sets
+ *   2. play-condition: requires "active-company", condition
+ *      `{ "site.keywords": { "$includes": "hoard" } }` — rule 5.1.2 bars
+ *      playing a short-event with no potential effect on the board state;
+ *      this card's only effect can never matter at a non-hoard site.
+ *   3. on-event: self-enters-play → set-site-phase-flag(hoardBountyAvailable) — sets
  *      SitePhaseState.hoardBountyAvailable, allowing one additional minor or
  *      major item to be played at the tapped hoard site.
  *
@@ -16,7 +20,8 @@
  * | # | Effect Type           | Status      | Notes                                      |
  * |---|-----------------------|-------------|--------------------------------------------|
  * | 1 | play-window site      | IMPLEMENTED | heroResourceShortEventActions + org filter |
- * | 2 | set-site-phase-flag   | IMPLEMENTED | applyShortEventOnEntersPlay, reducer-site  |
+ * | 2 | play-condition        | IMPLEMENTED | playResourceShortEventActions, buildActiveCompanyContext |
+ * | 3 | set-site-phase-flag   | IMPLEMENTED | applyShortEventOnEntersPlay, reducer-site  |
  *
  * Playable: YES
  */
@@ -78,6 +83,21 @@ describe('Bounty of the Hoard (td-101)', () => {
     const actions = computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event');
     expect(actions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ─── play-condition active-company: site must contain a hoard ───────────────
+
+  test('not offered at a non-hoard site (rule 5.1.2 — no potential effect)', () => {
+    // Minas Tirith has no "hoard" keyword, so setting hoardBountyAvailable
+    // there can never unlock an item — the event has no potential effect.
+    const state = buildSitePhaseState({
+      site: MINAS_TIRITH,
+      hand: [BOUNTY_OF_THE_HOARD],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(actions).toHaveLength(0);
   });
 
   // ─── core effect: playing the event sets hoardBountyAvailable ────────────────

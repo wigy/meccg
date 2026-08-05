@@ -2345,13 +2345,15 @@ export function buildPlayOptionContext(
 
 /**
  * Builds the condition context for a `play-condition` `requires:
- * 'active-company'` check. Exposes the company's current site (name/type),
- * the aggregate names of every character, borne item, and borne ally in
- * the company, and its `specialMovement` flag — enough for a generic DSL
- * condition to express positional win prerequisites (e.g. The One Ring and
- * Gollum at Mount Doom) or a same-turn special-movement prerequisite (Army of
- * the Dead tw-193: "on the same turn that [Aragorn II] plays Paths of the
- * Dead") without a per-card keyword.
+ * 'active-company'` check. Exposes the company's current site (name/type/
+ * keywords), the aggregate names of every character, borne item, and borne
+ * ally in the company, and its `specialMovement` flag — enough for a generic
+ * DSL condition to express positional win prerequisites (e.g. The One Ring
+ * and Gollum at Mount Doom), a site-keyword prerequisite (e.g. Bounty of the
+ * Hoard td-101 requiring `{ "site.keywords": { "$includes": "hoard" } }`), or
+ * a same-turn special-movement prerequisite (Army of the Dead tw-193: "on the
+ * same turn that [Aragorn II] plays Paths of the Dead") without a per-card
+ * keyword.
  */
 export function buildActiveCompanyContext(
   state: GameState,
@@ -2361,6 +2363,7 @@ export function buildActiveCompanyContext(
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const siteName = siteDef?.name;
   const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
+  const siteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];
@@ -2375,7 +2378,7 @@ export function buildActiveCompanyContext(
   }
 
   return {
-    site: { name: siteName, type: siteType },
+    site: { name: siteName, type: siteType, keywords: siteKeywords },
     company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement },
   };
 }
