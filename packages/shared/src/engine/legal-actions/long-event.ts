@@ -208,7 +208,7 @@ export function heroResourceShortEventActions(
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt', 'join-combat-force-strike']);
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {

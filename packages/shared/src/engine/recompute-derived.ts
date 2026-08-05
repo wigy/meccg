@@ -48,7 +48,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, isStageResourceCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
@@ -1334,6 +1334,17 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
     for (const card of draft.draftedStageResources) {
       stagePoints += stagePointsOfCard(defById(state, card.definitionId));
     }
+  }
+  // A drafted Stage resource can still be sitting in `hand` after draft finalize
+  // — an unpaired Thrall of the Voice with no gated character left to attach to
+  // (`applyDraftResults`), or one awaiting its item-draft placement — since only
+  // its physical placement, not its stage points, is deferred (CoE 1.9.F4). Stage
+  // resources never enter `hand` any other way (they carry `starting-item` and
+  // are drafted, never drawn from a play deck), so this can never double-count a
+  // card the player merely hasn't played yet.
+  for (const card of player.hand) {
+    if (!isStageResourceCard(defById(state, card.definitionId))) continue;
+    stagePoints += stagePointsOfCard(defById(state, card.definitionId));
   }
   // A Fallen-wizard site that grants stage points *while occupied* (Deep Mines
   // wh-55: "You receive the three stage points if any of your companies are at
