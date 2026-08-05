@@ -635,12 +635,18 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
 
     // Drafting the last Stage resource empties the pool, so both players are
     // now stopped and the draft finalizes on its own (no explicit draft-stop
-    // needed) — with all 3 stage points (Thrall's 1) accounted for.
+    // needed). None of the five drafted characters needed Thrall's gate (no
+    // agents, all mind ≤ 5), so under the corrected pairing rule (bug report
+    // ce89374d71a75cc7: a recruitment vehicle only pairs with a character that
+    // needed its specific gate) the surplus Thrall is not force-attached — it
+    // is kept in hand, still usable as a recruitment vehicle in a later
+    // organization phase, and yields no stage points yet.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
     ]);
     expect((state.phaseState as { setupStep?: { step: string } }).setupStep?.step).not.toBe('character-draft');
-    expect(state.players[0].stagePoints).toBe(1);
+    expect(state.players[0].hand.map(c => c.definitionId)).toContain(THRALL_OF_THE_VOICE);
+    expect(state.players[0].stagePoints).toBe(0);
   });
 
   test('[FALLEN-WIZARD] draft-stop is not offered while a Stage resource in the pool is still a legal pick (regression for game msd1yp91-j5yc2m seq 8)', () => {
