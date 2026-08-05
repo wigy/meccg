@@ -1955,6 +1955,10 @@ function applyShortEventOnEntersPlay(
         modifier,
         reason: def.name,
         onSuccess: onEvent.apply.onSuccess,
+        // CoE 7.1.1: any corruption check declared but not yet resolved may
+        // be supported by tapping untapped company mates for +1 each, not
+        // just item-transfer/store checks — see rule-3.35's transfer fix.
+        allowSupport: true,
       });
       continue;
     }
