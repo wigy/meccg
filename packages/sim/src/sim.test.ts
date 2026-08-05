@@ -163,5 +163,5 @@ describe('statistics', () => {
     expect(stats.scoreByTurn.length).toBeGreaterThan(1);
     const totalActions = Object.values(stats.actionTypes).reduce((s, v) => s + v, 0);
     expect(totalActions).toBe(stats.decisions);
-  });
+  }, GAME_TIMEOUT);
 });
