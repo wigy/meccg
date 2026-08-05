@@ -3677,10 +3677,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       defendingSiteEffects: defendingSiteDef?.effects,
       defendingSiteName: defendingSiteDef?.name,
       defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
-      // Pass the actual site-type keying even when empty (e.g. a declared
-      // region-type keying), so the override never falls back to the union of
-      // everything the creature *could* have keyed to.
+      // Pass the actual site-type/region-type keying even when empty (e.g. a
+      // declared region-name keying), so neither the override nor the
+      // §3.II.2.R1/R2 detainment checks fall back to the union of everything
+      // the creature *could* have keyed to.
       attackDeclaredSiteTypes: attackSiteKeyingTypes,
+      attackDeclaredRegionTypes: attackKeying,
       normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(state, company.id),
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,

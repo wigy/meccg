@@ -117,11 +117,27 @@ export interface DetainmentContext {
    * Site types the attack was **actually keyed by** — the declared keying
    * match when the play declared one, else the union of the attack's
    * currently-valid `keyedTo` site types (on-guard reveals etc.). Consulted
-   * by the {@link normalIfKeyedToSiteTypes} override; when omitted, the
-   * site types are derived from {@link attackKeyedTo} (filtered by their
-   * `when` clauses against {@link inPlayNames}).
+   * by the {@link normalIfKeyedToSiteTypes} override and by the §3.II.2.R1/B1
+   * Dark-hold/Shadow-hold check; when omitted, the site types are derived
+   * from {@link attackKeyedTo} (filtered by their `when` clauses against
+   * {@link inPlayNames}).
+   *
+   * This distinction matters for creatures whose `keyedTo` entry lists
+   * several independent alternatives together (e.g. Orc-lieutenant: region
+   * types Wilderness/Shadow/Dark *or* site types Ruins&Lairs/Shadow-hold/
+   * Dark-hold). A play declared on the strength of the Ruins&Lairs site-type
+   * match alone must not be treated as also keyed to Shadow-hold/Dark-hold —
+   * only the alternative actually used justifies detainment.
    */
   readonly attackDeclaredSiteTypes?: readonly SiteType[];
+  /**
+   * Region types the attack was **actually keyed by** — the region-type
+   * counterpart of {@link attackDeclaredSiteTypes}, consulted by the
+   * §3.II.2.R1/B1 Dark-domain check and the §3.II.2.R2/B2 Shadow-land check.
+   * When omitted, region types are derived from {@link attackKeyedTo}
+   * (filtered by their `when` clauses against {@link inPlayNames}).
+   */
+  readonly attackDeclaredRegionTypes?: readonly RegionType[];
   /**
    * Site types for which the defending company converts keyed attacks to
    * normal (World Gnawed by the Nameless as-110: "All hazard creatures the
@@ -288,15 +304,24 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
   );
   const tag = isMinion ? 'R' : 'B';
 
-  const darkDomain = keyedTo.some(k => (k.regionTypes ?? []).includes(RegionType.Dark));
-  const darkOrShadowHold = keyedTo.some(k => (k.siteTypes ?? []).some(s => DARK_SITE_TYPES.has(s)));
+  // Use the declared keying match when the play committed to one — a
+  // creature whose `keyedTo` lists several independent alternatives (region
+  // types *or* site types) is only "keyed to" the alternative actually used
+  // to justify this play, not every alternative the card could have used.
+  const effectiveSiteTypes = ctx.attackDeclaredSiteTypes
+    ?? keyedTo.flatMap(k => k.siteTypes ?? []);
+  const effectiveRegionTypes = ctx.attackDeclaredRegionTypes
+    ?? keyedTo.flatMap(k => k.regionTypes ?? []);
+
+  const darkDomain = effectiveRegionTypes.includes(RegionType.Dark);
+  const darkOrShadowHold = effectiveSiteTypes.some(s => DARK_SITE_TYPES.has(s));
   if (darkDomain || darkOrShadowHold) {
     logDetail(`Detainment: attack keyed to Dark-domain/Dark-hold/Shadow-hold (§3.II.2.${tag}1)`);
     return true;
   }
 
   if (ctx.attackRace && SHADOW_LAND_RACES.has(ctx.attackRace)) {
-    const shadowLand = keyedTo.some(k => (k.regionTypes ?? []).includes(RegionType.Shadow));
+    const shadowLand = effectiveRegionTypes.includes(RegionType.Shadow);
     if (shadowLand) {
       logDetail(`Detainment: ${ctx.attackRace} keyed to Shadow-land (§3.II.2.${tag}2)`);
       return true;
