@@ -2123,15 +2123,19 @@ function isWizardAvatarChar(charDef: CardDefinition | undefined): boolean {
 
 /**
  * The race value to use when matching a character against card-text race
- * filters (e.g. Alone and Unadvised as-24's "non-Wizard, non-Ringwraith
- * character"). Per CoE glossary rule g.wiz.F1, card text that refers to a
+ * filters. Per CoE glossary rule g.wiz.F1, card text that refers to a
  * Fallen-wizard player's "Wizard" is treated as referring to that player's
- * Fallen-wizard avatar — so a Fallen-wizard avatar's race resolves to
- * `wizard`, not `fallen-wizard`, wherever such text is matched.
+ * Fallen-wizard avatar — so a Fallen-wizard avatar must match *both* a
+ * `wizard` filter (Alone and Unadvised as-24's "non-Wizard, non-Ringwraith
+ * character") and a literal `fallen-wizard` filter (Fool's Bane wh-19's
+ * "playable on a Fallen-wizard"). Returned as a two-element array so the
+ * condition matcher's array semantics (`$includes`/`$ne` against any
+ * element) satisfy both kinds of filter at once; every other character
+ * returns its single actual race unchanged.
  */
-export function raceForCardTextFilter(charDef: CardDefinition | undefined): Race | undefined {
+export function raceForCardTextFilter(charDef: CardDefinition | undefined): Race | Race[] | undefined {
   if (!charDef || !isCharacterCard(charDef)) return undefined;
-  if (charDef.race === Race.FallenWizard && isAvatarCharacter(charDef)) return Race.Wizard;
+  if (charDef.race === Race.FallenWizard && isAvatarCharacter(charDef)) return [Race.FallenWizard, Race.Wizard];
   return charDef.race;
 }
 

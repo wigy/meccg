@@ -100,6 +100,7 @@ function matchesEntry(
       return typeof contextValue === 'number' && bound !== undefined && contextValue <= bound;
     }
     if (expected.$ne !== undefined) {
+      if (Array.isArray(contextValue)) return !contextValue.includes(expected.$ne);
       return contextValue !== expected.$ne;
     }
     if (expected.$in !== undefined) {
