@@ -26,13 +26,14 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   attachHazardToChar, attachAllyToChar, findAllyInstanceId,
   buildTestState, resetMint, mint,
-  viableActions, makeSitePhase,
+  viableActions, viableFor, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState, resolveChain,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -243,6 +244,46 @@ describe('Marvels Told (td-134)', () => {
       expect(resolution.kind.reason).toBe('Marvels Told');
     }
     expect(resolution.actor).toBe(PLAYER_1);
+  });
+
+  test('CoE 7.1.1: an untapped company mate may tap in support of the sage\'s corruption check', () => {
+    // Bug report (game mshdxsru-3m4nwy, seq 1063): marric1976 played Marvels
+    // Told with a sage in a multi-character company. The engine enqueued the
+    // sage's corruption check but never offered the untapped company mate's
+    // tap-in-support option (CoE 7.1.1), which applies to any corruption
+    // check that has been declared but not yet resolved.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND, ARAGORN] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
+    const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
+    const chars = state.players[0].characters;
+    const elrondId = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === ELROND)!;
+    const aragornId = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === ARAGORN)!;
+
+    const next = resolveChain(dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: foolishWordsId,
+    }));
+
+    const supports = viableFor(next, PLAYER_1)
+      .filter(a => a.action.type === 'support-corruption-check') as { action: SupportCorruptionCheckAction }[];
+
+    expect(supports.some(a =>
+      a.action.supportingCharacterId === aragornId &&
+      a.action.targetCharacterId === elrondId,
+    )).toBe(true);
   });
 
   test('opponent has no actions while the sage resolves the corruption check', () => {
