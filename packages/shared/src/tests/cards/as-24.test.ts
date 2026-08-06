@@ -41,7 +41,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase, reduce, Alignment,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, ELROND, GLORFINDEL_II,
   ALONE_AND_UNADVISED, MARVELS_TOLD,
@@ -62,6 +62,9 @@ const LAGDUF = 'le-18' as CardDefinitionId;     // Orc warrior — full characte
 const MUZGASH = 'le-25' as CardDefinitionId;    // Orc warrior — full character
 const GORBAG = 'le-11' as CardDefinitionId;     // Orc warrior/scout — counts as half
 const GRISHNAKH = 'le-12' as CardDefinitionId;  // Orc warrior/scout — counts as half
+
+// Gandalf's Fallen-wizard avatar (race "fallen-wizard"), for the g.wiz.F1 regression below.
+const GANDALF_FW = 'wh-4' as CardDefinitionId;
 
 describe('Alone and Unadvised (as-24)', () => {
   beforeEach(() => resetMint());
@@ -115,6 +118,37 @@ describe('Alone and Unadvised (as-24)', () => {
       recompute: true,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI, ELROND] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [ALONE_AND_UNADVISED], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const stateAtPlayHazards = { ...base, phaseState: mhState };
+
+    const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard');
+
+    expect(playActions).toHaveLength(0);
+  });
+
+  test('not playable on a Fallen-wizard avatar — counts as Wizard for card-text filters (CoE g.wiz.F1)', () => {
+    // Bug report: Alone and Unadvised was played targeting Gandalf's
+    // Fallen-wizard avatar (wh-4, race "fallen-wizard"). Per CoE glossary
+    // rule g.wiz.F1, card text that refers to a Fallen-wizard player's
+    // "Wizard" means that player's Fallen-wizard avatar — so the avatar
+    // must match the "non-Wizard" filter and be excluded as a target.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: RIVENDELL, characters: [GANDALF_FW] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [ALONE_AND_UNADVISED], siteDeck: [MINAS_TIRITH] },
       ],
     });

@@ -2122,6 +2122,20 @@ function isWizardAvatarChar(charDef: CardDefinition | undefined): boolean {
 }
 
 /**
+ * The race value to use when matching a character against card-text race
+ * filters (e.g. Alone and Unadvised as-24's "non-Wizard, non-Ringwraith
+ * character"). Per CoE glossary rule g.wiz.F1, card text that refers to a
+ * Fallen-wizard player's "Wizard" is treated as referring to that player's
+ * Fallen-wizard avatar — so a Fallen-wizard avatar's race resolves to
+ * `wizard`, not `fallen-wizard`, wherever such text is matched.
+ */
+export function raceForCardTextFilter(charDef: CardDefinition | undefined): Race | undefined {
+  if (!charDef || !isCharacterCard(charDef)) return undefined;
+  if (charDef.race === Race.FallenWizard && isAvatarCharacter(charDef)) return Race.Wizard;
+  return charDef.race;
+}
+
+/**
  * Whether a character resolves corruption checks as a *minion* — i.e. taps (and
  * the check is considered successful) on a roll of CP or CP-1 rather than being
  * discarded/eliminated (CoE 7.1, 7.1.F1).
