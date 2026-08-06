@@ -104,7 +104,11 @@ function matchesEntry(
       return contextValue !== expected.$ne;
     }
     if (expected.$in !== undefined) {
-      return expected.$in.includes(contextValue as string | number);
+      const allowed = expected.$in;
+      if (Array.isArray(contextValue)) {
+        return contextValue.some(v => allowed.includes(v as string | number));
+      }
+      return allowed.includes(contextValue as string | number);
     }
     if (expected.$exists !== undefined) {
       const present = contextValue !== undefined && contextValue !== null;
