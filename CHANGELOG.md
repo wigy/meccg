@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.87.0 — 2026-08-06
+
+Corruption-check support and Fallen-wizard targeting fixes
+
+### Game Engine
+
+- Company mates can tap in support of discard-in-play corruption checks (Marvels Told, CoE 7.1.1) and end-of-movement corruption checks (Lure of Nature)
+- Resource short-events like A Friend or Three resolve properly during Free Council corruption checks instead of being discarded unresolved
+- Fallen-wizard avatars are no longer targetable by hazards that filter for Wizards only; the `$in` condition operator now matches array-valued context (and Fool's Bane works again)
+- Fireworks (dm-130) is playable during any phase, not just the site phase
+- Site-restricted permanent events are playable before a moved company reaches its site phase
+- Hazard timing window respected for companies moving while at a site
+- Site-lock cards keep sibling permanent events alive instead of sweeping them as orphans
+
+### Web Client
+
+- Company navigation arrows show again when focused on your own company during the opponent's turn
+
 ## 0.86.0 — 2026-08-06
 
 Fixes

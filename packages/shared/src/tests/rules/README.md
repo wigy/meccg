@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 337 | 287 | 50 | 85.2% |
+| 337 | 288 | 49 | 85.5% |
 
 ## Section Breakdown
 
@@ -195,7 +195,7 @@
 | 5.29 | Movement/Hazard Phase | [Other Company Actions](05-movement-hazard-phase/rule-5.29-other-company-actions.test.ts) | ◐ |
 | 5.30 | Movement/Hazard Phase | [Multiple Movements](05-movement-hazard-phase/rule-5.30-multiple-movements.test.ts) | ☐ |
 | 5.31 | Movement/Hazard Phase | [Returned To Origin](05-movement-hazard-phase/rule-5.31-returned-to-origin.test.ts) | ☑ |
-| 5.32 | Movement/Hazard Phase | [Company At Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☐ |
+| 5.32 | Movement/Hazard Phase | [Company At Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☑ |
 | 5.33 | Movement/Hazard Phase | [Joining After Mh](05-movement-hazard-phase/rule-5.33-joining-after-mh.test.ts) | ☑ |
 | METD | Movement/Hazard Phase | [Hazard Limit Lock](05-movement-hazard-phase/rule-metd-hazard-limit-lock.test.ts) | ☑ |
 | 6.01 | Site Phase | [Site Phase Order](06-site-phase/rule-6.01-site-phase-order.test.ts) | ☑ |

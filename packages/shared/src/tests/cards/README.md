@@ -43,7 +43,7 @@
 | as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
-| as-24 | Alone and Unadvised | — | 14 | ☑ |
+| as-24 | Alone and Unadvised | — | 15 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 13 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
@@ -54,7 +54,7 @@
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
-| as-51 | No Strangers at this Time | — | 15 | ☑ |
+| as-51 | No Strangers at this Time | — | 16 | ☑ |
 | as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
@@ -293,13 +293,13 @@
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 10 | ☑ |
-| dm-120 | Choice of Lúthien | — | 12 | ☑ |
+| dm-120 | Choice of Lúthien | — | 13 | ☑ |
 | dm-121 | Crown of Flowers | — | 8 | ☑ |
 | dm-123 | Dark Numbers | — | 14 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
-| dm-130 | Fireworks | — | 14 | ☑ |
+| dm-130 | Fireworks | — | 16 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
 | dm-134 | Hall of Fire | — | 11 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
@@ -683,7 +683,7 @@
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
-| td-134 | Marvels Told | — | 25 | ☑ |
+| td-134 | Marvels Told | — | 26 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
@@ -742,7 +742,7 @@
 | tw-050 | — | — | 7 | ☑ |
 | tw-053 | — | — | 7 | ☑ |
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
-| tw-58 | Lure of Nature | — | 13 | ☑ |
+| tw-58 | Lure of Nature | — | 14 | ☑ |
 | tw-59 | Lure of Power | — | 7 | ☑ |
 | tw-060 | — | — | 7 | ☑ |
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
@@ -851,7 +851,7 @@
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
 | tw-188 | A Chance Meeting | — | 12 | ☑ |
-| tw-189 | A Friend or Three | — | 11 | ☑ |
+| tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 10 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
 | tw-193 | Army of the Dead | — | 2 | ☑ |
@@ -923,7 +923,7 @@
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
 | tw-314 | Reforging | — | 10 | ☑ |
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |
-| tw-316 | Return of the King | — | 8 | ☑ |
+| tw-316 | Return of the King | — | 9 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 7 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
