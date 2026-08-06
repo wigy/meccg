@@ -17,14 +17,19 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../../index.js';
 import {
-  buildTestState, resetMint, viableFor, Phase,
+  buildTestState, resetMint, viableFor, viableActions, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, GANDALF, LEGOLAS,
   SCROLL_OF_ISILDUR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
+  attachHazardToChar, findCharInstanceId, grantedActionsFor,
+  RESOURCE_PLAYER,
 } from '../../test-helpers.js';
+
+const DESPAIR_OF_THE_HEART = 'tw-27' as CardDefinitionId;
 
 describe('Rule 3.36 — Avatar Sideboard Access', () => {
   beforeEach(() => resetMint());
@@ -85,5 +90,45 @@ describe('Rule 3.36 — Avatar Sideboard Access', () => {
     const tappedSideboardActions = viableFor(tappedState, PLAYER_1)
       .filter(a => a.action.type === 'start-sideboard-to-discard' || a.action.type === 'start-sideboard-to-deck');
     expect(tappedSideboardActions).toHaveLength(0);
+  });
+
+  // Bug report: an avatar (Gandalf) taps itself to start a sideboard-to-discard
+  // sub-flow and, mid-flow, is now tapped. Rule 2.II.6 (sideboard access) carries
+  // no "no other actions" clause — unlike 2.II.1 ("organizing") — so a corruption
+  // card attached to that same avatar must still offer its no-tap −3 removal
+  // variant (rule 7.3) while the sideboard sub-flow is open.
+  test('corruption-card no-tap removal remains available while a sideboard fetch sub-flow is active', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [SCROLL_OF_ISILDUR],
+          playDeck: [ARAGORN, ARAGORN],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const withHazard = attachHazardToChar(state, RESOURCE_PLAYER, GANDALF, DESPAIR_OF_THE_HEART);
+    const gandalfId = findCharInstanceId(withHazard, RESOURCE_PLAYER, GANDALF);
+
+    const startAction = viableActions(withHazard, PLAYER_1, 'start-sideboard-to-discard')[0].action;
+    const midFlow = dispatch(withHazard, startAction);
+
+    // The sub-flow is active and Gandalf (the avatar) is now tapped from
+    // declaring it — the standard tap-and-roll variant is unavailable, but
+    // the no-tap variant must still be offered.
+    const grants = grantedActionsFor(midFlow, gandalfId, 'remove-self-on-roll', PLAYER_1);
+    expect(grants).toHaveLength(1);
+    expect(grants[0].noTap).toBe(true);
   });
 });
