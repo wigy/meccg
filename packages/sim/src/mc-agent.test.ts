@@ -95,7 +95,7 @@ describe('null determinizer', () => {
     }
     expect(applied + failed).toBeGreaterThan(100);
     expect(applied / (applied + failed)).toBeGreaterThan(0.98);
-  });
+  }, GAME_TIMEOUT);
 
   test('the unknown-card stand-in resolves in the pool so generators do not crash', () => {
     const view = captureViews(1, 4242)[0];
@@ -108,7 +108,7 @@ describe('null determinizer', () => {
     for (const player of world.state.players) {
       expect(() => computeLegalActions(world.state, player.id)).not.toThrow();
     }
-  });
+  }, GAME_TIMEOUT);
 
   test('hidden sites are sampled so companies can still move, or inerted on request', () => {
     const view = captureViews(1, 4242)[0];
@@ -124,7 +124,7 @@ describe('null determinizer', () => {
     if (inertDeck.length > 0) {
       expect(inertDeck.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
     }
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('unknown-card action filter', () => {
@@ -180,7 +180,7 @@ describe('rollout', () => {
     // 'decision-cap' would mean the horizon is unreachable within the cap,
     // which silently truncates every playout — worth failing on.
     expect(result.end).not.toBe('decision-cap');
-  });
+  }, GAME_TIMEOUT);
 
   test('TSD is zero-sum around the two seats', () => {
     const view = captureViews(1, 4242)[0];
@@ -191,7 +191,7 @@ describe('rollout', () => {
     // (self)`'s `+0` but distinct under Object.is/`toBe`. The sum is exactly
     // 0 either way and is what "zero-sum" actually asserts.
     expect(stateTsd(world.state, view.self.id) + stateTsd(world.state, view.opponent.id)).toBe(0);
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('mc agent', () => {

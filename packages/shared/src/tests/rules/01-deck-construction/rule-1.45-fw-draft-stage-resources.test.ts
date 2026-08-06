@@ -635,13 +635,12 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
 
     // Drafting the last Stage resource empties the pool, so both players are
     // now stopped and the draft finalizes on its own (no explicit draft-stop
-    // needed). None of Alice's five drafted characters is mind > 5 or an agent
-    // (Thrall was never in play to lift that gate before them), so Thrall has
-    // no gated character to be placed with (fix bddd28462: a surplus
-    // recruitment vehicle is no longer forced onto a non-gated filler) — it
-    // stays in Alice's hand, playable as a recruitment vehicle during a later
-    // organization phase per its own card text, and contributes no stage
-    // points until then.
+    // needed). None of the five drafted characters needed Thrall's gate (no
+    // agents, all mind ≤ 5), so under the corrected pairing rule (bug report
+    // ce89374d71a75cc7: a recruitment vehicle only pairs with a character that
+    // needed its specific gate) the surplus Thrall is not force-attached — it
+    // is kept in hand, still usable as a recruitment vehicle in a later
+    // organization phase, and yields no stage points yet.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
     ]);

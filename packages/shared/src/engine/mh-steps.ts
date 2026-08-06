@@ -21,7 +21,7 @@ import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatSt
 import type { AhuntAttackEffect, UnderDeepsRollModifierEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
-import { getPlayerIndex, companyContainsBalrogAvatar } from '../state-utils.js';
+import { getPlayerIndex, companyContainsBalrogAvatar, isMinionOrBalrog } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { RegionType, Race, Skill, Alignment, MovementType } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -1267,6 +1267,11 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
     reason: 'draw-modifier',
     sitePath: sitePathCounts,
     movementType: mhState.movementType,
+    // The moving company's own alignment, for "no effect on a minion
+    // player" gating (In the Heart of his Realm dm-67) — mirrors the
+    // `player.minion` context `force-return-to-origin`/`tap-sites-in-play`
+    // already expose for the same clause on Foul Fumes (tw-36).
+    player: { minion: isMinionOrBalrog(player) },
   };
   const allDrawEffects = company.characters.flatMap(charInstId => {
     const char = player.characters[charInstId];
