@@ -149,12 +149,13 @@ export function renderSingleView(
   const storeItemActs = owner === 'self' ? getStoreItemActions(view) : undefined;
   const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
+  const mergeActions = owner === 'self' ? getMergeCompaniesActions(view) : undefined;
   const sideboardIntentActs = owner === 'self' ? getSideboardIntentActions(view) : undefined;
   const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
   const ccSupportActs = owner === 'self' ? getSupportCorruptionCheckActions(view) : undefined;
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
   // Minimap radar — always shown.
   const radarSelfIndex = owner === 'self'
