@@ -71,12 +71,17 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     const charInPlay = player.characters[charId];
     const charDef = defById(state, charInPlay.definitionId);
     const cp = charInPlay.effectiveStats.corruptionPoints;
-    const checkContext = { reason: 'corruption-check' };
-    let modifier = resolveCheckModifier(collectCharacterEffects(state, charInPlay, checkContext), 'corruption');
+    const company = findCharacterCompany(player.companies, charId);
+    const companyCharCount = company ? company.characters.length : 1;
+    const checkContext = { reason: 'corruption-check', company: { characterCount: companyCharCount } };
+    let modifier = resolveCheckModifier(
+      collectCharacterEffects(state, charInPlay, checkContext),
+      'corruption',
+      { company: { characterCount: companyCharCount } },
+    );
 
     // Rule 10.05: a character in the same company as a Ringwraith or the
     // Balrog receives an additional +2 modifier to corruption checks.
-    const company = findCharacterCompany(player.companies, charId);
     const hasCorruptingAvatar = company?.characters.some(cid => {
       const compChar = player.characters[cid];
       if (!compChar) return false;

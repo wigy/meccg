@@ -50,7 +50,7 @@ import {
   makeMHState, handCardId, companyIdAt, findCharInstanceId,
   attachHazardToChar, getCharacter, getHazardsOn, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction, CorruptionCheckAction, PlayHazardAction, CardDefinitionId } from '../../index.js';
+import type { ActivateGrantedAction, CorruptionCheckAction, PlayHazardAction, CardDefinitionId, FreeCouncilPhaseState } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { RegionType } from '../../index.js';
@@ -342,6 +342,47 @@ describe('Alone and Unadvised (as-24)', () => {
     // Company has 2 characters → modifier includes +2 from company.characterCount
     // Aragorn's base corruptionModifier is 0, so total modifier = 0 + 2 = 2
     expect(cc.corruptionModifier).toBe(2);
+  });
+
+  test('corruption check modifier includes company character count during Free Council end-of-game checks', () => {
+    // Bug report: a character bearing Alone and Unadvised got no company-size
+    // bonus when checked during Free Council (end-of-game corruption checks,
+    // CoE 7.1) — the legal-action computer there calls resolveCheckModifier()
+    // without a context, so the card's string-valued "company.characterCount"
+    // check-modifier silently evaluated to 0. Company has 3 characters
+    // (Aragorn, Legolas, Gimli) → modifier must include +3.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withCard = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED));
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const stateAtFreeCouncil = { ...withCard, phaseState: fcState };
+
+    const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
+    const actions = computeLegalActions(stateAtFreeCouncil, PLAYER_1);
+    const ccAction = actions.find(
+      a => a.viable && a.action.type === 'corruption-check' && a.action.characterId === aragornId,
+    );
+    expect(ccAction).toBeDefined();
+
+    const cc = ccAction!.action as CorruptionCheckAction;
+    expect(cc.corruptionPoints).toBe(4);
+    expect(cc.corruptionModifier).toBe(3);
   });
 
   test('untapped bearer in Organization can activate remove-self-on-roll (rollThreshold 7)', () => {
