@@ -53,7 +53,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   resetMint, buildFallenWizardOrgPhaseState, buildMinionSitePhaseState,
   playPermanentEventAndResolve, makePlayDeck, pool, draftInstId,
-  createGame, reduce, LORIEN, Alignment,
+  createGame, reduce, LORIEN, Alignment, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
@@ -295,6 +295,28 @@ describe('Guarded Haven (wh-74)', () => {
     // The remaining copy in hand may no longer be played at the same site.
     const second = after.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === GUARDED_HAVEN)!.instanceId;
     expect(canPlay(after, PLAYER_1, second)).toBe(false);
+  });
+
+  test('a second copy cannot be declared at the same site while the first is still on the chain, unresolved', () => {
+    // Regression: the site-scope duplication-limit check only tallied
+    // resolved copies in `cardsInPlay`, not copies still `declaring` on the
+    // chain. A first Guarded Haven played at a site, followed by the
+    // opponent merely passing priority back (the card has not resolved into
+    // `cardsInPlay` yet), wrongly let a second copy be declared at the same
+    // site.
+    const state = buildFallenWizardOrgPhaseState({
+      site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN, GUARDED_HAVEN],
+    });
+    const first = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === GUARDED_HAVEN)!.instanceId;
+    const declaring = dispatch(state, {
+      type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: first, targetSiteDefinitionId: WIZARDHAVEN,
+    });
+    expect(declaring.chain).not.toBeNull();
+    expect(declaring.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GUARDED_HAVEN)).toBe(false);
+
+    const opponentPassed = dispatch(declaring, { type: 'pass-chain-priority', player: PLAYER_2 });
+    const second = opponentPassed.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === GUARDED_HAVEN)!.instanceId;
+    expect(canPlay(opponentPassed, PLAYER_1, second)).toBe(false);
   });
 
   // ── Rule 10: discarded when the site leaves play ────────────────────────────
