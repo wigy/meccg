@@ -3126,6 +3126,24 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
 }
 
 /**
+ * CoE rule 2.IV.5 / CRF-22 Annotation 25: a company is considered to be "at"
+ * its site card at all times except from the moment its new site card is
+ * revealed (i.e. it moves this turn) until immediately prior to the site
+ * phases that follow the end of all movement/hazard phases for the turn.
+ * `currentSite` is reassigned to the destination as soon as the company's
+ * own M/H sub-phase completes (mh-hazard-play.ts step 8), so it cannot be
+ * used on its own to answer "is this company at a site" during the rest of
+ * the movement/hazard phase — a company that moved this turn (`moved ===
+ * true`) is "en route", not at any site, for as long as `state.phaseState`
+ * is still `Phase.MovementHazard`, regardless of which company is currently
+ * being resolved. A company that stayed put (`moved === false`) never left
+ * its site and remains "at" it throughout.
+ */
+export function isCompanyAtSite(state: GameState, company: Company): boolean {
+  return !(state.phaseState.phase === Phase.MovementHazard && company.moved);
+}
+
+/**
  * Evaluate a `play-condition` `requires: 'company-context'` DSL condition
  * against a specific company (the play-target character's company for a
  * character-targeting permanent event).
@@ -3141,12 +3159,18 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
  * from `player.factionsPlayedAtSites` — a persistent, never-cleared record of
  * every site (by definitionId) where this player has ever played a faction —
  * since "if you have played a faction there" (No Strangers at this Time,
- * as-51) is a fact about the site, not scoped to the current site-phase visit.
- * `site.isOwnWizardhaven` is `true` when the company's current site is one of the
- * player's own Wizardhavens (a Fallen-wizard haven, or a site converted into one
- * via Hidden Haven wh-75) — this is what "at one of your Wizardhavens [{H}]"
- * means, distinguishing a Fallen-wizard's own havens from generic METW
- * Havens/MELE Darkhavens that merely share `type: "haven"`.
+ * as-51) is a fact about the site, not scoped to the current site-phase visit,
+ * so unlike `site.name`/`site.type`/`isOwnWizardhaven` it is not gated by
+ * {@link isCompanyAtSite}. `site.isOwnWizardhaven` is `true` when the
+ * company's current site is one of the player's own Wizardhavens (a
+ * Fallen-wizard haven, or a site converted into one via Hidden Haven wh-75) —
+ * this is what "at one of your Wizardhavens [{H}]" means, distinguishing a
+ * Fallen-wizard's own havens from generic METW Havens/MELE Darkhavens that
+ * merely share `type: "haven"`. `site.name`/`site.type`/`isOwnWizardhaven`
+ * are all `undefined`/`false` while the company is "en route" per rule 2.IV.5
+ * (see {@link isCompanyAtSite}) — e.g. Choice of Lúthien (dm-120), "Playable
+ * on Arwen in Minas Tirith", cannot be played on a company that just arrived
+ * at Minas Tirith but hasn't reached its site phase yet.
  *
  * Used by To Fealty Sworn (ba-33) and the Fallen-wizard "squire" companions
  * (Squire of the Hunt wh-95, Gandalf's Friend wh-98, Pallando's Apprentice
@@ -3159,7 +3183,9 @@ export function matchesCompanyContextCondition(
   condition: Condition,
   playedUniqueHeroFactionAtFreeHold: boolean,
 ): boolean {
-  const siteDefId = company.currentSite?.definitionId;
+  const atSite = isCompanyAtSite(state, company);
+  const rawSiteDefId = company.currentSite?.definitionId;
+  const siteDefId = atSite ? rawSiteDefId : undefined;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
   const siteName = siteDef?.name;
   const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
@@ -3168,7 +3194,7 @@ export function matchesCompanyContextCondition(
     player.alignment,
     siteDefId ? { state, siteDefinitionId: siteDefId, playerId: player.id } : undefined,
   );
-  const playedFactionHere = siteDefId != null && !!player.factionsPlayedAtSites?.[siteDefId];
+  const playedFactionHere = rawSiteDefId != null && !!player.factionsPlayedAtSites?.[rawSiteDefId];
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];
