@@ -401,6 +401,20 @@ export function renderAllCompaniesView(
       addOpponentInfluenceTargets(block, oppInfluenceActions, lastOnAction);
     }
 
+    // Default: clicking an opponent company (background, not a targeted card)
+    // focuses it in single-company view — mirrors the self-company handler
+    // above. Without this, the hazard player has no way to bring an opponent
+    // company into single view (and its nav arrows) once the initial
+    // auto-focus lands elsewhere.
+    const focusId = company.id;
+    block.classList.add('company-block--clickable');
+    block.onclick = (e) => {
+      e.stopPropagation();
+      setFocusedCompanyId(focusId);
+      setAllCompaniesOverride(false);
+      rerender();
+    };
+
     overview.appendChild(block);
   }
 
