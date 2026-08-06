@@ -29,7 +29,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, buildSitePhaseState, resetMint, Phase, CardStatus,
+  buildTestState, buildSitePhaseState, resetMint, mint, Phase, CardStatus,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   getCharacter, makeMHState,
   findCharInstanceId, findHandCardId, handCardId, companyIdAt, resolveChain, dispatch, actionAs,
@@ -37,9 +37,9 @@ import {
 import type { CharacterEntry } from '../test-helpers.js';
 import {
   ARAGORN, LEGOLAS, MORIA, MINAS_TIRITH, LORIEN,
-  computeLegalActions, RegionType,
+  computeLegalActions, RegionType, Alignment, SetupStep,
 } from '../../index.js';
-import type { CardDefinitionId, CancelStrikeAction } from '../../index.js';
+import type { CardDefinitionId, CancelStrikeAction, GameState } from '../../index.js';
 
 const ELVEN_CLOAK = 'tw-225' as CardDefinitionId;
 const LAND_DRAKE = 'le-80' as CardDefinitionId;  // keyed {w}/{R}, 1 strike, 8 prowess
@@ -228,5 +228,39 @@ describe('Elven Cloak (tw-225)', () => {
     expect(targets).not.toContain(aragornId as string);
     // Offered on the character without one.
     expect(targets).toContain(legolasId as string);
+  });
+
+  // ── Starting-item pool eligibility ────────────────────────────────────────
+
+  test('Elven Cloak is offered as a legal starting item', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MORIA, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const cloakInst = { instanceId: mint(), definitionId: ELVEN_CLOAK };
+    const state: GameState = {
+      ...base,
+      phaseState: {
+        phase: Phase.Setup,
+        setupStep: {
+          step: SetupStep.ItemDraft,
+          itemDraftState: [
+            { unassignedItems: [cloakInst], done: false },
+            { unassignedItems: [], done: true },
+          ],
+          remainingPool: [[], []],
+        },
+      },
+    } as GameState;
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.action.type === 'assign-starting-item'
+        && (ea.action as { itemDefId?: string }).itemDefId === ELVEN_CLOAK);
+    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.some(ea => ea.viable)).toBe(true);
   });
 });
