@@ -20,6 +20,7 @@ import type { DeckList, CardDefinitionId } from '../../../index.js';
 
 // tw-120 = Aragorn II (hero-character, non-avatar) — valid pool character
 // tw-206 = Dagger of Westernesse (hero-resource-item, minor, non-unique) — valid pool item
+// tw-225 = Elven Cloak (hero-resource-item, minor, non-unique) — valid pool item
 
 const baseDeck: DeckList = {
   id: 'test-pool-rules',
@@ -68,6 +69,14 @@ describe('Rule 1.32 — Pool Rules', () => {
     };
     const errors = validateDeck(deck, pool);
     expect(errors.some(e => e.section === 'pool' && e.message.includes('max 2'))).toBe(true);
+  });
+
+  test('Pool with 2 Elven Cloaks has no pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Elven Cloak', card: 'tw-225' as CardDefinitionId, qty: 2 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'pool')).toHaveLength(0);
   });
 
   // Rule 1.7 — a card that may not be part of a starting company has no legal
