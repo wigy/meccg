@@ -13136,6 +13136,60 @@ A character's body check reads `effectiveStats.body` (`handleBodyCheckRoll`,
 character actually checks against. Allies bear no items and carry no
 `effectiveStats`, so they keep their printed/override body.
 
+### 56j. `multi-faction-check`
+
+When this hazard short-event resolves, **every faction in play — both
+players' — is rolled for and discarded on a bad result**. Unlike the
+single-target `play-target: "faction"` + `dice-check` shape (Muster Disperses
+le-126/tw-67, § `play-target`), this effect carries no `play-target` at all —
+the card's own text names the scope ("each player" / "each faction he has in
+play"), so it is offered as a single untargeted `play-hazard` action (the
+existing no-`play-target` fallback in `legal-actions/movement-hazard.ts`).
+Used by News of Doom (le-127): "Each player makes a roll for each faction he
+has in play. Discard any faction if its result is 2 or 3, or if its result
+plus that player's unused general influence is less than 10. Remove News of
+Doom from the game."
+
+```json
+{ "type": "multi-faction-check", "threshold": 10, "comparison": "gte",
+  "alwaysFailRolls": [2, 3] }
+```
+
+- `threshold` / `comparison` — the modified total (roll + unused GI) must
+  reach this threshold (`"gt"` or `"gte"`) to survive, exactly like the
+  generic `dice-check` fields they feed.
+- `alwaysFailRolls` *(optional)* — raw (pre-modifier) 2d6 values that always
+  fail the check regardless of the modified total. Needed because "result is
+  2 or 3" reads the unmodified roll, which cannot be folded into
+  `threshold`/`comparison` (those compare the modified total).
+
+Resolution (the `multi-faction-check` block in `chain-reducer.ts`, alongside
+the Muster Disperses faction-targeting block) scans both players'
+`cardsInPlay` for `isFactionCard` entries and enqueues one generic
+`dice-check` {@link PendingResolution} per faction found: `roller`/`actor` =
+that faction's own owner, `modifiers: [{ kind: "unused-gi", player: owner }]`,
+`onFail` a `move` discarding the faction to its own owner's discard pile
+(`toOwner: "source-owner"`, resolved from the located `in-play` source card —
+not the declaring player, so factions on both sides route correctly even
+though one player played the card). Every enqueued check shares
+`continuation: { kind: "chain-entry", match: "source", drainSameSource: true
+}`, so the chain entry stays unresolved until every faction's roll is in —
+the same `force-check-all-company` (§ above) "all company members" pattern,
+generalized across both players' `cardsInPlay` instead of one company's
+characters. The new `alwaysFailRolls` field lives on the `dice-check` pending
+kind itself (`types/pending.ts`) and is consulted in
+`applyDiceCheckResolution` (`pending-reducers.ts`): `rawFail =
+alwaysFailRolls?.includes(rawRoll)`, and `passed = !rawFail && (normal
+comparison)`.
+
+A card combining `multi-faction-check` with `play-flag: "remove-from-game"`
+(§ `play-flag`) must perform the removal **inline**, inside the
+`multi-faction-check` block, before it returns `needsInput: true` — the
+generic remove-from-game block runs later in `resolveEntry`, and once the
+drained multi-resolution entry is marked resolved via
+`resolveChainEntryAndContinue` rather than a fresh call into `resolveEntry`,
+nothing after the pausing point ever runs for it again.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The
