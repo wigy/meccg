@@ -18,12 +18,13 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  runActions, makePlayDeck, pool, draftInstId,
+  runActions, makePlayDeck, pool, draftInstId, runSimpleDraft,
   PLAYER_1, PLAYER_2, ARAGORN, RIVENDELL, Alignment,
   createGame,
 } from '../../test-helpers.js';
 import { computeLegalActions, reduce } from '../../../index.js';
 import type { GameConfig, CardDefinitionId, GameState, GameAction } from '../../../index.js';
+import { SetupStep } from '../../../types/state-phases.js';
 
 const AZOG = 'ba-2' as CardDefinitionId;
 const BOLG = 'ba-4' as CardDefinitionId;
@@ -150,5 +151,47 @@ describe('Rule 1.9 — Character Placement is monotonic (no endless shuffling)',
       { type: 'place-character', player: PLAYER_1, characterInstanceId: charC, companyId: targetCompany },
     ]);
     expect(placeActions(state, PLAYER_1)).toHaveLength(0);
+  });
+});
+
+describe('Rule 1.9 — leftover pool cards are removed from the game at character-deck-draft', () => {
+  test('passing with unpicked pool cards sinks them to outOfPlayPile instead of dropping them', () => {
+    // Bug report (game mshkjqbp-4pszaj): a player drafted one starting
+    // character, leaving two more in their pool. Passing character-deck-draft
+    // without explicitly adding those leftovers to the play deck made them
+    // vanish from state entirely — no playDeck, no discard pile, no
+    // outOfPlayPile. CoE 1.9: "All other unused or duplicated cards in each
+    // player's pool are removed from the game."
+    let state = runSimpleDraft();
+
+    if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === SetupStep.ItemDraft) {
+      state = runActions(state, [
+        { type: 'pass', player: PLAYER_1 },
+        { type: 'pass', player: PLAYER_2 },
+      ]);
+    }
+
+    expect(state.phaseState.phase).toBe('setup');
+    if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== SetupStep.CharacterDeckDraft) {
+      throw new Error(`expected character-deck-draft, got ${JSON.stringify(state.phaseState)}`);
+    }
+    const leftoverP1 = state.phaseState.setupStep.deckDraftState[0].remainingPool.map(c => c.instanceId);
+    const leftoverP2 = state.phaseState.setupStep.deckDraftState[1].remainingPool.map(c => c.instanceId);
+    expect(leftoverP1.length).toBeGreaterThan(0);
+    expect(leftoverP2.length).toBeGreaterThan(0);
+
+    state = runActions(state, [
+      { type: 'pass', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+
+    const outOfPlayP1 = new Set(state.players[0].outOfPlayPile.map(c => c.instanceId));
+    const outOfPlayP2 = new Set(state.players[1].outOfPlayPile.map(c => c.instanceId));
+    for (const id of leftoverP1) expect(outOfPlayP1.has(id)).toBe(true);
+    for (const id of leftoverP2) expect(outOfPlayP2.has(id)).toBe(true);
+
+    // Not silently duplicated into the play deck either.
+    const playDeckP1Ids = new Set(state.players[0].playDeck.map(c => c.instanceId));
+    for (const id of leftoverP1) expect(playDeckP1Ids.has(id)).toBe(false);
   });
 });

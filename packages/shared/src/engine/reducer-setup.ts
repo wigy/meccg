@@ -785,19 +785,31 @@ function handleCharacterDeckDraft(
     return { state, error: 'You have already finished adding characters' };
   }
 
-  // Pass: done adding characters
+  // Pass: done adding characters. Per CoE 1.9: "All other unused or
+  // duplicated cards in each player's pool are removed from the game" —
+  // sink any leftover pool cards to outOfPlayPile rather than dropping
+  // them (no card instance may ever disappear from state).
   if (action.type === 'pass') {
     const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    const leftover = deckDraft.remainingPool;
     newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
+
+    if (leftover.length > 0) {
+      logDetail(`${leftover.length} character(s) left unpicked in pool → removed from the game (CoE 1.9)`);
+    }
+
+    const stateWithRemoved = leftover.length > 0
+      ? updatePlayer(state, playerIndex, p => ({ ...p, outOfPlayPile: [...p.outOfPlayPile, ...leftover] }))
+      : state;
 
     // Both done → enter site selection
     if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
-      return { state: enterSiteSelection(state) };
+      return { state: enterSiteSelection(stateWithRemoved) };
     }
 
     return {
       state: {
-        ...state,
+        ...stateWithRemoved,
         phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
       },
     };
