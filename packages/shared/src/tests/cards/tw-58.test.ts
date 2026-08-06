@@ -54,6 +54,7 @@ import type {
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { RegionType } from '../../index.js';
+import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const LURE_OF_NATURE = 'tw-58' as CardDefinitionId;
 
@@ -304,6 +305,39 @@ describe('Lure of Nature (tw-58)', () => {
     if (pending[1].kind.type === 'corruption-check') {
       expect(pending[1].kind.reason).toContain('region 2/2');
     }
+  });
+
+  test('company mate can tap in support of a Lure of Nature corruption check (rule 7.1.1)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ELROND] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_NATURE);
+    const legolasId = findCharInstanceId(withCard, RESOURCE_PLAYER, LEGOLAS);
+    const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resourcePlayerPassed: true,
+    });
+    const stateAtPlayHazards = { ...withCard, phaseState: mhState };
+
+    const afterBothPass = dispatch(stateAtPlayHazards, { type: 'pass', player: PLAYER_2 });
+    const pending = afterBothPass.pendingResolutions.filter(
+      r => r.actor === PLAYER_1 && r.kind.type === 'corruption-check',
+    );
+    expect(pending).toHaveLength(1);
+
+    const supports = viableActions(afterBothPass, PLAYER_1, 'support-corruption-check') as {
+      action: SupportCorruptionCheckAction;
+    }[];
+    expect(supports.some(a => a.action.supportingCharacterId === legolasId && a.action.targetCharacterId === aragornId)).toBe(true);
   });
 
   test('end of company MH enqueues no corruption checks when site path has no Wilderness', () => {
