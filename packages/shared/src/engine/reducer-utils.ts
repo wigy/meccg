@@ -4831,6 +4831,22 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
       // site card is returned to the location deck").
       if (co.destinationSite) occupied.add(co.destinationSite.definitionId as string);
     }
+    // No Strangers at this Time (as-51) / Eddy in Fate's Tide (ba-57) / People
+    // Diminished (ba-72): "This site is never discarded and never untaps for
+    // you." While such a `site-lock`/`eddy-lock` card is bound to a site, that
+    // site is never returned to its location deck or discarded when the last
+    // company leaves — so any *other* permanent event bound to the same site
+    // (e.g. Chambers in the Royal Court wh-97, Guarded Haven wh-74) must also
+    // survive: its own "discard when the site is discarded/returned" trigger
+    // never fires. Treat the site as occupied for the whole sweep rather than
+    // only exempting the site-lock card itself (bug report on game
+    // mshb5l69-65659o: Chambers/Guarded Haven were wrongly discarded when the
+    // company moved off a No-Strangers-locked site).
+    for (const card of p.cardsInPlay) {
+      if (card.attachedToSite !== undefined && cardKeepsBoundSitePermanent(defById(state, card.definitionId))) {
+        occupied.add(card.attachedToSite as string);
+      }
+    }
   }
 
   // A site-attached event that is currently holding prisoners (e.g. Troll-purse

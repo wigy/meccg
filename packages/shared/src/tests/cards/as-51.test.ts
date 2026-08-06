@@ -195,6 +195,31 @@ describe('No Strangers at this Time (as-51)', () => {
     expect(swept.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === NO_STRANGERS)).toBe(false);
   });
 
+  test('another permanent event bound to the same site also survives the orphan sweep (regression: bug report on game mshb5l69-65659o)', () => {
+    // Chambers in the Royal Court (wh-97): "Discard this card when the site is
+    // discarded or returned to its location deck." With No Strangers at this
+    // Time bound to the same site, the site is never discarded/returned, so
+    // Chambers' own discard trigger never fires — it must not be swept as an
+    // orphan just because every company left the site.
+    const base = buildSitePhaseState({ site: GOBEL_MIRLOND, characters: [ARAGORN], hand: [] });
+    const withCards = addP1CardsInPlay(
+      {
+        ...base,
+        players: [
+          { ...base.players[RESOURCE_PLAYER], companies: [{ ...base.players[RESOURCE_PLAYER].companies[0], currentSite: null }] },
+          base.players[1],
+        ] as typeof base.players,
+      },
+      [
+        { instanceId: mint(), definitionId: NO_STRANGERS, status: CardStatus.Untapped, attachedToSite: GOBEL_MIRLOND },
+        { instanceId: mint(), definitionId: 'wh-97' as CardDefinitionId, status: CardStatus.Untapped, attachedToSite: GOBEL_MIRLOND },
+      ],
+    );
+    const swept = discardOrphanedSiteAttachedEvents(withCards);
+    expect(swept.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === 'wh-97')).toBe(true);
+    expect(swept.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === 'wh-97')).toBe(false);
+  });
+
   // ── Effect 4c: detainment attacks against a minion company become normal ──
 
   test('a minion company faces the site auto-attack as DETAINMENT when the card is absent', () => {
