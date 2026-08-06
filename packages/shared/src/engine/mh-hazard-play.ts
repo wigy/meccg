@@ -1218,6 +1218,10 @@ export function fireEndOfCompanyMHCorruptionChecks(
             characterId: charId,
             reason: `${hDef?.name} (region ${k + 1}/${total})`,
             possessions,
+            // CoE 7.1.1: any corruption check declared but not yet resolved
+            // may be supported by tapping untapped company mates for +1
+            // each — see rule-3.35's transfer fix.
+            allowSupport: true,
           });
         }
       }
