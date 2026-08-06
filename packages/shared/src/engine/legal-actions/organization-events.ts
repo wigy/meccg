@@ -21,7 +21,7 @@ import type { ConvertCreatureToAllyEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
-import { Race } from '../../types/common.js';
+import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
@@ -560,6 +560,73 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           }
           anyPlayable = true;
           logDetail(`Permanent event ${def.name}: playable at ${siteDef.name}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event', player: playerId, cardInstanceId,
+              targetSiteDefinitionId: siteDefId,
+              ...(targetCharacterId ? { targetCharacterId } : {}),
+            },
+            viable: true,
+          });
+        }
+        if (!anyPlayable) {
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site/character target`));
+        }
+        continue;
+      }
+
+      // Fireworks (dm-130): "Ritual. Playable on an untapped sage at a
+      // tapped Border-hold [{B}] or Free-hold [{F}]." It is the sole card
+      // combining a site play-target + character play-target with a
+      // `roll-untap-site` effect. Its site-tapping siblings (Rescue
+      // Prisoners tw-315, Andúril tw-192, Reforging tw-314, …) all print
+      // "during the site phase" on their card text and are correctly
+      // deferred to the site phase's play-resources step (legal-actions/
+      // site.ts) below. Fireworks' text declares no such restriction, so
+      // under rule 2.1.1 it is playable during any phase as long as the
+      // sage is still untapped and the site is still tapped from an
+      // earlier site phase — evaluated directly here, mirroring Return of
+      // the King above.
+      const rollUntapSiteEffect = def.effects?.find(e => e.type === 'roll-untap-site');
+      if (!orgPhaseSiteTiming && rollUntapSiteEffect) {
+        const charPlayTarget = def.effects?.find(
+          (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+        );
+        let anyPlayable = false;
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          const siteDef = defById(state, siteDefId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (hasPlayFlag(def, 'tapped-site-only') && company.currentSite.status !== CardStatus.Tapped) {
+            logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not tapped`);
+            continue;
+          }
+          if (sitePlayTarget.filter) {
+            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          const charFilter = charPlayTarget?.filter;
+          let targetCharacterId: CardInstanceId | undefined;
+          if (charFilter) {
+            const eligibleCharId = company.characters.find(charId => {
+              const ch = player.characters[charId];
+              const charDef = ch && defById(state, ch.definitionId);
+              if (!ch || !charDef || !isCharacterCard(charDef)) return false;
+              const ctx = { target: { name: charDef.name, skills: getEffectiveSkills(state, ch, charDef), status: ch.status } };
+              return matchesCondition(charFilter, ctx);
+            });
+            if (!eligibleCharId) {
+              logDetail(`Permanent event ${def.name}: no eligible character at ${siteDef.name}`);
+              continue;
+            }
+            targetCharacterId = eligibleCharId;
+          }
+          anyPlayable = true;
+          logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
           actions.push({
             action: {
               type: 'play-permanent-event', player: playerId, cardInstanceId,

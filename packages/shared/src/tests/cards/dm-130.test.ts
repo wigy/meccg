@@ -73,6 +73,17 @@ function toUntapPhase(state: GameState, activePlayer = PLAYER_1): GameState {
   };
 }
 
+/** Move the state into the end-of-turn phase's signal-end step. */
+function toEndOfTurnSignalEnd(state: GameState): GameState {
+  return {
+    ...state,
+    phaseState: {
+      phase: Phase.EndOfTurn, step: 'signal-end',
+      discardDone: [true, true], resetHandDone: [true, true],
+    } as GameState['phaseState'],
+  };
+}
+
 describe('Fireworks (dm-130)', () => {
   beforeEach(() => resetMint());
 
@@ -126,6 +137,36 @@ describe('Fireworks (dm-130)', () => {
       ] as typeof base.players,
     };
     expect(viableActions(tappedSage, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  // ── Timing: rule 2.1.1 any-phase (bug e581dd026dbdf502) ─────────────────────
+
+  test('offered during the end-of-turn phase signal-end step (rule 2.1.1)', () => {
+    // Reported in bug e581dd026dbdf502 (game msgkexwh-ttj1sr, seq 1059): a
+    // player with Fireworks in hand and an untapped sage at a tapped
+    // Free-hold during the end-of-turn phase's signal-end step could not
+    // play the card — the engine wrongly deferred it to the site phase.
+    // Unlike its site-tapping siblings (Rescue Prisoners, Andúril, …), which
+    // all print "during the site phase" on their card text, Fireworks'
+    // text declares no such restriction, so under rule 2.1.1 it remains
+    // playable during any phase as long as the sage is still untapped and
+    // the site is still tapped from an earlier site phase.
+    const site = fireworksState({ site: EDORAS, chars: [BILBO], siteStatus: CardStatus.Tapped });
+    const state = toEndOfTurnSignalEnd(site);
+
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions).toHaveLength(1);
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, FIREWORKS);
+    const sageId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const a = actions[0].action as { cardInstanceId: CardInstanceId; targetCharacterId: CardInstanceId };
+    expect(a.cardInstanceId).toBe(cardId);
+    expect(a.targetCharacterId).toBe(sageId);
+  });
+
+  test('NOT offered during the end-of-turn phase when the site is untapped', () => {
+    const site = fireworksState({ site: EDORAS, chars: [BILBO], siteStatus: CardStatus.Untapped });
+    const state = toEndOfTurnSignalEnd(site);
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
   });
 
   // ── On play: taps the sage, enqueues the roll, installs the delayed skip ─────
