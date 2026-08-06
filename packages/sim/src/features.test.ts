@@ -36,6 +36,15 @@ const DECKS: [ReturnType<typeof loadDeck>, ReturnType<typeof loadDeck>] =
 const CARD_POOL = loadCardPool();
 const VOCAB = buildCardVocab(CARD_POOL);
 
+/**
+ * Budget for a test that plays a whole game.
+ *
+ * Vitest's 5s default is not enough for one when the suite runs files in
+ * parallel: these pass in isolation and fail together, which reads as a
+ * flaky suite rather than as a slow test.
+ */
+const GAME_TIMEOUT = 30000;
+
 describe('card vocabulary', () => {
   test('is stable, sorted, and reserves index 0 for unknown', () => {
     const again = buildCardVocab(CARD_POOL);
@@ -163,7 +172,7 @@ describe('featurizers', () => {
 
     const second = capture();
     expect(JSON.stringify(second)).toBe(JSON.stringify(first));
-  });
+  }, GAME_TIMEOUT);
 
   test('global features mirror the view they came from', () => {
     let view: PlayerView | null = null;
