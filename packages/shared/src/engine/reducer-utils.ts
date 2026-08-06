@@ -2713,6 +2713,105 @@ export function findPlayerAndCompany(
 }
 
 /**
+ * Where a character currently stands, for location-gated rules worded "at a
+ * site in <region>, or moving with <region> in his site path" (e.g. In the
+ * Heart of his Realm dm-67). Two independent facts:
+ *
+ * - The **current** (arrived, or simply stationary) site's containing region
+ *   — `regionType` / `regionName`, resolved via {@link siteRegionTypeOf} and
+ *   the site definition's own `region` field. Always populated when the
+ *   character's company has a `currentSite`, regardless of phase.
+ * - The **transit** path — `pathRegionTypes` / `pathRegionNames` — populated
+ *   only while the character's company is the *active* mover of an
+ *   in-progress movement/hazard phase, read from that phase state's
+ *   `resolvedSitePath` / `resolvedSitePathNames`. Empty otherwise (the
+ *   engine does not persist a company's site path outside that window — see
+ *   `mh-steps.ts`'s `transitionToDrawCards`, which computes and consumes it
+ *   for the same active company).
+ */
+export interface CharacterLocation {
+  readonly regionType?: RegionType;
+  readonly regionName?: string;
+  readonly pathRegionTypes: readonly RegionType[];
+  readonly pathRegionNames: readonly string[];
+  /** True when the character's controller is a Ringwraith/Balrog player. */
+  readonly minion: boolean;
+}
+
+/** Resolves {@link CharacterLocation} for `characterId`, or `undefined` if it belongs to no company. */
+export function characterLocation(state: GameState, characterId: CardInstanceId): CharacterLocation | undefined {
+  const found = findPlayerAndCompany(state, characterId);
+  if (!found) return undefined;
+  const { player, company } = found;
+
+  let regionType: RegionType | undefined;
+  let regionName: string | undefined;
+  if (company.currentSite) {
+    const siteDef = defById(state, company.currentSite.definitionId);
+    if (isSiteCard(siteDef)) {
+      regionType = siteRegionTypeOf(state, siteDef);
+      regionName = siteDef.region || undefined;
+    }
+  }
+
+  let pathRegionTypes: readonly RegionType[] = [];
+  let pathRegionNames: readonly string[] = [];
+  if (
+    state.phaseState.phase === Phase.MovementHazard
+    && state.activePlayer === player.id
+    && player.companies[state.phaseState.activeCompanyIndex]?.id === company.id
+  ) {
+    pathRegionTypes = state.phaseState.resolvedSitePath;
+    pathRegionNames = state.phaseState.resolvedSitePathNames;
+  }
+
+  return { regionType, regionName, pathRegionTypes, pathRegionNames, minion: isMinionOrBalrog(player) };
+}
+
+/**
+ * True when `loc` falls within `spec`'s named region types/names, either at
+ * its current site or (while transiting) along its resolved path. A `spec`
+ * with neither field set matches nothing.
+ */
+export function locationMatchesSpec(
+  loc: CharacterLocation,
+  spec: { readonly regionTypes?: readonly RegionType[]; readonly regionNames?: readonly string[] },
+): boolean {
+  if (spec.regionTypes && spec.regionTypes.length > 0) {
+    if (loc.regionType !== undefined && spec.regionTypes.includes(loc.regionType)) return true;
+    if (loc.pathRegionTypes.some(rt => spec.regionTypes!.includes(rt))) return true;
+  }
+  if (spec.regionNames && spec.regionNames.length > 0) {
+    if (loc.regionName !== undefined && spec.regionNames.includes(loc.regionName)) return true;
+    if (loc.pathRegionNames.some(n => spec.regionNames!.includes(n))) return true;
+  }
+  return false;
+}
+
+/**
+ * True when `skill` is suppressed for `characterId` by a `skill-suppression`
+ * effect on any in-play card whose location spec matches the character's
+ * current location (see {@link CharacterLocation}). Consulted by
+ * {@link getEffectiveSkills} so every consumer of a character's skills
+ * (site grant-actions, sage-tap abilities, …) automatically respects the
+ * suppression without each caller re-checking it.
+ */
+export function isSkillSuppressedForCharacter(state: GameState, characterId: CardInstanceId, skill: string): boolean {
+  const loc = characterLocation(state, characterId);
+  if (!loc) return false;
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      for (const eff of getCardEffects(defById(state, card.definitionId))) {
+        if (eff.type !== 'skill-suppression' || (eff.skill as string) !== skill) continue;
+        if (eff.noEffectOnMinion && loc.minion) continue;
+        if (locationMatchesSpec(loc, eff)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Filters a sideboard to the cards whose definitions match `predicate`,
  * returning `{ instanceId, name }` pairs for legal-action generation. Cards
  * whose definitions cannot be resolved from the card pool are skipped.

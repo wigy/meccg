@@ -530,12 +530,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // menu to the corruption-check action before this function is reached,
   // so no per-phase short-circuit is needed here.
 
-  // When sideboard sub-flow is active, only fetch actions (+ pass for discard)
-  // plus granted-action activations (e.g. corruption-card removal, gold-ring
-  // tests) are legal. CoE 2.II.6 (sideboard access) carries no "no other
-  // actions" clause — unlike 2.II.1 ("organizing"), which explicitly says so
-  // — so a declared sideboard fetch must not suppress unrelated granted
-  // abilities such as a character's tap-to-remove-corruption action.
+  // When the sideboard sub-flow (CoE 2.II.6) is active, only fetch actions
+  // (+ pass for discard) are legal for *organizing* — but the sub-flow only
+  // suspends "organizing" (2.II.1: play/discard a character, set company
+  // composition), not independent character abilities. CoE 2.II.6 carries no
+  // "no other actions" clause — unlike 2.II.1, which explicitly says so — so
+  // granted-action activations (e.g. a character's tap-to-remove-corruption
+  // action, gold-ring tests, or Gandalf's "may untap at the end of your
+  // organization phase") remain available while the sideboard access is
+  // still being resolved, and must still be offered here.
   if (orgState.sideboardFetchDestination !== null) {
     logHeading(`Sideboard sub-flow active (destination: ${orgState.sideboardFetchDestination})`);
     return [...fetchFromSideboardActions(state, playerId), ...grantedActionActivations(state, playerId)];

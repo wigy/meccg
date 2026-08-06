@@ -119,6 +119,15 @@ export function showTooltipMenu(
     tooltip.style.top = `${placement === 'under' ? rect.bottom : rect.top}px`;
   }
   document.body.appendChild(tooltip);
+
+  // Clamp into the viewport: an anchor near a screen edge (e.g. a character
+  // card packed against the right edge on a narrow tablet) would otherwise
+  // push the menu partly or fully off-screen, leaving its buttons untappable.
+  const tipRect = tooltip.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  tooltip.style.left = `${Math.max(4, Math.min(tipRect.left, vw - tipRect.width - 4))}px`;
+  tooltip.style.top = `${Math.max(4, Math.min(tipRect.top, vh - tipRect.height - 4))}px`;
 }
 
 /**
