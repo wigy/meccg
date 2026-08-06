@@ -38,16 +38,18 @@ export interface CardInstance {
    */
   readonly storedAtSite?: CardDefinitionId;
   /**
-   * Set when a drafted Stage resource is parked in `hand` at draft-finalize
-   * because its physical placement (character bearer, site pairing, or
-   * item-draft assignment) could not be resolved yet — e.g. an unpaired
-   * Thrall of the Voice, or a Hidden Haven with no eligible site. Per CoE
-   * 1.9.F4 the card's stage points are owed from draft-finalize regardless of
-   * placement, so `playerStagePoints` sums this flag over `hand` rather than
-   * assuming every hand card is unplayed. Never set outside
-   * {@link applyDraftResults}; irrelevant once the card leaves `hand`.
+   * Stamped by {@link applyDraftResults} on a Stage resource it sets aside to
+   * hand at draft finalize instead of putting into play (no gated character
+   * to pair with, no site pairing, a site-pairing collision, or the
+   * "in lieu of a minor item" item-draft placement wait) — MEWH §1 / CoE
+   * 1.7.F1: the card's stage points were already counted toward the running
+   * total mid-draft, and nothing requires that count to regress just because
+   * the card has not yet found its way into play. Read by
+   * `playerStagePoints` to sum only these hand cards, never an ordinary Stage
+   * resource drawn and held in hand mid-game (which contributes nothing
+   * until played).
    */
-  readonly deferredStagePoints?: true;
+  readonly pendingDraftStagePoints?: true;
 }
 
 // ---- Characters in play ----

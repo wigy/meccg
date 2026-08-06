@@ -23,6 +23,15 @@ const FIXTURE = path.join(__dirname, '..', 'test-fixtures', 'bc-mini-weights.jso
 const DECKS: [ReturnType<typeof loadDeck>, ReturnType<typeof loadDeck>] =
   [loadDeck('challenge-deck-a'), loadDeck('challenge-deck-b')];
 
+/**
+ * Budget for a test that plays a whole game.
+ *
+ * Vitest's 5s default is not enough for one when the suite runs files in
+ * parallel: these pass in isolation and fail together, which reads as a
+ * flaky suite rather than as a slow test.
+ */
+const GAME_TIMEOUT = 30000;
+
 describe('view signature', () => {
   test('is stable for the same view and moves when the game progresses', () => {
     const seen: { signature: string; view: PlayerView }[] = [];
@@ -46,7 +55,7 @@ describe('view signature', () => {
     }
     // A real game visits many distinct signatures rather than sitting still.
     expect(new Set(seen.map(e => e.signature)).size).toBeGreaterThan(seen.length / 4);
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('bc agent cycle guard', () => {

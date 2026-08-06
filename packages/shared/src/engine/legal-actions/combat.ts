@@ -1229,7 +1229,11 @@ function resolveStrikeActions(
   // stay-untapped need.
   let baseProwessTap: number;
   let baseProwessUntap: number;
-  if (allyMatch) {
+  if (combat.defenderProwessFromMind && !allyMatch && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
+    // Neeker-breekers: use the character's mind attribute as base prowess.
+    // Must match the reducer's calculation in combat-strike.ts.
+    baseProwessTap = baseProwessUntap = charDef.mind;
+  } else if (allyMatch) {
     // Allies use prowess from their instance override (e.g. a creature
     // converted by Ready to His Will) or their card definition.
     baseProwessTap = baseProwessUntap = allyEffectiveProwess(state, allyMatch.ally);

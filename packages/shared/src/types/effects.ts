@@ -7436,6 +7436,69 @@ export interface TapSitesInPlayEffect extends EffectBase {
 }
 
 /**
+ * While the carrying card (a permanent-event/environment) is in play, any
+ * character standing at a site in a matching region — or, mid-transit,
+ * whose company is the active mover of an in-progress movement/hazard phase
+ * with a matching region in its resolved site path — no longer counts as
+ * having `skill` for any purpose that reads {@link getEffectiveSkills}.
+ *
+ * Used by In the Heart of his Realm (dm-67): "any sage at a site in a
+ * Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or
+ * Gorgoroth in his site path, loses his sage skill."
+ *
+ * A character's location is resolved by `characterLocation` (`reducer-utils.ts`):
+ * the current site's containing region (via `siteRegionTypeOf`), plus —
+ * only while that character's company is the phase's active mover — the
+ * `resolvedSitePath` / `resolvedSitePathNames` of the movement/hazard phase
+ * state. Matched against `regionTypes` / `regionNames` by
+ * `locationMatchesSpec`.
+ */
+export interface SkillSuppressionEffect extends EffectBase {
+  readonly type: 'skill-suppression';
+  /** The skill a matching character no longer counts as having. */
+  readonly skill: Skill;
+  /** Region types (e.g. `"dark"`) whose sites/paths trigger the suppression. */
+  readonly regionTypes?: readonly RegionType[];
+  /** Named regions (e.g. `"Gorgoroth"`) whose sites/paths trigger the suppression. */
+  readonly regionNames?: readonly string[];
+  /** When true, a character controlled by a Ringwraith/Balrog player is exempt. */
+  readonly noEffectOnMinion?: boolean;
+}
+
+/**
+ * While the carrying card (a permanent-event/environment) is in play, no
+ * character standing at a site in a matching region — or transiting one, per
+ * the same location rule as {@link SkillSuppressionEffect} — may play a
+ * magic-class card: one carrying any of `keywords` (default `"spell"`,
+ * `"sorcery"`, `"spirit-magic"`, `"shadow-magic"`, `"light-enchantment"`,
+ * `"ritual"`).
+ *
+ * Used by In the Heart of his Realm (dm-67): "No character at a site in a
+ * Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or
+ * Gorgoroth in his site path, can use spells, light enchantments, or
+ * rituals."
+ *
+ * Enforced centrally by `applyLocationMagicRestriction`
+ * (`engine/location-magic-restriction.ts`), which runs every evaluated
+ * action through the same `computeLegalActions` chokepoint as
+ * `prohibit-card-play`: an action that plays a matching-keyword card and
+ * names an acting character (via `characterId` / `scoutInstanceId` /
+ * `targetCharacterId` / `targetScoutInstanceId`) is turned into a
+ * not-playable entry when that character's location matches.
+ */
+export interface LocationMagicRestrictionEffect extends EffectBase {
+  readonly type: 'location-magic-restriction';
+  /** Region types (e.g. `"dark"`) whose sites/paths trigger the restriction. */
+  readonly regionTypes?: readonly RegionType[];
+  /** Named regions (e.g. `"Gorgoroth"`) whose sites/paths trigger the restriction. */
+  readonly regionNames?: readonly string[];
+  /** Card keywords considered "magic" for this restriction. Defaults to every magic/enchantment keyword. */
+  readonly keywords?: readonly string[];
+  /** When true, a character controlled by a Ringwraith/Balrog player is exempt. */
+  readonly noEffectOnMinion?: boolean;
+}
+
+/**
  * In-play ally ability: tap this ally during the M/H chain declaring window
  * to negate an unresolved chain entry that carries a `force-return-to-origin`
  * effect and would apply to the ally's company.
@@ -7843,6 +7906,8 @@ export type CardEffect =
   | TapAgentEffect
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
+  | SkillSuppressionEffect
+  | LocationMagicRestrictionEffect
   | CancelChainReturnToOriginEffect
   | CancelChainAttackCancelEffect
   | CancelCardEffectsEffect
