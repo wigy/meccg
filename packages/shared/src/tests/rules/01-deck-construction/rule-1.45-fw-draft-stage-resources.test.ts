@@ -640,13 +640,16 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // ce89374d71a75cc7: a recruitment vehicle only pairs with a character that
     // needed its specific gate) the surplus Thrall is not force-attached — it
     // is kept in hand, still usable as a recruitment vehicle in a later
-    // organization phase, and yields no stage points yet.
+    // organization phase. It was already counted toward the running stage-point
+    // total mid-draft, and MEWH §1 / CoE 1.7.F1 gives no basis for that count
+    // to regress just because the card has not yet found a home (see
+    // `pendingDraftStagePoints`), so it still contributes its 1 stage point.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
     ]);
     expect((state.phaseState as { setupStep?: { step: string } }).setupStep?.step).not.toBe('character-draft');
     expect(state.players[0].hand.map(c => c.definitionId)).toContain(THRALL_OF_THE_VOICE);
-    expect(state.players[0].stagePoints).toBe(0);
+    expect(state.players[0].stagePoints).toBe(1);
   });
 
   test('[FALLEN-WIZARD] draft-stop is not offered while a Stage resource in the pool is still a legal pick (regression for game msd1yp91-j5yc2m seq 8)', () => {
