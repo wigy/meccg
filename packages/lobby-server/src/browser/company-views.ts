@@ -67,6 +67,27 @@ export function removeMapRadar(): void {
   document.getElementById('map-radar-widget')?.remove();
 }
 
+/**
+ * Decide which side's companies the left/right navigation arrows cycle
+ * through in single-company view: whichever side the focused company
+ * actually belongs to, not whichever side's turn it currently is.
+ *
+ * On the opponent's turn we're the hazard player and may focus one of our
+ * own companies (e.g. by clicking it in the forced all-companies overview);
+ * cycling must stay within our own companies rather than switching to the
+ * opponent's list, which can be shorter (or length 1) and silently hide the
+ * arrows.
+ *
+ * Exported for unit testing (pure — no DOM access).
+ */
+export function getCycleCompanies(
+  owner: 'self' | 'opponent',
+  selfCompanies: readonly Company[],
+  opponentCompanies: readonly OpponentCompanyView[],
+): readonly (Company | OpponentCompanyView)[] {
+  return owner === 'self' ? selfCompanies : opponentCompanies;
+}
+
 /** Render a single focused company at full scale. */
 export function renderSingleView(
   container: HTMLElement,
@@ -100,8 +121,7 @@ export function renderSingleView(
   }
 
   // Determine which list of companies to cycle through
-  const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
-  const cycleCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+  const cycleCompanies = getCycleCompanies(owner, view.self.companies, view.opponent.companies);
   const currentIndex = cycleCompanies.findIndex(c => c.id === focusedCompanyId);
 
   const single = document.createElement('div');
