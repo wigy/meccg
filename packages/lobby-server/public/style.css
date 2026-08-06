@@ -5070,14 +5070,32 @@ body.spectating.combat-active #hand-arc.kbd-peek {
   top: -19vh;
 }
 
-/* Combat view: raise hand arc above the combat arena and tuck it lower when idle */
+/*
+ * Combat view: tuck the hand arc lower when idle, and raise it above the
+ * combat arena only while actually hovered/peeked.
+ *
+ * The idle state used to raise z-index unconditionally (to var(--z-hover),
+ * above .combat-arena's z-index). #hand-arc's always-present hover catch
+ * zone (the ::before above) rides along with #hand-arc's own z-index, so
+ * that unconditional raise lifted the catch zone's invisible, pointer-events
+ * bottom strip above the combat arena too -- even while the hand itself sat
+ * fully tucked off-screen. Any combat-arena target rendered near the bottom
+ * of the viewport (e.g. the defender row, via `justify-content: space-between`
+ * on a tall `.combat-arena`) had its clicks swallowed by that invisible strip
+ * instead of reaching the character underneath (bug: could not target a
+ * tapped Ringwraith with The Tormented Earth -- the "hand cards" blocking it
+ * were this invisible catch zone, not anything visible). Raising z-index only
+ * on hover/peek -- matching the non-combat rule below -- keeps the idle catch
+ * zone at its normal z-index (below the arena), so arena clicks land correctly
+ * until the player actually reveals the hand.
+ */
 .combat-active #hand-arc {
-  z-index: var(--z-hover);
   bottom: -18vh;
 }
 
 .combat-active #hand-arc:hover,
 .combat-active #hand-arc.kbd-peek {
+  z-index: var(--z-hover);
   bottom: 0;
 }
 
