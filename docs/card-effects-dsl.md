@@ -13833,9 +13833,17 @@ generalized to find the source card whether it sits in the owner's `cardsInPlay`
 dm-130). The sage is tapped as the play cost (`play-flag: tap-character-on-play`)
 so the constraint holds him tapped for one extra untap before discarding.
 
-Playability rides the existing site-phase permanent-event path (`legal-actions/
-site.ts`): `play-target character` (sage skill + untapped status), `play-target
-site` (siteType Border-hold/Free-hold), and `play-flag: tapped-site-only`.
+Playability during the site phase rides the existing site-phase permanent-event
+path (`legal-actions/site.ts`): `play-target character` (sage skill + untapped
+status), `play-target site` (siteType Border-hold/Free-hold), and
+`play-flag: tapped-site-only`. Unlike its site-tapping siblings (Rescue
+Prisoners tw-315, Andúril tw-192, Reforging tw-314, …), whose card text prints
+"during the site phase", Fireworks' text declares no such restriction — under
+rule 2.1.1 it remains playable during any phase as long as the sage is still
+untapped and the site still tapped from an earlier site phase. This any-phase
+case is evaluated directly in `legal-actions/organization-events.ts`
+(`playPermanentEventActions`'s `roll-untap-site`-gated branch), mirroring how
+The White Tree (tw-348) and Return of the King (tw-316) are handled there.
 
 ### 22. Radagast Shapeshifter primitives
 
