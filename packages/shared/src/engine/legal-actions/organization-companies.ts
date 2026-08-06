@@ -462,7 +462,7 @@ function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, cand
  * They are bound to the company via `CardInPlay.companyId`. Without a mode
  * card the Ringwraith may only move Darkhaven-to-Darkhaven (MELE §1.2).
  */
-function ringwraithHasModeCard(
+export function ringwraithHasModeCard(
   state: GameState,
   company: { readonly id: import('../../index.js').CompanyId },
   player: PlayerState,
