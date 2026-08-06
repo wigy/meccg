@@ -11043,6 +11043,103 @@ from `resolveLongEvent`.
 Used by: *Long Winter* (le-117, ≥2 Wildernesses), *Foul Fumes* (tw-36,
 Shadow-land or Dark-domain) — both gated on Doors of Night.
 
+### 47. `skill-suppression` / `location-magic-restriction`
+
+A pair of **character**-scoped location gates, distinct from
+`force-return-to-origin`/`tap-sites-in-play` above (which evaluate a
+**company**'s site path once at movement resolution). These two resolve a
+single character's location on demand, at any phase, via the shared
+`characterLocation` helper (`engine/reducer-utils.ts`):
+
+- The character's company's **current** site's containing region (its
+  `regionType` via `siteRegionTypeOf`, and its printed `region` name) —
+  populated whenever the company has a `currentSite`, regardless of phase.
+- **Only** while that company is the *active mover* of an in-progress
+  movement/hazard phase, the phase's `resolvedSitePath` /
+  `resolvedSitePathNames` — the engine does not persist a company's site path
+  outside that window (see `mh-steps.ts`'s `transitionToDrawCards`, which
+  computes and consumes it for the same active company).
+
+`locationMatchesSpec(loc, spec)` matches either fact against `spec`'s
+`regionTypes` / `regionNames`. Both effects below share this location shape
+plus `noEffectOnMinion?: boolean` — the *Foul Fumes* (tw-36) / *Mordor in
+Arms* (dm-72) convention, checked against the **affected character's own**
+controller, not the carrying card's owner.
+
+**`skill-suppression`** — while the carrying card is in play, a character
+whose location matches no longer counts as having `skill` for any purpose
+that reads `getEffectiveSkills`.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `skill` | yes | The skill a matching character no longer counts as having (e.g. `"sage"`). |
+| `regionTypes` | no | Region types (e.g. `["dark"]`) whose sites/paths trigger the suppression. |
+| `regionNames` | no | Named regions (e.g. `["Gorgoroth"]`) whose sites/paths trigger the suppression. |
+| `noEffectOnMinion` | no | When `true`, a character controlled by a Ringwraith/Balrog player is exempt. |
+
+```json
+{ "type": "skill-suppression", "skill": "sage",
+  "regionTypes": ["dark"], "regionNames": ["Gorgoroth"],
+  "noEffectOnMinion": true }
+```
+
+Consulted inside `getEffectiveSkills` (`engine/effects/resolver.ts`), which
+filters its final `[...base, ...granted]` skill list through
+`isSkillSuppressedForCharacter` (`reducer-utils.ts`). Every existing consumer
+of a character's effective skills — site `grant-action` costs like
+`sage-and-scout-in-company` / `sage-in-company`, `organization.ts`'s
+`sage-tap-ring-test` — therefore respects the suppression automatically, with
+no per-call-site change.
+
+**`location-magic-restriction`** — while the carrying card is in play, a
+character whose location matches may not play a magic-class card: one
+carrying any of `keywords`.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `regionTypes` | no | Region types whose sites/paths trigger the restriction. |
+| `regionNames` | no | Named regions whose sites/paths trigger the restriction. |
+| `keywords` | no | Card keywords counted as "magic". Defaults to `["spell","sorcery","spirit-magic","shadow-magic","light-enchantment","ritual"]`. |
+| `noEffectOnMinion` | no | When `true`, a character controlled by a Ringwraith/Balrog player is exempt. |
+
+```json
+{ "type": "location-magic-restriction",
+  "regionTypes": ["dark"], "regionNames": ["Gorgoroth"],
+  "noEffectOnMinion": true }
+```
+
+Enforced centrally by `applyLocationMagicRestriction`
+(`engine/location-magic-restriction.ts`), wired into `computeLegalActions`
+alongside `applyCardPlayProhibitions` (mirroring that module's "central
+rather than per-phase" rationale — see its own module doc — so the lock
+reaches every window a magic card can be played from). For each *viable*
+evaluated action, it resolves the played card via `cardInstanceId` and the
+acting/casting character via the first of `characterId`, `scoutInstanceId`,
+`targetCharacterId`, `targetScoutInstanceId` present on the action (covering
+reactive `cancel-attack`/`cancel-influence` spells and `play-target`-bound
+permanent-event rituals/light-enchantments alike); an action naming none of
+those fields is left alone. A match turns the action into a `not-playable`
+entry.
+
+`draw-modifier`'s resolver context (built in `mh-steps.ts`'s
+`transitionToDrawCards`) also gained a `player: { minion }` field — the
+moving company's own alignment — so a `draw-modifier`'s `when` can use the
+same `player.minion` gate `force-return-to-origin`/`tap-sites-in-play`
+already exposed, e.g. `{ "player.minion": false }`.
+
+Used by *In the Heart of his Realm* (dm-67): "Each company moving in a
+Dark-domain [{d}] draws one less card … (to no minimum). Additionally, any
+sage at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a
+Dark-domain [{d}] or Gorgoroth in his site path, loses his sage skill. No
+character at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a
+Dark-domain [{d}] or Gorgoroth in his site path, can use spells, light
+enchantments, or rituals. … This card has no effect on a minion player." —
+a `draw-modifier` (`"resource"`, `-1`, `min: 0`, `appliesTo: "any-company"`,
+`when: { "$and": [{ "sitePath.darkCount": { "$gte": 1 } }, { "player.minion": false }] }`),
+the `skill-suppression` and `location-magic-restriction` examples above, plus
+the pre-existing `play-restriction unplayable-when opponent.alignment:
+"ringwraith"` and an `on-event play-deck-exhausted` self-discard.
+
 ### 47. `tap-discard-attached-hazard`
 
 In-play ally ability: tap this ally (cost `{ "tap": "self" }`) to discard one

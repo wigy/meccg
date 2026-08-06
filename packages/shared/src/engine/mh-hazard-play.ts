@@ -27,9 +27,9 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { resetCompanyMHFields } from './mh-phase-state.js';
-import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
+import { getPlayerIndex, isMinionOrBalrog, companyContainsRingwraithAvatar } from '../state-utils.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
-import { CardStatus, Skill, SiteType, Alignment, Race } from '../types/common.js';
+import { CardStatus, Skill, SiteType, Alignment, Race, RegionType } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
@@ -41,14 +41,14 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, enqueueResolution, hasCancelReturnAndSiteTap } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
-import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
@@ -2575,6 +2575,15 @@ function cardNameLocal(state: GameState, defId: CardDefinitionId): string {
  * from the company's current site (starter or region movement) whose card is
  * still in the site deck. Restricted to the mover's own alignment so identically
  * named sites of the other side don't leak in. De-duplicated by definition.
+ *
+ * A company containing a Ringwraith avatar is still bound by CoE rule 2.II.7.R1
+ * for this extra movement: without a mode card (Black Rider, Fell Rider, or
+ * Heralded Lord) bound to the company, or when the company's current site is not
+ * a Darkhaven, only Darkhaven destinations are legal; Coastal-Seas site paths are
+ * always excluded; and Region movement is never available, mode or no mode. An
+ * extra M/H phase grants another movement, not an exemption from these
+ * restrictions — mirrors the same gate applied to the org-phase plan-movement
+ * offer in {@link planMovementActions}.
  */
 export function extraMHMoveDestinations(
   state: GameState,
@@ -2588,7 +2597,34 @@ export function extraMHMoveDestinations(
   const allSites = Object.values(state.cardPool).filter(
     (s): s is SiteCard => isSiteCard(s) && s.alignment === player.alignment,
   );
-  const reachableNames = new Set(getReachableSites(movementMap, currentDef, allSites).map(r => r.site.name));
+  let reachable = getReachableSites(movementMap, currentDef, allSites);
+
+  // CoE 2.II.7.R1: a company containing a Ringwraith avatar is bound by the
+  // same Darkhaven-origin/mode-card gate, Coastal-Seas exclusion, and
+  // Region-movement lock enforced for the org-phase plan-movement offer — a
+  // `grant-extra-mh-phase` extra movement does not lift these restrictions.
+  if (player.alignment === Alignment.Ringwraith && companyContainsRingwraithAvatar(state, player, company)) {
+    const hasModeCard = ringwraithHasModeCard(state, company, player);
+    const originIsDarkhaven = isDarkhavenSiteDef(currentDef);
+    if (!hasModeCard || !originIsDarkhaven) {
+      const before = reachable.length;
+      reachable = reachable.filter(r => r.site.siteType === SiteType.Haven);
+      const why = !hasModeCard ? 'no mode card' : `origin ${currentDef.name} is not a Darkhaven`;
+      logDetail(`Extra M/H phase: company ${company.id as string} Ringwraith ${why} — restricted to Darkhaven destinations (${before} → ${reachable.length})`);
+    }
+    const beforeCoastal = reachable.length;
+    reachable = reachable.filter(r => !(r.site.sitePath ?? []).includes(RegionType.Coastal));
+    if (reachable.length !== beforeCoastal) {
+      logDetail(`Extra M/H phase: company ${company.id as string} filtered out ${beforeCoastal - reachable.length} Coastal Seas destination(s) for Ringwraith`);
+    }
+    const beforeRegion = reachable.length;
+    reachable = reachable.filter(r => r.movementType !== 'region');
+    if (reachable.length !== beforeRegion) {
+      logDetail(`Extra M/H phase: company ${company.id as string} filtered out ${beforeRegion - reachable.length} Region-movement destination(s) — Ringwraith companies may only use Starter or Under-deeps movement`);
+    }
+  }
+
+  const reachableNames = new Set(reachable.map(r => r.site.name));
   const seenDefs = new Set<string>();
   const dests: CardInstance[] = [];
   for (const siteInst of player.siteDeck) {

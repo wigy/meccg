@@ -163,6 +163,37 @@ describe('Gandalf (wh-4)', () => {
     expect(untapActions(state).length).toBe(0);
   });
 
+  test('untap-self remains offered while Gandalf (the avatar) is mid CoE 2.II.6 sideboard access', () => {
+    // Regression: tapping Gandalf to access the sideboard (CoE 2.II.6) opens a
+    // sub-flow that only suspends *organizing* (2.II.1) — it must not also
+    // suppress Gandalf's own, independent untap-self grant-action.
+    let state = fwState(GANDALF_FW);
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF_FW);
+    state = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          characters: {
+            ...state.players[0].characters,
+            [gandalfId]: { ...state.players[0].characters[gandalfId], status: CardStatus.Tapped },
+          },
+        },
+        state.players[1],
+      ] as typeof state.players,
+      phaseState: {
+        phase: Phase.Organization,
+        characterPlayedThisTurn: false,
+        sideboardFetchedThisTurn: 1,
+        sideboardFetchDestination: 'discard',
+      } as GameState['phaseState'],
+    };
+
+    const actions = untapActions(state);
+    expect(actions.length).toBe(1);
+    expect(actions[0].characterId).toBe(gandalfId);
+  });
+
   // ─── Clause: "Your characters … are each worth full marshalling points" ─────
 
   test('a hero character the FW controls scores full printed character MP (2) with Gandalf', () => {

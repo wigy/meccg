@@ -34,6 +34,7 @@ import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
 import { applyCardPlayProhibitions, applyPendingPlayFilter } from '../card-play-prohibition.js';
+import { applyLocationMagicRestriction } from '../location-magic-restriction.js';
 import { applyConstraints } from './pending.js';
 import { resolutionLegalActions } from '../pending-handlers.js';
 
@@ -301,7 +302,10 @@ function applyOpponentBans(
 export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   return applyPendingPlayFilter(
     state, playerId,
-    applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
+    applyLocationMagicRestriction(
+      state, playerId,
+      applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
+    ),
   );
 }
 

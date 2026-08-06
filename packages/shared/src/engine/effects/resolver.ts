@@ -38,7 +38,7 @@ import { isCharacterCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
-import { getCardEffects, findPlayerAndCompany, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { getCardEffects, findPlayerAndCompany, isCardNameInPlayForPlayer, isSkillSuppressedForCharacter } from '../reducer-utils.js';
 import { logDetail } from '../legal-actions/log.js';
 
 /**
@@ -1798,5 +1798,10 @@ export function getEffectiveSkills(
       if (eff.type === 'override-skills') base = eff.skills;
     }
   }
-  return [...base, ...getItemGrantedSkills(state, charData)];
+  const all = [...base, ...getItemGrantedSkills(state, charData)];
+  // A `skill-suppression` effect (In the Heart of his Realm dm-67: "any sage
+  // at a site in a Dark-domain … loses his sage skill") strips a matching
+  // skill for the rest of every consumer here, so no caller needs its own
+  // location check.
+  return all.filter(skill => !isSkillSuppressedForCharacter(state, charData.instanceId, skill));
 }
