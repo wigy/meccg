@@ -4828,6 +4828,44 @@ export function rescuablePrisonersAtSite(
 }
 
 /**
+ * Drop `characterId` from whichever hazard host holds it prisoner — e.g. a
+ * prisoner eliminated by a periodic body check (Spells of the Barrow-wights
+ * dm-90's `untapBodyCheck`) rather than freed by a rescue-attack. Clears its
+ * `character-is-prisoner` constraint and removes it from the host's prisoner
+ * list; if the host has no prisoners left, the record is dropped and, if the
+ * host card lives only in the record (not a `cardsInPlay` permanent, e.g.
+ * dm-58/dm-90), it is discarded to its owner so the instance is preserved.
+ * A no-op if `characterId` is not held prisoner by any host.
+ *
+ * Mirrors `freePrisonersOfHost` (`reducer-site.ts`), which frees an entire
+ * host's prisoners on a faced rescue-attack; this instead drops a single
+ * prisoner outside the rescue flow.
+ */
+export function removePrisonerFromHost(state: GameState, characterId: CardInstanceId): GameState {
+  const host = state.hazardHosts.find(h => h.prisoners.includes(characterId));
+  if (!host) return state;
+  const activeConstraints = state.activeConstraints.filter(c =>
+    !(c.kind.type === 'character-is-prisoner'
+      && c.kind.hostInstanceId === host.hostCard.instanceId
+      && c.target.kind === 'character'
+      && c.target.characterId === characterId));
+  const remainingPrisoners = host.prisoners.filter(p => p !== characterId);
+  if (remainingPrisoners.length > 0) {
+    const hazardHosts = state.hazardHosts.map(h => (h === host ? { ...h, prisoners: remainingPrisoners } : h));
+    return { ...state, activeConstraints, hazardHosts };
+  }
+  const hazardHosts = state.hazardHosts.filter(h => h !== host);
+  let newState: GameState = { ...state, activeConstraints, hazardHosts };
+  const hostInPlay = state.players.some(p => p.cardsInPlay.some(c => c.instanceId === host.hostCard.instanceId));
+  if (!hostInPlay) {
+    const ownerIdx = getPlayerIndex(state, host.ownedBy);
+    logDetail(`removePrisonerFromHost: host ${host.hostCard.instanceId as string} has no prisoners left — discarded to ${state.players[ownerIdx].name}'s pile`);
+    newState = updatePlayer(newState, ownerIdx, p => ({ ...p, discardPile: [...p.discardPile, host.hostCard] }));
+  }
+  return newState;
+}
+
+/**
  * Whether `def` is a `trigger-attack-on-play` permanent event that *detaches*
  * from its bound site once kept, continuing to score MP from `cardsInPlay`
  * regardless of the site's occupancy (Burning Rick, Cot, and Tree le-173,
