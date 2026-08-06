@@ -533,10 +533,12 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // When the sideboard sub-flow (CoE 2.II.6) is active, only fetch actions
   // (+ pass for discard) are legal for *organizing* — but the sub-flow only
   // suspends "organizing" (2.II.1: play/discard a character, set company
-  // composition), not independent character abilities. A character's own
-  // grant-actions (e.g. Gandalf's "may untap at the end of your organization
-  // phase") remain available even while the avatar-tap sideboard access is
-  // still being resolved, so they must still be offered here.
+  // composition), not independent character abilities. CoE 2.II.6 carries no
+  // "no other actions" clause — unlike 2.II.1, which explicitly says so — so
+  // granted-action activations (e.g. a character's tap-to-remove-corruption
+  // action, gold-ring tests, or Gandalf's "may untap at the end of your
+  // organization phase") remain available while the sideboard access is
+  // still being resolved, and must still be offered here.
   if (orgState.sideboardFetchDestination !== null) {
     logHeading(`Sideboard sub-flow active (destination: ${orgState.sideboardFetchDestination})`);
     return [...fetchFromSideboardActions(state, playerId), ...grantedActionActivations(state, playerId)];
