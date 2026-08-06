@@ -565,11 +565,74 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.siteType": { "$ne": "haven" } },
+            {
+              "site.region": {
+                "$in": [
+                  "Rohan",
+                  "Khand",
+                  "Dorwinion",
+                  "Horse Plains",
+                  "Southern Rhovanion",
+                  "Harondor"
+                ]
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped non-Haven site in Rohan, Khand, Dorwinion, Horse Plains, Southern Rhovanion, or Harondor if the influence check is greater than 11.Standard Modifications: Men with home sites in the regions listed above (+3).Tap this faction to allow any company with one of the regions listed above in its site path to move up to 1 additional region."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": {
+          "$and": [
+            { "bearer.race": "man" },
+            {
+              "$or": [
+                { "bearer.homesiteRegions": { "$includes": "Rohan" } },
+                { "bearer.homesiteRegions": { "$includes": "Khand" } },
+                { "bearer.homesiteRegions": { "$includes": "Dorwinion" } },
+                { "bearer.homesiteRegions": { "$includes": "Horse Plains" } },
+                { "bearer.homesiteRegions": { "$includes": "Southern Rhovanion" } },
+                { "bearer.homesiteRegions": { "$includes": "Harondor" } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "wild-horses-extra-region",
+        "cost": { "tap": "self" },
+        "targets": {
+          "scope": "player-companies",
+          "movingThroughRegionNames": [
+            "Rohan",
+            "Khand",
+            "Dorwinion",
+            "Horse Plains",
+            "Southern Rhovanion",
+            "Harondor"
+          ]
+        },
+        "apply": {
+          "type": "increment-company-extra-region-distance",
+          "amount": 1
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped non-Haven site in Rohan, Khand, Dorwinion, Horse Plains, Southern Rhovanion, or Harondor if the influence check is greater than 11.Standard Modifications: Men with home sites in the regions listed above (+3).Tap this faction to allow any company with one of the regions listed above in its site path to move up to 1 additional region.",
+    "certified": "2026-08-07"
   },
   {
     "cardType": "minion-resource-faction",

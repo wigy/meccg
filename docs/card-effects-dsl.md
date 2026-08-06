@@ -14535,3 +14535,58 @@ a minion player. Cannot be duplicated." — paired with the pre-existing
 tw-36/dm-72 "no effect on a minion player" precedent of also blocking play
 against a Ringwraith opponent outright) and a `duplication-limit` scope `game`
 max 1 for "Cannot be duplicated".
+
+### 75. `targets.movingThroughRegionNames` + `bearer.homesiteRegions`
+
+Two additions letting a **bearer-less in-play faction** (a card sitting bare in
+`cardsInPlay`, not attached to any character) tap itself to grant a per-company
+region-movement bonus keyed to *named* regions, and letting a faction's own
+standard-modification `check-modifier` read the influencing character's home
+region.
+
+```json
+{ "type": "grant-action",
+  "action": "wild-horses-extra-region",
+  "cost": { "tap": "self" },
+  "targets": { "scope": "player-companies",
+    "movingThroughRegionNames": ["Rohan", "Khand", "Dorwinion",
+      "Horse Plains", "Southern Rhovanion", "Harondor"] },
+  "apply": { "type": "increment-company-extra-region-distance", "amount": 1 } }
+```
+
+- **`targets.movingThroughRegionNames`** is the named-region sibling of
+  `targets.movingThroughRegionType` (§22): it narrows a `player-companies`
+  enumeration to companies that have declared movement whose destination
+  site's own printed `region` (a specific name, not an abstract terrain type)
+  is in the given list.
+- The bearer-less in-play-faction grant-action path (`inPlayFactionGrantActions`,
+  previously discard-self / `add-constraint` only for A Panoply of Wings
+  wh-37) now also accepts `cost.tap: "self"` and, with a `player-companies`
+  `targets`, emits one activation per eligible company (`targetCompanyId`).
+  `apply.type: "increment-company-extra-region-distance"` resolves its target
+  company from `targetCompanyId` instead of a bearer's company (contrast
+  Cram td-105, whose identical apply is bearer-borne).
+
+```json
+{ "type": "check-modifier", "check": "influence", "value": 3,
+  "when": { "$and": [
+    { "bearer.race": "man" },
+    { "$or": [
+      { "bearer.homesiteRegions": { "$includes": "Rohan" } },
+      { "bearer.homesiteRegions": { "$includes": "Khand" } }
+    ] } ] } }
+```
+
+- **`bearer.homesiteRegions`** is a resolver-context field populated only for
+  the `faction-influence-check` reason, listing the named regions of the
+  influencing character's home site(s) (via `characterHomeSiteRegions`, the
+  region-name sibling of `characterHomeSiteTypes`). Lets a faction card gate
+  its own standard modification on the influencer's home region rather than a
+  fixed character name or `controller.wizard`.
+
+Used by Wild Horses (wh-39): "Playable at any tapped or untapped non-Haven
+site in Rohan, Khand, Dorwinion, Horse Plains, Southern Rhovanion, or Harondor
+if the influence check is greater than 11. Standard Modifications: Men with
+home sites in the regions listed above (+3). Tap this faction to allow any
+company with one of the regions listed above in its site path to move up to 1
+additional region."

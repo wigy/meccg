@@ -1319,6 +1319,28 @@ function handleInPlayCardGrantAction(
   }
 
   const apply = effect.apply;
+
+  // `increment-company-extra-region-distance` (Wild Horses wh-39): unlike the
+  // bearer-borne version of this apply (Cram td-105), there is no bearer
+  // company to derive — the target was chosen at emission time
+  // (`grantActionTargetCompanies`) and travels on `action.targetCompanyId`.
+  if (apply.type === 'increment-company-extra-region-distance') {
+    const targetCompanyId = action.targetCompanyId;
+    if (!targetCompanyId) return { state, error: `in-play grant-action ${action.actionId}: no target company (${sourceName})` };
+    const targetPlayer = newPlayers[playerIndex];
+    const company = targetPlayer.companies.find(c => c.id === targetCompanyId);
+    if (!company) return { state, error: `in-play grant-action ${action.actionId}: target company ${targetCompanyId as string} not found (${sourceName})` };
+    const amount = apply.amount ?? 1;
+    const currentExtra = company.extraRegionDistance ?? 0;
+    logDetail(`In-play grant-action ${action.actionId}: ${paysWithTap ? 'tapping' : 'discarding'} ${sourceName}, company ${targetCompanyId as string} extraRegionDistance ${currentExtra} → ${currentExtra + amount}`);
+    newPlayers[playerIndex] = {
+      ...targetPlayer,
+      companies: targetPlayer.companies.map(c =>
+        c.id === targetCompanyId ? { ...c, extraRegionDistance: currentExtra + amount } : c),
+    };
+    return { state: recomputeDerived({ ...withLock, players: newPlayers }), effects: [] };
+  }
+
   if (apply.type !== 'add-constraint') {
     return { state, error: `in-play grant-action ${action.actionId}: only add-constraint apply supported (${sourceName})` };
   }

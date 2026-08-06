@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -3549,7 +3549,11 @@ export function resolveInfluenceAttemptRoll(
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
-      bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
+      bearer: {
+        ...buildBearerContext(charDef),
+        stagePoints: player.stagePoints,
+        homesiteRegions: characterHomeSiteRegions(state, charDef),
+      },
       faction: {
         name: def.name,
         race: def.race,
