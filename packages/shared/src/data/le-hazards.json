@@ -1604,8 +1604,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NewsofDoom.jpg",
     "unique": true,
     "eventType": "short",
-    "effects": [],
-    "text": "Unique.Each player makes a roll for each faction he has in play. Discard any faction if its result is 2 or 3, or if its result plus that player’s unused general influence is less than 10. Remove News of Doom from the game."
+    "effects": [
+      { "type": "play-flag", "flag": "remove-from-game" },
+      {
+        "type": "multi-faction-check",
+        "threshold": 10,
+        "comparison": "gte",
+        "alwaysFailRolls": [2, 3]
+      }
+    ],
+    "text": "Unique.Each player makes a roll for each faction he has in play. Discard any faction if its result is 2 or 3, or if its result plus that player’s unused general influence is less than 10. Remove News of Doom from the game.",
+    "certified": "2026-08-05"
   },
   {
     "cardType": "hazard-event",

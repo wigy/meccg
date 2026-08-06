@@ -4063,6 +4063,37 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // `play-flag: remove-from-game` — "Remove this card from the game." A hazard
+  // short event is discarded at play time, so once its own chain entry resolves
+  // un-negated the spent card moves on from the declaring player's discard pile
+  // to their out-of-play pile, where nothing can recur it (a resource short
+  // event with `new-hand`, e.g. Favor of the Valar tw-239, lands its spent
+  // card in the discard pile only just above, via the shuffle — this block
+  // relocates it from there in the same pass). A negated entry leaves the
+  // card in the discard pile.
+  //
+  // A card whose OTHER effect pauses resolution with `needsInput: true`
+  // ahead of this point (e.g. `multi-faction-check`'s per-faction dice-checks)
+  // must perform its own removal inline before pausing — once a chain entry
+  // is later marked resolved via `resolveChainEntryAndContinue` rather than a
+  // fresh call into this function, this block never runs for it.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const cardDef = defById(current, entry.card.definitionId);
+    if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const eventInstId = entry.card.instanceId;
+      const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
+      if (spent) {
+        current = updatePlayer(current, declarerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+          outOfPlayPile: [...p.outOfPlayPile, spent],
+        }));
+        logDetail(`${cardDef?.name ?? (entry.card.definitionId as string)}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
+      }
+    }
+  }
+
   // Resource short events that discard a card in play (Voices of Malice
   // le-250, Marvels Told td-134, Ancient Secrets ba-36, The Cock Crows
   // tw-342) ride the chain from the player's hand (see
@@ -4681,6 +4712,72 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             targetInstanceId: factionInstId,
           },
         });
+        return { state: current, needsInput: true };
+      }
+    }
+  }
+
+  // News of Doom (le-127): a `multi-faction-check` hazard short event sweeps
+  // EVERY faction in play — both players' — rather than one targeted faction
+  // (Muster Disperses above). Enqueue one dice-check per faction found,
+  // draining on the same source so the chain entry stays unresolved until
+  // every roll is in (mirrors force-check-all-company's "all company
+  // members" pattern).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const multiFactionEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').MultiFactionCheckEffect => e.type === 'multi-faction-check',
+    );
+    if (multiFactionEffect) {
+      const cardLabel = (cardDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      const factions: { instanceId: CardInstanceId; ownerId: PlayerId; name: string }[] = [];
+      for (const p of current.players) {
+        for (const cip of p.cardsInPlay) {
+          const fDef = defById(current, cip.definitionId);
+          if (fDef && isFactionCard(fDef)) {
+            factions.push({ instanceId: cip.instanceId, ownerId: p.id, name: fDef.name });
+          }
+        }
+      }
+      logDetail(`${cardLabel}: enqueuing faction checks for ${factions.length} faction(s) in play`);
+      for (const f of factions) {
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: f.ownerId,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'dice-check',
+            label: `${cardLabel}: ${f.name}`,
+            roller: f.ownerId,
+            modifiers: [{ kind: 'unused-gi', player: f.ownerId }],
+            threshold: multiFactionEffect.threshold,
+            comparison: multiFactionEffect.comparison,
+            alwaysFailRolls: multiFactionEffect.alwaysFailRolls,
+            onFail: { type: 'move', select: 'target', from: 'in-play', to: 'discard', toOwner: 'source-owner' },
+            continuation: { kind: 'chain-entry', match: 'source', drainSameSource: true },
+            targetInstanceId: f.instanceId,
+          },
+        });
+      }
+      if (factions.length > 0) {
+        // `play-flag: remove-from-game` performed inline: this block pauses
+        // resolution below, and once the drained entry is later marked
+        // resolved via `resolveChainEntryAndContinue` this function never
+        // runs again for it, so the generic remove-from-game block further
+        // down would never fire for News of Doom.
+        if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
+          const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+          const eventInstId = entry.card.instanceId;
+          const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
+          if (spent) {
+            current = updatePlayer(current, declarerIdx, p => ({
+              ...p,
+              discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+              outOfPlayPile: [...p.outOfPlayPile, spent],
+            }));
+            logDetail(`${cardLabel}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
+          }
+        }
         return { state: current, needsInput: true };
       }
     }
@@ -5551,28 +5648,6 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           logDetail(`${cardNm} option "${opt.id}": moved ${optTargetId as string} → ${opt.apply.to}`);
           current = moved.state;
         }
-      }
-    }
-  }
-
-  // `play-flag: remove-from-game` — "Remove this card from the game." A hazard
-  // short event is discarded at play time, so once its own chain entry resolves
-  // un-negated the spent card moves on from the declaring player's discard pile
-  // to their out-of-play pile, where nothing can recur it. A negated entry
-  // leaves the card in the discard pile.
-  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
-    const cardDef = defById(current, entry.card.definitionId);
-    if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-      if (spent) {
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, spent],
-        }));
-        logDetail(`${cardDef?.name ?? (entry.card.definitionId as string)}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
       }
     }
   }

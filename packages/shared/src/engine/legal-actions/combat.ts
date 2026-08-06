@@ -173,6 +173,21 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   // Tap-ally combat boosts (e.g. Great Lord of Goblin-gate) are available to
   // the ally's owner during the assign-strikes and resolve-strike windows.
   const allyCombatBoosts = tapAllyCombatBoostActions(state, playerId, combat);
+  // CoE rule 3.i (Pre-Assignment Actions): "prior to strikes being assigned",
+  // the resource player may take any resource/character action that would
+  // otherwise be legal during the current phase — not just the dedicated
+  // cancel/modify-attack DSL types above. This covers general resource
+  // short-events with no combat-specific effect type, e.g. Voices of Malice
+  // (le-250) discarding a hazard long-event that is boosting the attack's
+  // strikes/prowess (Wake of War tw-108): once discarded before assignment,
+  // the boost no longer applies when strikesTotal/strikeProwess are computed.
+  // Gated to `strikeAssignments.length === 0` because CoE 3.ii/3.iii close
+  // the window the instant assignment starts ("actions cannot be taken
+  // during this step"); the equivalent window between strike sequences
+  // (rule 3.iv) is offered separately in `chooseStrikeOrderActions`.
+  const preAssignmentResourceEvents = playerId === state.activePlayer && combat.strikeAssignments.length === 0
+    ? heroResourceShortEventActions(state, playerId, state.phaseState.phase as string)
+    : [];
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -198,6 +213,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...joinForceStrikes,
           ...allyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
+          ...preAssignmentResourceEvents,
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
@@ -221,7 +237,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           return preAssignActions;
         }
       }
-      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the

@@ -342,6 +342,15 @@ export interface PendingResolution {
         readonly threshold: number;
         /** Pass condition: `'gt'` (strictly greater) or `'gte'` (≥). */
         readonly comparison: 'gt' | 'gte';
+        /**
+         * Raw (pre-modifier) 2d6 values that always fail the check regardless
+         * of the modified total — News of Doom (le-127): "Discard any faction
+         * if its result is 2 or 3, or if its result plus [GI] is less than
+         * 10." The "result is 2 or 3" clause reads the unmodified roll, so it
+         * cannot be folded into `threshold`/`comparison` (which compare the
+         * modified total).
+         */
+        readonly alwaysFailRolls?: readonly number[];
         /** Run when the check passes. */
         readonly onPass?: TriggeredAction;
         /** Run when the check fails. */

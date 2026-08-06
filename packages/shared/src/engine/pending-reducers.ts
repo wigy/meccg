@@ -1486,8 +1486,9 @@ export function applyDiceCheckResolution(
     }
   }
   const total = rolled.total + mod;
-  const passed = kind.comparison === 'gt' ? total > kind.threshold : total >= kind.threshold;
-  logDetail(`${kind.label}: rolled ${rolled.total}${mod ? ` ${mod >= 0 ? '+' : ''}${mod}` : ''} = ${total} ${kind.comparison === 'gt' ? '>' : '>='} ${kind.threshold} → ${passed ? 'PASS' : 'FAIL'}`);
+  const rawFail = kind.alwaysFailRolls?.includes(rolled.total) ?? false;
+  const passed = !rawFail && (kind.comparison === 'gt' ? total > kind.threshold : total >= kind.threshold);
+  logDetail(`${kind.label}: rolled ${rolled.total}${mod ? ` ${mod >= 0 ? '+' : ''}${mod}` : ''} = ${total} ${kind.comparison === 'gt' ? '>' : '>='} ${kind.threshold}${rawFail ? ` (raw roll ${rolled.total} always fails)` : ''} → ${passed ? 'PASS' : 'FAIL'}`);
 
   let post = dequeueResolution(rolled.state, top.id);
   const branch = passed ? kind.onPass : kind.onFail;
