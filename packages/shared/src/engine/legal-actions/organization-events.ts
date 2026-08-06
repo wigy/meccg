@@ -27,7 +27,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -509,10 +509,14 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // if Denethor II is not in play." Like The White Tree above, its text
       // declares no site-phase timing and it has no tapping/attack/transform
       // mechanics tying it to the site's play-resources step, so under rule
-      // 2.1.1 it is playable during any phase as soon as the company is
-      // physically at the matching site — evaluated directly here rather than
-      // deferred to the site phase (which would wrongly require `enter-site`
-      // first even though the card never asked for that).
+      // 2.1.1 it is playable during any phase as soon as the company is at
+      // the matching site — evaluated directly here rather than deferred to
+      // the site phase (which would wrongly require `enter-site` first even
+      // though the card never asked for that). "At the matching site" per
+      // rule 2.IV.5 excludes a company that moved there this turn but hasn't
+      // yet reached its own site phase (see `isCompanyAtSite`) — a company
+      // is "en route", not at any site, for the rest of the movement/hazard
+      // phase after its site card is revealed.
       const cardNotInPlayConds = findPlayConditionEffects(def, 'card-not-in-play');
       if (!orgPhaseSiteTiming && cardNotInPlayConds.length > 0) {
         const charPlayTarget = def.effects?.find(
@@ -532,6 +536,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         let anyPlayable = false;
         for (const company of player.companies) {
           if (!company.currentSite) continue;
+          if (!isCompanyAtSite(state, company)) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} moved this turn and is not yet "at" its site (rule 2.IV.5)`);
+            continue;
+          }
           const siteDefId = company.currentSite.definitionId;
           const siteDef = defById(state, siteDefId);
           if (!siteDef || !isSiteCard(siteDef)) continue;

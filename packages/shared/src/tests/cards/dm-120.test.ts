@@ -96,6 +96,37 @@ describe('Choice of Lúthien (dm-120)', () => {
     expect(actions.length).toBe(0);
   });
 
+  // Bug report: a company that moved to Minas Tirith this turn had its
+  // `currentSite` reassigned as soon as its own movement/hazard sub-phase
+  // completed, but was offered Choice of Lúthien while still inside the
+  // movement/hazard phase — before the site phase — even though its own
+  // hazard resolution had finished and priority had already passed to
+  // another company. CoE rule 2.IV.5 / CRF-22 Annotation 25: a company that
+  // reveals a new site card is "en route" (not "at" any site) for the rest
+  // of the movement/hazard phase, only becoming "at" its site again once the
+  // site phase begins.
+  test('NOT offered during the movement/hazard phase once the company has moved to Minas Tirith but not yet reached its site phase', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARWEN] }], hand: [CHOICE_OF_LUTHIEN], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], companies: [{ ...base.players[0].companies[0], moved: true }] },
+        base.players[1],
+      ] as typeof base.players,
+      phaseState: makeMHState({ activeCompanyIndex: 0 }),
+    };
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
   // ─── Stat bonus: +2 direct influence, +2 mind ──────────────────────────────
 
   test('while attached, raises Arwen\'s direct influence and mind by 2 each', () => {

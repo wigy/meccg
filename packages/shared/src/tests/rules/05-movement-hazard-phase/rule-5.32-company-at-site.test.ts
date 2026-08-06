@@ -13,32 +13,60 @@
  * A company is considered to be "at" its site card at all times except from the moment when its new site card is revealed until immediately prior to the company's player's site phases after the end of all movement/hazard phases for the turn.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import {
+  buildTestState, resetMint, viableActions, makeMHState,
+  PLAYER_1, PLAYER_2, MINAS_TIRITH, LORIEN, ARAGORN, LEGOLAS,
+} from '../../test-helpers.js';
+import type { CardDefinitionId, GameState } from '../../../index.js';
+import { Phase } from '../../../index.js';
+
+// tw-316 Return of the King: "Only playable in Minas Tirith" — a
+// site-name-gated permanent event with no site-phase timing of its own,
+// evaluated directly by the movement/hazard-phase legal-action path (rule
+// 2.1.1). Single-use card ID per project convention.
+const RETURN_OF_THE_KING = 'tw-316' as CardDefinitionId;
 
 describe('Rule 5.32 — Company "At" Its Site', () => {
-  // The engine has no separate "en route" / "not at a site" state: a moving
-  // company's `currentSite` is reassigned to the new site as soon as ITS
-  // OWN M/H sub-phase completes (mh-hazard-play.ts, "Step 8a: Complete
+  // The engine has no separate "en route" / "not at a site" state field: a
+  // moving company's `currentSite` is reassigned to the new site as soon as
+  // ITS OWN M/H sub-phase completes (mh-hazard-play.ts, "Step 8a: Complete
   // movement"), not deferred until every company's M/H phase for the turn
-  // has finished — so during the window between one company finishing its
-  // M/H phase and the last company finishing theirs, this company's state
-  // already reads as "at" its new site rather than the transitional
-  // non-site state rule 5.32 describes.
+  // has finished. `isCompanyAtSite` (reducer-utils.ts) derives the "at site"
+  // predicate rule 5.32 describes without a new field: a company that moved
+  // this turn (`company.moved === true`) is "en route" for as long as
+  // `state.phaseState.phase === Phase.MovementHazard`, regardless of which
+  // company is currently active — matching CRF-22 Annotation 25's
+  // clarification that a moving company is not at a site until the site
+  // phase. `matchesCompanyContextCondition` and the Return of the King
+  // site-target path consult it before matching a card's site-name/type
+  // condition.
   //
-  // Checked for a concrete violation: `fireHavenRestoreTriggers`
-  // (mh-hazard-play.ts) offers Hall of Fire's (dm-134) untap/heal benefit by
-  // checking `company.currentSite.siteType === 'haven'` right when the
-  // company's own M/H sub-phase ends — squarely inside rule 5.32's
-  // transitional window. But this is not actually a violation: Hall of
-  // Fire's own printed text is "any company at this Haven *immediately
-  // following its movement/hazard phase*" — an explicit, card-specific
-  // trigger point independent of the general "at" predicate. No other code
-  // queries "is a DIFFERENT company at site X" during another company's M/H
-  // sub-phase (the only place the discrepancy could be observed), so there
-  // is no reachable scenario to assert on without first modeling the
-  // transitional state itself — a broad change (new state field, plus an
-  // audit of every `currentSite` read across org/M/H/site phases to decide
-  // which should see the "official" vs. "physical" site) disproportionate
-  // to this one clause.
-  test.todo('Company is "at" its site at all times except from reveal until prior to site phases after end of all M/H phases');
+  // Concrete violation this closes: a player moved a company (Aragorn II)
+  // to Minas Tirith, its own hazard resolution finished, and priority moved
+  // to another company still in its own M/H sub-phase — yet Return of the
+  // King (tw-316, "Only playable in Minas Tirith") and Choice of Lúthien
+  // (dm-120, "Playable on Arwen in Minas Tirith") were both offered, even
+  // though the company had not yet reached its site phase.
+  test('a company that moved to Minas Tirith this turn is not "at" it until the site phase — Return of the King (tw-316) not offered', () => {
+    resetMint();
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [RETURN_OF_THE_KING], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], companies: [{ ...base.players[0].companies[0], moved: true }] },
+        base.players[1],
+      ] as typeof base.players,
+      phaseState: makeMHState({ activeCompanyIndex: 0 }),
+    };
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
 });
