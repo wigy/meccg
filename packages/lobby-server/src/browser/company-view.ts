@@ -45,6 +45,7 @@ import {
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
   shouldClearOverrideForNewCombat,
+  shouldRestoreOverrideAfterCombat,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -427,8 +428,14 @@ export function renderCompanyViews(
   // Clear an opponent-turn all-companies override at the start of a new combat
   // so the combat view isn't left hidden behind it (see shouldClearOverrideForNewCombat).
   const combatActive = view.combat !== null;
-  if (shouldClearOverrideForNewCombat(combatActive, getLastCombatActive())) {
+  const lastCombatActive = getLastCombatActive();
+  if (shouldClearOverrideForNewCombat(combatActive, lastCombatActive)) {
     setAllCompaniesOverride(false);
+  } else if (shouldRestoreOverrideAfterCombat(combatActive, lastCombatActive, activeId, view.self.id as string)) {
+    // Restore the opponent-turn overview once the combat that interrupted it
+    // resolves, so the rest of the turn isn't stuck in single-company view.
+    setAllCompaniesOverride(true);
+    setFocusedCompanyId(null);
   }
   setLastCombatActive(combatActive);
 
