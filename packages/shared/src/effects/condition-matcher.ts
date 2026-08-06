@@ -104,11 +104,11 @@ function matchesEntry(
       return contextValue !== expected.$ne;
     }
     if (expected.$in !== undefined) {
-      const allowed = expected.$in;
       if (Array.isArray(contextValue)) {
-        return contextValue.some(v => allowed.includes(v as string | number));
+        const values = contextValue as (string | number)[];
+        return values.some(v => expected.$in!.includes(v));
       }
-      return allowed.includes(contextValue as string | number);
+      return expected.$in.includes(contextValue as string | number);
     }
     if (expected.$exists !== undefined) {
       const present = contextValue !== undefined && contextValue !== null;
