@@ -32,9 +32,10 @@ import {
   ARAGORN, RIVENDELL, MINAS_TIRITH,
   viableActions, dispatch,
   makeMHState,
+  pool,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
-import { RegionType, SiteType } from '../../index.js';
+import { RegionType, SiteType, describeAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 import { Alignment } from '../../index.js';
 
@@ -128,6 +129,57 @@ describe('Deeper Shadow (le-179)', () => {
     const playActions = viableActions({ ...state, phaseState: mhState }, PLAYER_1, 'play-short-event');
     // Should offer: change-site-type, change-region-type, decrease-hazard-limit
     expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  // ── Bug report (game msgpp1fw-rifeyo, seq 419/420): the legal-action list
+  // offered two otherwise-identical play-short-event actions for Deeper
+  // Shadow (change-region-type vs decrease-hazard-limit), and describeAction
+  // rendered the same text for both — the player could not tell which
+  // ability they were about to select. ─────────────────────────────────────
+
+  test('describeAction distinguishes between Deeper Shadow\'s play-option choices', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, destinationSite: ETTENMOORS, characters: [ADUNAPHEL] }],
+          hand: [DEEPER_SHADOW],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      siteRevealed: true,
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Ettenmoors',
+      resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness],
+      resolvedSitePathNames: ['Angmar', 'Rhudaur'],
+    });
+
+    const playActions = viableActions({ ...state, phaseState: mhState }, PLAYER_1, 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    const optionIds = playActions.map(a => a.optionId);
+    expect(optionIds).toEqual(expect.arrayContaining([
+      'change-site-type', 'change-region-type', 'decrease-hazard-limit',
+    ]));
+
+    const descriptions = playActions.map(a => describeAction(a, pool));
+    // Every option must render distinct text — no two options collapse to
+    // the same button label.
+    expect(new Set(descriptions).size).toBe(descriptions.length);
+    expect(descriptions.some(d => d.includes('change site type'))).toBe(true);
+    expect(descriptions.some(d => d.includes('change region type'))).toBe(true);
+    expect(descriptions.some(d => d.includes('decrease hazard limit'))).toBe(true);
   });
 
   test('playable on moving non-ringwraith character with shadow-magic skill (Ciryaher)', () => {

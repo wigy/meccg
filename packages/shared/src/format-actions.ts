@@ -185,6 +185,15 @@ export function extractActionCardDefs(
 // ---- Action description ----
 
 /**
+ * Convert a card-data `play-option` id (kebab-case, e.g. `decrease-hazard-limit`)
+ * into a readable phrase (`decrease hazard limit`) for display in legal-action
+ * text, so a card offering several options is distinguishable option-by-option.
+ */
+function humanizeOptionId(optionId: string): string {
+  return optionId.replace(/-/g, ' ');
+}
+
+/**
  * Returns a human-readable description of a game action, resolving card
  * definition IDs to colored names where possible.
  *
@@ -284,7 +293,13 @@ export function describeAction(
       const discardTag = action.discardTargetInstanceId
         ? `, discard ${instName(action.discardTargetInstanceId)}`
         : '';
-      return `Play short-event ${instName(action.cardInstanceId)}${targetTag}${discardTag}`;
+      // Cards declaring multiple play-option effects (e.g. Deeper Shadow's
+      // change-site-type / change-region-type / decrease-hazard-limit) emit
+      // one otherwise-identical legal action per option — without naming the
+      // chosen option here, the player cannot tell which ability they are
+      // about to select.
+      const optionTag = action.optionId ? ` (${humanizeOptionId(action.optionId)})` : '';
+      return `Play short-event ${instName(action.cardInstanceId)}${targetTag}${discardTag}${optionTag}`;
     }
     case 'play-hazard': {
       const target = action.targetCharacterId
