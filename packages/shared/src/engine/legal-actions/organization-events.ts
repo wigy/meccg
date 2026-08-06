@@ -650,6 +650,42 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         continue;
       }
 
+      // Hall of Fire (dm-134): "Playable on a Haven [{H}]." Its effect is a
+      // future trigger (`on-event: company-mh-end-at-site`) that fires later,
+      // at the end of any company's movement/hazard phase at the bound haven
+      // — playing the card itself needs neither an entered site nor a tap.
+      // Like Return of the King / Fireworks above, its text declares no
+      // site-phase timing, so under rule 2.1.1 it is playable during any
+      // phase as long as a company is at a matching site — evaluated
+      // directly here rather than deferred to the site phase.
+      const havenRestoreTrigger = def.effects?.some(e => e.type === 'on-event' && e.event === 'company-mh-end-at-site');
+      if (!orgPhaseSiteTiming && havenRestoreTrigger) {
+        let anyPlayable = false;
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          const siteDef = defById(state, siteDefId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (sitePlayTarget.filter) {
+            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          anyPlayable = true;
+          logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetSiteDefinitionId: siteDefId },
+            viable: true,
+          });
+        }
+        if (!anyPlayable) {
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site target`));
+        }
+        continue;
+      }
+
       if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
