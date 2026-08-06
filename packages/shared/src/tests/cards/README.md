@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1095 | 1094 | 1 | 99.9% |
+| 1097 | 1096 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -14,8 +14,8 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 105 | 105 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 96 | 96 | 100.0% |
-| LE | 296 | 295 | 99.7% |
+| DM | 97 | 97 | 100.0% |
+| LE | 297 | 296 | 99.7% |
 | TD | 87 | 87 | 100.0% |
 | TW | 328 | 328 | 100.0% |
 | WH | 86 | 86 | 100.0% |
@@ -268,6 +268,7 @@
 | dm-58 | Flies and Spiders | — | 5 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-63 | Great Secrets Buried There | — | 9 | ☑ |
+| dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
 | dm-71 | The Moon Is Dead | — | 9 | ☑ |
 | dm-72 | Mordor in Arms | — | 10 | ☑ |
@@ -418,6 +419,7 @@
 | le-122 | Lure of Expedience | — | 12 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-126 | Muster Disperses | — | 6 | ☑ |
+| le-127 | News of Doom | — | 6 | ☑ |
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
 | le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
@@ -458,7 +460,7 @@
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 15 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
-| le-185 | Forced March | — | 6 | ☑ |
+| le-185 | Forced March | — | 7 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
@@ -487,7 +489,7 @@
 | le-244 | Threats | — | 9 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-247 | Under His Blow | — | 5 | ☑ |
-| le-250 | Voices of Malice | — | 20 | ☑ |
+| le-250 | Voices of Malice | — | 21 | ☑ |
 | le-252 | We Have Come to Kill | — | 17 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
 | le-254 | Where There’s a Whip | — | 10 | ☑ |
@@ -1027,7 +1029,7 @@
 | tw-437 | Wellinghall | — | 4 | ☑ |
 | tw-438 | Woodmen-town | — | 2 | ☑ |
 | tw-439 | Wose Passage-hold | — | 3 | ☑ |
-| tw-493 | Neeker-breekers | — | 14 | ☑ |
+| tw-493 | Neeker-breekers | — | 15 | ☑ |
 | tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | tw-497 | A Pack at the Door | — | 11 | ☑ |
@@ -1036,7 +1038,7 @@
 | wh-1 | Alatar | — | 12 | ☑ |
 | wh-2 | Doeth (Durthak) | — | 6 | ☑ |
 | wh-3 | Euog (Ulzog) | — | 12 | ☑ |
-| wh-4 | Gandalf | — | 12 | ☑ |
+| wh-4 | Gandalf | — | 13 | ☑ |
 | wh-5 | Ill-favoured Fellow | — | 6 | ☑ |
 | wh-6 | Lugdush | — | 2 | ☑ |
 | wh-7 | Pallando | — | 6 | ☑ |

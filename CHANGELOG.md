@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.86.0 — 2026-08-06
+
+Fixes
+
+### Cards
+
+- Certified News of Doom (le-127) and In the Heart of his Realm (dm-67)
+
+### Game Engine
+
+- Gandalf's untap-self granted action is no longer blocked while a sideboard access is being resolved
+- Corruption-card removal actions remain available during the sideboard fetch sub-flow
+- Forced March's extra move now respects the Ringwraith Darkhaven/mode movement gate
+- Wake of War and Voices of Malice can be discarded to boost strikes before strike assignment
+- A drafted Stage resource set aside to hand at draft finalization keeps contributing its stage points until played
+
+### Web Client
+
+- Neeker-breekers' "need" display shows mind instead of prowess
+- Character-action tooltip menus are clamped into the viewport
+- The "Remove <character>" button no longer lingers after an influence-overflow discard
+
 ## 0.85.0 — 2026-08-05
 
 Fixes
