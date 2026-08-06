@@ -33,13 +33,17 @@ import {
   buildTestState, resetMint, mint,
   viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
-  makeMHState, resolveChain,
+  makeMHState, resolveChain, makeCancelWindowCombat,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay, PlayShortEventAction, CardDefinitionId } from '../../index.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
 
 const VOICES_OF_MALICE = 'le-250' as CardDefinitionId;
+
+// Referenced only in this test file, so declared locally per the
+// `card-ids.ts` constants policy in CLAUDE.md.
+const WAKE_OF_WAR = 'tw-108' as CardDefinitionId; // hazard long-event: +1 strike/+1 prowess vs Wolf/Spider/Animal
 
 // Minion fixtures — referenced only in this test file, so declared
 // locally per the `card-ids.ts` constants policy in CLAUDE.md.
@@ -603,5 +607,57 @@ describe('Voices of Malice (le-250)', () => {
     const ostisenKey = (Object.keys(p2Chars) as CardInstanceId[]).find(k => p2Chars[k].definitionId === OSTISEN)!;
     const p2HazardId = p2Chars[ostisenKey].hazards[0].instanceId;
     expect(new Set(discardTargetIds)).toEqual(new Set([p1HazardId, p2HazardId]));
+  });
+
+  test('discarding an all-attacks bonus before strikes are assigned lowers the live attack (CoE 3.i, bug 019a9d05f1afb164)', () => {
+    // Regression (game msgd0dft-euql7p, seq 549): a Wolf attack boosted by
+    // Wake of War (tw-108, +1 strike/+1 prowess) was already under way. The
+    // defending player wanted to discard Wake of War with Voices of Malice
+    // *before* strikes were assigned, so the attack would revert to its
+    // unboosted strikes/prowess — but the engine never offered the play in
+    // that window, only later (between strike sequences), by which point CoE
+    // 3.ii/3.iii had already locked the attack's strikes in. Per CoE 3.i,
+    // "prior to strikes being assigned" the resource player may take any
+    // resource/character action that modifies "attributes of the attack as a
+    // whole (e.g. the number of strikes ... the prowess ... of the attack)" —
+    // not just cards with a dedicated modify-attack effect.
+    const wakeOfWarInPlay: CardInPlay = { instanceId: mint(), definitionId: WAKE_OF_WAR, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [VOICES_OF_MALICE], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [MORIA_MINION], cardsInPlay: [wakeOfWarInPlay] },
+      ],
+    });
+    // Wolf attack already boosted by Wake of War: base 3 strikes/7 prowess + 1/+1.
+    const state = makeCancelWindowCombat(base, {
+      creatureRace: Race.Wolf,
+      strikesTotal: 4,
+      strikeProwess: 8,
+    });
+
+    const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+
+    // Offered before any strike is assigned (combat.assignmentPhase === 'defender',
+    // combat.strikeAssignments === []) — not just at choose-strike-order.
+    expect(state.combat!.strikeAssignments).toHaveLength(0);
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    const voicesAction = playActions.find(a => actionAs<PlayShortEventAction>(a.action).discardTargetInstanceId === wakeOfWarInPlay.instanceId);
+    expect(voicesAction).toBeDefined();
+
+    const voicesId = handCardId(state, RESOURCE_PLAYER);
+    const next = resolveChain(dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: voicesId,
+      targetScoutInstanceId: layosId,
+      discardTargetInstanceId: wakeOfWarInPlay.instanceId,
+    }));
+
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(wakeOfWarInPlay.instanceId);
+    // Wake of War's bonus is gone — the live attack reverts to its base numbers.
+    expect(next.combat!.strikesTotal).toBe(3);
+    expect(next.combat!.strikeProwess).toBe(7);
   });
 });

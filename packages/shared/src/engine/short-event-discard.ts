@@ -25,6 +25,57 @@ import { enqueueCorruptionCheck } from './pending.js';
 import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './reducer-move.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { buildInPlayNames } from './recompute-derived.js';
+import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
+
+/**
+ * Re-resolves a live attack's `all-attacks` strikes/prowess bonuses after a
+ * card has just left play, and applies the delta to `combat`.
+ *
+ * CoE 3.i (Pre-Assignment Actions) lets the resource player "modify
+ * attributes of the attack as a whole (e.g. the number of strikes ...
+ * the prowess ... of the attack)" any time before strikes are assigned —
+ * including indirectly, by discarding a hazard long/permanent-event that is
+ * granting the attack a global bonus (e.g. Voices of Malice le-250 discarding
+ * Wake of War tw-108 before a Spider attack's strikes are assigned). Once
+ * assignment starts (CoE 3.ii/3.iii: "actions cannot be taken during this
+ * step") the window closes, so this is a no-op past that point — mirroring
+ * the gate `modifyAttackActions` uses for the dedicated modify-attack DSL
+ * path in `legal-actions/combat.ts`.
+ *
+ * Computed as a delta (re-resolving at a zero base before and after the
+ * discard) rather than a full from-scratch recompute, so it doesn't need to
+ * know about the attack's own multi-attack multiplier, creature-self
+ * modifiers, or other context baked into `combat.strikesTotal` /
+ * `strikeProwess` at initiation — only how much the *global* `all-attacks`
+ * bonus changed.
+ *
+ * @param before - State immediately before the discard was applied.
+ * @param after - State immediately after the discard was applied.
+ * @returns `after`, with `combat.strikesTotal`/`strikeProwess` adjusted by
+ *   the bonus lost (or gained) from the discarded card, or `after` unchanged
+ *   when no combat is in its pre-assignment window.
+ */
+function recomputeLiveAttackAfterDiscard(before: GameState, after: GameState): GameState {
+  const combat = after.combat;
+  if (!combat || combat.phase !== 'assign-strikes' || combat.strikeAssignments.length > 0) return after;
+
+  const isAutomaticAttack = combat.attackSource.type === 'automatic-attack' || combat.attackSource.type === 'played-auto-attack';
+  const isAgentAttack = combat.attackSource.type === 'agent';
+  const beforeNames = buildInPlayNames(before);
+  const afterNames = buildInPlayNames(after);
+
+  const strikesDelta = resolveAttackStrikes(after, 0, afterNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack)
+    - resolveAttackStrikes(before, 0, beforeNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack);
+  const prowessDelta = resolveAttackProwess(after, 0, afterNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack)
+    - resolveAttackProwess(before, 0, beforeNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack);
+  if (strikesDelta === 0 && prowessDelta === 0) return after;
+
+  const newStrikesTotal = Math.max(1, combat.strikesTotal + strikesDelta);
+  const newStrikeProwess = combat.strikeProwess + prowessDelta;
+  logDetail(`Pre-assignment discard adjusted the live attack: strikes ${combat.strikesTotal} → ${newStrikesTotal}, prowess ${combat.strikeProwess} → ${newStrikeProwess}`);
+  return { ...after, combat: { ...combat, strikesTotal: newStrikesTotal, strikeProwess: newStrikeProwess } };
+}
 
 /**
  * Move the chosen `discard-in-play` target to its owner's discard pile and
@@ -113,6 +164,10 @@ export function applyShortEventDiscardInPlay(
   // The discarded card sheds any constraint it granted while in play (e.g.
   // The Moon Is Dead's auto-attack duplication) — see dropConstraintsSourcedBy.
   newState = dropConstraintsSourcedBy(newState, [targetInstance.instanceId]);
+  // If a live attack is still in its pre-assignment window, the discarded
+  // card may have been supplying an `all-attacks` strikes/prowess bonus
+  // (e.g. Wake of War) — re-resolve and adjust it (CoE 3.i).
+  newState = recomputeLiveAttackAfterDiscard(state, newState);
 
   if (discardInPlay.corruptionCheck && costTapCharacterId) {
     // Rule 7.4: allies never make corruption checks, but may still fulfill
@@ -184,6 +239,9 @@ export function applyShortEventDiscardAllInPlay(
     0,
   );
   logDetail(`${def.name}: discarded ${discarded} matching card(s) from play`);
+  // See recomputeLiveAttackAfterDiscard: a swept card may have been
+  // supplying an `all-attacks` bonus to a live pre-assignment attack.
+  newState = recomputeLiveAttackAfterDiscard(state, newState);
 
   if (sweep.corruptionCheck && targetCharacterId) {
     newState = enqueueCorruptionCheck(newState, {
@@ -252,6 +310,9 @@ export function applyTapDiscardInPlay(state: GameState, action: GameAction): Red
     discardPile: [...p.discardPile, targetInstance],
   }));
   newState = dropConstraintsSourcedBy(newState, [target.instanceId]);
+  // See recomputeLiveAttackAfterDiscard: the discarded card may have been
+  // supplying an `all-attacks` bonus to a live pre-assignment attack.
+  newState = recomputeLiveAttackAfterDiscard(state, newState);
   logDetail(`tap-discard-in-play: tapped ${action.characterId as string}, discarded ${cardName} — resolved outside the chain (no response window)`);
 
   return { state: newState };
