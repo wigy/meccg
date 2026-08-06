@@ -8891,6 +8891,12 @@ export interface TakePrisonerEffect extends EffectBase {
     readonly bodyCheckModifier: number;
     readonly autoRescueThreshold: number;
   };
+  /**
+   * When true, rings are discarded along with the prisoner's other items,
+   * overriding the default CoE rule 3.III.3 protection for ring items.
+   * Used by Spells of the Barrow-wights (dm-90).
+   */
+  readonly discardRings?: boolean;
 }
 
 /**

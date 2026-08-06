@@ -9527,7 +9527,8 @@ wounding the character:
 
 1. The rescue site is drawn from the hazard player's location deck
    (first site matching `rescueSiteTypes`).
-2. All non-ring items on the prisoner are discarded immediately.
+2. All non-ring items on the prisoner are discarded immediately
+   (all items including rings if `discardRings` is set).
 3. Followers revert to general influence.
 4. A `character-is-prisoner` active constraint is added to the prisoner.
 5. A `HazardHost` record is created in `state.hazardHosts`.
@@ -9545,6 +9546,7 @@ the attack's race (e.g. `{ "attack.race": "Spider" }`).
 | `rescueSiteTypes` | yes | Array of site type strings (e.g. `["ruins-and-lairs"]`). |
 | `rescueAttacks` | yes | Rescue-attack list (shape: `{ race, strikes, prowess }`). |
 | `autoRescue` | no | Auto-rescue spec: `{ bodyCheckModifier, autoRescueThreshold }`. |
+| `discardRings` | no | When true, rings are discarded too, overriding the default CoE 3.III.3 ring protection. |
 
 ```json
 {
@@ -9555,7 +9557,9 @@ the attack's race (e.g. `{ "attack.race": "Spider" }`).
 }
 ```
 
-Used by Flies and Spiders (dm-58).
+Used by Flies and Spiders (dm-58). Spells of the Barrow-wights (dm-90) uses
+the same effect with `rescueSiteTypes: ["ruins-and-lairs", "shadow-hold"]`,
+an `undead` rescue-attack, and `discardRings: true`.
 
 ---
 
