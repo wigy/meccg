@@ -854,9 +854,41 @@
           "opponent.alignment": "ringwraith"
         },
         "reason": "cannot be played against a Ringwraith player"
+      },
+      {
+        "type": "draw-modifier",
+        "draw": "resource",
+        "value": -1,
+        "min": 0,
+        "appliesTo": "any-company",
+        "when": {
+          "$and": [
+            { "sitePath.darkCount": { "$gte": 1 } },
+            { "player.minion": false }
+          ]
+        }
+      },
+      {
+        "type": "skill-suppression",
+        "skill": "sage",
+        "regionTypes": ["dark"],
+        "regionNames": ["Gorgoroth"],
+        "noEffectOnMinion": true
+      },
+      {
+        "type": "location-magic-restriction",
+        "regionTypes": ["dark"],
+        "regionNames": ["Gorgoroth"],
+        "noEffectOnMinion": true
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
       }
     ],
-    "text": "Each company moving in a Dark-domain [{d}] draws one less card at the start of its movement/hazard phase (to no minimum).Additionally, any sage at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, loses his sage skill. No character at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, can use spells, light enchantments, or rituals. Discard when any play deck is exhausted. This card has no effect on a minion player."
+    "text": "Each company moving in a Dark-domain [{d}] draws one less card at the start of its movement/hazard phase (to no minimum).Additionally, any sage at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, loses his sage skill. No character at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, can use spells, light enchantments, or rituals. Discard when any play deck is exhausted. This card has no effect on a minion player.",
+    "certified": "2026-08-05"
   },
   {
     "cardType": "hazard-event",

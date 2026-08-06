@@ -227,6 +227,38 @@ describe('Neeker-breekers (tw-493)', () => {
     expect(bilboAssignment!.result).toBe('success');
   });
 
+  test('resolve-strike legal action displays mind as prowess, not printed prowess: Aragorn (prowess=6, mind=9)', () => {
+    // Bug report: displayed "need" used the character's printed prowess
+    // instead of mind, mismatching the reducer's actual roll math (which
+    // already used mind correctly). The legal-action preview must match.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [NEEKER_BREEKERS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeWildernessMHState() };
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(ready, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING);
+
+    const aragornId = findCharInstanceId(combatState, RESOURCE_PLAYER, ARAGORN);
+    const s1 = reduce(combatState, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    expect(s1.error).toBeUndefined();
+
+    const resolveActions = viableActions(s1.state, PLAYER_1, 'resolve-strike');
+    expect(resolveActions.length).toBeGreaterThan(0);
+    // Creature prowess 7, mind 9 → need = 7 - 9 + 1, floored at 2.
+    const tapAction = resolveActions.find(a => (a.action as { tapToFight?: boolean }).tapToFight === true);
+    expect(tapAction).toBeDefined();
+    const act = tapAction!.action as { need?: number; explanation?: string };
+    expect(act.explanation).toContain('prowess 9 vs 7');
+    expect(act.need).toBe(2);
+  });
+
   // ─── Detainment: "wounded → tapped, no body checks" ─────────────────────
 
   test('detainment: Haldir (mind=3) loses to creature prowess 7 with roll=2 → tapped not wounded', () => {

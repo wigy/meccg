@@ -37,6 +37,19 @@ export interface CardInstance {
    * [{H}] if Sapling of the White Tree is stored there."
    */
   readonly storedAtSite?: CardDefinitionId;
+  /**
+   * Stamped by {@link applyDraftResults} on a Stage resource it sets aside to
+   * hand at draft finalize instead of putting into play (no gated character
+   * to pair with, no site pairing, a site-pairing collision, or the
+   * "in lieu of a minor item" item-draft placement wait) — MEWH §1 / CoE
+   * 1.7.F1: the card's stage points were already counted toward the running
+   * total mid-draft, and nothing requires that count to regress just because
+   * the card has not yet found its way into play. Read by
+   * `playerStagePoints` to sum only these hand cards, never an ordinary Stage
+   * resource drawn and held in hand mid-game (which contributes nothing
+   * until played).
+   */
+  readonly pendingDraftStagePoints?: true;
 }
 
 // ---- Characters in play ----
