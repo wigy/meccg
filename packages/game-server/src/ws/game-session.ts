@@ -1414,6 +1414,18 @@ export class GameSession {
           continue;
         }
 
+        // A save still in `Setup` with `stateSeq` 0 never had a single action
+        // applied to it (e.g. both players left it parked at the character
+        // draft) — there is nothing to lose by discarding it. Setup never
+        // reaches `GameOver`, so without this it would linger forever and
+        // resurrect stale decks on every later challenge between the same two
+        // names, silently ignoring whatever decks the players pick next.
+        if (phaseState.phase === Phase.Setup && save.state.stateSeq === 0) {
+          fs.unlinkSync(savePath);
+          this.serverLog.log('save-discarded-unstarted', { path: savePath });
+          continue;
+        }
+
         save.state = { ...save.state, cardPool: this.cardPool };
         fs.unlinkSync(savePath);
 

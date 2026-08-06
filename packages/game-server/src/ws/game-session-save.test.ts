@@ -144,6 +144,37 @@ describe('GameSession save lifecycle', () => {
     expect(saved.state.phaseState.phase).toBe(Phase.Setup);
   });
 
+  test('a new game starts fresh when the autosave never advanced past setup', () => {
+    // Reported bug: two players got parked at the character draft (no pick
+    // ever made, so `stateSeq` stayed 0), logged out and back in, picked
+    // different decks, and re-challenged — the old draft's autosave was
+    // restored verbatim, silently ignoring the freshly picked decks.
+    writeAutosave(createGame({
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+          draftPool: [BALIN], playDeck: [GANDALF], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [THRAIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 12345,
+    }, pool));
+
+    const session = new GameSession({ dev: true, playerNames: ['Alice', 'Bob'] });
+    const alice = new FakeSocket();
+    const bob = new FakeSocket();
+    session.addConnection(alice as never);
+    session.addConnection(bob as never);
+    alice.join('Alice');
+    bob.join('Bob');
+
+    // Deck-legality is only announced on the `startNewGame` path — `restoreGame`
+    // never calls it — so its presence proves the stale autosave was discarded
+    // rather than resurrected with the old (now wrong) decks.
+    expect(alice.sent.some(m => m.type === 'info' && (m.message as string).includes('deck is'))).toBe(true);
+    const saved = JSON.parse(fs.readFileSync(AUTOSAVE, 'utf-8')) as { state: { stateSeq: number } };
+    expect(saved.state.stateSeq).toBe(0);
+  });
+
   test('a game over but not yet acknowledged is still restored', () => {
     writeAutosave(finishedState([ALICE]));
 
