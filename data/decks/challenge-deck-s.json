@@ -287,12 +287,12 @@
   "sites": [
     {
       "name": "Bag End",
-      "card": "le-350",
+      "card": "tw-372",
       "qty": 1
     },
     {
       "name": "Beorn's House",
-      "card": "le-354",
+      "card": "tw-376",
       "qty": 1
     },
     {
@@ -302,22 +302,22 @@
     },
     {
       "name": "Dol Amroth",
-      "card": "le-366",
+      "card": "tw-386",
       "qty": 1
     },
     {
       "name": "Eagles' Eyrie",
-      "card": "as-144",
+      "card": "tw-391",
       "qty": 1
     },
     {
       "name": "Edoras",
-      "card": "le-372",
+      "card": "tw-394",
       "qty": 1
     },
     {
       "name": "Minas Tirith",
-      "card": "le-391",
+      "card": "tw-412",
       "qty": 1
     },
     {
@@ -327,7 +327,7 @@
     },
     {
       "name": "Pelargir",
-      "card": "le-398",
+      "card": "tw-419",
       "qty": 1
     },
     {
