@@ -37,7 +37,7 @@ import {
   buildSitePhaseState, buildInfluenceAttemptChainState, findCharInstanceId, RESOURCE_PLAYER,
   expectInDiscardPile,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, PlayShortEventAction, FreeCouncilPhaseState } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, enqueueResolution } from '../../engine/pending.js';
 
@@ -450,5 +450,64 @@ describe('A Friend or Three (tw-189)', () => {
 
     const state = dispatch(stateWithCheat, checkActions[0].action);
     expect(state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
+  });
+
+  test('corruption-check-boost: playing the card during a Free Council pending check applies the constraint (regression)', () => {
+    // Regression: the Free Council reducer used to route every play-short-event
+    // unconditionally to the hazard-event handler (handlePlayShortEvent), which
+    // silently discarded resource events like A Friend or Three without ever
+    // reading their targetCharacterId/optionId or applying the check-modifier
+    // constraint — even though the action was correctly offered as legal (CoE
+    // 10.3.i / 7.1.1). See bug report: "No playing of support cards for
+    // corruption checks during the council (such as A Friend or Three) possible".
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [A_FRIEND_OR_THREE], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 0,
+        corruptionModifier: 0,
+        possessions: [],
+        need: 1,
+        explanation: 'test',
+        supportCount: 0,
+      },
+    };
+    const state = { ...base, phaseState: fcState };
+
+    const after = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: aragornId,
+      optionId: 'corruption-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'corruption',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(1);
+    }
+    // Card consumed; the Free Council pending check stays open until pass.
+    expect(after.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+    expect((after.phaseState as FreeCouncilPhaseState).pendingCheck).not.toBeNull();
   });
 });
