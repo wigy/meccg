@@ -716,9 +716,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
 
-  // Discard-to-effect abilities on the player's in-play factions
-  // (e.g. A Panoply of Wings wh-37)
-  actions.push(...inPlayFactionGrantActions(state, playerId));
+  // Grant-actions on the player's bare in-play cards — factions (e.g. A
+  // Panoply of Wings wh-37) and unattached permanent-event resources (e.g.
+  // Earth-eater wh-67)
+  actions.push(...bareCardGrantActions(state, playerId));
 
   // The Lidless Eye (le-203) / Sauron (ba-43): once-per-org-phase dual-mode
   // ability (sideboard-fetch or peek-opponent-hand)
@@ -1573,27 +1574,35 @@ function grantActionTargetCompanies(
 }
 
 /**
- * Grant-actions carried by the player's *in-play factions* (cards sitting in
- * `cardsInPlay`, not attached to any character). There is no activating
- * character, so `characterId` self-references the faction instance (the
- * reducer routes bearer-less sources to `handleInPlayCardGrantAction`).
- * Offered during the active player's organization and site phases.
+ * Grant-actions carried by the player's *bare* in-play cards — in-play
+ * factions and unattached, uncompany-bound permanent-event resources sitting
+ * in `cardsInPlay` (not attached to any character, and not stamped with a
+ * `companyId`; a `play-target: "company"` resource with a bound `companyId`
+ * instead rides the site-phase sibling `inPlayCompanyTapGrantActions`). There
+ * is no activating character, so `characterId` self-references the source
+ * instance (the reducer routes bearer-less sources to
+ * `handleInPlayCardGrantAction`). Offered during the active player's
+ * organization and site phases.
  *
- * Two shapes are recognized:
+ * Three shapes are recognized:
  *  - discard-self / add-constraint — A Panoply of Wings (wh-37): "Discard
  *    this faction to make information playable at such a site".
  *  - tap-self (or discard-self) with `targets.scope: "player-companies"` — one
  *    activation per eligible target company, carrying `targetCompanyId` — Wild
  *    Horses (wh-39): "Tap this faction to allow any company with one of the
  *    regions listed above in its site path to move up to 1 additional region."
+ *  - tap-self / enqueue-pending-fetch — Earth-eater (wh-67): "Tap Earth-eater
+ *    to take a minion non-unique weapon/armor/shield/helmet major item from
+ *    your sideboard or discard pile to your hand."
  */
-export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+export function bareCardGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
   for (const cip of player.cardsInPlay) {
+    if (cip.companyId !== undefined) continue;
     const def = defById(state, cip.definitionId);
-    if (!def || !isFactionCard(def)) continue;
+    if (!def || !(isFactionCard(def) || isResourceEventCard(def))) continue;
     for (const effect of getCardEffects(def)) {
       if (effect.type !== 'grant-action') continue;
       const paysWithTap = effect.cost.tap === 'self';
@@ -1603,18 +1612,18 @@ export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId):
       if (effect.targets?.scope === 'player-companies') {
         const companies = grantActionTargetCompanies(state, player, effect.targets);
         if (companies.length === 0) {
-          logDetail(`In-play faction grant-action ${effect.action} on ${def.name}: no eligible target companies`);
+          logDetail(`In-play grant-action ${effect.action} on ${def.name}: no eligible target companies`);
           continue;
         }
         for (const targetCompany of companies) {
-          logDetail(`In-play faction grant-action ${effect.action} available: ${paysWithTap ? 'tap' : 'discard'} ${def.name} targeting company ${targetCompany.id as string}`);
+          logDetail(`In-play grant-action ${effect.action} available: ${paysWithTap ? 'tap' : 'discard'} ${def.name} targeting company ${targetCompany.id as string}`);
           actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0, { targetCompanyId: targetCompany.id }));
         }
         continue;
       }
 
-      if (effect.apply?.type !== 'add-constraint') continue;
-      logDetail(`In-play faction grant-action ${effect.action} available: discard ${def.name} in play`);
+      if (effect.apply?.type !== 'add-constraint' && effect.apply?.type !== 'enqueue-pending-fetch') continue;
+      logDetail(`In-play grant-action ${effect.action} available: ${paysWithTap ? 'tap' : 'discard'} ${def.name} in play`);
       actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0));
     }
   }

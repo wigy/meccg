@@ -5873,7 +5873,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size' | 'card-count-exceeds';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -5992,8 +5992,24 @@ export interface PlayConditionEffect extends EffectBase {
    * For `requires: 'card-in-play'`: the card name that MUST be in play (as a
    * character or in any player's cardsInPlay) for the card to be playable.
    * Used by Snowstorm (tw-91): "Playable if Doors of Night is in play."
+   *
+   * For `requires: 'card-count-exceeds'`: the name of the card whose
+   * controller-held count must exceed {@link comparedToCardName}'s. See that
+   * field for the full description.
    */
   readonly cardName?: string;
+  /**
+   * For `requires: 'card-count-exceeds'`: the controlling player must hold
+   * strictly more copies of {@link cardName} in play than of this card name
+   * (both counted via `countPlayerHeldCopies` — the player's `cardsInPlay`
+   * plus items attached to their characters). Evaluated in
+   * `legal-actions/site.ts` for site-phase permanent events. Used by
+   * Earth-eater (wh-67): "Playable during the site phase if … you have more
+   * Delver's Harvest cards in play than you have Earth-eater cards" —
+   * `{ "requires": "card-count-exceeds", "cardName": "Delver's Harvest",
+   * "comparedToCardName": "Earth-eater" }`.
+   */
+  readonly comparedToCardName?: string;
   /**
    * For `requires: 'discard-keyword-card'`: the structural **keyword** every
    * candidate discard must carry on its definition (e.g. `"stolen-knowledge"`).

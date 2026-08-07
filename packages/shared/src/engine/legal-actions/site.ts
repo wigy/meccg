@@ -25,7 +25,7 @@ import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAll
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, normalUnusedDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
@@ -250,10 +250,11 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // their carried items during the play-resources step (e.g. Vile Fumes'
       // discard-to-transform feature).
       base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
-      // Discard-to-effect abilities on the player's in-play factions
-      // (A Panoply of Wings wh-37: discard to make Information playable at
-      // such a site — activated during the site phase).
-      base.push(...inPlayFactionGrantActions(state, playerId));
+      // Grant-actions on the player's bare in-play cards (A Panoply of Wings
+      // wh-37: discard to make Information playable at such a site; Earth-eater
+      // wh-67: tap to fetch an item to hand — all activated during the site
+      // phase).
+      base.push(...bareCardGrantActions(state, playerId));
       // Tap-self abilities on company-bound permanent events in play (Pass the
       // Doors of Dol Guldur dm-154: tap during the site phase in which the
       // company rescued prisoners at Dol Guldur).
@@ -815,8 +816,8 @@ function resolveAttacksActions(
  *  - a `singletonLock` effect must not already be claimed by another copy
  *    ("Once tapped, no other copy of this card can be tapped").
  *
- * This is the site-phase sibling of `inPlayFactionGrantActions` (organization
- * phase, discard-self only): both route to `handleInPlayCardGrantAction`, which
+ * This is the site-phase sibling of `bareCardGrantActions` (uncompany-bound
+ * cards): both route to `handleInPlayCardGrantAction`, which
  * is why `characterId` self-references the source instance.
  */
 function inPlayCompanyTapGrantActions(
@@ -1229,6 +1230,21 @@ function playResourcesActions(
           const ctx = buildPlayerStateContext(state, player, playerId);
           if (!matchesCondition(playerStateCond.condition, ctx)) {
             logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+            continue;
+          }
+        }
+
+        // play-condition: card-count-exceeds — the controller must hold more
+        // copies of `cardName` in play than of `comparedToCardName`. Earth-eater
+        // (wh-67): "Playable during the site phase if … you have more Delver's
+        // Harvest cards in play than you have Earth-eater cards."
+        const cardCountExceedsCond = findPlayConditionEffect(eventDef, 'card-count-exceeds');
+        if (cardCountExceedsCond?.cardName && cardCountExceedsCond.comparedToCardName) {
+          const ownCount = countPlayerHeldCopies(state, player, cardCountExceedsCond.cardName);
+          const otherCount = countPlayerHeldCopies(state, player, cardCountExceedsCond.comparedToCardName);
+          if (ownCount <= otherCount) {
+            logDetail(`Permanent event ${eventDef.name}: requires more ${cardCountExceedsCond.cardName} (${ownCount}) in play than ${cardCountExceedsCond.comparedToCardName} (${otherCount})`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
             continue;
           }

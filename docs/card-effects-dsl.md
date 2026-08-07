@@ -2253,10 +2253,16 @@ tapped *is* the whole effect — Pass the Doors of Dol Guldur (dm-154), whose
 tapped status is what later unlocks `storable-at` `requiresTapped` and what
 `play-flag: "no-auto-untap"` then preserves ("this card never untaps").
 
-The site-phase emitter for these is `inPlayCompanyTapGrantActions`
-(`legal-actions/site.ts`), which offers the ability to the company currently
-taking its site phase, for an `Untapped` source whose `when` matches the
-per-company site-phase context.
+The site-phase emitter for a **company-bound** source (one carrying a
+`CardInPlay.companyId`, e.g. a `play-target: "company"` resource like dm-154)
+is `inPlayCompanyTapGrantActions` (`legal-actions/site.ts`), which offers the
+ability to the company currently taking its site phase, for an `Untapped`
+source whose `when` matches the per-company site-phase context. An
+**uncompany-bound** bare source (a faction, or a permanent event with no
+`play-target` at all — e.g. Earth-eater wh-67) instead rides
+`bareCardGrantActions` (`legal-actions/organization.ts`), offered during both
+the organization and active-player site phases regardless of company; besides
+`add-constraint` its `apply` may also be `enqueue-pending-fetch` (see below).
 
 **`singletonLock: true` — "no other copy of this card can be tapped".** The
 first activation records the source's card **name** in
@@ -2771,7 +2777,7 @@ Example (Gandalf's gold-ring test):
 // A Panoply of Wings (wh-37): unlock Information at any non-Haven/non-Shadow-hold/
 // non-Dark-hold site in a Wilderness. This grant-action rides on an **in-play
 // faction** (a card sitting in cardsInPlay, not attached to a character):
-// `inPlayFactionGrantActions` offers it during the controller's organization /
+// `bareCardGrantActions` offers it during the controller's organization /
 // site phase and `handleInPlayCardGrantAction` discards the faction + adds the
 // constraint (only the `discard: self` cost + `add-constraint` apply are supported
 // for bearer-less in-play sources).
@@ -2846,6 +2852,39 @@ Rhudaur, or The Shire."
     "filter": { "cardType": { "$in": [
       "hero-resource-item", "hero-resource-ally", "hero-resource-faction"
     ] } }
+  } }
+```
+
+**Bearer-less `enqueue-pending-fetch`.** A `grant-action` with no bearer
+character — a bare permanent event sitting in `cardsInPlay`, not attached to
+anyone — may also carry an `enqueue-pending-fetch` apply. It is offered by
+`bareCardGrantActions` (`legal-actions/organization.ts`, wired into both the
+organization and active-player site phases) and resolved by
+`handleInPlayCardGrantAction` (`grant-action-apply.ts`), which mirrors the
+bearer-borne handling above minus `playableAtBearerSite` (there is no bearer
+company to derive a site from). Used by Earth-eater (wh-67): "Tap Earth-eater
+to take a minion non-unique weapon/armor/shield/helmet major item from your
+sideboard or discard pile to your hand."
+
+```json
+{ "type": "grant-action", "action": "earth-eater-fetch",
+  "cost": { "tap": "self" },
+  "apply": {
+    "type": "enqueue-pending-fetch",
+    "fetchFrom": ["discard-pile", "sideboard"],
+    "fetchCount": 1,
+    "fetchShuffle": false,
+    "fetchTo": "hand",
+    "filter": { "$and": [
+      { "unique": false },
+      { "subtype": "major" },
+      { "$or": [
+        { "keywords": { "$includes": "weapon" } },
+        { "keywords": { "$includes": "armor" } },
+        { "keywords": { "$includes": "shield" } },
+        { "keywords": { "$includes": "helmet" } }
+      ] }
+    ] }
   } }
 ```
 
@@ -6881,6 +6920,19 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
+```
+
+- `card-count-exceeds` — the controlling player must hold strictly more
+  copies of `cardName` in play than of `comparedToCardName` (both counted via
+  `countPlayerHeldCopies` — the player's own `cardsInPlay` plus items attached
+  to their characters; a tie does not satisfy "more"). Checked in the
+  site-phase permanent-event block of `legal-actions/site.ts`. Used by
+  Earth-eater (wh-67): "Playable during the site phase if … you have more
+  Delver's Harvest cards in play than you have Earth-eater cards."
+
+```json
+{ "type": "play-condition", "requires": "card-count-exceeds",
+  "cardName": "Delver’s Harvest", "comparedToCardName": "Earth-eater" }
 ```
 
 - `card-attached-to-site` — a site-phase permanent-event is only playable when a
@@ -14562,7 +14614,7 @@ region.
   enumeration to companies that have declared movement whose destination
   site's own printed `region` (a specific name, not an abstract terrain type)
   is in the given list.
-- The bearer-less in-play-faction grant-action path (`inPlayFactionGrantActions`,
+- The bearer-less in-play-faction grant-action path (`bareCardGrantActions`,
   previously discard-self / `add-constraint` only for A Panoply of Wings
   wh-37) now also accepts `cost.tap: "self"` and, with a `player-companies`
   `targets`, emits one activation per eligible company (`targetCompanyId`).
