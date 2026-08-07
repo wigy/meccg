@@ -1961,6 +1961,19 @@ export interface GrantActionTargets {
    * site path) is already known when the ability is offered.
    */
   readonly movingThroughRegionType?: string;
+  /**
+   * For scope `'player-companies'`: restrict the enumerated companies to those
+   * that have declared movement this organization phase **and** whose declared
+   * destination site's own named `region` is one of these.
+   *
+   * Wild Horses (wh-39): "any company with one of the regions listed above
+   * [Rohan, Khand, Dorwinion, Horse Plains, Southern Rhovanion, Harondor] in
+   * its site path" — unlike {@link movingThroughRegionType} (an abstract
+   * terrain type), this matches the destination's printed named region.
+   * Mutually exclusive with `movingThroughRegionType` in practice, but both
+   * fields may be checked independently.
+   */
+  readonly movingThroughRegionNames?: readonly string[];
 }
 
 /** The cost required to activate a granted action. */

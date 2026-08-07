@@ -1547,8 +1547,11 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
  * that have declared movement whose declared destination's printed site path
  * crosses a region of that type qualify — Shifter of Hues (wh-115) aids a
  * company that "must be moving with at least one Wilderness [{w}] in their site
- * path". Movement is planned during the organization phase, so the destination
- * is already known when the ability is offered.
+ * path". When `movingThroughRegionNames` is set, only companies whose declared
+ * destination site's own named `region` is in that list qualify — Wild Horses
+ * (wh-39) aids "any company with one of the regions listed above ... in its
+ * site path". Movement is planned during the organization phase, so the
+ * destination is already known when the ability is offered.
  */
 function grantActionTargetCompanies(
   state: GameState,
@@ -1556,24 +1559,33 @@ function grantActionTargetCompanies(
   targets: NonNullable<GrantActionEffect['targets']>,
 ): readonly Company[] {
   const regionType = targets.movingThroughRegionType;
-  if (regionType === undefined) return player.companies;
+  const regionNames = targets.movingThroughRegionNames;
+  if (regionType === undefined && regionNames === undefined) return player.companies;
   return player.companies.filter(co => {
     const dest = co.destinationSite;
     if (!dest) return false;
     const destDef = defById(state, dest.definitionId);
     if (!destDef || !isSiteCard(destDef)) return false;
-    return destDef.sitePath.some(r => (r as string) === regionType);
+    if (regionType !== undefined && destDef.sitePath.some(r => (r as string) === regionType)) return true;
+    if (regionNames !== undefined && regionNames.includes(destDef.region)) return true;
+    return false;
   });
 }
 
 /**
  * Grant-actions carried by the player's *in-play factions* (cards sitting in
- * `cardsInPlay`, not attached to any character). Currently only the
- * discard-self / add-constraint shape is emitted — A Panoply of Wings (wh-37):
- * "Discard this faction to make information playable at such a site". Offered
- * during the active player's organization and site phases; there is no
- * activating character, so `characterId` self-references the faction instance
- * (the reducer routes bearer-less sources to `handleInPlayCardGrantAction`).
+ * `cardsInPlay`, not attached to any character). There is no activating
+ * character, so `characterId` self-references the faction instance (the
+ * reducer routes bearer-less sources to `handleInPlayCardGrantAction`).
+ * Offered during the active player's organization and site phases.
+ *
+ * Two shapes are recognized:
+ *  - discard-self / add-constraint — A Panoply of Wings (wh-37): "Discard
+ *    this faction to make information playable at such a site".
+ *  - tap-self (or discard-self) with `targets.scope: "player-companies"` — one
+ *    activation per eligible target company, carrying `targetCompanyId` — Wild
+ *    Horses (wh-39): "Tap this faction to allow any company with one of the
+ *    regions listed above in its site path to move up to 1 additional region."
  */
 export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
@@ -1584,7 +1596,23 @@ export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId):
     if (!def || !isFactionCard(def)) continue;
     for (const effect of getCardEffects(def)) {
       if (effect.type !== 'grant-action') continue;
-      if (effect.cost.discard !== 'self') continue;
+      const paysWithTap = effect.cost.tap === 'self';
+      if (!paysWithTap && effect.cost.discard !== 'self') continue;
+      if (paysWithTap && cip.status !== CardStatus.Untapped) continue;
+
+      if (effect.targets?.scope === 'player-companies') {
+        const companies = grantActionTargetCompanies(state, player, effect.targets);
+        if (companies.length === 0) {
+          logDetail(`In-play faction grant-action ${effect.action} on ${def.name}: no eligible target companies`);
+          continue;
+        }
+        for (const targetCompany of companies) {
+          logDetail(`In-play faction grant-action ${effect.action} available: ${paysWithTap ? 'tap' : 'discard'} ${def.name} targeting company ${targetCompany.id as string}`);
+          actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0, { targetCompanyId: targetCompany.id }));
+        }
+        continue;
+      }
+
       if (effect.apply?.type !== 'add-constraint') continue;
       logDetail(`In-play faction grant-action ${effect.action} available: discard ${def.name} in play`);
       actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0));

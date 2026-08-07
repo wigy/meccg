@@ -131,6 +131,17 @@ export interface ResolverContext {
      * `{ "bearer.stagePoints": { "$gt": 11 } }`.
      */
     readonly stagePoints?: number;
+    /**
+     * Named regions the character's home site(s) lie in, resolved from the
+     * character's `homesite` string via {@link characterHomeSiteRegions}.
+     * Populated only in the `faction-influence-check` context (the influence
+     * attempt's own resolver context is built per-influencer, unlike the
+     * shared effective-stats pass). Used by faction standard modifications
+     * keyed to the influencer's home region, e.g. Wild Horses (wh-39):
+     * "Men with home sites in [Rohan, Khand, …] (+3)":
+     * `{ "bearer.homesiteRegions": { "$includes": "Rohan" } }`.
+     */
+    readonly homesiteRegions?: readonly string[];
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {

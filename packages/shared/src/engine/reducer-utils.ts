@@ -3527,6 +3527,42 @@ export function characterHomeSiteTypes(
 }
 
 /**
+ * The distinct named regions of a character's home sites.
+ *
+ * Companion to {@link characterHomeSiteTypes} for the region-name form of the
+ * same standard-modification pattern, e.g. Wild Horses (wh-39): "Men with home
+ * sites in [Rohan, Khand, …] (+3)". Resolution mirrors
+ * `agentHomeSiteMatchesTypes`/`characterHomeSiteTypes` — each comma-separated
+ * home-site name is resolved against the pool, preferring sites of the
+ * character's own alignment — with one addition: the compound `"Any site in
+ * <Region>"` home-site form (see `homesiteMatchesSite`) names its region
+ * directly, with no site lookup needed.
+ */
+export function characterHomeSiteRegions(
+  state: GameState,
+  def: { homesite?: string; alignment?: Alignment } | undefined,
+): string[] {
+  if (!def?.homesite) return [];
+  const ANY_SITE_IN_PREFIX = 'Any site in ';
+  if (def.homesite.startsWith(ANY_SITE_IN_PREFIX)) {
+    return [def.homesite.slice(ANY_SITE_IN_PREFIX.length)];
+  }
+  const names = new Set(parseHomesiteNames(def.homesite));
+  if (names.size === 0) return [];
+  const align = def.alignment;
+  const named = Object.values(state.cardPool).filter(
+    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
+  );
+  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
+  const candidates = aligned.length > 0 ? aligned : named;
+  const regions = new Set<string>();
+  for (const s of candidates) {
+    if (s.region) regions.add(s.region);
+  }
+  return [...regions];
+}
+
+/**
  * Evaluates whether an {@link AgentHomeSiteFactionLockEffect} (Faithless Steward
  * as-83) is currently *active* for its bearer character. Active means the bearer
  * is **unwounded** and its company is standing at one of the character's home
