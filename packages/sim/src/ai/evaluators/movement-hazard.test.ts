@@ -136,6 +136,43 @@ describe('movementHazardEvaluator play-hazard sequencing', () => {
   });
 });
 
+describe('movementHazardEvaluator play-hazard creature keying-variant splitting', () => {
+  // Bug report: the AI played Orc-warband, then Minions Stir (a board-wide
+  // +1 strike/+1 prowess boost to Orc attacks) afterwards, wasting the boost
+  // on a creature that had already resolved. Orc-warband was keyable two
+  // ways at once (region-type "wilderness" and site-type "ruins-and-lairs"),
+  // so computeLegalActions offered two separate play-hazard actions for the
+  // same card. Each scored at the full, undiscounted creature-threat weight,
+  // so their combined probability mass roughly doubled relative to a
+  // single-keying creature — nearly matching the boost's score and turning
+  // "the boost is sequenced first" from a reliable preference into a coin
+  // flip.
+  test('splits creature-threat weight across keying-variant duplicates of the same card', () => {
+    const singleKeyingContext = { ...makeContext(['td-42']), legalActions: [playHazard('h0')] };
+    const singleScore = movementHazardEvaluator.score(playHazard('h0'), singleKeyingContext)!;
+
+    const twoKeyingsContext = {
+      ...makeContext(['td-42']),
+      legalActions: [playHazard('h0'), playHazard('h0')],
+    };
+    const perVariantScore = movementHazardEvaluator.score(playHazard('h0'), twoKeyingsContext)!;
+
+    // Two keying justifications for the same card play as one decision, not two.
+    expect(perVariantScore * 2).toBeCloseTo(singleScore);
+  });
+
+  test('a matching boost still outscores the combined weight of all keying variants', () => {
+    const context = {
+      ...makeContext(['as-30', 'td-42']),
+      legalActions: [playHazard('h1'), playHazard('h1')],
+    };
+    const boostScore = movementHazardEvaluator.score(playHazard('h0'), context)!;
+    const perVariantScore = movementHazardEvaluator.score(playHazard('h1'), context)!;
+
+    expect(boostScore).toBeGreaterThan(perVariantScore * 2);
+  });
+});
+
 function marvelsTold(discardTargetInstanceId: string): GameAction {
   return {
     type: 'play-short-event',

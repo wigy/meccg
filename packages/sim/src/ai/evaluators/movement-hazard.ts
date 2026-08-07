@@ -95,7 +95,20 @@ export const movementHazardEvaluator: ActionEvaluator = {
               if (char) defenderProwess += char.effectiveStats.prowess;
             }
           }
-          return Math.max(1, creatureThreat(def, defenderProwess));
+          // A creature keyed by more than one region-type/site-type reason
+          // (e.g. Orc-warband keyed by both "wilderness" and "ruins-and-lairs")
+          // appears as one legal action per keying justification, all playing
+          // the identical card. Left unsplit, each variant scores at full
+          // creature-threat weight, so the combined probability of "play this
+          // creature" roughly multiplies by the number of valid keyings —
+          // drowning out a board-wide boost in hand that should reliably be
+          // sequenced first (see boostedCreatureThreatInHand below). Split the
+          // weight across the keying variants so they total one decision's
+          // worth, mirroring the place-on-guard fix.
+          const keyingVariants = context.legalActions.filter(
+            a => a.type === 'play-hazard' && a.cardInstanceId === action.cardInstanceId,
+          ).length;
+          return Math.max(1, creatureThreat(def, defenderProwess) / Math.max(1, keyingVariants));
         }
         if (isCorruption(def)) {
           // Foolish Words: target the character with the most free DI so the
