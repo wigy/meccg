@@ -173,6 +173,7 @@
     "unique": false,
     "prowess": null,
     "body": null,
+    "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [],
