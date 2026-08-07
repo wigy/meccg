@@ -288,7 +288,8 @@ export function findTakePrisonerHazard(
  * ({@link applyTakePrisoner}) and the Troll-purse at-site path
  * ({@link applyTakePrisonerAtSite}); `removeHostFromHazards` strips the host
  * from the prisoner's hazards when the host moves into the HazardHost record
- * (the at-site host stays in cardsInPlay instead).
+ * (the at-site host stays in cardsInPlay instead). `discardRings` overrides
+ * the default CoE 3.III.3 ring protection (Spells of the Barrow-wights dm-90).
  */
 function bindPrisoner(
   state: GameState,
@@ -300,8 +301,9 @@ function bindPrisoner(
   ownedBy: import('../types/common.js').PlayerId,
   removeHostFromHazards: boolean,
   logPrefix: string,
+  discardRings = false,
 ): GameState {
-  const retainedItems = charData.items.filter(item => {
+  const retainedItems = discardRings ? [] : charData.items.filter(item => {
     const itemDef = defById(state, item.definitionId);
     return itemDef && 'cardType' in itemDef
       && typeof (itemDef as { cardType: string }).cardType === 'string'
@@ -382,6 +384,7 @@ export function applyTakePrisoner(
   let newState = bindPrisoner(
     state, defPlayerIndex, charInstanceId, charData,
     hostCard, toCardInstance(rescueSiteCard), hazardPlayer.id, true, 'take-prisoner',
+    effect.discardRings ?? false,
   );
   // Remove the rescue site from the hazard player's location deck.
   newState = updatePlayer(newState, hazardPlayerIndex, p => ({ ...p, siteDeck: newHazardSiteDeck }));
