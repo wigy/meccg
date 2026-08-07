@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1097 | 1096 | 1 | 99.9% |
+| 1100 | 1099 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -14,11 +14,11 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 105 | 105 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 97 | 97 | 100.0% |
+| DM | 98 | 98 | 100.0% |
 | LE | 297 | 296 | 99.7% |
 | TD | 87 | 87 | 100.0% |
-| TW | 328 | 328 | 100.0% |
-| WH | 86 | 86 | 100.0% |
+| TW | 329 | 329 | 100.0% |
+| WH | 87 | 87 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -43,7 +43,7 @@
 | as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
-| as-24 | Alone and Unadvised | — | 15 | ☑ |
+| as-24 | Alone and Unadvised | — | 16 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 13 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
@@ -279,6 +279,7 @@
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
 | dm-88 | Seized by Terror | — | 8 | ☑ |
+| dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 14 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
@@ -301,7 +302,7 @@
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
 | dm-130 | Fireworks | — | 16 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
-| dm-134 | Hall of Fire | — | 11 | ☑ |
+| dm-134 | Hall of Fire | — | 12 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
@@ -455,7 +456,7 @@
 | le-176 | Come By Night Upon Them | — | 10 | ☑ |
 | le-177 | Crack in the Wall | — | 7 | ☑ |
 | le-178 | Crooked Promptings | — | 9 | ☑ |
-| le-179 | Deeper Shadow | — | 13 | ☑ |
+| le-179 | Deeper Shadow | — | 14 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 15 | ☑ |
@@ -720,7 +721,7 @@
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
 | tw-17 | Brigands | — | 7 | ☑ |
-| tw-18 | Call of Home | — | 8 | ☑ |
+| tw-18 | Call of Home | — | 9 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
 | tw-021 | — | — | 15 | ☑ |
 | tw-23 | Corpse-candle | — | 11 | ☑ |
@@ -782,7 +783,7 @@
 | tw-108 | Wake of War | — | 6 | ☑ |
 | tw-109 | Wargs | — | 5 | ☑ |
 | tw-110 | Watcher in the Water | — | 9 | ☑ |
-| tw-112 | “William” (Wûluag) | — | 7 | ☑ |
+| tw-112 | “William” (Wûluag) | — | 8 | ☑ |
 | tw-113 | Witch-king of Angmar | — | 16 | ☑ |
 | tw-114 | Wolves | — | 3 | ☑ |
 | tw-116 | Adrazar | — | 3 | ☑ |
@@ -854,7 +855,7 @@
 | tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 10 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
-| tw-193 | Army of the Dead | — | 2 | ☑ |
+| tw-193 | Army of the Dead | — | 3 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-198 | Bill the Pony | — | 11 | ☑ |
@@ -871,7 +872,7 @@
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
 | tw-224 | Elf-stone | — | 6 | ☑ |
-| tw-225 | Elven Cloak | — | 5 | ☑ |
+| tw-225 | Elven Cloak | — | 6 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
@@ -955,6 +956,7 @@
 | tw-358 | Vilya | — | 10 | ☑ |
 | tw-361 | Wizard’s Flame | — | 7 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
+| tw-363 | Wizard’s Ring | — | 5 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
@@ -1060,9 +1062,10 @@
 | wh-29 | Rolled down to the Sea | — | 5 | ☑ |
 | wh-31 | Whole Villages Roused | — | 17 | ☑ |
 | wh-33 | Noble Steed | — | 11 | ☑ |
-| wh-34 | Promptings of Wisdom | — | 8 | ☑ |
+| wh-34 | Promptings of Wisdom | — | 9 | ☑ |
 | wh-37 | A Panoply of Wings | — | 11 | ☑ |
 | wh-38 | Beasts of the Wood | — | 16 | ☑ |
+| wh-39 | Wild Horses | — | 13 | ☑ |
 | wh-40 | Wild Hounds | — | 15 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 5 | ☑ |
 | wh-45 | Govern the Storms | — | 9 | ☑ |
@@ -1079,7 +1082,7 @@
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
 | wh-61 | A Strident Spawn | — | 10 | ☑ |
-| wh-62 | An Untimely Brood | — | 14 | ☑ |
+| wh-62 | An Untimely Brood | — | 15 | ☑ |
 | wh-63 | Bad Company | — | 11 | ☑ |
 | wh-65 | Delver’s Harvest | — | 4 | ☑ |
 | wh-66 | Double-dealing | — | 10 | ☑ |
@@ -1087,7 +1090,7 @@
 | wh-69 | Fortress of the Towers | — | 14 | ☑ |
 | wh-70 | Gatherer of Loyalties | — | 10 | ☑ |
 | wh-72 | Great Patron | — | 9 | ☑ |
-| wh-74 | Guarded Haven | — | 12 | ☑ |
+| wh-74 | Guarded Haven | — | 13 | ☑ |
 | wh-75 | Hidden Haven | — | 26 | ☑ |
 | wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
@@ -1119,7 +1122,7 @@
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 7 | ☑ |
-| wh-120 | Saruman’s Machinery | — | 20 | ☑ |
+| wh-120 | Saruman’s Machinery | — | 21 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
 
 ---

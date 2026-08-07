@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.88.0 — 2026-08-07
+
+Prisoner spells, Wild Horses, and company-view polish
+
+### Cards
+
+- Certified Spells of the Barrow-wights (dm-90): prisoners discard their rings on capture, and a recurring untap-phase body check can eliminate an unrescued prisoner
+- Certified Wild Horses (wh-39): home-site-region standard modification (+3 for Men of the horse lands) and tap-to-grant a company +1 region of movement
+
+### Game Engine
+
+- Fallen-wizard Stage cards are no longer swept by the CoE 2.2.F1 elimination gate before the avatar is even played (Saruman's Machinery)
+- Call of Home excludes Fallen-wizard avatars per CoE glossary g.wiz.F1
+- Army of the Dead is playable after Paths of the Dead the same turn
+- Hall of Fire is offered during the organization phase; Promptings of Wisdom (wh-34) no longer is outside it
+- Wizard's Ring is playable at a Haven
+- Site-scope duplication limits count copies already declared in the current chain
+- Free Council corruption checks include company-size DSL modifiers
+- William/Bert/Tom item discard no longer sweeps up attached permanent events
+- Regiment of Black Crows gained its missing mind field, unblocking the An Untimely Brood grant
+- A stale, never-started save is discarded instead of resurrecting the wrong decks
+- Legal-action text distinguishes between play-option choices
+
+### Web Client
+
+- Opponent companies can be focused from the all-companies overview
+- The all-companies overview is restored after combat ends mid-opponent-turn
+- Merge-companies is reachable from the focused single-company view
+- Hand-card clicks use the live focused-company site after board navigation
+- The hand-arc catch zone no longer blocks combat-arena clicks
+
+### AI
+
+- Heuristic AI no longer overweights hazard creatures with multiple keying variants
+
+### Infrastructure
+
+- CI actions bumped (checkout and setup-node v4 → v7), fixing the Node.js 20 deprecation warning
+- Deck S uses hero-site printings instead of minion-site cards
+
 ## 0.87.0 — 2026-08-06
 
 Corruption-check support and Fallen-wizard targeting fixes
