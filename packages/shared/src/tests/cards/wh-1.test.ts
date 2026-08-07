@@ -617,7 +617,5 @@ describe('Alatar (wh-1)', () => {
     const haven = after.players[RESOURCE_PLAYER].companies[1];
     expect(attacked.characters).toContain(alatarId);
     expect(haven.characters).not.toContain(alatarId);
-    expect(after.combat!.havenJumpOrigins).toBeDefined();
-    expect((after.combat!.havenJumpOrigins![0] as { characterId: CardInstanceId }).characterId).toBe(alatarId);
   });
 });

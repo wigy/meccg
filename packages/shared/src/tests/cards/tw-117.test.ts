@@ -25,7 +25,7 @@
  * | 3 | Haven-join: discard attached allies    | IMPLEMENTED  | offer-char-join-attack.discardOwnedAllies     |
  * | 4 | Haven-join: force strike onto Alatar   | IMPLEMENTED  | combat.forcedStrikeTargets filter             |
  * | 5 | Post-combat tap + corruption check     | IMPLEMENTED  | combat.postAttackEffects at finalization      |
- * | 6 | Return to haven company after combat   | IMPLEMENTED  | combat.havenJumpOrigins at finalization       |
+ * | 6 | Stays in joined company after combat   | IMPLEMENTED  | no restore step at finalization               |
  *
  * Playable: YES
  * Certified: 2026-04-23
@@ -321,10 +321,6 @@ describe('Alatar (tw-117)', () => {
     const haven = after.players[RESOURCE_PLAYER].companies[1];
     expect(attacked.characters).toContain(alatarId);
     expect(haven.characters).not.toContain(alatarId);
-    // Origin recorded for post-combat restore
-    expect(after.combat!.havenJumpOrigins).toBeDefined();
-    expect(after.combat!.havenJumpOrigins![0].characterId).toBe(alatarId);
-    expect(after.combat!.havenJumpOrigins![0].originCompanyId).toBe(havenComp.id);
   });
 
   test('accepting the offer discards allies attached to Alatar', () => {
@@ -399,9 +395,9 @@ describe('Alatar (tw-117)', () => {
     expect(viableActionTypes(after, PLAYER_1).length).toBeGreaterThan(0);
   });
 
-  // ── Post-combat: tap + corruption check + restore ──
+  // ── Post-combat: tap + corruption check, stays in the joined company ──
 
-  test('post-attack effects fire at combat finalization (tap + corruption check + return)', () => {
+  test('post-attack effects fire at combat finalization (tap + corruption check); Alatar stays joined', () => {
     const state = combatWithHavenJumpOffer(baseTwoCompanyState(), { strikesTotal: 1 });
     const havenComp = state.players[RESOURCE_PLAYER].companies[1];
     const alatarId = havenComp.characters[0];
@@ -442,11 +438,12 @@ describe('Alatar (tw-117)', () => {
     );
     expect(ccForAlatar).toBeDefined();
 
-    // Alatar restored to haven company
-    const restoredHaven = s.players[RESOURCE_PLAYER].companies.find(c => c.id === havenCompId)!;
-    const restoredAttacked = s.players[RESOURCE_PLAYER].companies[0];
-    expect(restoredHaven.characters).toContain(alatarId);
-    expect(restoredAttacked.characters).not.toContain(alatarId);
+    // Alatar stays in the company he joined — his card text says "join",
+    // not "temporarily assist", and nothing sends him back to the haven.
+    const haven = s.players[RESOURCE_PLAYER].companies.find(c => c.id === havenCompId)!;
+    const attacked = s.players[RESOURCE_PLAYER].companies[0];
+    expect(attacked.characters).toContain(alatarId);
+    expect(haven.characters).not.toContain(alatarId);
   });
 
   // ── Negative cases: offer is NOT raised ──
