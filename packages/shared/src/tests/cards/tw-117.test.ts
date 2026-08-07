@@ -56,6 +56,8 @@ import {
 } from '../../index.js';
 
 const ALATAR = 'tw-117' as CardDefinitionId;
+const GIANT_SPIDERS = 'le-75' as CardDefinitionId;
+const MANY_TURNS_AND_DOUBLINGS = 'td-132' as CardDefinitionId;
 
 /**
  * Build a two-company MH-phase state for player 1:
@@ -567,5 +569,74 @@ describe('Alatar (tw-117)', () => {
     // Defender sees a haven-join-attack legal action for Alatar
     const actions = viableActions(combatState, PLAYER_1, 'haven-join-attack');
     expect(actions).toHaveLength(1);
+  });
+
+  // ── Regression: forced strike overrides attack cancellation ──
+
+  test('cancel-attack is withdrawn once Alatar has a pending forced strike (CRF 22)', () => {
+    // Bug report (game msivgv4l-ys2k6b, seq 654-655): Alatar teleported in
+    // from Rivendell to face a Giant Spiders attack, and the same player
+    // then canceled the whole attack with Many Turns and Doublings before
+    // Alatar's mandatory strike was ever assigned — letting him dodge the
+    // strike his card text guarantees "in all cases". CRF 22 says Alatar
+    // "overrides all other effects pertaining to the assigning of strikes",
+    // so once he has teleported in, the attack can no longer be canceled out
+    // from under him.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: RIVENDELL, characters: [ALATAR] },
+          ],
+          hand: [MANY_TURNS_AND_DOUBLINGS],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [GANDALF] }],
+          hand: [GIANT_SPIDERS],
+          siteDeck: [],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      // Giant Spiders' regionTypes keying lists "wilderness" twice (count-based
+      // match), so the resolved path needs two wilderness legs.
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Rhudaur', 'Eriador'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const spidersId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, spidersId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    // Sanity: before Alatar joins, Many Turns and Doublings can cancel the
+    // attack (Aragorn is a ranger in the attacked company).
+    expect(viableActions(combatState, PLAYER_1, 'cancel-attack').length).toBeGreaterThan(0);
+
+    const havenComp = combatState.players[RESOURCE_PLAYER].companies[1];
+    const alatarId = havenComp.characters[0];
+    const afterJoin = dispatch(combatState, {
+      type: 'haven-join-attack',
+      player: PLAYER_1,
+      characterId: alatarId,
+    });
+    expect(afterJoin.combat!.forcedStrikeTargets).toEqual([alatarId]);
+
+    expect(viableActions(afterJoin, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 });
