@@ -21,6 +21,7 @@ import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, LORIEN, MINAS_TIRITH,
   buildFallenWizardOrgPhaseState, findHandCardId, viableActions,
+  withAvatarEliminated,
 } from '../../test-helpers.js';
 
 const ALATAR = 'wh-1' as CardDefinitionId;            // Fallen-wizard avatar
@@ -31,19 +32,6 @@ const ASTERNAK = 'le-1' as CardDefinitionId;          // Man (keeps the company 
 
 function inPlay(defId: CardDefinitionId, instanceId: string): CardInPlay {
   return { instanceId: instanceId as CardInstanceId, definitionId: defId, status: CardStatus.Untapped };
-}
-
-/** Eliminate a Fallen-wizard's declared avatar: move it from the play deck to the removed-from-play pile. */
-function withAvatarEliminated(state: GameState, avatarDefId: CardDefinitionId): GameState {
-  const fw = state.players[RESOURCE_PLAYER];
-  const eliminated = fw.playDeck.find(c => c.definitionId === avatarDefId)!;
-  return {
-    ...state,
-    players: [
-      { ...fw, playDeck: fw.playDeck.filter(c => c !== eliminated), outOfPlayPile: [...fw.outOfPlayPile, eliminated] },
-      state.players[1],
-    ] as GameState['players'],
-  };
 }
 
 function isPlayable(state: GameState, instanceId: CardInstanceId): boolean {
@@ -71,7 +59,7 @@ describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
 
     // Alatar has been eliminated — the post-reduce sweep discards the
     // Alatar-specific Stage card immediately, on any action.
-    const eliminated = withAvatarEliminated(state, ALATAR);
+    const eliminated = withAvatarEliminated(state, RESOURCE_PLAYER, ALATAR);
     const after = dispatch(eliminated, { type: 'pass', player: PLAYER_1 });
 
     expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === 'p1-1000')).toBe(false);
@@ -115,7 +103,7 @@ describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
     const declaredOnly = buildFallenWizardOrgPhaseState({
       site: LORIEN, characters: [ASTERNAK], hand: [BOW_OF_ALATAR], playDeck: [ALATAR],
     });
-    const eliminated = withAvatarEliminated(declaredOnly, ALATAR);
+    const eliminated = withAvatarEliminated(declaredOnly, RESOURCE_PLAYER, ALATAR);
     // Once Alatar has been eliminated, the wizard-specific card is no longer playable.
     expect(isPlayable(eliminated, findHandCardId(eliminated, RESOURCE_PLAYER, BOW_OF_ALATAR))).toBe(false);
   });
@@ -130,7 +118,7 @@ describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
     // has been played.
     expect(isPlayable(state, findHandCardId(state, RESOURCE_PLAYER, FORTRESS_OF_ISEN))).toBe(true);
 
-    const eliminated = withAvatarEliminated(state, ALATAR);
+    const eliminated = withAvatarEliminated(state, RESOURCE_PLAYER, ALATAR);
     // Once Alatar is eliminated, the player no longer counts "as" Alatar for
     // non-specific Stage resources either.
     expect(isPlayable(eliminated, findHandCardId(eliminated, RESOURCE_PLAYER, FORTRESS_OF_ISEN))).toBe(false);
