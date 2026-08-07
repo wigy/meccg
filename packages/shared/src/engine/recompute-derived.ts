@@ -49,7 +49,7 @@ import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corrup
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
-import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
+import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -1188,20 +1188,53 @@ function permanentEventMpOverrides(
 }
 
 /**
+ * Recursively collects the resource subtypes a `Condition` requires via a
+ * `playableResources: { $includes: <subtype> }` clause — the shape a
+ * `play-target` site filter uses to say "at a site where X is playable"
+ * (When I Know Anything td-166, Andúril tw-192, …). Only descends into
+ * `$and`: an `$or` branch means the resource is merely one of several
+ * acceptable options, not a hard requirement, so it does not count.
+ */
+function siteFilterRequiredResources(filter: Condition): string[] {
+  const isAnd = (c: Condition): c is { $and: readonly Condition[] } => '$and' in c;
+  if (isAnd(filter)) return filter.$and.flatMap(siteFilterRequiredResources);
+  if ('$or' in filter || '$not' in filter) return [];
+  const includes = (filter as { playableResources?: { $includes?: string } }).playableResources;
+  return typeof includes?.$includes === 'string' ? [includes.$includes] : [];
+}
+
+/**
+ * The resource subtype(s) a permanent-event "requires a site where X is
+ * playable" to be played — from either a `play-condition` with
+ * `requires: 'site-has-resource'` (the DSL shape organization/short-events
+ * use) or a `play-target` effect targeting `site` with a `playableResources`
+ * filter (the shape actual in-play permanent-events use, e.g. td-166).
+ */
+function permanentEventSiteResourceSubtypes(def: CardDefinition): string[] {
+  if ((def as { eventType?: string }).eventType !== 'permanent') return [];
+  const siteHasResource = findPlayConditionEffect(def, 'site-has-resource');
+  if (siteHasResource?.subtype) return [siteHasResource.subtype];
+  const sitePlayTarget = getCardEffects(def).find(
+    (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+  );
+  return sitePlayTarget?.filter ? siteFilterRequiredResources(sitePlayTarget.filter) : [];
+}
+
+/**
  * If an in-play permanent-event is subject to a `permanent-event-mp` override,
  * returns the overridden marshalling-point value; otherwise `undefined`. A
- * permanent-event matches an override iff it carries a `play-condition` with
- * `requires: 'site-has-resource'` and a `subtype` equal to the override's
- * `requiresResource` (the "requires a site where X is playable" prerequisite).
+ * permanent-event matches an override iff it "requires a site where X is
+ * playable" (see {@link permanentEventSiteResourceSubtypes}) for a subtype
+ * equal to the override's `requiresResource`.
  */
 function permanentEventMpOverride(
   def: CardDefinition,
   overrides: { value: number; requiresResource: string }[],
 ): number | undefined {
   if (overrides.length === 0) return undefined;
-  const siteHasResource = findPlayConditionEffect(def, 'site-has-resource');
-  if (!siteHasResource?.subtype) return undefined;
-  const match = overrides.find(o => o.requiresResource === siteHasResource.subtype);
+  const subtypes = permanentEventSiteResourceSubtypes(def);
+  if (subtypes.length === 0) return undefined;
+  const match = overrides.find(o => subtypes.includes(o.requiresResource));
   return match?.value;
 }
 
@@ -1424,6 +1457,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // card definitions, in-play zones and site occupancy — never a character's
   // effective stats — so there is no cycle.
   const stagePoints = playerStagePoints(state, player);
+  // Man of Skill (wh-119) and similar: in-play `permanent-event-mp` effects
+  // override the MP of the player's permanent-events that require a given
+  // resource site. Computed once per player, before the per-character pass
+  // below, since it applies both to permanent-events sitting in `cardsInPlay`
+  // and to ones played "on" a character (light enchantments live in the
+  // bearer's `items`). Empty when no such effect is in play.
+  const peMpOverrides = permanentEventMpOverrides(state, player);
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let generalInfluenceControlPenalty = 0;
@@ -1633,6 +1673,19 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         }
         continue;
       }
+      // Man of Skill (wh-119) and similar: a permanent-event played "on" a
+      // character (e.g. a light enchantment on a sage) lives in the bearer's
+      // `items`, not `cardsInPlay` — apply the same override here so it isn't
+      // silently missed and clamped to the flat §4 1-MP value instead.
+      const peOverride = permanentEventMpOverride(itemDef, peMpOverrides);
+      if (peOverride !== undefined && hasMarshallingPoints(itemDef)) {
+        const cat = itemDef.marshallingCategory;
+        if (peOverride !== 0) {
+          mp = { ...mp, [cat]: mp[cat] + peOverride };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + peOverride };
+        }
+        continue;
+      }
       const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
@@ -1770,10 +1823,6 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   const factionOverrides = factionMpOverrideRules(state, player);
   const avatarChar = factionOverrides.length > 0 ? findPlayerAvatar(state, player) : undefined;
   const avatarName = avatarChar ? (resolveDef(state, avatarChar.instanceId) as { name?: string } | undefined)?.name : undefined;
-  // Man of Skill (wh-119) and similar: in-play `permanent-event-mp` effects
-  // override the MP of the player's permanent-events that require a given
-  // resource site. Computed once per player; empty when no such effect is in play.
-  const peMpOverrides = permanentEventMpOverrides(state, player);
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
