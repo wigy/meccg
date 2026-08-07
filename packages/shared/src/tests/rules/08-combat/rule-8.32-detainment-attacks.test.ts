@@ -97,5 +97,9 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     // Character remains present (not eliminated); no body check phase.
     expect(after.players[RESOURCE_PLAYER].characters[characterId]).toBeDefined();
     expect(after.combat).toBeNull();
+    // Glossary "tap"/"heal": tapping requires the card be initially upright.
+    // An already-wounded character stays Inverted — a detainment strike must
+    // not heal it to Tapped (see Neeker-Breekers bug report).
+    expect(after.players[RESOURCE_PLAYER].characters[characterId].status).toBe(CardStatus.Inverted);
   });
 });
