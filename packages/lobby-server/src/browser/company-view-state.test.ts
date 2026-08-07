@@ -3,6 +3,7 @@ import {
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
   shouldClearOverrideForNewCombat,
+  shouldRestoreOverrideAfterCombat,
 } from './company-view-state.js';
 
 /**
@@ -101,5 +102,39 @@ describe('shouldClearOverrideForNewCombat', () => {
 
   it('does NOT clear the override when combat just ended', () => {
     expect(shouldClearOverrideForNewCombat(false, true)).toBe(false);
+  });
+});
+
+/**
+ * Regression tests for bug report ed948ef8e9ec6c8f (game mshkjqbp-4pszaj, seq
+ * 403): "Update not seeing Opp. Company" — an automatic attack at a site
+ * during the opponent's turn correctly clears the all-companies override so
+ * the combat view can take over, but nothing restored the override once the
+ * automatic attack resolved. The render was left stuck in single-company
+ * view (focused on whichever company fought) for the rest of the opponent's
+ * turn, hiding the opponent's other companies from the overview.
+ */
+describe('shouldRestoreOverrideAfterCombat', () => {
+  const SELF = 'p1';
+  const OPPONENT = 'p2';
+
+  it('restores the override when combat ends mid-opponent-turn', () => {
+    expect(shouldRestoreOverrideAfterCombat(false, true, OPPONENT, SELF)).toBe(true);
+  });
+
+  it('does NOT restore when combat is still active', () => {
+    expect(shouldRestoreOverrideAfterCombat(true, true, OPPONENT, SELF)).toBe(false);
+  });
+
+  it('does NOT restore when combat was not active last render', () => {
+    expect(shouldRestoreOverrideAfterCombat(false, false, OPPONENT, SELF)).toBe(false);
+  });
+
+  it('does NOT restore on our own turn', () => {
+    expect(shouldRestoreOverrideAfterCombat(false, true, SELF, SELF)).toBe(false);
+  });
+
+  it('does NOT restore when there is no active player', () => {
+    expect(shouldRestoreOverrideAfterCombat(false, true, null, SELF)).toBe(false);
   });
 });

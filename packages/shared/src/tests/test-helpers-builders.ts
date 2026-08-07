@@ -1482,6 +1482,27 @@ export function withAgentInPlay(
 }
 
 /**
+ * Eliminate a Fallen-wizard's declared avatar: move it from the play deck to
+ * the removed-from-play pile. Used to exercise CoE 2.2.F1's "avatar leaves
+ * play" trigger, which is gated on actual elimination — not merely on the
+ * avatar being absent from the company (e.g. declared but not yet played).
+ */
+export function withAvatarEliminated(
+  state: GameState,
+  playerIdx: number,
+  avatarDefId: CardDefinitionId,
+): GameState {
+  const player = state.players[playerIdx];
+  const eliminated = player.playDeck.find(c => c.definitionId === avatarDefId)!;
+  const players = state.players.map((p, i) =>
+    i === playerIdx
+      ? { ...p, playDeck: p.playDeck.filter(c => c !== eliminated), outOfPlayPile: [...p.outOfPlayPile, eliminated] }
+      : p,
+  ) as unknown as typeof state.players;
+  return { ...state, players };
+}
+
+/**
  * Place an on-guard card on a player's company and return the updated
  * GameState + card. Cards are placed face-down by default; pass
  * `revealed: true` to place a pre-revealed card (e.g. for testing the

@@ -154,6 +154,37 @@ export function shouldClearOverrideForNewCombat(
   return combatActive && !lastCombatActive;
 }
 
+/**
+ * Decide whether the end of a combat should restore the all-companies
+ * override that {@link shouldOverrideToAllCompanies} forces on for the whole
+ * opponent turn.
+ *
+ * {@link shouldClearOverrideForNewCombat} clears the override the moment a
+ * combat starts so the combat view can take over, but nothing turns it back
+ * on once that combat resolves. If the combat happened mid-opponent-turn
+ * (e.g. an automatic attack at a site), the render is then stuck in
+ * single-company view — focused on whichever company was in combat — for
+ * the rest of the opponent's turn, hiding the local player's other
+ * companies and any agent hazards until they manually toggle back to the
+ * overview.
+ *
+ * @param combatActive - Whether combat is active in the current render.
+ * @param lastCombatActive - Whether combat was active in the previous render.
+ * @param activeId - The active player ID for the current render (null if none).
+ * @param selfId - The local player's ID.
+ * @returns True if the all-companies override should be restored.
+ */
+export function shouldRestoreOverrideAfterCombat(
+  combatActive: boolean,
+  lastCombatActive: boolean,
+  activeId: string | null,
+  selfId: string,
+): boolean {
+  const combatJustEnded = !combatActive && lastCombatActive;
+  const opponentTurn = activeId !== null && activeId !== selfId;
+  return combatJustEnded && opponentTurn;
+}
+
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 

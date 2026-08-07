@@ -1483,7 +1483,21 @@ export function renderHand(
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => onAction(action));
+        // Re-resolve the target site from the focused company at click time,
+        // not render time: switching the board's focused company (nav arrows)
+        // only re-renders the company view, not the hand, so a click handler
+        // bound to the site captured at the last hand render would silently
+        // fire against whichever company was focused back then instead of the
+        // one currently shown — e.g. Chambers in the Royal Court (wh-97) got
+        // bound to Beorn's House although the player had since navigated to
+        // Gandalf's company at a different site (bug 82494cdd1062223c).
+        img.addEventListener('click', () => {
+          const liveFocusedCompanyId = getFocusedCompanyId();
+          const liveFocusedSiteDefId = liveFocusedCompanyId
+            ? view.self.companies.find(c => c.id === liveFocusedCompanyId)?.currentSite?.definitionId
+            : undefined;
+          onAction(findCardAction(cardDefId, viable, cachedInstanceLookup, liveFocusedSiteDefId) ?? action);
+        });
       }
     } else if (discardAction) {
       // Never discard straight from the click: a misclick during the

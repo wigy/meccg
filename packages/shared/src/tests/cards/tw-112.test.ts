@@ -23,12 +23,17 @@ import {
   companyIdAt, expectCharItemCount, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
-import type { MovementHazardPhaseState } from '../../index.js';
+import type { MovementHazardPhaseState, CardDefinitionId } from '../../index.js';
 
 // --- Constants ---------------------------------------------------------------
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' };
 const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
+
+// "Thrall of the Voice" (wh-82) — a hero-resource-event permanent event that
+// attaches to a character and, like real items, is stored in the character's
+// `items` array. William's discard should not sweep it up.
+const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId;
 
 // --- Tests -------------------------------------------------------------------
 
@@ -131,6 +136,44 @@ describe('William (Wuluag) (tw-112)', () => {
     const discardDefIds = afterWound.players[0].discardPile.map(c => c.definitionId);
     expect(discardDefIds).toContain(GLAMDRING);
     expect(discardDefIds).toContain(DAGGER_OF_WESTERNESSE);
+  });
+
+  test('wounded character discards items but not a permanent event attached as an item', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [GLAMDRING, DAGGER_OF_WESTERNESSE, THRALL_OF_THE_VOICE] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BERT_BURAT, WILLIAM_WULUAG], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Shadow],
+      resolvedSitePathNames: ['Rhudaur', 'Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+    const ready = { ...state, phaseState: mhState };
+
+    const bertId = ready.players[1].hand[0].instanceId;
+    const williamId = ready.players[1].hand[1].instanceId;
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+
+    const afterBert = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
+    const afterBertCombat = runCreatureCombat(afterBert, ARAGORN, 12, null);
+    expect(afterBertCombat.combat).toBeNull();
+
+    const afterWilliam = playCreatureHazardAndResolve(afterBertCombat, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
+    const afterWound = runCreatureCombat(afterWilliam, ARAGORN, 2, 5);
+    expect(afterWound.combat).toBeNull();
+
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 1);
+
+    const discardDefIds = afterWound.players[0].discardPile.map(c => c.definitionId);
+    expect(discardDefIds).toContain(GLAMDRING);
+    expect(discardDefIds).toContain(DAGGER_OF_WESTERNESSE);
+    expect(discardDefIds).not.toContain(THRALL_OF_THE_VOICE);
   });
 
   test('wounded character discards non-special items when company already faced Tom', () => {

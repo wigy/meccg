@@ -5249,9 +5249,18 @@ function endSitePhase(state: GameState): ReducerResult {
   const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
   const withPlague = fireEndOfTurnSiteWoundRolls(withChecks);
   const withRingTests = fireEndOfTurnGoldRingTests(withPlague);
+  // `specialMovement` (Gwaihir/Paths of the Dead) is granted in the
+  // organization phase and must stay set through the whole Site phase — Army
+  // of the Dead (tw-193) checks it there. Clear it now, at the true end of
+  // the turn's special-movement window, rather than at M/H→Site.
+  const activeIndex = getPlayerIndex(withRingTests, withRingTests.activePlayer!);
+  const withSpecialMovementCleared = updatePlayer(withRingTests, activeIndex, p => ({
+    ...p,
+    companies: p.companies.map(c => ({ ...c, specialMovement: undefined })),
+  }));
   return {
     state: cleanupEmptyCompanies({
-      ...withRingTests,
+      ...withSpecialMovementCleared,
       phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
     }),
   };

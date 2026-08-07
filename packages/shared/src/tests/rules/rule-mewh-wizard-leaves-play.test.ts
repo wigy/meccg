@@ -6,9 +6,11 @@
  * in play that are specific for your wizard."
  *
  * Wizard-specific stage cards carry the `fallen-wizard-specific` keyword. The
- * post-reduce sweep discards them once the Fallen-wizard avatar is no longer in
- * play; non-specific stage cards stay, and the sweep does not fire while the
- * avatar is present.
+ * post-reduce sweep discards them once the Fallen-wizard avatar has actually
+ * left play (been eliminated, per CoE 2.2.F1) — not merely whenever it's absent
+ * from the company, since a declared-but-not-yet-fielded avatar never "left"
+ * play in the first place. Non-specific stage cards stay, and the sweep does
+ * not fire while the avatar is present.
  */
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Alignment, CardStatus } from '../../index.js';
@@ -16,6 +18,7 @@ import type { CardDefinitionId, CardInstanceId, CardInPlay, GameState } from '..
 import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, LORIEN, MINAS_TIRITH,
+  withAvatarEliminated,
 } from '../test-helpers.js';
 
 const ALATAR = 'wh-1' as CardDefinitionId;            // Fallen-wizard avatar
@@ -27,7 +30,7 @@ function inPlay(defId: CardDefinitionId, instanceId: string): CardInPlay {
   return { instanceId: instanceId as CardInstanceId, definitionId: defId, status: CardStatus.Untapped };
 }
 
-/** Fallen-wizard org-phase state with `cards` in play and optionally the avatar present. */
+/** Fallen-wizard org-phase state with `cards` in play; the avatar is either fielded or merely declared (in the play deck). */
 function fwState(cards: CardInPlay[], withAvatar: boolean): GameState {
   return buildTestState({
     activePlayer: PLAYER_1,
@@ -39,6 +42,7 @@ function fwState(cards: CardInPlay[], withAvatar: boolean): GameState {
         alignment: Alignment.FallenWizard,
         companies: [{ site: LORIEN, characters: withAvatar ? [ALATAR, ASTERNAK] : [ASTERNAK] }],
         hand: [],
+        playDeck: withAvatar ? [] : [ALATAR],
         siteDeck: [MINAS_TIRITH],
         cardsInPlay: cards,
       },
@@ -58,7 +62,8 @@ describe('MEWH §12 — Fallen-wizard leaves play', () => {
   beforeEach(() => resetMint());
 
   test('wizard-specific stage cards are discarded once the avatar is gone', () => {
-    const state = fwState([inPlay(BOW_OF_ALATAR, 'p1-1000'), inPlay(A_MERRIER_WORLD, 'p1-1001')], false);
+    const declared = fwState([inPlay(BOW_OF_ALATAR, 'p1-1000'), inPlay(A_MERRIER_WORLD, 'p1-1001')], false);
+    const state = withAvatarEliminated(declared, RESOURCE_PLAYER, ALATAR);
     // Any action triggers the post-reduce sweep.
     const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
 

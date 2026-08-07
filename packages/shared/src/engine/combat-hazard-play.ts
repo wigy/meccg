@@ -282,7 +282,9 @@ export function findTakePrisonerHazard(
  */
 /**
  * Bind a defeated character as a prisoner (CoE 8.35): discard its non-ring
- * items, revert its followers (and itself) to general influence, add a
+ * items (or, when `discardRings` is set, *all* its items — Spells of the
+ * Barrow-wights dm-90 overrides the default rule that lets a prisoner keep
+ * its rings), revert its followers (and itself) to general influence, add a
  * `character-is-prisoner` constraint pointing at `hostCard`, and append a
  * {@link HazardHost} record. Shared by the location-deck rescue-site path
  * ({@link applyTakePrisoner}) and the Troll-purse at-site path
@@ -300,12 +302,17 @@ function bindPrisoner(
   ownedBy: import('../types/common.js').PlayerId,
   removeHostFromHazards: boolean,
   logPrefix: string,
+  discardRings = false,
 ): GameState {
-  const retainedItems = charData.items.filter(item => {
+  // A "ring" is any card carrying the `ring` keyword or the `gold-ring`
+  // subtype (the MECCG definition of a ring; mirrors `isRing` in
+  // `chain-reducer.ts`'s force-discard matcher).
+  const retainedItems = discardRings ? [] : charData.items.filter(item => {
     const itemDef = defById(state, item.definitionId);
-    return itemDef && 'cardType' in itemDef
-      && typeof (itemDef as { cardType: string }).cardType === 'string'
-      && (itemDef as { cardType: string }).cardType.includes('ring-item');
+    if (!itemDef) return false;
+    const keywords: readonly string[] = 'keywords' in itemDef ? (itemDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+    const subtype = 'subtype' in itemDef ? (itemDef as { subtype?: string }).subtype : undefined;
+    return keywords.includes('ring') || subtype === 'gold-ring';
   });
   const discardedItems = charData.items.filter(item => !retainedItems.includes(item));
   if (discardedItems.length > 0) {
@@ -382,6 +389,7 @@ export function applyTakePrisoner(
   let newState = bindPrisoner(
     state, defPlayerIndex, charInstanceId, charData,
     hostCard, toCardInstance(rescueSiteCard), hazardPlayer.id, true, 'take-prisoner',
+    effect.discardRings === true,
   );
   // Remove the rescue site from the hazard player's location deck.
   newState = updatePlayer(newState, hazardPlayerIndex, p => ({ ...p, siteDeck: newHazardSiteDeck }));

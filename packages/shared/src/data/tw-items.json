@@ -1881,7 +1881,22 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": { "site.siteType": "haven" }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "wizard" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
     "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played."
   },
   {

@@ -8904,6 +8904,30 @@ export interface TakePrisonerEffect extends EffectBase {
     readonly bodyCheckModifier: number;
     readonly autoRescueThreshold: number;
   };
+  /**
+   * When true, the character must discard its ring items along with its
+   * other possessions on capture — overriding the default CoE 8.35/3.III.3
+   * behavior of retaining ring items while imprisoned.
+   *
+   * Used by Spells of the Barrow-wights (dm-90).
+   */
+  readonly discardRings?: boolean;
+  /**
+   * Recurring body check made for the prisoner at the start of each of its
+   * owner's untap phases (CoE 3.III.4 does not require this by default —
+   * only specific hosts do). `enterUntapPhase` (`reducer-untap.ts`) scans
+   * every `character-is-prisoner` constraint targeting the newly-active
+   * player's characters; for each whose host carries this field, it
+   * enqueues a `dice-check` (roll 2d6 + `modifier` vs the character's
+   * effective body; the host's owner rolls, CoE 3.I.1) that eliminates the
+   * character on failure. Unlike {@link autoRescue}, surviving the check has
+   * no further effect — there is no follow-up escape roll.
+   *
+   * Used by Spells of the Barrow-wights (dm-90).
+   */
+  readonly untapBodyCheck?: {
+    readonly modifier: number;
+  };
 }
 
 /**

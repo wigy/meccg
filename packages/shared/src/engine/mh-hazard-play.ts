@@ -2452,10 +2452,17 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
           agents: p.agents.map(a => ({ ...a, attackedThisSitePhase: false })),
         }))
       : mergedState;
+    // `specialMovement` must survive into the Site phase: Army of the Dead
+    // (tw-193) is playable at Vale of Erech "the same turn" Paths of the Dead
+    // moves the company there, and that play happens during the Site phase's
+    // resource window, after this M/H→Site transition. It is cleared at the
+    // Site→End-of-Turn transition instead (see `endSitePhase` in
+    // reducer-site.ts). `extraRegionDistance` has no Site-phase use (it only
+    // feeds M/H region-distance math), so it is still cleared here.
     const cleanedState = cleanupEmptyCompanies({
       ...updatePlayer(withAgentReset, activeIndex, p => ({
         ...p,
-        companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
+        companies: p.companies.map(c => ({ ...c, moved: false, extraRegionDistance: undefined })),
       })),
       phaseState: {
         phase: Phase.Site,

@@ -32,6 +32,7 @@
  * | 4 | the benefit is optional (may pass)                         | OK     |
  * | 5 | only fires for a company at the bound haven                | OK     |
  * | 6 | discarded when the haven leaves play                       | OK     |
+ * | 7 | playable during the organization phase (rule 2.1.1)        | OK     |
  *
  * Playable: YES
  */
@@ -106,6 +107,34 @@ describe('Hall of Fire (dm-134)', () => {
 
   test('playable on a Haven during the site phase, binding to that haven', () => {
     const state = buildSitePhaseState({ site: RIVENDELL, characters: [LEGOLAS, GIMLI], hand: [HALL_OF_FIRE] });
+    const id = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === HALL_OF_FIRE)!.instanceId;
+    const plays = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-permanent-event'
+        && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === id,
+    );
+    expect(plays).toHaveLength(1);
+    expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(RIVENDELL);
+  });
+
+  // Rule 2.1.1: resource permanent-events are playable during any phase of
+  // the resource player's turn unless a rule or effect restricts them.
+  // Hall of Fire's text ("Playable on a Haven [{H}].") declares no
+  // site-phase timing, unlike its site-targeting siblings that explicitly
+  // print "during the site phase" — so it must be offered as soon as a
+  // company is at a matching haven, before the site phase is even reached.
+  test('playable during the organization phase (rule 2.1.1 — no site-phase timing declared)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS, GIMLI] }],
+          hand: [HALL_OF_FIRE], siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: MORIA, characters: [] }], hand: [], siteDeck: [] },
+      ],
+      phase: Phase.Organization,
+    });
     const id = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === HALL_OF_FIRE)!.instanceId;
     const plays = computeLegalActions(state, PLAYER_1).filter(
       a => a.viable && a.action.type === 'play-permanent-event'

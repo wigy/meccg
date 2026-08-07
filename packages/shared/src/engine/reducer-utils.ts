@@ -3102,6 +3102,35 @@ export function countPermanentEventCopiesAtSite(state: GameState, name: string, 
 }
 
 /**
+ * Count copies of `name` declared on the chain, targeting `siteDefId`, but not
+ * yet resolved into `cardsInPlay` (the site-scoped counterpart of
+ * {@link countCopiesDeclaredInChain} — see its doc comment for why declared-but-
+ * unresolved chain entries must be counted). Without this, two copies of a
+ * site-scoped `duplication-limit` card (e.g. Guarded Haven wh-74) could be
+ * declared back-to-back at the same site — priority merely passing between
+ * them — because the first was still sitting on the chain, not yet attached
+ * to the site, when the second one's legality was checked. Add this count to
+ * {@link countPermanentEventCopiesAtSite} in every site-scope duplication-limit
+ * check so a pending chain entry targeting the same site is visible
+ * immediately.
+ */
+export function countPermanentEventCopiesDeclaredInChainAtSite(
+  state: GameState,
+  name: string,
+  siteDefId: CardDefinitionId,
+): number {
+  const chain = state.chain;
+  if (!chain) return 0;
+  let count = 0;
+  for (const entry of chain.entries) {
+    if (entry.resolved || entry.negated || !entry.card) continue;
+    if (entry.payload.type !== 'permanent-event' || entry.payload.targetSiteDefinitionId !== siteDefId) continue;
+    if (defById(state, entry.card.definitionId)?.name === name) count += 1;
+  }
+  return count;
+}
+
+/**
  * Count copies of the permanent event named `name` currently attached to the
  * item instance `itemInstanceId` (an `attachedToItem` binding in any player's
  * `cardsInPlay`). Backs `duplication-limit` checks with `scope: "item"` (e.g.
@@ -4861,6 +4890,44 @@ export function rescuablePrisonersAtSite(
     }
   }
   return null;
+}
+
+/**
+ * Drop `characterId` from whichever hazard host holds it prisoner — e.g. a
+ * prisoner eliminated by a periodic body check (Spells of the Barrow-wights
+ * dm-90's `untapBodyCheck`) rather than freed by a rescue-attack. Clears its
+ * `character-is-prisoner` constraint and removes it from the host's prisoner
+ * list; if the host has no prisoners left, the record is dropped and, if the
+ * host card lives only in the record (not a `cardsInPlay` permanent, e.g.
+ * dm-58/dm-90), it is discarded to its owner so the instance is preserved.
+ * A no-op if `characterId` is not held prisoner by any host.
+ *
+ * Mirrors `freePrisonersOfHost` (`reducer-site.ts`), which frees an entire
+ * host's prisoners on a faced rescue-attack; this instead drops a single
+ * prisoner outside the rescue flow.
+ */
+export function removePrisonerFromHost(state: GameState, characterId: CardInstanceId): GameState {
+  const host = state.hazardHosts.find(h => h.prisoners.includes(characterId));
+  if (!host) return state;
+  const activeConstraints = state.activeConstraints.filter(c =>
+    !(c.kind.type === 'character-is-prisoner'
+      && c.kind.hostInstanceId === host.hostCard.instanceId
+      && c.target.kind === 'character'
+      && c.target.characterId === characterId));
+  const remainingPrisoners = host.prisoners.filter(p => p !== characterId);
+  if (remainingPrisoners.length > 0) {
+    const hazardHosts = state.hazardHosts.map(h => (h === host ? { ...h, prisoners: remainingPrisoners } : h));
+    return { ...state, activeConstraints, hazardHosts };
+  }
+  const hazardHosts = state.hazardHosts.filter(h => h !== host);
+  let newState: GameState = { ...state, activeConstraints, hazardHosts };
+  const hostInPlay = state.players.some(p => p.cardsInPlay.some(c => c.instanceId === host.hostCard.instanceId));
+  if (!hostInPlay) {
+    const ownerIdx = getPlayerIndex(state, host.ownedBy);
+    logDetail(`removePrisonerFromHost: host ${host.hostCard.instanceId as string} has no prisoners left — discarded to ${state.players[ownerIdx].name}'s pile`);
+    newState = updatePlayer(newState, ownerIdx, p => ({ ...p, discardPile: [...p.discardPile, host.hostCard] }));
+  }
+  return newState;
 }
 
 /**
