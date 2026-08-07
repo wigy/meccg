@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
-import type { OnEventEffect, CardEffect, UntapMindRollEffect } from '../types/effects.js';
+import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
 
 
 /**
@@ -564,10 +564,60 @@ export function interceptSkipNextUntap(
 }
 
 /**
- * Build the untap phase state.
- * Called from all entry points into the untap phase.
+ * At the start of each of a prisoner's untap phases, some hazard hosts
+ * (Spells of the Barrow-wights dm-90) require a periodic body check for the
+ * character they hold — failure eliminates the character, which (CoE 3.III.4)
+ * still counts against its owner in marshalling points even out of play.
+ * Scans the newly-active player's characters for a `character-is-prisoner`
+ * constraint whose host carries a `take-prisoner` effect with
+ * `untapBodyCheck`, and enqueues one `dice-check` resolution per match —
+ * rolled by the host's owner (CoE 3.I.1: the player who doesn't control the
+ * entity rolls).
  */
-
+function enqueuePrisonerUntapBodyChecks(state: GameState): GameState {
+  const activeId = state.activePlayer;
+  if (!activeId) return state;
+  const activeIndex = getPlayerIndex(state, activeId);
+  const player = state.players[activeIndex];
+  let next = state;
+  for (const constraint of state.activeConstraints) {
+    const kind = constraint.kind;
+    if (kind.type !== 'character-is-prisoner') continue;
+    if (constraint.target.kind !== 'character') continue;
+    const characterId = constraint.target.characterId;
+    const charInPlay = player.characters[characterId];
+    if (!charInPlay) continue;
+    const host = state.hazardHosts.find(h => h.hostCard.instanceId === kind.hostInstanceId);
+    if (!host) continue;
+    const hostDef = defById(state, host.hostCard.definitionId);
+    const effect = getCardEffects(hostDef).find(
+      (e): e is TakePrisonerEffect => e.type === 'take-prisoner',
+    );
+    if (!effect?.untapBodyCheck) continue;
+    const charDef = defById(state, charInPlay.definitionId);
+    const charName = charDef?.name ?? String(characterId);
+    const body = charInPlay.effectiveStats.body;
+    const modifier = effect.untapBodyCheck.modifier;
+    logDetail(`Untap: enqueuing periodic body check for prisoner ${charName} (body ${body}${modifier ? `, modifier ${modifier}` : ''}), rolled by ${host.ownedBy as string}`);
+    next = enqueueResolution(next, {
+      source: host.hostCard.instanceId,
+      actor: host.ownedBy,
+      scope: { kind: 'phase', phase: Phase.Untap },
+      kind: {
+        type: 'dice-check',
+        label: `Prisoner body check: ${charName}`,
+        modifiers: modifier !== 0 ? [{ kind: 'constant', value: modifier }] : [],
+        threshold: body,
+        comparison: 'gt',
+        requireTargetPresent: true,
+        targetCharacterId: characterId,
+        onPass: { type: 'eliminate-character', awardKillMpTo: host.ownedBy },
+        continuation: { kind: 'dequeue-only' },
+      },
+    });
+  }
+  return next;
+}
 
 /**
  * Build the untap phase state.
@@ -580,11 +630,12 @@ export function enterUntapPhase(state: GameState): GameState {
   const players = state.players.map(p =>
     p.sideboardAccessedDuringUntap ? { ...p, sideboardAccessedDuringUntap: false } : p,
   ) as unknown as typeof state.players;
-  return {
+  const withPhase: GameState = {
     ...state,
     players,
     phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
   };
+  return enqueuePrisonerUntapBodyChecks(withPhase);
 }
 
 /**

@@ -1254,11 +1254,14 @@
             "prowess": 8
           }
         ],
-        "discardRings": true
+        "discardRings": true,
+        "untapBodyCheck": {
+          "modifier": 0
+        }
       }
     ],
     "text": "Playable on a character facing an Undead strike. If the strike is successful, target character is not harmed and is taken prisoner at a Ruins & Lairs [{R}] or Shadow-hold [{S}]. Character must discard any rings along with his other items. At the start of each of his untap phases, make a body check for that character.Rescue-attack: Undead — 3 strikes with 8 prowess.",
-    "certified": "2026-08-06"
+    "certified": "2026-08-07"
   },
   {
     "cardType": "hazard-event",

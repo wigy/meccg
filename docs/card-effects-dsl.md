@@ -9527,8 +9527,7 @@ wounding the character:
 
 1. The rescue site is drawn from the hazard player's location deck
    (first site matching `rescueSiteTypes`).
-2. All non-ring items on the prisoner are discarded immediately
-   (all items including rings if `discardRings` is set).
+2. All non-ring items on the prisoner are discarded immediately.
 3. Followers revert to general influence.
 4. A `character-is-prisoner` active constraint is added to the prisoner.
 5. A `HazardHost` record is created in `state.hazardHosts`.
@@ -9543,23 +9542,23 @@ the attack's race (e.g. `{ "attack.race": "Spider" }`).
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `rescueSiteTypes` | yes | Array of site type strings (e.g. `["ruins-and-lairs"]`). |
+| `rescueSiteTypes` | yes | Array of site type strings (e.g. `["ruins-and-lairs"]`). Multiple entries are an "or" — any one matching site in the hazard player's location deck satisfies the gate. |
 | `rescueAttacks` | yes | Rescue-attack list (shape: `{ race, strikes, prowess }`). |
-| `autoRescue` | no | Auto-rescue spec: `{ bodyCheckModifier, autoRescueThreshold }`. |
-| `discardRings` | no | When true, rings are discarded too, overriding the default CoE 3.III.3 ring protection. |
+| `autoRescue` | no | Auto-rescue spec: `{ bodyCheckModifier, autoRescueThreshold }`. Data-only — not yet wired into the engine (dm-58 does not test it). |
+| `discardRings` | no | When true, ring items are discarded along with the prisoner's other possessions on capture, overriding the default CoE 8.35/3.III.3 rule that lets a prisoner keep its rings. |
+| `untapBodyCheck` | no | `{ modifier }` — at the start of each of the prisoner's untap phases, `enterUntapPhase` (`reducer-untap.ts`) enqueues a `dice-check` (roll 2d6 + `modifier` vs the character's effective body, rolled by the host's owner per CoE 3.I.1) that eliminates the character on failure via the `eliminate-character` dice-check branch. Elimination also drops the character from the host's prisoner bookkeeping (`removePrisonerFromHost`, `reducer-utils.ts`), discarding the (now-empty) host card if it lived only in the `HazardHost` record. Unlike `autoRescue`, surviving has no further effect. |
 
 ```json
 {
   "type": "take-prisoner",
-  "rescueSiteTypes": ["ruins-and-lairs"],
-  "rescueAttacks": [{ "race": "Spider", "strikes": 3, "prowess": 9 }],
-  "autoRescue": { "bodyCheckModifier": 1, "autoRescueThreshold": 15 }
+  "rescueSiteTypes": ["ruins-and-lairs", "shadow-hold"],
+  "rescueAttacks": [{ "race": "undead", "strikes": 3, "prowess": 8 }],
+  "discardRings": true,
+  "untapBodyCheck": { "modifier": 0 }
 }
 ```
 
-Used by Flies and Spiders (dm-58). Spells of the Barrow-wights (dm-90) uses
-the same effect with `rescueSiteTypes: ["ruins-and-lairs", "shadow-hold"]`,
-an `undead` rescue-attack, and `discardRings: true`.
+Used by Flies and Spiders (dm-58, `autoRescue`) and Spells of the Barrow-wights (dm-90, `discardRings` + `untapBodyCheck`).
 
 ---
 
