@@ -59,6 +59,20 @@ describe('Promptings of Wisdom (wh-34)', () => {
     expect(new Set(targets)).toEqual(new Set([aragornId, faramirId]));
   });
 
+  test('NOT playable outside the organization phase (end of turn)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, FARAMIR] }], hand: [PROMPTINGS_OF_WISDOM], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(playActions).toHaveLength(0);
+  });
+
   test('NOT playable on a non-ranger (Elrond)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

@@ -73,6 +73,8 @@ const SARUMAN_FW = 'wh-9' as CardDefinitionId;          // qualifies ("if you ar
 const ALATAR_FW = 'wh-1' as CardDefinitionId;           // does NOT qualify
 const GANDALF_FW = 'wh-4' as CardDefinitionId;          // does NOT qualify
 
+const ASTERNAK = 'le-1' as CardDefinitionId;            // Man — keeps the company non-empty without an avatar
+
 // Technology-keyword item (real card) and a non-Technology minion item.
 const BLASTING_FIRE = 'wh-51' as CardDefinitionId;      // minion item, keyword "Technology"
 const BLACK_MAIL_COAT = 'le-301' as CardDefinitionId;   // minion major item, NOT Technology
@@ -267,6 +269,36 @@ describe("Saruman's Machinery (wh-120)", () => {
     expect(constraint!.scope.kind).toBe('until-cleared');
     expect(constraint!.target.kind).toBe('player');
     expect((constraint!.target as { playerId?: PlayerId }).playerId).toBe(PLAYER_1);
+  });
+
+  // Regression test: Saruman's Machinery went straight to discard the instant
+  // it resolved, because Saruman himself had not yet been played (only
+  // declared in the play deck) — the post-reduce MEWH/2.2.F1 sweep mistook
+  // "avatar not currently in play" for "avatar has left play" and discarded
+  // every Saruman-specific Stage card immediately, including the one that
+  // had just legally entered play. "Playable if you are Saruman" (CoE 2.2.F2)
+  // only requires the avatar to be *declared*, not fielded.
+  test('stays in play attached to the site even when Saruman has not been played yet (only declared)', () => {
+    const state = buildFallenWizardOrgPhaseState({
+      site: ISENGARD_WH,
+      characters: [ASTERNAK], // company has a non-avatar Man; Saruman is not in play
+      playDeck: [SARUMAN_FW], // Saruman declared, still in the play deck
+      hand: [SARUMANS_MACHINERY],
+    });
+    const protectedState: GameState = { ...state, activeConstraints: [siteProtectedConstraint(PLAYER_1, ISENGARD_WH)] };
+
+    const instanceId = instanceOf(protectedState, SARUMANS_MACHINERY);
+    expect(canPlay(protectedState, PLAYER_1, instanceId)).toBe(true);
+
+    const after = playPermanentEventAndResolve(
+      protectedState, PLAYER_1, instanceId, undefined,
+      { targetSiteDefinitionId: ISENGARD_WH },
+    );
+
+    const card = after.players[RESOURCE_PLAYER].cardsInPlay.find(c => c.definitionId === SARUMANS_MACHINERY);
+    expect(card).toBeDefined();
+    expect(card!.attachedToSite).toBe(ISENGARD_WH);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === SARUMANS_MACHINERY)).toBe(false);
   });
 
   // ── Rule 6: one Technology item becomes playable at the (haven) site ────────

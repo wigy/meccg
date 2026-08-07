@@ -21,6 +21,7 @@ import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, LORIEN, MINAS_TIRITH,
   buildFallenWizardOrgPhaseState, findHandCardId, viableActions,
+  withAvatarEliminated,
 } from '../../test-helpers.js';
 
 const ALATAR = 'wh-1' as CardDefinitionId;            // Fallen-wizard avatar
@@ -33,19 +34,6 @@ function inPlay(defId: CardDefinitionId, instanceId: string): CardInPlay {
   return { instanceId: instanceId as CardInstanceId, definitionId: defId, status: CardStatus.Untapped };
 }
 
-/** Eliminate a Fallen-wizard's declared avatar: move it from the play deck to the removed-from-play pile. */
-function withAvatarEliminated(state: GameState, avatarDefId: CardDefinitionId): GameState {
-  const fw = state.players[RESOURCE_PLAYER];
-  const eliminated = fw.playDeck.find(c => c.definitionId === avatarDefId)!;
-  return {
-    ...state,
-    players: [
-      { ...fw, playDeck: fw.playDeck.filter(c => c !== eliminated), outOfPlayPile: [...fw.outOfPlayPile, eliminated] },
-      state.players[1],
-    ] as GameState['players'],
-  };
-}
-
 function isPlayable(state: GameState, instanceId: CardInstanceId): boolean {
   return viableActions(state, PLAYER_1, 'play-permanent-event')
     .some(a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === instanceId);
@@ -54,7 +42,7 @@ function isPlayable(state: GameState, instanceId: CardInstanceId): boolean {
 describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
   beforeEach(() => resetMint());
 
-  test('[FALLEN-WIZARD] FW avatar leaves play: discard all avatar-specific Stage resource permanent-events', () => {
+  test('[FALLEN-WIZARD] FW avatar eliminated: discard all avatar-specific Stage resource permanent-events', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -63,18 +51,46 @@ describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
         {
           id: PLAYER_1, alignment: Alignment.FallenWizard,
           companies: [{ site: LORIEN, characters: [ASTERNAK] }],
-          hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [inPlay(BOW_OF_ALATAR, 'p1-1000')],
+          hand: [], playDeck: [ALATAR], siteDeck: [MINAS_TIRITH], cardsInPlay: [inPlay(BOW_OF_ALATAR, 'p1-1000')],
         },
         { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
-    // No avatar in play (the company is Asternak only) — the post-reduce sweep
-    // discards the Alatar-specific Stage card immediately, on any action.
-    const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    // Alatar has been eliminated — the post-reduce sweep discards the
+    // Alatar-specific Stage card immediately, on any action.
+    const eliminated = withAvatarEliminated(state, RESOURCE_PLAYER, ALATAR);
+    const after = dispatch(eliminated, { type: 'pass', player: PLAYER_1 });
 
     expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === 'p1-1000')).toBe(false);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === 'p1-1000')).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] FW avatar merely not yet played (still declared in the play deck): Stage resource stays in play', () => {
+    // Regression test: the avatar has never been played (no company character
+    // is Alatar), but it is still declared in the play deck — not eliminated.
+    // CoE 2.2.F1's discard trigger requires the avatar to have *left* play, so
+    // an avatar that was never fielded must not trip it (bug report: Saruman's
+    // Machinery went straight to discard the instant it was played, because
+    // Saruman himself had not yet been played).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1, alignment: Alignment.FallenWizard,
+          companies: [{ site: LORIEN, characters: [ASTERNAK] }],
+          hand: [], playDeck: [ALATAR], siteDeck: [MINAS_TIRITH], cardsInPlay: [inPlay(BOW_OF_ALATAR, 'p1-1000')],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === 'p1-1000')).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === 'p1-1000')).toBe(false);
   });
 
   test('[FALLEN-WIZARD] FW avatar eliminated: cannot play avatar-specific Stage resource cards', () => {
@@ -87,7 +103,7 @@ describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
     const declaredOnly = buildFallenWizardOrgPhaseState({
       site: LORIEN, characters: [ASTERNAK], hand: [BOW_OF_ALATAR], playDeck: [ALATAR],
     });
-    const eliminated = withAvatarEliminated(declaredOnly, ALATAR);
+    const eliminated = withAvatarEliminated(declaredOnly, RESOURCE_PLAYER, ALATAR);
     // Once Alatar has been eliminated, the wizard-specific card is no longer playable.
     expect(isPlayable(eliminated, findHandCardId(eliminated, RESOURCE_PLAYER, BOW_OF_ALATAR))).toBe(false);
   });
@@ -102,7 +118,7 @@ describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
     // has been played.
     expect(isPlayable(state, findHandCardId(state, RESOURCE_PLAYER, FORTRESS_OF_ISEN))).toBe(true);
 
-    const eliminated = withAvatarEliminated(state, ALATAR);
+    const eliminated = withAvatarEliminated(state, RESOURCE_PLAYER, ALATAR);
     // Once Alatar is eliminated, the player no longer counts "as" Alatar for
     // non-specific Stage resources either.
     expect(isPlayable(eliminated, findHandCardId(eliminated, RESOURCE_PLAYER, FORTRESS_OF_ISEN))).toBe(false);

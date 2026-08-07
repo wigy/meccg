@@ -1399,6 +1399,12 @@ function buildOnEventContext(state: GameState): Record<string, unknown> {
  * toOwner: 'defender', filter }` shape used by creatures like Balrog
  * of Moria to strip non-special items from their victims.
  *
+ * A character's `items` array also stores permanent events attached to that
+ * character (see {@link inPlayOnCharacterSlot}) — they share storage with
+ * real items but are not "items" for card-text purposes (e.g. "William" tw-112
+ * discards items only, not attached permanent events like Thrall of the
+ * Voice). Only definitions whose `cardType` ends in `-item` are eligible.
+ *
  * A `discard-substitute` item borne anywhere in the wounded characters'
  * company (Leaf Brooch dm-171) intercepts the whole batch: the discard is
  * handed to a `discard-substitute-offer` resolution so its owner may save one
@@ -1419,7 +1425,7 @@ function discardWoundedItems(
     if (!charData) continue;
     for (const item of charData.items) {
       const def = defById(state, item.definitionId);
-      if (!def) continue;
+      if (!def || !def.cardType.endsWith('-item')) continue;
       if (!filter || matchesDefinition(def, filter)) doomed.push(item.instanceId);
     }
   }
@@ -1445,7 +1451,7 @@ function discardWoundedItems(
 
     const matching = charData.items.filter(item => {
       const def = defById(state, item.definitionId);
-      if (!def) return false;
+      if (!def || !def.cardType.endsWith('-item')) return false;
       if (!filter) return true;
       return matchesDefinition(def, filter);
     });

@@ -20,17 +20,19 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1,
-  ARAGORN,
-  buildSitePhaseState, resetMint,
-  findCharInstanceId, findHandCardId, RESOURCE_PLAYER,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, LORIEN,
+  buildSitePhaseState, buildTestState, resetMint, dispatch, makeMHState,
+  findCharInstanceId, findHandCardId, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
-import type { InfluenceAttemptAction, CardDefinitionId } from '../../index.js';
+import { computeLegalActions, Phase, Alignment, CardStatus } from '../../index.js';
+import { MovementType } from '../../types/common.js';
+import type { InfluenceAttemptAction, CardDefinitionId, SitePhaseState } from '../../index.js';
 
 const ARMY_OF_THE_DEAD = 'tw-193' as CardDefinitionId;
 const FORLONG = 'tw-151' as CardDefinitionId;
 const VALE_OF_ERECH = 'tw-434' as CardDefinitionId;
+const DUNHARROW = 'tw-389' as CardDefinitionId;
 
 describe('Army of the Dead (tw-193)', () => {
   beforeEach(() => resetMint());
@@ -77,5 +79,74 @@ describe('Army of the Dead (tw-193)', () => {
       .filter(a => a.factionInstanceId === cardInstance);
 
     expect(influenceActions).toHaveLength(0);
+  });
+
+  test('specialMovement (and playability) survives the movement/hazard→site phase transition after Paths of the Dead', () => {
+    // Bug report: a player who played Paths of the Dead this turn and moved
+    // Aragorn II's company to Vale of Erech was refused Army of the Dead once
+    // the site phase began — the M/H→Site transition was wiping
+    // `company.specialMovement` before the site phase (where faction resources
+    // are actually played) ever started.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: DUNHARROW, characters: [ARAGORN] }], hand: [ARMY_OF_THE_DEAD], siteDeck: [VALE_OF_ERECH] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company = base.players[RESOURCE_PLAYER].companies[0];
+    const dest = base.players[RESOURCE_PLAYER].siteDeck.find(c => c.definitionId === VALE_OF_ERECH)!;
+
+    // Simulate Paths of the Dead already played this turn's organization
+    // phase: the company is en route to Vale of Erech via special movement.
+    const withMovement = {
+      ...base,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        movementType: MovementType.Special,
+        resolvedSitePath: [],
+      }),
+      players: [
+        {
+          ...base.players[RESOURCE_PLAYER],
+          companies: [{
+            ...company,
+            siteCardOwned: true,
+            destinationSite: { instanceId: dest.instanceId, definitionId: dest.definitionId, status: CardStatus.Untapped },
+            specialMovement: 'paths-of-the-dead' as const,
+          }],
+        },
+        base.players[HAZARD_PLAYER],
+      ] as typeof base.players,
+    };
+
+    // Complete the company's movement/hazard sub-phase (no hazards played) —
+    // this drives the actual M/H→Site transition reducer code.
+    const afterPass1 = dispatch(withMovement, { type: 'pass', player: PLAYER_1 });
+    const inSitePhase = dispatch(afterPass1, { type: 'pass', player: PLAYER_2 });
+    expect(inSitePhase.phaseState.phase).toBe(Phase.Site);
+
+    const movedCompany = inSitePhase.players[RESOURCE_PLAYER].companies[0];
+    expect(movedCompany.currentSite?.definitionId).toBe(VALE_OF_ERECH);
+    expect(movedCompany.specialMovement).toBe('paths-of-the-dead');
+
+    // Drive the company all the way to the play-resources step, exactly as
+    // the reported game did: select it, enter the site, and pass through the
+    // (empty) automatic-attack window.
+    const afterSelect = dispatch(inSitePhase, { type: 'select-company', player: PLAYER_1, companyId: movedCompany.id });
+    const afterEnter = dispatch(afterSelect, { type: 'enter-site', player: PLAYER_1, companyId: movedCompany.id });
+    const afterAgentPass = dispatch(afterEnter, { type: 'pass', player: PLAYER_2 });
+    const atPlayResources = dispatch(afterAgentPass, { type: 'pass', player: PLAYER_1 });
+    expect((atPlayResources.phaseState as SitePhaseState).step).toBe('play-resources');
+
+    const cardInstance = findHandCardId(atPlayResources, RESOURCE_PLAYER, ARMY_OF_THE_DEAD);
+    const influenceActions = computeLegalActions(atPlayResources, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'influence-attempt')
+      .map(a => a.action as InfluenceAttemptAction)
+      .filter(a => a.factionInstanceId === cardInstance);
+
+    expect(influenceActions.length).toBeGreaterThanOrEqual(1);
   });
 });

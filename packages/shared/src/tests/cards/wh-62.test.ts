@@ -52,6 +52,7 @@ const STRIDENT_SPAWN = 'wh-61' as CardDefinitionId;  // stage-points 4 (a differ
 const FORTRESS_OF_ISEN = 'wh-68' as CardDefinitionId; // stage-points 3
 const NOBLE_STEED = 'wh-33' as CardDefinitionId;     // non-unique, 1 mind (region-gated, never a haven)
 const GOLDBERRY = 'tw-245' as CardDefinitionId;      // unique, 2 mind — filter negative
+const REGIMENT_OF_BLACK_CROWS = 'as-76' as CardDefinitionId; // minion ally, non-unique, 1 mind, playable at Ruins & Lairs (not a haven)
 
 /** Add a player-owned `site-protected` constraint to a Wizardhaven, as The
  *  Fortress of Isen (wh-68) would. */
@@ -294,6 +295,11 @@ describe('An Untimely Brood (wh-62)', () => {
   test('the grant does not extend to a unique / non-1-mind ally (Goldberry)', () => {
     const state = broodSitePhase({ site: ISENGARD_FW, hand: [GOLDBERRY], protect: true });
     expect(grantedPlayInstIds(state, GOLDBERRY)).toHaveLength(0);
+  });
+
+  test('the grant applies to a minion ally with mind 1 (Regiment of Black Crows), whose printed home is Ruins & Lairs, not a Wizardhaven', () => {
+    const state = broodSitePhase({ site: ISENGARD_FW, hand: [REGIMENT_OF_BLACK_CROWS], protect: true });
+    expect(grantedPlayInstIds(state, REGIMENT_OF_BLACK_CROWS).length).toBeGreaterThanOrEqual(1);
   });
 
   // ─── Rule 5: only one such ally per site phase ─────────────────────────────

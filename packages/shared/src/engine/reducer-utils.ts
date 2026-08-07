@@ -3102,6 +3102,35 @@ export function countPermanentEventCopiesAtSite(state: GameState, name: string, 
 }
 
 /**
+ * Count copies of `name` declared on the chain, targeting `siteDefId`, but not
+ * yet resolved into `cardsInPlay` (the site-scoped counterpart of
+ * {@link countCopiesDeclaredInChain} — see its doc comment for why declared-but-
+ * unresolved chain entries must be counted). Without this, two copies of a
+ * site-scoped `duplication-limit` card (e.g. Guarded Haven wh-74) could be
+ * declared back-to-back at the same site — priority merely passing between
+ * them — because the first was still sitting on the chain, not yet attached
+ * to the site, when the second one's legality was checked. Add this count to
+ * {@link countPermanentEventCopiesAtSite} in every site-scope duplication-limit
+ * check so a pending chain entry targeting the same site is visible
+ * immediately.
+ */
+export function countPermanentEventCopiesDeclaredInChainAtSite(
+  state: GameState,
+  name: string,
+  siteDefId: CardDefinitionId,
+): number {
+  const chain = state.chain;
+  if (!chain) return 0;
+  let count = 0;
+  for (const entry of chain.entries) {
+    if (entry.resolved || entry.negated || !entry.card) continue;
+    if (entry.payload.type !== 'permanent-event' || entry.payload.targetSiteDefinitionId !== siteDefId) continue;
+    if (defById(state, entry.card.definitionId)?.name === name) count += 1;
+  }
+  return count;
+}
+
+/**
  * Count copies of the permanent event named `name` currently attached to the
  * item instance `itemInstanceId` (an `attachedToItem` binding in any player's
  * `cardsInPlay`). Backs `duplication-limit` checks with `scope: "item"` (e.g.

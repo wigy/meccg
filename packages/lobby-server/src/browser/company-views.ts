@@ -149,12 +149,13 @@ export function renderSingleView(
   const storeItemActs = owner === 'self' ? getStoreItemActions(view) : undefined;
   const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
+  const mergeActions = owner === 'self' ? getMergeCompaniesActions(view) : undefined;
   const sideboardIntentActs = owner === 'self' ? getSideboardIntentActions(view) : undefined;
   const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
   const ccSupportActs = owner === 'self' ? getSupportCorruptionCheckActions(view) : undefined;
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
   // Minimap radar — always shown.
   const radarSelfIndex = owner === 'self'
@@ -400,6 +401,20 @@ export function renderAllCompaniesView(
     if (oppInfluencer && oppInfluenceActions.length > 0 && lastOnAction) {
       addOpponentInfluenceTargets(block, oppInfluenceActions, lastOnAction);
     }
+
+    // Default: clicking an opponent company (background, not a targeted card)
+    // focuses it in single-company view — mirrors the self-company handler
+    // above. Without this, the hazard player has no way to bring an opponent
+    // company into single view (and its nav arrows) once the initial
+    // auto-focus lands elsewhere.
+    const focusId = company.id;
+    block.classList.add('company-block--clickable');
+    block.onclick = (e) => {
+      e.stopPropagation();
+      setFocusedCompanyId(focusId);
+      setAllCompaniesOverride(false);
+      rerender();
+    };
 
     overview.appendChild(block);
   }
