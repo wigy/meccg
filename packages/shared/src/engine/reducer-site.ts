@@ -4786,6 +4786,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
               modifier,
               reason: `${hDef?.name} (${itemDef?.name ?? item.definitionId as string})`,
               possessions,
+              allowSupport: true,
             });
           }
         }

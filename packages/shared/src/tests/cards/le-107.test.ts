@@ -44,6 +44,7 @@ import type {
   ActivateGrantedAction,
   CardDefinitionId,
   PlayHazardAction,
+  SupportCorruptionCheckAction,
 } from '../../index.js';
 
 const COVETOUS_THOUGHTS = 'le-107' as CardDefinitionId;
@@ -371,6 +372,34 @@ describe('Covetous Thoughts (le-107)', () => {
     expect(next.phaseState.phase).toBe(Phase.EndOfTurn);
     const pending = next.pendingResolutions.filter(r => r.actor === PLAYER_1);
     expect(pending).toHaveLength(0);
+  });
+
+  test('CoE 7.1.1: an untapped company mate may tap in support of the end-of-turn corruption check', () => {
+    // Bug report (game msiped2v-5xl1la, seq 284): Covetous Thoughts fired
+    // its end-of-turn corruption check against Elwen while three untapped
+    // company mates stood by, but the engine never offered their
+    // tap-in-support option. CoE 7.1.1 applies to any corruption check that
+    // has been declared but not yet resolved, not just the checks it was
+    // already wired up for.
+    const base = buildSitePhaseState({
+      site: DOL_GULDUR,
+      characters: [GORBAG, SHAGRAT],
+    });
+    const withCT = attachHazardToChar(base, RESOURCE_PLAYER, GORBAG, COVETOUS_THOUGHTS);
+    const withItem = attachItemToChar(withCT, RESOURCE_PLAYER, SHAGRAT, RED_BOOK);
+
+    const next = dispatch(withItem, { type: 'pass', player: PLAYER_1 });
+
+    const gorbagId = charIdAt(next, RESOURCE_PLAYER, 0, 0);
+    const shagratId = charIdAt(next, RESOURCE_PLAYER, 0, 1);
+
+    const supports = viableActions(next, PLAYER_1, 'support-corruption-check') as
+      { action: SupportCorruptionCheckAction }[];
+
+    expect(supports.some(a =>
+      a.action.supportingCharacterId === shagratId &&
+      a.action.targetCharacterId === gorbagId,
+    )).toBe(true);
   });
 
   test('end-of-turn: Stage resources (e.g. Thrall of the Voice) riding in items do not trigger checks', () => {
