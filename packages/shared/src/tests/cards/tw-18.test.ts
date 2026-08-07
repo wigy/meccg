@@ -31,11 +31,12 @@ import {
   expectCharInPlay, expectCharNotInPlay,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import { Phase } from '../../index.js';
+import { Alignment, Phase } from '../../index.js';
 import type { GameState, HazardEventCard, CardDefinitionId, PlayHazardAction, ResolveDiceCheckAction } from '../../index.js';
 
 const CALL_OF_HOME = 'tw-18' as CardDefinitionId;
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
+const GANDALF_FW = 'wh-4' as CardDefinitionId; // Fallen-wizard avatar
 
 describe('Call of Home (tw-18)', () => {
   beforeEach(() => resetMint());
@@ -83,6 +84,31 @@ describe('Call of Home (tw-18)', () => {
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CALL_OF_HOME], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhState: GameState = { ...state, phaseState: makeMHState() };
+    const actions = viableActions(mhState, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('NOT playable on a Fallen-wizard avatar (Gandalf FW) — CoE glossary g.wiz.F1', () => {
+    // g.wiz.F1: "Card text that refers to a Fallen-wizard player's 'Wizard' is
+    // treated as referring to that player's Fallen-wizard avatar." Call of
+    // Home's "non-Wizard character" restriction must therefore also exclude
+    // the Fallen-wizard avatar, not just the race:'wizard' avatars.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: RIVENDELL, characters: [GANDALF_FW] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CALL_OF_HOME], siteDeck: [MINAS_TIRITH] },
       ],
     });
