@@ -231,6 +231,66 @@ describe('organizationEvaluator plan-movement wounded routing', () => {
   });
 });
 
+// A generic untap event with no target-race restriction (mirrors a card
+// like Cram's untap effect, but as a hand card rather than an item).
+const GENERIC_UNTAP: CardDefinition = {
+  cardType: 'hero-resource-event',
+  eventType: 'short',
+  effects: [
+    {
+      type: 'play-option',
+      id: 'untap',
+      when: { 'target.status': 'tapped' },
+      apply: { type: 'set-character-status', status: 'untapped' },
+    },
+  ],
+} as unknown as CardDefinition;
+
+const TAPPED_ROUTING_POOL: Record<string, CardDefinition> = {
+  ...POOL,
+  'tw-999': GENERIC_UNTAP,
+};
+
+describe('organizationEvaluator plan-movement tapped routing', () => {
+  // Regression: the AI planned movement for a company carrying a tapped
+  // character into a fresh site — exposing it to that site's automatic
+  // attack at reduced prowess (CoE rule 3.iv.2: tapped defenders take -1) —
+  // with no risk discount at all, unlike the existing wounded-routing logic
+  // above (bug report: game msiyueqq-1r0j04, stateSeq 1417 — a tapped
+  // Saruman was marched into a site auto-attack for no compensating benefit).
+  function tappedView(hand: { instanceId: string; definitionId: string }[]): PlayerView {
+    return {
+      self: {
+        hand,
+        siteDeck: [{ instanceId: 's1', definitionId: 'tw-397' }],
+        characters: {
+          saruman: { instanceId: 'saruman', definitionId: 'man', status: 'tapped', items: [] },
+        },
+        companies: [
+          { id: 'company-p2-0', characters: ['saruman'] },
+        ],
+      },
+    } as unknown as PlayerView;
+  }
+
+  test('halves the score when the moving company has a tapped character with no untap source', () => {
+    const view = tappedView([{ instanceId: 'h1', definitionId: 'tw-254' }]);
+    const action = planMovement('s1');
+    const context: AiContext = { view, cardPool: TAPPED_ROUTING_POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(20);
+  });
+
+  test('keeps the full score when the tapped character has an untap source in hand', () => {
+    const view = tappedView([
+      { instanceId: 'h1', definitionId: 'tw-254' },
+      { instanceId: 'h2', definitionId: 'tw-999' },
+    ]);
+    const action = planMovement('s1');
+    const context: AiContext = { view, cardPool: TAPPED_ROUTING_POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(41);
+  });
+});
+
 describe('organizationEvaluator discard-character', () => {
   // Regression: an unscored discard-character action fell through to the
   // dispatcher's default weight (1), tying it with other weak actions and
