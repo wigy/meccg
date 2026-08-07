@@ -568,4 +568,74 @@ describe('Alatar (tw-117)', () => {
     const actions = viableActions(combatState, PLAYER_1, 'haven-join-attack');
     expect(actions).toHaveLength(1);
   });
+
+  test('full hazard play path: no haven-join offer when Alatar\'s own company arrived at the haven this same movement/hazard phase', () => {
+    // CRF 22, Movement/Hazard Phase Annotation 25: "Removing the site of
+    // origin and resetting to hand size are simultaneous actions, and they
+    // are the last actions in any movement/hazard phase. This means a moving
+    // company is not at a site until the site phase." Regression from a
+    // real-game report: Alatar's own company moved into Lórien earlier in
+    // this same M/H phase, and the engine wrongly treated him as
+    // haven-resident and offered to teleport him into another company's
+    // attack the same turn.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [
+            { site: MORIA, characters: [LEGOLAS] },
+            { site: RIVENDELL, characters: [ALATAR] },
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [GANDALF] }],
+          hand: [ORC_PATROL],
+          siteDeck: [],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Rhudaur'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    let stateAtMH = { ...base, phaseState: mhState };
+    // Alatar's company already completed its own move into Rivendell earlier
+    // in this M/H phase — it has not yet formally "arrived" per Annotation 25.
+    stateAtMH = {
+      ...stateAtMH,
+      players: [
+        {
+          ...stateAtMH.players[RESOURCE_PLAYER],
+          companies: stateAtMH.players[RESOURCE_PLAYER].companies.map(
+            (c, idx) => (idx === 1 ? { ...c, moved: true } : c),
+          ),
+        },
+        stateAtMH.players[HAZARD_PLAYER],
+      ] as typeof stateAtMH.players,
+    };
+
+    const orcId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).not.toBeNull();
+    expect(combatState.combat!.havenJumpOffers).toBeUndefined();
+
+    const actions = viableActions(combatState, PLAYER_1, 'haven-join-attack');
+    expect(actions).toHaveLength(0);
+  });
 });
