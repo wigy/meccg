@@ -63,9 +63,9 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
+  resetMint, buildFallenWizardSitePhaseState, buildFallenWizardOrgPhaseState, playPermanentEventAndResolve,
   dispatch, phaseStateAs, createGame, draftInstId, siteDeckInstId, runActions, makePlayDeck, pool, RIVENDELL,
-  makeMHState, playCreatureHazardAndResolve,
+  makeMHState, playCreatureHazardAndResolve, findCharInstanceId,
 } from '../test-helpers.js';
 import { computeLegalActions, SiteType, Alignment, RegionType, Phase, CardStatus, reduce } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, GameConfig, SitePhaseState } from '../../index.js';
@@ -223,6 +223,40 @@ describe('Hidden Haven (wh-75)', () => {
     })).toBe(true);
     // …and not for the opponent (the card grants "one of *your* Wizardhavens").
     expect(isWizardhavenConversionFor(after, BANDIT_LAIR, after.players[HAZARD_PLAYER].id)).toBe(false);
+  });
+
+  // Regression (game mskidoss-noauyv, seq 1380): a company stayed at a Ruins &
+  // Lairs converted by Hidden Haven, carrying a storable item. The organization
+  // phase's store-item computation read the site's *printed* type instead of its
+  // effective type, so it never offered to store the item even though the site
+  // was now a Haven for storing purposes too (CoE rule 2.II.4: "at a haven",
+  // with no exception for a site converted via override).
+  test('a converted site permits storing an item during organization', () => {
+    const converted = convert(
+      buildFallenWizardSitePhaseState({ site: BANDIT_LAIR, characters: [ARAGORN], hand: [HIDDEN_HAVEN] }),
+      BANDIT_LAIR,
+    );
+
+    // Rebuild a fresh organization-phase state at the same (printed) site, with
+    // Aragorn carrying a storable item, then graft on the conversion's
+    // constraints — mirroring the reported game, where the company stayed at
+    // the converted site into the organization phase.
+    const orgState: GameState = {
+      ...buildFallenWizardOrgPhaseState({
+        site: BANDIT_LAIR,
+        characters: [{ defId: ARAGORN, items: [SAW_TOOTHED_BLADE] }],
+      }),
+      activeConstraints: converted.activeConstraints,
+    };
+
+    const aragornId = findCharInstanceId(orgState, RESOURCE_PLAYER, ARAGORN);
+    const itemInstId = orgState.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+
+    const stores = computeLegalActions(orgState, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'store-item'
+        && (a.action as { itemInstanceId?: CardInstanceId }).itemInstanceId === itemInstId,
+    );
+    expect(stores).toHaveLength(1);
   });
 
   // ── Rule 3: loses all automatic-attacks ─────────────────────────────────────
