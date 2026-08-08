@@ -25,7 +25,7 @@
  *      `targets: { scope: "player-companies", movingThroughRegionNames }`
  *      (NEW target-enumeration field, sibling of `movingThroughRegionType`),
  *      apply `increment-company-extra-region-distance`. The bearer-less
- *      faction rides `inPlayFactionGrantActions` (organization.ts, now
+ *      faction rides `bareCardGrantActions` (organization.ts, now
  *      generalized to tap-cost + per-company targets) →
  *      `handleInPlayCardGrantAction` (grant-action-apply.ts, now generalized
  *      to resolve the target company from `action.targetCompanyId` when there
