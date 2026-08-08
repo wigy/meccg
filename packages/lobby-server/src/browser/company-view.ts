@@ -419,10 +419,14 @@ export function renderCompanyViews(
 
   // Force all-companies view during select-company step so the player can
   // see every company and pick one, and during Free Council so all companies
-  // are visible for corruption checks.
-  const inSelectCompany =
-    (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site)
-    && view.phaseState.step === 'select-company';
+  // are visible for corruption checks. Gated on an actual viable
+  // `select-company` action (matches {@link selectCompanyPrompt}) rather than
+  // the raw phase-state step string: a pending resolution (e.g. a Lure of
+  // Nature corruption check) can keep `step` at 'select-company' while
+  // short-circuiting legal actions to the resolution alone, in which case
+  // there is nothing to "select" and forcing the overview only hides the
+  // single-company support-tap controls the player needs.
+  const inSelectCompany = selectCompanyPrompt(view) !== null;
   const inFreeCouncil = view.phaseState.phase === Phase.FreeCouncil;
 
   // Clear an opponent-turn all-companies override at the start of a new combat
