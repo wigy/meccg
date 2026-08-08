@@ -2194,6 +2194,16 @@ function cancelAttackActions(
     logDetail(`Cancel-attack suppressed: attack is uncancelable (Forewarned Is Forearmed)`);
     return [];
   }
+  // Forced-strike targets (e.g. Alatar's haven-join, CRF 22: "he must face a
+  // strike from that creature in all cases" / "overrides all other effects
+  // pertaining to the assigning of strikes") cannot have their strike averted
+  // by canceling the whole attack out from under them — the same override
+  // that bypasses the tapped-status gate for these targets also blocks
+  // cancellation while one is still pending.
+  if (combat.forcedStrikeTargets && combat.forcedStrikeTargets.length > 0) {
+    logDetail(`Cancel-attack suppressed: forced strike target(s) pending (${combat.forcedStrikeTargets.join(', ')})`);
+    return [];
+  }
 
   const player = playerById(state, playerId);
   if (!player) return [];
