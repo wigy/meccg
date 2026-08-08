@@ -245,6 +245,29 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(after.phaseState.phase).toBe(Phase.Site);
   });
 
+  // Regression: at a qualifying site with a viable recruit available, the
+  // event card itself must not also show up as a spurious not-playable
+  // action. `computeLegalActions`' catchall `fillNotPlayable` only checked
+  // `cardInstanceId`/`characterInstanceId` when deciding which hand cards
+  // had no legal-action coverage; the recruit's `play-character` actions
+  // reference the event card solely via `viaEventInstanceId`, so the event
+  // looked uncovered and got tagged "cannot be played during this step"
+  // alongside its real, viable recruit actions — confusing a client that
+  // reads the not-playable entry for the card it selected.
+  test('does not also produce a not-playable entry for the event card when a recruit is viable', () => {
+    const state = buildOrg(BREE, [ELROND], [A_CHANCE_MEETING, EOWYN]);
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
+    expect(recruit).toBeDefined();
+
+    const notPlayable = computeLegalActions(state, PLAYER_1)
+      .filter(a => !a.viable && a.action.type === 'not-playable')
+      .find(a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === eventId);
+    expect(notPlayable).toBeUndefined();
+  });
+
   // Regression: playing A Chance Meeting during the end-of-turn phase (with
   // a non-Wizard character in hand and the company at a qualifying site)
   // offered only a bare no-op play-short-event, discarding the card with no
