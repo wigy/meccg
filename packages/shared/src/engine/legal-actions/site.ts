@@ -1648,7 +1648,7 @@ function playResourcesActions(
       // (below) and the item's own `item-play-site` restriction (which targets
       // Shadow/Dark-holds and so would never match a Wizardhaven). The
       // one-per-site-phase limit is tracked by `SitePhaseState.technologyItemPlayed`.
-      const isTechnologyItem = (itemDef.keywords as readonly string[] | undefined)?.includes('Technology') === true;
+      const isTechnologyItem = (itemDef.keywords as readonly string[] | undefined)?.includes('technology') === true;
       const technologyUnlockActive = isTechnologyItem
         && siteState.technologyItemPlayed !== true
         && siteHasTechnologyItemUnlock(state, siteDefId, playerId);

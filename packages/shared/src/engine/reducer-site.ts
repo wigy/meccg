@@ -2949,7 +2949,7 @@ function handleSitePlayHeroResource(
   // bonus allowance that neither taps the site nor counts as the company's
   // tapping resource; mark it consumed so no further Technology item is offered.
   const isTechnologyItem = isItem
-    && ((def as { keywords?: readonly string[] }).keywords ?? []).includes('Technology');
+    && ((def as { keywords?: readonly string[] }).keywords ?? []).includes('technology');
   const usingTechnologyBonus = isTechnologyItem
     && siteState.technologyItemPlayed !== true
     && siteHasTechnologyItemUnlock(state, siteInPlay.definitionId, player.id);
