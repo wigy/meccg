@@ -440,6 +440,11 @@ export function isWounded(character: CharacterInPlay): boolean {
   return character.status === CardStatus.Inverted;
 }
 
+/** Whether this character is tapped. */
+export function isTapped(character: CharacterInPlay): boolean {
+  return character.status === CardStatus.Tapped;
+}
+
 /** Whether this character is untapped (ready to act). */
 export function isUntapped(character: CharacterInPlay): boolean {
   return character.status === CardStatus.Untapped;
@@ -454,6 +459,19 @@ export function woundedCharactersInCompany(
   for (const id of company.characters) {
     const ch = view.self.characters[id];
     if (ch && isWounded(ch)) out.push(id);
+  }
+  return out;
+}
+
+/** IDs of tapped (not wounded) characters in a company (self side). */
+export function tappedCharactersInCompany(
+  view: PlayerView,
+  company: Company,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const id of company.characters) {
+    const ch = view.self.characters[id];
+    if (ch && isTapped(ch)) out.push(id);
   }
   return out;
 }
