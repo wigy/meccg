@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.89.0 — 2026-08-08
+
+Alatar's haven-join hardened and Earth-eater certified
+
+### Cards
+
+- Certified Earth-eater (wh-67)
+- Man of Skill (wh-119) no longer misses character-borne permanent-events when applying its override
+- Give Welcome to the Unexpected (wh-99) is playable before Gandalf enters play
+- Guarded Haven (wh-74) gained its missing printed misc marshalling point
+- Covetous Thoughts (le-107) end-of-turn corruption checks offer the tap-in-support option
+
+### Game Engine
+
+- Alatar's haven-join is permanent: he stays in the company he joined instead of being returned to the haven once combat ends
+- Haven-join effects no longer trigger for a company that completed its own move this movement/hazard phase (CRF 22, Movement/Hazard Annotation 25)
+- Alatar's forced strike is honoured when the attacker chooses defenders (Assassin)
+- An attack can no longer be canceled out from under a pending forced strike
+- Detainment strikes no longer heal already-wounded characters
+
+### Web Client
+
+- The combat view no longer reports tied, survived, canceled, or absorbed strikes as eliminations
+
+### AI
+
+- The heuristic AI discounts plan-movement for tapped characters that would walk into a fresh site attack
+
 ## 0.88.0 — 2026-08-07
 
 Prisoner spells, Wild Horses, and company-view polish

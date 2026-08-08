@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1100 | 1099 | 1 | 99.9% |
+| 1101 | 1100 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -18,7 +18,7 @@
 | LE | 297 | 296 | 99.7% |
 | TD | 87 | 87 | 100.0% |
 | TW | 329 | 329 | 100.0% |
-| WH | 87 | 87 | 100.0% |
+| WH | 88 | 88 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -407,7 +407,7 @@
 | le-103 | Awaken Defenders | — | 7 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-106 | Chill Them with Fear | — | 15 | ☑ |
-| le-107 | Covetous Thoughts | — | 12 | ☑ |
+| le-107 | Covetous Thoughts | — | 13 | ☑ |
 | le-108 | Darkness Under Tree | — | 5 | ☑ |
 | le-110 | Doors of Night | — | 7 | ☑ |
 | le-111 | Fell Winter | — | 11 | ☑ |
@@ -787,7 +787,7 @@
 | tw-113 | Witch-king of Angmar | — | 16 | ☑ |
 | tw-114 | Wolves | — | 3 | ☑ |
 | tw-116 | Adrazar | — | 3 | ☑ |
-| tw-117 | Alatar | — | 16 | ☑ |
+| tw-117 | Alatar | — | 19 | ☑ |
 | tw-118 | Anborn | — | 3 | ☑ |
 | tw-119 | Annalena | — | 2 | ☑ |
 | tw-120 | Aragorn II | — | 3 | ☑ |
@@ -1086,11 +1086,12 @@
 | wh-63 | Bad Company | — | 11 | ☑ |
 | wh-65 | Delver’s Harvest | — | 4 | ☑ |
 | wh-66 | Double-dealing | — | 10 | ☑ |
+| wh-67 | Earth-eater | — | 10 | ☑ |
 | wh-68 | The Fortress of Isen | — | 17 | ☑ |
 | wh-69 | Fortress of the Towers | — | 14 | ☑ |
 | wh-70 | Gatherer of Loyalties | — | 10 | ☑ |
 | wh-72 | Great Patron | — | 9 | ☑ |
-| wh-74 | Guarded Haven | — | 13 | ☑ |
+| wh-74 | Guarded Haven | — | 14 | ☑ |
 | wh-75 | Hidden Haven | — | 26 | ☑ |
 | wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
@@ -1109,7 +1110,7 @@
 | wh-96 | Await the Onset | — | 11 | ☑ |
 | wh-97 | Chambers in the Royal Court | — | 15 | ☑ |
 | wh-98 | Gandalf’s Friend | — | 9 | ☑ |
-| wh-99 | Give Welcome to the Unexpected | — | 11 | ☑ |
+| wh-99 | Give Welcome to the Unexpected | — | 13 | ☑ |
 | wh-100 | Grey Embassy | — | 15 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
 | wh-105 | Pallando’s Hood | — | 9 | ☑ |
@@ -1121,7 +1122,7 @@
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
-| wh-119 | Man of Skill | — | 7 | ☑ |
+| wh-119 | Man of Skill | — | 9 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 21 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
 
