@@ -56,6 +56,7 @@ import {
   Phase, Alignment, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
+import { formatCharacterLine } from '../../format-cards.js';
 import type { CardDefinitionId, CardInstanceId, GameState, GameConfig } from '../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId;
@@ -191,6 +192,21 @@ describe('Thrall of the Voice (wh-82)', () => {
 
   test('does not reduce a mind-1 character below 1', () => {
     expect(getCharacter(thrallAttachedState(ORC_BRAWLER), RESOURCE_PLAYER, ORC_BRAWLER).effectiveStats.mind).toBe(1);
+  });
+
+  test('the formatted character line shows the reduced mind, not the printed mind', () => {
+    // Bug report: a player attached Thrall of the Voice to Théoden (printed mind
+    // 6) and the text-client's character line kept showing "6 Mind" instead of
+    // reflecting the -1 reduction, because formatCharacterLine read the raw
+    // definition's `mind` instead of the character's effective (post-modifier)
+    // mind — unlike direct-influence, which was already read from effectiveStats.
+    const state = thrallAttachedState(BILL_FERNY);
+    const char = getCharacter(state, RESOURCE_PLAYER, BILL_FERNY);
+    const defOf = (id: CardDefinitionId) => state.cardPool[id];
+    const instOf = (id: CardInstanceId) => (id === char.instanceId ? char.definitionId : undefined);
+    const line = formatCharacterLine(char, defOf, instOf);
+    expect(line).toContain('2 Mind');
+    expect(line).not.toContain('3 Mind');
   });
 
   test('mind is unmodified when the card is not attached', () => {
