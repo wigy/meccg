@@ -37,8 +37,8 @@ import {
 import { Phase } from '../../index.js';
 import type { CardDefinitionId, CardInPlay } from '../../index.js';
 import { CardStatus } from '../../index.js';
+import { CROWN_OF_FLOWERS } from '../../card-ids.js';
 
-const CROWN_OF_FLOWERS = 'dm-121' as CardDefinitionId;
 const GOLLUM = 'tw-246' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

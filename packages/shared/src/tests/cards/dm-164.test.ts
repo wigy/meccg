@@ -37,13 +37,13 @@ import {
   buildTestState, makePlayDeck,
   mint, addToPile,
   findCharInstanceId, runCardTriggeredAttackCombat,
-  dispatch,
+  dispatch, resolveChain,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayPermanentEventAction, PlayWizardFromSearchAction, SelectCardBearerAction } from '../../index.js';
 import { Phase } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
+import { CROWN_OF_FLOWERS, WINDLORD } from '../../card-ids.js';
 
-const WINDLORD = 'dm-164' as CardDefinitionId;
 const CARN_DUM_TW = 'tw-380' as CardDefinitionId;
 
 describe('dm-164 The Windlord Found Me', () => {
@@ -488,5 +488,50 @@ describe('dm-164 The Windlord Found Me', () => {
     const stateWithP2Copy = attachItemToChar(base, HAZARD_PLAYER, LEGOLAS, WINDLORD);
     const actions = viableActions(stateWithP2Copy, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBeGreaterThan(0);
+  });
+
+  // ── Crown of Flowers pairing still requires a qualifying site ──
+  //
+  // Regression (Bug Report: "The Windlord found me", game mskidoss-noauyv seq
+  // 66): pairing Windlord with an in-play Crown of Flowers (dm-121) was
+  // offered while the company sat at Rivendell (a Haven merely *planning* to
+  // move to a Shadow-hold). Crown of Flowers reinterprets only the paired
+  // resource's text (as though Gates of Morning were in play and Doors of
+  // Night were not) — it does not relocate a company or waive Windlord's own
+  // site play-target (untapped Isengard, Shadow-hold, or Dark-hold).
+
+  test('Crown of Flowers does NOT offer to pair Windlord when no company is at a qualifying site', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, WINDLORD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
+  });
+
+  test('Crown of Flowers offers and allows pairing Windlord once a company is at an untapped shadow-hold', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, WINDLORD], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    const pairActions = viableActions(resolved, PLAYER_1, 'pair-resource-with-cof');
+    expect(pairActions.length).toBeGreaterThan(0);
   });
 });
