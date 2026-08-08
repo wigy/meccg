@@ -3372,10 +3372,10 @@ Apply types:
   raises a pending "may join the attacked company" offer for the
   bearer. The defender sees a `haven-join-attack` legal action during
   the assign-strikes cancel-window; accepting moves the bearer into
-  the attacked company for this combat and (optionally) discards
-  attached allies, forces a strike onto the bearer, and schedules
-  post-attack side-effects. After combat finalizes the bearer is
-  restored to their origin company. Composable flags:
+  the attacked company for good (this is a join, not a temporary
+  visit) and (optionally) discards attached allies, forces a strike
+  onto the bearer, and schedules post-attack side-effects. Composable
+  flags:
   - `discardOwnedAllies` (boolean) -- discard allies attached to the
     bearer when they join.
   - `forceStrike` (boolean) -- at least one strike from the attacking
@@ -3388,8 +3388,8 @@ Apply types:
   Implemented in `chain-reducer.ts`
   (`collectHavenJumpOffers()`), `legal-actions/combat.ts`
   (`havenJoinAttackActions()`), `reducer-combat.ts`
-  (`handleHavenJoinAttack`, `applyPostAttackEffects`,
-  `restoreHavenJumpOrigins`). Used by *Alatar* (tw-117).
+  (`handleHavenJoinAttack`, `applyPostAttackEffects`). Used by
+  *Alatar* (tw-117).
 
 - `offer-resource-play` -- under `on-event: self-enters-play`, marks the
   source card (Crown of Flowers) as one that lets the active player play one
@@ -7584,7 +7584,7 @@ The resolver:
 ]
 ```
 
-Reduces opponent draws from Alatar's company's movement by one (floored at zero). When a hazard creature attacks any of the controller's companies and Alatar is at a haven in a different company, the controller may accept the haven-join offer: Alatar joins the attacked company for this combat, his attached allies are discarded, the creature must strike him, and after combat he taps (if untapped) and makes a corruption check. He returns to the haven company at combat finalization.
+Reduces opponent draws from Alatar's company's movement by one (floored at zero). When a hazard creature attacks any of the controller's companies and Alatar is at a haven in a different company, the controller may accept the haven-join offer: Alatar joins the attacked company for good, his attached allies are discarded, the creature must strike him, and after combat he taps (if untapped) and makes a corruption check.
 
 ### Aragorn II
 
