@@ -559,8 +559,9 @@ export interface CombatState {
    * `on-event: creature-attack-begins` + `apply: offer-char-join-attack`,
    * e.g. Alatar). Each offer lets a specific character in a haven company
    * opt into the attacked company during the cancel-window. Consumed when
-   * the player accepts (producing a {@link HavenJumpOrigin} + post-attack
-   * effects) or when the attack transitions out of cancel-window.
+   * the player accepts (moving the character into the attacked company for
+   * good, plus scheduling post-attack effects) or when the attack
+   * transitions out of cancel-window.
    */
   readonly havenJumpOffers?: readonly HavenJumpOffer[];
   /**
@@ -589,12 +590,6 @@ export interface CombatState {
    * (e.g. Alatar's "must tap + corruption check following the attack").
    */
   readonly postAttackEffects?: readonly PostAttackEffect[];
-  /**
-   * Records where a haven-jumped character came from so they can be
-   * returned to their original company after combat finalizes. A
-   * character may only appear once.
-   */
-  readonly havenJumpOrigins?: readonly HavenJumpOrigin[];
   /**
    * True when the creature carries `combat-attacker-chooses-defenders`
    * (e.g. Cave-drake). Determines the post-cancel-window transition:
@@ -814,14 +809,6 @@ export interface PostAttackEffect {
    * the character may rejoin his original company.
    */
   readonly leftBehindSplit?: boolean;
-}
-
-/** Records where a haven-jumped character came from so they can be restored. */
-export interface HavenJumpOrigin {
-  /** The character who jumped. */
-  readonly characterId: CardInstanceId;
-  /** The company they were originally in (haven company). */
-  readonly originCompanyId: CompanyId;
 }
 
 // ---- Chain of Effects sub-state ----

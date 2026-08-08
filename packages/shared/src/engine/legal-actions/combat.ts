@@ -797,9 +797,22 @@ function assignStrikeActions(
 
     const unassigned = allCombatantIds.filter(c => !assignedCharIds.has(c.id as string));
 
-    if (unassigned.length > 0) {
+    // Forced-strike targets (e.g. Alatar haven-join): even when the attacker
+    // chooses defenders (Assassin tw-8's combat-attacker-chooses-defenders),
+    // each listed character must receive a strike before any other
+    // assignment is legal. Mirrors the defender-phase restriction above —
+    // without it, an attacker-chooses creature can strike past a forced
+    // target entirely.
+    const unassignedForced = (combat.forcedStrikeTargets ?? [])
+      .filter(id => !assignedCharIds.has(id as string));
+    const forcedUnassigned = unassignedForced.length > 0
+      ? unassigned.filter(c => unassignedForced.includes(c.id))
+      : unassigned;
+    const restrictedUnassigned = forcedUnassigned.length > 0 ? forcedUnassigned : unassigned;
+
+    if (restrictedUnassigned.length > 0) {
       // Still unassigned combatants — must assign to them first
-      for (const { id, tapped } of unassigned) {
+      for (const { id, tapped } of restrictedUnassigned) {
         logDetail(`Attacker can assign strike to unassigned ${id as string} (${tapped ? 'tapped' : 'untapped'})`);
         actions.push({
           action: { type: 'assign-strike', player: playerId, characterId: id, tapped },

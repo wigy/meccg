@@ -1341,8 +1341,46 @@ function handleInPlayCardGrantAction(
     return { state: recomputeDerived({ ...withLock, players: newPlayers }), effects: [] };
   }
 
+  // `enqueue-pending-fetch` (Earth-eater wh-67): "Tap Earth-eater to take a
+  // minion non-unique weapon/armor/shield/helmet major item from your
+  // sideboard or discard pile to your hand." There is no bearer character, so
+  // (unlike the bearer-borne version in `runGrantApply`) `playableAtBearerSite`
+  // is not supported here.
+  if (apply.type === 'enqueue-pending-fetch') {
+    const fromSources = apply.fetchFrom ?? ['discard-pile'];
+    const count = apply.fetchCount ?? 1;
+    const shuffle = apply.fetchShuffle ?? true;
+    const fetchTo = apply.fetchTo ?? 'deck';
+    const filter = apply.filter ?? {};
+    const grantFetch = gateDeckSearchFetch(state, player.id, {
+      type: 'fetch-to-deck' as const,
+      source: fromSources,
+      filter,
+      count,
+      shuffle,
+      to: fetchTo,
+    });
+    if (!grantFetch) {
+      return { state, error: 'This fetch is canceled while the play-deck/discard search cancel is in play' };
+    }
+    logDetail(`In-play grant-action ${action.actionId}: ${paysWithTap ? 'tapping' : 'discarding'} ${sourceName}, enqueueing fetch-to-${fetchTo} from [${grantFetch.source.join(', ')}] (count=${count}, shuffle=${shuffle})`);
+    const finalState: GameState = {
+      ...recomputeDerived(withLock),
+      pendingEffects: [
+        ...state.pendingEffects,
+        {
+          type: 'card-effect' as const,
+          cardInstanceId: source.instanceId,
+          effect: grantFetch,
+          skipDiscard: true,
+        },
+      ],
+    };
+    return { state: finalState, effects: [] };
+  }
+
   if (apply.type !== 'add-constraint') {
-    return { state, error: `in-play grant-action ${action.actionId}: only add-constraint apply supported (${sourceName})` };
+    return { state, error: `in-play grant-action ${action.actionId}: only add-constraint or enqueue-pending-fetch apply supported (${sourceName})` };
   }
 
   const constraintKind = apply.constraint ?? '';

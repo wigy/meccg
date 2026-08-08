@@ -478,10 +478,16 @@ export function resolveStrikeCore(
           status: CardStatus.Inverted,
         };
       } else if (result === 'wounded' && combat.detainment) {
-        newCharacters[strike.characterId] = {
-          ...(newCharacters[strike.characterId] ?? charData),
-          status: CardStatus.Tapped,
-        };
+        // CoE rule 3.II.1.1: a detainment strike never wounds — it taps an
+        // untapped target instead. "tap" requires the card be initially
+        // upright (glossary: "tap"), so an already-wounded (inverted)
+        // character stays wounded rather than being healed to tapped.
+        if (!wasAlreadyWounded) {
+          newCharacters[strike.characterId] = {
+            ...(newCharacters[strike.characterId] ?? charData),
+            status: CardStatus.Tapped,
+          };
+        }
       }
 
       // tap-low-mind (e.g. Wisp of Pale Sheen dm-113): "Any character facing a

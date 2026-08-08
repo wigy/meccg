@@ -1142,10 +1142,49 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Eartheater.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Technology. Playable during the site phase if one of your companies enters the Deep Mines site and you have more Delver’s Harvest cards in play than you have Earth-eater cards. Tap Earth-eater to take a minion non-unique weapon/armor/shield/helmet major item from your sideboard or discard pile to your hand."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": { "site.name": "Deep Mines" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-count-exceeds",
+        "cardName": "Delver’s Harvest",
+        "comparedToCardName": "Earth-eater"
+      },
+      {
+        "type": "grant-action",
+        "action": "earth-eater-fetch",
+        "cost": { "tap": "self" },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile", "sideboard"],
+          "fetchCount": 1,
+          "fetchShuffle": false,
+          "fetchTo": "hand",
+          "filter": {
+            "$and": [
+              { "unique": false },
+              { "subtype": "major" },
+              {
+                "$or": [
+                  { "keywords": { "$includes": "weapon" } },
+                  { "keywords": { "$includes": "armor" } },
+                  { "keywords": { "$includes": "shield" } },
+                  { "keywords": { "$includes": "helmet" } }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Technology. Playable during the site phase if one of your companies enters the Deep Mines site and you have more Delver’s Harvest cards in play than you have Earth-eater cards. Tap Earth-eater to take a minion non-unique weapon/armor/shield/helmet major item from your sideboard or discard pile to your hand.",
+    "certified": "2026-08-07"
   },
   {
     "cardType": "minion-resource-event",
@@ -1337,7 +1376,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GuardedHaven.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -2216,6 +2255,23 @@
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-gandalf",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
       },
       {
         "type": "noncharacter-mp-override",

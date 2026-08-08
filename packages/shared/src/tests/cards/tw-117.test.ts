@@ -25,7 +25,7 @@
  * | 3 | Haven-join: discard attached allies    | IMPLEMENTED  | offer-char-join-attack.discardOwnedAllies     |
  * | 4 | Haven-join: force strike onto Alatar   | IMPLEMENTED  | combat.forcedStrikeTargets filter             |
  * | 5 | Post-combat tap + corruption check     | IMPLEMENTED  | combat.postAttackEffects at finalization      |
- * | 6 | Return to haven company after combat   | IMPLEMENTED  | combat.havenJumpOrigins at finalization       |
+ * | 6 | Stays in joined company after combat   | IMPLEMENTED  | no restore step at finalization               |
  *
  * Playable: YES
  * Certified: 2026-04-23
@@ -157,6 +157,7 @@ function combatWithHavenJumpOffer(
     forceStrike?: boolean;
     postTap?: boolean;
     postCorruption?: boolean;
+    attackerChoosesDefenders?: boolean;
   } = {},
 ): GameState {
   const p1 = state.players[RESOURCE_PLAYER];
@@ -208,7 +209,7 @@ function combatWithHavenJumpOffer(
         ],
       },
     ],
-    attackerChoosesDefenders: undefined,
+    attackerChoosesDefenders: opts.attackerChoosesDefenders,
   };
 
   return {
@@ -323,10 +324,6 @@ describe('Alatar (tw-117)', () => {
     const haven = after.players[RESOURCE_PLAYER].companies[1];
     expect(attacked.characters).toContain(alatarId);
     expect(haven.characters).not.toContain(alatarId);
-    // Origin recorded for post-combat restore
-    expect(after.combat!.havenJumpOrigins).toBeDefined();
-    expect(after.combat!.havenJumpOrigins![0].characterId).toBe(alatarId);
-    expect(after.combat!.havenJumpOrigins![0].originCompanyId).toBe(havenComp.id);
   });
 
   test('accepting the offer discards allies attached to Alatar', () => {
@@ -377,6 +374,35 @@ describe('Alatar (tw-117)', () => {
     expect(passes).toHaveLength(0);
   });
 
+  test('forced strike targets Alatar even when the attacker chooses defenders (Assassin tw-8)', () => {
+    // Regression from a live game (Bug Report: Funny, msivgv4l-ys2k6b,
+    // stateSeq 640-650): Assassin (tw-8) sets
+    // combat-attacker-chooses-defenders, so the attacker — not the defender —
+    // assigns strikes. The attacker-assignment branch never consulted
+    // combat.forcedStrikeTargets, so p1 was able to assign the strike to
+    // Gildor instead of the haven-joining Alatar, even though Alatar must
+    // face the strike "in all cases". Gildor then failed the body check and
+    // died to a strike that should have hit Alatar.
+    const state = combatWithHavenJumpOffer(baseTwoCompanyState(), { attackerChoosesDefenders: true });
+    const havenComp = state.players[RESOURCE_PLAYER].companies[1];
+    const alatarId = havenComp.characters[0];
+    let after = dispatch(state, {
+      type: 'haven-join-attack',
+      player: PLAYER_1,
+      characterId: alatarId,
+    });
+    // Pass cancel-window: with attackerChoosesDefenders, control goes straight
+    // to the attacker's assignment phase.
+    after = dispatch(after, { type: 'pass', player: PLAYER_1 } as PassAction);
+    expect(after.combat!.assignmentPhase).toBe('attacker');
+    expect(after.combat!.forcedStrikeTargets).toEqual([alatarId]);
+
+    const attackerActions = viableActions(after, PLAYER_2, 'assign-strike');
+    // Only Alatar may receive a strike (Legolas is in the attacked company but not forced).
+    const targets = attackerActions.map(a => (a.action as AssignStrikeAction).characterId);
+    expect(targets).toEqual([alatarId]);
+  });
+
   test('a forced Alatar stays assignable when the attack excludes avatars', () => {
     // Regression from random self-play (decks b/c, seed 424243): Alatar's
     // haven-join forces a strike onto him, but a Neeker-breekers-style attack
@@ -401,9 +427,9 @@ describe('Alatar (tw-117)', () => {
     expect(viableActionTypes(after, PLAYER_1).length).toBeGreaterThan(0);
   });
 
-  // ── Post-combat: tap + corruption check + restore ──
+  // ── Post-combat: tap + corruption check, stays in the joined company ──
 
-  test('post-attack effects fire at combat finalization (tap + corruption check + return)', () => {
+  test('post-attack effects fire at combat finalization (tap + corruption check); Alatar stays joined', () => {
     const state = combatWithHavenJumpOffer(baseTwoCompanyState(), { strikesTotal: 1 });
     const havenComp = state.players[RESOURCE_PLAYER].companies[1];
     const alatarId = havenComp.characters[0];
@@ -444,11 +470,12 @@ describe('Alatar (tw-117)', () => {
     );
     expect(ccForAlatar).toBeDefined();
 
-    // Alatar restored to haven company
-    const restoredHaven = s.players[RESOURCE_PLAYER].companies.find(c => c.id === havenCompId)!;
-    const restoredAttacked = s.players[RESOURCE_PLAYER].companies[0];
-    expect(restoredHaven.characters).toContain(alatarId);
-    expect(restoredAttacked.characters).not.toContain(alatarId);
+    // Alatar stays in the company he joined — his card text says "join",
+    // not "temporarily assist", and nothing sends him back to the haven.
+    const haven = s.players[RESOURCE_PLAYER].companies.find(c => c.id === havenCompId)!;
+    const attacked = s.players[RESOURCE_PLAYER].companies[0];
+    expect(attacked.characters).toContain(alatarId);
+    expect(haven.characters).not.toContain(alatarId);
   });
 
   // ── Negative cases: offer is NOT raised ──
@@ -569,6 +596,75 @@ describe('Alatar (tw-117)', () => {
     // Defender sees a haven-join-attack legal action for Alatar
     const actions = viableActions(combatState, PLAYER_1, 'haven-join-attack');
     expect(actions).toHaveLength(1);
+  });
+
+  test('full hazard play path: no haven-join offer when Alatar\'s company arrived at the haven this same movement/hazard phase', () => {
+    // CRF 22, Movement/Hazard Phase Annotation 25: "Removing the site of
+    // origin and resetting to hand size are simultaneous actions, and they
+    // are the last actions in any movement/hazard phase. This means a moving
+    // company is not at a site until the site phase." Regression from a
+    // real-game report: Alatar's own company moved to Rivendell earlier in
+    // this same M/H phase (before the attacked company took its turn), and
+    // the engine wrongly treated him as haven-resident and offered the join.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [
+            { site: MORIA, characters: [LEGOLAS] },
+            { site: RIVENDELL, characters: [ALATAR] },
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [GANDALF] }],
+          hand: [ORC_PATROL],
+          siteDeck: [],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Rhudaur'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    let stateAtMH = { ...base, phaseState: mhState };
+    // Alatar's company already completed its own move into Rivendell earlier
+    // in this M/H phase — it has not yet formally "arrived" per Annotation 25.
+    stateAtMH = {
+      ...stateAtMH,
+      players: [
+        {
+          ...stateAtMH.players[RESOURCE_PLAYER],
+          companies: stateAtMH.players[RESOURCE_PLAYER].companies.map(
+            (c, idx) => (idx === 1 ? { ...c, moved: true } : c),
+          ),
+        },
+        stateAtMH.players[HAZARD_PLAYER],
+      ] as typeof stateAtMH.players,
+    };
+
+    const orcId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).not.toBeNull();
+    expect(combatState.combat!.havenJumpOffers).toBeUndefined();
+
+    const actions = viableActions(combatState, PLAYER_1, 'haven-join-attack');
+    expect(actions).toHaveLength(0);
   });
 
   // ── Regression: forced strike overrides attack cancellation ──

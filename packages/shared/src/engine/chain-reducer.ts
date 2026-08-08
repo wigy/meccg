@@ -3339,6 +3339,14 @@ function collectHavenJumpOffers(
       playerId: defendingPlayer.id,
     });
     if (!atHaven) continue;
+    // CRF 22, Movement/Hazard Phase Annotation 25: "Removing the site of
+    // origin and resetting to hand size are simultaneous actions, and they
+    // are the last actions in any movement/hazard phase. This means a moving
+    // company is not at a site until the site phase." A company that
+    // completed its own move this M/H phase (`moved`) has not formally
+    // arrived yet — it cannot lend a haven-resident character to another
+    // company's attack until the site phase begins.
+    if (company.moved) continue;
     for (const charId of company.characters) {
       const charInPlay = defendingPlayer.characters[charId];
       if (!charInPlay) continue;

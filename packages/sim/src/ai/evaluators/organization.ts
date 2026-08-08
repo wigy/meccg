@@ -21,8 +21,10 @@ import {
   findSiteDef,
   isWounded,
   woundedCharactersInCompany,
+  tappedCharactersInCompany,
   isHealingSite,
   hasHealingAvailable,
+  hasUntapSource,
   storeItemMpGain,
   hasDirectlyPlayableMovement,
 } from './common.js';
@@ -102,12 +104,28 @@ export const organizationEvaluator: ActionEvaluator = {
         const company = view.self.companies.find(c => c.id === action.companyId);
         if (!company) return base;
         const wounded = woundedCharactersInCompany(view, company);
-        if (wounded.length === 0) return base;
-        if (hasHealingAvailable(view, pool, company)) return base;
-        if (isHealingSite(destDef)) {
-          return Math.max(base, 30) + wounded.length * 20;
+        if (wounded.length > 0 && !hasHealingAvailable(view, pool, company)) {
+          if (isHealingSite(destDef)) {
+            return Math.max(base, 30) + wounded.length * 20;
+          }
+          return Math.max(1, Math.floor(base / 2));
         }
-        return Math.max(1, Math.floor(base / 2));
+
+        // Tapped-routing: a tapped character fights the destination's
+        // automatic attack at reduced prowess (CoE rule 3.iv.2 taps the
+        // defender -1). With no hand/item untap source, marching them into a
+        // fresh site's auto-attack raises the odds of the strike wounding
+        // them for no compensating benefit — same risk shape as the wounded
+        // case above, but no haven detour is needed since untapping happens
+        // automatically at the next untap phase regardless of location (bug
+        // report: AI moved a tapped Saruman/Sam Gamgee into site auto-attacks
+        // with no risk discount, unlike wounded characters).
+        const tapped = tappedCharactersInCompany(view, company);
+        if (tapped.length > 0 && !hasUntapSource(view, pool, company)) {
+          return Math.max(1, Math.floor(base / 2));
+        }
+
+        return base;
       }
 
       case 'cancel-movement':

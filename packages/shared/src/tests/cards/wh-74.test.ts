@@ -3,6 +3,7 @@
  *
  * Card test: Guarded Haven (wh-74)
  * Type: minion-resource-event (permanent) · alignment: stage · stage points: 1
+ *   · marshalling points: 1 (misc)
  *
  * Card text:
  *   "May not be used as a starting stage card. Playable on one of your
@@ -40,6 +41,7 @@
  * | 4 | not playable at a non-haven site                              | OK     |
  * | 5 | binds to the site + adds site-protected constraint            | OK     |
  * | 6 | contributes 1 stage point while in play                      | OK     |
+ * | 6b| contributes 1 misc marshalling point while in play           | OK     |
  * | 7 | opponent may not play MP cards at the protected site         | OK     |
  * | 8 | non-MP cards are unaffected; the protector is unaffected     | OK     |
  * | 9 | cannot be duplicated on a given site                          | OK     |
@@ -229,6 +231,24 @@ describe('Guarded Haven (wh-74)', () => {
       { targetSiteDefinitionId: WIZARDHAVEN },
     );
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+  });
+
+  // ── Rule 6b: contributes 1 misc marshalling point ───────────────────────────
+
+  test('contributes 1 misc marshalling point to the Fallen-wizard while in play', () => {
+    // Regression: the card data carried marshallingPoints: 0, so Guarded
+    // Haven silently contributed nothing to the misc score despite the
+    // authoritative card database printing 1 miscellaneous MP on it. A
+    // player with 3 copies in play was credited 0 instead of 3.
+    const state = buildFallenWizardOrgPhaseState({
+      site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN],
+    });
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+    const after = playPermanentEventAndResolve(
+      state, PLAYER_1, handInstance(state, GUARDED_HAVEN), undefined,
+      { targetSiteDefinitionId: WIZARDHAVEN },
+    );
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
   });
 
   // ── Rule 7: the site is protected — opponent MP cards barred ─────────────────

@@ -3,9 +3,8 @@
  *
  * The terminal half of a combat: `finalizeCombat` (the ~780-line routine that
  * tears a finished attack down — resolves trophies, body checks, wounds,
- * eliminations, post-attack triggers, haven-jump restoration and combat-state
- * cleanup) together with its private closure: `applyPostAttackEffects`,
- * `restoreHavenJumpOrigins`, `buildOnEventContext`, `discardWoundedItems`,
+ * eliminations, post-attack triggers and combat-state cleanup) together with
+ * its private closure: `applyPostAttackEffects`, `buildOnEventContext`, `discardWoundedItems`,
  * `discardWoundedCharacters`, `recordHazardEncountered`, the Rule 8.22
  * trophy-decision helper `applyRule8_22AfterTrophyDecision`, and the
  * triggered-discard helper `discardCardTriggeredCard`.
@@ -932,11 +931,11 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   }
 
   // Apply post-attack effects scheduled by accepted haven-join offers
-  // (e.g. Alatar's "following the attack, tap + corruption check").
-  // Effects fire regardless of outcome. After effects, any haven-jumped
-  // character is restored to their original company.
+  // (e.g. Alatar's "following the attack, tap + corruption check"). Effects
+  // fire regardless of outcome. A haven-jumped character stays in the
+  // company they joined — the card text says "join", not "temporarily
+  // assist", and nothing returns them afterward.
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
-  stateAfterCombat = restoreHavenJumpOrigins(stateAfterCombat, combat);
 
   // card-triggered-attack: continue the queued attack sequence, or dispose of
   // the card now that its last attack has resolved.
@@ -1341,43 +1340,6 @@ function applyLeftBehindSplit(
 
   newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
   return cleanupEmptyCompanies({ ...state, players: newPlayers });
-}
-
-/**
- * After combat, return any haven-jumped characters to their original
- * company. The character's CharacterInPlay stays unchanged; only the
- * companies' `characters` membership lists are rewritten.
- */
-function restoreHavenJumpOrigins(
-  stateAfterCombat: GameState,
-  combat: CombatState,
-): GameState {
-  const origins = combat.havenJumpOrigins ?? [];
-  if (origins.length === 0) return stateAfterCombat;
-
-  const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
-  if (defIdx < 0) return stateAfterCombat;
-
-  const player = stateAfterCombat.players[defIdx];
-  const newCompanies = player.companies.map(c => {
-    let chars = c.characters;
-    for (const o of origins) {
-      if (chars.includes(o.characterId) && c.id !== o.originCompanyId) {
-        chars = chars.filter(id => id !== o.characterId);
-      }
-      if (c.id === o.originCompanyId && !chars.includes(o.characterId)) {
-        chars = [...chars, o.characterId];
-      }
-    }
-    return chars === c.characters ? c : { ...c, characters: chars };
-  });
-
-  const newPlayers: [PlayerState, PlayerState] = [stateAfterCombat.players[0], stateAfterCombat.players[1]];
-  newPlayers[defIdx] = { ...player, companies: newCompanies };
-  for (const o of origins) {
-    logDetail(`Haven-jump finalize: ${o.characterId as string} returned to company ${o.originCompanyId as string}`);
-  }
-  return { ...stateAfterCombat, players: newPlayers };
 }
 
 /**

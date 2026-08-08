@@ -26,7 +26,7 @@
  *      player may discard it during their organization/site phase to unlock
  *      Information at any qualifying site for the rest of the turn.
  *
- * The bearer-less faction discard rides `inPlayFactionGrantActions`
+ * The bearer-less faction discard rides `bareCardGrantActions`
  * (organization.ts) → `handleInPlayCardGrantAction` (grant-action-apply.ts);
  * the generalized `site-resource-unlocked` consumer (`isSiteResourceUnlocked`)
  * evaluates the `siteCondition` against the site.

@@ -114,10 +114,6 @@ export function handleHavenJoinAttack(state: GameState, action: GameAction, comb
   const newPostAttack = offer.postAttackEffects.length > 0
     ? [...(combat.postAttackEffects ?? []), ...offer.postAttackEffects]
     : combat.postAttackEffects;
-  const newOrigins = [...(combat.havenJumpOrigins ?? []), {
-    characterId: action.characterId,
-    originCompanyId: offer.originCompanyId,
-  }];
 
   // Consume this offer
   const remainingOffers = offers.filter(o => o !== offer);
@@ -127,7 +123,6 @@ export function handleHavenJoinAttack(state: GameState, action: GameAction, comb
     havenJumpOffers: remainingOffers.length > 0 ? remainingOffers : undefined,
     forcedStrikeTargets: newForcedTargets && newForcedTargets.length > 0 ? newForcedTargets : undefined,
     postAttackEffects: newPostAttack && newPostAttack.length > 0 ? newPostAttack : undefined,
-    havenJumpOrigins: newOrigins,
   };
 
   return { state: { ...state, players: newPlayers, combat: newCombat } };
