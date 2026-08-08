@@ -3,7 +3,7 @@
  *
  * Card test: Mechanical Bow (wh-53)
  * Type: minion-resource-item (Major Item), alignment ringwraith, non-unique.
- * Marshalling points: 1 · Corruption: 1. Keywords: weapon, technology.
+ * Marshalling points: 1 · Corruption: 1. Keywords: weapon, Technology.
  *
  * Text: "Weapon. Technology. -1 to bearer's body. Warrior only: +2 prowess to a
  * maximum of 8; -1 to the body of any strike its bearer faces if he taps to

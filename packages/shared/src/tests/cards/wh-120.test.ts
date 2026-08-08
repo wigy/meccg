@@ -78,6 +78,7 @@ const ASTERNAK = 'le-1' as CardDefinitionId;            // Man — keeps the com
 // Technology-keyword item (real card) and a non-Technology minion item.
 const BLASTING_FIRE = 'wh-51' as CardDefinitionId;      // minion item, keyword "Technology"
 const BLACK_MAIL_COAT = 'le-301' as CardDefinitionId;   // minion major item, NOT Technology
+const MECHANICAL_BOW = 'wh-53' as CardDefinitionId;     // minion major item, keywords ["weapon", "Technology"]
 
 const STAGE_2 = 'test-stage-res-2-wh120' as CardDefinitionId;
 
@@ -313,6 +314,15 @@ describe("Saruman's Machinery (wh-120)", () => {
   test('a Technology item becomes playable at Isengard once the unlock is active', () => {
     const state = machineryState({ site: ISENGARD_WH, hand: [BLASTING_FIRE], techUnlock: true });
     expect(canPlay(state, PLAYER_1, instanceOf(state, BLASTING_FIRE))).toBe(true);
+  });
+
+  // Regression test: Mechanical Bow's data keyword was lowercase "technology",
+  // not matching the engine's capitalized "Technology" check (used elsewhere by
+  // Blasting Fire wh-51 / Liquid Fire wh-52), so the unlock never recognized it
+  // as a Technology item and it was rejected as a major item at a haven site.
+  test('Mechanical Bow (wh-53) is recognized as a Technology item and becomes playable at Isengard once the unlock is active', () => {
+    const state = machineryState({ site: ISENGARD_WH, hand: [MECHANICAL_BOW], techUnlock: true });
+    expect(canPlay(state, PLAYER_1, instanceOf(state, MECHANICAL_BOW))).toBe(true);
   });
 
   test('the unlock is scoped to its own site — a Technology item stays blocked at a different site', () => {
