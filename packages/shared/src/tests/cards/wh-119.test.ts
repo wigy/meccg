@@ -33,7 +33,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import {
   buildTestState, resetMint, pool, Phase, CardStatus,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ISENGARD, RIVENDELL, MORIA, LORIEN, LEGOLAS,
+  ISENGARD, RIVENDELL, MORIA, LORIEN, LEGOLAS, ARAGORN,
 } from '../test-helpers.js';
 import { Alignment } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay } from '../../index.js';
@@ -48,6 +48,12 @@ const INFO_PE      = 'test-info-pe'     as CardDefinitionId; // requires Informa
 const INFO_PE_2    = 'test-info-pe-2'   as CardDefinitionId; // a second Information-site permanent-event
 const GOLDRING_PE  = 'test-goldring-pe' as CardDefinitionId; // requires Gold-ring site (different subtype)
 const PLAIN_PE     = 'test-plain-pe'    as CardDefinitionId; // no site-has-resource prerequisite
+// Shape actual in-play permanent-events use (e.g. When I Know Anything td-166):
+// a `play-target` effect targeting `site` with a `playableResources` filter,
+// rather than the synthetic `play-condition` shape above. Registered as an
+// "item" here because that is where the engine stores a permanent-event
+// played "on" a character (a light enchantment lives in the bearer's `items`).
+const INFO_PE_ITEM = 'test-info-pe-item' as CardDefinitionId;
 
 function inPlay(defId: CardDefinitionId, instanceId: string): CardInPlay {
   return { instanceId: instanceId as CardInstanceId, definitionId: defId, status: CardStatus.Untapped };
@@ -73,9 +79,23 @@ describe('Man of Skill (wh-119)', () => {
     (pool as Record<string, unknown>)[INFO_PE_2 as string]   = peDef(INFO_PE_2, 'Test Info PE Two', 'information');
     (pool as Record<string, unknown>)[GOLDRING_PE as string] = peDef(GOLDRING_PE, 'Test Gold-ring PE', 'gold-ring');
     (pool as Record<string, unknown>)[PLAIN_PE as string]    = peDef(PLAIN_PE, 'Test Plain PE', null);
+    (pool as Record<string, unknown>)[INFO_PE_ITEM as string] = {
+      cardType: 'minion-resource-event',
+      alignment: 'minion',
+      id: INFO_PE_ITEM,
+      name: 'Test Info PE Item',
+      unique: false,
+      eventType: 'permanent',
+      marshallingPoints: 3,
+      marshallingCategory: 'misc',
+      effects: [
+        { type: 'play-target', target: 'site', filter: { playableResources: { $includes: 'information' } } },
+      ],
+      text: 'Test permanent-event requiring information, played on a character.',
+    };
   });
   afterAll(() => {
-    for (const id of [INFO_PE, INFO_PE_2, GOLDRING_PE, PLAIN_PE]) {
+    for (const id of [INFO_PE, INFO_PE_2, GOLDRING_PE, PLAIN_PE, INFO_PE_ITEM]) {
       delete (pool as Record<string, unknown>)[id as string];
     }
   });
@@ -153,6 +173,54 @@ describe('Man of Skill (wh-119)', () => {
       inPlay(PLAIN_PE, 'p1-1003'),    // → 1
     ]);
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(4);
+  });
+
+  // ─── A permanent-event played "on" a character (light enchantment) ───────
+
+  test('an Information-site permanent-event played on a character (light enchantment) also scores 2 MP', () => {
+    // When I Know Anything (td-166) is played on a sage and stored as an item
+    // on the bearer, not in cardsInPlay, and its "requires Information" clause
+    // is a play-target site filter, not a play-condition — both differences
+    // from the earlier tests must be handled for the override to apply.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [SARUMAN_FW, { defId: ARAGORN, items: [INFO_PE_ITEM] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+          cardsInPlay: [inPlay(MAN_OF_SKILL, 'p1-1000')],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [LORIEN] },
+      ],
+    });
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
+  });
+
+  test('without Man of Skill, a character-borne Information-site permanent-event is clamped to 1 MP (control)', () => {
+    // No Saruman here (unlike the test above): his own `fw-item-mp-full`
+    // ability would otherwise exempt this non-combat item from the §4 clamp
+    // and score its full printed MP, muddying this as a clamp-only control.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [{ defId: ARAGORN, items: [INFO_PE_ITEM] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [LORIEN] },
+      ],
+    });
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
   });
 
   // ─── Card's own stage-point contribution (MEWH §1) ───────────────────────
