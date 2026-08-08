@@ -19,9 +19,16 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
   LORIEN, MORIA, MINAS_TIRITH, RIVENDELL,
-  viableActions,
+  viableActions, Alignment,
 } from '../../test-helpers.js';
-import type { PlanMovementAction, CancelMovementAction } from '../../../index.js';
+import type { PlanMovementAction, CancelMovementAction, CardDefinitionId } from '../../../index.js';
+
+// A Fallen-wizard's location deck can hold both the hero and the Wizardhaven
+// printing of "The White Towers" (CoE rule 1.28) — same display name, distinct
+// definitions, both independently usable since neither is barred here.
+const THE_WHITE_TOWERS_FW = 'wh-58' as CardDefinitionId;
+const THE_WHITE_TOWERS_HERO = 'tw-430' as CardDefinitionId;
+const ETTENMOORS_MINION = 'le-373' as CardDefinitionId;
 
 describe('Rule 3.39 — Movement to Existing Site', () => {
   beforeEach(() => resetMint());
@@ -165,5 +172,47 @@ describe('Rule 3.39 — Movement to Existing Site', () => {
     // Lorien company's movement is cleared; Moria company still at Moria.
     expect(afterCancel.players[0].companies[1].destinationSite).toBeNull();
     expect(afterCancel.players[0].companies[0].currentSite?.instanceId).toBe(moriaInstanceId);
+  });
+
+  test('[FALLEN-WIZARD] a sibling-in-play site is still offered when a same-named, differently-defined site remains in the deck', () => {
+    // company-1 already sits at the Wizardhaven printing of The White Towers;
+    // company-2's site deck still holds the hero (Ruins & Lairs) printing of
+    // the same-named location. Both are legitimately usable (neither barred),
+    // so company-2 should be offered both: draw the hero copy fresh, OR share
+    // the Wizardhaven copy company-1 is already standing on.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [
+            { site: THE_WHITE_TOWERS_FW, characters: [LEGOLAS] },
+            { site: ETTENMOORS_MINION, characters: [ARAGORN] },
+          ],
+          hand: [],
+          siteDeck: [THE_WHITE_TOWERS_HERO],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const whiteTowersFwInst = state.players[0].companies[0].currentSite!.instanceId;
+    const whiteTowersHeroInst = state.players[0].siteDeck[0].instanceId;
+    const ettenmoorsCompanyId = state.players[0].companies[1].id;
+
+    const planActions = viableActions(state, PLAYER_1, 'plan-movement')
+      .filter(ea => (ea.action as PlanMovementAction).companyId === ettenmoorsCompanyId);
+
+    const toSharedWizardhaven = planActions.find(
+      ea => (ea.action as PlanMovementAction).destinationSite === whiteTowersFwInst,
+    );
+    const toFreshHeroDraw = planActions.find(
+      ea => (ea.action as PlanMovementAction).destinationSite === whiteTowersHeroInst,
+    );
+
+    expect(toSharedWizardhaven).toBeDefined();
+    expect(toFreshHeroDraw).toBeDefined();
   });
 });
