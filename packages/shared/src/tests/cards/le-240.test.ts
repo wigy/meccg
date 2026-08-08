@@ -25,6 +25,7 @@
  * | 6 | No untap lock — bearer untaps normally next turn (vs le-241)   | OK     |
  * | 7 | No MPs received while in play (granted only when stored)       | OK     |
  * | 8 | Storable at a Darkhaven during organization → 1 MP            | OK     |
+ * | 9 | Man of Skill (wh-119) in play overrides the stored MP to 2     | OK     |
  *
  * Note (contrast with le-241/le-246): That Ain't No Secret's text omits the
  * "the character may not untap" clause, so it deliberately does NOT carry the
@@ -50,6 +51,8 @@ import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js'
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const THAT_AINT_NO_SECRET = 'le-240' as CardDefinitionId;
+const MAN_OF_SKILL = 'wh-119' as CardDefinitionId; // Saruman-specific stage permanent-event
+const SARUMAN_FW = 'wh-9' as CardDefinitionId;     // Fallen-wizard avatar (Saruman)
 
 // Minion characters (no covert requirement on this card — any character works)
 const GORBAG = 'le-11' as CardDefinitionId;   // minion-character, orc
@@ -363,5 +366,42 @@ describe("That Ain't No Secret (le-240)", () => {
     );
     const state = recomputeDerived(stored);
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
+  });
+
+  // ── Rule 9: Man of Skill (wh-119) overrides the stored MP to 2 ───────────
+
+  test('stored MP is overridden to 2 while Man of Skill (wh-119) is in play', () => {
+    // Man of Skill: "Your permanent-events that require a site where
+    // Information is playable are each worth 2 marshalling points." That
+    // Ain't No Secret requires a site where Information is playable (its
+    // play-target site filter), so once stored it should score 2, not the
+    // card's own declared storable-at value of 1.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: DOL_GULDUR, characters: [SARUMAN_FW] }],
+          hand: [],
+          siteDeck: [BAG_END],
+          playDeck: makePlayDeck(),
+          cardsInPlay: [{ instanceId: mint(), definitionId: MAN_OF_SKILL, status: CardStatus.Untapped }],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: BAG_END, characters: [ASTERNAK] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    const stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: THAT_AINT_NO_SECRET },
+    );
+    const state = recomputeDerived(stored);
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
   });
 });
