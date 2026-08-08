@@ -122,11 +122,13 @@ export function renderCharacterColumn(
       }
       const isItem = char.items.some(i => i.instanceId === att.instanceId);
       const isHazard = char.hazards.some(h => h.instanceId === att.instanceId);
+      const isAlly = char.allies.some(a => a.instanceId === att.instanceId);
       // Items merge their own granted actions (e.g. Cram) with store/transfer
-      // in one click handler; hazards only ever carry granted actions.
+      // in one click handler; hazards and allies (e.g. Tom Bombadil's tap-to-
+      // cancel-hazard) only ever carry granted actions.
       const itemOrHazardClick = isItem && itemClickBuilder
         ? itemClickBuilder(att.instanceId, char.instanceId)
-        : isHazard && hazardClickBuilder
+        : (isHazard || isAlly) && hazardClickBuilder
           ? hazardClickBuilder(att.instanceId)
           : undefined;
       if (itemOrHazardClick) {
@@ -231,11 +233,12 @@ export function renderCharacterColumn(
             }
             const fIsItem = follower.items.some(i => i.instanceId === fAtt.instanceId);
             const fIsHazard = follower.hazards.some(h => h.instanceId === fAtt.instanceId);
+            const fIsAlly = follower.allies.some(a => a.instanceId === fAtt.instanceId);
             // Items merge their own granted actions with store/transfer; hazards
-            // only ever carry granted actions.
+            // and allies only ever carry granted actions.
             const fItemOrHazardClick = fIsItem && itemClickBuilder
               ? itemClickBuilder(fAtt.instanceId, follower.instanceId)
-              : fIsHazard && hazardClickBuilder
+              : (fIsHazard || fIsAlly) && hazardClickBuilder
                 ? hazardClickBuilder(fAtt.instanceId)
                 : undefined;
             if (fItemOrHazardClick) {
