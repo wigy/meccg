@@ -9,7 +9,7 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, GameAction, Condition } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
 import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
@@ -438,6 +438,17 @@ export function freeDi(
 /** Whether this character is wounded (inverted). */
 export function isWounded(character: CharacterInPlay): boolean {
   return character.status === CardStatus.Inverted;
+}
+
+/**
+ * The `strike-modifier` effect (Dodge, Risky Blow, cancel/reroll cards, etc.)
+ * declared on a card definition, or undefined if it has none.
+ */
+export function strikeModifierEffect(
+  def: CardDefinition | undefined,
+): StrikeModifierEffect | undefined {
+  const effects = (def as { effects?: readonly StrikeModifierEffect[] } | undefined)?.effects;
+  return effects?.find(e => e.type === 'strike-modifier');
 }
 
 /** Whether this character is tapped. */

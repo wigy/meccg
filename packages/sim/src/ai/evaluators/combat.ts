@@ -3,12 +3,16 @@
  *
  * Heuristic scoring for combat sub-state actions: strike assignment,
  * strike order selection, strike resolution (with tap-to-fight choice),
- * support, and body-check rolls.
+ * strike-modifier events (Dodge, Risky Blow, etc.), support, and body-check
+ * rolls.
  *
  * Strategy:
  * - Assign strikes to high-prowess characters first.
  * - Tap to fight when the unmodified need is hard (>= 8) and the character
  *   is still untapped.
+ * - Never play a Dodge-style (no-tap) strike event on a character that's
+ *   already wounded — the tap-avoidance upside is moot once wounded, and
+ *   the body penalty it applies to a resulting body check is pure downside.
  * - Support a struggling defender if there is an untapped supporter and the
  *   target's roll need is hard.
  * - Body-check rolls always proceed.
@@ -17,7 +21,7 @@
 import type { GameAction } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { findCharacterInPlay } from './common.js';
+import { findCharacterInPlay, isWounded, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
 
 export const combatEvaluator: ActionEvaluator = {
   // Combat is phase-independent — these phases are where it most often
@@ -52,6 +56,25 @@ export const combatEvaluator: ActionEvaluator = {
         if (!action.tapToFight && action.need <= 7) return 20;
         if (action.tapToFight) return 5;
         return 8;
+      }
+
+      case 'play-strike-event': {
+        // Dodge (and similar strike-modifier events) waive the tap penalty
+        // for the *current* strike but apply a body penalty if the strike
+        // still wounds the character. A character that's already wounded
+        // gets no benefit from skipping the tap penalty — CoE 3.iv rates a
+        // wounded character's temporary penalty (-2) worse than a tapped
+        // one's (-1) regardless of whether it also tapped this strike — so
+        // Dodge only adds a body penalty to the (re-)wound's body check
+        // with no offsetting upside. Score it at zero in that case so the
+        // AI doesn't burn the card for a net-negative outcome.
+        const struckId = context.view.combat?.strikeAssignments[context.view.combat.currentStrikeIndex]?.characterId;
+        const struck = struckId ? findCharacterInPlay(view, struckId) : null;
+        const card = view.self.hand.find(c => c.instanceId === action.cardInstanceId);
+        const effect = strikeModifierEffect(lookupDef(context.cardPool, card?.definitionId));
+        if (effect?.dodge && struck && isWounded(struck.character)) return 0;
+        if (effect?.cancel) return 30;
+        return Math.max(1, diceSuccessPct(action.need));
       }
 
       case 'support-strike': {

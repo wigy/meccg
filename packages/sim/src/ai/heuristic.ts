@@ -39,6 +39,7 @@ const COMBAT_ACTION_TYPES = new Set([
   'assign-strike',
   'choose-strike-order',
   'resolve-strike',
+  'play-strike-event',
   'support-strike',
   'cancel-attack',
   'cancel-by-tap',
