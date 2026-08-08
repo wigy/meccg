@@ -37,6 +37,7 @@ import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
+import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
@@ -494,6 +495,32 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
         });
         if (!hasQualifyingSite) {
           logDetail(`${cofDef.name}: ${def.name} not offered as pair — no company at a site matching its playableAt`);
+          continue;
+        }
+      }
+
+      // Same principle for resource events with their own `play-target: site`
+      // effect (The Windlord Found Me dm-164: "Playable at an untapped
+      // Isengard, Shadow-hold, or Dark-hold"). Crown of Flowers reinterprets
+      // only the paired resource's *text*, not the company's location — a
+      // company merely planning to move to a qualifying site does not
+      // satisfy the requirement until it actually arrives there.
+      const sitePlayTarget = getCardEffects(def).find(
+        (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+      );
+      if (sitePlayTarget) {
+        const requiresUntapped = hasPlayFlag(def, 'untapped-site-required');
+        const hasQualifyingSite = player.companies.some(company => {
+          if (!company.currentSite) return false;
+          if (requiresUntapped && company.currentSite.status !== CardStatus.Untapped) return false;
+          const siteDef = defById(state, company.currentSite.definitionId);
+          if (!siteDef || !isSiteCard(siteDef)) return false;
+          if (!sitePlayTarget.filter) return true;
+          const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
+          return matchesCondition(sitePlayTarget.filter, matchTarget);
+        });
+        if (!hasQualifyingSite) {
+          logDetail(`${cofDef.name}: ${def.name} not offered as pair — no company at a site matching its play-target`);
           continue;
         }
       }

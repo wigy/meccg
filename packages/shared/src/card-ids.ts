@@ -161,6 +161,10 @@ export const MARVELS_TOLD = did('td-134');
 export const WIZARDS_LAUGHTER = did('tw-362');
 /** Vanishment — spell short event, wizard only, cancels an attack. */
 export const VANISHMENT = did('tw-356');
+/** Crown of Flowers — permanent environment event, pairs with one resource from hand, treated as if Gates of Morning were in play and Doors of Night were not. */
+export const CROWN_OF_FLOWERS = did('dm-121');
+/** The Windlord Found Me — permanent event, playable at an untapped Isengard/Shadow-hold/Dark-hold, triggers an Orc attack, can fetch a Wizard when stored. */
+export const WINDLORD = did('dm-164');
 
 // ---- Hazard Events ----
 
