@@ -50,6 +50,7 @@ import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js'
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const THAT_AINT_NO_SECRET = 'le-240' as CardDefinitionId;
+const MAN_OF_SKILL = 'wh-119' as CardDefinitionId; // Saruman-specific: doubles stored Information-site permanent-events
 
 // Minion characters (no covert requirement on this card — any character works)
 const GORBAG = 'le-11' as CardDefinitionId;   // minion-character, orc
@@ -363,5 +364,42 @@ describe("That Ain't No Secret (le-240)", () => {
     );
     const state = recomputeDerived(stored);
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
+  });
+
+  // ── Regression: Man of Skill (wh-119) doubles the card once stored ───────
+  // Bug report: at the Council, a stored That Ain't No Secret did not count
+  // for 2 MP despite Man of Skill being in play. That Ain't No Secret
+  // "requires a site where Information is playable" to be played (rule 2
+  // above), so it qualifies for Man of Skill's override even after being
+  // stored at a Darkhaven — the storable-at MP path was not applying it.
+
+  test('2 marshalling points awarded when stored at a Darkhaven while Man of Skill is in play', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: DOL_GULDUR, characters: [GORBAG] }],
+          hand: [],
+          siteDeck: [BAG_END],
+          playDeck: makePlayDeck(),
+          cardsInPlay: [{ instanceId: mint(), definitionId: MAN_OF_SKILL, status: CardStatus.Untapped }],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: BAG_END, characters: [ASTERNAK] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    const stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: THAT_AINT_NO_SECRET },
+    );
+    const state = recomputeDerived(stored);
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
   });
 });

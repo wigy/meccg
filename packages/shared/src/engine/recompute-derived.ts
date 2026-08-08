@@ -1953,6 +1953,20 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       | { type: 'storable-at'; marshallingPoints?: number }
       | undefined;
     if (storableEffect) {
+      // Man of Skill (wh-119) and similar: a stored permanent-event that
+      // "requires a site where Information is playable" (e.g. That Ain't No
+      // Secret le-240, stored at a Darkhaven) scores the override value
+      // instead of its storable-at MP — this takes precedence over the
+      // storedFullMp / cross-alignment / MEWH §4 clamp logic below, same as
+      // the cardsInPlay and character-item branches above.
+      const peOverride = permanentEventMpOverride(def, peMpOverrides);
+      if (peOverride !== undefined) {
+        const cat = ('marshallingCategory' in def)
+          ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
+          : 'item' as MarshallingCategory;
+        if (peOverride !== 0) mp = { ...mp, [cat]: mp[cat] + peOverride };
+        continue;
+      }
       // Wizard's Trove (wh-85) "Alternatively" mode: a `storage-site-transfer`
       // event in play placed "with the stored card" (`attachedToStored`) and
       // declaring `fullMarshallingPoints` makes the stored card "worth full
