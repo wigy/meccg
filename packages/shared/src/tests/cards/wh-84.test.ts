@@ -54,6 +54,11 @@ import { Phase, Alignment } from '../../index.js';
 
 /** Wizard's Myrmidon — the card under test */
 const WIZARDS_MYRMIDON = 'wh-84' as CardDefinitionId;
+/** Gandalf's Friend — a sibling control-restriction card (cost 1), used to
+ *  test CRF-22's "use the lower number" ruling for stacked restrictions. */
+const GANDALFS_FRIEND = 'wh-98' as CardDefinitionId;
+/** Gandalf — the Fallen-wizard avatar Gandalf's Friend is specific to. */
+const GANDALF = 'wh-4' as CardDefinitionId;
 /** Saruman — a Fallen-wizard avatar (race fallen-wizard, mind null) */
 const SARUMAN = 'wh-9' as CardDefinitionId;
 /** Sly Southerner — a non-Fallen-wizard character (race orc, mind 2) */
@@ -195,6 +200,36 @@ describe('Wizard\'s Myrmidon (wh-84)', () => {
       .map(a => a.controlledBy);
 
     expect(controllers).toContain(mouthId);
+  });
+
+  // ── CRF-22: stacked control-restriction cards use the lower cost ───────────
+
+  test('stacked with Gandalf\'s Friend (lower cost), the lower control cost governs (CRF-22)', () => {
+    // CRF-22 ruling on Wizard's Myrmidon: "Can be played with another card,
+    // like Squire of the Hunt, that reduces the influence required to control
+    // the character. Use the lower number to control the character." Attach
+    // Gandalf's Friend (cost 1) first, then Wizard's Myrmidon (cost 3) — the
+    // governing cost must stay 1, not jump to 3.
+    const base = fwOrgState({
+      characters: [GANDALF, SLY_SOUTHERNER],
+      hand: [GANDALFS_FRIEND, WIZARDS_MYRMIDON],
+    });
+    const orcId = findCharInstanceId(base, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    const friendCardId = findHandCardId(base, RESOURCE_PLAYER, GANDALFS_FRIEND);
+
+    const withFriend = playPermanentEventAndResolve(base, PLAYER_1, friendCardId, orcId);
+    const giAfterFriend = withFriend.players[0].generalInfluenceUsed;
+
+    const myrmidonCardId = findHandCardId(withFriend, RESOURCE_PLAYER, WIZARDS_MYRMIDON);
+    const withBoth = playPermanentEventAndResolve(withFriend, PLAYER_1, myrmidonCardId, orcId);
+
+    // Both control-restriction cards are now attached; the lower cost (1,
+    // from Gandalf's Friend) must still govern — GI used does not change.
+    expect(withBoth.players[0].generalInfluenceUsed).toBe(giAfterFriend);
+
+    const bearer = getCharacter(withBoth, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    expect(bearer.items.some(i => i.definitionId === GANDALFS_FRIEND)).toBe(true);
+    expect(bearer.items.some(i => i.definitionId === WIZARDS_MYRMIDON)).toBe(true);
   });
 
   // ── Rule 6: contributes 1 stage point while attached to a character ─────────
