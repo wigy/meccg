@@ -165,6 +165,8 @@ export const VANISHMENT = did('tw-356');
 export const CROWN_OF_FLOWERS = did('dm-121');
 /** The Windlord Found Me — permanent event, playable at an untapped Isengard/Shadow-hold/Dark-hold, triggers an Orc attack, can fetch a Wizard when stored. */
 export const WINDLORD = did('dm-164');
+/** The Great Hunt — Alatar-specific stage permanent event; opponent discards face-up thereafter (same mechanic as Pallando). */
+export const THE_GREAT_HUNT = did('wh-91');
 
 // ---- Hazard Events ----
 
