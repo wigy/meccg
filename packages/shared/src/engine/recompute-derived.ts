@@ -1948,6 +1948,19 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       continue;
     }
 
+    // Man of Skill (wh-119) and similar: a permanent-event stored via a
+    // `storable-at` effect (e.g. That Ain't No Secret le-240, moved to the
+    // kill/MP pile once stored at a Haven) still "requires a site where X is
+    // playable" — apply the same override here so storage doesn't silently
+    // drop back to the card's declared storable-at MP / the cross-alignment
+    // and MEWH §4 clamps below.
+    const peOverride = permanentEventMpOverride(def, peMpOverrides);
+    if (peOverride !== undefined) {
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      if (peOverride !== 0) mp = { ...mp, [cat]: mp[cat] + peOverride };
+      continue;
+    }
+
     // Stored items: storable-at effect grants MP (overriding base MP when set).
     const storableEffect = effects?.find(e => e.type === 'storable-at') as
       | { type: 'storable-at'; marshallingPoints?: number }
