@@ -134,9 +134,9 @@ function handleEndOfTurnDiscard(
   }
 
   if (action.type === 'activate-granted-action') {
-    // Saruman's spell-fetch is the only grant-action offered in the
-    // end-of-turn discard step (see `legal-actions/end-of-turn.ts`).
-    // Delegate to the shared apply dispatcher.
+    // End-of-turn-phase grant-actions (e.g. Saruman's/Huntsman's Garb's
+    // spell/card fetch) offered in the discard step (see
+    // `legal-actions/end-of-turn.ts`). Delegate to the shared apply dispatcher.
     return handleGrantActionApply(state, action);
   }
 
@@ -451,6 +451,13 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
   if (action.type === 'store-item') {
     // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
     return handleStoreItem(state, action);
+  }
+
+  if (action.type === 'activate-granted-action') {
+    // CRF 22: end-of-turn-phase grant-actions (e.g. Huntsman's Garb wh-92)
+    // may be activated after hand size has been reconciled — i.e. during
+    // signal-end too, not just the discard step (see `legal-actions/end-of-turn.ts`).
+    return handleGrantActionApply(state, action);
   }
 
   // Rule 2.1.1 / CoE 2.VI: resource short-events may be played during any

@@ -29,8 +29,11 @@
  *  - Rules 4–6: a `grant-action` `huntsmans-garb-fetch`, `cost: { tap: "self" }`,
  *    `endOfTurnOnly: true`, whose `apply` is a `move` (`select: target`, `from:
  *    discard`, `to: hand`) filtered to `name $in [Risky Blow, True Fána, The
- *    Hunt]`. It is emitted only by the end-of-turn discard-pile fetch scanner
- *    (`legal-actions/end-of-turn.ts`), one activation per matching discard card.
+ *    Hunt]`. It is emitted by the end-of-turn discard-pile fetch scanner
+ *    (`legal-actions/end-of-turn.ts`) during both the discard step and the
+ *    signal-end step (CRF 22: "Cards may be played during the End-of-Turn
+ *    phase after hand size has been reconciled") — but not reset-hand, one
+ *    activation per matching discard card.
  *    `tap: self` on an item-borne grant taps the *item* (via `applyCost`
  *    `tapAttachment`), so eligibility keys on the Garb's own status — not the
  *    bearer's — meaning the fetch works even while Alatar is tapped.
@@ -255,6 +258,30 @@ describe("Huntsman's Garb (wh-92)", () => {
   });
 
   // ── Rule 4 timing: end-of-turn only ────────────────────────────────────────
+
+  // CRF 22 (Turn Sequence Rulings, End-of-Turn Phase): "Cards may be played
+  // during the End-of-Turn phase after hand size has been reconciled" — the
+  // fetch must also be offered during signal-end (step 3, after reset-hand
+  // completes), not just discard (step 1).
+  test('the fetch is also offered during signal-end, after hand size has been reconciled (CRF 22)', () => {
+    const discard = alatarEotWithGarb();
+    const signalEnd = {
+      ...discard,
+      phaseState: { phase: Phase.EndOfTurn, step: 'signal-end', discardDone: [true, true], resetHandDone: [true, true] },
+    } as GameState;
+    const alatarId = findCharInstanceId(signalEnd, RESOURCE_PLAYER, ALATAR);
+    expect(grantedActionsFor(signalEnd, alatarId, FETCH, PLAYER_1).length).toBe(3);
+  });
+
+  test('the fetch is not offered during reset-hand (a locked mandatory draw/discard step)', () => {
+    const discard = alatarEotWithGarb();
+    const resetHand = {
+      ...discard,
+      phaseState: { phase: Phase.EndOfTurn, step: 'reset-hand', discardDone: [true, true], resetHandDone: [false, false] },
+    } as GameState;
+    const alatarId = findCharInstanceId(resetHand, RESOURCE_PLAYER, ALATAR);
+    expect(grantedActionsFor(resetHand, alatarId, FETCH, PLAYER_1).length).toBe(0);
+  });
 
   test('the fetch is not offered outside the end-of-turn phase (organization)', () => {
     const eot = alatarEotWithGarb();

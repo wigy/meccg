@@ -45,6 +45,12 @@ import { grantedAction } from './granted-action-emit.js';
  * `reset-hand`, which is a mandatory draw/discard step enforced
  * sequentially by the reducer.
  *
+ * CRF 22 (Turn Sequence Rulings, End-of-Turn Phase): "Cards may be played
+ * during the End-of-Turn phase after hand size has been reconciled" — so
+ * end-of-turn-phase grant-actions (e.g. Huntsman's Garb wh-92) are likewise
+ * offered to the active player during both `discard` and `signal-end`, via
+ * {@link endOfTurnGrantActions}.
+ *
  * CRF 22 (A Chance Meeting tw-188): "May be played on your turn during any
  * phase the company is at a site" — this includes end-of-turn, so
  * character-recruitment events are also offered here via
@@ -218,6 +224,16 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
   }
 
   const actions: GameAction[] = [];
+
+  // CRF 22 (Turn Sequence Rulings, End-of-Turn Phase): "Cards may be played
+  // during the End-of-Turn phase after hand size has been reconciled" — the
+  // reset-hand step (2.VI.ii) has completed by the time signal-end begins, so
+  // end-of-turn-phase grant-actions (e.g. Huntsman's Garb wh-92) must also be
+  // offered here, not just during the discard step.
+  const grantActions = endOfTurnGrantActions(state, playerId);
+  for (const ea of grantActions) {
+    actions.push(ea.action);
+  }
 
   // Offer call-free-council if eligible (Short game rules).
   // Per CoE rule 10.41, Ringwraith and Balrog players cannot freely call —
@@ -396,6 +412,11 @@ function isDiscardPileFetch(apply: TriggeredAction): boolean {
  * Discard-to-deck fetches generate a single activation per source
  * whenever at least one card matches (the target is chosen afterward via
  * a `fetch-from-pile` pending resolution).
+ *
+ * Called from both the discard step and the signal-end step (CRF 22:
+ * "Cards may be played during the End-of-Turn phase after hand size has
+ * been reconciled") — but not reset-hand, which is a locked mandatory
+ * draw/discard sequence with no side actions.
  */
 function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
