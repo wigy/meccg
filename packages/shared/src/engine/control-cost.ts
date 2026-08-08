@@ -26,31 +26,53 @@ import { resolveDef } from './effects/resolver.js';
 import { isAvatarCharacter } from '../types/cards.js';
 
 /**
- * The control-restriction carried by a character, gathered from the cards
- * attached to it (its `items`, which is also where a resource permanent-event
- * played "on a character" is stored). Returns `undefined` when the character
- * bears no such effect. If several restrictions are attached the first found
- * wins — in practice these cards are unique-per-character and do not stack.
+ * All control-restriction effects carried by a character, gathered from the
+ * cards attached to it (its `items`, which is also where a resource
+ * permanent-event played "on a character" is stored). Empty when the
+ * character bears none. More than one may be attached at once — e.g. Wizard's
+ * Myrmidon (wh-84) stacked with Squire of the Hunt (wh-95) or Gandalf's
+ * Friend (wh-98) — per the CRF-22 ruling on Wizard's Myrmidon: "Can be played
+ * with another card, like Squire of the Hunt, that reduces the influence
+ * required to control the character. Use the lower number to control the
+ * character." Callers must compare all of them, not just the first attached.
  */
-export function getControlRestriction(
+function getControlRestrictions(
   state: GameState,
   char: CharacterInPlay,
-): ControlRestrictionEffect | undefined {
+): ControlRestrictionEffect[] {
+  const restrictions: ControlRestrictionEffect[] = [];
   for (const item of char.items) {
     const def = resolveDef(state, item.instanceId);
     const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
     if (!effects) continue;
     for (const e of effects) {
-      if (e.type === 'control-restriction') return e;
+      if (e.type === 'control-restriction') restrictions.push(e);
     }
   }
-  return undefined;
+  return restrictions;
 }
 
 /**
- * Effective influence-to-control cost for a character. Returns a
- * `control-restriction` `cost` override when one is attached; otherwise
- * `baseMind` (the caller's already-resolved value, normally
+ * The control-restriction with the lowest `cost` among those attached to
+ * `char` — the one that governs both the control cost and (via its
+ * `sources`) who may hold the character under direct influence, per the
+ * CRF-22 "use the lower number" ruling. `undefined` when none are attached.
+ */
+function governingControlRestriction(
+  state: GameState,
+  char: CharacterInPlay,
+): ControlRestrictionEffect | undefined {
+  const restrictions = getControlRestrictions(state, char);
+  if (restrictions.length === 0) return undefined;
+  return restrictions.reduce((lowest, r) =>
+    (r.cost ?? Infinity) < (lowest.cost ?? Infinity) ? r : lowest);
+}
+
+/**
+ * Effective influence-to-control cost for a character. Returns the lowest
+ * `control-restriction` `cost` among any attached (CRF-22: "use the lower
+ * number to control the character" when several such cards are stacked);
+ * otherwise `baseMind` (the caller's already-resolved value, normally
  * `effectiveStats.mind ?? charDef.mind`). Avatars have no control cost; pass
  * `null` as `baseMind` for them and `null` is returned.
  */
@@ -60,7 +82,7 @@ export function controlCostOf(
   baseMind: number | null,
 ): number | null {
   if (baseMind === null) return null;
-  const restriction = getControlRestriction(state, char);
+  const restriction = governingControlRestriction(state, char);
   return restriction?.cost ?? baseMind;
 }
 
@@ -71,7 +93,8 @@ export function controlCostOf(
  * direct-influence case. With a restriction listing `'fallen-wizard'`, only the
  * player's Fallen-wizard avatar (a mind-null wizard character of a Fallen-wizard
  * player) may control the character under direct influence. With no restriction,
- * any controller is allowed.
+ * any controller is allowed. When several restrictions are attached, the
+ * lowest-cost one governs (see {@link governingControlRestriction}).
  */
 export function directInfluenceControlAllowed(
   state: GameState,
@@ -79,7 +102,7 @@ export function directInfluenceControlAllowed(
   controller: CharacterInPlay,
   controllerAlignment: string,
 ): boolean {
-  const restriction = getControlRestriction(state, char);
+  const restriction = governingControlRestriction(state, char);
   if (!restriction?.sources) return true;
   if (restriction.sources.includes('fallen-wizard')) {
     const ctrlDef = resolveDef(state, controller.instanceId);
