@@ -7,7 +7,7 @@
 
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
-import { hasPlayFlag } from '../effects/play-flags.js';
+import { hasNoDirectInfluenceRestriction, hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, printedMind } from '../types/cards.js';
@@ -926,6 +926,49 @@ function advanceToOrganization(state: GameState): ReducerResult {
         phaseState: {
           ...requirePhaseState(advanced, Phase.Organization),
           influenceRevertedCharacterIds: pending.map(([cid]) => cid as CardInstanceId),
+        },
+      };
+    }
+  }
+
+  // Release followers whose current direct-influence controller cannot legally
+  // hold them because of a `no-direct-influence` restriction attached outside
+  // an organization phase (e.g. Rebel-talk le-132). Per CRF-22, such a follower
+  // "does not need to be controlled by general influence until [its player's]
+  // next organization phase" — chain-reducer.ts therefore leaves `controlledBy`
+  // untouched when the restriction is attached, so the company structure stays
+  // exactly as it was until now. This is that next organization phase: the
+  // follower is moved to general influence (CoE 2.II.2.2.3's "moved back under
+  // the control of ... general influence"), counted immediately (no further
+  // deferral — this organization phase IS the resolution), and recorded so it
+  // is discarded ahead of the player's own choices if the phase ends without a
+  // legal reassignment (CoE 3.47 tier 2).
+  {
+    const ap = advanced.players[activeIndex];
+    const updatedChars = { ...ap.characters };
+    const restrictedReleaseIds: CardInstanceId[] = [];
+    for (const controller of Object.values(ap.characters)) {
+      if (controller.followers.length === 0) continue;
+      const stillFollowers = controller.followers.filter(followerId => {
+        const follower = ap.characters[followerId];
+        if (!follower || !hasNoDirectInfluenceRestriction(follower.hazards, advanced.cardPool)) return true;
+        logDetail(`Organization phase begins: ${followerId as string} can no longer be controlled by direct influence (restriction on attached hazard) — released from ${controller.instanceId as string} to general influence (CoE 2.II.2.2.3 / CRF-22)`);
+        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+        restrictedReleaseIds.push(followerId);
+        return false;
+      });
+      if (stillFollowers.length !== controller.followers.length) {
+        updatedChars[controller.instanceId] = { ...controller, followers: stillFollowers };
+      }
+    }
+    if (restrictedReleaseIds.length > 0) {
+      advanced = updatePlayer(advanced, activeIndex, p => ({ ...p, characters: updatedChars }));
+      const priorIds = requirePhaseState(advanced, Phase.Organization).influenceRevertedCharacterIds ?? [];
+      advanced = {
+        ...advanced,
+        phaseState: {
+          ...requirePhaseState(advanced, Phase.Organization),
+          influenceRevertedCharacterIds: [...priorIds, ...restrictedReleaseIds],
         },
       };
     }

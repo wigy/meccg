@@ -225,15 +225,22 @@ describe('Rebel-talk (le-132)', () => {
     expect(legolasToAnyDI).toHaveLength(0);
   });
 
-  test('character under DI is forced to GI when Rebel-talk is attached', () => {
+  // ── Regression: company structure change deferred to org phase (CRF-22) ──
+
+  test('character under DI stays under its controller when Rebel-talk is attached outside an organization phase', () => {
+    // Bug: playing Rebel-talk on a follower during the opponent's hazard phase
+    // immediately moved the follower out from under its controller (GI, no
+    // longer a follower). Per CRF-22, "A character removed from the control of
+    // direct influence outside the organization phase does not need to be
+    // controlled by general influence until that player's next organization
+    // phase" — the company structure must stay exactly as it was until then.
     const base = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          // Faramir (mind 5) as follower of Aragorn (DI 3... hmm)
-          // Actually let's use Aragorn + Legolas where Legolas is follower
           companies: [{
             site: RIVENDELL,
             characters: [
@@ -260,6 +267,7 @@ describe('Rebel-talk (le-132)', () => {
     const aragornId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
     expect(mhState.players[0].characters[faramirId].controlledBy).toBe(aragornId);
     expect(mhState.players[0].characters[aragornId].followers).toContain(faramirId);
+    const giBefore = mhState.players[0].generalInfluenceUsed;
 
     // Play Rebel-talk on Faramir
     const playActions = viableActions(mhState, PLAYER_2, 'play-hazard');
@@ -278,19 +286,22 @@ describe('Rebel-talk (le-132)', () => {
       current = r.state;
     }
 
-    // After Rebel-talk resolves, Faramir should be under GI
-    expect(current.players[0].characters[faramirId].controlledBy).toBe('general');
-    // Aragorn should no longer list Faramir as a follower
-    expect(current.players[0].characters[aragornId].followers).not.toContain(faramirId);
+    // After Rebel-talk resolves, Faramir must still be Aragorn's follower —
+    // the restriction is attached, but the company structure is untouched.
+    expect(current.players[0].characters[faramirId].controlledBy).toBe(aragornId);
+    expect(current.players[0].characters[aragornId].followers).toContain(faramirId);
+    expect(current.players[0].characters[faramirId].influenceUnsubtracted).toBeUndefined();
+    // Faramir's mind still isn't charged against general influence — he's
+    // still a follower, exactly as before Rebel-talk was played.
+    expect(current.players[0].generalInfluenceUsed).toBe(giBefore);
   });
 
-  // ── Regression: GI subtraction deferred to next org phase (CoE 2.II.2.2.3) ──
-
-  test('does not immediately subtract the bearer mind from general influence when played outside an org phase', () => {
-    // Bug: a follower stripped of direct-influence control by Rebel-talk during
-    // the opponent's hazard phase had its mind subtracted from general influence
-    // immediately. Per CoE 2.II.2.2.3 the subtraction must be deferred to the
-    // controlling player's next organization phase.
+  test('the restricted follower is released to general influence at the start of the controller\'s next organization phase', () => {
+    // Continuing the scenario above: once Faramir's player reaches their next
+    // organization phase, Rebel-talk still forbids direct-influence control,
+    // so he must now be moved to general influence (CoE 2.II.2.2.3) — counted
+    // immediately, since this organization phase is the resolution the rule
+    // calls for, not a further deferral.
     const base = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -319,9 +330,9 @@ describe('Rebel-talk (le-132)', () => {
 
     const mhState = { ...base, phaseState: makeMHState() };
     const faramirId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
-    const giBefore = mhState.players[0].generalInfluenceUsed;
+    const aragornId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
+    const giWithFaramirAsFollower = mhState.players[0].generalInfluenceUsed;
 
-    // Play Rebel-talk on Faramir and resolve the chain.
     const playActions = viableActions(mhState, PLAYER_2, 'play-hazard');
     const targetFaramir = playActions.find(
       ea => (ea.action as PlayHazardAction).targetCharacterId === faramirId,
@@ -336,12 +347,30 @@ describe('Rebel-talk (le-132)', () => {
       if (r.error) break;
       current = r.state;
     }
+    expect(current.players[0].characters[faramirId].controlledBy).toBe(aragornId);
 
-    // Faramir is now under general influence but flagged as not-yet-subtracted.
-    expect(current.players[0].characters[faramirId].controlledBy).toBe('general');
-    expect(current.players[0].characters[faramirId].influenceUnsubtracted).toBe(true);
-    // General influence used must NOT have increased by Faramir's mind.
-    expect(current.players[0].generalInfluenceUsed).toBe(giBefore);
+    // Advance player 1 to their untap phase, then untap into organization.
+    const untapState = {
+      ...current,
+      activePlayer: PLAYER_1,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: true,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: true,
+      } as typeof current.phaseState,
+    };
+    const inOrg = dispatch(untapState, { type: 'untap', player: PLAYER_1 });
+
+    expect(inOrg.phaseState.phase).toBe(Phase.Organization);
+    // Faramir is now released to general influence, counted immediately.
+    expect(inOrg.players[0].characters[faramirId].controlledBy).toBe('general');
+    expect(inOrg.players[0].characters[faramirId].influenceUnsubtracted).toBeUndefined();
+    expect(inOrg.players[0].characters[aragornId].followers).not.toContain(faramirId);
+    expect(inOrg.players[0].generalInfluenceUsed).toBeGreaterThan(giWithFaramirAsFollower);
   });
 
   test('subtracts the deferred mind once the controlling player reaches their next org phase', () => {
