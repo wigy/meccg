@@ -15,7 +15,7 @@
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
-      "Technology"
+      "technology"
     ],
     "effects": [
       {
@@ -143,7 +143,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/LiquidFire.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": ["Technology"],
+    "keywords": ["technology"],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
