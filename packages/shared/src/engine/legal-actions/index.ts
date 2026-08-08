@@ -169,7 +169,11 @@ function reshuffleFromHandActions(state: GameState, playerId: PlayerId): Evaluat
 
 /**
  * Collects all card instance IDs referenced by any evaluated action so
- * that we can detect hand cards with no coverage at all.
+ * that we can detect hand cards with no coverage at all. Includes
+ * `viaEventInstanceId` (e.g. A Chance Meeting tw-188, We Have Come to Kill
+ * le-252) so a recruit-enabling event card is not treated as uncovered when
+ * its only actions are the `play-character` recruits it offers — those carry
+ * the recruit's `characterInstanceId`, not the event's own instance ID.
  */
 function referencedInstanceIds(evaluated: EvaluatedAction[]): Set<string> {
   const ids = new Set<string>();
@@ -177,6 +181,7 @@ function referencedInstanceIds(evaluated: EvaluatedAction[]): Set<string> {
     const a = ea.action as unknown as Record<string, unknown>;
     if (typeof a['cardInstanceId'] === 'string') ids.add(a['cardInstanceId']);
     if (typeof a['characterInstanceId'] === 'string') ids.add(a['characterInstanceId']);
+    if (typeof a['viaEventInstanceId'] === 'string') ids.add(a['viaEventInstanceId']);
   }
   return ids;
 }
