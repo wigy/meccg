@@ -365,13 +365,22 @@ export interface CharacterInPlay {
   readonly controlledBy: 'general' | CardInstanceId;
   /**
    * Set when this character was removed from direct-influence control *outside*
-   * its player's organization phase (e.g. by Rebel-talk's `no-direct-influence`
-   * flag stripping its controller mid-turn). Per CoE 2.II.2.2.3, the mind of such
-   * a character is **not** immediately subtracted from its player's general
+   * its player's organization phase (e.g. its controlling character was
+   * eliminated, or an in-play effect dropped the controller's direct influence
+   * below the character's mind cost). Per CoE 2.II.2.2.3, the mind of such a
+   * character is **not** immediately subtracted from its player's general
    * influence; the subtraction is deferred until the player's next organization
    * phase, at which point the flag is cleared. While set, the character is
    * recorded as `controlledBy: 'general'` but is excluded from the
    * general-influence tally in {@link recomputeDerived}.
+   *
+   * A `no-direct-influence` restriction attached mid-turn (e.g. Rebel-talk
+   * le-132) does *not* use this flag: per CRF-22, such a follower "does not
+   * need to be controlled by general influence until [its] next organization
+   * phase", so `controlledBy` is left untouched until that phase begins, at
+   * which point the character is moved straight to `'general'` with its mind
+   * counted immediately (see the no-direct-influence sweep in
+   * `reducer-untap.ts`).
    */
   readonly influenceUnsubtracted?: boolean;
   /**

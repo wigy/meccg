@@ -2487,42 +2487,23 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   const newPlayers: [PlayerState, PlayerState] = [working.players[0], working.players[1]];
 
-  // no-direct-influence flag — revert DI to GI on attach.
-  // Per CoE 2.II.2.2.3, a follower removed from direct-influence control outside
-  // an organization phase does NOT have its mind immediately subtracted from its
-  // player's general influence — that is deferred to the player's next
-  // organization phase. Rebel-talk is a hazard, so it always resolves during the
-  // opponent's movement/hazard phase (never the bearer's org phase); mark the
-  // character with `influenceUnsubtracted` so {@link recomputeDerived} skips its
-  // mind until the flag is cleared at the start of the next organization phase.
+  // no-direct-influence flag (e.g. Rebel-talk le-132) — per CRF-22, "A character
+  // removed from the control of direct influence outside the organization phase
+  // does not need to be controlled by general influence until that player's next
+  // organization phase." So attaching the restriction does NOT itself move the
+  // bearer off its current controller's followers list — the company structure
+  // stays exactly as it was. The release to general influence (and the CoE
+  // 2.II.2.2.3 "moved back under control ... or discarded" resolution) happens
+  // at the start of the bearer's owning player's next organization phase; see
+  // the no-direct-influence sweep in reducer-untap.ts.
   if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
-    const deferSubtraction = state.phaseState.phase !== Phase.Organization;
     for (let pi = 0; pi < 2; pi++) {
       const char = newPlayers[pi].characters[targetCharId];
       if (char && char.controlledBy !== 'general') {
         logDetail(
-          `"${def?.name ?? '?'}" forces ${targetCharId as string} from DI to GI`
-          + (deferSubtraction ? ' (mind subtraction deferred to next organization phase — CoE 2.II.2.2.3)' : ''),
+          `"${def?.name ?? '?'}" restricts ${targetCharId as string} from direct-influence control`
+          + ' (stays under its current controller until its player\'s next organization phase — CRF-22)',
         );
-        const oldControllerId = char.controlledBy;
-        const oldCtrl = newPlayers[pi].characters[oldControllerId];
-        if (oldCtrl) {
-          newPlayers[pi] = {
-            ...newPlayers[pi],
-            characters: {
-              ...newPlayers[pi].characters,
-              [targetCharId as string]: {
-                ...char,
-                controlledBy: 'general',
-                ...(deferSubtraction ? { influenceUnsubtracted: true } : {}),
-              },
-              [oldControllerId as string]: {
-                ...oldCtrl,
-                followers: oldCtrl.followers.filter(id => id !== targetCharId),
-              },
-            },
-          };
-        }
         break;
       }
     }
