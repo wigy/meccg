@@ -155,6 +155,7 @@ function combatWithHavenJumpOffer(
     forceStrike?: boolean;
     postTap?: boolean;
     postCorruption?: boolean;
+    attackerChoosesDefenders?: boolean;
   } = {},
 ): GameState {
   const p1 = state.players[RESOURCE_PLAYER];
@@ -206,7 +207,7 @@ function combatWithHavenJumpOffer(
         ],
       },
     ],
-    attackerChoosesDefenders: undefined,
+    attackerChoosesDefenders: opts.attackerChoosesDefenders,
   };
 
   return {
@@ -373,6 +374,35 @@ describe('Alatar (tw-117)', () => {
     // Defender cannot pass until the forced target has received a strike.
     const passes = viableActions(after, PLAYER_1, 'pass');
     expect(passes).toHaveLength(0);
+  });
+
+  test('forced strike targets Alatar even when the attacker chooses defenders (Assassin tw-8)', () => {
+    // Regression from a live game (Bug Report: Funny, msivgv4l-ys2k6b,
+    // stateSeq 640-650): Assassin (tw-8) sets
+    // combat-attacker-chooses-defenders, so the attacker — not the defender —
+    // assigns strikes. The attacker-assignment branch never consulted
+    // combat.forcedStrikeTargets, so p1 was able to assign the strike to
+    // Gildor instead of the haven-joining Alatar, even though Alatar must
+    // face the strike "in all cases". Gildor then failed the body check and
+    // died to a strike that should have hit Alatar.
+    const state = combatWithHavenJumpOffer(baseTwoCompanyState(), { attackerChoosesDefenders: true });
+    const havenComp = state.players[RESOURCE_PLAYER].companies[1];
+    const alatarId = havenComp.characters[0];
+    let after = dispatch(state, {
+      type: 'haven-join-attack',
+      player: PLAYER_1,
+      characterId: alatarId,
+    });
+    // Pass cancel-window: with attackerChoosesDefenders, control goes straight
+    // to the attacker's assignment phase.
+    after = dispatch(after, { type: 'pass', player: PLAYER_1 } as PassAction);
+    expect(after.combat!.assignmentPhase).toBe('attacker');
+    expect(after.combat!.forcedStrikeTargets).toEqual([alatarId]);
+
+    const attackerActions = viableActions(after, PLAYER_2, 'assign-strike');
+    // Only Alatar may receive a strike (Legolas is in the attacked company but not forced).
+    const targets = attackerActions.map(a => (a.action as AssignStrikeAction).characterId);
+    expect(targets).toEqual([alatarId]);
   });
 
   test('a forced Alatar stays assignable when the attack excludes avatars', () => {
