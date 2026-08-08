@@ -131,7 +131,8 @@ export function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, in
   const s = char.effectiveStats;
   const skills = c.skills.join('/');
   const label = formatInstanceName(char.instanceId, defOf, instOf);
-  const mindLabel = c.mind !== null ? `${c.mind} Mind, ` : '';
+  const effectiveMind = s.mind ?? c.mind;
+  const mindLabel = effectiveMind !== null ? `${effectiveMind} Mind, ` : '';
   const cpLabel = s.corruptionPoints > 0 ? `, ${s.corruptionPoints} CP` : '';
   return `${statusSymbol(char.status)} ${label} [${s.prowess}/${s.body}] ${skills} (${mindLabel}${s.directInfluence} DI, ${c.marshallingPoints} MP${cpLabel})`;
 }
