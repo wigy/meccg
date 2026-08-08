@@ -313,7 +313,7 @@
 | dm-159 | Smoke Rings | — | 12 | ☑ |
 | dm-160 | Token of Goodwill | — | 11 | ☑ |
 | dm-163 | When You Know More | — | 10 | ☑ |
-| dm-164 | The Windlord Found Me | — | 19 | ☑ |
+| dm-164 | The Windlord Found Me | — | 21 | ☑ |
 | dm-165 | Withdrawn to Mordor | — | 10 | ☑ |
 | dm-166 | Aiglos | — | 22 | ☑ |
 | dm-167 | Dragon-helm | — | 14 | ☑ |
@@ -485,7 +485,7 @@
 | le-237 | Swarm of Bats | — | 13 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 12 | ☑ |
-| le-240 | That Ain’t No Secret | — | 14 | ☑ |
+| le-240 | That Ain’t No Secret | — | 15 | ☑ |
 | le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
 | le-244 | Threats | — | 9 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
@@ -851,7 +851,7 @@
 | tw-185 | Vôteli | — | 9 | ☑ |
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
-| tw-188 | A Chance Meeting | — | 12 | ☑ |
+| tw-188 | A Chance Meeting | — | 13 | ☑ |
 | tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 10 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
@@ -1095,15 +1095,15 @@
 | wh-75 | Hidden Haven | — | 26 | ☑ |
 | wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
-| wh-82 | Thrall of the Voice | — | 15 | ☑ |
-| wh-84 | Wizard’s Myrmidon | — | 7 | ☑ |
+| wh-82 | Thrall of the Voice | — | 16 | ☑ |
+| wh-84 | Wizard’s Myrmidon | — | 8 | ☑ |
 | wh-85 | Wizard’s Trove | — | 12 | ☑ |
 | wh-86 | Greater Half-orcs | — | 11 | ☑ |
 | wh-87 | Half-orcs | — | 10 | ☑ |
 | wh-89 | Keys to the White Towers | — | 10 | ☑ |
 | wh-90 | Bow of Alatar | — | 11 | ☑ |
 | wh-91 | The Great Hunt | — | 12 | ☑ |
-| wh-92 | Huntsman’s Garb | — | 9 | ☑ |
+| wh-92 | Huntsman’s Garb | — | 11 | ☑ |
 | wh-93 | Join the Hunt | — | 14 | ☑ |
 | wh-94 | Oromë’s Warders | — | 20 | ☑ |
 | wh-95 | Squire of the Hunt | — | 10 | ☑ |
@@ -1123,7 +1123,7 @@
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
-| wh-120 | Saruman’s Machinery | — | 21 | ☑ |
+| wh-120 | Saruman’s Machinery | — | 22 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
 
 ---

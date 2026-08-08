@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.90.0 — 2026-08-08
+
+Technology items, stored marshalling points, and clickable allies
+
+### Cards
+
+- Mechanical Bow (wh-53) is recognized as a technology item — the `technology` keyword is now spelled lowercase everywhere, matching the rest of the keyword vocabulary
+- Man of Skill (wh-119) applies its marshalling-point override to permanent-events that have already been stored, not just those still in play
+- Huntsman's Garb (wh-92) and similar fetch effects are offered during the end-of-turn signal-end, not skipped
+- Crown of Flowers (dm-164) no longer offers site-restricted resource events when no company sits at a qualifying site
+- Rebel-talk (le-132) defers its company restructuring to the owner's organization phase instead of applying it immediately
+- Control-restriction costs pick the lowest-cost attached card instead of whichever was attached first (wh-84)
+
+### Web Client
+
+- In-play allies (e.g. Tom Bombadil) are clickable for the actions they grant
+- The Lure of Nature corruption check no longer leaves the all-companies overview stuck
+- Character lines show effective mind rather than printed mind
+
+### AI
+
+- The heuristic AI no longer plays Dodge on an already-wounded character
+
 ## 0.89.0 — 2026-08-08
 
 Alatar's haven-join hardened and Earth-eater certified
