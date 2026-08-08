@@ -37,6 +37,7 @@ import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
+import { strikeResultDisplay } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, inPlayCardDefs } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -820,7 +821,7 @@ function renderCombatCharacterColumn(
 
   if (strike) {
     if (strike.assignment.resolved) {
-      const result = strike.assignment.result;
+      const result = strikeResultDisplay(strike.assignment.result);
       if (result === 'success') img.classList.add('combat-card--strike-success');
       else if (result === 'wounded') img.classList.add('combat-card--strike-wounded');
       else if (result === 'eliminated') img.classList.add('combat-card--strike-eliminated');
@@ -856,15 +857,16 @@ function renderCombatCharacterColumn(
 
   // Strike result overlay icon
   if (strike?.assignment.resolved && strike.assignment.result) {
+    const displayResult = strikeResultDisplay(strike.assignment.result);
     const overlay = document.createElement('div');
     overlay.className = 'combat-result-overlay';
-    if (strike.assignment.result === 'success') {
+    if (displayResult === 'success') {
       overlay.textContent = '\u2714'; // checkmark
       overlay.classList.add('combat-result-overlay--success');
-    } else if (strike.assignment.result === 'wounded') {
+    } else if (displayResult === 'wounded') {
       overlay.textContent = '\u2620'; // skull and crossbones — wounded
       overlay.classList.add('combat-result-overlay--wounded');
-    } else {
+    } else if (displayResult === 'eliminated') {
       overlay.textContent = '\u2716'; // heavy X — eliminated
       overlay.classList.add('combat-result-overlay--eliminated');
     }
@@ -975,9 +977,10 @@ function renderCombatCharacterColumn(
       if (allyStrike) {
         const isAllyCurrentStrike = allyStrike.index === combat.currentStrikeIndex && !allyStrike.assignment.resolved && combat.phase === 'resolve-strike';
         if (allyStrike.assignment.resolved) {
-          if (allyStrike.assignment.result === 'success') itemEl.classList.add('combat-card--strike-success');
-          else if (allyStrike.assignment.result === 'wounded') itemEl.classList.add('combat-card--strike-wounded');
-          else if (allyStrike.assignment.result === 'eliminated') itemEl.classList.add('combat-card--strike-eliminated');
+          const allyResult = strikeResultDisplay(allyStrike.assignment.result);
+          if (allyResult === 'success') itemEl.classList.add('combat-card--strike-success');
+          else if (allyResult === 'wounded') itemEl.classList.add('combat-card--strike-wounded');
+          else if (allyResult === 'eliminated') itemEl.classList.add('combat-card--strike-eliminated');
         } else if (isAllyCurrentStrike) {
           itemEl.classList.add('combat-card--current-strike');
         } else {
