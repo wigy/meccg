@@ -34,6 +34,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   findCharInstanceId, makeSitePhase,
   firstFactionInfluenceAttempt,
+  pool,
 } from '../test-helpers.js';
 import type {
   CardDefinitionId, CardInPlay, CardInstanceId,
@@ -199,6 +200,15 @@ describe('Haradrim (as-63)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeUndefined();
+  });
+
+  test('image is the minion printing (Haradrim2.jpg), distinct from hero as-59', () => {
+    // Bug report baca0f513854d830: minion Haradrim rendered with the hero
+    // printing's artwork. The remaster repo serves the two same-named
+    // Haradrim cards under distinct filenames — hero as-59 is Haradrim.jpg,
+    // minion as-63 is Haradrim2.jpg.
+    expect(pool[HARADRIM]?.image).toMatch(/Haradrim2\.jpg$/);
+    expect(pool[HARADRIM]?.image).not.toBe(pool['as-59' as CardDefinitionId]?.image);
   });
 
   test('influence-attempt uses Ciryaher (only untapped character in company)', () => {
