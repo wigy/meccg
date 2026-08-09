@@ -43,6 +43,7 @@ import {
   resolveStatModifiers,
   resolveDef,
   evaluateExpr,
+  getEffectiveSkills,
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
@@ -688,6 +689,7 @@ function companyAtOrMovingUnderDeeps(
 
 function buildEffectiveStatsContext(
   charDef: CharacterCard,
+  effectiveSkills: readonly string[],
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
@@ -696,7 +698,12 @@ function buildEffectiveStatsContext(
   atOrMovingUnderDeeps = false,
   stagePoints = 0,
 ): ResolverContext {
-  const charInfo = buildBearerContext(charDef);
+  // `skills` must be the character's *effective* set (printed skills plus any
+  // granted by an attached item/permanent-event, e.g. Swordmaster tw-498
+  // granting Warrior) — not just `charDef.skills` — so that other borne
+  // items' `bearer.skills`-conditioned stat modifiers (e.g. Mechanical Bow
+  // wh-53's "+2 prowess, Warrior only") see the granted skill too.
+  const charInfo = { ...buildBearerContext(charDef), skills: effectiveSkills };
   return {
     reason: 'effective-stats',
     bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints },
@@ -825,7 +832,8 @@ function computeEffectiveStats(
   stagePoints = 0,
 ): EffectiveStats {
   const isFollower = char.controlledBy !== 'general';
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints);
+  const effectiveSkills = getEffectiveSkills(state, char, charDef);
+  const context = buildEffectiveStatsContext(charDef, effectiveSkills, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to
