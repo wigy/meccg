@@ -47,8 +47,9 @@ import {
   playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, makeCombatState,
 } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from './effects/resolver.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, resolveDef } from './effects/resolver.js';
 import { isDetainmentAttack } from './detainment.js';
+import { isAvatarCharacter } from '../types/cards.js';
 import { addConstraint, removeConstraint, enqueueResolution } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { shuffle } from '../rng.js';
@@ -127,8 +128,29 @@ export function buildGreatHuntCombat(
   const effectiveStrikes = resolveAttackStrikes(state, cDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
   const effectiveBody = resolveAttackBody(state, cDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
+  // "Each character faces one strike" creatures (Wandering Eldar, Watcher in
+  // the Water, Neeker-breekers, …): the printed/modified strikes value is
+  // ignored — total strikes equals the defending company's character count
+  // (or non-avatar character count when `excludeAvatars` is set). Mirrors
+  // `initiateCreatureCombat`'s handling for creatures played normally; a
+  // Great Hunt reveal-and-attack must apply the same card effect.
+  const oneStrikePerCharacterEffect = cDef.effects?.find(
+    (e): e is import('../types/effects.js').CombatOneStrikePerCharacterEffect => e.type === 'combat-one-strike-per-character',
+  );
+  const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
+  const strikesTotal = oneStrikePerCharacterEffect
+    ? (excludeAvatarStrikes
+      ? company.characters.filter(charId => !isAvatarCharacter(resolveDef(state, charId))).length
+      : company.characters.length)
+    : effectiveStrikes;
+  if (oneStrikePerCharacterEffect) {
+    logDetail(
+      `The Great Hunt: "${creatureDef.name}" faces one strike per${excludeAvatarStrikes ? ' non-avatar' : ''} character → ${strikesTotal} total strikes`,
+    );
+  }
+
   logDetail(
-    `The Great Hunt: ${cDef.race} "${creatureDef.name}" (${effectiveStrikes} strikes, ${effectiveProwess} prowess) `
+    `The Great Hunt: ${cDef.race} "${creatureDef.name}" (${strikesTotal} strikes, ${effectiveProwess} prowess) `
     + `attacks ${controllerId as string}'s Alatar company ${companyId as string}`,
   );
 
@@ -142,10 +164,12 @@ export function buildGreatHuntCombat(
     companyId,
     defendingPlayerId: controllerId,
     attackingPlayerId: opponentId,
-    strikesTotal: effectiveStrikes,
+    strikesTotal,
     strikeProwess: effectiveProwess,
     creatureBody: effectiveBody,
     creatureRace,
+    eachCharacterFacesOneStrike: oneStrikePerCharacterEffect ? true : undefined,
+    excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
     assignmentPhase: 'defender',
     detainment: isDetainmentAttack({
       attackEffects: cDef.effects,
