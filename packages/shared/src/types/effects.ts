@@ -7991,6 +7991,7 @@ export type CardEffect =
   | GrantExtraMHPhaseEffect
   | KeyedAttacksNormalEffect
   | AllyTapExtraMHPhaseEffect
+  | CharacterTapExtraMHPhaseEffect
   | RegionMovementLimitEffect
   | FwSiteAlignmentRestrictionEffect
   | ProhibitCompanyEventsEffect
@@ -8675,6 +8676,30 @@ export interface AllyTapExtraMHPhaseEffect extends EffectBase {
   readonly counts?: readonly CompanyCharacterCount[];
   /** Condition against the company-composition context gating the offer. */
   readonly condition: Condition;
+}
+
+/**
+ * Character-carried counterpart to {@link AllyTapExtraMHPhaseEffect}: the
+ * bearer (a character in the company, not an attached ally) may itself be
+ * tapped, at the same end-of-M/H-phase decision point, to send its own
+ * company on another movement to an additional site — a fresh
+ * movement/hazard phase, via the shared `extra-mh-move-offer` step. There is
+ * no company-composition condition; any company containing an untapped
+ * bearer qualifies.
+ *
+ * {@link requiresDestinationSitePathIncludes}, if set, additionally restricts
+ * the extra move's destination to a site whose static `sitePath` (region
+ * types) includes at least one of the listed types.
+ *
+ * Used by Carambor (le-5): "May tap at the end of his company's
+ * movement/hazard phase to allow it to move to an additional site on the
+ * same turn... The new site path must contain at least one Wilderness
+ * [{w}]." — `requiresDestinationSitePathIncludes: ["wilderness"]`.
+ */
+export interface CharacterTapExtraMHPhaseEffect extends EffectBase {
+  readonly type: 'character-tap-extra-mh-phase';
+  /** Destination site's `sitePath` must include at least one of these region types. */
+  readonly requiresDestinationSitePathIncludes?: readonly RegionType[];
 }
 
 /**

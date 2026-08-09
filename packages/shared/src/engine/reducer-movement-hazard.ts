@@ -15,7 +15,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { findById, removeById, updatePlayer, wrongActionType, playerById, defById } from './reducer-utils.js';
 import { isResourceEventCard } from '../types/cards.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
-import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer, handleAllyTapExtraMHOffer } from './mh-hazard-play.js';
+import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer, handleAllyTapExtraMHOffer, handleCharacterTapExtraMHOffer } from './mh-hazard-play.js';
 import { enterSetHazardLimitAndAutoAdvance, handleSelectCompany, handleRevealNewSite, handleUnderDeepsRoll, handleOrderEffects, handleDrawCards } from './mh-steps.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 
@@ -46,6 +46,7 @@ const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHand
   'gangways-offer': handleGangwaysOffer,
   'extra-mh-move-offer': handleExtraMHMoveOffer,
   'ally-tap-mh-offer': handleAllyTapExtraMHOffer,
+  'character-tap-mh-offer': handleCharacterTapExtraMHOffer,
 };
 
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
