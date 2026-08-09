@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1101 | 1100 | 1 | 99.9% |
+| 1111 | 1110 | 1 | 99.9% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 105 | 105 | 100.0% |
+| AS | 106 | 106 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 98 | 98 | 100.0% |
-| LE | 297 | 296 | 99.7% |
-| TD | 87 | 87 | 100.0% |
-| TW | 329 | 329 | 100.0% |
+| LE | 300 | 299 | 99.7% |
+| TD | 88 | 88 | 100.0% |
+| TW | 334 | 334 | 100.0% |
 | WH | 88 | 88 | 100.0% |
 
 ## Detailed Test Matrix
@@ -57,6 +57,7 @@
 | as-51 | No Strangers at this Time | — | 16 | ☑ |
 | as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
+| as-59 | Haradrim | — | 6 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-63 | Haradrim | — | 8 | ☑ |
 | as-66 | Wain-easterlings | — | 8 | ☑ |
@@ -327,6 +328,7 @@
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
+| le-5 | Carambor | — | 7 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 3 | ☑ |
@@ -405,6 +407,7 @@
 | le-100 | Wild Trolls | — | 5 | ☑ |
 | le-101 | Arouse Defenders | — | 10 | ☑ |
 | le-103 | Awaken Defenders | — | 7 | ☑ |
+| le-104 | Awaken Denizens | — | 5 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-106 | Chill Them with Fear | — | 15 | ☑ |
 | le-107 | Covetous Thoughts | — | 13 | ☑ |
@@ -434,6 +437,7 @@
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
+| le-148 | Wake of War | — | 7 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
@@ -644,6 +648,7 @@
 | td-42 | Lesser Spiders | — | 9 | ☑ |
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
+| td-49 | Morgul-rats | — | 8 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
 | td-57 | Rain-drake | — | 11 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
@@ -724,6 +729,7 @@
 | tw-18 | Call of Home | — | 9 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
 | tw-021 | — | — | 15 | ☑ |
+| tw-22 | Clouds | — | 7 | ☑ |
 | tw-23 | Corpse-candle | — | 11 | ☑ |
 | tw-024 | — | — | 2 | ☑ |
 | tw-26 | Daelomin | — | 7 | ☑ |
@@ -765,6 +771,7 @@
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
 | tw-084 | — | — | 13 | ☑ |
+| tw-86 | Shelob | — | 11 | ☑ |
 | tw-87 | Siege | — | 16 | ☑ |
 | tw-89 | Slayer | — | 7 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
@@ -876,6 +883,7 @@
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
+| tw-232 | Fair Sailing | — | 10 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
 | tw-240 | Fellowship | — | 13 | ☑ |
@@ -898,6 +906,7 @@
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
 | tw-264 | Lapse of Will | — | 5 | ☑ |
 | tw-266 | Lesser Ring | — | 4 | ☑ |
+| tw-268 | Lossoth | — | 2 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
@@ -911,6 +920,7 @@
 | tw-289 | Narsil | — | 6 | ☑ |
 | tw-292 | New Friendship | — | 13 | ☑ |
 | tw-295 | Orcrist | — | 5 | ☑ |
+| tw-296 | Palantír of Amon Sûl | — | 17 | ☑ |
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
 | tw-302 | Paths of the Dead | — | 6 | ☑ |
@@ -1035,7 +1045,7 @@
 | tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | tw-497 | A Pack at the Door | — | 11 | ☑ |
-| tw-498 | Swordmaster | — | 16 | ☑ |
+| tw-498 | Swordmaster | — | 17 | ☑ |
 | tw-499 | Dwarven Axe | — | 7 | ☑ |
 | wh-1 | Alatar | — | 12 | ☑ |
 | wh-2 | Doeth (Durthak) | — | 6 | ☑ |
@@ -1081,7 +1091,7 @@
 | wh-57 | Rhosgobel | — | 10 | ☑ |
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
-| wh-61 | A Strident Spawn | — | 10 | ☑ |
+| wh-61 | A Strident Spawn | — | 11 | ☑ |
 | wh-62 | An Untimely Brood | — | 15 | ☑ |
 | wh-63 | Bad Company | — | 11 | ☑ |
 | wh-65 | Delver’s Harvest | — | 4 | ☑ |
@@ -1102,7 +1112,7 @@
 | wh-87 | Half-orcs | — | 10 | ☑ |
 | wh-89 | Keys to the White Towers | — | 10 | ☑ |
 | wh-90 | Bow of Alatar | — | 11 | ☑ |
-| wh-91 | The Great Hunt | — | 13 | ☑ |
+| wh-91 | The Great Hunt | — | 14 | ☑ |
 | wh-92 | Huntsman’s Garb | — | 11 | ☑ |
 | wh-93 | Join the Hunt | — | 14 | ☑ |
 | wh-94 | Oromë’s Warders | — | 20 | ☑ |
@@ -1123,7 +1133,7 @@
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
-| wh-120 | Saruman’s Machinery | — | 22 | ☑ |
+| wh-120 | Saruman’s Machinery | — | 23 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
 
 ---

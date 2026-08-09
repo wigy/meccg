@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.93.0 — 2026-08-09
+
+Shelob stirs, and the Palantír looks upon the enemy's hand
+
+### Cards
+
+- Shelob (tw-86) is certified: keyed as a creature to any site in Imlad Morgul or Gorgoroth, playable as a permanent-event while Doors of Night is in play, and — new — able to convert from that permanent-event state into a full creature attack that still receives her own +1 prowess/+1 strikes bonus against Spiders and Animals
+- Palantír of Amon Sûl (tw-296) is certified in full, not just its discard-on-move clause: 5 marshalling points when stored in a Haven, tap to look at your opponent's entire hand, and tap to borrow the abilities of Palantír of Annúminas or Palantír of Elostirion while either is in play (search for a "Sage only" card; remove a corruption card from an Elf or Wizard)
+- Fair Sailing (tw-232) is certified: played at the end of the organization phase on a moving company, it lowers that company's hazard limit by one per Coastal Sea region in its site path, floored at two. The mechanic generalizes to its Fair Travels siblings (tw-233/235/237)
+- Carambor (le-5) is certified: may tap at the end of his company's movement/hazard phase to move to one additional site, restricted to destinations whose site path contains at least one Wilderness
+- Clouds (tw-22) is certified: +2 prowess to each hazard creature while Doors of Night is in play — and, unlike Sun (tw-335), correctly leaves site automatic-attacks and agent attacks alone
+- Morgul-rats (td-49) is certified: 15-strike Animal keyed to Shadow-holds and Dark-holds, playable only if a character in the target company is wounded or Doors of Night is in play
+- Awaken Denizens (le-104), Wake of War (le-148), Haradrim (as-59) and Lossoth (tw-268) are certified, porting mechanics already proven by their sibling printings
+- A Strident Spawn (wh-61) and Saruman's Machinery (wh-120) are worth 1 marshalling point each, not 0 — both were stale data entries contradicting the card faces and the card database
+
+### Game Engine
+
+- The Great Hunt (wh-91) keeps **every** face-up discard visible, not just the top card of the pile. A card discarded face-up no longer becomes obscured again as soon as another card lands on top of it (Pallando's genuinely top-card-only ruling is unchanged)
+- Skills granted by items are now visible to other borne items' stat modifiers: Saruman bearing both Swordmaster (granting Warrior) and Mechanical Bow (+2 prowess to Warriors) gets the bonus, where the granted skill was previously invisible to effective-stat resolution
+
+### AI
+
+- The heuristic AI scores region-movement paths by border-land exposure instead of picking uniformly among equal-length options, so it no longer declares a gratuitous border-land detour when an all-wilderness route of the same length exists
+- Challenge decks (D) Bargain between Friends and (M) It's magic! are approved as AI opponent decks
+
+### Infrastructure
+
+- Fixed flaky CI timeouts in the full-game feature tests, the simulator and h2 agent tests, and the cycle-guard replay test
+
 ## 0.92.0 — 2026-08-09
 
 Hounds guard their masters, and the Hunt strikes true
