@@ -16,6 +16,8 @@
  * - Support a struggling defender if there is an untapped supporter and the
  *   target's roll need is hard.
  * - Body-check rolls always proceed.
+ * - Converting a creature to an ally (Ready to His Will) outscores fighting
+ *   it, since it both cancels the attack and gains a controlled ally.
  */
 
 import type { GameAction } from '@meccg/shared';
@@ -86,6 +88,13 @@ export const combatEvaluator: ActionEvaluator = {
 
       case 'cancel-attack':
         return 12;
+
+      case 'convert-creature-to-ally':
+        // Cancels the entire attack (like cancel-attack) and additionally
+        // turns the creature into a controlled ally — strictly better than
+        // a plain cancel, so it should outscore assign-strike/resolve-strike
+        // alternatives that leave the attack live.
+        return 25;
 
       case 'halve-strikes':
         return 8;

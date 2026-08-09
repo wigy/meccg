@@ -45,6 +45,7 @@ const COMBAT_ACTION_TYPES = new Set([
   'cancel-by-tap',
   'halve-strikes',
   'body-check-roll',
+  'convert-creature-to-ally',
 ]);
 
 /** Build the phase → evaluator routing table. */

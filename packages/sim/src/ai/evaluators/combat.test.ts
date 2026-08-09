@@ -84,3 +84,57 @@ describe('combatEvaluator play-strike-event', () => {
     expect(combatEvaluator.score(playStrikeEvent('h0', 6), context)!).toBeGreaterThan(0);
   });
 });
+
+describe('combatEvaluator convert-creature-to-ally', () => {
+  // Bug report: AI-Heuristic ("Ready to His Will was not playable on
+  // Orc-Lieutenant (not enhanced) with 1@7") had le-220 in hand and the
+  // action was legal, but it fought the creature instead of converting it.
+  // Root cause was routing, not scoring: `convert-creature-to-ally` was
+  // missing from `COMBAT_ACTION_TYPES` in heuristic.ts, so the dispatcher
+  // sent it to the movement-hazard evaluator, which doesn't score it either,
+  // leaving it at the flat default weight of 1 — far below assign-strike's
+  // prowess-based score.
+  const convertAction = {
+    type: 'convert-creature-to-ally',
+    player: 'p1',
+    cardInstanceId: 'h0',
+    controllingCharacterId: 'p1-98',
+    explanation: '',
+  } as unknown as GameAction;
+
+  const assignStrikeAction = {
+    type: 'assign-strike',
+    player: 'p1',
+    characterId: 'p1-98',
+    tapped: false,
+    explanation: '',
+  } as unknown as GameAction;
+
+  function makeConvertContext(): AiContext {
+    const view = {
+      self: {
+        hand: [{ instanceId: 'h0', definitionId: 'le-220' }],
+        characters: {
+          'p1-98': {
+            instanceId: 'p1-98',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 7, body: 8, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      opponent: { companies: [], characters: {} },
+      combat: {
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  test('scores convert-creature-to-ally above assign-strike, so the AI takes the free ally over fighting', () => {
+    const context = makeConvertContext();
+    const convertScore = combatEvaluator.score(convertAction, context)!;
+    const assignScore = combatEvaluator.score(assignStrikeAction, context)!;
+    expect(convertScore).toBeGreaterThan(assignScore);
+  });
+});
