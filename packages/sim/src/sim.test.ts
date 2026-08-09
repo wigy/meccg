@@ -25,7 +25,7 @@ import { UNKNOWN_CARD } from '@meccg/shared';
  * parallel: these pass in isolation and fail together, which reads as a
  * flaky suite rather than as a slow test.
  */
-const GAME_TIMEOUT = 30000;
+const GAME_TIMEOUT = 60000;
 
 const DECKS: [ReturnType<typeof loadDeck>, ReturnType<typeof loadDeck>] =
   [loadDeck('challenge-deck-a'), loadDeck('challenge-deck-b')];
@@ -110,7 +110,7 @@ describe('headless runner', () => {
       maxDecisions: 200,
     });
     expect(checked).toBeGreaterThan(0);
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('replay format', () => {

@@ -535,9 +535,32 @@
     "body": 5,
     "killMarshallingPoints": 1,
     "race": "animal",
-    "keyedTo": [],
-    "effects": [],
-    "text": "Animals. 15 strikes. Only playable at a Shadow-hold [{S}] or at a Dark-hold [{D}], and only if a character in target company is wounded or Doors of Night is in play."
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "$or": [
+            {
+              "company.hasWoundedCharacter": true
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Animals. 15 strikes. Only playable at a Shadow-hold [{S}] or at a Dark-hold [{D}], and only if a character in target company is wounded or Doors of Night is in play.",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "hazard-creature",

@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -183,6 +183,18 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
     return viable(allyTapExtraMHOfferActions(state, playerId, mhState));
   }
 
+  // character-tap-mh-offer step (character-tap-extra-mh-phase — Carambor
+  // le-5): the active player may tap the qualifying bearer character to
+  // advance to the shared extra-mh-move-offer step, or pass to finish the
+  // company.
+  if (mhState.step === 'character-tap-mh-offer') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during character-tap-mh-offer step`);
+      return [];
+    }
+    return viable(characterTapExtraMHOfferActions(state, playerId, mhState));
+  }
+
   // TODO: assign-strike, resolve-strike, support-strike
   if (!isActive) {
     logDetail(`Not active player, no movement/hazard actions`);
@@ -254,7 +266,7 @@ function extraMHMoveOfferActions(
     // attempted to move to yet this turn.
     const destinations = mhState.extraMHMoveUnderDeeps
       ? extraMHUnderDeepsDestinations(state, activeIndex, company, mhState.underDeepsAttempts?.[company.id as string] ?? [])
-      : extraMHMoveDestinations(state, activeIndex, company);
+      : extraMHMoveDestinations(state, activeIndex, company, mhState.extraMHMoveRequiresSitePathIncludes);
     for (const siteInst of destinations) {
       const destDef = defById(state, siteInst.definitionId);
       actions.push({ type: 'extra-mh-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
@@ -298,6 +310,41 @@ function allyTapExtraMHOfferActions(
         actions.push({ type: 'ally-tap-extra-mh-phase', player: playerId, companyId: company.id, allyInstanceId: ally.instanceId });
         logDetail(`Ally-tap extra M/H phase: offering to tap ${def && 'name' in def ? (def as { name: string }).name : (ally.definitionId as string)}`);
       }
+    }
+  }
+  // Always allow passing to finish the company.
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
+}
+
+/**
+ * Generate actions for the `character-tap-mh-offer` step
+ * (`character-tap-extra-mh-phase` — Carambor le-5): the active player either
+ * taps the qualifying untapped bearer character to advance to the shared
+ * `extra-mh-move-offer` step, or passes to finish the company. Re-derives the
+ * same match `advanceAfterCompanyMH` used to enter this step, so the offered
+ * character is always the one that qualified.
+ */
+function characterTapExtraMHOfferActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): GameAction[] {
+  const activeIndex = getPlayerIndex(state, playerId);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  const actions: GameAction[] = [];
+  if (company) {
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) continue;
+      const def = defById(state, char.definitionId);
+      const effect = def && getCardEffects(def).find(
+        (e): e is CharacterTapExtraMHPhaseEffect => e.type === 'character-tap-extra-mh-phase',
+      );
+      if (!effect) continue;
+      actions.push({ type: 'character-tap-extra-mh-phase', player: playerId, companyId: company.id, characterInstanceId: char.instanceId });
+      logDetail(`Character-tap extra M/H phase: offering to tap ${def && 'name' in def ? (def as { name: string }).name : (char.definitionId as string)}`);
     }
   }
   // Always allow passing to finish the company.

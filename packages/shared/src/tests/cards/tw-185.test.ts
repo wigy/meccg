@@ -58,9 +58,11 @@ describe('Vôteli (tw-185)', () => {
 
   test('+2 direct influence against the Lossoth faction', () => {
     // Vôteli (man, base DI 1) attempts to influence Lossoth at Lossadan Camp.
-    // Lossoth influence number = 9. Vôteli has +2 DI specifically vs Lossoth.
-    //   need = influenceNumber(9) - baseDI(1) - voteliDIBonus(2) = 6
-    // Without the bonus the need would be 8, so a need of 6 proves +2 applied.
+    // Lossoth influence number = 9. Vôteli has +2 DI specifically vs Lossoth,
+    // and also gets Lossoth's own "Standard Modifications: Men (+1)" check
+    // bonus since she is a man.
+    //   need = influenceNumber(9) - baseDI(1) - voteliDIBonus(2) - manCheckMod(1) = 5
+    // Without the +2 bonus the need would be 6, so a need of 5 proves +2 applied.
     const state = buildSitePhaseState({
       characters: [VOTELI],
       site: LOSSADAN_CAMP,
@@ -76,7 +78,7 @@ describe('Vôteli (tw-185)', () => {
 
     const voteliAttempt = influenceActions.find(a => a.influencingCharacterId === voteliId);
     expect(voteliAttempt).toBeDefined();
-    expect(voteliAttempt!.need).toBe(6);
+    expect(voteliAttempt!.need).toBe(5);
   });
 
   test('+2 DI bonus does not apply to a non-Lossoth faction', () => {

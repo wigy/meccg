@@ -74,6 +74,7 @@ const SWORDMASTER = 'tw-498' as CardDefinitionId;
 const MUSTER = 'tw-288' as CardDefinitionId;       // warrior-only short event (probe)
 const AMON_HEN = 'tw-371' as CardDefinitionId;     // ruins-and-lairs, Information playable
 const TOLFALAS = 'tw-433' as CardDefinitionId;     // ruins-and-lairs, NO Information
+const SWORD_OF_GONDOLIN = 'tw-336' as CardDefinitionId; // weapon, +2 prowess (warrior only, max 8)
 
 // Item fixtures for the two-weapon / no-shield rules (7 & 8). Each is only
 // referenced here, so declared locally per the card-ids.ts constants policy.
@@ -187,6 +188,26 @@ describe('Swordmaster (tw-498)', () => {
       ea => ea.viable && ea.action.type === 'play-short-event' && ea.action.optionId === 'influence-boost',
     );
     expect(musterOffered).toBe(true);
+  });
+
+  test('the granted warrior skill activates another borne item\'s warrior-gated stat modifier (Sword of Gondolin +2 prowess)', () => {
+    // Galadriel (scout+sage, base prowess 3) is not a natural warrior, so
+    // Sword of Gondolin's "+2 prowess, Warrior only" bonus does not apply by
+    // itself. Swordmaster's granted warrior skill must be visible to the
+    // effective-stats resolver — not just to play-target/legal-action
+    // checks — so the Sword's own bearer-conditioned modifier picks it up too.
+    const withoutSword = buildSitePhaseState({
+      characters: [{ defId: GALADRIEL, items: [SWORDMASTER] }],
+      site: AMON_HEN,
+    });
+    const galadrielId = findCharInstanceId(withoutSword, RESOURCE_PLAYER, GALADRIEL);
+    expect(withoutSword.players[RESOURCE_PLAYER].characters[galadrielId].effectiveStats.prowess).toBe(3);
+
+    const withSword = buildSitePhaseState({
+      characters: [{ defId: GALADRIEL, items: [SWORDMASTER, SWORD_OF_GONDOLIN] }],
+      site: AMON_HEN,
+    });
+    expect(withSword.players[RESOURCE_PLAYER].characters[galadrielId].effectiveStats.prowess).toBe(5); // 3 + 2
   });
 
   test('without Swordmaster, the same non-warrior sage cannot use the warrior-only card', () => {

@@ -12,6 +12,8 @@
  *    duplicated on a given site."
  *
  * Modelled effects (see `data/wh-resources.json`):
+ *  - `marshallingPoints: 1` (miscellaneous) — printed MP value (top-left
+ *    diamond on the card), independent of its stage points.
  *  - `stage-points: 4` — contributes 4 stage points to a Fallen-wizard who has
  *    it in play (summed by `recompute-derived`).
  *  - `play-target` site `{ name: { $in: ["Isengard", "The White Towers"] } }` —
@@ -36,6 +38,7 @@
  *
  * | # | Rule                                                          | Status |
  * |---|---------------------------------------------------------------|--------|
+ * | 0 | worth 1 (miscellaneous) marshalling point                    | OK     |
  * | 1 | carries 4 stage points (Fallen-wizard only)                   | OK     |
  * | 2 | Saruman specific — playable only if your avatar is Saruman    | OK     |
  * | 3 | playable only on Isengard or The White Towers                 | OK     |
@@ -203,6 +206,17 @@ function playItem(state: GameState, player: PlayerId, instanceId: CardInstanceId
 
 describe("Saruman's Machinery (wh-120)", () => {
   beforeEach(() => resetMint());
+
+  // ── Rule 0: worth 1 (miscellaneous) marshalling point ──────────────────────
+
+  // Regression test: the card's printed marshalling-point value (top-left
+  // diamond) is 1, but the data file had it recorded as 0 — confirmed against
+  // both the card image and the authoritative card database
+  // (WH.cards["WH-120"].attributes.marshallingPoints === "1").
+  test('is worth 1 miscellaneous marshalling point', () => {
+    const state = orgState(Alignment.FallenWizard, [inPlay(SARUMANS_MACHINERY, 'p1-2000')]);
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
+  });
 
   // ── Rule 1: 4 stage points (Fallen-wizard only) ───────────────────────────
 
