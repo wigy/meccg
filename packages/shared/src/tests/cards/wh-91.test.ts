@@ -299,6 +299,28 @@ describe('The Great Hunt (wh-91)', () => {
     expect(findInPile(state4, 1, 'discardPile', drakeId)).toBeDefined();
   });
 
+  test('every discard stays revealed even once a later discard lands on top of it', () => {
+    const state0 = greatHuntState({ hand: [THE_GREAT_HUNT], p2Deck: [GLAMDRING] });
+    const ghId = findInPile(state0, 0, 'hand', THE_GREAT_HUNT)!.instanceId;
+    const state1 = playPermanentEventAndResolve(state0, PLAYER_1, ghId);
+
+    // A creature is discarded, then immediately a second (non-creature) card
+    // lands on top of it in the discard pile.
+    const state2 = addCardToDiscardPile(state1, 1, CAVE_DRAKE);
+    const state3 = addCardToDiscardPile(state2, 1, GLAMDRING);
+    const drakeId = findInPile(state3, 1, 'discardPile', CAVE_DRAKE)!.instanceId;
+
+    // Resolving the (creature-less) deck reveal drives a reduce whose
+    // post-reduce sweep processes both discards.
+    const state4 = dispatch(state3, { type: 'choose-great-hunt-source', player: PLAYER_1, source: 'deck' });
+    const glamdringId = findInPile(state4, 1, 'discardPile', GLAMDRING)!.instanceId;
+
+    // "Thereafter, your opponent discards face-up" — both cards stay public,
+    // not just the most recently discarded (top) one.
+    expect(state4.handRevealedInstances[drakeId]).toBe(CAVE_DRAKE);
+    expect(state4.handRevealedInstances[glamdringId]).toBe(GLAMDRING);
+  });
+
   test('declining a discard offer does not re-offer the same creature (loop prevention)', () => {
     const state0 = greatHuntState({ hand: [THE_GREAT_HUNT], p2Deck: [GLAMDRING] });
     const ghId = findInPile(state0, 0, 'hand', THE_GREAT_HUNT)!.instanceId;

@@ -108,7 +108,7 @@ describe('action-type vocabulary', () => {
     expect(seen.size).toBeGreaterThan(5);
     const unknown = [...seen].filter(type => actionTypeIndex(type) === 0);
     expect(unknown).toEqual([]);
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('featurizers', () => {
@@ -251,5 +251,5 @@ describe('legal-action idempotence', () => {
       state = reduced.state;
     }
     expect(checked).toBeGreaterThan(200);
-  });
+  }, GAME_TIMEOUT);
 });

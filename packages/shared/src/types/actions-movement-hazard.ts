@@ -931,6 +931,24 @@ export interface AllyTapExtraMHPhaseAction {
 }
 
 /**
+ * `character-tap-extra-mh-phase` (Carambor le-5): during the
+ * `character-tap-mh-offer` step the active player taps the qualifying
+ * untapped bearer character to advance to the shared `extra-mh-move-offer`
+ * step for the company that just completed its movement/hazard phase.
+ * Passing instead finishes the company without tapping the character.
+ */
+export interface CharacterTapExtraMHPhaseAction {
+  /** Action discriminant. */
+  readonly type: 'character-tap-extra-mh-phase';
+  /** The active (resource) player. */
+  readonly player: PlayerId;
+  /** The company that just completed its movement/hazard phase. */
+  readonly companyId: CompanyId;
+  /** The character instance being tapped (e.g. Carambor). */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally (Goldberry) to negate a `force-return-to-origin`
  * chain entry before it resolves. Legal during M/H chain declaring when
  * the ally is untapped and the chain contains an unresolved entry tagged

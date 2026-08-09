@@ -1725,8 +1725,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
-    "effects": [],
-    "text": "Unique. May tap at the end of his company's movement/hazard phase to allow it to move to an additional site on the same turn. Another site card may be played and another movement/hazard phase immediately follows for his company. The new site path must contain at least one Wilderness [{w}]."
+    "effects": [
+      {
+        "type": "character-tap-extra-mh-phase",
+        "requiresDestinationSitePathIncludes": ["wilderness"]
+      }
+    ],
+    "text": "Unique. May tap at the end of his company's movement/hazard phase to allow it to move to an additional site on the same turn. Another site card may be played and another movement/hazard phase immediately follows for his company. The new site path must contain at least one Wilderness [{w}].",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "minion-character",

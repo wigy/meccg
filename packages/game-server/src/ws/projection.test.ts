@@ -365,10 +365,19 @@ describe("Pallando reveals the top of an opponent's discard pile (CRF 22)", () =
 /**
  * Same fixture shape as {@link gameWithBobDiscardPile}, but Alice's reveal
  * source is The Great Hunt (wh-91) sitting in her `cardsInPlay` rather than
- * Pallando as a character — the card's "thereafter, your opponent discards
- * face-up" text is the same mechanic (CRF 22).
+ * Pallando as a character. Unlike Pallando, Great Hunt's "thereafter, your
+ * opponent discards face-up" applies to every discard, not just the most
+ * recent — {@link sweepGreatHuntDiscards} records each newly discarded card
+ * in `handRevealedInstances` as it happens, so the fixture stamps that map
+ * directly to simulate cards the engine has (or hasn't) already swept.
  */
-function gameWithBobDiscardPileAndGreatHunt(aliceControlsGreatHunt: boolean): {
+const GREAT_HUNT_DISCARD_BURIED = 'p2-discard-buried' as CardInstanceId;
+const GREAT_HUNT_DISCARD_TOP = 'p2-discard-top' as CardInstanceId;
+
+function gameWithBobDiscardPileAndGreatHunt(
+  aliceControlsGreatHunt: boolean,
+  swept: readonly CardInstanceId[] = [],
+): {
   state: GameState;
   buried: CardInstanceId;
   top: CardInstanceId;
@@ -383,11 +392,21 @@ function gameWithBobDiscardPileAndGreatHunt(aliceControlsGreatHunt: boolean): {
     seed: 42,
   };
   const base = createGame(config, pool);
-  const buried = 'p2-discard-buried' as CardInstanceId;
-  const top = 'p2-discard-top' as CardInstanceId;
+  const buried = GREAT_HUNT_DISCARD_BURIED;
+  const top = GREAT_HUNT_DISCARD_TOP;
   const greatHuntInstance = 'p1-great-hunt' as CardInstanceId;
+  const discardPile = [
+    { instanceId: buried, definitionId: ARAGORN },
+    { instanceId: top, definitionId: BALIN },
+  ];
   const state: GameState = {
     ...base,
+    handRevealedInstances: {
+      ...base.handRevealedInstances,
+      ...Object.fromEntries(
+        discardPile.filter(c => swept.includes(c.instanceId)).map(c => [c.instanceId, c.definitionId]),
+      ),
+    },
     players: [
       aliceControlsGreatHunt
         ? {
@@ -398,18 +417,24 @@ function gameWithBobDiscardPileAndGreatHunt(aliceControlsGreatHunt: boolean): {
           ],
         }
         : base.players[0],
-      { ...base.players[1], discardPile: [
-        { instanceId: buried, definitionId: ARAGORN },
-        { instanceId: top, definitionId: BALIN },
-      ] },
+      { ...base.players[1], discardPile },
     ],
   };
   return { state, buried, top };
 }
 
-describe('The Great Hunt (wh-91) reveals the top of an opponent\'s discard pile', () => {
-  test('controlling The Great Hunt reveals only the most recently discarded card', () => {
-    const { state, buried, top } = gameWithBobDiscardPileAndGreatHunt(true);
+describe('The Great Hunt (wh-91) reveals every discard the engine has swept', () => {
+  test('controlling The Great Hunt reveals every card the engine has swept, not just the top', () => {
+    const { state, buried, top } = gameWithBobDiscardPileAndGreatHunt(true, [GREAT_HUNT_DISCARD_BURIED, GREAT_HUNT_DISCARD_TOP]);
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    expect(pileById(top)?.definitionId).toBe(BALIN);
+    expect(pileById(buried)?.definitionId).toBe(ARAGORN);
+  });
+
+  test('a discard from before The Great Hunt entered play (never swept) stays hidden even while later discards are visible', () => {
+    const { state, buried, top } = gameWithBobDiscardPileAndGreatHunt(true, [GREAT_HUNT_DISCARD_TOP]);
     const aliceView = projectPlayerView(state, ALICE);
     const pileById = (id: CardInstanceId): ViewCard | undefined =>
       aliceView.opponent.discardPile.find(c => c.instanceId === id);

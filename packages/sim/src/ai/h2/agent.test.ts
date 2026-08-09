@@ -24,6 +24,15 @@ const DECKS: [ReturnType<typeof loadDeck>, ReturnType<typeof loadDeck>] =
 const PASS_A = { type: 'pass', id: 'a' } as unknown as GameAction;
 const PASS_B = { type: 'pass', id: 'b' } as unknown as GameAction;
 
+/**
+ * Budget for a test that plays a whole game.
+ *
+ * Vitest's 5s default is not enough for one when the suite runs files in
+ * parallel: these pass in isolation and fail together, which reads as a
+ * flaky suite rather than as a slow test.
+ */
+const GAME_TIMEOUT = 60000;
+
 /** A module that prefers whichever pass action carries the larger reward. */
 const REWARDS: H2Module = {
   name: 'stub',
@@ -132,7 +141,7 @@ describe('unowned decisions', () => {
     expect(notes.length).toBeGreaterThan(50);
     expect(notes.every(n => n?.startsWith('heuristic fallback'))).toBe(true);
     expect(run.result.outcome).not.toBe('engine-error');
-  });
+  }, GAME_TIMEOUT);
 });
 
 describe('partial coverage', () => {

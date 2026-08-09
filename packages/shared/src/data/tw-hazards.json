@@ -1247,8 +1247,28 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. If Doors of Night is in play, the prowess of each hazard creature is modified by +2.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-attacks",
+        "when": {
+          "$and": [
+            { "inPlay": "Doors of Night" },
+            { "attack.isAutomaticAttack": { "$ne": true } },
+            { "attack.isAgentAttack": { "$ne": true } }
+          ]
+        }
+      }
+    ],
+    "text": "Environment. If Doors of Night is in play, the prowess of each hazard creature is modified by +2.Cannot be duplicated.",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "hazard-event",

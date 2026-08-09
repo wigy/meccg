@@ -400,14 +400,16 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     }
   }
 
-  // Pallando (tw-175, CRF 22) and The Great Hunt (wh-91) both force the
-  // opponent to "discard face-up" — the controlling player can see the top
-  // card of the opponent's discard pile (CRF 22: discards happen one at a
-  // time, so this lets them see each card as it is discarded).
-  const seesOpponentDiscardFaceUp =
-    Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)
-    || selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT);
-  if (seesOpponentDiscardFaceUp) {
+  // The Great Hunt (wh-91) forces the opponent to discard face-up for as
+  // long as it is in play: the engine reveals every newly discarded card via
+  // {@link sweepGreatHuntDiscards} (growing `handRevealedInstances`), so a
+  // later discard landing on top does not re-hide an earlier one.
+  if (selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT)) {
+    opponent = { ...opponent, discardPile: revealedCardPile(opponentPlayer.discardPile, state.handRevealedInstances) };
+  } else if (Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
+    // Pallando (tw-175, CRF 22): the controlling player can see only the top
+    // card of the opponent's discard pile (discards happen one at a time, so
+    // this lets them see each card as it is discarded).
     opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
   }
 

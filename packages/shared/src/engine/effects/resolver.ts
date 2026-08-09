@@ -1368,6 +1368,25 @@ export interface CreatureSelfContext {
  *   (Rank upon Rank dm-80's "non-agent Man attacks", Sun tw-335's "each
  *   automatic-attack and hazard creature"). Absent — not `false` — for every other
  *   attack, so `$ne: true` matches them without every context growing the key.
+ * @param isAutomaticAttack - True for a genuine site automatic-attack
+ *   (including its dynamic variants — tidings-queued and duplicated attacks),
+ *   exposed as `attack.isAutomaticAttack`. A hazard-creature card played as
+ *   an attack (direct play, or a site's dynamic "opponent plays a creature
+ *   as this attack") is *not* flagged — it is still fundamentally a hazard
+ *   creature, even though it may separately collect `all-automatic-attacks`
+ *   modifiers via the caller's own `isAutomaticAttack` argument (see
+ *   {@link resolveAttackProwess}). Cards whose text names only hazard
+ *   creatures gate on `{ "attack.isAutomaticAttack": { "$ne": true } }`
+ *   (Clouds tw-22: "the prowess of each hazard creature is modified by +2" —
+ *   contrast Sun tw-335, which names both and so doesn't gate on this flag).
+ *   Absent — not `false` — for every other attack, matching the
+ *   `isAgentAttack` convention. Scoped to this `all-attacks`/
+ *   `all-automatic-attacks` stat-modifier context only — the differently-named
+ *   `attack.isAutomaticAttack` built for the `on-event: attack-defeated`
+ *   trigger (`combat-finalize.ts`) and `attack.automatic` built for
+ *   `modify-attack` (`docs/card-effects-dsl.md`) both count a played
+ *   auto-attack as automatic, a deliberate difference for those triggers —
+ *   don't assume this flag matches them.
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
@@ -1376,6 +1395,7 @@ function buildAttackContext(
   defenderAlignment?: string,
   siteType?: string,
   isAgentAttack = false,
+  isAutomaticAttack = false,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -1398,8 +1418,13 @@ function buildAttackContext(
   // Agent hazard attacks are attacks of the agent's race, but a few cards say
   // so explicitly ("non-agent Man attacks") or name only creature attacks
   // ("each automatic-attack and hazard creature") — they gate on this flag.
-  const withAttack = isAgentAttack
-    ? { ...withSite, attack: { isAgentAttack: true } }
+  // Site automatic-attacks are flagged the same way for cards that name only
+  // hazard creatures (Clouds tw-22).
+  const attackFlags: { isAgentAttack?: true; isAutomaticAttack?: true } = {};
+  if (isAgentAttack) attackFlags.isAgentAttack = true;
+  if (isAutomaticAttack) attackFlags.isAutomaticAttack = true;
+  const withAttack = Object.keys(attackFlags).length > 0
+    ? { ...withSite, attack: attackFlags }
     : withSite;
   if (creatureRace) {
     return { ...withAttack, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
@@ -1448,7 +1473,7 @@ export function resolveAttackProwess(
   isAgentAttack = false,
   siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));

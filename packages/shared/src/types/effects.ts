@@ -1941,12 +1941,20 @@ export interface GrantActionEffect extends EffectBase {
  * - `"opponent-cards-in-play"` — cards in the opponent's `cardsInPlay`
  *   (permanent events, factions, …). Backs "discard <card> if in play by
  *   another player" abilities (Keys to the White Towers wh-89).
+ * - `"own-hazard-corruption-cards"` — every `hazard-corruption` card attached
+ *   to any of the activating player's own characters (scanning all
+ *   companies, not just the bearer's). Unlike the other scopes, `filter` here
+ *   is matched against the **bearer character's** definition, not the
+ *   corruption card's own (corruption cards carry little distinguishing
+ *   data — what varies card to card is who they're attached to). Backs
+ *   "remove one corruption card from an Elf or a Wizard under your control"
+ *   (Palantír of Amon Sûl tw-296, borrowing Palantír of Elostirion's ability).
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play';
+  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -2114,6 +2122,8 @@ export type TriggeredActionType =
   | 'draw-cards'
   | 'sauron-sideboard-fetch'
   | 'peek-opponent-hand'
+  | 'reveal-opponent-hand'
+  | 'discard-target-corruption-card'
   | 'roll-check'
   | 'roll-then-apply'
   | 'un-eliminate-creature'
@@ -2834,6 +2844,35 @@ export interface PeekOpponentHandAction extends TriggeredActionBase {
   readonly count: number;
 }
 
+/**
+ * `reveal-opponent-hand` — reveal every card currently in the opponent's
+ * hand to the activating player via `revealInstances` (the cards stay in
+ * the opponent's hand; this only affects visibility, matching the same
+ * mechanism `peek-shuffle-deck-top`'s `revealOpponentHand` flag uses for
+ * Mirror of Galadriel tw-282). Unlike `peek-opponent-hand`, there is no
+ * random subset and no cost beyond the granting card's own tap — "look at
+ * your opponent's hand" means the whole hand, every time. Used by Palantír
+ * of Amon Sûl (tw-296): "tap Palantír of Amon Sûl to look at your
+ * opponent's hand." Type-only marker.
+ */
+export interface RevealOpponentHandAction extends TriggeredActionBase {
+  readonly type: 'reveal-opponent-hand';
+}
+
+/**
+ * `discard-target-corruption-card` — discard the hazard-corruption card
+ * identified by `activate-granted-action.targetCardId` from whichever of the
+ * activating player's own characters bears it, moving it to that
+ * corruption card's owner's discard pile (corruption cards are hazards, so
+ * they are typically owned by the opponent). Candidates are enumerated by a
+ * `targets: { scope: "own-hazard-corruption-cards" }` grant-action descriptor.
+ * Used by Palantír of Amon Sûl (tw-296), borrowing Palantír of Elostirion's
+ * "remove one corruption card from an Elf or a Wizard under your control."
+ */
+export interface DiscardTargetCorruptionCardAction extends TriggeredActionBase {
+  readonly type: 'discard-target-corruption-card';
+}
+
 /** `roll-discard-opponent-non-unique-ally` — roll 2d6 ≥ threshold to discard a non-unique ally (CvCC pre-strike). */
 export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionBase {
   readonly type: 'roll-discard-opponent-non-unique-ally';
@@ -3181,6 +3220,8 @@ export type TriggeredAction =
   | DrawCardsEffect
   | SauronSideboardFetchAction
   | PeekOpponentHandAction
+  | RevealOpponentHandAction
+  | DiscardTargetCorruptionCardAction
   | RollDiscardOpponentNonUniqueAllyAction
   | OfferCharJoinAttackAction
   | OfferResourcePlayAction
@@ -8002,6 +8043,7 @@ export type CardEffect =
   | GrantExtraMHPhaseEffect
   | KeyedAttacksNormalEffect
   | AllyTapExtraMHPhaseEffect
+  | CharacterTapExtraMHPhaseEffect
   | RegionMovementLimitEffect
   | FwSiteAlignmentRestrictionEffect
   | ProhibitCompanyEventsEffect
@@ -8686,6 +8728,30 @@ export interface AllyTapExtraMHPhaseEffect extends EffectBase {
   readonly counts?: readonly CompanyCharacterCount[];
   /** Condition against the company-composition context gating the offer. */
   readonly condition: Condition;
+}
+
+/**
+ * Character-carried counterpart to {@link AllyTapExtraMHPhaseEffect}: the
+ * bearer (a character in the company, not an attached ally) may itself be
+ * tapped, at the same end-of-M/H-phase decision point, to send its own
+ * company on another movement to an additional site — a fresh
+ * movement/hazard phase, via the shared `extra-mh-move-offer` step. There is
+ * no company-composition condition; any company containing an untapped
+ * bearer qualifies.
+ *
+ * {@link requiresDestinationSitePathIncludes}, if set, additionally restricts
+ * the extra move's destination to a site whose static `sitePath` (region
+ * types) includes at least one of the listed types.
+ *
+ * Used by Carambor (le-5): "May tap at the end of his company's
+ * movement/hazard phase to allow it to move to an additional site on the
+ * same turn... The new site path must contain at least one Wilderness
+ * [{w}]." — `requiresDestinationSitePathIncludes: ["wilderness"]`.
+ */
+export interface CharacterTapExtraMHPhaseEffect extends EffectBase {
+  readonly type: 'character-tap-extra-mh-phase';
+  /** Destination site's `sitePath` must include at least one of these region types. */
+  readonly requiresDestinationSitePathIncludes?: readonly RegionType[];
 }
 
 /**

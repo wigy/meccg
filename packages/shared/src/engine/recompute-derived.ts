@@ -43,6 +43,7 @@ import {
   resolveStatModifiers,
   resolveDef,
   evaluateExpr,
+  getEffectiveSkills,
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
@@ -584,6 +585,31 @@ export function buildControllerInPlayNames(
 }
 
 /**
+ * The names of every card a specific player currently has in play, **including**
+ * character-borne items (and the characters themselves) — broader than
+ * {@link buildControllerInPlayNames}, which deliberately only covers bare
+ * `cardsInPlay` (permanent-events, factions, stage cards) for its
+ * player-wide-effect-source use cases. Used to populate the `player.inPlayNames`
+ * grant-action context field (`buildGrantActionContext`,
+ * `legal-actions/organization.ts`) so a `when` clause can gate on one specific
+ * *other* named card being in play even when that card is an item — e.g.
+ * Palantír of Amon Sûl (tw-296) checking whether Palantír of Annúminas or
+ * Palantír of Elostirion (both items borne by a character) is in play.
+ */
+export function buildPlayerItemNamesInPlay(
+  state: GameState,
+  playerId: import('../index.js').PlayerId,
+): readonly string[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const names: string[] = [];
+  for (const def of playerInPlayAndCharacterDefs(state, player)) {
+    if ('name' in def) names.push(def.name);
+  }
+  return names;
+}
+
+/**
  * Builds the distinct races of factions a specific player has in play.
  * Used to populate the `controller.factionRaces` resolver context so DSL
  * conditions can reference the *kind* of factions the controller already
@@ -688,6 +714,7 @@ function companyAtOrMovingUnderDeeps(
 
 function buildEffectiveStatsContext(
   charDef: CharacterCard,
+  effectiveSkills: readonly string[],
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
@@ -696,7 +723,12 @@ function buildEffectiveStatsContext(
   atOrMovingUnderDeeps = false,
   stagePoints = 0,
 ): ResolverContext {
-  const charInfo = buildBearerContext(charDef);
+  // `skills` must be the character's *effective* set (printed skills plus any
+  // granted by an attached item/permanent-event, e.g. Swordmaster tw-498
+  // granting Warrior) — not just `charDef.skills` — so that other borne
+  // items' `bearer.skills`-conditioned stat modifiers (e.g. Mechanical Bow
+  // wh-53's "+2 prowess, Warrior only") see the granted skill too.
+  const charInfo = { ...buildBearerContext(charDef), skills: effectiveSkills };
   return {
     reason: 'effective-stats',
     bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints },
@@ -825,7 +857,8 @@ function computeEffectiveStats(
   stagePoints = 0,
 ): EffectiveStats {
   const isFollower = char.controlledBy !== 'general';
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints);
+  const effectiveSkills = getEffectiveSkills(state, char, charDef);
+  const context = buildEffectiveStatsContext(charDef, effectiveSkills, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to

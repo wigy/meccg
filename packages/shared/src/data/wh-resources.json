@@ -920,7 +920,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AStridentSpawn.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -2376,7 +2376,7 @@
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-103",
-    "keywords": ["pallando-specific", "starting-item"],
+    "keywords": ["pallando-specific", "starting-item", "sage-only"],
     "name": "Arcane School",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ArcaneSchool.jpg",
     "unique": false,
@@ -2395,7 +2395,7 @@
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-104",
-    "keywords": ["pallando-specific", "starting-item"],
+    "keywords": ["pallando-specific", "starting-item", "sage-only"],
     "name": "Pallando’s Apprentice",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PallandosApprentice.jpg",
     "unique": true,
@@ -3066,7 +3066,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SarumansMachinery.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
