@@ -48,6 +48,7 @@ import {
   findCharInstanceId, companyIdAt, dispatch, viableActions,
   makeBodyCheckCombat, makeShadowMHState, makeMHState, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER, CardStatus,
+  viablePlayCharacterActions,
 } from '../test-helpers.js';
 import { Phase, Alignment, Race } from '../../index.js';
 import type {
@@ -63,9 +64,31 @@ const ORC_GUARD = 'tw-072' as CardDefinitionId;  // creature, killMarshallingPoi
 const CARN_DUM = 'le-359' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+const BARAD_DUR = 'le-352' as CardDefinitionId;  // minion dark-hold (siteType), not a haven
 
 describe('Ill-favoured Fellow (wh-5)', () => {
   beforeEach(() => resetMint());
+
+  // ── Homesite: "Any Dark-hold" — a printed site type, distinct from ────────
+  // "Darkhaven" (a minion haven site). Bug report: engine only offered
+  // Darkhavens (e.g. Minas Morgul) as starting sites, never a printed
+  // Dark-hold site (e.g. Barad-dûr) that isn't also a haven.
+
+  test('can be played at a printed Dark-hold site (Barad-dûr) via its "Any Dark-hold" homesite', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, hand: [ILL_FAVOURED_FELLOW], siteDeck: [BARAD_DUR], companies: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, hand: [], siteDeck: [], companies: [] },
+      ],
+      recompute: true,
+    });
+
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
+    const baradDurSite = state.players[RESOURCE_PLAYER].siteDeck.find(s => s.definitionId === BARAD_DUR);
+    expect(viable.map(a => a.atSite)).toContain(baradDurSite!.instanceId);
+  });
 
   // ── Rule 1: "Half-orc." — does NOT make its company overt ──────────────────
   // Not Slay Needlessly can only cancel an attack against a COVERT company.

@@ -369,15 +369,21 @@ function findPlayableSites(
  * - `"Any Dark-hold"` is **remapped** to the above for a Balrog player
  *   (MEBA §characters: "Characters with a home site of 'Any Dark-hold' have a
  *   home site of 'Any non-Dark-hold Under-deeps site' instead"); for every
- *   other alignment it keeps its literal meaning (matched via Dark-hold
- *   Darkhavens through the haven path, not here).
+ *   other alignment it keeps its literal meaning — Dark-hold is a printed
+ *   site type (glossary: distinct from "Darkhaven", a minion haven site), so
+ *   it falls through to the site-type home-site form below like any other
+ *   `"Any <site-type>"` homesite.
  *
  * The **site-type home-site form** `"Any <site-type>"` (Gandalf wh-4:
- * `"Any Free-hold"`) matches any site whose *printed* type is that type — using
- * `siteDef.siteType`, not the effective type, so a Free-hold converted into a
- * Wizardhaven by Chambers in the Royal Court (wh-97) remains one of Gandalf's
- * home sites even though its effective type now reads `haven`. Dark-hold is
- * excluded from this form: "Any Dark-hold" keeps the special meaning above.
+ * `"Any Free-hold"`; Ill-favoured Fellow wh-5: `"Any Dark-hold"`) matches any
+ * site whose *printed* type is that type — using `siteDef.siteType`, not the
+ * effective type, so a Free-hold converted into a Wizardhaven by Chambers in
+ * the Royal Court (wh-97) remains one of Gandalf's home sites even though its
+ * effective type now reads `haven`. A Darkhaven (haven-typed, minion-aligned
+ * site such as Minas Morgul) does NOT satisfy an "Any Dark-hold" homesite by
+ * this form — but it's still playable there regardless, since minion
+ * characters may always be played at a Darkhaven via the separate haven path
+ * (see {@link findPlayableSites}).
  *
  * The **compound exclusion form** `"Any non-<exclusion> <site-type>[ in a
  * <region-type>]"` (Alatar wh-1: `"Any non-'Dragon's lair' Ruins & Lairs in a
@@ -412,12 +418,14 @@ const SITE_TYPE_LABELS: Readonly<Record<string, SiteType>> = {
   'Ruins & Lairs': SiteType.RuinsAndLairs,
   'Shadow-hold': SiteType.ShadowHold,
   'Haven': SiteType.Haven,
+  'Dark-hold': SiteType.DarkHold,
 };
 
 /**
  * `"Any <site-type>"` home-site labels → the printed {@link SiteType} they match
- * (see {@link homesiteMatchesSite}). Dark-hold is intentionally absent: its
- * "Any Dark-hold" form has bespoke (Balrog-remap / Darkhaven) handling.
+ * (see {@link homesiteMatchesSite}). A Balrog player's "Any Dark-hold" is
+ * remapped before this lookup runs, so for Balrog players this entry is
+ * unreachable in practice.
  */
 const SITE_TYPE_HOMESITE_LABELS: Readonly<Record<string, SiteType>> = Object.fromEntries(
   Object.entries(SITE_TYPE_LABELS).map(([label, type]) => [`Any ${label}`, type]),
