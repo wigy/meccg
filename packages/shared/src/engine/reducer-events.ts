@@ -2469,6 +2469,17 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'hazard-limit-modifier', value: onEvent.apply.value };
           break;
         }
+        case 'hazard-limit-region-count': {
+          const regionType = onEvent.apply.regionType;
+          const perCount = onEvent.apply.value;
+          const floor = onEvent.apply.floor;
+          if (!regionType || typeof perCount !== 'number' || typeof floor !== 'number') {
+            logDetail(`add-constraint(hazard-limit-region-count): missing regionType, value, or floor — fizzle`);
+            continue;
+          }
+          kind = { type: 'hazard-limit-region-count', regionType, perCount, floor };
+          break;
+        }
         case 'granted-action': {
           const payload = onEvent.apply.grantedAction;
           if (!payload) {
