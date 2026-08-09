@@ -633,6 +633,7 @@ const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
   'cancel-constraint': 'Cancel Constraint',
   'cancel-return-and-site-tap': 'Cancel Return',
   'cancel-river': 'Cancel River (ranger tap)',
+  'cancel-chain-entry': 'Cancel',
   'sauron-sideboard-fetch': 'Fetch from Sideboard',
   'sauron-peek-hand': 'Discard to Peek at Opponent\'s Hand',
 };
