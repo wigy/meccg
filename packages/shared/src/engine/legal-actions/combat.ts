@@ -757,11 +757,45 @@ function assignStrikeActions(
       (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
     );
 
+    // Forced-strike targets bypass the strike-shield block below, same as the
+    // defender-phase branch — a forced target must face a strike "regardless
+    // of any conflicting effects".
+    const forcedTargetIds = new Set<string>(
+      (combat.forcedStrikeTargets ?? []).map(id => id as string),
+    );
+
+    // strike-shield (Noble Hound dm-179): a character whose controlling
+    // strike-shield ally has NOT yet been assigned a strike may not be
+    // assigned one itself. This mirrors the defender-phase check above —
+    // without it, automatic-attacks and other attacker-assigned combats
+    // (assignmentPhase 'attacker') could strike a shielded character before
+    // its ally, since only the defender phase enforced the shield.
+    const strikeShieldBlockedChars = new Set<string>();
+    for (const charId of company.characters) {
+      const charData = defPlayer.characters[charId];
+      if (!charData) continue;
+      for (const ally of charData.allies) {
+        if (assignedCharIds.has(ally.instanceId as string)) continue;
+        const allyDef = defById(state, ally.definitionId);
+        const shieldEff = getCardEffects(allyDef).find(
+          (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
+        );
+        if (shieldEff) {
+          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
+          strikeShieldBlockedChars.add(charId as string);
+        }
+      }
+    }
+
     // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
     const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
     for (const charId of company.characters) {
       if (attackerProtectedChars.has(charId as string)) {
         logDetail(`Character ${charId as string} protected from strike assignment — excluded from attacker pool`);
+        continue;
+      }
+      if (strikeShieldBlockedChars.has(charId as string) && !forcedTargetIds.has(charId as string)) {
+        logDetail(`Character ${charId as string} shielded — must assign strike to ally first — excluded from attacker pool`);
         continue;
       }
       if (combat.excludeAvatarStrikes) {
