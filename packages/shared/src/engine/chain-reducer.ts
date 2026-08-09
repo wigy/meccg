@@ -3727,16 +3727,23 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   // Place the creature card in the hazard player's cardsInPlay during combat.
   // After combat, finalizeCombat moves it to discard or the defender's kill pile.
+  // A creature attacking from an alt-permanent-event state (Shelob tw-86,
+  // `attacksAsCreature`) is already sitting there — it was never removed, so
+  // its own passive effects keep boosting its own attack — so skip re-adding
+  // it and avoid a duplicate cardsInPlay entry.
   const hazardIndex = getPlayerIndex(state, hazardPlayerId);
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-  newPlayers[hazardIndex] = {
-    ...newPlayers[hazardIndex],
-    cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
-      instanceId: entry.card!.instanceId,
-      definitionId: entry.card!.definitionId,
-      status: CardStatus.Untapped,
-    }],
-  };
+  const alreadyInPlay = newPlayers[hazardIndex].cardsInPlay.some(c => c.instanceId === entry.card!.instanceId);
+  if (!alreadyInPlay) {
+    newPlayers[hazardIndex] = {
+      ...newPlayers[hazardIndex],
+      cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
+        instanceId: entry.card!.instanceId,
+        definitionId: entry.card!.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    };
+  }
 
   let finalState: GameState = { ...state, players: newPlayers, combat };
 

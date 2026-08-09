@@ -635,6 +635,8 @@ export function describeAction(
       return `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     case 'tap-alt-permanent-event':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
+    case 'attack-alt-permanent-event':
+      return `${playerName(action.player)} attacks with ${instName(action.cardInstanceId)} from its permanent-event state (against company ${action.targetCompanyId as string})`;
     case 'play-agent-manifestation':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     case 'arrange-deck-top-card':

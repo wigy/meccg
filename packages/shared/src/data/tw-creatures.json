@@ -1943,13 +1943,55 @@
     "body": 9,
     "killMarshallingPoints": 6,
     "race": "spider",
-    "keyedTo": [],
+    "keywords": [
+      "spawn"
+    ],
+    "keyedTo": [
+      {
+        "regionNames": ["Imlad Morgul", "Gorgoroth"]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "when": { "inPlay": "Doors of Night" },
+        "attacksAsCreature": true
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "target": "all-attacks",
+        "value": 1,
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["spider", "animal"] } },
+            { "inPlay": "Doors of Night" }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "target": "all-attacks",
+        "value": 1,
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["spider", "animal"] } },
+            { "inPlay": "Doors of Night" }
+          ]
+        }
+      },
+      {
+        "type": "discard-self-when",
+        "condition": { "$not": { "inPlayAnywhere": "Doors of Night" } }
       }
     ],
-    "text": "Unique.Spider. Spawn. May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may be played at any site in Imlad Morgul or Gorgoroth.If Doors of Night is in play, Shelob may be played as a permanent-event that gives +1 prowess and +1 strikes to all Spider and Animal attacks. She may opt to attack from a permanent-event state and receive these bonuses, but her attack counts as one against the hazard limit. Discard when Shelob attacks or if Doors of Night is not in play."
+    "text": "Unique.Spider. Spawn. May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may be played at any site in Imlad Morgul or Gorgoroth.If Doors of Night is in play, Shelob may be played as a permanent-event that gives +1 prowess and +1 strikes to all Spider and Animal attacks. She may opt to attack from a permanent-event state and receive these bonuses, but her attack counts as one against the hazard limit. Discard when Shelob attacks or if Doors of Night is not in play.",
+    "certified": "2026-08-09"
   }
 ]

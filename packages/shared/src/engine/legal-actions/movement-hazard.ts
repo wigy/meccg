@@ -2249,6 +2249,12 @@ function playHazardsActions(
             const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
             targetOk = matchesCondition(altEvent.targetCompany, ctx);
           }
+          // Optional game-wide gate on the event mode's availability (Shelob
+          // tw-86: permanent-event mode only offered "if Doors of Night is in
+          // play"), distinct from the creature mode's own play-condition.
+          if (targetOk && altEvent.when) {
+            targetOk = matchesCondition(altEvent.when, { inPlay: buildInPlayNames(state) });
+          }
           if (targetOk) {
             logDetail(`Creature "${def.name}" also offered as a ${altEvent.mode} (creature-alt-event)`);
             actions.push({
@@ -2256,7 +2262,7 @@ function playHazardsActions(
               viable: true,
             });
           } else {
-            logDetail(`Creature "${def.name}" ${altEvent.mode} mode not offered — target company condition/moving not met`);
+            logDetail(`Creature "${def.name}" ${altEvent.mode} mode not offered — target company condition/moving/when not met`);
           }
         }
       }
@@ -3836,6 +3842,7 @@ function playHazardsActions(
   // (tw-2 / tw-107) to convert it to a short-event.
   if (!isResourcePlayer) {
     actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
+    actions.push(...attackFromAltPermanentEventActions(state, playerId, mhState));
   }
 
   // Player who already passed gets no actions (waiting for opponent)
@@ -3907,6 +3914,10 @@ function tapAltPermanentEventActions(
     // Dír tw-44) needs a live attack to name, so it is offered in the combat
     // pre-assignment window instead (`modify-attack` / `fromAltPermanentEvent`).
     if (getCardEffects(def).some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) continue;
+    // A conversion that "attacks as itself" (Shelob tw-86, `attacksAsCreature`)
+    // is offered as `attack-alt-permanent-event` instead — see
+    // `attackFromAltPermanentEventActions` below.
+    if (altEvent.attacksAsCreature) continue;
 
     const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     if (limitReached && !bypassesLimit) {
@@ -3999,6 +4010,49 @@ function tapAltPermanentEventActions(
     }
 
     actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+  }
+  return actions;
+}
+
+/**
+ * Offer converting an in-play dual-mode creature-permanent-event that
+ * "attacks as itself" (`creature-alt-event` mode `permanent-event`,
+ * `attacksAsCreature: true` — Shelob tw-86) into a full creature attack
+ * against the active company, instead of a short-event conversion. Like a
+ * normal creature play, this must initiate a new chain (not offered in
+ * response to one) and needs no creature keying — the card stays in
+ * `cardsInPlay` (see `handleAttackFromAltPermanentEvent`) so its own passive
+ * effects still boost its own attack.
+ */
+function attackFromAltPermanentEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  if (state.chain != null) return actions;
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  if (!activeCompany) return actions;
+  const limitReached = mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id);
+
+  for (const card of player.cardsInPlay) {
+    if (card.status === CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event' || !altEvent.attacksAsCreature) continue;
+
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    if (limitReached && !bypassesLimit) {
+      actions.push({ action: { type: 'attack-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCompanyId: activeCompany.id }, viable: false, reason: 'Hazard limit reached' });
+      continue;
+    }
+    logDetail(`Creature-permanent-event "${def.name}" may attack from its permanent-event state against company ${activeCompany.id as string}`);
+    actions.push({ action: { type: 'attack-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCompanyId: activeCompany.id }, viable: true });
   }
   return actions;
 }

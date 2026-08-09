@@ -8350,6 +8350,31 @@ export interface CreatureAltEventEffect extends EffectBase {
    * `on-event: play-deck-exhausted` self-discard).
    */
   readonly persistent?: boolean;
+  /**
+   * Gates the permanent-event mode's *availability* (not its ongoing
+   * behaviour) on a condition evaluated against `{ inPlay: <game-wide in-play
+   * card names> }` — e.g. `{ "inPlay": "Doors of Night" }`. When absent, the
+   * event mode is always offered. Used by Shelob (tw-86): "If Doors of Night
+   * is in play, Shelob may be played as a permanent-event…" — the creature
+   * mode has no such gate, only the alternate permanent-event mode does.
+   */
+  readonly when?: Condition;
+  /**
+   * When true (permanent-event mode only), the in-play permanent-event
+   * converts to a full **creature attack** — using the card's own printed
+   * stats plus any global effects active at resolution (including the
+   * carrying card's own passive `stat-modifier`s, since the card is still in
+   * `cardsInPlay` while its attack resolves) — instead of a short-event
+   * conversion. Offered as `attack-alt-permanent-event` rather than
+   * `tap-alt-permanent-event` (`attackFromAltPermanentEventActions`,
+   * `legal-actions/movement-hazard.ts`); the card stays in `cardsInPlay`
+   * until `finalizeCombat`'s standard creature-attack disposal (discard, or
+   * the defender's kill pile if defeated) removes it. Counts one against the
+   * hazard limit like the short-event conversion. Used by Shelob (tw-86):
+   * "She may opt to attack from a permanent-event state and receive these
+   * bonuses, but her attack counts as one against the hazard limit."
+   */
+  readonly attacksAsCreature?: true;
 }
 
 /**
