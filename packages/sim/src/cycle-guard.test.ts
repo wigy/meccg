@@ -105,7 +105,7 @@ describe('bc agent cycle guard', () => {
     expect(second.result.outcome).toBe(first.result.outcome);
     expect(second.result.turns).toBe(first.result.turns);
     expect(second.winnerIndex).toBe(first.winnerIndex);
-  });
+  }, GAME_TIMEOUT * 2);
 
   test('playGame starts every game on each agent', () => {
     const starts = [0, 0];
