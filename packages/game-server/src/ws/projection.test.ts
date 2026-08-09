@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD, CardStatus, PALLANDO,
+  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD, CardStatus, PALLANDO, THE_GREAT_HUNT,
 } from '@meccg/shared';
 import type {
   GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, ViewCard,
@@ -359,6 +359,71 @@ describe("Pallando reveals the top of an opponent's discard pile (CRF 22)", () =
       bobView.self.discardPile.find(c => c.instanceId === id);
     expect(pileById(top)?.definitionId).toBe(BALIN);
     expect(pileById(buried)?.definitionId).toBe(ARAGORN);
+  });
+});
+
+/**
+ * Same fixture shape as {@link gameWithBobDiscardPile}, but Alice's reveal
+ * source is The Great Hunt (wh-91) sitting in her `cardsInPlay` rather than
+ * Pallando as a character — the card's "thereafter, your opponent discards
+ * face-up" text is the same mechanic (CRF 22).
+ */
+function gameWithBobDiscardPileAndGreatHunt(aliceControlsGreatHunt: boolean): {
+  state: GameState;
+  buried: CardInstanceId;
+  top: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const buried = 'p2-discard-buried' as CardInstanceId;
+  const top = 'p2-discard-top' as CardInstanceId;
+  const greatHuntInstance = 'p1-great-hunt' as CardInstanceId;
+  const state: GameState = {
+    ...base,
+    players: [
+      aliceControlsGreatHunt
+        ? {
+          ...base.players[0],
+          cardsInPlay: [
+            ...base.players[0].cardsInPlay,
+            { instanceId: greatHuntInstance, definitionId: THE_GREAT_HUNT, status: CardStatus.Untapped },
+          ],
+        }
+        : base.players[0],
+      { ...base.players[1], discardPile: [
+        { instanceId: buried, definitionId: ARAGORN },
+        { instanceId: top, definitionId: BALIN },
+      ] },
+    ],
+  };
+  return { state, buried, top };
+}
+
+describe('The Great Hunt (wh-91) reveals the top of an opponent\'s discard pile', () => {
+  test('controlling The Great Hunt reveals only the most recently discarded card', () => {
+    const { state, buried, top } = gameWithBobDiscardPileAndGreatHunt(true);
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    expect(pileById(top)?.definitionId).toBe(BALIN);
+    expect(pileById(buried)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test('without The Great Hunt in play, the opponent discard pile stays fully hidden', () => {
+    const { state, buried, top } = gameWithBobDiscardPileAndGreatHunt(false);
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    expect(pileById(top)?.definitionId).toBe(UNKNOWN_CARD);
+    expect(pileById(buried)?.definitionId).toBe(UNKNOWN_CARD);
   });
 });
 

@@ -32,7 +32,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, PALLANDO } from '@meccg/shared';
+import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, PALLANDO, THE_GREAT_HUNT } from '@meccg/shared';
 import { computeLegalActions, stampActionIds } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
@@ -400,9 +400,14 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     }
   }
 
-  // Pallando (tw-175, CRF 22): the controlling player can see the top card
-  // of the opponent's discard pile.
-  if (Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
+  // Pallando (tw-175, CRF 22) and The Great Hunt (wh-91) both force the
+  // opponent to "discard face-up" — the controlling player can see the top
+  // card of the opponent's discard pile (CRF 22: discards happen one at a
+  // time, so this lets them see each card as it is discarded).
+  const seesOpponentDiscardFaceUp =
+    Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)
+    || selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT);
+  if (seesOpponentDiscardFaceUp) {
     opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
   }
 
