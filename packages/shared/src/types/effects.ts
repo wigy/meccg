@@ -2603,6 +2603,17 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * (wh-115) aids "the characters in one company" wholesale and omits it.
    */
   readonly constraintWhen?: Condition;
+  /**
+   * For a `hazard-limit-region-count` constraint (Fair Sailing tw-232): the
+   * region type counted in the target company's resolved site path.
+   */
+  readonly regionType?: RegionType;
+  /**
+   * For a `hazard-limit-region-count` constraint: the floor the hazard
+   * limit is never reduced below ("to a minimum of two"). {@link value}
+   * carries the per-region delta.
+   */
+  readonly floor?: number;
 }
 
 /**

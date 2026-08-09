@@ -2988,9 +2988,27 @@ export function playResourceShortEventActions(
         // Company target without tap cost: one action per eligible company.
         // eligibleTargets[i] is the first character of the i-th eligible company,
         // used here only to look up the company so we can emit targetCompanyId.
+        // duplication-limit: scope "company" — "Cannot be duplicated on the
+        // same company" (Fair Sailing tw-232). Mirrors the character-scope
+        // check below: a short event attaches nothing, but its rest-of-turn
+        // effect leaves a company-targeted active constraint marking the
+        // source definition. Skip any company that already bears one.
+        const companyDupLimit = findDuplicationLimitEffect(def, 'company');
         for (const repCharId of eligibility.eligibleTargets) {
           const company = findCharacterCompany(player.companies, repCharId);
           if (!company) continue;
+          if (companyDupLimit) {
+            const copiesOnCompany = state.activeConstraints.filter(
+              c =>
+                c.sourceDefinitionId === def.id &&
+                c.target.kind === 'company' &&
+                c.target.companyId === company.id,
+            ).length;
+            if (copiesOnCompany >= companyDupLimit.max) {
+              logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
+              continue;
+            }
+          }
           logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
             action: {

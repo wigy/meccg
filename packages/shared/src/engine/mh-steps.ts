@@ -65,7 +65,7 @@ export function enterSetHazardLimitAndAutoAdvance(
   // hazards". Reinterpret the effective site's type (and, if declared, its site
   // path) for the keying pass only, before the snapshot/order-effects funnel.
   mhState = applyHazardSiteTypeOverride(state, company, mhState);
-  const snapshot = snapshotHazardLimit(state, company, mhState.resolvedSitePathNames);
+  const snapshot = snapshotHazardLimit(state, company, mhState.resolvedSitePathNames, mhState.resolvedSitePath);
   // Left Behind (td-41): a company created (or flagged) by Left Behind faces its
   // separate movement/hazard phase with a hazard limit of exactly one.
   const forcedLeftBehind = company.leftBehind === true;
@@ -738,18 +738,23 @@ export function buildCompanyHazardContext(
  * Compute the hazard limit locked in at site revelation for `company`.
  *
  * `pathNames` are the region names of the company's declared movement path.
- * They are threaded in from the caller's `MovementHazardPhaseState` (which is
- * not yet in `state.phaseState` at snapshot time) so region-named
- * `hazard-limit-environment` effects can see them; when omitted, the current
- * M/H phase state's `resolvedSitePathNames` are used.
+ * `pathRegionTypes` are the region *types* of that same path (Fair Sailing
+ * tw-232's `hazard-limit-region-count` constraint counts occurrences of a
+ * given type). Both are threaded in from the caller's `MovementHazardPhaseState`
+ * (which is not yet in `state.phaseState` at snapshot time); when omitted, the
+ * current M/H phase state's `resolvedSitePathNames` / `resolvedSitePath` are
+ * used.
  */
 export function snapshotHazardLimit(
   state: GameState,
   company: Company,
   pathNames?: readonly string[],
+  pathRegionTypes?: readonly RegionType[],
 ): { limit: number; preRevealConstraintIds: readonly string[] } {
   const regionNames = pathNames
     ?? (state.phaseState.phase === Phase.MovementHazard ? state.phaseState.resolvedSitePathNames : []);
+  const regionTypesForCount = pathRegionTypes
+    ?? (state.phaseState.phase === Phase.MovementHazard ? state.phaseState.resolvedSitePath : []);
   const companySize = companyEffectiveSize(state, company);
   let limit = Math.max(companySize, 2);
   logDetail(`Hazard limit (step 3): company size ${companySize} → base limit ${limit}`);
@@ -775,6 +780,28 @@ export function snapshotHazardLimit(
       preRevealConstraintIds.push(constraint.id);
       logDetail(`Hazard limit modified by ${constraint.kind.value} (${constraint.sourceDefinitionId as string}): ${prev} → ${limit}`);
     }
+  }
+
+  // hazard-limit-region-count constraints (Fair Sailing tw-232 and the "Fair
+  // Travels in X" family): the hazard limit decreases by `perCount` for every
+  // region of `regionType` in the company's resolved site path, floored (a
+  // limit already at or below the floor is left unchanged — the constraint
+  // only ever decreases, never raises to the floor).
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'hazard-limit-region-count'
+        || constraint.target.kind !== 'company'
+        || constraint.target.companyId !== company.id) continue;
+    const { regionType, perCount, floor } = constraint.kind;
+    const count = regionTypesForCount.filter(rt => rt === regionType).length;
+    if (count === 0) continue;
+    const prev = limit;
+    let next = limit + perCount * count;
+    if (perCount < 0 && next < floor) {
+      next = Math.min(prev, floor);
+    }
+    limit = next;
+    preRevealConstraintIds.push(constraint.id);
+    logDetail(`Hazard limit modified by ${perCount * count} (${count}x ${regionType}, ${constraint.sourceDefinitionId as string}, floor ${floor}): ${prev} → ${limit}`);
   }
 
   // Apply site-rule hazard-limit-modifier from the destination site's effects.

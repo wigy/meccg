@@ -1760,6 +1760,28 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Fair Sailing (tw-232) and the "Fair Travels in X" family: the
+         * hazard limit for the target company decreases by {@link perCount}
+         * for every region of {@link regionType} in its resolved site path,
+         * floored at {@link floor} ("to a minimum of two"). Added by an
+         * end-of-organization-phase resource short-event targeting a
+         * company that has declared movement (`company.moving`); the
+         * region-type count is only known once the company's site path is
+         * resolved during its own movement/hazard phase, so — unlike
+         * `hazard-limit-modifier` — this kind is read directly from
+         * `snapshotHazardLimit` (mh-steps.ts) against the resolved path
+         * rather than applied as a flat delta at play time.
+         */
+        readonly type: 'hazard-limit-region-count';
+        /** Region type counted in the company's resolved site path. */
+        readonly regionType: import('./common.js').RegionType;
+        /** Amount added to the hazard limit per matching region (negative to decrease). */
+        readonly perCount: number;
+        /** Floor the hazard limit is never reduced below by this constraint. */
+        readonly floor: number;
+      }
+    | {
+        /**
          * Roam the Waste (ba-73): each of the constrained player's companies is
          * "considered to have one fewer Wilderness / Shadow-land … in its site
          * path" for the rest of the turn. Player-targeted and turn-scoped; read

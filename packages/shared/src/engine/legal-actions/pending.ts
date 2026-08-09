@@ -1704,6 +1704,10 @@ function applyOneConstraint(
       return base;
     case 'hazard-limit-modifier':
       return base;
+    case 'hazard-limit-region-count':
+      // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
+      // resolved site path — no broad legal-action filtering needed here.
+      return base;
     case 'cancel-return-and-site-tap':
       return base;
     case 'cancel-character-discard':
