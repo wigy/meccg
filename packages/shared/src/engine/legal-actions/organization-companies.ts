@@ -603,18 +603,22 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
 
     // Build candidate sites from the player's site deck
     const candidateSites: SiteCard[] = [];
-    const siteInstMap = new Map<string, CardInstanceId>();
+    // Keyed by definitionId, not name: a Fallen-wizard's location deck can hold
+    // both a hero and a minion/Fallen-wizard printing of the same-named place
+    // (e.g. hero "The White Towers" tw-430 and Wizardhaven "The White Towers"
+    // wh-58) as genuinely distinct, independently-usable cards. Keying by name
+    // would let one clobber the other's instance mapping below.
+    const siteInstMap = new Map<CardDefinitionId, CardInstanceId>();
     // Heart Grown Cold (wh-21) and its kin lock which alignment of a site card a
     // Fallen-wizard may use for a location. A barred version is dropped before it
-    // can claim the name → instance slot, so the surviving version of the same
-    // location (if the deck holds one) becomes the destination the player uses.
+    // can claim its definitionId → instance slot.
     for (const siteCard of player.siteDeck) {
       const siteDef = defById(state, siteCard.definitionId);
       if (!siteDef || !isSiteCard(siteDef)) continue;
       if (fwSiteVersionForbidden(state, player, siteDef)) continue;
       if (fwSiteUsageForbidden(state, player, company, siteDef)) continue;
       candidateSites.push(siteDef);
-      siteInstMap.set(siteDef.name, siteCard.instanceId);
+      siteInstMap.set(siteDef.id, siteCard.instanceId);
     }
 
     // Rule 3.37 / 3.39: a company may declare movement to a site card that
@@ -632,20 +636,18 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         if (siblingSite.instanceId === company.currentSite.instanceId) continue;
         const siblingDef = defById(state, siblingSite.definitionId);
         if (!siblingDef || !isSiteCard(siblingDef)) continue;
-        // Deck entries win — if the same site name is already a deck candidate,
-        // keep the deck instance as the canonical choice. Likewise, once we've
-        // added a sibling-in-play entry for this name we don't add a second
-        // (e.g. currentSite wins over destinationSite if both siblings reference
-        // the same site name via different instances, though in practice they
-        // share the instance once movement resolves).
-        if (siteInstMap.has(siblingDef.name)) continue;
+        // If this exact definition already claimed a slot (e.g. currentSite
+        // and destinationSite of two different siblings resolving to the same
+        // card, or a deck candidate for this precise printing), don't add a
+        // second entry for it.
+        if (siteInstMap.has(siblingDef.id)) continue;
         // The same alignment lock applies to a site already in play: a
         // Fallen-wizard barred from the hero card cannot join a sibling standing
         // on it either.
         if (fwSiteVersionForbidden(state, player, siblingDef)) continue;
         if (fwSiteUsageForbidden(state, player, company, siblingDef)) continue;
         candidateSites.push(siblingDef);
-        siteInstMap.set(siblingDef.name, siblingSite.instanceId);
+        siteInstMap.set(siblingDef.id, siblingSite.instanceId);
         logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
       }
     }
@@ -686,7 +688,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       const regionTypeMap = buildRegionTypeMap(state);
       logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Gwaihir special movement — filtering sites`);
       for (const siteDef of candidateSites) {
-        const destInstId = siteInstMap.get(siteDef.name);
+        const destInstId = siteInstMap.get(siteDef.id);
         if (!destInstId) continue;
         if (blockedByRule_2_II_7_1.has(siteDef.id)) {
           logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
@@ -721,7 +723,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Paths of the Dead special movement — Vale of Erech only`);
       for (const siteDef of candidateSites) {
         if (siteDef.name !== 'Vale of Erech') continue;
-        const destInstId = siteInstMap.get(siteDef.name);
+        const destInstId = siteInstMap.get(siteDef.id);
         if (!destInstId) continue;
         if (blockedByRule_2_II_7_1.has(siteDef.id)) {
           logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
@@ -856,7 +858,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${reachable.length} reachable site(s)`);
 
     for (const r of reachable) {
-      const destInstId = siteInstMap.get(r.site.name);
+      const destInstId = siteInstMap.get(r.site.id);
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
@@ -886,7 +888,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${udReachable.length} Under-deeps destination(s)`);
     for (const dest of udReachable) {
-      const destInstId = siteInstMap.get(dest.name);
+      const destInstId = siteInstMap.get(dest.id);
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
@@ -919,7 +921,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         ? isDeepMinesAscentLegal(state, currentSiteDef, dest, dest.id, player)
         : isDeepMinesDescentLegal(state, currentSiteDef, company.currentSite.definitionId, dest, player);
       if (!legal) continue;
-      const destInstId = siteInstMap.get(dest.name);
+      const destInstId = siteInstMap.get(dest.id);
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
