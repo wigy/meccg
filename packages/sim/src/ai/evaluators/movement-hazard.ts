@@ -6,11 +6,14 @@
  * placements, and effect ordering.
  *
  * Resource-side actions (select-company, declare-path) get a flat positive
- * weight so they actually progress. Hazard-side actions are scored based on
- * the threat they pose: prowess gap vs. defenders for creatures, corruption
- * stacking for corruption hazards, and a small baseline for events.
+ * weight so they actually progress — except among region-movement path
+ * choices, which are scored by how much extra hazard exposure the declared
+ * regions add. Hazard-side actions are scored based on the threat they
+ * pose: prowess gap vs. defenders for creatures, corruption stacking for
+ * corruption hazards, and a small baseline for events.
  */
 
+import { RegionType } from '@meccg/shared';
 import type { GameAction, CreatureCard, CardDefinition } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
@@ -24,6 +27,33 @@ import {
   enablesHandCardBonus,
   discardBenefitsSelf,
 } from './common.js';
+
+/**
+ * Extra hazard-keying exposure a region type adds to a declared region-move
+ * path, relative to a plain Wilderness region (0). Border-land regions key
+ * additional creatures (e.g. Ambusher, Abductor, Cave Worm) on top of
+ * whatever the destination's own site path already keys, so crossing one
+ * gratuitously — without shortening the path or avoiding a worse region —
+ * is a pure downside for the resource player.
+ */
+const REGION_PATH_DANGER: Partial<Record<RegionType, number>> = {
+  [RegionType.Free]: 0,
+  [RegionType.Wilderness]: 0,
+  [RegionType.Coastal]: 1,
+  [RegionType.Border]: 3,
+  [RegionType.Shadow]: 5,
+  [RegionType.Dark]: 7,
+};
+
+/** Sum of {@link REGION_PATH_DANGER} over a declared region-movement path. */
+function regionPathDanger(regionPath: readonly string[], pool: Readonly<Record<string, CardDefinition>>): number {
+  let danger = 0;
+  for (const regionId of regionPath) {
+    const def = lookupDef(pool, regionId);
+    danger += def?.cardType === 'region' ? REGION_PATH_DANGER[def.regionType] ?? 1 : 1;
+  }
+  return danger;
+}
 
 /** Estimate how dangerous a creature is against a target company. */
 function creatureThreat(def: CreatureCard, defenderProwess: number): number {
@@ -74,7 +104,22 @@ export const movementHazardEvaluator: ActionEvaluator = {
 
       case 'declare-path':
         // Prefer Starter movement (printed path) when available.
-        return action.movementType === 'starter' ? 12 : 8;
+        if (action.movementType === 'starter') return 12;
+        if (action.movementType === 'region' && action.regionPath) {
+          // Region Movement lets the resource player declare any legal
+          // consecutive-region path (CoE 2.IV.ii) — every candidate of equal
+          // length previously scored the same flat 8, so the AI picked among
+          // them uniformly at random. That let it pick a path combining the
+          // disadvantages of shorter and longer alternatives (as many
+          // wilderness regions as the shortest route, plus a gratuitous
+          // border-land on top) with no offsetting benefit (bug report: Rivendell
+          // to Lórien via Rhudaur → High Pass → Anduin Vales → Wold & Foothills,
+          // instead of the equally-long, all-wilderness Rhudaur → Hollin →
+          // Redhorn Gate → Wold & Foothills). Discount by the extra exposure
+          // each crossed region adds so safer equal-length paths score higher.
+          return Math.max(1, 8 - regionPathDanger(action.regionPath, pool));
+        }
+        return 8;
 
       case 'order-effects':
         return 10;
