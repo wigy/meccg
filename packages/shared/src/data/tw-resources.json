@@ -2939,8 +2939,18 @@
         "site": "Lossadan Camp"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Lossadan Camp if the influence check is greater than 8. Standard Modifications: Men (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Lossadan Camp if the influence check is greater than 8. Standard Modifications: Men (+1).",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "hero-resource-faction",
