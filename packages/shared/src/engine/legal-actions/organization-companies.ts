@@ -994,8 +994,14 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         // Rule 227: Move non-avatar character without followers to DI of a
         // non-follower character in the same company
         // A `control-restriction` may override the influence-to-control cost
-        // and limit which controllers may hold this character under DI.
-        const controlCost = controlCostOf(state, char, charDef.mind) ?? charDef.mind;
+        // and limit which controllers may hold this character under DI. Use
+        // the character's effective mind (e.g. So You've Come Back le-138's
+        // +1 mind to non-followers) rather than the printed value, per CoE
+        // 2.II.3.2 ("before any modifications applied as a result of being a
+        // follower" — modifications that already apply while non-follower do
+        // count).
+        const baseMind = char.effectiveStats.mind ?? charDef.mind;
+        const controlCost = controlCostOf(state, char, baseMind) ?? baseMind;
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
           const ctrl = player.characters[ctrlInstId];
