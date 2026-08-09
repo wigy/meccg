@@ -82,6 +82,28 @@ describe('A Strident Spawn (wh-61)', () => {
     expect(state.players[RESOURCE_PLAYER].stagePoints).toBe(4);
   });
 
+  test('A Strident Spawn is worth 1 marshalling point (miscellaneous), per the printed card', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD_FW, characters: [SARUMAN_FW] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [LORIEN] },
+      ],
+    });
+    state = addCardInPlay(state, RESOURCE_PLAYER, STRIDENT_SPAWN);
+    state = recomputeDerived(state);
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
+  });
+
   // ─── Rule 2: play-condition ────────────────────────────────────────────────
 
   test('playable from hand when you are Saruman, have ≥6 stage points, and control a protected Wizardhaven', () => {
