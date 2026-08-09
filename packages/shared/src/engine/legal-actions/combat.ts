@@ -757,11 +757,38 @@ function assignStrikeActions(
       (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
     );
 
+    // strike-shield (Noble Hound dm-179): mirrors the defender-phase check
+    // above. Its "in all cases" wording (CoE 3.ii.3) means the ally must be
+    // assigned a strike before the controlling character regardless of which
+    // player is doing the assigning — this branch runs Step 3 (CoE 3.iii),
+    // where the *opponent* assigns remaining strikes.
+    const attackerStrikeShieldBlockedChars = new Set<string>();
+    for (const charId of company.characters) {
+      const charData = defPlayer.characters[charId];
+      if (!charData) continue;
+      for (const ally of charData.allies) {
+        if (assignedCharIds.has(ally.instanceId as string)) continue;
+        const allyDef = defById(state, ally.definitionId);
+        const shieldEff = getCardEffects(allyDef).find(
+          (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
+        );
+        if (shieldEff) {
+          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking attacker strike on ${charId as string}`);
+          attackerStrikeShieldBlockedChars.add(charId as string);
+        }
+      }
+    }
+
     // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
     const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
     for (const charId of company.characters) {
       if (attackerProtectedChars.has(charId as string)) {
         logDetail(`Character ${charId as string} protected from strike assignment — excluded from attacker pool`);
+        continue;
+      }
+      if (attackerStrikeShieldBlockedChars.has(charId as string)
+        && !(combat.forcedStrikeTargets ?? []).includes(charId)) {
+        logDetail(`Character ${charId as string} shielded — attacker must assign strike to ally first`);
         continue;
       }
       if (combat.excludeAvatarStrikes) {

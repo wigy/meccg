@@ -212,6 +212,59 @@ describe('dm-179: Noble Hound', () => {
     expect(houndAssign).toBeDefined();
   });
 
+  test('Noble Hound must be assigned a strike before controlling character (attacker phase)', () => {
+    // CoE 3.iii — Step 3, where the *opponent* (attacking player) assigns any
+    // remaining strikes. Noble Hound's "in all cases" wording (CRF 3.ii.3)
+    // means the shield applies here too, not just when the defender
+    // pre-assigns in Step 2 — this used to be unenforced, letting the
+    // attacker strike the controlling character directly.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+
+    const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
+    const p1 = withHound.players[RESOURCE_PLAYER];
+    const houndId = p1.characters[aragornId]?.allies[0]?.instanceId;
+    expect(houndId).toBeDefined();
+
+    const combat = {
+      attackSource: { type: 'creature' as const, instanceId: 'fake-orc' as CardInstanceId },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 2,
+      strikeProwess: 5,
+      creatureBody: null,
+      creatureRace: Race.Orc,
+      strikeAssignments: [],
+      currentStrikeIndex: 0,
+      phase: 'assign-strikes' as const,
+      assignmentPhase: 'attacker' as const,
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+
+    const combatState = { ...withHound, combat, phaseState: makeShadowMHState() };
+    const actions = viableActions(combatState, PLAYER_2, 'assign-strike');
+
+    // Noble Hound should be assignable (it's untapped).
+    const houndAssign = actions.find(a => (a.action as { characterId?: CardInstanceId }).characterId === houndId);
+    expect(houndAssign).toBeDefined();
+
+    // Aragorn should NOT be assignable while Noble Hound is unassigned, even
+    // though it's the attacker (not the defender) choosing.
+    const aragornAssign = actions.find(a => (a.action as { characterId?: CardInstanceId }).characterId === aragornId);
+    expect(aragornAssign).toBeUndefined();
+  });
+
   test('Noble Hound is playable at an untapped border-hold via play-target filter', () => {
     const state = buildSitePhaseState({
       site: BREE,

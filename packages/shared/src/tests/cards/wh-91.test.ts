@@ -33,7 +33,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, ARAGORN,
   viableActions, dispatch, findInPile, findCharInstanceId, executeAction,
   playPermanentEventAndResolve, addCardToDiscardPile,
   ISENGARD, RIVENDELL, MORIA,
@@ -50,6 +50,7 @@ const ORC_PATROL     = 'tw-074' as CardDefinitionId; // hazard-creature, race or
 const BARROW_WIGHT   = 'tw-015' as CardDefinitionId; // hazard-creature, race undead
 const ORC_GUARD      = 'tw-072' as CardDefinitionId; // hazard-creature, race orc
 const GLAMDRING      = 'tw-244' as CardDefinitionId; // non-creature filler for the opponent deck/discard
+const WATCHER_IN_THE_WATER = 'tw-110' as CardDefinitionId; // hazard-creature, "each character faces one strike"
 
 // A Fallen-wizard organization-phase state: P1 (active) is the Alatar player
 // with one company at Moria; P2 is a placeholder Wizard whose play deck /
@@ -147,6 +148,48 @@ describe('The Great Hunt (wh-91)', () => {
     expect(state2.combat!.companyId as string).toBe(alatarCompanyId(state2));
     expect(state2.combat!.creatureRace).toBe('dragon');
     expect(state2.combat!.strikesTotal).toBe(2);
+  });
+
+  // A revealed "each character faces one strike" creature (Watcher in the
+  // Water) must total strikes by Alatar's company size, not its own printed
+  // strikes value (1) — `buildGreatHuntCombat` used to ignore the
+  // `combat-one-strike-per-character` effect entirely and just use the
+  // creature's raw strikes, under-counting whenever the company has more
+  // than one character.
+  test('a revealed "each character faces one strike" creature totals strikes by company size', () => {
+    const state0 = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: MORIA, characters: [ALATAR, ARAGORN] }],
+          hand: [THE_GREAT_HUNT],
+          siteDeck: [ISENGARD],
+          stagePoints: 12,
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+          playDeck: [WATCHER_IN_THE_WATER],
+          discardPile: [],
+        },
+      ],
+    });
+    const ghId = findInPile(state0, 0, 'hand', THE_GREAT_HUNT)!.instanceId;
+    const state1 = playPermanentEventAndResolve(state0, PLAYER_1, ghId);
+    const state2 = dispatch(state1, { type: 'choose-great-hunt-source', player: PLAYER_1, source: 'deck' });
+
+    expect(state2.combat).not.toBeNull();
+    expect(state2.combat!.creatureRace).toBe('animal');
+    // Two characters in Alatar's company → two strikes, not the printed 1.
+    expect(state2.combat!.strikesTotal).toBe(2);
+    expect(state2.combat!.eachCharacterFacesOneStrike).toBe(true);
   });
 
   test('the reveal queue caps at 5 creatures even when more are present', () => {
