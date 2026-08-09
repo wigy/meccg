@@ -1166,11 +1166,49 @@
     "unique": true,
     "marshallingPoints": 4,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
     "race": "man",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Manifestation of minion Haradrim. Playable at Southron Oasis  if the influence check is greater than 9. Standard Modifications: Wizards (-5), Dúnedain (-2), Elves (-2), Dwarves (-2)."
+    "playableAt": [
+      {
+        "site": "Southron Oasis"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -5,
+        "when": {
+          "bearer.race": "wizard"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of minion Haradrim. Playable at Southron Oasis  if the influence check is greater than 9. Standard Modifications: Wizards (-5), Dúnedain (-2), Elves (-2), Dwarves (-2).",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "hero-resource-faction",
