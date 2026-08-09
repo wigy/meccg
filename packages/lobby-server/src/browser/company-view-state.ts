@@ -15,6 +15,7 @@ import type {
   CardDefinition,
   CardInstanceId,
   CompanyId,
+  EvaluatedAction,
 } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 
@@ -183,6 +184,29 @@ export function shouldRestoreOverrideAfterCombat(
   const combatJustEnded = !combatActive && lastCombatActive;
   const opponentTurn = activeId !== null && activeId !== selfId;
   return combatJustEnded && opponentTurn;
+}
+
+/**
+ * Decide whether the combat arena view should stay hidden in favor of the
+ * normal company view because a pending corruption check blocks combat from
+ * actually proceeding (e.g. Corpse-candle tw-23/le-67: "every character in
+ * the company makes a corruption check before defending characters are
+ * selected"). The engine sets `combat.phase` to 'assign-strikes' before
+ * those pre-defense checks resolve, so `view.combat` is already non-null —
+ * but the corruption-check banner, the per-character tap-in-support buttons
+ * (CoE 7.1.1), and reactive short-event plays (e.g. A Friend or Three) only
+ * render in the company view, not the combat arena, so switching to combat
+ * early hides the controls the defending player needs to resolve the check.
+ *
+ * @param legalActions - The viewing player's legal actions for this render.
+ * @returns True if a viable corruption-check or support-corruption-check
+ *   action is pending, meaning the company view should keep rendering.
+ */
+export function isCombatBlockedByPendingCorruptionCheck(
+  legalActions: readonly EvaluatedAction[],
+): boolean {
+  return legalActions.some(ea =>
+    ea.viable && (ea.action.type === 'corruption-check' || ea.action.type === 'support-corruption-check'));
 }
 
 /** Track the last active player so we can reset view state on turn change. */

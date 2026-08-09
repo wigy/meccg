@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import type { EvaluatedAction } from '@meccg/shared';
 import {
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
   shouldClearOverrideForNewCombat,
   shouldRestoreOverrideAfterCombat,
+  isCombatBlockedByPendingCorruptionCheck,
 } from './company-view-state.js';
 
 /**
@@ -136,5 +138,71 @@ describe('shouldRestoreOverrideAfterCombat', () => {
 
   it('does NOT restore when there is no active player', () => {
     expect(shouldRestoreOverrideAfterCombat(false, true, null, SELF)).toBe(false);
+  });
+});
+
+/**
+ * Regression tests for bug report cd1a91ecd6df95b2 (game mslxt32k-vsylze, seq
+ * 1085): "it force a CP on all characters, but it is not clear who's roll it
+ * is. So no support tap or friend of three to play easily." Corpse-candle
+ * (tw-23/le-67) forces "every character in the company makes a corruption
+ * check before defending characters are selected" — the engine sets
+ * `combat.phase` to 'assign-strikes' immediately, before those pre-defense
+ * checks resolve, so `view.combat` is already non-null while the checks are
+ * still pending. The company view unconditionally ceded to the combat arena
+ * whenever `view.combat` was set, hiding the corruption-check banner naming
+ * the checking character, the per-character tap-in-support buttons (CoE
+ * 7.1.1), and reactive short-event plays (e.g. A Friend or Three) — all of
+ * which only render in the company view.
+ */
+describe('isCombatBlockedByPendingCorruptionCheck', () => {
+  const corruptionCheckAction: EvaluatedAction = {
+    action: {
+      type: 'corruption-check',
+      player: 'p1',
+      characterId: 'p1-107',
+      corruptionPoints: 1,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 2,
+      explanation: 'Corpse-candle: need roll > 1 (CP 1)',
+    },
+    viable: true,
+  } as unknown as EvaluatedAction;
+
+  const supportCorruptionCheckAction: EvaluatedAction = {
+    action: {
+      type: 'support-corruption-check',
+      player: 'p1',
+      supportingCharacterId: 'p1-108',
+      targetCharacterId: 'p1-107',
+    },
+    viable: true,
+  } as unknown as EvaluatedAction;
+
+  const assignStrikeAction: EvaluatedAction = {
+    action: { type: 'assign-strike', player: 'p1', characterId: 'p1-107', tapped: false },
+    viable: true,
+  } as unknown as EvaluatedAction;
+
+  it('blocks the combat view when a corruption-check action is pending', () => {
+    expect(isCombatBlockedByPendingCorruptionCheck([corruptionCheckAction])).toBe(true);
+  });
+
+  it('blocks the combat view when a support-corruption-check action is pending', () => {
+    expect(isCombatBlockedByPendingCorruptionCheck([supportCorruptionCheckAction])).toBe(true);
+  });
+
+  it('does NOT block the combat view once only assign-strike actions remain', () => {
+    expect(isCombatBlockedByPendingCorruptionCheck([assignStrikeAction])).toBe(false);
+  });
+
+  it('does NOT block on a non-viable corruption-check action', () => {
+    const nonViable = { ...corruptionCheckAction, viable: false };
+    expect(isCombatBlockedByPendingCorruptionCheck([nonViable])).toBe(false);
+  });
+
+  it('does NOT block when there are no legal actions', () => {
+    expect(isCombatBlockedByPendingCorruptionCheck([])).toBe(false);
   });
 });
