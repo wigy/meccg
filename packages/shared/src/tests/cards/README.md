@@ -319,8 +319,8 @@
 | dm-167 | Dragon-helm | — | 14 | ☑ |
 | dm-168 | Dwarven Light-stone | — | 13 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
-| dm-178 | Mistress Lobelia | — | 13 | ☑ |
-| dm-179 | Noble Hound | — | 7 | ☑ |
+| dm-178 | Mistress Lobelia | — | 14 | ☑ |
+| dm-179 | Noble Hound | — | 8 | ☑ |
 | dm-180 | Folco Boffin | — | 9 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
@@ -1102,7 +1102,7 @@
 | wh-87 | Half-orcs | — | 10 | ☑ |
 | wh-89 | Keys to the White Towers | — | 10 | ☑ |
 | wh-90 | Bow of Alatar | — | 11 | ☑ |
-| wh-91 | The Great Hunt | — | 12 | ☑ |
+| wh-91 | The Great Hunt | — | 13 | ☑ |
 | wh-92 | Huntsman’s Garb | — | 11 | ☑ |
 | wh-93 | Join the Hunt | — | 14 | ☑ |
 | wh-94 | Oromë’s Warders | — | 20 | ☑ |
@@ -1111,7 +1111,7 @@
 | wh-97 | Chambers in the Royal Court | — | 15 | ☑ |
 | wh-98 | Gandalf’s Friend | — | 9 | ☑ |
 | wh-99 | Give Welcome to the Unexpected | — | 13 | ☑ |
-| wh-100 | Grey Embassy | — | 15 | ☑ |
+| wh-100 | Grey Embassy | — | 17 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
 | wh-105 | Pallando’s Hood | — | 9 | ☑ |
 | wh-106 | Prophet of Doom | — | 15 | ☑ |

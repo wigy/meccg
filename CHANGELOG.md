@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.92.0 — 2026-08-09
+
+Hounds guard their masters, and the Hunt strikes true
+
+### Cards
+
+- Grey Embassy (wh-100) is playable while Gandalf is not yet in play — the card required a Gandalf target to be played at all, contradicting its own "if he is in play" wording and CoE 5.F1 (same fix already applied to its sibling, Give Welcome to the Unexpected)
+- Mistress Lobelia (dm-178) may tap to fetch an item, ally, or faction during any phase, not just the organization phase — her text carries no phase restriction (CoE 9.1.3 / 2.1.1)
+- Noble Hound (dm-179) must be assigned a strike before its controlling character even when the *attacker* assigns strikes (automatic-attacks and Step 3 of strike assignment) — its "in all cases" wording takes precedence regardless of who is assigning (CoE 3.ii.3)
+- The Great Hunt (wh-91) now counts "each character faces one strike" creatures correctly: a revealed Watcher in the Water faces the whole company, instead of striking only as many times as its printed strike value
+
+### Game Engine
+
+- Becoming a follower checks the character's *effective* mind rather than its printed mind, so a hazard-boosted character (e.g. Kíli under So You've Come Back) can no longer be recruited past the controller's direct influence
+
+### Web Client
+
+- Granted-action responses such as Tom Bombadil's tap-to-cancel are surfaced as buttons in the chain-of-effects panel, next to "Pass Priority" — the panel previously covered the board thumbnails that were the only way to activate them
+
+### AI
+
+- The heuristic AI no longer picks corruption-hazard-event targets at random: it scores candidates by existing corruption and carried value, so *Alone and Unadvised* lands on the corruptible key character rather than a throwaway follower
+
 ## 0.91.0 — 2026-08-09
 
 The Great Hunt reveals, and destinations stay secret
