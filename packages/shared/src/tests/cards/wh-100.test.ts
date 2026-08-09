@@ -42,12 +42,12 @@ import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   addCardInPlay, attachItemToChar, addCardToHand, recomputeDerived,
   playPermanentEventAndResolve, findCharInstanceId, findHandCardId, getCharacter,
-  makePlayDeck,
+  makePlayDeck, dispatch,
   ARAGORN, LEGOLAS,
-  ISENGARD, RIVENDELL, LORIEN, MORIA,
+  ISENGARD, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../test-helpers.js';
 import { Alignment, computeLegalActions } from '../../index.js';
 import type { CardDefinitionId, GameState } from '../../index.js';
@@ -281,5 +281,92 @@ describe('Grey Embassy (wh-100)', () => {
     const playable = viableActions(state, PLAYER_1, 'play-permanent-event')
       .filter(ea => (ea.action as { cardInstanceId?: string }).cardInstanceId === secondId);
     expect(playable).toHaveLength(0);
+  });
+
+  // ─── Rule: playable bare (Gandalf not yet in play), attaches to him on entry ──
+  // Bug report: "Grey Embassy not playable during organisation phase when
+  // Gandalf is NOT in play." Mirrors Bade to Rule (le-167) and Give Welcome to
+  // the Unexpected (wh-99)'s untargeted play-option + on-event
+  // avatar-enters-play auto-attach pattern.
+
+  test('alternative mode: playable during the organization phase if Gandalf is not in play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [ARAGORN, LEGOLAS] }],
+          hand: [GREY_EMBASSY, GANDALF_FW],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as { targetCharacterId?: unknown };
+    expect(action.targetCharacterId).toBeUndefined();
+
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, GREY_EMBASSY);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, cardId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GREY_EMBASSY)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(3);
+  });
+
+  test('when played bare, attaches to Gandalf the moment he enters play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          // Minas Tirith is a Free-hold — Gandalf's home-site restriction
+          // ("Any Free-hold") requires a matching company site to be playable.
+          companies: [{ site: MINAS_TIRITH, characters: [ARAGORN, LEGOLAS] }],
+          hand: [GREY_EMBASSY, GANDALF_FW],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, GREY_EMBASSY);
+    const bare = playPermanentEventAndResolve(state, PLAYER_1, cardId);
+    expect(bare.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GREY_EMBASSY)).toBe(true);
+
+    // A second copy must not be offered while the first sits bare in play.
+    const secondCopyActions = viableActions(addCardToHand(bare, RESOURCE_PLAYER, GREY_EMBASSY), PLAYER_1, 'play-permanent-event');
+    expect(secondCopyActions.length).toBe(0);
+
+    // Bring Gandalf into play — the card should attach to him and leave `cardsInPlay`.
+    const playGandalf = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, GANDALF_FW));
+    expect(playGandalf).toBeDefined();
+    const withGandalf = dispatch(bare, playGandalf!);
+
+    expect(withGandalf.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GREY_EMBASSY)).toBe(false);
+    const gandalf = getCharacter(withGandalf, RESOURCE_PLAYER, GANDALF_FW);
+    expect(gandalf.items.some(i => i.definitionId === GREY_EMBASSY)).toBe(true);
+    expect(withGandalf.players[RESOURCE_PLAYER].stagePoints).toBe(3);
   });
 });
