@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.91.0 — 2026-08-09
+
+The Great Hunt reveals, and destinations stay secret
+
+### Cards
+
+- The Great Hunt (wh-91) reveals the opponent's discards face-up, as its text requires — the passive reveal was missing, leaving the discard pile fully hidden
+- Hidden Haven (wh-75) and other site-type overrides allow storing items: store-item now checks the site's effective type instead of its printed type
+
+### Game Engine
+
+- Plan-movement no longer leaks the identity of a destination site that had been public earlier in the game (e.g. a Wizardhaven that cycled back into the location deck) — the destination stays secret until revealed in the Movement/Hazard phase
+- Plan-movement no longer drops an in-play sibling's site when a same-named site remains in the deck: site candidates are keyed by definition id rather than display name, so two printings sharing a name (hero and Wizardhaven "The White Towers") no longer clobber each other
+
+### Web Client
+
+- The attacking creature's card image is shown for creatures revealed and attacking via The Great Hunt, so the defender can see and target it
+
 ## 0.90.0 — 2026-08-08
 
 Technology items, stored marshalling points, and clickable allies

@@ -1092,7 +1092,7 @@
 | wh-70 | Gatherer of Loyalties | — | 10 | ☑ |
 | wh-72 | Great Patron | — | 9 | ☑ |
 | wh-74 | Guarded Haven | — | 14 | ☑ |
-| wh-75 | Hidden Haven | — | 26 | ☑ |
+| wh-75 | Hidden Haven | — | 27 | ☑ |
 | wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
 | wh-82 | Thrall of the Voice | — | 16 | ☑ |
