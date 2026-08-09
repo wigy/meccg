@@ -20,6 +20,7 @@ import { CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
+import { buildInPlayNames } from './recompute-derived.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
@@ -801,6 +802,14 @@ export function siteRuleAllowsCreatureByRace(
  * - `itemKeywords` — combined `keywords` of every item borne by any character
  *   in the company (e.g. `"ring"` for "possessing any Ring"), via
  *   {@link itemKeywordsOf}.
+ * - `hasWoundedCharacter` — true if any character in the company is Inverted
+ *   (wounded), for "only if a character in target company is wounded" clauses
+ *   (Morgul-rats td-49).
+ *
+ * Also exposes `inPlay` — the list of card names the active player has in
+ * play (via {@link buildInPlayNames}), so a condition can combine a company
+ * predicate with a named prerequisite, e.g. `{ "$or": [ { "company.hasWoundedCharacter":
+ * true }, { "inPlay": "Doors of Night" } ] }`.
  *
  * Shared by the creature/short-event targeting checks (`legal-actions/
  * movement-hazard.ts`) and short-event resolution (`chain-reducer.ts`) so both
@@ -819,6 +828,7 @@ export function buildTargetCompanyConditionContext(
   const itemKeywords: string[] = [];
   let maxUntappedWarriorProwess = 0;
   let containsWizard = false;
+  let hasWoundedCharacter = false;
   for (const charInstId of company.characters) {
     const inPlay = owner.characters[charInstId];
     const defId = inPlay?.definitionId ?? resolveInstanceId(state, charInstId);
@@ -834,6 +844,7 @@ export function buildTargetCompanyConditionContext(
       if (prowess > maxUntappedWarriorProwess) maxUntappedWarriorProwess = prowess;
     }
     if (charDef.race === Race.Wizard) containsWizard = true;
+    if (inPlay && inPlay.status === CardStatus.Inverted) hasWoundedCharacter = true;
     if (inPlay) {
       itemNames.push(...defNamesOf(state, inPlay.items));
       itemKeywords.push(...itemKeywordsOf(state, inPlay.items));
@@ -843,8 +854,9 @@ export function buildTargetCompanyConditionContext(
   return {
     company: {
       homeSites, characterNames, maxUntappedWarriorProwess, containsWizard,
-      alignment: alignment ?? null, covert, itemNames, itemKeywords,
+      alignment: alignment ?? null, covert, itemNames, itemKeywords, hasWoundedCharacter,
     },
+    inPlay: buildInPlayNames(state),
   };
 }
 

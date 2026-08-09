@@ -7056,6 +7056,27 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
   ] } }
 ```
 
+- `target-company` — for **hazard creatures**: an extra gate checked after
+  keying, evaluated against the defending company via
+  `buildTargetCompanyConditionContext` (`reducer-utils.ts`), exposing
+  `{ company: { alignment, homeSites, characterNames, maxUntappedWarriorProwess,
+  containsWizard, covert, itemNames, itemKeywords, hasWoundedCharacter },
+  inPlay: [<names>] }`. `company.alignment` is `defenderAlignmentLabel`-mapped
+  (a Wizard player's companies read `"hero"`); `company.hasWoundedCharacter` is
+  `true` when any company member's status is Inverted (wounded); `inPlay` lets
+  the same condition combine a company predicate with a named in-play
+  prerequisite. Checked in `legal-actions/movement-hazard.ts` (creature-keying
+  block) via `findPlayConditionEffect(def, 'target-company')`, **after** a
+  keying match is found — a miss makes the play non-viable with reason "Cannot
+  be played against this company". Used by Horse-lords (le-78): "May not be
+  played against a company containing a character with Edoras as a home site"
+  — `{ "$not": { "company.homeSites": "Edoras" } }`; Olog Warlords (ba-12) /
+  Sons of Kings (le-91) / Elves upon Errantry (le-70) gate on
+  `company.alignment`; Landroval (le-81) combines `company.alignment` with
+  `company.covert`; and Morgul-rats (td-49): "playable... only if a character
+  in target company is wounded or Doors of Night is in play" —
+  `{ "$or": [{ "company.hasWoundedCharacter": true }, { "inPlay": "Doors of Night" }] }`.
+
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's
   avatar/alignment context, built once by `buildPlayerStateContext`
