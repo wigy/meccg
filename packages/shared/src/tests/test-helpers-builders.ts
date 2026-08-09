@@ -541,12 +541,13 @@ export function buildSitePhaseState(opts: {
   site: CardDefinitionId;
   hand?: CardDefinitionId[];
   siteStatus?: CardStatus;
+  discardPile?: CardDefinitionId[];
 }) {
   const state = buildTestState({
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
-      { id: PLAYER_1, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA] },
+      { id: PLAYER_1, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA], discardPile: opts.discardPile ?? [] },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
     ],
     phase: Phase.Site,

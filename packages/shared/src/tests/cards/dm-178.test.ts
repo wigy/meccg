@@ -251,6 +251,14 @@ describe('Mistress Lobelia (dm-178)', () => {
     assertEveryInstanceReachable(afterFetch);
   });
 
+  test('the tap ability is offered during the site phase, at the ally\'s own current site (CoE 2.1.1 / 9.1.3: resource/character actions on cards in play are available during any phase)', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN], site: BAG_END, discardPile: [RANGERS_OF_THE_NORTH],
+    });
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, MISTRESS_LOBELIA);
+    expect(fetchActionsOf(withAlly)).toHaveLength(1);
+  });
+
   test('the ability can search the play deck: a playable card is drawn to hand and the deck reshuffled', () => {
     // Rangers of the North sits in the play deck (not the discard); the search
     // must find it there and, on fetch, move it to hand and reshuffle the deck.
