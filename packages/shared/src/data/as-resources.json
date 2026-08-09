@@ -580,7 +580,7 @@
     "cardType": "minion-resource-faction",
     "id": "as-66",
     "name": "Wain-easterlings",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Waineasterlings.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Waineasterlings2.jpg",
     "text": "Unique. Playable at Easterling Camp if the influence check is greater than 9. Standard Modifications: Easterlings (+2), Nûriags (-2).",
     "alignment": "ringwraith",
     "unique": true,
