@@ -147,6 +147,9 @@ export function handlePlayHazards(
   // --- Tap an in-play dual-mode creature-permanent-event → short-event (tw-2, tw-107) ---
   if (action.type === 'tap-alt-permanent-event') return handleTapAltPermanentEvent(state, action, mhState);
 
+  // --- Convert an in-play dual-mode creature-permanent-event into a full creature attack (Shelob tw-86) ---
+  if (action.type === 'attack-alt-permanent-event') return handleAttackFromAltPermanentEvent(state, action, mhState);
+
   // --- Tap cardsInPlay hazard permanent event for +1 hazard limit (Power Built by Waiting) ---
   if (action.type === 'tap-hazard-card-for-limit') return handleTapHazardCardForLimit(state, action, mhState);
 
@@ -3094,6 +3097,68 @@ function handleTapAltPermanentEvent(
   };
   newState = initiateOrPushChain(newState, action.player, cardInstance, payload, !bypassesLimit);
   return { state: newState };
+}
+
+/**
+ * Handle attack-alt-permanent-event: the hazard player converts an in-play
+ * dual-mode creature-permanent-event that "attacks as itself"
+ * (`creature-alt-event` mode `permanent-event`, `attacksAsCreature: true` —
+ * Shelob tw-86) into a full creature attack against the active company.
+ * Unlike `tap-alt-permanent-event`'s short-event conversion, the card is
+ * NOT removed from `cardsInPlay` here — it stays there so its own passive
+ * `stat-modifier` effects (e.g. Shelob's +1 prowess/+1 strikes to Spider and
+ * Animal attacks) still apply to its own attack once the chain resolves into
+ * combat. `initiateCreatureCombat` (`chain-reducer.ts`) detects the creature
+ * is already present in the hazard player's `cardsInPlay` and skips
+ * re-adding it; `finalizeCombat`'s standard creature disposal (discard, or
+ * the defender's kill pile if defeated) removes it once the attack resolves
+ * — matching the card text's "discard when Shelob attacks".
+ */
+function handleAttackFromAltPermanentEvent(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'attack-alt-permanent-event') return wrongActionType(state, action, 'attack-alt-permanent-event');
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const card = hazardPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'attack-alt-permanent-event: card not found in cardsInPlay' };
+  if (card.status === CardStatus.Tapped) return { state, error: 'attack-alt-permanent-event: card is already tapped' };
+  const def = defById(state, card.definitionId);
+  const altEvent = def && getCardEffects(def).find(e => e.type === 'creature-alt-event');
+  if (!altEvent || altEvent.mode !== 'permanent-event' || !altEvent.attacksAsCreature) {
+    return { state, error: 'attack-alt-permanent-event: this permanent-event does not attack as a creature' };
+  }
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
+  if (!activeCompany || activeCompany.id !== action.targetCompanyId) {
+    return { state, error: 'attack-alt-permanent-event: not the active company' };
+  }
+
+  const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  if (!bypassesLimit) {
+    const limit = currentHazardLimit(state, mhState, activeCompany.id);
+    if (mhState.hazardsPlayedThisCompany >= limit) {
+      return { state, error: `attack-alt-permanent-event: hazard limit reached (${limit})` };
+    }
+  }
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" attacks from its permanent-event state (${newHazardCount}/${currentHazardLimit(state, mhState, activeCompany.id)}) — initiating chain`);
+
+  const newState: GameState = {
+    ...state,
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  // Leave the card in `cardsInPlay` (do not remove it here) — its own
+  // stat-modifier effects must still be visible when `initiateCreatureCombat`
+  // resolves prowess/strikes for this very attack.
+  const cardInstance = toCardInstance(card);
+  const creaturePayload: import('../index.js').ChainEntryPayload = { type: 'creature' };
+  return { state: initiateChain(newState, action.player, cardInstance, creaturePayload, 'normal', !bypassesLimit) };
 }
 
 /**

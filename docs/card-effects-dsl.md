@@ -13245,6 +13245,66 @@ drained multi-resolution entry is marked resolved via
 `resolveChainEntryAndContinue` rather than a fresh call into `resolveEntry`,
 nothing after the pausing point ever runs for it again.
 
+### 56k. `creature-alt-event` — `when` gate + `attacksAsCreature` (Shelob tw-86)
+
+Two more fields extend the `creature-alt-event` primitive (§56a/§56c) for
+Shelob (tw-86): "If Doors of Night is in play, Shelob may be played as a
+permanent-event that gives +1 prowess and +1 strikes to all Spider and Animal
+attacks. She may opt to attack from a permanent-event state and receive these
+bonuses, but her attack counts as one against the hazard limit. Discard when
+Shelob attacks or if Doors of Night is not in play."
+
+```json
+{ "type": "creature-alt-event", "mode": "permanent-event",
+  "when": { "inPlay": "Doors of Night" }, "attacksAsCreature": true }
+```
+
+- **`when`** *(optional Condition)* gates the permanent-event mode's
+  *availability* — not its ongoing behaviour — on a condition evaluated
+  against `{ inPlay: <game-wide in-play card names> }` (`buildInPlayNames`),
+  the same context shape the `keyedTo[].when` gate uses. When absent, the
+  event mode is always offered, as for every other dual-mode card. The
+  creature mode's own playability (keying to Imlad Morgul / Gorgoroth via a
+  plain `regionNames` `keyedTo` entry) carries no such gate — only the
+  alternate permanent-event mode requires Doors of Night. Checked in the
+  `creature-alt-event` offering block of `legal-actions/movement-hazard.ts`,
+  alongside the existing `targetCompany` / `requiresMovingCompany` checks.
+
+- **`attacksAsCreature`** *(optional `true`, permanent-event mode only)*
+  marks the in-play permanent-event as convertible into a **full creature
+  attack** — using the card's own printed stats plus whatever global effects
+  are active at resolution — instead of the §56c short-event conversion.
+  Offered as a new `attack-alt-permanent-event` action
+  (`attackFromAltPermanentEventActions`, `legal-actions/movement-hazard.ts`)
+  rather than `tap-alt-permanent-event` (excluded for such a card, mirroring
+  how a `modify-attack fromAltPermanentEvent` card is excluded). Like a normal
+  creature play, it must initiate a new chain (not offered in response to
+  one) and needs no creature keying.
+
+  The reducer (`handleAttackFromAltPermanentEvent`, `mh-hazard-play.ts`)
+  charges one hazard-limit slot (unless `no-hazard-limit`) and pushes a plain
+  `{ type: "creature" }` chain entry sourced from the card **still sitting in
+  `cardsInPlay`** — unlike every other creature/short-event/permanent-event
+  play, the card is deliberately *not* removed from its current location
+  first. This matters because Shelob's own passive `stat-modifier` (+1
+  prowess/+1 strikes to `target: "all-attacks"` when `enemy.race` is Spider or
+  Animal) is itself sourced from this same card in `cardsInPlay`: if the card
+  were pulled out before the chain resolves into combat, `resolveAttackProwess`
+  /`resolveAttackStrikes` (`effects/resolver.ts`) would no longer see it when
+  computing her own attack's stats, and "she may opt to attack … and receive
+  these bonuses" would silently fail to apply to her own attack. Because nothing
+  removes the card up front, `initiateCreatureCombat` (`chain-reducer.ts`) must
+  check whether the creature is already present in the hazard player's
+  `cardsInPlay` before appending it (normal creature plays never are) — the
+  attacking-from-permanent-event path is otherwise indistinguishable from a
+  played-from-hand creature attack. `finalizeCombat`'s existing creature
+  disposal (discard, or the defender's kill pile if defeated) then removes the
+  card once the attack resolves, matching "discard when Shelob attacks";
+  "discard … if Doors of Night is not in play" is the ordinary
+  `discard-self-when` primitive (§62), condition
+  `{ "$not": { "inPlayAnywhere": "Doors of Night" } }` (The Will of Sauron
+  tw-100 precedent).
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The

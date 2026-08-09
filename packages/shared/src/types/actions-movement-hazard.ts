@@ -209,6 +209,28 @@ export interface TapAltPermanentEventAction {
 }
 
 /**
+ * Convert an in-play dual-mode creature-permanent-event that "attacks as
+ * itself" (`creature-alt-event` mode `permanent-event`, `attacksAsCreature:
+ * true` — Shelob tw-86) into a full creature attack against the active
+ * company, during the opponent's movement/hazard phase. Unlike
+ * {@link TapAltPermanentEventAction}, the card is not discarded up front — it
+ * stays in `cardsInPlay` (so its own passive effects still boost its own
+ * attack) and initiates a normal creature-combat chain; `finalizeCombat`'s
+ * standard creature disposal (discard, or the defender's kill pile if
+ * defeated) removes it once the attack resolves. Counts one against the
+ * hazard limit.
+ */
+export interface AttackFromAltPermanentEventAction {
+  readonly type: 'attack-alt-permanent-event';
+  /** The hazard player converting their in-play creature-permanent-event into an attack. */
+  readonly player: PlayerId;
+  /** The creature-permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The company being attacked. */
+  readonly targetCompanyId: CompanyId;
+}
+
+/**
  * My Precious (dm-29): resolving an `agent-play-manifestation-offer` — the
  * defender taps one character in the target company and plays the agent's other
  * manifestation (Gollum) from hand; the attacking agent is then discarded. (The
