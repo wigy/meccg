@@ -27,6 +27,8 @@ export function resolveAttackerCardInstanceId(attackSource: AttackSource): CardI
       return attackSource.cardInstanceId;
     case 'ahunt':
       return attackSource.longEventInstanceId;
+    case 'great-hunt-attack':
+      return attackSource.creatureInstanceId;
     default:
       return null;
   }

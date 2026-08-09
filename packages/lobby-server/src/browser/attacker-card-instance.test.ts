@@ -11,6 +11,12 @@
  *
  * `resolveAttackerCardInstanceId` now covers 'ahunt', resolving to the
  * long-event card instance that triggered the attack.
+ *
+ * Also covers bug report "The Great Hunt" (game mskidoss-noauyv, seq 1228):
+ * a creature revealed and attacking via The Great Hunt (wh-91) likewise
+ * showed no card — `{ type: 'great-hunt-attack', creatureInstanceId, ... }`
+ * fell through the same switch with no branch, hiding the (already publicly
+ * revealed) attacking creature's identity from the defending player.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -23,6 +29,17 @@ describe('resolveAttackerCardInstanceId', () => {
   test('resolves an ahunt long-event attack to its card instance', () => {
     const attackSource: AttackSource = { type: 'ahunt', longEventInstanceId: AHUNT_INSTANCE };
     expect(resolveAttackerCardInstanceId(attackSource)).toBe(AHUNT_INSTANCE);
+  });
+
+  test('resolves a great-hunt-attack to the revealed creature instance', () => {
+    const creatureInstanceId = 'p2-93' as CardInstanceId; // tw-37, revealed via The Great Hunt
+    const attackSource: AttackSource = {
+      type: 'great-hunt-attack',
+      greatHuntInstanceId: 'p1-88' as CardInstanceId, // wh-91
+      creatureInstanceId,
+      continuation: 'reveal',
+    };
+    expect(resolveAttackerCardInstanceId(attackSource)).toBe(creatureInstanceId);
   });
 
   test('still resolves a creature attack (no regression)', () => {
