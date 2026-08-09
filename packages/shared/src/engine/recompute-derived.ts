@@ -584,6 +584,31 @@ export function buildControllerInPlayNames(
 }
 
 /**
+ * The names of every card a specific player currently has in play, **including**
+ * character-borne items (and the characters themselves) — broader than
+ * {@link buildControllerInPlayNames}, which deliberately only covers bare
+ * `cardsInPlay` (permanent-events, factions, stage cards) for its
+ * player-wide-effect-source use cases. Used to populate the `player.inPlayNames`
+ * grant-action context field (`buildGrantActionContext`,
+ * `legal-actions/organization.ts`) so a `when` clause can gate on one specific
+ * *other* named card being in play even when that card is an item — e.g.
+ * Palantír of Amon Sûl (tw-296) checking whether Palantír of Annúminas or
+ * Palantír of Elostirion (both items borne by a character) is in play.
+ */
+export function buildPlayerItemNamesInPlay(
+  state: GameState,
+  playerId: import('../index.js').PlayerId,
+): readonly string[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const names: string[] = [];
+  for (const def of playerInPlayAndCharacterDefs(state, player)) {
+    if ('name' in def) names.push(def.name);
+  }
+  return names;
+}
+
+/**
  * Builds the distinct races of factions a specific player has in play.
  * Used to populate the `controller.factionRaces` resolver context so DSL
  * conditions can reference the *kind* of factions the controller already

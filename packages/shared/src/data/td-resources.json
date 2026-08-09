@@ -45,7 +45,8 @@
     "unique": false,
     "eventType": "short",
     "keywords": [
-      "ritual"
+      "ritual",
+      "sage-only"
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
@@ -721,6 +722,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LookMoreCloselyLater.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -811,6 +815,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MasterofWoodWaterorHill.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -1266,6 +1273,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WarmNowBeHeartandLimb.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -1349,6 +1359,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WieldedTwice.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],

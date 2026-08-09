@@ -736,6 +736,21 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * CoE 7.2.1's corruption-card test: `cardType: "hazard-corruption"` **or** a
+ * `hazard-event` carrying the `"corruption"` game keyword — every printed
+ * "Corruption." hazard in the data files is modeled as the latter. Shared by
+ * every call site that needs to recognize a corruption card by its
+ * definition (`movement-hazard.ts`'s one-per-turn limit, `organization.ts`'s
+ * no-tap removal roll, `discard-bearer-corruption`'s bearer sweep, and the
+ * `own-hazard-corruption-cards` grant-action target scope).
+ */
+export function isCorruptionCardDef(def: CardDefinition | undefined): boolean {
+  if (!def) return false;
+  if (def.cardType === 'hazard-corruption') return true;
+  return 'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true;
+}
+
+/**
  * Untapped opponent `cardsInPlay` cards matching `filter` — candidate targets
  * for a `tap-discard-in-play` effect (Praise to Elbereth tw-305: "cancel one
  * Nazgûl event"). Only scans `cardsInPlay` (a Nazgûl permanent-event lives

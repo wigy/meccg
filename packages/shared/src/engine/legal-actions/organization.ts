@@ -36,10 +36,10 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
-import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -1837,6 +1837,11 @@ export function buildGrantActionContext(
   } : null;
   const playerCtx = player ? {
     playDeckSize: player.playDeck.length,
+    // Names of every card the player has in play, including character-borne
+    // items — lets a grant-action `when` clause gate on a specific *other*
+    // named card being in play, e.g. "tap to use the abilities of ...
+    // Palantír of Annúminas ... if ... in play" (Palantír of Amon Sûl tw-296).
+    inPlayNames: buildPlayerItemNamesInPlay(state, player.id),
   } : null;
   const siteName = siteDef?.name ?? '';
   const siteIsTapped = company?.currentSite?.status === CardStatus.Tapped;
@@ -2005,6 +2010,27 @@ function enumerateGrantActionTargets(
         if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
       }
       matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
+    }
+  }
+
+  // Palantír of Amon Sûl (tw-296), borrowing Palantír of Elostirion's "remove
+  // one corruption card from an Elf or a Wizard under your control": scan
+  // every one of the player's own characters (any company, unlike
+  // `company-characters`) for attached `hazard-corruption` cards. `filter` is
+  // matched against the *bearer character's* definition (race), not the
+  // corruption card's own — corruption cards carry little else worth
+  // filtering on.
+  if (targets.scope === 'own-hazard-corruption-cards') {
+    for (const member of Object.values(player.characters)) {
+      if (targets.filter) {
+        const memberDef = defById(state, member.definitionId);
+        if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+      }
+      for (const hazard of member.hazards) {
+        const hazardDef = defById(state, hazard.definitionId);
+        if (!isCorruptionCardDef(hazardDef)) continue;
+        matches.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+      }
     }
   }
 

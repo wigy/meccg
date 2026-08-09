@@ -1599,9 +1599,77 @@
             "$lt": 2
           }
         }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 5
+      },
+      {
+        "type": "grant-action",
+        "action": "amon-sul-peek-hand",
+        "cost": { "tap": "self" },
+        "when": {
+          "bearer.canUsePalantir": true
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "reveal-opponent-hand" },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "amon-sul-use-annuminas",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.inPlayNames": { "$includes": "Palantír of Annúminas" } }
+          ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck", "discard-pile"],
+          "fetchTo": "hand",
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true,
+          "filter": {
+            "keywords": { "$includes": "sage-only" }
+          }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "amon-sul-use-elostirion",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "bearer.skills": { "$includes": "sage" } },
+            { "player.inPlayNames": { "$includes": "Palantír of Elostirion" } }
+          ]
+        },
+        "targets": {
+          "scope": "own-hazard-corruption-cards",
+          "filter": {
+            "race": { "$in": ["elf", "wizard"] }
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "discard-target-corruption-card" },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
       }
     ],
-    "text": "Unique. Palantír. If the bearer’s company is ever below 2 characters and the company moves, discard the Palantír. 5 marshalling points if stored in a Haven [{H}].With its bearer able to use a Palantír, tap Palantír of Amon Sûl to look at your opponent’s hand or tap it to use the abilities of either the Palantír of Annúminas or the Palantír of Elostirion if either one is in play. Bearer makes a corruption check."
+    "text": "Unique. Palantír. If the bearer’s company is ever below 2 characters and the company moves, discard the Palantír. 5 marshalling points if stored in a Haven [{H}].With its bearer able to use a Palantír, tap Palantír of Amon Sûl to look at your opponent’s hand or tap it to use the abilities of either the Palantír of Annúminas or the Palantír of Elostirion if either one is in play. Bearer makes a corruption check.",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "hero-resource-item",

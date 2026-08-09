@@ -996,6 +996,63 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  // `reveal-opponent-hand` — reveal every card in the opponent's hand to the
+  // activating player. The cards stay in the opponent's hand; this only
+  // affects visibility (Palantír of Amon Sûl tw-296: "look at your
+  // opponent's hand").
+  if (apply.type === 'reveal-opponent-hand') {
+    const opponentIndex = 1 - ctx.playerIndex;
+    const opponentHand = newPlayers[opponentIndex]?.hand ?? [];
+    logDetail(`Grant-action ${ctx.action.actionId}: revealing ${opponentHand.length} opponent hand card(s) to ${ctx.sourceName}'s controller`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: opponentHand.length > 0 ? [s => revealInstances(s, opponentHand)] : [],
+    };
+  }
+
+  // `discard-target-corruption-card` — discard the hazard-corruption card
+  // identified by `ctx.action.targetCardId` from whichever of the activating
+  // player's own characters bears it, to that card's owner's discard pile.
+  // Candidates come from a `targets: { scope: "own-hazard-corruption-cards" }`
+  // grant-action descriptor (Palantír of Amon Sûl tw-296, borrowing Palantír
+  // of Elostirion's "remove one corruption card from an Elf or a Wizard
+  // under your control").
+  if (apply.type === 'discard-target-corruption-card') {
+    const targetId = ctx.action.targetCardId;
+    if (!targetId) return { error: `${ctx.sourceName}: discard-target-corruption-card requires targetCardId` };
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    let ownerCharId: CardInstanceId | undefined;
+    let corruptionCard: CardInstance | undefined;
+    for (const [cid, c] of Object.entries(bearerPlayer.characters)) {
+      const found = c.hazards.find(h => h.instanceId === targetId);
+      if (found) {
+        ownerCharId = cid as CardInstanceId;
+        corruptionCard = found;
+        break;
+      }
+    }
+    if (!ownerCharId || !corruptionCard) {
+      return { error: `${ctx.sourceName}: corruption card ${targetId as string} not found on any of the activating player's characters` };
+    }
+    const bearerChar = bearerPlayer.characters[ownerCharId];
+    const corruptionDef = defById(state, corruptionCard.definitionId);
+    const cardOwner = ownerOf(corruptionCard.instanceId);
+    let ownerIdx = newPlayers.findIndex(p => p.id === cardOwner);
+    if (ownerIdx === -1) ownerIdx = ctx.playerIndex;
+    const bearerName = defById(state, bearerChar.definitionId)?.name ?? '?';
+    logDetail(`Grant-action ${ctx.action.actionId}: discarding corruption card "${corruptionDef?.name ?? '?'}" from ${bearerName} to owner's discard pile`);
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      characters: {
+        ...bearerPlayer.characters,
+        [ownerCharId as string]: { ...bearerChar, hazards: bearerChar.hazards.filter(h => h.instanceId !== targetId) },
+      },
+    };
+    newPlayers[ownerIdx] = { ...newPlayers[ownerIdx], discardPile: [...newPlayers[ownerIdx].discardPile, toCardInstance(corruptionCard)] };
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
 }
 
