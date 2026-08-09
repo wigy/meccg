@@ -429,7 +429,15 @@ export type MHStep =
    * fresh movement/hazard phase follows — or pass to finish the company
    * without tapping it.
    */
-  | 'ally-tap-mh-offer';
+  | 'ally-tap-mh-offer'
+  /**
+   * `character-tap-extra-mh-phase` (Carambor le-5): after a company containing
+   * an untapped bearer completes its movement/hazard phase, the active player
+   * may tap the bearer to move on to the same `extra-mh-move-offer` step — an
+   * additional site card is played and a fresh movement/hazard phase follows —
+   * or pass to finish the company without tapping it.
+   */
+  | 'character-tap-mh-offer';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */
@@ -652,6 +660,15 @@ export interface MovementHazardPhaseState {
    * sites. Cleared when the offer step resolves (move chosen or passed).
    */
   readonly extraMHMoveUnderDeeps?: boolean;
+  /**
+   * Set when the active `extra-mh-move-offer` step was entered from
+   * `character-tap-mh-offer` (Carambor le-5, `character-tap-extra-mh-phase`
+   * `requiresDestinationSitePathIncludes`): the offered destinations are
+   * additionally restricted to sites whose static `sitePath` includes at
+   * least one of the listed region types. Cleared when the offer step
+   * resolves (move chosen or passed).
+   */
+  readonly extraMHMoveRequiresSitePathIncludes?: readonly RegionType[];
 }
 
 /**

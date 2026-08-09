@@ -570,6 +570,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VoicesofMalice.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -937,6 +940,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SecretsofTheirForging.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -1603,6 +1609,9 @@
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "certified": "2026-06-16",
@@ -3140,6 +3149,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AllThoughtBentuponIt.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -3192,6 +3204,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlackRain.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -3305,6 +3320,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CrackintheWall.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -4380,6 +4398,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TestofFire.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -4664,6 +4685,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WisdomtoWield.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],

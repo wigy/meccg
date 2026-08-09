@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect } from '../types/effects.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
 import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -2201,6 +2201,30 @@ function findAllyTapExtraMHPhase(
   return null;
 }
 
+/**
+ * Find an untapped character in `company`'s roster carrying a
+ * `character-tap-extra-mh-phase` effect (Carambor le-5), or null. Unlike
+ * {@link findAllyTapExtraMHPhase}, there is no company-composition condition
+ * to evaluate — the bearer's own untapped status is the only gate.
+ */
+function findCharacterTapExtraMHPhase(
+  state: GameState,
+  player: import('../index.js').PlayerState,
+  company: Company,
+): { readonly characterInstanceId: CardInstanceId; readonly characterName: string; readonly effect: CharacterTapExtraMHPhaseEffect } | null {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char || char.status !== CardStatus.Untapped) continue;
+    const def = defById(state, char.definitionId);
+    const effect = def && getCardEffects(def).find(
+      (e): e is CharacterTapExtraMHPhaseEffect => e.type === 'character-tap-extra-mh-phase',
+    );
+    if (!effect) continue;
+    return { characterInstanceId: char.instanceId, characterName: def && 'name' in def ? (def as { name: string }).name : (char.definitionId as string), effect };
+  }
+  return null;
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
@@ -2276,6 +2300,16 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   if (allyTapMatch) {
     logDetail(`Ally-tap extra M/H phase: ${allyTapMatch.allyName} is untapped and company ${currentCompany.id as string}'s composition qualifies → ally-tap-mh-offer`);
     return { state: { ...state, phaseState: { ...mhState, step: 'ally-tap-mh-offer' as const } } };
+  }
+
+  // character-tap-extra-mh-phase (Carambor le-5): offer, don't force — the
+  // active player may tap the qualifying untapped bearer character to send
+  // the company through the shared extra-move offer step, or decline and
+  // finalize normally.
+  const characterTapMatch = findCharacterTapExtraMHPhase(state, state.players[activeIndex], currentCompany);
+  if (characterTapMatch) {
+    logDetail(`Character-tap extra M/H phase: ${characterTapMatch.characterName} is untapped in company ${currentCompany.id as string} → character-tap-mh-offer`);
+    return { state: { ...state, phaseState: { ...mhState, step: 'character-tap-mh-offer' as const } } };
   }
 
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
@@ -2598,11 +2632,17 @@ function cardNameLocal(state: GameState, defId: CardDefinitionId): string {
  * extra M/H phase grants another movement, not an exemption from these
  * restrictions — mirrors the same gate applied to the org-phase plan-movement
  * offer in {@link planMovementActions}.
+ *
+ * `requiresSitePathIncludes` (Carambor le-5, `character-tap-extra-mh-phase`
+ * `requiresDestinationSitePathIncludes`), when given, additionally restricts
+ * the result to sites whose static `sitePath` includes at least one of the
+ * listed region types.
  */
 export function extraMHMoveDestinations(
   state: GameState,
   activeIndex: number,
   company: Company,
+  requiresSitePathIncludes?: readonly RegionType[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
   const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
@@ -2646,6 +2686,8 @@ export function extraMHMoveDestinations(
     const destDef = defById(state, siteInst.definitionId);
     if (!destDef || !isSiteCard(destDef)) continue;
     if (!reachableNames.has(destDef.name)) continue;
+    if (requiresSitePathIncludes && requiresSitePathIncludes.length > 0
+      && !requiresSitePathIncludes.some(rt => destDef.sitePath.includes(rt))) continue;
     seenDefs.add(siteInst.definitionId as string);
     dests.push(siteInst);
   }
@@ -2710,10 +2752,11 @@ export function handleExtraMHMoveOffer(
 ): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const underDeeps = mhState.extraMHMoveUnderDeeps === true;
+  const requiresSitePathIncludes = mhState.extraMHMoveRequiresSitePathIncludes;
 
   if (action.type === 'pass') {
     logDetail(`Extra M/H phase: active player declined the additional move — finalizing company`);
-    return finalizeCompanyMH(state, { ...mhState, extraMHMoveUnderDeeps: undefined });
+    return finalizeCompanyMH(state, { ...mhState, extraMHMoveUnderDeeps: undefined, extraMHMoveRequiresSitePathIncludes: undefined });
   }
 
   if (action.type !== 'extra-mh-move') {
@@ -2729,7 +2772,7 @@ export function handleExtraMHMoveOffer(
 
   const candidates = underDeeps
     ? extraMHUnderDeepsDestinations(state, activeIndex, company, mhState.underDeepsAttempts?.[company.id as string] ?? [])
-    : extraMHMoveDestinations(state, activeIndex, company);
+    : extraMHMoveDestinations(state, activeIndex, company, requiresSitePathIncludes);
   const dest = candidates.find(s => s.instanceId === action.destinationSite);
   if (!dest) {
     return { state, error: underDeeps ? 'Chosen site is not a legal extra Under-deeps destination' : 'Chosen site is not a legal extra-movement destination' };
@@ -2753,6 +2796,7 @@ export function handleExtraMHMoveOffer(
         step: 'reveal-new-site' as const,
         siteRevealed: true,
         extraMHMoveUnderDeeps: undefined,
+        extraMHMoveRequiresSitePathIncludes: undefined,
       },
     },
   };
@@ -2801,6 +2845,58 @@ export function handleAllyTapExtraMHOffer(
     state: {
       ...updatePlayer(state, activeIndex, () => updated.player),
       phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
+    },
+  };
+}
+
+/**
+ * Handle the `character-tap-mh-offer` step (`character-tap-extra-mh-phase` —
+ * Carambor le-5): the active player either finishes the company (`pass` →
+ * finalize) or taps the qualifying bearer character
+ * (`character-tap-extra-mh-phase`) to advance to the shared
+ * `extra-mh-move-offer` step. When the bearer's effect declares
+ * `requiresDestinationSitePathIncludes`, that restriction is threaded onto
+ * `extraMHMoveRequiresSitePathIncludes` so the destination offer (and its
+ * resolution) only considers matching sites.
+ */
+export function handleCharacterTapExtraMHOffer(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type === 'pass') {
+    logDetail(`Character-tap extra M/H phase: active player declined — finalizing company`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
+  if (action.type !== 'character-tap-extra-mh-phase') {
+    return wrongActionType(state, action, 'character-tap-extra-mh-phase', 'character-tap-mh-offer step');
+  }
+
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx !== mhState.activeCompanyIndex) {
+    return { state, error: 'Character-tap extra M/H phase must target the company that just finished its M/H phase' };
+  }
+  const company = player.companies[companyIdx];
+  const match = findCharacterTapExtraMHPhase(state, player, company);
+  if (!match || match.characterInstanceId !== action.characterInstanceId) {
+    return { state, error: 'Chosen character is not a legal character-tap-extra-mh-phase source' };
+  }
+
+  const updatedPlayer = updateCharacter(player, match.characterInstanceId, c => ({ ...c, status: CardStatus.Tapped }));
+
+  logDetail(`Character-tap extra M/H phase: tapping ${match.characterName} — company ${action.companyId as string} may move to an additional site → extra-mh-move-offer`);
+
+  return {
+    state: {
+      ...updatePlayer(state, activeIndex, () => updatedPlayer),
+      phaseState: {
+        ...mhState,
+        step: 'extra-mh-move-offer' as const,
+        extraMHMoveRequiresSitePathIncludes: match.effect.requiresDestinationSitePathIncludes,
+      },
     },
   };
 }

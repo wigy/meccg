@@ -42,6 +42,26 @@ Character-specific keywords:
 - `"balrog-specific"` — carried by minion characters whose text reads "Balrog specific" (CoE 1.3.4/1.3.B4-5: the card is specific to the Balrog avatar). Exposed as `target.keywords` in the `influence-check` resolver context (`availableDI` in `legal-actions/organization.ts`) so a bonus like `{ "when": { "reason": "influence-check", "target.keywords": { "$includes": "balrog-specific" } } }` can target them the same way `target.race` does. Used by Bûthrakaur (ba-5): "+3 direct influence against Balrog specific characters."
 - `"agent"` — the character is an agent. Agents count as both a character and a hazard for deck-building. They have home sites, can be played as a hazard face-down, and are subject to the 36-mind agent limit. No behaviour is gated on this keyword yet; it is present as a data marker for future rule enforcement (rule 1.05, 3.15, 9.x).
 
+Cross-card fetch-filter keywords — tags with no behavior of their own, existing
+solely so a `fetch-to-deck`/`enqueue-pending-fetch` `filter` on one card can
+find another card across the whole pool by a property its printed text calls
+out (`matchesDefinition` matches `Condition`s against any definition field,
+but has no substring/text search, so cards needing to be found this way carry
+an explicit tag):
+
+- `"environment"` — the card is a hazard environment card. Used by "discard a
+  non-environment permanent/long-event" fetch filters (e.g. Marvels Told
+  td-134).
+- `"palantir"` — the card is a Palantír item. Used by "any Palantír in play"
+  checks (e.g. Palantír of Osgiliath's ability to duplicate any other
+  Palantír).
+- `"sage-only"` — the card's printed text begins "Sage only" (a play
+  restriction to a Sage character or company). Tagged on every such resource
+  item/event across TW/LE/TD/WH so `enqueue-pending-fetch` filters like
+  `{ "keywords": { "$includes": "sage-only" } }` can find them — used by
+  Palantír of Amon Sûl (tw-296), borrowing Palantír of Annúminas' "search …
+  for a 'sage only' card."
+
 ## Value Expressions
 
 Plain numbers for the simple case, string expressions (evaluated with MathJS) when formulas are needed:
@@ -166,6 +186,22 @@ only creature attacks can opt out with
 `when: { "attack.isAgentAttack": { "$ne": true } }` — used by *Rank upon Rank*
 (dm-80, "All **non-agent** Man attacks…") and *Sun* (tw-335, "the prowess of each
 automatic-attack and hazard creature…").
+
+The context also exposes `attack.isAutomaticAttack` (`true` only for a site
+automatic-attack — including its dynamic variants, tidings-queued and
+duplicated attacks — absent otherwise), the counterpart flag for cards that
+name only **hazard creatures** and explicitly exclude automatic-attacks (and
+agents): `when: { "$and": [ { "attack.isAutomaticAttack": { "$ne": true } },
+{ "attack.isAgentAttack": { "$ne": true } } ] }` — used by *Clouds* (tw-22,
+"the prowess of each hazard creature is modified by +2"), gated on
+`{ "inPlay": "Doors of Night" }`. A creature card played as a site's dynamic
+auto-attack is *not* flagged automatic — it is still fundamentally a hazard
+creature, so Clouds' bonus reaches it. This flag is scoped to the
+`all-attacks`/`all-automatic-attacks` stat-modifier context — the
+similarly-named `attack.isAutomaticAttack` built for `on-event:
+attack-defeated` and `attack.automatic` built for `modify-attack` both count a
+played auto-attack as automatic instead, a deliberate difference for those
+triggers.
 
 For automatic-attacks the resolution context also exposes `site.siteType` — the
 defending company's effective current-site type — so a global modifier can gate
@@ -738,6 +774,76 @@ The chosen card travels on `activate-granted-action.targetCardId` for both modes
 { "type": "grant-action", "action": "sauron-peek-hand", "cost": {},
   "apply": { "type": "peek-opponent-hand", "count": 5 } }
 ```
+
+### `reveal-opponent-hand` + `discard-target-corruption-card` + `player.inPlayNames` (Palantír of Amon Sûl tw-296)
+
+`{ "type": "reveal-opponent-hand" }` is a `grant-action` apply (type-only
+marker) that reveals **every** card currently in the opponent's hand to the
+activating player via `revealInstances` — the cards stay in the opponent's
+hand, only visibility changes. Unlike `peek-opponent-hand` (a random subset,
+paid by discarding a hand card), this is the whole hand with no extra cost
+beyond the granting card's own tap. Used for "look at your opponent's hand".
+
+`{ "type": "discard-target-corruption-card" }` is a `grant-action` apply that
+discards the `hazard-corruption` card named by `activate-granted-action.targetCardId`
+from whichever of the activating player's own characters bears it, to that
+corruption card's owner's discard pile. Its candidates come from a
+`targets: { scope: "own-hazard-corruption-cards" }` descriptor — see below.
+
+**`targets.scope: "own-hazard-corruption-cards"`** scans every one of the
+activating player's own characters (all companies, not just the bearer's) for
+attached `hazard-corruption` cards. Unlike every other `targets` scope,
+`filter` here is matched against the **bearer character's** definition
+(e.g. `race`), not the corruption card's own — corruption cards carry almost
+no distinguishing data, so filtering by who they're attached to is what cards
+actually need ("remove one corruption card from an Elf or a Wizard under your
+control").
+
+**`player.inPlayNames`** is a grant-action `when`-context field (alongside
+`bearer`/`company`/`site`/`phase`) listing the names of every card the
+activating player has in play — their `cardsInPlay` **plus** items borne by
+their characters (`buildPlayerItemNamesInPlay`, broader than
+`buildControllerInPlayNames`/`controller.inPlay`, which intentionally covers
+only bare `cardsInPlay`). It lets a grant-action gate on one specific *other*
+named card being in play — including an item like a second Palantír — distinct
+from the global `inPlay` context (which merges both players).
+
+```json
+{ "type": "grant-action", "action": "amon-sul-peek-hand",
+  "cost": { "tap": "self" },
+  "when": { "bearer.canUsePalantir": true },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "reveal-opponent-hand" },
+    { "type": "enqueue-corruption-check" }
+  ] } },
+{ "type": "grant-action", "action": "amon-sul-use-elostirion",
+  "cost": { "tap": "self" },
+  "when": { "$and": [
+    { "bearer.canUsePalantir": true },
+    { "bearer.skills": { "$includes": "sage" } },
+    { "player.inPlayNames": { "$includes": "Palantír of Elostirion" } }
+  ] },
+  "targets": { "scope": "own-hazard-corruption-cards",
+               "filter": { "race": { "$in": ["elf", "wizard"] } } },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "discard-target-corruption-card" },
+    { "type": "enqueue-corruption-check" }
+  ] } }
+```
+
+Palantír of Amon Sûl "tap it to use the abilities of either the Palantír of
+Annúminas or the Palantír of Elostirion if either one is in play" is modeled
+as **borrowed abilities**: each borrowed ability is its own `grant-action` on
+Amon Sûl itself (not a lookup into the other card's own `effects`), gated by
+`player.inPlayNames` naming the specific Palantír. The borrowed ability's own
+extra requirement ("if the bearer is a sage") evaluates against **Amon Sûl's**
+bearer — the character actually performing the action — since "with its
+bearer able to use a Palantír" in Amon Sûl's own text already scopes the whole
+ability to Amon Sûl's bearer before the borrowing clause is reached. The
+Annúminas-flavored ability ("search … for a 'sage only' card") reuses
+`enqueue-pending-fetch` with `filter: { "keywords": { "$includes": "sage-only" } }`
+— see [Keywords](#keywords): every card whose text begins "Sage only" carries
+that tag precisely so cross-card fetch filters like this one can find it.
 
 ### 2z. `site-path-reduction` active constraint
 
@@ -2713,8 +2819,13 @@ one activation per matching card, each carrying the candidate's
   - `"company-characters"` — characters in the bearer's own company
     (including the bearer). Already-untapped candidates are skipped
     (untapping one is pointless).
+  - `"own-hazard-corruption-cards"` — every `hazard-corruption` card attached
+    to any of the activating player's own characters (all companies). `filter`
+    for this scope is matched against the **bearer character's** definition
+    instead of the corruption card's own (see above).
 - `filter` — optional DSL `Condition` matched against each candidate's
-  card definition; candidates that fail the filter are skipped.
+  card definition (or, for `"own-hazard-corruption-cards"`, the candidate's
+  bearer character's definition); candidates that fail the filter are skipped.
 
 Example (The Arkenstone tw-341 — tap to untap a Dwarf company-mate, who
 then makes a corruption check modified -2; `enqueue-corruption-check`'s
@@ -7055,6 +7166,27 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
     { "company.playedUniqueHeroFactionAtFreeHold": true }
   ] } }
 ```
+
+- `target-company` — for **hazard creatures**: an extra gate checked after
+  keying, evaluated against the defending company via
+  `buildTargetCompanyConditionContext` (`reducer-utils.ts`), exposing
+  `{ company: { alignment, homeSites, characterNames, maxUntappedWarriorProwess,
+  containsWizard, covert, itemNames, itemKeywords, hasWoundedCharacter },
+  inPlay: [<names>] }`. `company.alignment` is `defenderAlignmentLabel`-mapped
+  (a Wizard player's companies read `"hero"`); `company.hasWoundedCharacter` is
+  `true` when any company member's status is Inverted (wounded); `inPlay` lets
+  the same condition combine a company predicate with a named in-play
+  prerequisite. Checked in `legal-actions/movement-hazard.ts` (creature-keying
+  block) via `findPlayConditionEffect(def, 'target-company')`, **after** a
+  keying match is found — a miss makes the play non-viable with reason "Cannot
+  be played against this company". Used by Horse-lords (le-78): "May not be
+  played against a company containing a character with Edoras as a home site"
+  — `{ "$not": { "company.homeSites": "Edoras" } }`; Olog Warlords (ba-12) /
+  Sons of Kings (le-91) / Elves upon Errantry (le-70) gate on
+  `company.alignment`; Landroval (le-81) combines `company.alignment` with
+  `company.covert`; and Morgul-rats (td-49): "playable... only if a character
+  in target company is wounded or Doors of Night is in play" —
+  `{ "$or": [{ "company.hasWoundedCharacter": true }, { "inPlay": "Doors of Night" }] }`.
 
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's
@@ -12115,6 +12247,45 @@ ally, plus `pass`. Accepting (`handleAllyTapExtraMHOffer`) taps the ally
 simply switches the step straight to the shared `extra-mh-move-offer`, so the
 destination choice and the fresh `reveal-new-site` re-entry reuse that
 machinery unchanged. Passing finalizes the company without tapping the ally.
+
+### 52b-iv. `character-tap-extra-mh-phase`
+
+Character-carried counterpart to `ally-tap-extra-mh-phase`: the bearer is a
+character in the company itself (not an attached ally), and there is no
+company-composition condition — any company containing an untapped bearer
+qualifies. Used by Carambor (le-5): "May tap at the end of his company's
+movement/hazard phase to allow it to move to an additional site on the same
+turn. Another site card may be played and another movement/hazard phase
+immediately follows for his company. The new site path must contain at least
+one Wilderness [{w}]."
+
+```json
+{
+  "type": "character-tap-extra-mh-phase",
+  "requiresDestinationSitePathIncludes": ["wilderness"]
+}
+```
+
+- `requiresDestinationSitePathIncludes` (optional) — restricts the extra
+  move's destination to a site whose static `sitePath` (region types) includes
+  at least one of the listed {@link RegionType}s.
+
+Behaviour: at the end of a company's movement/hazard phase,
+`advanceAfterCompanyMH` (`mh-hazard-play.ts`) calls
+`findCharacterTapExtraMHPhase`, which walks the company's characters for an
+untapped one carrying this effect; a match routes to the dedicated
+`character-tap-mh-offer` step instead of falling through to
+`finalizeCompanyMH`. `characterTapExtraMHOfferActions`
+(`legal-actions/movement-hazard.ts`) re-derives the same match and offers one
+`character-tap-extra-mh-phase` action per qualifying character, plus `pass`.
+Accepting (`handleCharacterTapExtraMHOffer`) taps the character
+(`updateCharacter`) and switches the step to the shared `extra-mh-move-offer`,
+threading `requiresDestinationSitePathIncludes` (if any) onto the phase
+state's `extraMHMoveRequiresSitePathIncludes` so `extraMHMoveDestinations`
+(shared with `grant-extra-mh-phase`/`ally-tap-extra-mh-phase`) filters the
+offered destinations down to sites whose `sitePath` includes a matching region
+type; the field is cleared on either exit from `extra-mh-move-offer`. Passing
+finalizes the company without tapping the character.
 
 ### 52c. `surface-region-adjacency`
 

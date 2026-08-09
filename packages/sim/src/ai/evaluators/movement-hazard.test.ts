@@ -82,6 +82,17 @@ const ALONE_AND_UNADVISED: CardDefinition = {
   effects: [{ type: 'stat-modifier', stat: 'corruption-points', value: 4 }],
 } as unknown as CardDefinition;
 
+// Region cards from the Rivendell-to-Lórien bug report: the AI declared the
+// path Rhudaur -> High Pass -> Anduin Vales -> Wold & Foothills (3 wilderness
+// regions plus the Anduin Vales border-land), rather than the equally-long,
+// all-wilderness Rhudaur -> Hollin -> Redhorn Gate -> Wold & Foothills.
+const RHUDAUR: CardDefinition = { cardType: 'region', id: 'tw-482', name: 'Rhudaur', regionType: 'wilderness' } as unknown as CardDefinition;
+const HIGH_PASS: CardDefinition = { cardType: 'region', id: 'tw-465', name: 'High Pass', regionType: 'wilderness' } as unknown as CardDefinition;
+const ANDUIN_VALES: CardDefinition = { cardType: 'region', id: 'tw-442', name: 'Anduin Vales', regionType: 'border' } as unknown as CardDefinition;
+const WOLD_AND_FOOTHILLS: CardDefinition = { cardType: 'region', id: 'tw-490', name: 'Wold & Foothills', regionType: 'wilderness' } as unknown as CardDefinition;
+const HOLLIN: CardDefinition = { cardType: 'region', id: 'tw-466', name: 'Hollin', regionType: 'wilderness' } as unknown as CardDefinition;
+const REDHORN_GATE: CardDefinition = { cardType: 'region', id: 'tw-481', name: 'Redhorn Gate', regionType: 'wilderness' } as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'as-30': FULL_OF_FROTH_AND_RAGE,
   'td-42': LESSER_SPIDERS,
@@ -89,6 +100,12 @@ const POOL: Record<string, CardDefinition> = {
   'tw-28': DOORS_OF_NIGHT,
   'dm-45': UNEXPECTED_OUTPOST,
   'as-24': ALONE_AND_UNADVISED,
+  'tw-482': RHUDAUR,
+  'tw-465': HIGH_PASS,
+  'tw-442': ANDUIN_VALES,
+  'tw-490': WOLD_AND_FOOTHILLS,
+  'tw-466': HOLLIN,
+  'tw-481': REDHORN_GATE,
 };
 
 function makeContext(handDefIds: readonly string[]): AiContext {
@@ -313,5 +330,36 @@ describe('movementHazardEvaluator place-on-guard weighting', () => {
       legalActions: [placeOnGuard('h0'), { type: 'pass', player: 'p2' } as unknown as GameAction],
     };
     expect(movementHazardEvaluator.score(placeOnGuard('h0'), context)).toBe(4);
+  });
+});
+
+function declarePath(regionPath: readonly string[]): GameAction {
+  return { type: 'declare-path', player: 'p2', movementType: 'region', regionPath } as unknown as GameAction;
+}
+
+describe('movementHazardEvaluator declare-path region danger scoring', () => {
+  // Bug report: Saruman travelled Rivendell to Lórien via Region Movement and
+  // declared Rhudaur -> High Pass -> Anduin Vales -> Wold & Foothills — the
+  // same length as the all-wilderness Rhudaur -> Hollin -> Redhorn Gate ->
+  // Wold & Foothills alternative, but with a gratuitous Anduin Vales
+  // border-land added on top, for no offsetting benefit. Both paths
+  // previously scored the same flat 8, so the AI picked between them
+  // uniformly at random.
+  test('prefers an all-wilderness path over an equal-length path with a border-land', () => {
+    const context = { ...makeContext([]), legalActions: [] };
+
+    const viaAnduinVales = declarePath(['tw-482', 'tw-465', 'tw-442', 'tw-490']);
+    const viaRedhornGate = declarePath(['tw-482', 'tw-466', 'tw-481', 'tw-490']);
+
+    const anduinValesScore = movementHazardEvaluator.score(viaAnduinVales, context)!;
+    const redhornGateScore = movementHazardEvaluator.score(viaRedhornGate, context)!;
+
+    expect(redhornGateScore).toBeGreaterThan(anduinValesScore);
+  });
+
+  test('falls back to the flat baseline for a path with unresolvable regions', () => {
+    const context = { ...makeContext([]), legalActions: [] };
+    const score = movementHazardEvaluator.score(declarePath(['unknown-region']), context);
+    expect(score).toBe(7);
   });
 });

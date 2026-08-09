@@ -636,6 +636,9 @@
     "unique": false,
     "eventType": "permanent",
     "corruptionPoints": 2,
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "misc",
     "effects": [
@@ -827,6 +830,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWhiteTree.jpg",
     "unique": true,
     "eventType": "permanent",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [
@@ -2166,6 +2172,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AnduriltheFlameoftheWest.jpg",
     "unique": true,
     "eventType": "permanent",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -2358,6 +2367,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DreamsofLore.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -2594,6 +2606,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Farsight.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -2924,8 +2939,18 @@
         "site": "Lossadan Camp"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Lossadan Camp if the influence check is greater than 8. Standard Modifications: Men (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Lossadan Camp if the influence check is greater than 8. Standard Modifications: Men (+1).",
+    "certified": "2026-08-09"
   },
   {
     "cardType": "hero-resource-faction",
@@ -3271,6 +3296,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Reforging.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -3332,6 +3360,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ringlore.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -3377,6 +3408,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SecretEntrance.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -3585,6 +3619,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TestofForm.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -3603,6 +3640,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TestofForm2.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -3616,6 +3656,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TestofLore.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -3712,6 +3755,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/UsePalantir.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
@@ -4017,6 +4063,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Swordmaster.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": [
+      "sage-only"
+    ],
     "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
