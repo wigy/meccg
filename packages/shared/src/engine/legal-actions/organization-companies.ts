@@ -33,6 +33,7 @@ import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -1228,7 +1229,16 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
     const siteDef = resolveDef(state, company.currentSite.instanceId);
     if (!siteDef || !isSiteCard(siteDef)) continue;
     const siteName = siteDef.name;
-    const siteType = siteDef.siteType;
+    // A site converted into a Haven (Hidden Haven wh-75, Hold Rebuilt and
+    // Repaired as-88, etc.) must count as a Haven for storage purposes too —
+    // CoE rule 2.II.4 only requires "at a haven", with no exception for
+    // sites that reached that type via an override rather than print.
+    const siteType = getEffectiveSiteType(
+      state,
+      company.currentSite.definitionId,
+      siteDef.siteType,
+      company.currentSite.instanceId,
+    );
 
     // MEBA: "A Balrog player may not store anything at Barad-dûr" — it is not one
     // of the Balrog's Darkhavens (only Moria and The Under-gates are).
