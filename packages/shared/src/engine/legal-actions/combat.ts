@@ -757,12 +757,20 @@ function assignStrikeActions(
       (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
     );
 
-    // strike-shield (Noble Hound dm-179): mirrors the defender-phase check
-    // above. Its "in all cases" wording (CoE 3.ii.3) means the ally must be
-    // assigned a strike before the controlling character regardless of which
-    // player is doing the assigning — this branch runs Step 3 (CoE 3.iii),
-    // where the *opponent* assigns remaining strikes.
-    const attackerStrikeShieldBlockedChars = new Set<string>();
+    // Forced-strike targets bypass the strike-shield block below, same as the
+    // defender-phase branch — a forced target must face a strike "regardless
+    // of any conflicting effects".
+    const forcedTargetIds = new Set<string>(
+      (combat.forcedStrikeTargets ?? []).map(id => id as string),
+    );
+
+    // strike-shield (Noble Hound dm-179): a character whose controlling
+    // strike-shield ally has NOT yet been assigned a strike may not be
+    // assigned one itself. This mirrors the defender-phase check above —
+    // without it, automatic-attacks and other attacker-assigned combats
+    // (assignmentPhase 'attacker') could strike a shielded character before
+    // its ally, since only the defender phase enforced the shield.
+    const strikeShieldBlockedChars = new Set<string>();
     for (const charId of company.characters) {
       const charData = defPlayer.characters[charId];
       if (!charData) continue;
@@ -773,8 +781,8 @@ function assignStrikeActions(
           (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
         );
         if (shieldEff) {
-          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking attacker strike on ${charId as string}`);
-          attackerStrikeShieldBlockedChars.add(charId as string);
+          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
+          strikeShieldBlockedChars.add(charId as string);
         }
       }
     }
@@ -786,9 +794,8 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} protected from strike assignment — excluded from attacker pool`);
         continue;
       }
-      if (attackerStrikeShieldBlockedChars.has(charId as string)
-        && !(combat.forcedStrikeTargets ?? []).includes(charId)) {
-        logDetail(`Character ${charId as string} shielded — attacker must assign strike to ally first`);
+      if (strikeShieldBlockedChars.has(charId as string) && !forcedTargetIds.has(charId as string)) {
+        logDetail(`Character ${charId as string} shielded — must assign strike to ally first — excluded from attacker pool`);
         continue;
       }
       if (combat.excludeAvatarStrikes) {

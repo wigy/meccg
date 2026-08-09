@@ -111,6 +111,47 @@ describe('renderChainPanel — Pass Priority button', () => {
   });
 });
 
+const cancelChainEntry: EvaluatedAction = {
+  action: {
+    type: 'activate-granted-action',
+    player: 'p1',
+    characterId: 'p1-101',
+    sourceCardId: 'p1-12',
+    sourceCardDefinitionId: 'tw-350',
+    actionId: 'cancel-chain-entry',
+    rollThreshold: 0,
+  },
+  viable: true,
+} as unknown as EvaluatedAction;
+
+describe('renderChainPanel — granted-action responses', () => {
+  test('renders a response button for a viable activate-granted-action (Tom Bombadil cancel-chain-entry) when self has priority', () => {
+    let sent: unknown = null;
+    renderChainPanel(
+      viewWith({ selfHasPriority: true, legalActions: [cancelChainEntry, passChainPriority] }),
+      cardPool,
+      action => { sent = action; },
+    );
+
+    const found = chainPanel.all().find(el => el.tagName === 'button' && el.className === 'chain-response-btn');
+    expect(found).toBeDefined();
+
+    found?.onclick?.();
+    expect(sent).toEqual(cancelChainEntry.action);
+  });
+
+  test('does not render a response button when the opponent has priority', () => {
+    renderChainPanel(
+      viewWith({ selfHasPriority: false, legalActions: [] }),
+      cardPool,
+      () => { /* no-op */ },
+    );
+
+    const found = chainPanel.all().find(el => el.tagName === 'button' && el.className === 'chain-response-btn');
+    expect(found).toBeUndefined();
+  });
+});
+
 describe('renderPassButton — pass-chain-priority', () => {
   test('also shows the bottom-right button, labeled Pass Priority', () => {
     renderPassButton(

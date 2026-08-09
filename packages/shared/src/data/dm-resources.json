@@ -1491,6 +1491,7 @@
         "cost": {
           "tap": "self"
         },
+        "anyPhase": true,
         "apply": {
           "type": "enqueue-pending-fetch",
           "fetchFrom": ["discard-pile", "deck"],

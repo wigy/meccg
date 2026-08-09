@@ -212,12 +212,7 @@ describe('dm-179: Noble Hound', () => {
     expect(houndAssign).toBeDefined();
   });
 
-  test('Noble Hound must be assigned a strike before controlling character (attacker phase)', () => {
-    // CoE 3.iii — Step 3, where the *opponent* (attacking player) assigns any
-    // remaining strikes. Noble Hound's "in all cases" wording (CRF 3.ii.3)
-    // means the shield applies here too, not just when the defender
-    // pre-assigns in Step 2 — this used to be unenforced, letting the
-    // attacker strike the controlling character directly.
+  test('Noble Hound must be assigned a strike before controlling character during an automatic-attack (attacker assignment phase)', () => {
     const base = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -229,21 +224,43 @@ describe('dm-179: Noble Hound', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    const siteInstanceId = base.players[RESOURCE_PLAYER].companies[0].currentSite?.instanceId;
+    expect(siteInstanceId).toBeDefined();
 
+    // Attach Noble Hound to Aragorn, and wound it (as in the reported game).
     const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
-    const p1 = withHound.players[RESOURCE_PLAYER];
-    const houndId = p1.characters[aragornId]?.allies[0]?.instanceId;
+    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(houndId).toBeDefined();
+    const woundedHound = {
+      ...withHound,
+      players: withHound.players.map((p, i) => {
+        if (i !== RESOURCE_PLAYER) return p;
+        return {
+          ...p,
+          characters: {
+            ...p.characters,
+            [aragornId as string]: {
+              ...p.characters[aragornId],
+              allies: p.characters[aragornId].allies.map(a =>
+                a.instanceId === houndId ? { ...a, status: CardStatus.Inverted } : a,
+              ),
+            },
+          },
+        };
+      }) as unknown as readonly [PlayerState, PlayerState],
+    };
 
+    // Automatic-attacks use the 'attacker' assignment phase — the hazard
+    // player picks which defending characters/allies face the strikes.
     const combat = {
-      attackSource: { type: 'creature' as const, instanceId: 'fake-orc' as CardInstanceId },
+      attackSource: { type: 'automatic-attack' as const, siteInstanceId: siteInstanceId as CardInstanceId, attackIndex: 0 },
       companyId,
       defendingPlayerId: PLAYER_1,
       attackingPlayerId: PLAYER_2,
       strikesTotal: 2,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: Race.Orc,
+      creatureRace: Race.Wolf,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes' as const,
@@ -252,15 +269,14 @@ describe('dm-179: Noble Hound', () => {
       detainment: false,
     };
 
-    const combatState = { ...withHound, combat, phaseState: makeShadowMHState() };
+    const combatState = { ...woundedHound, combat, phaseState: makeShadowMHState() };
     const actions = viableActions(combatState, PLAYER_2, 'assign-strike');
 
-    // Noble Hound should be assignable (it's untapped).
+    // Wounded Noble Hound should still be offered as a strike target.
     const houndAssign = actions.find(a => (a.action as { characterId?: CardInstanceId }).characterId === houndId);
     expect(houndAssign).toBeDefined();
 
-    // Aragorn should NOT be assignable while Noble Hound is unassigned, even
-    // though it's the attacker (not the defender) choosing.
+    // Aragorn should NOT be assignable while Noble Hound is unassigned.
     const aragornAssign = actions.find(a => (a.action as { characterId?: CardInstanceId }).characterId === aragornId);
     expect(aragornAssign).toBeUndefined();
   });

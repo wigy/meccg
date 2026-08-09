@@ -2304,6 +2304,23 @@
         "filter": { "target.name": "Gandalf" }
       },
       {
+        "type": "play-option",
+        "id": "no-gandalf",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
         "type": "noncharacter-mp-override",
         "when": { "card.unique": true, "card.cardType": "hero-resource-faction", "card.normalMp": { "$lte": 2 } },
         "value": 2

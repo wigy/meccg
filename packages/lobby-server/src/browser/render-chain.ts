@@ -6,9 +6,10 @@
  * and status badges (resolved/negated).
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, ChainEntry } from '@meccg/shared';
-import { cardImageProxyPath } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, ChainEntry, ActivateGrantedAction } from '@meccg/shared';
+import { cardImageProxyPath, viableActions } from '@meccg/shared';
 import { getCachedInstanceLookup } from './render-text-format.js';
+import { buildGrantedActionMenuItems } from './company-modals.js';
 
 /**
  * Render the chain of effects panel in the visual view.
@@ -102,6 +103,35 @@ export function renderChainPanel(
     nested.className = 'chain-nested';
     nested.textContent = `Sub-chain (${chain.restriction})`;
     panel.appendChild(nested);
+  }
+
+  // Granted-action responses (e.g. Tom Bombadil's tap-to-cancel-hazard):
+  // while a chain is active, `activate-granted-action` in the legal-action
+  // list can only be a chain-declaring response (computeLegalActions
+  // delegates exclusively to chainActions() whenever state.chain is set), so
+  // every viable entry here is safe to surface as a response button. Without
+  // this, the only way to use such an ability was to click the granting
+  // card's attachment thumbnail on the board underneath this panel — a panel
+  // that is centered over the board and easily hides or blocks that click
+  // (bug report d00c49d6dd482faf, game mslnyzrf-6taab0, seq 448: Tom
+  // Bombadil's cancel was legal but unreachable behind the panel).
+  if (isSelfPriority) {
+    const grantedActionResponses = viableActions(view.legalActions).filter(
+      (a): a is ActivateGrantedAction => a.type === 'activate-granted-action',
+    );
+    if (grantedActionResponses.length > 0) {
+      const cachedInstanceLookup = getCachedInstanceLookup();
+      const getCharacterName = (id: CardInstanceId): string | undefined =>
+        resolveInstanceName(id, cachedInstanceLookup, cardPool);
+      const items = buildGrantedActionMenuItems(grantedActionResponses, onAction, getCharacterName);
+      for (const item of items) {
+        const responseBtn = document.createElement('button');
+        responseBtn.className = 'chain-response-btn';
+        responseBtn.textContent = item.label;
+        responseBtn.onclick = item.onClick;
+        panel.appendChild(responseBtn);
+      }
+    }
   }
 
   // Pass Priority button, duplicated here alongside the bottom-right action

@@ -71,12 +71,24 @@ const UNEXPECTED_OUTPOST: CardDefinition = {
   ],
 } as unknown as CardDefinition;
 
+// Alone and Unadvised (as-24): a corruption-keyword hazard event offering
+// one legal action per eligible character in the targeted company.
+const ALONE_AND_UNADVISED: CardDefinition = {
+  cardType: 'hazard-event',
+  id: 'as-24',
+  name: 'Alone and Unadvised',
+  eventType: 'permanent',
+  keywords: ['corruption'],
+  effects: [{ type: 'stat-modifier', stat: 'corruption-points', value: 4 }],
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'as-30': FULL_OF_FROTH_AND_RAGE,
   'td-42': LESSER_SPIDERS,
   'dm-111': STIRRING_BONES,
   'tw-28': DOORS_OF_NIGHT,
   'dm-45': UNEXPECTED_OUTPOST,
+  'as-24': ALONE_AND_UNADVISED,
 };
 
 function makeContext(handDefIds: readonly string[]): AiContext {
@@ -133,6 +145,47 @@ describe('movementHazardEvaluator play-hazard sequencing', () => {
     const context = makeContext(['tw-28']);
     const doorsScore = movementHazardEvaluator.score(playHazard('h0'), context);
     expect(doorsScore).toBe(5);
+  });
+});
+
+function playHazardOnCharacter(cardInstanceId: string, targetCharacterId: string): GameAction {
+  return {
+    ...playHazard(cardInstanceId),
+    targetCharacterId,
+  } as unknown as GameAction;
+}
+
+describe('movementHazardEvaluator play-hazard corruption-keyword targeting', () => {
+  // Bug report: the AI played Alone and Unadvised on Dâsakûn, a throwaway
+  // follower, while Théoden — the company's other eligible target, already
+  // carrying 2 corruption points — went untouched. Both targets scored the
+  // same flat baseline, so the choice was a coin flip instead of preferring
+  // the character closer to being buried by corruption.
+  test('prefers the target already carrying more corruption points', () => {
+    const context: AiContext = {
+      ...makeContext(['as-24']),
+      view: {
+        self: { hand: [{ instanceId: 'h0', definitionId: 'as-24' }] },
+        opponent: {
+          companies: [],
+          characters: {
+            theoden: { effectiveStats: { corruptionPoints: 2 } },
+            dasakun: { effectiveStats: { corruptionPoints: 0 } },
+          },
+        },
+      } as unknown as PlayerView,
+    };
+
+    const theodenScore = movementHazardEvaluator.score(playHazardOnCharacter('h0', 'theoden'), context)!;
+    const dasakunScore = movementHazardEvaluator.score(playHazardOnCharacter('h0', 'dasakun'), context)!;
+
+    expect(theodenScore).toBeGreaterThan(dasakunScore);
+  });
+
+  test('falls back to the flat baseline without a resolvable target', () => {
+    const context = makeContext(['as-24']);
+    const score = movementHazardEvaluator.score(playHazardOnCharacter('h0', 'unknown'), context);
+    expect(score).toBe(5);
   });
 });
 
