@@ -12116,6 +12116,45 @@ simply switches the step straight to the shared `extra-mh-move-offer`, so the
 destination choice and the fresh `reveal-new-site` re-entry reuse that
 machinery unchanged. Passing finalizes the company without tapping the ally.
 
+### 52b-iv. `character-tap-extra-mh-phase`
+
+Character-carried counterpart to `ally-tap-extra-mh-phase`: the bearer is a
+character in the company itself (not an attached ally), and there is no
+company-composition condition — any company containing an untapped bearer
+qualifies. Used by Carambor (le-5): "May tap at the end of his company's
+movement/hazard phase to allow it to move to an additional site on the same
+turn. Another site card may be played and another movement/hazard phase
+immediately follows for his company. The new site path must contain at least
+one Wilderness [{w}]."
+
+```json
+{
+  "type": "character-tap-extra-mh-phase",
+  "requiresDestinationSitePathIncludes": ["wilderness"]
+}
+```
+
+- `requiresDestinationSitePathIncludes` (optional) — restricts the extra
+  move's destination to a site whose static `sitePath` (region types) includes
+  at least one of the listed {@link RegionType}s.
+
+Behaviour: at the end of a company's movement/hazard phase,
+`advanceAfterCompanyMH` (`mh-hazard-play.ts`) calls
+`findCharacterTapExtraMHPhase`, which walks the company's characters for an
+untapped one carrying this effect; a match routes to the dedicated
+`character-tap-mh-offer` step instead of falling through to
+`finalizeCompanyMH`. `characterTapExtraMHOfferActions`
+(`legal-actions/movement-hazard.ts`) re-derives the same match and offers one
+`character-tap-extra-mh-phase` action per qualifying character, plus `pass`.
+Accepting (`handleCharacterTapExtraMHOffer`) taps the character
+(`updateCharacter`) and switches the step to the shared `extra-mh-move-offer`,
+threading `requiresDestinationSitePathIncludes` (if any) onto the phase
+state's `extraMHMoveRequiresSitePathIncludes` so `extraMHMoveDestinations`
+(shared with `grant-extra-mh-phase`/`ally-tap-extra-mh-phase`) filters the
+offered destinations down to sites whose `sitePath` includes a matching region
+type; the field is cleared on either exit from `extra-mh-move-offer`. Passing
+finalizes the company without tapping the character.
+
 ### 52c. `surface-region-adjacency`
 
 Carried by a Balrog **permanent-event** played on an Under-deeps site during the
