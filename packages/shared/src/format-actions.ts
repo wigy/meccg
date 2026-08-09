@@ -178,6 +178,19 @@ export function extractActionCardDefs(
     visit(rest);
     return defs;
   }
+  // plan-movement places the destination site face-down (CoE 2.II.7) — it
+  // stays secret from the opponent until revealed during the company's
+  // Movement/Hazard sub-phase. If this exact site instance was already
+  // public earlier in the game (e.g. it was a company's currentSite before
+  // cycling back into the location deck), `revealedInstances` never forgets
+  // that — but re-selecting it as a new destination must not leak its
+  // identity again through the toast. Exclude destinationSite so the
+  // opponent's toast reads "Move company to a site".
+  if (action.type === 'plan-movement') {
+    const { destinationSite: _excluded, ...rest } = action;
+    visit(rest);
+    return defs;
+  }
   visit(action);
   return defs;
 }

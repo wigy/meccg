@@ -35,8 +35,9 @@ import {
   pool,
   buildAnUnexpectedOutpostMH,
   resolveChain,
+  siteDeckInstId,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, ArrangeDeckTopCardAction, CardDefinitionId, CardInstanceId, ChooseRevealedCardAction, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayerView, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, ArrangeDeckTopCardAction, CardDefinitionId, CardInstanceId, ChooseRevealedCardAction, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlanMovementAction, PlayerView, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, buildInstanceLookup, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 /** Lure of Expedience — hazard permanent-event attached to a character. Single-use in this file. */
@@ -530,6 +531,67 @@ describe('arrange-deck-top-card — audience must not learn the face-down deck-t
     const audienceDesc = describeAction(arrangeAction, pool, audienceLookup);
     expect(audienceDesc).toContain('a card');
     const realName = pool[STING as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+  });
+});
+
+describe('plan-movement — opponent must not learn the face-down destination site', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug c36d325122304817 (game mskidoss-noauyv, seq 1595):
+   * a Fallen-wizard's Wizardhaven site (e.g. Isengard, wh-56) had earlier
+   * been a company's currentSite, which made its identity public and
+   * recorded it in `revealedInstances` (append-only — see visibility.ts).
+   * Once that company moved on and the site cycled back into the location
+   * deck, selecting it again as a new company's `plan-movement` destination
+   * broadcast its real identity in the opponent's toast ("Move company to
+   * Isengard") via `lastActionCardDefs`, even though CoE rule 2.II.7
+   * declares movement by placing the destination site card face-down —
+   * the opponent must not learn it until it is revealed during the
+   * company's Movement/Hazard sub-phase.
+   */
+  test('extractActionCardDefs omits the destination site even when it was previously revealed', () => {
+    const base = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const destinationId = siteDeckInstId(base, 0, MORIA);
+
+    // Simulate Moria having been a company's currentSite earlier in the
+    // game (public knowledge recorded forever, per visibility.ts) before
+    // cycling back into the location deck.
+    const state: typeof base = {
+      ...base,
+      revealedInstances: { ...base.revealedInstances, [destinationId as string]: MORIA },
+    };
+
+    const action: PlanMovementAction = {
+      type: 'plan-movement',
+      player: PLAYER_1,
+      companyId: state.players[0].companies[0].id,
+      destinationSite: destinationId,
+    };
+    const after = dispatch(state, action);
+
+    // Precondition: the site is still recorded as revealed (the map only
+    // grows) even though it is now a secret, face-down planned destination.
+    expect(after.revealedInstances[destinationId]).toBe(MORIA);
+
+    // The broadcast map must NOT name the destination site — the opponent
+    // only learns that movement was planned, not where to.
+    const defs = extractActionCardDefs(after, action);
+    expect(defs[destinationId as string]).toBeUndefined();
+
+    // describeAction with only the opponent's map renders "a site".
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[MORIA as string]?.name;
     if (realName) expect(audienceDesc).not.toContain(realName);
   });
 });
