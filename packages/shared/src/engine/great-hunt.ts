@@ -18,15 +18,19 @@
  *    advances it (see {@link advanceGreatHuntReveal}).
  *
  * 2. **Ongoing discard trigger.** While the card is in play a
- *    `great-hunt-active` tracker constraint records every hazard-creature the
- *    opponent has discarded that has already been offered. On each post-reduce
- *    pass, during the controller's own turn, {@link sweepGreatHuntDiscards}
- *    finds hazard-creatures newly present in the opponent's discard pile and
- *    offers a `great-hunt-discard-attack` for each — "you may have it attack
- *    Alatar's company instead". Ruling: each discarded creature instance is
- *    offered at most once (recorded in the tracker), so the unbounded printed
- *    wording cannot loop forever, and the pre-existing discard pile at play
- *    time is seeded as already-processed so only *new* discards fire.
+ *    `great-hunt-active` tracker constraint records every card the opponent
+ *    has discarded that has already been swept. On every post-reduce pass,
+ *    regardless of whose turn it is, {@link sweepGreatHuntDiscards} reveals
+ *    every card newly present in the opponent's discard pile — "thereafter,
+ *    your opponent discards face-up" — so the identity stays public even once
+ *    later discards bury it. Among those, hazard creatures additionally get a
+ *    `great-hunt-discard-attack` offer, but only during the controller's own
+ *    turn — "whenever your opponent discards a creature during your turn, you
+ *    may have it attack Alatar's company instead". Ruling: each discarded
+ *    creature instance is offered at most once (recorded in the tracker), so
+ *    the unbounded printed wording cannot loop forever, and the pre-existing
+ *    discard pile at play time is seeded as already-processed so only *new*
+ *    discards are revealed or offered.
  *
  * Both attack modes reference the creature in place (deck/discard) via its
  * instance id and read its stats from the card definition, never moving it —
@@ -203,11 +207,10 @@ export function kickoffGreatHunt(
   const opponentId = state.players[opponentIndex].id;
   const companyId = findAvatarCompanyId(state, controllerIndex, effect.attackAvatar);
 
-  // Seed the ongoing tracker with every creature already in the opponent's
-  // discard pile — "thereafter" applies only to future discards.
-  const seeded = state.players[opponentIndex].discardPile
-    .filter(c => isHazardCreatureDefId(state, c.definitionId))
-    .map(c => c.instanceId);
+  // Seed the ongoing tracker with every card already in the opponent's
+  // discard pile — "thereafter" applies only to future discards, so
+  // pre-existing ones are neither revealed nor offered.
+  const seeded = state.players[opponentIndex].discardPile.map(c => c.instanceId);
   let working = addConstraint(state, {
     source: greatHuntInstanceId,
     sourceDefinitionId: greatHuntDefId,
@@ -215,7 +218,7 @@ export function kickoffGreatHunt(
     target: { kind: 'player', playerId: controllerId },
     kind: { type: 'great-hunt-active', greatHuntInstanceId, processedDiscardIds: seeded },
   });
-  logDetail(`The Great Hunt: ongoing discard trigger active for ${controllerId as string} (seeded ${seeded.length} existing discard creature(s))`);
+  logDetail(`The Great Hunt: ongoing discard trigger active for ${controllerId as string} (seeded ${seeded.length} existing discard card(s))`);
 
   if (!companyId) {
     logDetail(`The Great Hunt: ${effect.attackAvatar} not in a company — reveal process fizzles`);
@@ -408,13 +411,17 @@ function avatarNameFor(state: GameState, greatHuntInstanceId: CardInstanceId): s
 /**
  * Post-reduce sweep for the ongoing discard trigger. For every player holding a
  * `great-hunt-active` tracker whose Great Hunt card is still in play: remove
- * trackers whose card left play; otherwise record every hazard-creature newly
- * present in the opponent's discard pile as processed, and — only during the
- * controller's own turn — offer a `great-hunt-discard-attack` for each. Marking
- * discards processed on *every* pass (including the opponent's turn) ensures a
- * creature discarded outside the controller's turn is never offered later: the
- * card only fires "whenever your opponent discards a creature **during your
- * turn**". Each creature is offered at most once (loop-prevention ruling).
+ * trackers whose card left play; otherwise record every card newly present in
+ * the opponent's discard pile as processed and reveal its identity —
+ * "thereafter, your opponent discards face-up" is unconditional, not limited
+ * to the controller's turn, and (unlike a covered on-guard card) a later
+ * discard landing on top must not re-hide an already-seen one. Among those,
+ * hazard creatures additionally get a `great-hunt-discard-attack` offer, but
+ * only during the controller's own turn: the card only fires "whenever your
+ * opponent discards a creature **during your turn**". Marking discards
+ * processed on *every* pass (including the opponent's turn) ensures a
+ * creature discarded outside the controller's turn is never offered later.
+ * Each creature is offered at most once (loop-prevention ruling).
  */
 export function sweepGreatHuntDiscards(state: GameState): GameState {
   let working = state;
@@ -441,7 +448,7 @@ export function sweepGreatHuntDiscards(state: GameState): GameState {
     const processed = new Set(tracker.kind.processedDiscardIds.map(id => id as string));
 
     const newlyDiscarded = working.players[opponentIndex].discardPile.filter(
-      c => isHazardCreatureDefId(working, c.definitionId) && !processed.has(c.instanceId as string),
+      c => !processed.has(c.instanceId as string),
     );
     if (newlyDiscarded.length === 0) continue;
 
@@ -457,16 +464,26 @@ export function sweepGreatHuntDiscards(state: GameState): GameState {
           : c),
     };
 
-    // Offers only during the controller's own turn, and only if Alatar is in a
-    // company to be attacked.
+    // Reveal every newly discarded card's identity, permanently — the
+    // "discards face-up" clause applies to the whole pile, not just creatures,
+    // and is not limited to the controller's turn.
+    working = revealInstances(working, newlyDiscarded);
+    logDetail(
+      `The Great Hunt: ${opponentId as string} discarded face-up: `
+      + newlyDiscarded.map(c => cardName(working, c.definitionId, '?')).join(', '),
+    );
+
+    // Offers only during the controller's own turn, only for hazard
+    // creatures, and only if Alatar is in a company to be attacked.
     if (working.activePlayer !== controllerId) continue;
+    const newlyDiscardedCreatures = newlyDiscarded.filter(c => isHazardCreatureDefId(working, c.definitionId));
+    if (newlyDiscardedCreatures.length === 0) continue;
     const companyId = findAvatarCompanyId(working, controllerIndex, avatarNameFor(working, greatHuntInstanceId) ?? '');
     if (!companyId) continue;
 
-    for (const creature of newlyDiscarded) {
-      const cDefId = resolveInstanceId(working, creature.instanceId);
+    for (const creature of newlyDiscardedCreatures) {
       logDetail(
-        `The Great Hunt: ${opponentId as string} discarded ${cDefId ? cardName(working, cDefId, '?') : '?'} `
+        `The Great Hunt: ${opponentId as string} discarded ${cardName(working, creature.definitionId, '?')} `
         + `— offering ${controllerId as string} the attack option`,
       );
       working = enqueueResolution(working, {
