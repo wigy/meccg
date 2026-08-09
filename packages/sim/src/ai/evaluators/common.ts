@@ -9,7 +9,7 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HazardEventCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
 import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
@@ -165,7 +165,7 @@ export function isCorruption(def: CardDefinition | undefined): boolean {
 }
 
 /** Whether the card definition is a hazard event. */
-export function isHazardEvent(def: CardDefinition | undefined): boolean {
+export function isHazardEvent(def: CardDefinition | undefined): def is HazardEventCard {
   return def !== undefined && def.cardType === 'hazard-event';
 }
 

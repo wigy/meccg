@@ -129,6 +129,18 @@ export const movementHazardEvaluator: ActionEvaluator = {
           // event still in hand (e.g. An Unexpected Outpost's double fetch).
           // Outscore the plain event baseline so the enabler plays first.
           if (enablesHandCardBonus(def, view, pool)) return 6;
+          // A corruption-keyword event (e.g. Alone and Unadvised) offers one
+          // legal action per eligible character in the targeted company, all
+          // scoring the same flat baseline — left unscored, the AI picked
+          // among them at random, as likely to hit a throwaway follower as a
+          // corruption-primed hero (bug report: Alone and Unadvised landing
+          // on a lone follower, Dâsakûn, instead of Théoden, who already
+          // carried corruption points). Prefer the character closest to
+          // being buried by corruption.
+          if (def.keywords?.includes('corruption') && action.targetCharacterId) {
+            const target = view.opponent.characters[action.targetCharacterId];
+            if (target) return 5 + target.effectiveStats.corruptionPoints;
+          }
           return 5;
         }
         return 3;
