@@ -17,13 +17,18 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viableActions, findCharInstanceId, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, ADRAZAR, LEGOLAS,
+  ARAGORN, ADRAZAR, LEGOLAS, FRODO,
   RIVENDELL, LORIEN, MINAS_TIRITH,
   RESOURCE_PLAYER,
+  attachHazardToChar,
 } from '../../test-helpers.js';
 import { reduce } from '../../../engine/reducer.js';
+import { recomputeDerived } from '../../../engine/recompute-derived.js';
 import type { GameState } from '../../../types/state.js';
 import type { MoveToInfluenceAction } from '../../../types/actions-organization.js';
+import type { CardDefinitionId } from '../../../index.js';
+
+const SO_YOUVE_COME_BACK = 'le-138' as CardDefinitionId;
 
 describe('Rule 3.27 — Move Character to Follower', () => {
   beforeEach(() => resetMint());
@@ -126,5 +131,47 @@ describe('Rule 3.27 — Move Character to Follower', () => {
 
     expect(result.error).toBeUndefined();
     expect(result.state.players[0].characters[aragornId].followers).toEqual([adrId]);
+  });
+
+  test('uses the controlled character\'s effective mind (not printed mind) against available DI', () => {
+    // So You've Come Back (le-138) raises the mind of every other non-follower
+    // company member by one. Aragorn (DI 3) and Adrazar (printed mind 3) are
+    // both under GI in the same company as Frodo, who bears the card: Adrazar's
+    // effective mind becomes 4, exceeding Aragorn's available DI (3), so the
+    // move-to-influence action must no longer be offered — even though it would
+    // be offered on printed mind alone (see the first test in this file).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, ADRAZAR, FRODO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const state = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, FRODO, SO_YOUVE_COME_BACK));
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const adrId = findCharInstanceId(state, RESOURCE_PLAYER, ADRAZAR);
+    expect(state.players[RESOURCE_PLAYER].characters[adrId].effectiveStats.mind).toBe(4);
+
+    const moves = viableActions(state, PLAYER_1, 'move-to-influence') as { action: MoveToInfluenceAction }[];
+
+    // Adrazar (effective mind 4) > Aragorn's available DI (3) → not offered
+    expect(moves.some(a =>
+      a.action.characterInstanceId === adrId &&
+      a.action.controlledBy === aragornId,
+    )).toBe(false);
   });
 });
