@@ -167,6 +167,22 @@ only creature attacks can opt out with
 (dm-80, "All **non-agent** Man attacks…") and *Sun* (tw-335, "the prowess of each
 automatic-attack and hazard creature…").
 
+The context also exposes `attack.isAutomaticAttack` (`true` only for a site
+automatic-attack — including its dynamic variants, tidings-queued and
+duplicated attacks — absent otherwise), the counterpart flag for cards that
+name only **hazard creatures** and explicitly exclude automatic-attacks (and
+agents): `when: { "$and": [ { "attack.isAutomaticAttack": { "$ne": true } },
+{ "attack.isAgentAttack": { "$ne": true } } ] }` — used by *Clouds* (tw-22,
+"the prowess of each hazard creature is modified by +2"), gated on
+`{ "inPlay": "Doors of Night" }`. A creature card played as a site's dynamic
+auto-attack is *not* flagged automatic — it is still fundamentally a hazard
+creature, so Clouds' bonus reaches it. This flag is scoped to the
+`all-attacks`/`all-automatic-attacks` stat-modifier context — the
+similarly-named `attack.isAutomaticAttack` built for `on-event:
+attack-defeated` and `attack.automatic` built for `modify-attack` both count a
+played auto-attack as automatic instead, a deliberate difference for those
+triggers.
+
 For automatic-attacks the resolution context also exposes `site.siteType` — the
 defending company's effective current-site type — so a global modifier can gate
 on the site type it applies at, e.g. `when: { "site.siteType": { "$in": ["free-hold",
