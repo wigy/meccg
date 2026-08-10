@@ -444,10 +444,16 @@ export function describeAction(
       return `${playerName(action.player)} taps ${instName(action.characterId)} to discard ${instName(action.targetInstanceId)} from play (Praise to Elbereth)`;
     case 'finished':
       return `Finished`;
-    case 'activate-granted-action':
+    case 'activate-granted-action': {
+      const target = action.recipientCharacterId
+        ? `: place ${instName(action.targetCardId as CardInstanceId)} on ${instName(action.recipientCharacterId)}`
+        : action.targetCardId
+          ? `: target ${instName(action.targetCardId)}`
+          : '';
       return action.noTap
-        ? `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)}, no tap, −3 to roll)`
-        : `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)`;
+        ? `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)}, no tap, −3 to roll)${target}`
+        : `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)${target}`;
+    }
     case 'faction-influence-roll':
       return `Roll influence: ${action.explanation}`;
     case 'cancel-attack':
