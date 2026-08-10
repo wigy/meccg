@@ -1142,7 +1142,7 @@
     "playableResources": [
       "minor",
       "major",
-      "special"
+      "greater"
     ],
     "automaticAttacks": [
       {
@@ -1169,7 +1169,7 @@
         "when": {
           "$and": [
             {
-              "subtype": "special"
+              "subtype": "greater"
             },
             {
               "$not": {
