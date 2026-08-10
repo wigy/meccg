@@ -79,6 +79,17 @@ describe('combatEvaluator play-strike-event', () => {
     expect(combatEvaluator.score(playStrikeEvent('h0', 9), context)!).toBeGreaterThan(0);
   });
 
+  // Bug report: AI-Heuristic played Dodge on Théoden for a strike after an
+  // earlier strike against the same character (from a multi-strike attack)
+  // was already cancelled by tapping him. Dodge's only upside — skipping the
+  // tap penalty — is moot on an already-tapped character, while its -1 body
+  // penalty still applies if the strike wounds him, making the play strictly
+  // harmful, same as the already-wounded case above.
+  test('scores Dodge at zero on an already-tapped character', () => {
+    const context = makeContext(CardStatus.Tapped, ['tw-209']);
+    expect(combatEvaluator.score(playStrikeEvent('h0', 8), context)).toBe(0);
+  });
+
   test('does not discount a non-dodge strike-modifier event on a wounded character', () => {
     const context = makeContext(CardStatus.Inverted, ['dm-9999']);
     expect(combatEvaluator.score(playStrikeEvent('h0', 6), context)!).toBeGreaterThan(0);
