@@ -209,10 +209,11 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect(action.explanation).toContain('Legolas');
   });
 
-  test('followers of discarded character fall to GI if room, else discarded', () => {
+  test('followers of a successfully-influenced-away character fall to GI, deferred (CoE 2.II.2.2.3)', () => {
     // P2: Aragorn(DI=3) with Eowyn(mind=2) as follower, plus Gimli and Bilbo under GI.
-    // GI used: Gimli(6) + Bilbo(5) = 11, remaining = 9 — plenty of room for Eowyn(2).
-    // When Aragorn is successfully influenced, Eowyn should fall to GI.
+    // When Aragorn is successfully influenced away, Eowyn falls to general
+    // influence with the mind subtraction deferred to P2's next organization
+    // phase — she is never discarded on the spot, regardless of GI room.
     const state = buildResolutionState({
       p2Chars: [{ defId: ARAGORN, items: [] }, { defId: EOWYN, followerOf: 0 }, GIMLI, BILBO],
       attackerCheatRoll: 12,
@@ -233,9 +234,10 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expectCharNotInPlay(afterDefend, HAZARD_PLAYER, aragornId);
     expectInDiscardPile(afterDefend, HAZARD_PLAYER, aragornId);
 
-    // Eowyn should still be in play, now under GI
+    // Eowyn should still be in play, now under GI with the deferral flag set
     expectCharInPlay(afterDefend, HAZARD_PLAYER, eowynId);
     expect(getCharacter(afterDefend, HAZARD_PLAYER, EOWYN).controlledBy).toBe('general');
+    expect(getCharacter(afterDefend, HAZARD_PLAYER, EOWYN).influenceUnsubtracted).toBe(true);
   });
 
   test('successful influence does not drop a hazard-player-owned hazard on the target (no card disappears)', () => {
