@@ -46,7 +46,7 @@ import {
 import { Phase, CardStatus, Race, computeLegalActions } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, CombatState, GameState,
-  PlayShortEventAction, NotPlayableAction,
+  PlayShortEventAction,
 } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
@@ -155,13 +155,13 @@ describe('Alert the Folk (td-97)', () => {
 
     const shortEvent = actions.find(
       a => a.viable && a.action.type === 'play-short-event' &&
-        (a.action as PlayShortEventAction).cardInstanceId === cardInstance,
+        a.action.cardInstanceId === cardInstance,
     );
     expect(shortEvent).toBeUndefined();
 
     const notPlayable = actions.find(
       a => !a.viable && a.action.type === 'not-playable' &&
-        (a.action as NotPlayableAction).cardInstanceId === cardInstance,
+        a.action.cardInstanceId === cardInstance,
     );
     expect(notPlayable).toBeDefined();
   });
