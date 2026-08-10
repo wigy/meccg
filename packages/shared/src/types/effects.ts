@@ -2929,6 +2929,14 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
   readonly postCorruptionCheckModifier?: number;
   /** Restricts which cards may be fetched. */
   readonly filter?: Condition;
+  /**
+   * When true and `fetchTo` is `'hand'`, the fetched card is allowed to be
+   * played despite its target site being tapped — bypassing the normal
+   * "site is already tapped" item-play gate for that one card instance only.
+   * Used by Dragon-lore (td-108): fetched at an already-tapped Dragon's
+   * lair, the found item "may be immediately played with bearer's company".
+   */
+  readonly unlockTappedSitePlay?: boolean;
 }
 
 /** `enqueue-ring-play-offer` — bypass the gold-ring roll and offer ring categories from the test table. */
@@ -4886,6 +4894,15 @@ export interface FetchToDeckEffect extends EffectBase {
    * Inner Cunning (dm-68) mode 2: "reveal it to your opponent".
    */
   readonly revealToOpponent?: boolean;
+  /**
+   * When true and `to` is `'hand'`, the fetched card's game instance is
+   * recorded as {@link SitePhaseState.tappedSiteItemUnlock} once it lands in
+   * hand, letting it be played at the (already tapped) site that gated the
+   * fetch despite the normal "site is already tapped" item-play restriction.
+   * Set from `enqueue-pending-fetch`'s `unlockTappedSitePlay` flag. Used by
+   * Dragon-lore (td-108).
+   */
+  readonly unlockTappedSitePlay?: boolean;
 }
 
 /**

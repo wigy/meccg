@@ -665,6 +665,7 @@ function runGrantApply(
       shuffle,
       to: fetchTo,
       ...sitePart,
+      ...(apply.unlockTappedSitePlay === true ? { unlockTappedSitePlay: true } : {}),
     });
     if (!grantFetch) {
       return { error: 'This fetch is canceled while the play-deck/discard search cancel is in play' };

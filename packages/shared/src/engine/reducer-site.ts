@@ -328,6 +328,7 @@ function handleSiteSelectCompany(
       // over — each company starts its slot facing its site's attacks normally.
       soloAutoAttackCharacterId: undefined,
       burglaryItemUnlock: undefined,
+      tappedSiteItemUnlock: undefined,
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,
@@ -3043,6 +3044,14 @@ function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} played with ${charName} via a successful burglary attempt — allowance consumed`);
   }
 
+  // Dragon-lore (td-108): the item just fetched via the card's search ability
+  // may be played despite the site already being tapped. Consume the
+  // one-shot allowance once this specific item is played.
+  const usingTappedSiteFetchUnlock = isItem && siteState.tappedSiteItemUnlock === action.cardInstanceId;
+  if (usingTappedSiteFetchUnlock) {
+    logDetail(`Site: ${def.name} played via Dragon-lore's tapped-site allowance — allowance consumed`);
+  }
+
   const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
@@ -3062,6 +3071,7 @@ function handleSitePlayHeroResource(
       firstMinorItemNoTapAvailable: nextFirstMinorItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
       ...(usingBurglaryUnlock ? { burglaryItemUnlock: undefined } : {}),
+      ...(usingTappedSiteFetchUnlock ? { tappedSiteItemUnlock: undefined } : {}),
     },
   };
 
@@ -5251,6 +5261,7 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
         autoAttacksSkipped: undefined,
         soloAutoAttackCharacterId: undefined,
         burglaryItemUnlock: undefined,
+        tappedSiteItemUnlock: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -5327,6 +5338,7 @@ function advanceSiteToNextCompany(
         autoAttacksSkipped: undefined,
         soloAutoAttackCharacterId: undefined,
         burglaryItemUnlock: undefined,
+        tappedSiteItemUnlock: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
