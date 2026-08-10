@@ -509,3 +509,26 @@ describe('Revealed play-deck-top cards (dm-85 Revealed to all Watchers)', () => 
     expect(deckById(secret)?.definitionId).toBe(UNKNOWN_CARD);
   });
 });
+
+describe('Game ID exposed in the player view (for locating a save when filing a bug report)', () => {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.FallenWizard,
+        draftPool: [HIDDEN_HAVEN, BALIN], playDeck: [], siteDeck: [WORTHY_HILLS], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN, BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const state = createGame(config, pool);
+
+  test('a player view carries the same gameId as the underlying state', () => {
+    const aliceView = projectPlayerView(state, ALICE);
+    expect(aliceView.gameId).toBe(state.gameId);
+  });
+
+  test('a spectator view also carries the gameId', () => {
+    const spectatorView = projectSpectatorView(state);
+    expect(spectatorView.gameId).toBe(state.gameId);
+  });
+});
