@@ -19,8 +19,8 @@ import type { FreeCouncilPhaseState, GameOverPhaseState } from '../../../index.j
 import {
   buildTestState, resetMint, dispatch,
   PLAYER_1, PLAYER_2, HAZARD_PLAYER,
-  RANGERS_OF_THE_NORTH,
-  addCardInPlay,
+  RANGERS_OF_THE_NORTH, GIMLI, MORIA,
+  addCardInPlay, findCharInstanceId,
 } from '../../test-helpers.js';
 
 describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
@@ -63,6 +63,55 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
     // P1's Rangers in hand matches P2's Rangers in play → P2 gets -1
     expect(gameOver.finalScores[PLAYER_2]).toBe(-1);
     // P1 has no match in P2's hand → no reduction
+    expect(gameOver.finalScores[PLAYER_1]).toBe(0);
+  });
+
+  test('Hand card matching opponent unique in-play character reduces opponent final score by 1', () => {
+    // P2 has Gimli (unique character) in play. P1 has Gimli in hand — a unique
+    // card matching P2's in-play copy. Characters live in `players[].characters`,
+    // not `cardsInPlay`, so this exercises the character-scanning path of the
+    // duplicate-reveal check separately from the cardsInPlay path above.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, hand: [GIMLI], siteDeck: [], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [{ site: MORIA, characters: [GIMLI] }] },
+      ],
+    });
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+
+    const state = { ...base, phaseState: fcState };
+    const gimliId = findCharInstanceId(state, HAZARD_PLAYER, GIMLI);
+
+    // P1 passes → switches to P2
+    const afterP1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    // P2 checks Gimli (CP 0, no company mate, no reactive plays → resolves immediately)
+    const afterCheck = dispatch(afterP1, {
+      type: 'corruption-check',
+      player: PLAYER_2,
+      characterId: gimliId,
+      corruptionPoints: 0,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 1,
+      explanation: 'Need roll > 0 (CP 0)',
+    });
+    const afterP2 = dispatch(afterCheck, { type: 'pass', player: PLAYER_2 });
+
+    const gameOver = afterP2.phaseState as GameOverPhaseState;
+    expect(gameOver.phase).toBe(Phase.GameOver);
+    // P1's Gimli in hand matches P2's in-play Gimli character → P2 gets -1
+    expect(gameOver.finalScores[PLAYER_2]).toBe(-1);
     expect(gameOver.finalScores[PLAYER_1]).toBe(0);
   });
 
