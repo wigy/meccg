@@ -4376,10 +4376,18 @@ function findCreatureKeyingMatches(
 }
 
 /**
- * If the target company's effective site (destination if moving, else
- * current) carries a `cancel-attacks` site-rule, return the site's name
- * so callers can mark creature plays non-viable and surface a reason.
- * Returns null when no such rule applies.
+ * If the target company's current site carries a `cancel-attacks` site-rule,
+ * return the site's name so callers can mark creature plays non-viable and
+ * surface a reason. Returns null when no such rule applies.
+ *
+ * Only the company's current site is considered, never its destination: per
+ * CoE 2.IV.5, a company is not considered "at" any site card (origin or
+ * destination) from the moment its new site is revealed until its site phase
+ * begins, and every `cancel-attacks` site's printed text (Dol Guldur, Minas
+ * Morgul, Carn Dûm, etc.) only cancels attacks against a company "at this
+ * site". A company that is mid-move toward such a site hasn't arrived yet, so
+ * the rule can't block hazard creature plays against it during the
+ * movement/hazard phase.
  */
 function cancelAttacksSiteName(
   state: GameState,
@@ -4388,9 +4396,8 @@ function cancelAttacksSiteName(
     readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
   },
 ): string | null {
-  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
-    ?? targetCompany.currentSite?.instanceId
-    ?? null;
+  if (targetCompany.destinationSite) return null;
+  const effectiveSiteInstanceId = targetCompany.currentSite?.instanceId ?? null;
   if (!effectiveSiteInstanceId) return null;
   const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
   if (!siteDefId) return null;

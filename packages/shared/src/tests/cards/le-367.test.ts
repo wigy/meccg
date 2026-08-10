@@ -329,6 +329,44 @@ describe('Dol Guldur (le-367)', () => {
     }
   });
 
+  test('cancel-attacks does not block a hazard creature play against a company mid-move between two cancel-attacks sites', () => {
+    // Regression: a minion company traveling from Dol Guldur to Carn Dûm (both
+    // cancel-attacks sites) was wrongly reported as canceled at the
+    // destination even though the company hadn't arrived yet. Per CoE 2.IV.5,
+    // a company is "at" neither its origin nor its destination between the
+    // moment its new site is revealed and its site phase — so cancel-attacks
+    // (which only cancels attacks against a company "at this site") must not
+    // apply while the company is still moving.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: DOL_GULDUR, destinationSite: CARN_DUM, characters: [LIEUTENANT_OF_DOL_GULDUR] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MORIA, characters: [LEGOLAS] }],
+          hand: [ORC_PATROL],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const mhState: GameState = {
+      ...state,
+      phaseState: makeMHState({ destinationSiteName: 'Carn Dûm', siteRevealed: true }),
+    };
+
+    const all = computeLegalActions(mhState, PLAYER_2).filter(ea => ea.action.type === 'play-hazard');
+    expect(all.length).toBeGreaterThan(0);
+    for (const ea of all) {
+      expect(ea.reason ?? '').not.toMatch(/canceled at/);
+    }
+  });
+
   // ─── Auto-test-gold-ring engine behavior ────────────────────────────────────
 
   test('The Least of Gold Rings is storable at Dol Guldur', () => {
