@@ -57,6 +57,7 @@ export type {
   OpposedRollAction,
   UseItemAction,
   InfluenceOverflowDiscardAction,
+  ActivateOrgFetchAction,
 } from './actions-organization.js';
 
 // ---- Short-event actions ----
