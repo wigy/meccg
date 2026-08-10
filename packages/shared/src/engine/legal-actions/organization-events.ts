@@ -618,20 +618,35 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             }
           }
           const charFilter = charPlayTarget?.filter;
-          let targetCharacterId: CardInstanceId | undefined;
           if (charFilter) {
-            const eligibleCharId = company.characters.find(charId => {
+            // Emit one action per eligible character rather than picking the
+            // first match — with multiple eligible sages in the company
+            // (e.g. Bilbo and Pallando both untapped), the player must be
+            // able to choose which one bears the card.
+            const eligibleCharIds = company.characters.filter(charId => {
               const ch = player.characters[charId];
               const charDef = ch && defById(state, ch.definitionId);
               if (!ch || !charDef || !isCharacterCard(charDef)) return false;
               const ctx = { target: { name: charDef.name, skills: getEffectiveSkills(state, ch, charDef), status: ch.status } };
               return matchesCondition(charFilter, ctx);
             });
-            if (!eligibleCharId) {
+            if (eligibleCharIds.length === 0) {
               logDetail(`Permanent event ${def.name}: no eligible character at ${siteDef.name}`);
               continue;
             }
-            targetCharacterId = eligibleCharId;
+            anyPlayable = true;
+            for (const targetCharacterId of eligibleCharIds) {
+              logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase}, character ${targetCharacterId as string})`);
+              actions.push({
+                action: {
+                  type: 'play-permanent-event', player: playerId, cardInstanceId,
+                  targetSiteDefinitionId: siteDefId,
+                  targetCharacterId,
+                },
+                viable: true,
+              });
+            }
+            continue;
           }
           anyPlayable = true;
           logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
@@ -639,7 +654,6 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             action: {
               type: 'play-permanent-event', player: playerId, cardInstanceId,
               targetSiteDefinitionId: siteDefId,
-              ...(targetCharacterId ? { targetCharacterId } : {}),
             },
             viable: true,
           });
