@@ -433,6 +433,10 @@ export function renderCompanyBlock(
 
     const itemDefId = cachedInstanceLookup(itemInstId);
     const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+    const resolveName = (id: CardInstanceId): string | undefined => {
+      const defId = cachedInstanceLookup(id);
+      return defId ? cardPool[defId as string]?.name : undefined;
+    };
 
     /** Enter spatial targeting mode so the player picks a recipient character. */
     const enterTransferMode = (): void => {
@@ -448,7 +452,7 @@ export function renderCompanyBlock(
     // chooses instead of one option being forced or silently hidden.
     if (resolution.kind === 'menu') {
       const menuItems: TooltipMenuItem[] = [
-        ...buildGrantedActionMenuItems(grantedActions, onAction),
+        ...buildGrantedActionMenuItems(grantedActions, onAction, resolveName),
         ...(hasStore ? [{ label: 'Store at site', onClick: () => onAction(storeAction) }] : []),
         ...(transferActions.length > 0 ? [{ label: `Transfer ${itemName ?? 'item'}`, onClick: enterTransferMode }] : []),
       ];

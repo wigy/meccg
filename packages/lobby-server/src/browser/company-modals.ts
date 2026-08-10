@@ -529,7 +529,10 @@ export function showCharacterActionTooltip(
   }
 
   const grantedActionsForChar = options.grantedActions?.get(charInstId as string) ?? [];
-  items.push(...buildGrantedActionMenuItems(grantedActionsForChar, onAction));
+  items.push(...buildGrantedActionMenuItems(grantedActionsForChar, onAction, id => {
+    const defId = cachedInstanceLookup(id);
+    return defId ? cardPool[defId as string]?.name : undefined;
+  }));
 
   // Opponent influence: enter targeting mode
   if (lastView) {
@@ -704,17 +707,21 @@ export function showInPlayGrantedActionMenu(
  * (e.g. an item that is both usable and transferable) can build the entries
  * without opening a tooltip themselves.
  *
- * @param getCharacterName - optional lookup that resolves a character instance ID
- *   to a display name; used to disambiguate items when multiple characters offer
- *   the same action (e.g. two rangers each able to cancel River).
+ * @param resolveName - optional lookup that resolves any card instance ID
+ *   (character or item) to a display name; used to disambiguate entries that
+ *   share an `actionId`. Two shapes of ambiguity exist: different acting
+ *   characters (e.g. two rangers each able to cancel River — disambiguated by
+ *   `characterId`), or the same character offering the ability once per
+ *   (item, recipient) candidate pair (The Forge-master wh-117 — disambiguated
+ *   by `targetCardId` / `recipientCharacterId`).
  */
 export function buildGrantedActionMenuItems(
   actions: readonly ActivateGrantedAction[],
   onAction: (action: GameAction) => void,
-  getCharacterName?: (id: CardInstanceId) => string | undefined,
+  resolveName?: (id: CardInstanceId) => string | undefined,
 ): TooltipMenuItem[] {
   // Detect when multiple entries share the same actionId so we know whether
-  // appending a character name is necessary to distinguish them.
+  // appending disambiguating names is necessary.
   const actionIdCounts = new Map<string, number>();
   for (const a of actions) {
     actionIdCounts.set(a.actionId, (actionIdCounts.get(a.actionId) ?? 0) + 1);
@@ -731,12 +738,22 @@ export function buildGrantedActionMenuItems(
       : action.actionId === 'remove-self-on-roll'
         ? `${baseLabel} (tap)`
         : baseLabel;
-    // When two or more actions share the same actionId (e.g. two untapped
-    // rangers both able to cancel River), append the acting character's name
-    // so the player knows which character they are choosing to tap.
-    if (getCharacterName && (actionIdCounts.get(action.actionId) ?? 0) > 1 && action.characterId) {
-      const charName = getCharacterName(action.characterId);
-      if (charName) label += ` — ${charName}`;
+    if (resolveName && (actionIdCounts.get(action.actionId) ?? 0) > 1) {
+      if (action.targetCardId || action.recipientCharacterId) {
+        // Same acting character, one entry per (item, recipient) pair — e.g.
+        // The Forge-master (wh-117) offering every qualifying fetched item ×
+        // every eligible recipient at its site. Name both so the player can
+        // tell the entries apart before committing.
+        const itemName = action.targetCardId ? resolveName(action.targetCardId) : undefined;
+        const recipientName = action.recipientCharacterId ? resolveName(action.recipientCharacterId) : undefined;
+        const parts = [itemName, recipientName ? `to ${recipientName}` : undefined].filter((p): p is string => !!p);
+        if (parts.length > 0) label += ` — ${parts.join(' ')}`;
+      } else if (action.characterId) {
+        // Different acting characters offering the same ability — append the
+        // acting character's name so the player knows which one taps.
+        const charName = resolveName(action.characterId);
+        if (charName) label += ` — ${charName}`;
+      }
     }
     return { label, onClick: () => onAction(action) };
   });
@@ -746,9 +763,9 @@ export function buildGrantedActionMenuItems(
  * Show a tooltip menu for choosing between multiple granted actions on a single card
  * (e.g. Cram offers both untap-bearer and extra-region-movement).
  *
- * @param getCharacterName - optional lookup that resolves a character instance ID
- *   to a display name; used to disambiguate items when multiple characters offer
- *   the same action (e.g. two rangers each able to cancel River).
+ * @param getCharacterName - optional lookup that resolves a card instance ID
+ *   (character or item) to a display name; used to disambiguate entries that
+ *   share an `actionId` (see {@link buildGrantedActionMenuItems}).
  */
 export function showGrantedActionTooltip(
   anchor: HTMLElement,
