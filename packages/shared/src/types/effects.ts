@@ -6701,6 +6701,31 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Self-restriction carried directly by a faction card's own `effects`:
+ * suppresses named one-shot influence-boost cards (e.g. Muster) for the
+ * specific attempt to influence *this* faction. Unlike
+ * {@link FactionInfluenceRestrictionEffect} (an environment scanned from
+ * OTHER in-play cards, gated by region), this effect lives on the faction
+ * card being played and applies to every attempt against it regardless of
+ * site or region.
+ *
+ * Consulted alongside `faction-influence-restriction`'s `blockedCardNames` at
+ * both influence seams — the influence-attempt legal-action generator
+ * (`legal-actions/site.ts`) and the roll resolver
+ * (`resolveInfluenceAttemptRoll` in `reducer-site.ts`) — so a matching
+ * one-shot `check-modifier` constraint is consumed but contributes zero.
+ *
+ * Used by Angmarim (as-58) and Nûrniags (as-64): "Playable at <site> if the
+ * influence check is greater than N (Muster has no effect on this
+ * attempt)."
+ */
+export interface FactionSelfInfluenceBoostBlockEffect extends EffectBase {
+  readonly type: 'block-influence-boost';
+  /** Names of cards whose influence check-modifier boosts are suppressed for this faction. */
+  readonly blockCards: readonly string[];
+}
+
+/**
  * Environment effect carried by a bare in-play hazard event that strips every
  * **card-sourced modification** from every influence attempt in the game, for
  * either player.
@@ -8139,6 +8164,7 @@ export type CardEffect =
   | RetainHazardLongEventsEffect
   | OpposedRollEffect
   | FactionInfluenceRestrictionEffect
+  | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
   | TapDiscardInPlayEffect;
 

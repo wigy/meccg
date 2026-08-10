@@ -7475,6 +7475,26 @@ the shared `collectFactionInfluenceRestriction` helper (`reducer-utils.ts`).
 
 Used by Mordor in Arms (dm-72).
 
+### 25a2. `block-influence-boost`
+
+Self-restriction carried directly on a faction card's own `effects` (not an
+environment scanned from other in-play cards). While that faction is being
+influenced, any one-shot influence check-modifier boost sourced from a card
+named in `blockCards` is suppressed for the attempt — consumed, but worth
+zero.
+
+```json
+{ "type": "block-influence-boost", "blockCards": ["Muster"] }
+```
+
+Consulted alongside `faction-influence-restriction`'s `blockedCardNames` at
+both influence seams — the influence-attempt legal-action generator
+(`legal-actions/site.ts`) and the roll resolver (`resolveInfluenceAttemptRoll`
+in `reducer-site.ts`).
+
+Used by Angmarim (as-58) and Nûrniags (as-64): "Playable at Carn Dûm if the
+influence check is greater than 11 (Muster has no effect on this attempt)."
+
 ### 25b. `influence-modification`
 
 An optional, cost-bearing modification the influencer may apply when attempting

@@ -2329,6 +2329,12 @@ function playResourcesActions(
             infModifier += restrictionMod;
             infParts.push(`region restriction ${formatSignedNumber(restrictionMod)}`);
           }
+          // Self-restriction printed on the faction card itself (e.g.
+          // Angmarim as-58): "Muster has no effect on this attempt".
+          for (const effect of factionDef.effects ?? []) {
+            if (effect.type !== 'block-influence-boost') continue;
+            for (const name of effect.blockCards) blockedBoosts.add(name);
+          }
 
           // One-shot check-modifier constraints for influence (e.g. Muster).
           // Nullified ones are still listed as "will be consumed" by the roll,
