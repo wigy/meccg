@@ -34,12 +34,13 @@ import type {
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup, effectiveItemCorruptionPoints, isItemCard } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
 import { withDetainmentSuffix } from './combat-detainment-suffix.js';
+import { withIsolatedSuffix } from './combat-isolated-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
 import { strikeResultDisplay } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, inPlayCardDefs } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs, findIsolatingEventName } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection, getSelectedCvCCAttacker, setSelectedCvCCAttacker, clearSelectedCvCCAttacker, getSelectedCvCCDefender, setSelectedCvCCDefender, clearSelectedCvCCDefender } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
@@ -380,7 +381,12 @@ function renderPhaseBanner(
     phaseText = `Body Check \u2014 ${target}`;
   }
 
-  banner.textContent = withDetainmentSuffix(phaseText, combat.detainment);
+  const isolatedText = withIsolatedSuffix(
+    phaseText,
+    combat.isolated ?? false,
+    combat.isolated ? findIsolatingEventName(view, cardPool) : undefined,
+  );
+  banner.textContent = withDetainmentSuffix(isolatedText, combat.detainment);
 
   // Append roll explanations from legal actions
   const explanations = collectRollExplanations(view.legalActions);
