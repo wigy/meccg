@@ -155,10 +155,17 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   // Force-single-target (multi-attack): auto-assign all strikes to the chosen character
   if (combat.forceSingleTarget && combat.strikeAssignments.length === 0 && existingIdx < 0) {
     newAssignments = [];
+    // Each attack's assignment gets `excessStrikesPerAttack` preset (CRF 22
+    // Assassin: a global strikes boost becomes a -1 prowess excess strike on
+    // that attack, not a genuine extra strike). One assignment marks an
+    // attack boundary every `strikesPerAttack` entries (defaults to 1).
+    const literalStrikesPerAttack = combat.strikesPerAttack ?? 1;
+    const excessPerAttack = combat.excessStrikesPerAttack ?? 0;
     for (let i = 0; i < combat.strikesTotal; i++) {
+      const isAttackBoundary = (i + 1) % literalStrikesPerAttack === 0;
       newAssignments.push({
         characterId: action.characterId,
-        excessStrikes: 0,
+        excessStrikes: isAttackBoundary ? excessPerAttack : 0,
         resolved: false,
       });
     }

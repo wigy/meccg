@@ -477,6 +477,18 @@ export interface CombatState {
    */
   readonly strikesPerAttack?: number;
   /**
+   * Multi-attack creatures only (`multiAttackCount > 1`): how much of a global
+   * strikes boost (e.g. Rank upon Rank dm-80: "+1 strikes" to Man attacks)
+   * exceeds the creature's own printed `strikesPerAttack`. Per CRF 22 Assassin:
+   * "If an attack ... is given more than one strike, each additional strike
+   * becomes an excess strike (-1 prowess modification) against the attacked
+   * character" — the boost does not create genuine extra strike assignments;
+   * it is applied as a `-1` prowess penalty (via `StrikeAssignment.excessStrikes`)
+   * on each attack's single assignment instead. Absent or 0 when the creature's
+   * per-attack strikes are unboosted.
+   */
+  readonly excessStrikesPerAttack?: number;
+  /**
    * Number of remaining cancel-by-tap opportunities the defender has.
    * Each tap cancels one attack (= `strikesPerAttack` assignments, defaulting to 1).
    * Set by the `cancel-attack-by-tap` combat rule.

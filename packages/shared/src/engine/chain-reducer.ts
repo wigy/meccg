@@ -3562,9 +3562,18 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // Total strikes resolution. Precedence:
   //   0. onlyWounded                     → strikes = wounded characters
   //   1. combat-one-strike-per-character → strikes = company.characters.length
-  //   2. combat-multi-attack             → strikes = count × effectiveStrikes
+  //   2. combat-multi-attack             → strikes = count × printed strikes
   //   3. default                         → strikes = effectiveStrikes
   let totalStrikes: number;
+  // Multi-attack "N attacks, all against one character" creatures (Assassin
+  // tw-8, Slayer le-90/tw-89, Nameless Thing dm-109): each attack's real
+  // strike count is the creature's own *printed* strikes, never a boosted
+  // value. Per CRF 22 Assassin: "If an attack ... is given more than one
+  // strike, each additional strike becomes an excess strike (-1 prowess
+  // modification) against the attacked character" — a global strikes boost
+  // (e.g. Rank upon Rank dm-80) doesn't create a genuine extra strike per
+  // attack, it becomes a per-attack excess-strike penalty instead.
+  let excessStrikesPerAttack = 0;
   if (onlyWounded) {
     totalStrikes = woundedCharacters.length;
     logDetail(`One strike per wounded character: ${totalStrikes} wounded character(s) in company → ${totalStrikes} total strikes`);
@@ -3580,11 +3589,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       totalStrikes = company.characters.length;
       logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
     }
+  } else if (multiAttackCount > 1) {
+    totalStrikes = creatureDef.strikes * multiAttackCount;
+    excessStrikesPerAttack = Math.max(0, effectiveStrikes - creatureDef.strikes);
+    logDetail(
+      `Multi-attack: ${multiAttackCount} attacks × ${creatureDef.strikes} strike(s) = ${totalStrikes} total strikes`
+      + (excessStrikesPerAttack > 0 ? ` (+${excessStrikesPerAttack} excess strike(s) each from boosted strikes)` : ''),
+    );
   } else {
-    totalStrikes = effectiveStrikes * multiAttackCount;
-    if (multiAttackCount > 1) {
-      logDetail(`Multi-attack: ${multiAttackCount} attacks × ${effectiveStrikes} strike(s) = ${totalStrikes} total strikes`);
-    }
+    totalStrikes = effectiveStrikes;
   }
 
   // onlyWounded with no wounded characters: the creature has no target and no
@@ -3681,7 +3694,8 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
-    strikesPerAttack: multiAttackCount > 1 ? effectiveStrikes : undefined,
+    strikesPerAttack: multiAttackCount > 1 ? creatureDef.strikes : undefined,
+    excessStrikesPerAttack: multiAttackCount > 1 && excessStrikesPerAttack > 0 ? excessStrikesPerAttack : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
     cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
