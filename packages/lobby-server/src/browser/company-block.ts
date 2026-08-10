@@ -37,6 +37,7 @@ import type {
   DeclareAgentAttackAction,
   TapAltPermanentEventAction,
   PayEventMaintenanceAction,
+  ActivateOrgFetchAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -1151,6 +1152,32 @@ export function findDiscardForHazardLimitAction(
 }
 
 /**
+ * Find the viable `activate-org-fetch` activation for the given card-in-play
+ * instance (A Strident Spawn wh-61: "During your organization phase, you may
+ * take one Half-orc character from your discard pile to your hand").
+ *
+ * The engine offers at most one such action per source card; firing it
+ * enqueues the shared pick-one-or-pass fetch flow, so the board only needs to
+ * dispatch the action itself. Without this the card had no board affordance
+ * and the ability was only reachable from the debug action panel (bug
+ * report d9f80cd5e5f57819).
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and
+ * the behaviour can be regression-tested without a full DOM render.
+ */
+export function findOrgPhaseFetchAction(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): ActivateOrgFetchAction | null {
+  return (
+    actions.find(
+      (a): a is ActivateOrgFetchAction =>
+        a.type === 'activate-org-fetch' && a.cardInstanceId === cardInstanceId,
+    ) ?? null
+  );
+}
+
+/**
  * Find the viable `tap-alt-permanent-event` activations for an in-play
  * dual-mode creature-permanent-event (Adûnaphel tw-2, Ûvatha tw-107).
  *
@@ -1386,6 +1413,11 @@ function renderInPlayCardImage(
     // Without this the only way to trigger the discard was the debug action
     // panel — the card had no board affordance.
     const discardForLimitAction = findDiscardForHazardLimitAction(viableActions(view.legalActions), card.instanceId);
+    // Org-phase fetch permanents (A Strident Spawn wh-61): clicking the
+    // in-play card fires the once-per-turn discard-pile-to-hand fetch. Without
+    // this the card had no board affordance and the ability was only
+    // reachable from the debug action panel.
+    const orgFetchAction = findOrgPhaseFetchAction(viableActions(view.legalActions), card.instanceId);
     // Bearer-less granted actions (The Lidless Eye le-203 / Sauron ba-43:
     // sideboard-fetch and peek-opponent's-hand): the permanent itself is the
     // source, so clicking it opens the ability menu. Without this the card was
@@ -1428,6 +1460,12 @@ function renderInPlayCardImage(
       img.addEventListener('click', (e) => {
         e.stopPropagation();
         onAction(discardForLimitAction);
+      });
+    } else if (orgFetchAction) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(orgFetchAction);
       });
     } else if (grantedActions.length > 0) {
       img.classList.add('company-card--movable');
