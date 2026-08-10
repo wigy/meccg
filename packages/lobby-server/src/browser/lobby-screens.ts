@@ -258,6 +258,19 @@ export function connectLobbyWs(): void {
           appState.lobbyPlayerCredits = self.credits;
           updateCreditsBadge();
         }
+        // Show "Stop Existing Game" only while a lingering game server still
+        // has us marked in-game (e.g. after a crashed tab or lost session) —
+        // it clears the stuck "You are already in a game" block without
+        // waiting out the idle-exit grace period. Reset its label/disabled
+        // state once the stop completes and inGame drops back to false.
+        const stopGameBtn = document.getElementById('stop-game-btn') as HTMLButtonElement | null;
+        if (stopGameBtn) {
+          stopGameBtn.classList.toggle('hidden', !self?.inGame);
+          if (!self?.inGame) {
+            stopGameBtn.textContent = 'Stop Existing Game';
+            stopGameBtn.disabled = false;
+          }
+        }
         lastOnline = { players, games };
         renderOnlineList();
         break;
