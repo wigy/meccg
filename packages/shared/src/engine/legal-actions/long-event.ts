@@ -224,6 +224,15 @@ export function heroResourceShortEventActions(
     // bare no-op `play-short-event` (no recruit target) that discards the
     // card for zero effect.
     if (def.effects?.some(e => e.type === 'recruit-character')) continue;
+    // Burglary (td-103): its only effect is `burglary-attempt`, resolved
+    // exclusively via the dedicated `declare-burglary` action offered during
+    // the site phase's `automatic-attacks` step (see
+    // `automaticAttacksActions` in legal-actions/site.ts). Falling through to
+    // the generic handling below would offer a bare no-op `play-short-event`
+    // (no burglary-attempt handler in the reducer for that action type) that
+    // silently discards the card for zero effect — e.g. during a combat's
+    // pre-assignment window once the declare-burglary window has passed.
+    if (def.effects?.some(e => e.type === 'burglary-attempt')) continue;
     // A "Permanent-event/Short-event" card (Great Army of the North ba-38) is a
     // permanent event that also carries an alternative short-event reshuffle
     // mode; admit it here alongside true short events. It is viable only when
