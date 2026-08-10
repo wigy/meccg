@@ -35,7 +35,7 @@ import {
   buildTestState, resetMint, Phase,
   attachHazardToChar,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS,
   LURE_OF_THE_SENSES,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, viableFor, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -43,6 +43,7 @@ import {
 import type { ActivateGrantedAction, CorruptionCheckAction } from '../../index.js';
 import { describeAction } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
+import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 describe('Lure of the Senses (tw-60)', () => {
   beforeEach(() => resetMint());
@@ -112,6 +113,39 @@ describe('Lure of the Senses (tw-60)', () => {
     expect(cc.corruptionPoints).toBe(2);
     expect(cc.corruptionModifier).toBe(0);
     expect(cc.need).toBe(3);
+  });
+
+  test('untap → org transition corruption check allows tap-in-support from a company mate (CoE 7.1.1)', () => {
+    // Bilbo joins Aragorn's company at Rivendell. Aragorn bears Lure of the
+    // Senses. When the untap-phase-end trigger enqueues Aragorn's corruption
+    // check, Bilbo (untapped, same company) must be offered as a +1
+    // supporter per rule 7.1.1 — this was previously missing because the
+    // untap-phase-end enqueue site omitted `allowSupport: true`.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withLure = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES);
+    const afterUntap = dispatch(withLure, { type: 'untap', player: PLAYER_1 });
+    const afterPass = dispatch(afterUntap, { type: 'pass', player: PLAYER_2 });
+    expect(afterPass.phaseState.phase).toBe(Phase.Organization);
+
+    const pending = afterPass.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].kind.type).toBe('corruption-check');
+    if (pending[0].kind.type !== 'corruption-check') return;
+    expect(pending[0].kind.allowSupport).toBe(true);
+
+    const bilboId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
+    const supports = viableFor(afterPass, PLAYER_1)
+      .filter(a => a.action.type === 'support-corruption-check') as { action: SupportCorruptionCheckAction }[];
+    expect(supports.some(a => a.action.supportingCharacterId === bilboId)).toBe(true);
   });
 
   test('untap → org transition at a non-haven does NOT enqueue a corruption check', () => {

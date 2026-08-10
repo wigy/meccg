@@ -780,6 +780,11 @@ function advanceToOrganization(state: GameState): ReducerResult {
             characterId: char.instanceId,
             modifier,
             reason: def?.name ?? 'Untap-phase-end',
+            // CoE rule 7.1.1: a resource player may tap other characters in
+            // the same company as the checking character to apply +1 to the
+            // roll each, for any corruption check that hasn't resolved yet —
+            // including this untap-phase-end trigger (Lure of the Senses etc.).
+            allowSupport: true,
           });
         } else if (isSelfDiscardMove(oe.apply)) {
           // Determine which slot (items/hazards/allies) the card lives in
