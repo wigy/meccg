@@ -67,4 +67,9 @@ describe('card image URLs', () => {
   test('minion Woodmen-town (le-414) resolves to Woodmentown.jpg', () => {
     expect(pool['le-414']?.image).toBe(`${REMASTER_BASE}le/Woodmentown.jpg`);
   });
+
+  test('minion Wain-easterlings (as-66) resolves to its own image, distinct from hero as-60', () => {
+    expect(pool['as-66']?.image).toBe(`${REMASTER_BASE}as/Waineasterlings2.jpg`);
+    expect(pool['as-66']?.image).not.toBe(pool['as-60']?.image);
+  });
 });
