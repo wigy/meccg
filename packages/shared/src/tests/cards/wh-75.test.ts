@@ -190,6 +190,19 @@ describe('Hidden Haven (wh-75)', () => {
     expect(siteTypeOverride?.kind.type === 'attribute-modifier' && siteTypeOverride.kind.value).toBe(SiteType.Haven);
   });
 
+  // Regression (game msnfzusi-73w1gh, seq 725): a Fallen-wizard's company
+  // stayed at an eligible Ruins & Lairs into the organization phase (having
+  // entered it in a prior turn's site phase without playing Hidden Haven).
+  // Hidden Haven's card text declares no site-phase timing, so under rule
+  // 2.1.1 it should be playable during any phase — the engine wrongly
+  // restricted it to the site phase, blocking it here.
+  test('playable during the organization phase when the company is already at an eligible site', () => {
+    const state = buildFallenWizardOrgPhaseState({ site: BANDIT_LAIR, characters: [ARAGORN], hand: [HIDDEN_HAVEN] });
+    const plays = viablePlays(state, hiddenHavenInstanceId(state));
+    expect(plays).toHaveLength(1);
+    expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(BANDIT_LAIR);
+  });
+
   test('playing it contributes 1 stage point (it is a Stage resource)', () => {
     const before = buildFallenWizardSitePhaseState({ site: BANDIT_LAIR, characters: [ARAGORN], hand: [HIDDEN_HAVEN] });
     const beforeSp = before.players[RESOURCE_PLAYER].stagePoints;
