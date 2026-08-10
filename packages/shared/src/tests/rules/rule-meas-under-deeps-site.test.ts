@@ -29,6 +29,7 @@ import {
 } from '../test-helpers.js';
 
 const THE_UNDER_GATES = 'dm-38' as CardDefinitionId; // under-deeps, shadow-hold, adj Moria(0)
+const DWARVEN_LIGHT_STONE = 'dm-168' as CardDefinitionId; // special subtype; playable at any Under-deeps site
 
 /** Set a company's specialMovement (no CompanySetup field exposes it). */
 function withGwaihir(state: GameState): GameState {
@@ -162,6 +163,23 @@ describe('MEAS §6 — Under-deeps site sub-rules', () => {
     const state: GameState = { ...base, phaseState: { ...base.phaseState, minorItemAvailable: true } as typeof base.phaseState };
     // The major item is NOT playable via the minor-only extra allowance.
     expect(viableActions(state, PLAYER_1, 'play-hero-resource')).toHaveLength(0);
+  });
+
+  test('(f) at an Under-deeps site the extra-character play accepts an item that is playable there only via its own item-play-site restriction', () => {
+    // Dwarven Light-stone (dm-168) is "Playable at any Under-deeps site" via
+    // its own item-play-site filter, but its formal subtype is "special" —
+    // which The Under-gates' printed playableResources list (minor, major,
+    // greater, gold-ring) does not include. CoE 2.V.5.1 grants the bonus to
+    // "any one additional item that is playable at the site", so this must
+    // still be offered even though the subtype gate alone would reject it.
+    const base = buildSitePhaseState({
+      site: THE_UNDER_GATES,
+      characters: [ARAGORN],
+      hand: [DWARVEN_LIGHT_STONE],
+      siteStatus: CardStatus.Tapped,
+    });
+    const state: GameState = { ...base, phaseState: { ...base.phaseState, minorItemAvailable: true } as typeof base.phaseState };
+    expect(viableActions(state, PLAYER_1, 'play-hero-resource').length).toBeGreaterThanOrEqual(1);
   });
 
   // Sanity: the off-to-the-side `targetsSetAside` flag is a recognized

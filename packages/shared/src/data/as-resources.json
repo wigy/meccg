@@ -1151,11 +1151,37 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 12,
     "race": "man",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Manifestation of minion Angmarim. Playable at Carn Dûm  if the influence check is greater than 11 (Muster has no effect on this attempt). Standard Modifications: Wizards (-5), Men (+1)."
+    "playableAt": [
+      {
+        "site": "Carn Dûm"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -5,
+        "when": {
+          "bearer.race": "wizard"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      },
+      {
+        "type": "block-influence-boost",
+        "blockCards": ["Muster"]
+      }
+    ],
+    "text": "Unique. Manifestation of minion Angmarim. Playable at Carn Dûm  if the influence check is greater than 11 (Muster has no effect on this attempt). Standard Modifications: Wizards (-5), Men (+1).",
+    "certified": "2026-08-10"
   },
   {
     "cardType": "hero-resource-faction",

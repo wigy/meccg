@@ -17,13 +17,14 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viableActions, shareSiteInstances,
   discardNonRingwraithCompaniesAtSharedSite,
-  findCharInstanceId, recomputeDerived,
+  findCharInstanceId, recomputeDerived, makeMHState,
   Phase, Alignment,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   LEGOLAS, LORIEN,
 } from '../../test-helpers.js';
 import type { CardDefinitionId, GameState } from '../../../index.js';
 import type { MergeCompaniesAction, MoveToCompanyAction, PlayCharacterAction } from '../../../types/actions-organization.js';
+import type { DeclarePathAction } from '../../../types/actions-movement-hazard.js';
 
 // le-58: The Witch-king — Ringwraith avatar (mind null, race ringwraith).
 const THE_WITCH_KING = 'le-58' as CardDefinitionId;
@@ -42,8 +43,15 @@ const NEVIDO_SMOD = 'le-27' as CardDefinitionId;
 const EASTERLING_CAMP = 'le-371' as CardDefinitionId;
 // le-367: Dol Guldur — a Darkhaven (minion site, siteType haven).
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+// le-390: Minas Morgul — a second Darkhaven, reachable from Dol Guldur via a
+// starter-movement haven path (5 regions).
+const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 // le-364: Dead Marshes — a minion shadow-hold; not a Darkhaven.
 const DEAD_MARSHES = 'le-364' as CardDefinitionId;
+// le-51: Akhôrahil the Ringwraith — a Ringwraith avatar.
+const AKHORAHIL = 'le-51' as CardDefinitionId;
+// le-31: Orc Captain — a plain non-Ringwraith minion character.
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
 
 /**
  * A Ringwraith player with two companies sharing one site instance: the
@@ -221,6 +229,67 @@ describe('Rule 3.07 — Ringwraith Company Composition', () => {
     const after = discardNonRingwraithCompaniesAtSharedSite(state, RESOURCE_PLAYER);
     expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(2);
     expect(after.players[RESOURCE_PLAYER].discardPile).toHaveLength(0);
+  });
+
+  test('[MINION] a company mixing a Ringwraith with a non-Ringwraith character cannot move at all, even Darkhaven-to-Darkhaven', () => {
+    // Akhôrahil (a Ringwraith avatar) and Orc Captain (a plain minion
+    // character) share a company at Dol Guldur — legal there, since it is a
+    // Darkhaven. The company has already declared movement to Minas Morgul (a
+    // second Darkhaven, reachable via starter movement's haven path) for its
+    // movement/hazard phase. Even though both origin and destination are
+    // Darkhavens, the company is not "at" either one while traveling the
+    // haven path between them — rule 3.07 forbids the mixed composition from
+    // existing away from a Darkhaven at all, so no movement path (starter,
+    // region, or under-deeps) may be offered; the only legal action is 'pass',
+    // which negates the movement (rule 5.04) and leaves the company at Dol
+    // Guldur.
+    const state: GameState = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: DOL_GULDUR, characters: [AKHORAHIL, ORC_CAPTAIN], destinationSite: MINAS_MORGUL }],
+            hand: [],
+            siteDeck: [],
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+        ],
+      }),
+      phaseState: makeMHState({ step: 'reveal-new-site', siteRevealed: false, activeCompanyIndex: 0 }),
+    };
+
+    const paths = viableActions(state, PLAYER_1, 'declare-path')
+      .map(ea => ea.action as DeclarePathAction);
+    expect(paths).toHaveLength(0);
+
+    const passes = viableActions(state, PLAYER_1, 'pass');
+    expect(passes).toHaveLength(1);
+
+    // A Ringwraith-only company (no non-Ringwraith mix) making the identical
+    // Darkhaven-to-Darkhaven trip is unaffected by rule 3.07.
+    const ringwraithOnly: GameState = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: DOL_GULDUR, characters: [AKHORAHIL], destinationSite: MINAS_MORGUL }],
+            hand: [],
+            siteDeck: [],
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+        ],
+      }),
+      phaseState: makeMHState({ step: 'reveal-new-site', siteRevealed: false, activeCompanyIndex: 0 }),
+    };
+    const soloRingwraithPaths = viableActions(ringwraithOnly, PLAYER_1, 'declare-path')
+      .map(ea => ea.action as DeclarePathAction);
+    expect(soloRingwraithPaths.length).toBeGreaterThan(0);
   });
 
   test('[MINION] the forced-combine discard leaves companies without a Ringwraith alone', () => {

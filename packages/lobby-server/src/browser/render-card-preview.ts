@@ -296,6 +296,17 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
       name.textContent = def.name;
       info.appendChild(name);
 
+      // Site binding — set by renderInPlayCardImage on cards carrying
+      // attachedToSite (e.g. No Strangers at this Time as-51), so the
+      // hover preview names the bound site even when the card has fallen
+      // into the flat cards-in-play row (its site not currently occupied).
+      if (img.dataset.attachedSiteName) {
+        const boundTo = document.createElement('div');
+        boundTo.className = 'card-preview-bound-to';
+        boundTo.textContent = `Bound to: ${img.dataset.attachedSiteName}`;
+        info.appendChild(boundTo);
+      }
+
       // Card image — use the definition's actual image if the displayed card
       // is face-down (e.g. on-guard cards showing card-back to the owner)
       const clone = document.createElement('img');

@@ -173,10 +173,12 @@ describe('The Under-leas (as-167)', () => {
     expect((next.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
   });
 
-  test('passing at reveal-on-guard-attacks advances to play-site-auto-attack (dynamic 2nd attack)', () => {
+  test('passing at reveal-on-guard-attacks advances to automatic-attacks (printed 1st attack faced first)', () => {
+    // CoE: "(1st) Orcs … (2nd) Opponent may play … from his hand" — the
+    // printed attack is faced before the dynamic (hand-played) one.
     const state = dualHandState({ step: 'reveal-on-guard-attacks', siteEntered: true });
     const next = dispatch(state, { type: 'pass', player: PLAYER_2 });
-    expect((next.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
+    expect((next.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
   test('passing at play-site-auto-attack advances to automatic-attacks without combat', () => {

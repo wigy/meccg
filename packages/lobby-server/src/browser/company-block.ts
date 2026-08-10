@@ -1285,10 +1285,20 @@ export function findOpponentInfluenceTargetActions(
  * tap, hazard-limit tap/untap, and discard-for-hazard-limit. Shared by the
  * flat cards-in-play row and the per-company attachments strip so a
  * company-bound permanent keeps the same click behaviour wherever it renders.
+ *
+ * When the card carries `attachedToSite` (e.g. *No Strangers at this Time*
+ * as-51), the returned element is wrapped in a `.company-card-wrapper` with a
+ * `.company-card-site-badge` naming the bound site, so a card that has fallen
+ * into the flat cards-in-play row (its site no longer occupied by a company —
+ * see `renderCardsInPlayRow`) still shows which site it belongs to. Cards
+ * rendered inside a company block are bound by `companyId`, not
+ * `attachedToSite`, so this only fires in practice from the flat-row call
+ * site — computed here anyway to keep the logic in one place.
+ *
  * Returns `null` when the card image cannot be created.
  */
 function renderInPlayCardImage(
-  card: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status?: string },
+  card: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status?: string; readonly attachedToSite?: CardDefinitionId },
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction?: (action: GameAction) => void,
@@ -1441,6 +1451,23 @@ function renderInPlayCardImage(
       });
     }
   }
+
+  if (card.attachedToSite) {
+    const siteName = cardPool[card.attachedToSite as string]?.name;
+    if (siteName) {
+      img.dataset.attachedSiteName = siteName;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'company-card-wrapper';
+      wrapper.appendChild(img);
+      const badge = document.createElement('div');
+      badge.className = 'company-card-site-badge';
+      badge.textContent = siteName;
+      badge.title = siteName;
+      wrapper.appendChild(badge);
+      return wrapper;
+    }
+  }
+
   return img;
 }
 
@@ -1480,7 +1507,7 @@ export function renderCardsInPlayRow(
   row.className = 'cards-in-play-row';
   row.style.setProperty('--company-scale', '0.6');
 
-  const renderGroup = (cards: readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId; status?: string }[], className: string) => {
+  const renderGroup = (cards: readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId; status?: string; attachedToSite?: CardDefinitionId }[], className: string) => {
     if (cards.length === 0) return;
     const group = document.createElement('div');
     group.className = className;

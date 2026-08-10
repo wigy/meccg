@@ -42,9 +42,12 @@ import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction 
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 const FIREWORKS = 'dm-130' as CardDefinitionId;
+const PALLANDO = 'tw-175' as CardDefinitionId;
 // BILBO (tw-131): hobbit sage, mind 5, untapped. GANDALF (tw-156): Wizard sage,
 // mind null (→ 0, +10 wizard bonus). GIMLI (tw-159): warrior/diplomat, NOT a sage.
-// BREE (tw-378): Border-hold. EDORAS (tw-394): Free-hold. MORIA (tw-413): Ruins & Lairs.
+// PALLANDO (tw-175): Wizard sage, another eligible bearer when both are untapped
+// in the same company. BREE (tw-378): Border-hold. EDORAS (tw-394): Free-hold.
+// MORIA (tw-413): Ruins & Lairs.
 
 /** Site-phase state: a company with `chars` at `site` (status `siteStatus`), Fireworks in hand. */
 function fireworksState(opts: {
@@ -113,6 +116,23 @@ describe('Fireworks (dm-130)', () => {
   test('NOT offered at a tapped non-Border/Free-hold site (Ruins & Lairs)', () => {
     const state = fireworksState({ site: MORIA, chars: [BILBO], siteStatus: CardStatus.Tapped });
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  test('offers a choice of targetCharacterId when multiple untapped sages are in the company (bug bb9cb4be1d9b048e)', () => {
+    // Reported in bug bb9cb4be1d9b048e (game msnaf4am-v3zo0j, seq 876): with
+    // both Bilbo and Pallando untapped in the same company at a tapped
+    // Free-hold during the end-of-turn phase, Fireworks attached to Bilbo
+    // without offering the player a choice — the "any phase" fast path
+    // (organization-events.ts, evaluated outside the site phase's
+    // play-resources step) picked the first eligible sage via `.find()`
+    // instead of emitting one action per eligible bearer.
+    const site = fireworksState({ site: EDORAS, chars: [BILBO, PALLANDO], siteStatus: CardStatus.Tapped });
+    const state = toEndOfTurnSignalEnd(site);
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const pallandoId = findCharInstanceId(state, RESOURCE_PLAYER, PALLANDO);
+    const targets = actions.map(a => (a.action as { targetCharacterId: CardInstanceId }).targetCharacterId).sort();
+    expect(targets).toEqual([bilboId, pallandoId].sort());
   });
 
   test('NOT offered when the only character is not a sage', () => {

@@ -150,6 +150,14 @@ function atVaultsAutoAttackStep(withCard: boolean): GameState {
   state = dispatch(state, { type: 'enter-site', player: PLAYER_1, companyId });
   expect((state.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
   state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+  // The Under-vaults' printed (1st) Undead attack is faced before the dynamic
+  // (2nd) attack; simulate it already having been resolved.
+  expect((state.phaseState as SitePhaseState).step).toBe('automatic-attacks');
+  state = {
+    ...state,
+    phaseState: { ...state.phaseState, automaticAttacksResolved: 1 } as SitePhaseState,
+  };
+  state = dispatch(state, { type: 'pass', player: PLAYER_1 });
   expect((state.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
   return state;
 }
@@ -169,6 +177,40 @@ describe('as-110 — World Gnawed by the Nameless', () => {
 
   test('is NOT playable when the company is moving to a surface (non-Under-deeps) site', () => {
     const state = movingTo(GOBLIN_GATE);
+    const instId = state.players[0].hand.find(c => c.definitionId === WORLD_GNAWED)!.instanceId;
+
+    const plays = viableFor(state, PLAYER_1)
+      .map(a => a.action)
+      .filter(a => a.type === 'play-short-event' && a.cardInstanceId === instId);
+    expect(plays.length).toBe(0);
+  });
+
+  test('is NOT playable during the organization phase, before any movement/hazard phase begins', () => {
+    // Bug report: the generic "resource short-events playable in any phase"
+    // path (CoE 2.1.1) offered the card ungated during Organization, even
+    // though its text restricts it to "the movement/hazard phase on a
+    // company moving to an Under-deeps site".
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MOUNT_GUNDABAD, characters: [GORBAG], destinationSite: THE_UNDER_LEAS }],
+          hand: [WORLD_GNAWED],
+          siteDeck: [THE_IRON_DEEPS],
+          playDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+          playDeck: [],
+        },
+      ],
+    });
     const instId = state.players[0].hand.find(c => c.definitionId === WORLD_GNAWED)!.instanceId;
 
     const plays = viableFor(state, PLAYER_1)

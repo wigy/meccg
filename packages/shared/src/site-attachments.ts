@@ -38,8 +38,10 @@ export function cardsAttachedToSite<T extends SiteBoundCard>(
  * True when this card is bound to a site location that is currently occupied by
  * one of the player's companies — i.e. it is rendered beneath that site and so
  * must be excluded from the flat cards-in-play row. A site-bound card whose
- * location is not currently in play (no card does this today, but the rule is
- * defined for completeness) falls back to the flat row.
+ * location is not currently in play (e.g. *No Strangers at this Time* as-51
+ * once its founding company has moved elsewhere) falls back to the flat row,
+ * where it is shown with a site-name badge (see `renderInPlayCardImage` in
+ * the browser client) so the binding isn't lost.
  */
 export function isAttachedToPresentSite(
   card: SiteBoundCard,

@@ -2891,11 +2891,26 @@ export function playResourceShortEventActions(
     // bare no-op `play-short-event` (no recruit target) that discards the
     // card for zero effect.
     if (def.effects?.some(e => e.type === 'recruit-character')) continue;
+    // Burglary (td-103): its only effect is `burglary-attempt`, resolved
+    // exclusively via the dedicated `declare-burglary` action offered during
+    // the site phase's `automatic-attacks` step (see
+    // `automaticAttacksActions` in legal-actions/site.ts). Falling through to
+    // the generic handling below would offer a bare no-op `play-short-event`
+    // that silently discards the card for zero effect.
+    if (def.effects?.some(e => e.type === 'burglary-attempt')) continue;
     // "Permanent-event/Short-event" card (Great Army of the North ba-38): admit
     // its alternative short-event reshuffle mode during the organization phase
     // (its permanent-event mode is offered separately by playPermanentEventActions).
     const altReshuffle = altShortEventReshuffleEffect(def);
     if (def.eventType !== 'short' && !altReshuffle) continue;
+    // grant-extra-mh-phase resources (World Gnawed by the Nameless as-110,
+    // Forced March le-185, Bridge tw-202, Leg It Double Quick le-202) are
+    // emitted by the movement/hazard-specific `extraMHPhaseResourceActions`,
+    // which enforces the "movement/hazard phase, on a company moving to the
+    // qualifying site" window. Skip them in this generic short-event path
+    // (mirrors the same exclusion in `heroResourceShortEventActions`) so
+    // they aren't offered ungated during the organization or site phase.
+    if ((def.effects ?? []).some(e => e.type === 'grant-extra-mh-phase')) continue;
     if (def.eventType !== 'short' && altReshuffle) {
       if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
         logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);

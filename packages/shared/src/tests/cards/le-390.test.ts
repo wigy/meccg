@@ -45,23 +45,26 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, MORIA,
   resetMint, pool,
   buildSitePhaseState, buildTestState, dispatch,
-  viableFor, viableActions, makeMHState,
+  viableFor, viableActions, makeMHState, findHandCardId,
 } from '../test-helpers.js';
 import {
-  isSiteCard, buildMovementMap, getReachableSites, computeLegalActions, Phase,
+  isSiteCard, buildMovementMap, getReachableSites, computeLegalActions, Phase, RegionType,
 } from '../../index.js';
-import type { SiteCard, CardDefinitionId, StoreItemAction, GameState } from '../../index.js';
+import type {
+  SiteCard, CardDefinitionId, StoreItemAction, GameState, PlayHazardAction,
+} from '../../index.js';
 
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const LIEUTENANT_OF_MORGUL = 'le-22' as CardDefinitionId;
 const THE_LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;
 const ORC_PATROL = 'tw-074' as CardDefinitionId;
+const MARSH_DRAKE = 'le-84' as CardDefinitionId;
 
 describe('Minas Morgul (le-390)', () => {
   beforeEach(() => resetMint());
@@ -309,6 +312,57 @@ describe('Minas Morgul (le-390)', () => {
     for (const ea of plays) {
       expect(ea.reason ?? '').not.toMatch(/canceled at/);
     }
+  });
+
+  test('cancel-attacks does NOT block a creature keyed to the region path while the company travels between Minas Morgul and Dol Guldur', () => {
+    // Rule 2.IV.5: a company is "at" its site card at all times except from
+    // the moment its new site is revealed until immediately prior to its
+    // site phase — i.e. never while it has a destination this turn. A
+    // company moving from one cancel-attacks haven to another is therefore
+    // not "at" either site while hazards are being played, so a creature
+    // keyed to the traveled region path (Marsh-drake le-84: Shadow-land or
+    // Coastal Sea) must still be playable.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MINAS_MORGUL,
+            characters: [LIEUTENANT_OF_MORGUL],
+            destinationSite: DOL_GULDUR,
+          }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MORIA, characters: [LEGOLAS] }],
+          hand: [MARSH_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const mhState: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness],
+        resolvedSitePathNames: ['Imlad Morgul', 'Ithilien'],
+        destinationSiteName: 'Dol Guldur',
+      }),
+    };
+
+    const marshDrakeId = findHandCardId(mhState, HAZARD_PLAYER, MARSH_DRAKE);
+    const drakePlays = computeLegalActions(mhState, PLAYER_2)
+      .filter(ea => ea.action.type === 'play-hazard')
+      .filter(ea => (ea.action as PlayHazardAction).cardInstanceId === marshDrakeId);
+
+    expect(drakePlays.length).toBeGreaterThan(0);
+    for (const ea of drakePlays) {
+      expect(ea.reason ?? '').not.toMatch(/canceled at/);
+    }
+    expect(drakePlays.some(ea => ea.viable)).toBe(true);
   });
 
   // ─── Auto-test-gold-ring engine behavior ────────────────────────────────────

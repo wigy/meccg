@@ -221,4 +221,28 @@ describe('Burglary (td-103)', () => {
     // The allowance is one-shot: consumed after the item is played.
     expect(phaseStateAs<SitePhaseState>(afterItem).burglaryItemUnlock).toBeUndefined();
   });
+
+  // ── Regression: must not be offered as a generic play-short-event ────────
+
+  test('not offered as a generic play-short-event once combat begins for the automatic-attack (declare-burglary window has closed)', () => {
+    // Declining the declare-burglary window (rather than tapping a character
+    // to attempt it) initiates the site's automatic-attack as real combat.
+    // Burglary is still in hand at this point — the generic resource
+    // short-event enumerator must not offer it as a bare play-short-event
+    // (its only effect, burglary-attempt, has no such handler and the card
+    // would be discarded for zero effect, forcing the company to face the
+    // automatic-attack anyway).
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN], heroHand: [BURGLARY] });
+    const state = setupAutoAttackStep({ ...base, phaseState: makeSitePhase() });
+
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.combat).not.toBeNull();
+
+    const burglaryCard = findHandCardId(afterPass, 0, BURGLARY);
+    const burglaryShortEventPlays = computeLegalActions(afterPass, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'play-short-event'
+        && (ea.action as { cardInstanceId: unknown }).cardInstanceId === burglaryCard,
+    );
+    expect(burglaryShortEventPlays).toHaveLength(0);
+  });
 });
