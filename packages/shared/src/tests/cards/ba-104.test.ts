@@ -173,10 +173,10 @@ describe('The Wind-deeps (ba-104)', () => {
     expect((next.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
   });
 
-  test('passing at reveal-on-guard-attacks advances to play-site-auto-attack (dynamic 2nd attack)', () => {
+  test('passing at reveal-on-guard-attacks advances to automatic-attacks (printed 1st attack faced first)', () => {
     const state = dualHandState({ step: 'reveal-on-guard-attacks', siteEntered: true });
     const next = dispatch(state, { type: 'pass', player: PLAYER_2 });
-    expect((next.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
+    expect((next.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
   test('passing at play-site-auto-attack advances to automatic-attacks without combat', () => {

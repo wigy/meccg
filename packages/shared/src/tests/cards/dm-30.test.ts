@@ -144,7 +144,7 @@ describe('The Gem-deeps (dm-30)', () => {
     expect((next.phaseState as import('../../index.js').SitePhaseState).step).toBe('reveal-on-guard-attacks');
   });
 
-  test('after reveal-on-guard-attacks pass, advances to play-site-auto-attack (dynamic attack)', () => {
+  test('after reveal-on-guard-attacks pass, advances to automatic-attacks (printed 1st attack faced first)', () => {
     const state = buildDualHandSitePhaseState({
       site: GEM_DEEPS,
       resourceCharacters: [ARAGORN, BILBO],
@@ -153,7 +153,7 @@ describe('The Gem-deeps (dm-30)', () => {
     });
     const next = dispatch(state, { type: 'pass', player: PLAYER_2 });
 
-    expect((next.phaseState as import('../../index.js').SitePhaseState).step).toBe('play-site-auto-attack');
+    expect((next.phaseState as import('../../index.js').SitePhaseState).step).toBe('automatic-attacks');
   });
 
   test('hazard player passing play-site-auto-attack advances to automatic-attacks', () => {

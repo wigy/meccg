@@ -116,14 +116,45 @@ describe('The Under-leas (dm-40)', () => {
     expect((next.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
   });
 
-  test('passing reveal-on-guard-attacks advances to play-site-auto-attack (dynamic effect)', () => {
+  test('passing reveal-on-guard-attacks advances to automatic-attacks (printed Orcs attack faced first)', () => {
+    // CoE: "(1st) Orcs … (2nd) Opponent may play … from his hand" — the
+    // printed attack is faced before the dynamic (hand-played) one, so the
+    // step after reveal-on-guard-attacks must be 'automatic-attacks', not
+    // 'play-site-auto-attack'.
     const state = buildDualHandSitePhaseState({
       site: THE_UNDER_LEAS,
       resourceCharacters: [ARAGORN],
       step: 'reveal-on-guard-attacks',
     });
     const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect((next.phaseState as SitePhaseState).step).toBe('automatic-attacks');
+  });
+
+  test('after the printed Orcs attack is resolved, automatic-attacks advances to play-site-auto-attack (dynamic attack faced 2nd)', () => {
+    const base = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_LEAS }));
+    // Simulate the printed (1st) Orcs attack already having been faced.
+    const resolvedState = {
+      ...base,
+      phaseState: { ...base.phaseState, automaticAttacksResolved: 1 },
+    };
+    const next = dispatch(resolvedState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).toBeNull();
     expect((next.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
+  });
+
+  test('after both the printed and dynamic attacks are faced, automatic-attacks advances to declare-agent-attack', () => {
+    const base = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_LEAS }));
+    const resolvedState = {
+      ...base,
+      phaseState: {
+        ...base.phaseState,
+        automaticAttacksResolved: 1,
+        dynamicAutoAttackDone: true,
+      },
+    };
+    const next = dispatch(resolvedState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).toBeNull();
+    expect((next.phaseState as SitePhaseState).step).toBe('declare-agent-attack');
   });
 
   test('hazard player passing at play-site-auto-attack advances to automatic-attacks', () => {

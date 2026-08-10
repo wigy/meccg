@@ -887,6 +887,17 @@ export interface SitePhaseState {
    */
   readonly selectedAutoAttackIndex?: number;
   /**
+   * Set once the site's `dynamic-auto-attack` step (e.g. The Under-leas
+   * dm-40: "(1st) Orcs … (2nd) Opponent may play … from his hand") has been
+   * offered and resolved (played or passed) for the active company. The
+   * site's printed automatic-attacks are always faced first, in card order;
+   * this flag lets the `automatic-attacks` step route to `play-site-auto-attack`
+   * exactly once, after every printed attack is faced, instead of before them.
+   * Absent (undefined → treated as false) until then; reset to absent when a
+   * new company's site phase begins.
+   */
+  readonly dynamicAutoAttackDone?: boolean;
+  /**
    * Set when the active company's remaining automatic-attacks are abandoned
    * rather than faced. Farmer Maggot (as-48) replaces the company's site card
    * mid-attack: the company is *placed* at the replacement site instead of

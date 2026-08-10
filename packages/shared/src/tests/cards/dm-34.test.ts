@@ -118,7 +118,7 @@ describe('The Pûkel-deeps (dm-34)', () => {
 
   // ─── Dynamic auto-attack step transitions ─────────────────────────────────────
 
-  test('entering The Pûkel-deeps advances to play-site-auto-attack after on-guard reveal', () => {
+  test('entering The Pûkel-deeps advances to automatic-attacks after on-guard reveal (printed 1st attack faced first)', () => {
     const state = buildDualHandSitePhaseState({
       site: PUKEL_DEEPS,
       resourceCharacters: [ARAGORN, BILBO],
@@ -128,7 +128,7 @@ describe('The Pûkel-deeps (dm-34)', () => {
     const afterEnter = dispatch(state, { type: 'enter-site', player: PLAYER_1, companyId });
     expect((afterEnter.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
     const afterReveal = dispatch(afterEnter, { type: 'pass', player: PLAYER_2 });
-    expect((afterReveal.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
+    expect((afterReveal.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
   // ─── Special: allow-creature-by-race (undead and pûkel-creature) ──────────────

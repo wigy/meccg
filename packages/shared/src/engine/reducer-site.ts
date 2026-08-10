@@ -777,8 +777,14 @@ function handleRevealOnGuardAttacks(
     return handleGrantActionApply(state, action);
   }
 
-  // Pass: advance to play-site-auto-attack (if dynamic) or forewarned-select-attack
-  // (if Forewarned Is Forearmed is in play and site has >1 attacks) or automatic-attacks.
+  // Pass: advance to forewarned-select-attack (if Forewarned Is Forearmed is
+  // in play and the site has >1 printed attacks), automatic-attacks (if the
+  // site has any printed attacks), or play-site-auto-attack (if dynamic).
+  // Printed automatic-attacks are always faced first, in the order listed on
+  // the card (e.g. The Under-leas dm-40: "(1st) Orcs — 5 strikes with 7
+  // prowess (2nd) Opponent may play … from his hand") — the dynamic
+  // (hand-played) attack is offered only after every printed attack has been
+  // faced (see the 'automatic-attacks' step's `dynamicAutoAttackDone` routing).
   if (action.type === 'pass') {
     const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
     const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
@@ -787,17 +793,19 @@ function handleRevealOnGuardAttacks(
       : undefined;
     const hasDynamicAutoAttack = siteDef && isSiteCard(siteDef)
       && (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false);
+    const printedAutoAttackCount = siteDef && isSiteCard(siteDef)
+      ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId).filter(aa =>
+        autoAttackAppliesToCompany(aa, isCovertCompany(company, state.players[activePlayerIndex], state)),
+      ).length
+      : 0;
     let nextStep: SitePhaseState['step'];
-    if (hasDynamicAutoAttack) {
+    if (printedAutoAttackCount === 0 && hasDynamicAutoAttack) {
       nextStep = 'play-site-auto-attack';
     } else if (
-      !hasDynamicAutoAttack
-      && siteDef && isSiteCard(siteDef)
+      siteDef && isSiteCard(siteDef)
       && !(siteDef as { lairOf?: unknown }).lairOf
       && isReduceAttacksToOneInPlay(state)
-      && getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId).filter(aa =>
-        autoAttackAppliesToCompany(aa, isCovertCompany(company, state.players[activePlayerIndex], state)),
-      ).length > 1
+      && printedAutoAttackCount > 1
     ) {
       nextStep = 'forewarned-select-attack';
     } else {
@@ -1436,6 +1444,20 @@ function handleSiteAutomaticAttacks(
           ...state,
           combat: dupCombatM,
           phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1, siteLockMinionAttackDone: true },
+        },
+      };
+    }
+
+    // All printed automatic-attacks resolved. A site-rule `dynamic-auto-attack`
+    // (e.g. The Under-leas dm-40: "(2nd) Opponent may play … from his hand")
+    // is faced last, in card order — offer it now if it hasn't been faced yet.
+    const hasDynamicAutoAttack = siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false;
+    if (hasDynamicAutoAttack && !siteState.dynamicAutoAttackDone) {
+      logDetail('Site: all printed automatic-attacks resolved → advancing to play-site-auto-attack (dynamic)');
+      return {
+        state: {
+          ...state,
+          phaseState: { ...siteState, step: 'play-site-auto-attack' as const },
         },
       };
     }
@@ -2229,7 +2251,7 @@ function handleSitePlaySiteAutoAttack(
     return {
       state: {
         ...state,
-        phaseState: { ...siteState, step: 'automatic-attacks' as const },
+        phaseState: { ...siteState, step: 'automatic-attacks' as const, dynamicAutoAttackDone: true },
       },
     };
   }
@@ -2329,7 +2351,7 @@ function handleSitePlaySiteAutoAttack(
     state: {
       ...stateAfterMove,
       combat,
-      phaseState: { ...siteState, step: 'automatic-attacks' as const },
+      phaseState: { ...siteState, step: 'automatic-attacks' as const, dynamicAutoAttackDone: true },
     },
   };
 }

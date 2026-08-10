@@ -109,7 +109,10 @@ describe('The Sulfur-deeps (dm-35)', () => {
 
   // ─── Dynamic auto-attack: step transitions ────────────────────────────────
 
-  test('entering The Sulfur-deeps advances to play-site-auto-attack after on-guard reveal', () => {
+  test('entering The Sulfur-deeps advances to automatic-attacks (printed Trolls attack faced first)', () => {
+    // Printed automatic-attacks are always faced first, in card order (e.g.
+    // "(1st) Trolls … (2nd) Opponent may play … from his hand"); the dynamic
+    // (hand-played) attack is offered only after the printed attack.
     const state = buildDualHandSitePhaseState({
       site: SULFUR_DEEPS,
       resourceCharacters: [ARAGORN, BILBO],
@@ -119,7 +122,7 @@ describe('The Sulfur-deeps (dm-35)', () => {
     const afterEnter = dispatch(state, { type: 'enter-site', player: PLAYER_1, companyId });
     expect((afterEnter.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
     const afterReveal = dispatch(afterEnter, { type: 'pass', player: PLAYER_2 });
-    expect((afterReveal.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
+    expect((afterReveal.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
   test('Orc-warband (shadow-hold keyed) is offered at play-site-auto-attack', () => {
