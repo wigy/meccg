@@ -2896,6 +2896,14 @@ export function playResourceShortEventActions(
     // (its permanent-event mode is offered separately by playPermanentEventActions).
     const altReshuffle = altShortEventReshuffleEffect(def);
     if (def.eventType !== 'short' && !altReshuffle) continue;
+    // grant-extra-mh-phase resources (World Gnawed by the Nameless as-110,
+    // Forced March le-185, Bridge tw-202, Leg It Double Quick le-202) are
+    // emitted by the movement/hazard-specific `extraMHPhaseResourceActions`,
+    // which enforces the "movement/hazard phase, on a company moving to the
+    // qualifying site" window. Skip them in this generic short-event path
+    // (mirrors the same exclusion in `heroResourceShortEventActions`) so
+    // they aren't offered ungated during the organization or site phase.
+    if ((def.effects ?? []).some(e => e.type === 'grant-extra-mh-phase')) continue;
     if (def.eventType !== 'short' && altReshuffle) {
       if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
         logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);
