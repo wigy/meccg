@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -450,6 +450,22 @@ function revealNewSiteActions(
   if (!originDef || !destDef) {
     logDetail(`Could not resolve site definitions — no actions`);
     return [];
+  }
+
+  // CoE 2.II.2.1.R3 (rule 3.07): "Characters in a Ringwraith's company can only
+  // be other Ringwraiths, unless at a Darkhaven." The restriction is
+  // unconditional on the company's composition, not scoped to any particular
+  // action — a company mixing a Ringwraith with non-Ringwraith characters is
+  // legal only while it sits at a Darkhaven. Any movement takes it away from
+  // that Darkhaven for the duration of the trip (it is not "at" the
+  // destination until the M/H phase ends), so no movement path — starter,
+  // region, under-deeps, or special — is ever legal for such a company. Rule
+  // 5.04 already negates a movement with no legal path (destination returns to
+  // the location deck, company stays put); reusing that here keeps the
+  // company's already-legal composition at its current Darkhaven intact.
+  if (wouldViolateRingwraithComposition(state, company.characters)) {
+    logDetail(`Company ${company.id as string} mixes a Ringwraith with non-Ringwraith characters — rule 3.07 forbids it from moving away from a Darkhaven at all; movement to ${destDef.name} is illegal (rule 5.04), offering pass to negate it`);
+    return [{ type: 'pass', player: playerId }];
   }
 
   const actions: GameAction[] = [];
