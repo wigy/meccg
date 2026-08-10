@@ -20,8 +20,27 @@
 
 import type { PlayerView } from '@meccg/shared';
 import { Phase, PHASE_ORDER } from '@meccg/shared';
+import { cardPool } from './app-state.js';
 import { getTargetingInstruction } from './render-selection-state.js';
 import { REGION_ICON_CODES } from './render-text-format.js';
+
+/**
+ * Look up a region's printed terrain type by name from the card pool.
+ * `resolvedSitePathNames` and `resolvedSitePath` are only index-parallel for
+ * region movement — for starter (haven-to-haven/haven-to-site) movement,
+ * `resolvedSitePathNames` holds just the origin/destination region names
+ * while `resolvedSitePath` holds the full printed site-path legs between
+ * them, so the two arrays can differ in length (see
+ * `engine/region-keying.ts` and `mh-steps.ts` `handleRevealNewSite`).
+ * Resolving each name's own region card avoids pairing a name with the
+ * wrong leg of that longer path.
+ */
+function findRegionType(name: string): string | undefined {
+  for (const def of Object.values(cardPool)) {
+    if (def.cardType === 'region' && def.name === name) return def.regionType;
+  }
+  return undefined;
+}
 
 /**
  * Build a compact movement-path readout (region names + type icons) for the
@@ -30,19 +49,19 @@ import { REGION_ICON_CODES } from './render-text-format.js';
  * visual path (company-site.ts) only renders for the viewer's own companies.
  * Returns null if the active company is not moving.
  */
-function buildMovementPathHtml(
-  mh: { resolvedSitePathNames?: readonly string[]; resolvedSitePath?: readonly string[] },
+export function buildMovementPathHtml(
+  mh: { resolvedSitePathNames?: readonly string[] },
 ): string | null {
   const names = mh.resolvedSitePathNames ?? [];
   if (names.length === 0) return null;
-  const types = mh.resolvedSitePath ?? [];
   const parts: string[] = [];
-  for (let i = 0; i < names.length; i++) {
-    const code = REGION_ICON_CODES[types[i] ?? ''];
+  for (const name of names) {
+    const type = findRegionType(name);
+    const code = REGION_ICON_CODES[type ?? ''];
     const icon = code
-      ? `<img src="/images/regions/${code}.png" alt="${types[i]}" width="22" height="22" style="vertical-align:middle;position:relative;top:-3px">`
+      ? `<img src="/images/regions/${code}.png" alt="${type}" width="22" height="22" style="vertical-align:middle;position:relative;top:-3px">`
       : '';
-    parts.push(`${names[i]} ${icon}`);
+    parts.push(`${name} ${icon}`);
   }
   return parts.join(' ');
 }
