@@ -543,7 +543,7 @@
     "cardType": "minion-resource-faction",
     "id": "as-63",
     "name": "Haradrim",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Haradrim.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Haradrim2.jpg",
     "text": "Unique. Playable at Southron Oasis if the influence check is greater than 9. Standard Modifications: Southrons (+2), Variags of Khand (-2).",
     "alignment": "ringwraith",
     "unique": true,
