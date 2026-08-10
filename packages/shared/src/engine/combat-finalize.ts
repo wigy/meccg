@@ -45,6 +45,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint, hasCancelReturnAndSiteTap } from './pending.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
+import { tapHuntBearerAfterwards } from './hunt.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -999,6 +1000,13 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // attacked was never moved out of its pile, so nothing is disposed here.
   if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
     stateAfterCombat = advanceGreatHuntReveal(stateAfterCombat, combat.attackSource.greatHuntInstanceId);
+  }
+
+  // The Hunt (dm-143): "If untapped, tap [the bearer] afterwards" — applied
+  // once the forced attack finalizes. The creature was never moved out of its
+  // pile, so nothing is disposed here.
+  if (combat.attackSource.type === 'hunt-attack') {
+    stateAfterCombat = tapHuntBearerAfterwards(stateAfterCombat, combat.defendingPlayerId, combat.attackSource.bearerInstanceId);
   }
 
   // Clear attack-scoped constraints (e.g. company-combat-boost stat modifiers

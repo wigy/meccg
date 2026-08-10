@@ -671,6 +671,8 @@ export function describeAction(
       return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
     case 'great-hunt-attack-with-creature':
       return `${playerName(action.player)} has discarded creature ${instName(action.creatureInstanceId)} attack Alatar's company (The Great Hunt)`;
+    case 'choose-hunt-target':
+      return `${playerName(action.player)} names ${instName(action.creatureInstanceId)} to attack (The Hunt)`;
     case 'gangways-extra-move':
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'extra-mh-move':

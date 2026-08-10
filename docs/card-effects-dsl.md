@@ -8772,6 +8772,82 @@ duplicated" is a `duplication-limit` scope `game`.
 { "type": "reveal-and-attack", "maxCreatures": 5, "attackAvatar": "Alatar" }
 ```
 
+### 35b. `named-creature-hunt`
+
+The Hunt (dm-143) — Alatar's short-event resource event. Unlike
+`reveal-and-attack`'s multi-creature reveal sequence, this is a one-shot,
+player-driven naming of a *single already-known* hazard-creature instance:
+
+```text
+"Playable on Alatar during the organization phase. Name a specific hazard
+creature card your opponent revealed to you through a mechanism of the game
+and discarded. Unless eliminated or prevented from being in play, your
+opponent then finds this particular card (reshuffling his play deck if it was
+searched). This creature immediately attacks Alatar as though he were a
+one-character company. Alatar cannot use or benefit from spells against the
+attack. If untapped, tap Alatar afterwards."
+```
+
+Paired with `play-window { phase: "organization" }` and `play-target {
+target: "character", filter: { target.name: "Alatar" } }` (no cost) — the
+generic filter-only-target path in `playResourceShortEventActions`
+(`legal-actions/organization.ts`) already offers the play with
+`targetCharacterId` set to the chosen bearer.
+
+**"Revealed to you ... and discarded"** is modeled by
+`GameState.handRevealedInstances` — the engine's ledger of card identities
+made public while sitting in an otherwise-private pile (grown only by
+explicit reveal effects, e.g. The Great Hunt's discard sweep, Pallando's
+top-of-discard peek). `findHuntCandidates` (`engine/hunt.ts`) scans the
+opponent's play deck **and** discard pile for hazard-creature instances whose
+id/definition pair is recorded there — "unless eliminated or prevented from
+being in play" falls out for free: a creature that left both piles (kill pile,
+out-of-play) is simply not a candidate.
+
+**Resolution flow** (`handlePlayResourceShortEvent`, `reducer-events.ts`):
+discards the event card immediately, then enqueues a `hunt-target-choice`
+pending resolution (fields: `huntInstanceId`, `bearerInstanceId`, `opponentId`,
+`companyId`). `huntTargetChoiceActions` (`legal-actions/pending.ts`)
+recomputes candidates live and offers one `choose-hunt-target` action per
+candidate, or a mandatory `pass` when none exists (fizzle — no creature ever
+attacks, so the "tap afterwards" clause does not fire either).
+`applyHuntTargetChoiceResolution` (`pending-reducers.ts`) re-validates the
+chosen instance is still a candidate, then calls `buildHuntCombat`:
+
+- If the creature was found in the play deck (not the discard pile), the deck
+  is reshuffled immediately — "reshuffling his play deck if it was searched".
+  A discard-pile find needs no reshuffle.
+- The creature card is never moved out of its pile — attacked in place,
+  exactly like `reveal-and-attack` — via a new `hunt-attack` `AttackSource`
+  (`{ type: "hunt-attack", huntInstanceId, creatureInstanceId,
+  bearerInstanceId }`). `attackSourceCreatureInstanceId` does not recognize
+  it, so `finalizeCombat` neither discards nor awards it as a trophy.
+- `CombatState.soloDefenderInstanceId = bearerInstanceId` — "as though he were
+  a one-character company": `assignStrikeActions` restricts the defending
+  company to just the bearer, exactly like a failed-burglary solo auto-attack.
+- `CombatState.spellsIneffective = true` — "cannot use or benefit from spells
+  against the attack", enforced centrally (not per-card `when` checks, unlike
+  `weaponsIneffective`):
+  - `cancelAttackActions` (`legal-actions/combat.ts`) filters out every
+    `cancel-attack` action whose source card carries the `spell` keyword
+    (Vanishment tw-356, Wizard's River-horses tw-364) once all the normal
+    per-source loops have run.
+  - `collectCreatureAttackBoostEffects` (`effects/resolver.ts`) takes a new
+    `CreatureAttackBoostContext.suppressSpellSources` flag (set via
+    `buildHuntCombat`'s `attackBoostCtx`) and skips `creature-attack-boost`
+    constraints sourced from a `spell`-keyword card (Wizard's Flame tw-361's
+    prowess reduction) when resolving this attack's effective prowess/strikes.
+- "If untapped, tap [the bearer] afterwards" — `tapHuntBearerAfterwards`
+  (`engine/hunt.ts`) runs from both `combat-finalize.ts` and
+  `combat-cancel.ts` for a `hunt-attack` source, so the tap applies whichever
+  way the forced attack concludes.
+
+```json
+{ "type": "named-creature-hunt" }
+```
+
+Used by The Hunt (dm-143).
+
 ### 36. `force-return-to-origin`
 
 Tags a hazard long-event (environment) whose resolution causes any moving

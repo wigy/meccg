@@ -54,6 +54,7 @@ import { influenceOverflowAmount, influenceOverflowStep } from '../influence-ove
 import { grantedAction } from './granted-action-emit.js';
 import { revealAgentActions } from './movement-hazard.js';
 import type { RevealAgentAction } from '../../types/actions-movement-hazard.js';
+import { findHuntCandidates } from '../hunt.js';
 
 
 /**
@@ -3459,6 +3460,33 @@ export function greatHuntDiscardAttackActions(
     { action: { type: 'great-hunt-attack-with-creature' as const, player: actor, creatureInstanceId }, viable: true },
     { action: { type: 'pass' as const, player: actor }, viable: true },
   ];
+}
+
+/**
+ * Legal actions while a `hunt-target-choice` resolution is pending (The Hunt
+ * dm-143): the controller names one hazard-creature instance among the
+ * opponent's revealed-and-known play-deck/discard-pile cards to force an
+ * attack, via `choose-hunt-target`. Recomputed live (not from a stored list)
+ * so a candidate that left the opponent's piles between enqueue and choice is
+ * never offered. Mandatory `pass` only when no candidate exists ("Unless
+ * eliminated or prevented from being in play").
+ */
+export function huntTargetChoiceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'hunt-target-choice') return [];
+  const { opponentId } = top.kind;
+  const candidates = findHuntCandidates(state, opponentId);
+  if (candidates.length === 0) {
+    logDetail(`hunt-target-choice: no hazard creature ${opponentId as string} has revealed and still holds — mandatory pass`);
+    return [{ action: { type: 'pass' as const, player: actor }, viable: true }];
+  }
+  return candidates.map(c => {
+    logDetail(`hunt-target-choice: offering ${cardName(state, c.definitionId, '?')} (${c.source} — ${opponentId as string})`);
+    return { action: { type: 'choose-hunt-target' as const, player: actor, creatureInstanceId: c.instanceId }, viable: true };
+  });
 }
 
 /**

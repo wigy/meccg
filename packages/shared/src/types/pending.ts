@@ -1065,6 +1065,25 @@ export interface PendingResolution {
       }
     | {
         /**
+         * The Hunt (dm-143): after the card is played on Alatar (or another
+         * bearer) during the organization phase, the controller names one
+         * hazard-creature instance among the opponent's revealed-and-known
+         * (`GameState.handRevealedInstances`) play-deck/discard-pile cards
+         * (`choose-hunt-target` action) to attack the bearer as a
+         * one-character company, or `pass` when no candidate exists.
+         */
+        readonly type: 'hunt-target-choice';
+        /** The Hunt card instance driving the process (already discarded). */
+        readonly huntInstanceId: CardInstanceId;
+        /** The character The Hunt was played on — the sole defender. */
+        readonly bearerInstanceId: CardInstanceId;
+        /** The opponent whose piles hold the candidate creatures. */
+        readonly opponentId: PlayerId;
+        /** The bearer's company (for combat company bookkeeping). */
+        readonly companyId: CompanyId;
+      }
+    | {
+        /**
          * "Playable … immediately after his company faces …" resource
          * permanent-events (No News of Our Riding le-211). Enqueued for the
          * defending player the moment a combat their company faced ends (rule

@@ -549,6 +549,19 @@ export interface GreatHuntAttackWithCreatureAction {
 }
 
 /**
+ * Name the hazard-creature instance The Hunt (dm-143) forces to attack its
+ * bearer. Resolves a `hunt-target-choice` pending resolution; a `pass`
+ * declines when no candidate creature exists.
+ */
+export interface ChooseHuntTargetAction {
+  readonly type: 'choose-hunt-target';
+  /** The Hunt's controller (the bearer's owner). */
+  readonly player: PlayerId;
+  /** The named creature instance, found in the opponent's deck or discard. */
+  readonly creatureInstanceId: CardInstanceId;
+}
+
+/**
  * Pay (or refuse to pay) one card of the upkeep cost on an in-play event that
  * carries an `event-maintenance` effect — Thrice Outnumbered (le-142) at the
  * end of the opponent's long-event phase, Balance Between Powers (dm-118) at
