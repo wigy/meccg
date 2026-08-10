@@ -1603,15 +1603,51 @@ function playResourcesActions(
       const siteIsUnderDeeps = siteDef && isSiteCard(siteDef)
         && (siteDef.keywords ?? []).includes('under-deeps');
 
-      // Rule 2.V.5: when a resource that tapped the site has already been
+      // item-play-site allowTapped: the item itself permits play at a
+      // tapped site (e.g. Blasting Fire wh-51, Vile Fumes wh-54 — "tapped or
+      // untapped Shadow-hold …"). The site-restriction below still gates
+      // *which* tapped sites qualify.
+      const itemSiteRestriction = itemDef.effects?.find(
+        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+      );
+      const itemAllowsTapped = itemSiteRestriction?.allowTapped === true;
+
+      // Does the item's own item-play-site restriction independently name
+      // this site as playable (e.g. Dwarven Light-stone dm-168 and Aiglos
+      // dm-166 — "Playable at any Under-deeps site" — regardless of their
+      // formal subtype, which is "special" and not printed on the site's
+      // playableResources list)? Computed once here and reused both for the
+      // Under-deeps bonus-item allowance below and for the ordinary
+      // site-restriction gate further down.
+      const itemOwnSiteRestrictionMatches = itemSiteRestriction ? (() => {
+        const matchesSiteList = itemSiteRestriction.sites
+          ? itemSiteRestriction.sites.includes(siteName)
+          : false;
+        const autoAttackRaces = siteDef && isSiteCard(siteDef)
+          ? siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType))
+          : [];
+        const siteKeywords = siteDef && isSiteCard(siteDef)
+          ? (isDeepMinesSite(siteDef) && !siteDef.keywords?.includes('under-deeps')
+            ? [...(siteDef.keywords ?? []), 'under-deeps']
+            : siteDef.keywords)
+          : undefined;
+        const matchesFilter = itemSiteRestriction.filter
+          ? matchesContext(itemSiteRestriction.filter, { site: { ...siteDef, autoAttackRaces, keywords: siteKeywords } })
+          : false;
+        return matchesSiteList || matchesFilter;
+      })() : false;
+
+      // Rule 2.V.5.1: when a resource that tapped the site has already been
       // successfully played, the resource player may attempt one additional
-      // minor item, even though the site is tapped and even if the site
-      // does not normally list "minor" in its playable resources. At an
-      // Under-deeps site this widens to any subtype the site lists as playable
-      // (MEAS §6(f)).
+      // item "that is playable at the site", even though the site is tapped
+      // and even if the site does not normally list the item's subtype in
+      // its playable resources. At an Under-deeps site this covers any
+      // subtype the site lists as playable (MEAS §6(f)) as well as items
+      // that independently name the site playable via their own
+      // item-play-site restriction (e.g. Dwarven Light-stone, Aiglos).
       const minorItemBonus = siteState.minorItemAvailable && (
         siteIsUnderDeeps
-          ? playableTypes.has(itemDef.subtype)
+          ? (playableTypes.has(itemDef.subtype) || itemOwnSiteRestrictionMatches)
           : itemDef.subtype === 'minor'
       );
 
@@ -1631,15 +1667,6 @@ function playResourcesActions(
       // gold ring item at the site (tapped or untapped) without tapping the site.
       const thoroughSearchBonus = siteState.thoroughSearchAvailable
         && (itemDef.subtype === 'minor' || itemDef.subtype === 'major' || itemDef.subtype === 'gold-ring');
-
-      // item-play-site allowTapped: the item itself permits play at a
-      // tapped site (e.g. Blasting Fire wh-51, Vile Fumes wh-54 — "tapped or
-      // untapped Shadow-hold …"). The site-restriction below still gates
-      // *which* tapped sites qualify.
-      const itemSiteRestriction = itemDef.effects?.find(
-        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
-      );
-      const itemAllowsTapped = itemSiteRestriction?.allowTapped === true;
 
       // Saruman's Machinery (wh-120): while a `technology-item-unlocked`
       // constraint binds the active site for this player, one Technology-keyword
@@ -1683,34 +1710,11 @@ function playResourcesActions(
 
       const siteRestriction = technologyUnlockActive || goldRingUnlockActive ? undefined : itemSiteRestriction;
       if (siteRestriction) {
-        const matchesSiteList = siteRestriction.sites
-          ? siteRestriction.sites.includes(siteName)
-          : false;
-        // Augment the filter's site context with the normalized races of
-        // the site's automatic-attacks, so a restriction can match e.g.
-        // "a site with a Dwarf automatic-attack".
-        const autoAttackRaces = siteDef && isSiteCard(siteDef)
-          ? siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType))
-          : [];
-        // Deep Mines (wh-55) is an Under-deeps site (CoE g.sur.F1: a
-        // Wizardhaven is not a surface site to an Under-deeps site "unless
-        // Deep Mines has been played on it") but carries no printed
-        // `under-deeps` keyword of its own — its adjacency is a bespoke
-        // roll-0 link to a protected Wizardhaven, not the generic
-        // `adjacentSites` map the keyword drives elsewhere. Items playable
-        // "at any Under-deeps site" (Dwarven Light-stone dm-168) must still
-        // see it as one for filter purposes.
-        const siteKeywords = siteDef && isSiteCard(siteDef)
-          ? (isDeepMinesSite(siteDef) && !siteDef.keywords?.includes('under-deeps')
-            ? [...(siteDef.keywords ?? []), 'under-deeps']
-            : siteDef.keywords)
-          : undefined;
-        const matchesFilter = siteRestriction.filter
-          ? matchesContext(siteRestriction.filter, { site: { ...siteDef, autoAttackRaces, keywords: siteKeywords } })
-          : false;
-        // Either form satisfies; if both are absent the restriction is
-        // empty and trivially fails (a malformed effect).
-        const allowed = matchesSiteList || matchesFilter;
+        // Either the site-list or filter form satisfying is captured by
+        // `itemOwnSiteRestrictionMatches`, computed once above; if both are
+        // absent the restriction is empty and trivially fails (a malformed
+        // effect).
+        const allowed = itemOwnSiteRestrictionMatches;
         // major-item-unlocked also allows hoard items (items with keyword "hoard"
         // that have an item-play-site restriction requiring a hoard site)
         const isHoardItem = (itemDef.keywords as readonly string[] | undefined)?.includes('hoard') === true;
