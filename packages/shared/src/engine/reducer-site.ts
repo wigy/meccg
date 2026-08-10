@@ -3634,6 +3634,13 @@ export function resolveInfluenceAttemptRoll(
       logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}${blockedBoostCardNames.size > 0 ? `, blocks [${[...blockedBoostCardNames].join(', ')}]` : ''}${nullifyMods ? ' — nullified' : ''}`);
       if (!nullifyMods) modifier += restrictionModifier;
     }
+    // Self-restriction printed on the faction card itself (e.g. Angmarim
+    // as-58, Nûrniags as-64): "Muster has no effect on this attempt".
+    for (const effect of def.effects ?? []) {
+      if (effect.type !== 'block-influence-boost') continue;
+      for (const name of effect.blockCards) blockedBoostCardNames.add(name);
+      logDetail(`${def.name} suppresses influence boosts from [${effect.blockCards.join(', ')}] for this attempt`);
+    }
 
     // One-shot check-modifier constraints for influence (e.g. Muster): consume after use
     const consumedConstraintIds: string[] = [];
