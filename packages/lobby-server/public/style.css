@@ -4893,6 +4893,14 @@ h2 {
   margin-bottom: 0.4rem;
 }
 
+.card-preview-bound-to {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.85rem;
+  color: rgba(196, 163, 90, 0.9);
+  text-align: center;
+  margin-bottom: 0.4rem;
+}
+
 .card-preview-attr {
   display: flex;
   justify-content: space-between;
@@ -6113,6 +6121,34 @@ body.all-companies-mode:has(#debug-view.hidden) {
 .cards-in-play-group--events {
   border: 1px solid rgba(196, 163, 90, 0.5);
   box-shadow: 0 0 8px rgba(196, 163, 90, 0.4);
+}
+
+/* Site-bound card fallen into the flat cards-in-play row (its site is not
+   currently occupied by any company — see renderCardsInPlayRow) — a
+   persistent badge names the site it belongs to so the binding isn't lost. */
+.company-card-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.company-card-site-badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-attachment);
+  font-family: 'MedievalSharp', cursive;
+  font-size: calc(0.65rem * var(--company-scale, 1));
+  color: rgba(220, 200, 140, 0.95);
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  background: linear-gradient(to top, rgba(10, 8, 4, 0.85), rgba(10, 8, 4, 0));
+  padding: 0.15rem 0.2rem 0.05rem;
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 /* Overview grid */
