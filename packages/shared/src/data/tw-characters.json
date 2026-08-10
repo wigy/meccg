@@ -2330,8 +2330,37 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Shrel-Kain",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Men of Dorwinion faction. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Dorwinion"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 6,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "ringwraith"
+        }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "halve-round-up",
+        "when": {
+          "reason": "combat",
+          "enemy.race": "ringwraith"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Men of Dorwinion faction. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up).",
+    "certified": "2026-08-10"
   },
   {
     "cardType": "hero-character",
