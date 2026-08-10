@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1115 | 1114 | 1 | 99.9% |
+| 1117 | 1116 | 1 | 99.9% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 107 | 107 | 100.0% |
+| AS | 108 | 108 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 99 | 99 | 100.0% |
-| LE | 300 | 299 | 99.7% |
+| LE | 301 | 300 | 99.7% |
 | TD | 88 | 88 | 100.0% |
 | TW | 336 | 336 | 100.0% |
 | WH | 88 | 88 | 100.0% |
@@ -63,6 +63,7 @@
 | as-63 | Haradrim | — | 9 | ☑ |
 | as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
+| as-70 | Jewel of Beleriand | — | 10 | ☑ |
 | as-71 | The Balrog | — | 2 | ☑ |
 | as-73 | Creature of an Older World | — | 3 | ☑ |
 | as-74 | Great Bats | — | 17 | ☑ |
@@ -532,6 +533,7 @@
 | le-295 | Woodmen | — | 5 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
+| le-300 | Black-hide Shield | — | 3 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
 | le-303 | Bright Gold Ring | — | 18 | ☑ |
 | le-304 | Broad-headed Spear | — | 7 | ☑ |
@@ -1106,10 +1108,10 @@
 | wh-70 | Gatherer of Loyalties | — | 10 | ☑ |
 | wh-72 | Great Patron | — | 9 | ☑ |
 | wh-74 | Guarded Haven | — | 14 | ☑ |
-| wh-75 | Hidden Haven | — | 27 | ☑ |
+| wh-75 | Hidden Haven | — | 28 | ☑ |
 | wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
-| wh-82 | Thrall of the Voice | — | 16 | ☑ |
+| wh-82 | Thrall of the Voice | — | 17 | ☑ |
 | wh-84 | Wizard’s Myrmidon | — | 8 | ☑ |
 | wh-85 | Wizard’s Trove | — | 12 | ☑ |
 | wh-86 | Greater Half-orcs | — | 11 | ☑ |

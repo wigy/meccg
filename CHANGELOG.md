@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.96.0 — 2026-08-10
+
+Cards find their play windows, and every button names its target
+
+### Cards
+
+- Hidden Haven (wh-75) is playable during any phase, not just the site phase. Its card text carries no timing clause ("Playable on a non-Dragon's lair Ruins & Lairs…"), so rule 2.1.1 puts it in the same "any phase" family as Return of the King, Fireworks and Hall of Fire — but the site-play-target branch had no bucket matching its bare `wizardhaven-conversion` shape, so it fell through to the generic fallback that restricts site-targeting permanent events to the site phase. Reported from a Fallen-wizard company that had stayed at an eligible Ruins & Lairs into its organization phase
+- Thrall of the Voice (wh-82) and Open to the Summons (wh-46) can no longer be played as bare permanent events. Both are recruitment vehicles — "Instead of a normal character… you may bring into play one character… Place this card with the character" — and the engine already models that as a `play-character` carrying `viaRecruitmentInstanceId`, but nothing stopped the generic standalone-permanent-event path from also offering them. Playing one that way put it into play unattached and spent the card for nothing. `recruitment-vehicle` now joins `play-with-stored-card` and `convert-creature-to-ally` in that path's exclusion list
+- Jewel of Beleriand (as-70) is certified: a hoard item with a tap-and-roll ability that untaps its bearer on a result greater than 6, and a per-character duplication limit. Both clauses reuse existing primitives — the `roll-then-apply` grant dispatcher proven by The Ring Leaves Its Mark (le-223) and Magical Harp (td-130), and the `duplication-limit` scope from Horn of Anor (tw-259)
+- Black-hide Shield (le-300) is certified after gaining the `stat-modifier` its text calls for: +1 body capped at 9, the same primitive and cap that Shield of Iron-bound Ash (tw-327) and Adamant Helmet (td-96) already use for an identical clause
+
+### Web Client
+
+- The Forge-master (wh-117) labels each of its organization-phase forge entries with the item and the recipient. The engine emits one action per (item, recipient) pair, but the menu builder only disambiguated same-`actionId` entries by the *acting* character — and for Forge-master every entry shares one actor, so the menu rendered a row of identical "Forge-Place-Item" buttons with no way to tell what any of them would do. Log and text-client action descriptions gained the same disambiguation
+- A Strident Spawn (wh-61) can be activated from the board. Its "take one Half-orc character from your discard pile to your hand" ability was offered by the engine as a legal action, but the cards-in-play row had no click handler for `activate-org-fetch` at all — every sibling in-play activation had one — so the permanent rendered as an unclickable image and the ability was reachable only from the debug panel. `ActivateOrgFetchAction` is now re-exported from `@meccg/shared` as well
+- The debug state dump shows the game ID. `PlayerView` had no `gameId` field, so the ID reached the browser only through the separate `assigned` WS message and never appeared in the shared text formatter — making it awkward to copy an ID for a bug report while working from the dump
+
 ## 0.95.0 — 2026-08-10
 
 Ringwraiths ride alone, and the deeps attack in order
