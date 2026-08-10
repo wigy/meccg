@@ -13,6 +13,9 @@
  * - Never play a Dodge-style (no-tap) strike event on a character that's
  *   already wounded — the tap-avoidance upside is moot once wounded, and
  *   the body penalty it applies to a resulting body check is pure downside.
+ * - Same for a character that's already tapped (e.g. from an earlier
+ *   cancel-by-tap against a multi-strike attack): the "does not tap" upside
+ *   is already spent, leaving only the body-penalty downside.
  * - Support a struggling defender if there is an untapped supporter and the
  *   target's roll need is hard.
  * - Body-check rolls always proceed.
@@ -23,7 +26,7 @@
 import type { GameAction } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { findCharacterInPlay, isWounded, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
+import { findCharacterInPlay, isWounded, isTapped, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
 
 export const combatEvaluator: ActionEvaluator = {
   // Combat is phase-independent — these phases are where it most often
@@ -69,12 +72,16 @@ export const combatEvaluator: ActionEvaluator = {
         // one's (-1) regardless of whether it also tapped this strike — so
         // Dodge only adds a body penalty to the (re-)wound's body check
         // with no offsetting upside. Score it at zero in that case so the
-        // AI doesn't burn the card for a net-negative outcome.
+        // AI doesn't burn the card for a net-negative outcome. The same
+        // holds for a character that's already tapped: the "does not tap"
+        // upside was already spent (e.g. by a cancel-by-tap against an
+        // earlier strike from the same multi-strike attack), so Dodge again
+        // only contributes the body-penalty downside.
         const struckId = context.view.combat?.strikeAssignments[context.view.combat.currentStrikeIndex]?.characterId;
         const struck = struckId ? findCharacterInPlay(view, struckId) : null;
         const card = view.self.hand.find(c => c.instanceId === action.cardInstanceId);
         const effect = strikeModifierEffect(lookupDef(context.cardPool, card?.definitionId));
-        if (effect?.dodge && struck && isWounded(struck.character)) return 0;
+        if (effect?.dodge && struck && (isWounded(struck.character) || isTapped(struck.character))) return 0;
         if (effect?.cancel) return 30;
         return Math.max(1, diceSuccessPct(action.need));
       }
