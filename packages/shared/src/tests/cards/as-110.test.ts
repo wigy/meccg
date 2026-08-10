@@ -177,6 +177,40 @@ describe('as-110 — World Gnawed by the Nameless', () => {
     expect(plays.length).toBe(0);
   });
 
+  test('is NOT playable during the organization phase, before any movement/hazard phase begins', () => {
+    // Bug report: the generic "resource short-events playable in any phase"
+    // path (CoE 2.1.1) offered the card ungated during Organization, even
+    // though its text restricts it to "the movement/hazard phase on a
+    // company moving to an Under-deeps site".
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MOUNT_GUNDABAD, characters: [GORBAG], destinationSite: THE_UNDER_LEAS }],
+          hand: [WORLD_GNAWED],
+          siteDeck: [THE_IRON_DEEPS],
+          playDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+          playDeck: [],
+        },
+      ],
+    });
+    const instId = state.players[0].hand.find(c => c.definitionId === WORLD_GNAWED)!.instanceId;
+
+    const plays = viableFor(state, PLAYER_1)
+      .map(a => a.action)
+      .filter(a => a.type === 'play-short-event' && a.cardInstanceId === instId);
+    expect(plays.length).toBe(0);
+  });
+
   test('resolving it flags the company for an Under-deeps extra phase, returns the card to hand and installs the detainment override', () => {
     const state = movingTo(THE_UNDER_LEAS);
     const instId = state.players[0].hand.find(c => c.definitionId === WORLD_GNAWED)!.instanceId;
