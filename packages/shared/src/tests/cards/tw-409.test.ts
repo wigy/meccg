@@ -4,7 +4,7 @@
  * Card test: Lossadan Cairn (tw-409)
  * Type: hero-site (ruins-and-lairs)
  * Effects: 2 (on-event: character-wounded-by-self → force corruption check;
- *             site-rule: deny-item → any special item without "palantir" keyword)
+ *             site-rule: deny-item → any greater item without "palantir" keyword)
  *
  * "Nearest Haven: Rivendell. Playable: Items (minor, major, greater*),
  *  *—Palantíri Only. Automatic-attacks: Undead — 2 strikes with 8 prowess;
@@ -16,8 +16,8 @@
  * | 1 | siteType                | OK     | "ruins-and-lairs" — valid                    |
  * | 2 | sitePath                | OK     | wilderness×3 — matches card                  |
  * | 3 | nearestHaven            | OK     | "Rivendell" — valid haven in card pool       |
- * | 4 | playableResources       | OK     | minor, major, special (Palantíri are special)|
- * | 5 | site-rule deny-item     | OK     | special items denied unless palantir keyword |
+ * | 4 | playableResources       | OK     | minor, major, greater — greater gated by rule|
+ * | 5 | site-rule deny-item     | OK     | greater items denied unless palantir keyword |
  * | 6 | automaticAttacks        | OK     | Undead, 2 strikes, 8 prowess                 |
  * | 7 | resourceDraws           | OK     | 2                                             |
  * | 8 | hazardDraws             | OK     | 2                                             |
@@ -26,11 +26,11 @@
  * | # | Feature                       | Status      | Notes                                |
  * |---|-------------------------------|-------------|--------------------------------------|
  * | 1 | Site phase flow               | IMPLEMENTED | select-company, enter-or-skip, etc.  |
- * | 2 | Item playability              | IMPLEMENTED | minor, major, special (restricted)   |
+ * | 2 | Item playability              | IMPLEMENTED | minor, major, greater (restricted)   |
  * | 3 | Haven path movement           | IMPLEMENTED | movement-map.ts                      |
  * | 4 | Automatic attacks             | IMPLEMENTED | combat initiated with correct stats  |
  * | 5 | Wound → corruption check      | IMPLEMENTED | on-event: character-wounded-by-self  |
- * | 6 | Special item restriction      | IMPLEMENTED | site-rule: deny-item + DSL condition |
+ * | 6 | Greater item restriction      | IMPLEMENTED | site-rule: deny-item + DSL condition |
  *
  * Playable: YES
  * Certified: 2026-04-25
@@ -55,6 +55,7 @@ import type { CardDefinitionId, SiteCard } from '../../index.js';
 
 const LOSSADAN_CAIRN = 'tw-409' as CardDefinitionId;
 const LESSER_RING = 'tw-266' as CardDefinitionId;
+const PALANTIR_OF_AMON_SUL = 'tw-296' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -190,8 +191,8 @@ describe('Lossadan Cairn (tw-409)', () => {
     expect(resourceActions.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('non-Palantír special items are denied at Lossadan Cairn', () => {
-    // Lesser Ring has subtype "special" and no "palantir" keyword
+  test('special (non-greater) items are not playable at Lossadan Cairn', () => {
+    // Lesser Ring has subtype "special", which is not in playableResources
     const state = buildSitePhaseState({
       site: LOSSADAN_CAIRN,
       hand: [LESSER_RING],
@@ -203,8 +204,8 @@ describe('Lossadan Cairn (tw-409)', () => {
     expect(notPlayable[0].reason).toContain('Lossadan Cairn');
   });
 
-  test('greater (non-special) items are not playable at Lossadan Cairn', () => {
-    // The Mithril-coat has subtype "greater" which is not in playableResources
+  test('a non-Palantír greater item is denied by the site rule', () => {
+    // The Mithril-coat has subtype "greater" but no "palantir" keyword
     const state = buildSitePhaseState({
       site: LOSSADAN_CAIRN,
       hand: [THE_MITHRIL_COAT],
@@ -213,6 +214,20 @@ describe('Lossadan Cairn (tw-409)', () => {
     const actions = computeLegalActions(state, PLAYER_1);
     const notPlayable = actions.filter(a => !a.viable && a.action.type === 'not-playable');
     expect(notPlayable.length).toBeGreaterThanOrEqual(1);
+    expect(notPlayable[0].reason).toContain('Lossadan Cairn');
+  });
+
+  test('a greater Palantír is playable at Lossadan Cairn', () => {
+    // Regression test: Palantír of Amon Sûl (tw-296) has subtype "greater" and
+    // keyword "palantir" — the site text's "greater* — Palantíri Only"
+    // exception must allow it, despite the general greater-item denial.
+    const state = buildSitePhaseState({
+      site: LOSSADAN_CAIRN,
+      hand: [PALANTIR_OF_AMON_SUL],
+    });
+
+    const resourceActions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(resourceActions.length).toBeGreaterThanOrEqual(1);
   });
 
   // ─── Movement ─────────────────────────────────────────────────────────────
