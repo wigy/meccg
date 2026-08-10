@@ -125,7 +125,7 @@ describe('The Iron-deeps (dm-33)', () => {
 
   // ─── Dynamic auto-attack: step transitions ─────────────────────────────────
 
-  test('entering The Iron-deeps goes reveal-on-guard-attacks → play-site-auto-attack', () => {
+  test('entering The Iron-deeps goes reveal-on-guard-attacks → automatic-attacks (printed 1st attack faced first)', () => {
     const state = buildDualHandSitePhaseState({
       site: THE_IRON_DEEPS,
       resourceCharacters: [ARAGORN, BILBO],
@@ -135,9 +135,10 @@ describe('The Iron-deeps (dm-33)', () => {
     // Step 1: enter-site → reveal-on-guard-attacks (static Trolls attack present)
     const afterEnter = dispatch(state, { type: 'enter-site', player: PLAYER_1, companyId });
     expect((afterEnter.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
-    // Step 2: hazard player passes on-guard → play-site-auto-attack (dynamic effect present)
+    // Step 2: hazard player passes on-guard → automatic-attacks (printed Trolls
+    // attack is faced before the dynamic hand-played one)
     const afterReveal = dispatch(afterEnter, { type: 'pass', player: PLAYER_2 });
-    expect((afterReveal.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
+    expect((afterReveal.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
   test('hazard player passing at play-site-auto-attack advances to automatic-attacks (no combat)', () => {
