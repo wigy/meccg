@@ -141,6 +141,24 @@ describe('Thrall of the Voice (wh-82)', () => {
     expect((plays[0].action as { viaRecruitmentInstanceId?: CardInstanceId }).viaRecruitmentInstanceId).toBe(thrallId);
   });
 
+  test('Thrall is never offered as a standalone play-permanent-event — only bundled with a character recruit', () => {
+    // Bug report: a player played a second Thrall of the Voice as a bare
+    // permanent event (no character target); it resolved into play unattached
+    // in cardsInPlay, permanently spent with no character to pair it with, so
+    // a character played later could never use it. The card text is explicit
+    // — "Instead of a normal character... Place this card with the character"
+    // — so its only organization-phase play mode is bundled with a
+    // play-character action via viaRecruitmentInstanceId; it must never appear
+    // as a standalone play-permanent-event action.
+    const state = fwOrgState([GIMLI, THRALL_OF_THE_VOICE]);
+    const thrallId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === THRALL_OF_THE_VOICE)!.instanceId;
+    const standalonePlays = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-permanent-event'
+        && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === thrallId,
+    );
+    expect(standalonePlays).toHaveLength(0);
+  });
+
   test('a mind-6 minion agent (Ivic) is blocked for a Fallen-wizard without Thrall', () => {
     // Ivic is a mind-6 agent: without the vehicle the Fallen-wizard mind cap of
     // 5 blocks it. The vehicle path (exercised with Gimli) is what lifts the

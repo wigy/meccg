@@ -17,7 +17,7 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
 } from '../../index.js';
-import type { ConvertCreatureToAllyEffect } from '../../types/effects.js';
+import type { ConvertCreatureToAllyEffect, RecruitmentVehicleEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
@@ -174,6 +174,23 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     );
     if (convertCreatureToAlly) {
       logDetail(`Permanent event ${def.name}: convert-creature-to-ally is combat-only — not offered here`);
+      continue;
+    }
+
+    // A `recruitment-vehicle` effect (Thrall of the Voice wh-82, Open to the
+    // Summons wh-46) is never playable as a bare permanent event during the
+    // organization phase — its card text is explicit: "Instead of a normal
+    // character... bring into play one character... Place this card with the
+    // character." The card's only organization-phase play mode is bundled with
+    // a character recruit via `play-character`'s `viaRecruitmentInstanceId`
+    // (see `recruitmentVehicleInHand` in organization-characters.ts). Letting
+    // it fall through to the generic path here would let it enter play loose
+    // in `cardsInPlay`, permanently spent with no character ever attached.
+    const recruitmentVehicle = getCardEffects(def).find(
+      (e): e is RecruitmentVehicleEffect => e.type === 'recruitment-vehicle',
+    );
+    if (recruitmentVehicle) {
+      logDetail(`Permanent event ${def.name}: recruitment-vehicle — only playable bundled with a character recruit, not offered here`);
       continue;
     }
 
