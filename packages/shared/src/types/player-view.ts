@@ -275,6 +275,8 @@ export interface PlayerView {
   readonly selfIndex: number;
   /** The player who won the initiative roll and took the first turn. Null during setup. */
   readonly startingPlayer: PlayerId | null;
+  /** The game's unique identifier, shown in debug views so bug reports can reference it. */
+  readonly gameId: string;
   /** Monotonically increasing sequence number for state changes. */
   readonly stateSeq: number;
   /**

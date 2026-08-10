@@ -409,6 +409,7 @@ interface RenderPlayerInput {
 }
 
 interface RenderInput {
+  readonly gameId?: string;
   readonly turnNumber: number;
   readonly phaseState: PhaseState;
   readonly combat: CombatState | null;
@@ -461,7 +462,8 @@ function renderState(input: RenderInput): string {
       : input.phaseState.phase === 'site'
         ? `Site / ${SITE_STEP_LABELS[input.phaseState.step] ?? input.phaseState.step}`
         : input.phaseState.phase;
-  lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
+  const gameIdPrefix = input.gameId !== undefined ? `Game ${input.gameId} — ` : '';
+  lines.push(`${gameIdPrefix}Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
   // Determine the active company ID for M/H and Site phases
   let activeCompanyId: string | null = null;
@@ -624,6 +626,7 @@ export function formatGameState(state: GameState): string {
   const instOf: InstanceLookup = (id) => resolveInstanceId(state, id);
 
   return stripCardMarkers(renderState({
+    gameId: state.gameId,
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,
     combat: state.combat,
@@ -690,6 +693,7 @@ export function formatPlayerView(
   }
 
   return renderState({
+    gameId: view.gameId,
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
     combat: view.combat,
