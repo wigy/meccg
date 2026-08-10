@@ -150,6 +150,14 @@ function atVaultsAutoAttackStep(withCard: boolean): GameState {
   state = dispatch(state, { type: 'enter-site', player: PLAYER_1, companyId });
   expect((state.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
   state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+  // The Under-vaults' printed (1st) Undead attack is faced before the dynamic
+  // (2nd) attack; simulate it already having been resolved.
+  expect((state.phaseState as SitePhaseState).step).toBe('automatic-attacks');
+  state = {
+    ...state,
+    phaseState: { ...state.phaseState, automaticAttacksResolved: 1 } as SitePhaseState,
+  };
+  state = dispatch(state, { type: 'pass', player: PLAYER_1 });
   expect((state.phaseState as SitePhaseState).step).toBe('play-site-auto-attack');
   return state;
 }
