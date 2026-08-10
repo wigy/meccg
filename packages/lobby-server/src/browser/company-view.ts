@@ -46,6 +46,7 @@ import {
   shouldFocusOwnCompanyAfterSelectCompany,
   shouldClearOverrideForNewCombat,
   shouldRestoreOverrideAfterCombat,
+  isCombatBlockedByPendingCorruptionCheck,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -449,8 +450,12 @@ export function renderCompanyViews(
   board.innerHTML = '';
 
   // Combat view takes over entirely when combat is active, unless the player
-  // has toggled to the all-companies overview (allCompaniesOverride).
-  if (view.combat && !getAllCompaniesOverride()) {
+  // has toggled to the all-companies overview (allCompaniesOverride), or a
+  // pending corruption check (e.g. Corpse-candle's pre-defense-selection
+  // check) blocks combat from actually proceeding — see
+  // isCombatBlockedByPendingCorruptionCheck for why the company view must
+  // stay up in that window.
+  if (view.combat && !getAllCompaniesOverride() && !isCombatBlockedByPendingCorruptionCheck(view.legalActions)) {
     document.body.classList.remove('all-companies-mode');
     document.body.classList.add('combat-active');
     renderCombatView(board, view, cardPool, onAction);
