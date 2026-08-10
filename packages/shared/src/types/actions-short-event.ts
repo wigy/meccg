@@ -68,6 +68,13 @@ export interface PlayShortEventAction {
    */
   readonly discardTargetInstanceId?: CardInstanceId;
   /**
+   * For a {@link CompanyCombatBoostEffect} carrying `costDiscard` (Alert the
+   * Folk td-97), the hand-card instances the player chooses to discard as
+   * the boost's variable-value payment. One legal action is emitted per
+   * eligible combination of `minCount`..`maxCount` matching hand cards.
+   */
+  readonly costDiscardInstanceIds?: readonly CardInstanceId[];
+  /**
    * For a {@link WithdrawAgentEffect} card (Withdrawn to Mordor, dm-165)
    * played in its agent mode, the virtual-company id of the opponent's
    * face-up agent the event removes. One legal action is emitted per

@@ -10272,9 +10272,11 @@ character with `scope: { kind: 'attack' }`, swept when the attack finalizes.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `stat` | yes | `"prowess"` or `"body"`. |
-| `value` | yes | Modifier value (positive boosts, negative penalises). |
+| `value` | no | Fixed modifier value (positive boosts, negative penalises). Ignored (and may be omitted) when `costDiscard` is present. |
 | `filter` | no | Per-character grant filter, matched against `{ target: { race, name, skills, keywords } }`. Only matching characters receive the boost; the card is offered when at least one member matches. When absent (and no `companyFilter`), every member is boosted. |
 | `companyFilter` | no | Company-level eligibility gate. When present, the event may be played only if at least one member satisfies it — and then **every** character in the company is boosted (the per-character `filter` is not used). Distinguishes "boost characters that are X" (`filter`) from "boost the whole company if it contains an X" (`companyFilter`). |
+| `when` | no | Gate restricting which attack the card may be played against, evaluated against `{ enemy: { race, name } }`. `race` is the current attack's creature race (populated for hazard creatures, on-guard reveals, played-auto-attacks, and site automatic-attacks alike); `name` is the specific creature card's printed name, empty when the attack has no individual creature card. Absent means any attack. |
+| `costDiscard` | no | `{ source: "hand", filter, minCount, maxCount }` — replaces the fixed `value` with a variable one. The player picks between `minCount` and `maxCount` matching cards from `source` to discard as payment; the boost `value` becomes the sum of their printed `marshallingPoints`. `filter` is matched against each candidate's card definition, extended with `faction.playableRegions` (via `buildFactionPlayableRegions`) for faction candidates. One `play-short-event` action is offered per eligible combination, carrying the chosen instances as `costDiscardInstanceIds`. |
 
 ```json
 { "type": "company-combat-boost", "stat": "prowess", "value": 1,
@@ -10290,6 +10292,42 @@ contains a Leader or The Balrog. Implemented in
 `engine/legal-actions/combat.ts` (`companyCombatBoostActions`) and
 `engine/reducer-events.ts` (the `company-combat-boost` block of
 `handlePlayResourceShortEvent`).
+
+**`when` + `costDiscard` (Alert the Folk td-97):** "Playable on a company
+facing a Dragon or Drake attack (not Eärcaraxë). Discard from your hand any
+one or two factions playable at sites in Northern Rhovanion, Iron Hills,
+Woodland Realm, or Anduin Vales. All characters facing the attack gain a
+bonus to their prowess equal to the total marshalling point values … of the
+factions discarded."
+
+```json
+{ "type": "company-combat-boost", "stat": "prowess",
+  "when": { "$and": [
+    { "enemy.race": { "$in": ["dragon", "drake"] } },
+    { "enemy.name": { "$ne": "Eärcaraxë" } } ] },
+  "costDiscard": {
+    "source": "hand",
+    "filter": { "$and": [
+      { "marshallingCategory": "faction" },
+      { "$or": [
+        { "faction.playableRegions": { "$includes": "Northern Rhovanion" } },
+        { "faction.playableRegions": { "$includes": "Iron Hills" } },
+        { "faction.playableRegions": { "$includes": "Woodland Realm" } },
+        { "faction.playableRegions": { "$includes": "Anduin Vales" } } ] } ] },
+    "minCount": 1, "maxCount": 2 } }
+```
+
+`companyCombatBoostActions` builds the `{ enemy: { race, name } }` context from
+`combat.creatureRace` and (when the attack is backed by an actual creature
+instance — `attackSourceCreatureInstanceId`) that creature's resolved
+definition name; a boost whose `when` doesn't match the current attack is
+never offered. When `costDiscard` is present, candidate hand cards are
+filtered (excluding the played card itself) and every combination of
+`minCount`..`maxCount` of them is offered as a separate action. On
+resolution, `handlePlayResourceShortEvent` validates the chosen
+`costDiscardInstanceIds` against the same filter and count bounds, moves them
+from the controller's hand to their discard pile, and sums their printed
+`marshallingPoints` as the constraint `value` instead of a fixed number.
 
 ---
 

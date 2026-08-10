@@ -19,7 +19,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -29,12 +29,12 @@ import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './re
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { isCharacterCard, isItemCard, isAllyCard, isResourceEventCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isAllyCard, isResourceEventCard, isFactionCard } from '../types/cards.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
-import { buildInPlayNames } from './recompute-derived.js';
+import { buildInPlayNames, buildFactionPlayableRegions } from './recompute-derived.js';
 import { hazardLongEventsRetained } from './retain-hazard-long-events.js';
 import { cvccSides } from './cvcc-sides.js';
 
@@ -1001,7 +1001,22 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             keywords: ('keywords' in charCardDef ? (charCardDef as { keywords?: readonly string[] }).keywords : undefined) ?? [],
           },
         });
+        // Attack context for `when` gates (Alert the Folk td-97: "facing a
+        // Dragon or Drake attack, not Eärcaraxë"). Mirrors the context built
+        // by `companyCombatBoostActions` in legal-actions/combat.ts.
+        const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
+        const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(newState, enemyCreatureInstanceId) : undefined;
+        const attackWhenContext = {
+          enemy: {
+            race: combat.creatureRace,
+            name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+          },
+        };
         for (const boostEffect of companyCombatBoosts) {
+          if (boostEffect.when && !matchesCondition(boostEffect.when, attackWhenContext)) {
+            logDetail(`${def.name}: attack does not satisfy when-condition — boost not applied`);
+            continue;
+          }
           // A `companyFilter` gates the whole company: only apply the boost (to
           // every character) if at least one member satisfies it (Foe Dismayed's
           // leader-or-Balrog gate). A `filter` restricts which members receive it.
@@ -1016,6 +1031,48 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               continue;
             }
           }
+
+          // Discard-cost dynamic value (Alert the Folk td-97): the boost value
+          // is the sum of the printed marshalling points of the hand cards the
+          // player chose to discard as payment, instead of a fixed `value`.
+          let boostValue = boostEffect.value ?? 0;
+          if (boostEffect.costDiscard) {
+            const cost = boostEffect.costDiscard;
+            const chosenIds = action.costDiscardInstanceIds ?? [];
+            if (chosenIds.length < cost.minCount || chosenIds.length > cost.maxCount) {
+              logDetail(`${def.name}: discard-cost count ${chosenIds.length} outside [${cost.minCount}, ${cost.maxCount}] — boost not applied`);
+              continue;
+            }
+            const chosenCards = chosenIds
+              .map(id => findById(defPlayer.hand, id))
+              .filter((c): c is NonNullable<typeof c> => !!c);
+            if (chosenCards.length !== chosenIds.length) {
+              logDetail(`${def.name}: one or more discard-cost cards not found in hand — boost not applied`);
+              continue;
+            }
+            const chosenDefs = chosenCards
+              .map(c => defById(newState, c.definitionId))
+              .filter((d): d is NonNullable<typeof d> => !!d);
+            const allMatch = chosenDefs.every(d => {
+              const ctx: Record<string, unknown> = { ...d };
+              if (isFactionCard(d)) {
+                ctx.faction = { playableRegions: buildFactionPlayableRegions(newState, d) };
+              }
+              return matchesCondition(cost.filter, ctx);
+            });
+            if (!allMatch || chosenDefs.length !== chosenCards.length) {
+              logDetail(`${def.name}: a chosen discard-cost card does not match the required filter — boost not applied`);
+              continue;
+            }
+            boostValue = chosenDefs.reduce((sum, d) => sum + ((d as { marshallingPoints?: number }).marshallingPoints ?? 0), 0);
+            logDetail(`${def.name}: discarding ${chosenDefs.map(d => d.name).join(', ')} as cost — boost value ${boostValue} (sum of marshalling points)`);
+            newState = updatePlayer(newState, defPlayerIndex, p => ({
+              ...p,
+              hand: p.hand.filter(c => !chosenIds.includes(c.instanceId)),
+              discardPile: [...p.discardPile, ...chosenCards],
+            }));
+          }
+
           for (const charId of company.characters) {
             const char = defPlayer.characters[charId];
             if (!char) continue;
@@ -1024,7 +1081,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             if (boostEffect.filter) {
               if (!matchesCondition(boostEffect.filter, charCtx(charCardDef))) continue;
             }
-            logDetail(`${def.name}: adding attack-scoped +${boostEffect.value} ${boostEffect.stat} to ${charId as string}`);
+            logDetail(`${def.name}: adding attack-scoped +${boostValue} ${boostEffect.stat} to ${charId as string}`);
             newState = addConstraint(newState, {
               source: handCard.instanceId,
               sourceDefinitionId: handCard.definitionId,
@@ -1033,7 +1090,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               kind: {
                 type: 'character-stat-modifier',
                 stat: boostEffect.stat,
-                value: boostEffect.value,
+                value: boostValue,
                 characterId: charId,
               },
             });

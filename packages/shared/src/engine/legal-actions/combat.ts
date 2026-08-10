@@ -19,11 +19,11 @@ import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
+import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
-import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from '../recompute-derived.js';
+import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { resolveDef, enemyRaceContext } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -3664,6 +3664,30 @@ function altPermanentEventModifyAttackActions(
 }
 
 /**
+ * Enumerates every combination of `minCount`..`maxCount` items drawn from
+ * `items` (order-independent, no repeats). Backs the discard-cost offering
+ * for {@link CompanyCombatBoostEffect.costDiscard} (Alert the Folk td-97:
+ * "discard any one or two factions"), where the player picks which matching
+ * hand cards to sacrifice.
+ */
+function combinationsInRange<T>(items: readonly T[], minCount: number, maxCount: number): T[][] {
+  const results: T[][] = [];
+  const n = items.length;
+  const build = (start: number, size: number, chosen: T[]) => {
+    if (chosen.length === size) { results.push([...chosen]); return; }
+    for (let i = start; i <= n - (size - chosen.length); i++) {
+      chosen.push(items[i]);
+      build(i + 1, size, chosen);
+      chosen.pop();
+    }
+  };
+  for (let size = minCount; size <= Math.min(maxCount, n); size++) {
+    build(0, size, []);
+  }
+  return results;
+}
+
+/**
  * Returns `play-short-event` actions for resource short-events in the
  * defending player's hand that carry `company-combat-boost` effects.
  *
@@ -3676,6 +3700,15 @@ function altPermanentEventModifyAttackActions(
  * `scope: "attack"`. If so, attack-scoped constraints from this definition
  * are counted in `activeConstraints` — if the count equals `max`, the card
  * was already played this attack and is suppressed.
+ *
+ * `when` gate: restricts eligibility to attacks matching `{ enemy: { race,
+ * name } }` (Alert the Folk td-97: Dragon/Drake attacks, excluding
+ * Eärcaraxë by name).
+ *
+ * `costDiscard`: rather than a single action, one action is offered per
+ * eligible combination of `minCount`..`maxCount` matching hand cards (see
+ * {@link combinationsInRange}), each carrying `costDiscardInstanceIds` so
+ * the reducer knows which cards to discard and sum for the dynamic value.
  */
 function companyCombatBoostActions(
   state: GameState,
@@ -3692,6 +3725,20 @@ function companyCombatBoostActions(
   // Find the defending company's characters.
   const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
+
+  // Attack context for `when` gates (e.g. "facing a Dragon or Drake attack,
+  // not Eärcaraxë" — Alert the Folk td-97). `name` is only known for
+  // attacks backed by an actual creature card instance; site
+  // automatic-attacks and other sources leave it empty, matching no
+  // specific-name exclusion.
+  const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
+  const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(state, enemyCreatureInstanceId) : undefined;
+  const attackWhenContext = {
+    enemy: {
+      race: combat.creatureRace,
+      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+    },
+  };
 
   const actions: EvaluatedAction[] = [];
 
@@ -3713,13 +3760,24 @@ function companyCombatBoostActions(
       }
     }
 
+    // Attack-eligibility gate: a boost carrying `when` is offered only when
+    // the current attack matches; a boost with no `when` is unconditionally
+    // eligible on this axis.
+    const eligibleBoosts = boostEffects.filter(
+      effect => !effect.when || matchesCondition(effect.when, attackWhenContext),
+    );
+    if (eligibleBoosts.length === 0) {
+      logDetail(`${(cardDef as { name?: string }).name}: attack (race=${attackWhenContext.enemy.race ?? 'none'}, name=${attackWhenContext.enemy.name || 'none'}) does not match when-condition — company-combat-boost not offered`);
+      continue;
+    }
+
     // At least one boost effect must match a character in the defending
     // company. A boost with neither `filter` nor `companyFilter` matches
     // unconditionally; a `filter` matches when any character satisfies it
     // (per-character grant); a `companyFilter` gates the whole company on a
     // qualifying member (e.g. Foe Dismayed's leader-or-Balrog gate).
     let hasMatch = false;
-    for (const effect of boostEffects) {
+    for (const effect of eligibleBoosts) {
       const gate = effect.companyFilter ?? effect.filter;
       if (!gate) { hasMatch = true; break; }
       for (const charId of company.characters) {
@@ -3739,6 +3797,41 @@ function companyCombatBoostActions(
     }
     if (!hasMatch) {
       logDetail(`${(cardDef as { name?: string }).name}: no matching characters in company — company-combat-boost not offered`);
+      continue;
+    }
+
+    // Discard-cost dynamic value (Alert the Folk td-97): the player chooses
+    // which matching hand cards to discard as payment; one action is offered
+    // per eligible combination.
+    const discardCostEffect = eligibleBoosts.find(e => e.costDiscard);
+    if (discardCostEffect?.costDiscard) {
+      const cost = discardCostEffect.costDiscard;
+      const candidates = player.hand.filter(c => {
+        if (c.instanceId === handCard.instanceId) return false;
+        const cDef = defById(state, c.definitionId);
+        if (!cDef) return false;
+        const ctx: Record<string, unknown> = { ...cDef };
+        if (isFactionCard(cDef)) {
+          ctx.faction = { playableRegions: buildFactionPlayableRegions(state, cDef) };
+        }
+        return matchesCondition(cost.filter, ctx);
+      });
+      if (candidates.length < cost.minCount) {
+        logDetail(`${(cardDef as { name?: string }).name}: only ${candidates.length} matching discard-cost card(s) in hand — need at least ${cost.minCount}`);
+        continue;
+      }
+      for (const combo of combinationsInRange(candidates, cost.minCount, cost.maxCount)) {
+        logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} (discard ${combo.map(c => defById(state, c.definitionId)?.name ?? c.definitionId as string).join(', ')})`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            costDiscardInstanceIds: combo.map(c => c.instanceId),
+          },
+          viable: true,
+        });
+      }
       continue;
     }
 
