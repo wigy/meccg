@@ -970,7 +970,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), Dúnedain (-1), Dwarves (-1)."
+    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), Dúnedain (-1), Dwarves (-1).",
+    "certified": "2026-08-10"
   },
   {
     "cardType": "hero-resource-event",
