@@ -108,6 +108,17 @@ export interface PseudoAiPickMessage {
   readonly action: import('@meccg/shared').GameAction;
 }
 
+/**
+ * Kill your own lingering game server on demand. Lets a player clear a
+ * stuck "You are already in a game" state (crashed tab, network blip)
+ * without waiting out the idle-exit grace period. No fields needed — the
+ * server already knows the caller's own active game from the online-player
+ * map.
+ */
+export interface StopGameMessage {
+  readonly type: 'stop-game';
+}
+
 /** Request the lobby to relaunch a game server after the previous one died. */
 export interface RejoinGameMessage {
   readonly type: 'rejoin-game';
@@ -140,7 +151,8 @@ export type LobbyClientMessage =
   | PlayPseudoAiMessage
   | PseudoAiPickMessage
   | RejoinGameMessage
-  | WatchGameMessage;
+  | WatchGameMessage
+  | StopGameMessage;
 
 // ---- Lobby → Client ----
 

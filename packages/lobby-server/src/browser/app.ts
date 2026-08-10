@@ -362,6 +362,25 @@ document.addEventListener('DOMContentLoaded', () => {
       launchPseudoAiGame();
     })(); });
 
+    // ---- Stop a lingering game ----
+    // Shown only while the lobby still has us marked in-game (see the
+    // 'online-players' handler in lobby-screens.ts); lets a player clear a
+    // stuck "You are already in a game" block themselves rather than wait
+    // out the idle-exit grace period.
+    const stopGameBtn = document.getElementById('stop-game-btn') as HTMLButtonElement | null;
+    stopGameBtn?.addEventListener('click', () => { void (async () => {
+      const ok = await showConfirm(
+        'Stop your existing game? Any progress since the last save will be lost, and a human opponent still playing will be disconnected without notice.',
+        { okLabel: 'Stop Game', cancelLabel: 'Cancel' },
+      );
+      if (!ok) return;
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        appState.lobbyWs.send(JSON.stringify({ type: 'stop-game' }));
+        stopGameBtn.textContent = 'Stopping...';
+        stopGameBtn.disabled = true;
+      }
+    })(); });
+
     acceptChallengeBtn.addEventListener('click', () => {
       if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN && appState.challengeFrom) {
         appState.lobbyWs.send(JSON.stringify({ type: 'accept-challenge', from: appState.challengeFrom }));

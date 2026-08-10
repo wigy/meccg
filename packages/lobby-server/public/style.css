@@ -2234,6 +2234,20 @@ h2 {
   box-shadow: none;
 }
 
+/* Kill your own lingering game server: a destructive action, styled like the
+   slate .lobby-cancel-btn used for challenge-withdrawal but full-width like
+   the other play buttons. */
+.lobby-play-btn--danger {
+  background: linear-gradient(180deg, #4a4a5a 0%, #3a3a48 50%, #2a2a36 100%);
+  color: #d8d2c2;
+  border-color: #55555f;
+}
+
+.lobby-play-btn--danger:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
 /* Options revealed underneath a play button (Real-AI model picker). */
 .lobby-ai-options {
   margin-top: 0.35rem;

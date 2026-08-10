@@ -552,6 +552,36 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       void relaunch().finally(clearRejoining);
       break;
     }
+
+    case 'stop-game': {
+      // A rejoin relaunch is already tearing down/replacing this player's
+      // game server — and has already cleared `activeGame` itself while it
+      // does so — so this check must run before the activeGame check below,
+      // or an in-flight relaunch would be misreported as "not in a game".
+      // Racing our own kill against the relaunch's own kill could kill the
+      // server the relaunch is simultaneously trying to reuse or replace.
+      if (from.rejoining) {
+        send(from.ws, { type: 'error', message: 'A game is already restarting' });
+        return;
+      }
+      if (!from.activeGame) {
+        send(from.ws, { type: 'error', message: 'You are not in a game' });
+        return;
+      }
+      const { port } = from.activeGame;
+      lobbyLog.log('stop-game', { name: fromName, port });
+      // Clear synchronously, before awaiting the kill, so: (1) a duplicate
+      // stop-game arriving before the kill resolves sees no active game and
+      // is dropped rather than killing the process twice, and (2) the
+      // broadcast below re-enables this player's "Play vs X" buttons right
+      // away instead of after the (slower) process teardown.
+      from.inGame = false;
+      from.activeGame = null;
+      from.pendingFrom.clear();
+      broadcastPlayerList();
+      void killLingeringGame(port);
+      break;
+    }
   }
 }
 
