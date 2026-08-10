@@ -694,6 +694,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body)
     let body = combat.creatureBody ?? 0;
     const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
+    // Per-strike creature body modifier (Arrows Shorn of Ebony td-99: "-2
+    // body") — applies only to this strike's own creature body check, unlike
+    // a whole-attack `modify-attack`'s persistent `CombatState.creatureBody` change.
+    if (strike2?.strikeCreatureBodyModifier) {
+      const modified = body + strike2.strikeCreatureBodyModifier;
+      logDetail(`Strike-scoped creature body modifier: ${body} ${formatSignedNumber(strike2.strikeCreatureBodyModifier)} = ${modified}`);
+      body = modified;
+    }
     if (strike2 && combat.creatureRace) {
       const defIdx2 = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
       const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId];
@@ -749,6 +757,13 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         // is removed from play — or claimed as kill MPs by a defending hero /
         // Fallen-Wizard player (CoE 3.v).
         stateAfterOutcome = removeDefeatedAgent(stateWithRoll, combat, agentInstId!);
+      }
+      // Arrows Shorn of Ebony (td-99): this strike carries cascadesOnDefeat
+      // and is now confirmed defeated (creature body check failed too) —
+      // every other still-unresolved strike of the attack auto-defeats.
+      if (strike2?.cascadesOnDefeat) {
+        logDetail('Cascade defeat (Arrows Shorn of Ebony): remaining strikes of this attack automatically defeated');
+        combatAfterBodyCheck = { ...combatAfterBodyCheck, forcedStrikeDefeat: true };
       }
     } else {
       logDetail(`${isAgent ? 'Agent' : 'Creature'} body check passed — ${isAgent ? 'agent survives (wounded)' : 'creature survives'}`);
@@ -1414,30 +1429,51 @@ export function handleTapItemForStrike(state: GameState, action: GameAction, com
 
   if (!defPlayer.characters[action.characterInstanceId]) return { state, error: 'Character not found' };
 
-  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
-  if (!tapped || tapped.charId !== action.characterInstanceId) return { state, error: 'Item not found on character' };
-  const item = tapped.attachment;
-  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+  const found = findAttachment(defPlayer, 'items', action.cardInstanceId);
+  if (!found || found.charId !== action.characterInstanceId) return { state, error: 'Item not found on character' };
 
-  const itemDef = defById(state, item.definitionId);
+  const itemDef = defById(state, found.attachment.definitionId);
   const effect = getCardEffects(itemDef).find(
     (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
   );
   if (!effect) return { state, error: 'Item has no modify-attack(current-strike) effect' };
 
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+  // `cost: { discard: "self" }` (Arrows Shorn of Ebony td-99) removes the item
+  // from play instead of tapping it (`cost: { tap: "self" }`, Shield of
+  // Iron-bound Ash tw-327) — the discard variant has no status requirement.
+  const isDiscardCost = effect.cost?.discard === 'self';
+  let newDefPlayer: PlayerState;
+  if (isDiscardCost) {
+    const removed = removeAttachment(defPlayer, 'items', action.cardInstanceId);
+    if (!removed) return { state, error: 'Item not found on character' };
+    newDefPlayer = { ...removed.player, discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)] };
+  } else {
+    if (found.attachment.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+    const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
+    if (!tapped) return { state, error: 'Item not found on character' };
+    newDefPlayer = tapped.player;
+  }
+
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (found.attachment.definitionId as string);
   const prowessBonus = effect.prowessModifier ?? 0;
-  logDetail(`Tap-item-for-strike: tapping ${itemName} on ${action.characterInstanceId as string} (+${prowessBonus} prowess for current strike)`);
+  const bodyModifier = effect.bodyModifier ?? 0;
+  const cascade = effect.cascadeDefeatOnSuccess === true;
+  logDetail(`Tap-item-for-strike: ${isDiscardCost ? 'discarding' : 'tapping'} ${itemName} on ${action.characterInstanceId as string} (${formatSignedNumber(prowessBonus)} prowess${bodyModifier ? `, ${formatSignedNumber(bodyModifier)} creature body` : ''} for current strike${cascade ? ' — cascades to defeat the rest of the attack if defeated' : ''})`);
 
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
-      ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus }
+      ? {
+          ...a,
+          strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus,
+          ...(bodyModifier ? { strikeCreatureBodyModifier: (a.strikeCreatureBodyModifier ?? 0) + bodyModifier } : {}),
+          ...(cascade ? { cascadesOnDefeat: true as const } : {}),
+        }
       : a,
   );
 
   return {
     state: {
-      ...updatePlayer(state, defPlayerIndex, () => tapped.player),
+      ...updatePlayer(state, defPlayerIndex, () => newDefPlayer),
       combat: { ...combat, strikeAssignments: newAssignments },
     },
   };

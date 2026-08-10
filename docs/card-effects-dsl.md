@@ -4457,31 +4457,70 @@ chooses defending characters."
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`).
 
-### 10d. `item-tap-strike-bonus`
+### 10d. `modify-attack` — `scope: "current-strike"` (item, single-strike modifier)
 
-Activated ability on an in-play item that boosts the bearer's prowess for
-the single strike currently being resolved. Unlike `modify-attack` (which
-adjusts the creature's prowess for the whole attack, benefiting all
-defenders), this effect targets only the bearer's specific strike assignment
-and adds directly to `StrikeAssignment.strikeProwessBonus`. Available
-during `resolve-strike` when the item is untapped and the bearer is the
-current strike target.
+Activated ability on an in-play item that modifies only the single strike
+currently being resolved — not the whole attack (contrast with the
+whole-attack `modify-attack` of §10c, which adjusts `CombatState.strikeProwess`
+/ `creatureBody` for every defender). `prowessModifier` is added directly to
+`StrikeAssignment.strikeProwessBonus` (a positive value benefits the bearer,
+mathematically equivalent to reducing the creature's prowess for this one
+comparison); `bodyModifier`, if present, is added to a per-strike
+`StrikeAssignment.strikeCreatureBodyModifier`, affecting only this strike's
+own creature body check (not persisted to `CombatState.creatureBody`, so
+later strikes of the same attack see the unmodified body). Available during
+`resolve-strike` while the item belongs to the current strike target
+character.
 
-The `cost` must be `{ "tap": "self" }`. An optional `when` gate is
-evaluated against a context exposing `bearer.race`, `bearer.skills`,
-`bearer.name`, and `enemy.race`.
+Two cost variants:
+- `cost: { "tap": "self" }` — the item must be untapped; taps on activation.
+  Used by Shield of Iron-bound Ash (tw-327): tap to gain +1 prowess against
+  one strike.
+- `cost: { "discard": "self" }` — no status requirement (the item leaves
+  play either way); discarded to the owner's discard pile on activation.
+  Used by Arrows Shorn of Ebony (td-99, see `cascadeDefeatOnSuccess` below).
+
+An optional `when` gate is evaluated against a context exposing `bearer.race`,
+`bearer.skills`, `bearer.name`, `enemy.race`, and `attack.*` (`source`,
+`keying`, `siteKeyed`, `weaponsIneffective` — the same fields the whole-attack
+scope exposes, built by the shared `modifyAttackWhenContext` helper).
 
 ```json
-{ "type": "item-tap-strike-bonus",
+{ "type": "modify-attack", "scope": "current-strike",
   "cost": { "tap": "self" },
-  "prowessBonus": 1 }
+  "prowessModifier": 1 }
+{ "type": "modify-attack", "scope": "current-strike",
+  "cost": { "discard": "self" },
+  "prowessModifier": 1,
+  "bodyModifier": -2,
+  "cascadeDefeatOnSuccess": true,
+  "when": { "$and": [
+    { "bearer.skills": { "$includes": "warrior" } },
+    { "attack.source": "creature" },
+    { "attack.siteKeyed": false }
+  ] } }
 ```
 
-Example: Shield of Iron-bound Ash (tw-327) — tap to gain +1 prowess
-against one strike.
+**`cascadeDefeatOnSuccess`** (current-strike scope only): when `true`, if
+this modified strike ultimately resolves as defeated
+(`StrikeAssignment.result` ends as `'success'` — including passing any
+creature body check this strike triggers), every other still-unresolved
+strike of the same attack automatically resolves as defeated too, by setting
+`CombatState.forcedStrikeDefeat` (the same flag Liquid Fire wh-52 sets at
+combat *initiation* — here it is set *mid-combat*, once the triggering
+strike's fate is known). The decision is made where `'success'` becomes
+final: immediately in `resolveStrikeCore` when the creature has no body (no
+body check needed), or in `handleBodyCheckRoll`'s creature branch once that
+strike's own body check confirms the creature died. Used by Arrows Shorn of
+Ebony (td-99): "Warrior only: discard Arrows Shorn of Ebony to modify a
+strike from a hazard creature attack not keyed to a site by -1 prowess, -2
+body. If this strike is defeated, all other subsequent failed strikes from
+this attack are automatically defeated."
 
-Implemented in `engine/legal-actions/combat.ts` (`tapItemForStrikeActions`)
-and `engine/reducer-combat.ts` (`handleTapItemForStrike`).
+Implemented in `engine/legal-actions/combat.ts` (`tapItemForStrikeActions`,
+`modifyAttackWhenContext`) and `engine/combat-actions.ts`
+(`handleTapItemForStrike`, `handleBodyCheckRoll`) and
+`engine/combat-strike.ts` (`resolveStrikeCore`).
 
 ### 10e. `modify-attack` — played from hand (`fromHand: true`)
 

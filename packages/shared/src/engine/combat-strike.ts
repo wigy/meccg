@@ -564,7 +564,22 @@ export function resolveStrikeCore(
     const newCombat: CombatState = { ...combatBase, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
     return { state: { ...postPrisonerState, combat: newCombat }, effects };
   } else {
-    const combatWithAssignments = { ...combatBase, strikeAssignments: newAssignments };
+    // Arrows Shorn of Ebony (td-99): a strike marked cascadesOnDefeat that
+    // ends up defeated with no creature body check pending (the creature has
+    // no body, so 'success' here is already final) auto-defeats every other
+    // still-unresolved strike of the same attack. When the creature DOES have
+    // body, bodyCheckTarget is set and this branch is not reached — the
+    // cascade decision is deferred to handleBodyCheckRoll instead, since
+    // 'success' is not yet final until that body check resolves.
+    const cascadeAutoDefeat = assignmentResult === 'success' && strike.cascadesOnDefeat === true;
+    if (cascadeAutoDefeat) {
+      logDetail('Cascade defeat (Arrows Shorn of Ebony): remaining strikes of this attack automatically defeated');
+    }
+    const combatWithAssignments = {
+      ...combatBase,
+      strikeAssignments: newAssignments,
+      ...(cascadeAutoDefeat ? { forcedStrikeDefeat: true } : {}),
+    };
 
     // discard-item strike effect: enter discard-item-from-company phase so the
     // defender must choose one item to discard before combat continues.
