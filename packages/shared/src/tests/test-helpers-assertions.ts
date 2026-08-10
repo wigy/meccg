@@ -17,7 +17,7 @@ import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { effectiveGeneralInfluence, generalInfluenceControlLimit } from '../engine/reducer-utils.js';
 import { Phase, Alignment } from '../index.js';
-import type { GameState, CardDefinitionId, CardInstanceId, CardInstance, SitePhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CompanyId, CardInPlay, CharacterInPlay } from '../index.js';
+import type { GameState, CardDefinitionId, CardInstanceId, CardInstance, SitePhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CompanyId, CardInPlay, CharacterInPlay, AllyInPlay } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -61,6 +61,29 @@ export function expectCharStatus(
   expected: CardStatus,
 ): void {
   expect(getCharacter(state, playerIdx, defId).status).toBe(expected);
+}
+
+/** Get the {@link AllyInPlay} object for an ally (located by definition ID) attached to a character. */
+export function getAlly(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  allyDefId: CardDefinitionId,
+): AllyInPlay {
+  const ally = getCharacter(state, playerIdx, charDefId).allies.find(a => a.definitionId === allyDefId);
+  if (!ally) throw new Error(`Ally ${allyDefId as string} not found on character ${charDefId as string}`);
+  return ally;
+}
+
+/** Assert an ally (located by definition ID) attached to a character has the expected status. */
+export function expectAllyStatus(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  allyDefId: CardDefinitionId,
+  expected: CardStatus,
+): void {
+  expect(getAlly(state, playerIdx, charDefId, allyDefId).status).toBe(expected);
 }
 
 /** Assert a character (located by definition ID) has the expected number of items. */

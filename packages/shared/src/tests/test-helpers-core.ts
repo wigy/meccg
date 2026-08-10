@@ -546,6 +546,27 @@ export function addCardToDiscardPile(
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
 }
 
+/** Return a new state with the status of an ally attached to a character updated. */
+export function setAllyStatus(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  allyDefId: CardDefinitionId,
+  status: CardStatus,
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  const char = state.players[playerIdx].characters[charId];
+  const updatedChar = {
+    ...char,
+    allies: char.allies.map(a => (a.definitionId === allyDefId ? { ...a, status } : a)),
+  };
+  const updatedChars = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedChars };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
 /**
  * Return a new state with a character's status updated. Replaces the
  * multi-line spread boilerplate required to update a deeply nested field.

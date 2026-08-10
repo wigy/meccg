@@ -330,9 +330,17 @@ function performUntap(state: GameState): GameState {
     const untappedItems = ch.items.map(item =>
       item.status === CardStatus.Tapped ? { ...item, status: CardStatus.Untapped } : item,
     );
-    const untappedAllies = ch.allies.map(ally =>
-      ally.status === CardStatus.Tapped ? { ...ally, status: CardStatus.Untapped } : ally,
-    );
+    // CoE rule 2.V.2.2: allies are treated as characters for healing — a
+    // wounded (inverted) ally heals to tapped when its bearer's company is
+    // at a haven, same as a wounded character.
+    const untappedAllies = ch.allies.map(ally => {
+      if (ally.status === CardStatus.Tapped) return { ...ally, status: CardStatus.Untapped };
+      if (ally.status === CardStatus.Inverted && charsAtHaven.has(key)) {
+        healedCount++;
+        return { ...ally, status: CardStatus.Tapped };
+      }
+      return ally;
+    });
     let newStatus = ch.status;
     if (prisonerIds.has(key)) {
       // Prisoners cannot untap or heal (CoE rule 8.35: cannot take any actions
