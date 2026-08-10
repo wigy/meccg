@@ -2891,6 +2891,13 @@ export function playResourceShortEventActions(
     // bare no-op `play-short-event` (no recruit target) that discards the
     // card for zero effect.
     if (def.effects?.some(e => e.type === 'recruit-character')) continue;
+    // Burglary (td-103): its only effect is `burglary-attempt`, resolved
+    // exclusively via the dedicated `declare-burglary` action offered during
+    // the site phase's `automatic-attacks` step (see
+    // `automaticAttacksActions` in legal-actions/site.ts). Falling through to
+    // the generic handling below would offer a bare no-op `play-short-event`
+    // that silently discards the card for zero effect.
+    if (def.effects?.some(e => e.type === 'burglary-attempt')) continue;
     // "Permanent-event/Short-event" card (Great Army of the North ba-38): admit
     // its alternative short-event reshuffle mode during the organization phase
     // (its permanent-event mode is offered separately by playPermanentEventActions).
