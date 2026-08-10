@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1111 | 1110 | 1 | 99.9% |
+| 1115 | 1114 | 1 | 99.9% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 106 | 106 | 100.0% |
+| AS | 107 | 107 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 98 | 98 | 100.0% |
+| DM | 99 | 99 | 100.0% |
 | LE | 300 | 299 | 99.7% |
 | TD | 88 | 88 | 100.0% |
-| TW | 334 | 334 | 100.0% |
+| TW | 336 | 336 | 100.0% |
 | WH | 88 | 88 | 100.0% |
 
 ## Detailed Test Matrix
@@ -57,6 +57,7 @@
 | as-51 | No Strangers at this Time | — | 16 | ☑ |
 | as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
+| as-58 | Angmarim | — | 5 | ☑ |
 | as-59 | Haradrim | — | 6 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-63 | Haradrim | — | 9 | ☑ |
@@ -77,7 +78,7 @@
 | as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-106 | The Under-roads | — | 7 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
-| as-110 | World Gnawed by the Nameless | — | 11 | ☑ |
+| as-110 | World Gnawed by the Nameless | — | 12 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
@@ -255,7 +256,7 @@
 | dm-37 | The Under-galleries | — | 11 | ☑ |
 | dm-38 | The Under-gates | — | 12 | ☑ |
 | dm-39 | The Under-grottos | — | 10 | ☑ |
-| dm-40 | The Under-leas | — | 15 | ☑ |
+| dm-40 | The Under-leas | — | 17 | ☑ |
 | dm-41 | The Under-vaults | — | 14 | ☑ |
 | dm-42 | Urlurtsu Nurn | — | 7 | ☑ |
 | dm-43 | An Article Missing | — | 15 | ☑ |
@@ -301,7 +302,7 @@
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
-| dm-130 | Fireworks | — | 16 | ☑ |
+| dm-130 | Fireworks | — | 17 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
 | dm-134 | Hall of Fire | — | 12 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
@@ -320,6 +321,7 @@
 | dm-167 | Dragon-helm | — | 14 | ☑ |
 | dm-168 | Dwarven Light-stone | — | 13 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
+| dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-178 | Mistress Lobelia | — | 14 | ☑ |
 | dm-179 | Noble Hound | — | 8 | ☑ |
 | dm-180 | Folco Boffin | — | 9 | ☑ |
@@ -571,7 +573,7 @@
 | le-364 | Dead Marshes | — | 15 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
 | le-366 | Dol Amroth | — | 8 | ☑ |
-| le-367 | Dol Guldur | — | 15 | ☑ |
+| le-367 | Dol Guldur | — | 16 | ☑ |
 | le-368 | Drúadan Forest | — | 4 | ☑ |
 | le-369 | Dunharrow | — | 7 | ☑ |
 | le-370 | Dunnish Clan-hold | — | 13 | ☑ |
@@ -594,7 +596,7 @@
 | le-387 | The Lonely Mountain | — | 8 | ☑ |
 | le-388 | Lossadan Cairn | — | 7 | ☑ |
 | le-389 | Lossadan Camp | — | 11 | ☑ |
-| le-390 | Minas Morgul | — | 14 | ☑ |
+| le-390 | Minas Morgul | — | 15 | ☑ |
 | le-391 | Minas Tirith | — | 10 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
 | le-393 | Mount Doom | — | 13 | ☑ |
@@ -680,7 +682,7 @@
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
-| td-103 | Burglary  | — | 12 | ☑ |
+| td-103 | Burglary  | — | 13 | ☑ |
 | td-105 | Cram | — | 16 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
@@ -751,7 +753,7 @@
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
 | tw-58 | Lure of Nature | — | 14 | ☑ |
 | tw-59 | Lure of Power | — | 7 | ☑ |
-| tw-060 | — | — | 7 | ☑ |
+| tw-060 | — | — | 8 | ☑ |
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
@@ -875,6 +877,7 @@
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
 | tw-209 | Dodge | — | 8 | ☑ |
 | tw-210 | Dreams of Lore | — | 11 | ☑ |
+| tw-211 | Dunlendings | — | 4 | ☑ |
 | tw-212 | Durin’s Axe | — | 9 | ☑ |
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
@@ -901,6 +904,7 @@
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
 | tw-255 | Healing Herbs | — | 12 | ☑ |
 | tw-256 | Hiding | — | 9 | ☑ |
+| tw-257 | Hillmen | — | 2 | ☑ |
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |

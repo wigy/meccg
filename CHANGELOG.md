@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.95.0 — 2026-08-10
+
+Ringwraiths ride alone, and the deeps attack in order
+
+### Cards
+
+- Angmarim (as-58) is certified: playable at Carn Dûm, influence check greater than 11, with the Standard Modifications (Wizards -5, Men +1). Its "(Muster has no effect on this attempt)" clause needed a new `block-influence-boost` DSL effect — a self-restriction living on the faction card itself, distinct from the region-scoped `faction-influence-restriction` environment that Mordor in Arms (dm-72) puts into play
+- Noldo-lantern (dm-175) is certified: playable at any Under-deeps site, +2 to the bearer's under-deeps movement roll, and a tap ability giving -2 prowess and -1 strike (minimum one) to Undead, Nazgûl, Orc or Troll attacks on the bearer's company. It extends the Dwarven Light-stone (dm-168) pattern by combining the already-independent prowess and strike modifiers on a single `modify-attack`
+- Dunlendings (tw-211) and Hillmen (tw-257) are certified, both porting the established faction pattern proven by Rangers of the North (tw-311) and Lossoth (tw-268): a home site, an influence number, and race-gated check modifiers
+- Burglary (td-103) is no longer offered as a plain short-event after its declare-burglary window has closed. Its only effect resolves through the dedicated `declare-burglary` action during the site phase's automatic-attacks step, but the generic resource short-event enumerators didn't know that and kept offering it — so playing it later (e.g. during a combat's pre-assignment window) discarded the card for zero effect and the company still had to face the attack
+- Fireworks (dm-130) offers every eligible untapped sage as a target instead of silently picking the first. The "any phase" fast path used a `find` rather than enumerating candidates, so a company with three untapped sages produced exactly one legal action
+- World Gnawed by the Nameless (as-110) is no longer playable during the Organization phase. It grants an extra movement/hazard phase, and cards of that kind have their real play window enforced separately during the M/H phase — but the Organization-phase short-event enumerator was missing the exclusion its Long-event-phase sibling already had, so the card fell through to a no-op play. Forced March (le-185), Bridge (tw-202) and Leg It Double Quick (le-202) were exposed the same way
+
+### Game Engine
+
+- Automatic-attacks at Under-deeps sites resolve in the order printed on the site card. Sites carrying both a printed attack and a "(2nd) Opponent may play … from his hand" dynamic attack — The Under-leas, The Iron-deeps, The Gem-deeps, The Under-vaults and a dozen more across the DM/AS/BA printings — routed straight to the hand-played attack and never came back to it afterwards, so the dynamic attack was reachable only *before* the printed one. Sites with only a dynamic attack, such as Framsburg (td-175), are unaffected
+- A company containing a Ringwraith and non-Ringwraith characters may not move at all, including haven-to-haven starter movement. Such a company is legal only *at* a Darkhaven (rule 3.07), and per a Council of Elrond rules ruling it is "at" neither endpoint while travelling. The engine enforced the composition rule on Organization-phase joins and on the end-of-phase forced combine, but never when an already-legal company actually set out
+- The `cancel-attacks` site rule (Dol Guldur, Minas Morgul, Carn Dûm, The White Towers, Moria, The Under-gates) no longer blocks hazard plays against a company that is merely *moving toward* such a site. Per rule 2.IV.5 a company is "at" neither its origin nor its destination from the moment its new site is revealed until its site phase, and each of these sites only cancels attacks against a company "at this site" — so a company travelling between two of them was wrongly immune to every hazard for the whole trip
+- Corruption checks forced at the end of the untap phase — Lure of the Senses (tw-60/le-124) and every other card using the `on-event: untap-phase-end` → `force-check: corruption` pattern — now allow tapping company-mates in support (rule 7.1.1). Every other corruption-check enqueue site in the engine already passed the flag; this one omitted it, so the check could not be supported at all
+- The Under-deeps extra-item allowance (rule 2.V.5.1, "any one additional item that is playable at the site") accepts items that qualify through their own `item-play-site` restriction rather than through a subtype the site's card text lists. Dwarven Light-stone (dm-168) and Aiglos (dm-166) are playable at any Under-deeps site by their own text, but the bonus check tested only the printed `playableResources` list and rejected them with "site is already tapped"
+
+### Web Client
+
+- Site-bound permanent events show which site they belong to once their company has moved on. Cards like No Strangers at this Time (as-51) render beneath their bound site while a company stands there, but fall into the flat cards-in-play row with no context afterwards; they now carry a site-name badge, and the hover preview gains a "Bound to" line
+- A "Stop Existing Game" button in the lobby kills a player's own lingering game server on demand. Previously a crashed tab or dropped connection left every "Play vs X" action rejected with "You are already in a game" until the 60-second idle-exit grace period expired, with nothing to click
+
+### AI
+
+- The heuristic AI no longer plays Dodge (tw-209) on an already-tapped character. Dodge's only benefit is that the character does not tap against a strike, which is worthless once it is tapped — leaving only the -1 body penalty on any resulting body check. The evaluator zeroed the score for already-*wounded* characters but had no equivalent check for tapped ones
+
 ## 0.94.0 — 2026-08-10
 
 Seven field reports, seven fixes
