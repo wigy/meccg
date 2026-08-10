@@ -183,9 +183,31 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "tap-roll-untap-bearer",
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "set-character-status",
+            "status": "untapped",
+            "target": "bearer"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
       }
     ],
-    "text": "Hoard item. Tap this item and make a roll —if the result is greater than 6, the bearer untaps if tapped. Cannot be duplicated on a given character."
+    "text": "Hoard item. Tap this item and make a roll —if the result is greater than 6, the bearer untaps if tapped. Cannot be duplicated on a given character.",
+    "certified": "2026-08-10"
   },
   {
     "cardType": "minion-resource-item",
