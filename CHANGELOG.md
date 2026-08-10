@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.94.0 — 2026-08-10
+
+Seven field reports, seven fixes
+
+### Cards
+
+- Lossadan Cairn (tw-409) accepts greater Palantíri again. Both its playable-resource list and its `deny-item` site rule gated on item subtype `special` instead of `greater`, so Palantír of Amon Sûl (tw-296) was rejected outright while unrelated `special`-subtype items slipped through. The LE printing of the same site (le-388) already had the correct gate
+- Minion Haradrim (as-63) and minion Wain-easterlings (as-66) now render with their own artwork instead of the hero printings' (as-59/as-60). Both pointed at the hero image filenames; the remaster repo serves the minion printings as `Haradrim2.jpg` and `Waineasterlings2.jpg`, matching the `2`-suffix convention already used by the Angmarim and Petty-dwarves hero/minion pairs in the same set
+
+### Game Engine
+
+- Characters whose homesite reads "Any Dark-hold" — such as Ill-favoured Fellow (wh-5) — can now be played at printed Dark-hold sites like Barad-dûr (le-352). The homesite matcher deliberately excluded Dark-hold on the assumption it was already covered by the Darkhaven path, but Darkhaven is a distinct concept (a minion *haven*), so any Dark-hold site that isn't also a haven was never offered. The Balrog-specific remap of "Any Dark-hold" to non-Dark-hold Under-deeps sites (rule 2.II.2.2.B1) still takes precedence
+
+### Web Client
+
+- Corpse-candle (tw-23/le-67) pre-defense corruption checks stay usable. Because combat enters `assign-strikes` before those per-character checks resolve, the client switched to the combat arena — which has no rendering for corruption checks — hiding the banner naming whose roll was pending, the tap-in-support buttons (CoE 7.1.1), and reactive plays like A Friend or Three. The company view now stays up until the pending checks resolve
+- Region icons in the opponent-turn movement path readout are read from each region's own card rather than by zipping the region-name list against the site-path leg list. For starter haven-to-haven movement those two arrays are not index-parallel, so Anfalas (wilderness) was drawn with a border-land icon purely by array position
+
+### AI
+
+- The heuristic AI plays Ready to His Will (le-220). `convert-creature-to-ally` was missing from the combat action routing set, so it fell through to evaluators that never scored it and took the flat default weight of 1 — well under `assign-strike` — meaning the AI always fought an eligible creature instead of converting it into an ally
+
 ## 0.93.0 — 2026-08-09
 
 Shelob stirs, and the Palantír looks upon the enemy's hand

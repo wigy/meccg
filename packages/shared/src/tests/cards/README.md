@@ -59,7 +59,7 @@
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-59 | Haradrim | — | 6 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
-| as-63 | Haradrim | — | 8 | ☑ |
+| as-63 | Haradrim | — | 9 | ☑ |
 | as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
 | as-71 | The Balrog | — | 2 | ☑ |
@@ -1010,7 +1010,7 @@
 | tw-406 | Lake-town | — | 4 | ☑ |
 | tw-407 | Lond Galen | — | 2 | ☑ |
 | tw-408 | Lórien | — | 6 | ☑ |
-| tw-409 | Lossadan Cairn | — | 8 | ☑ |
+| tw-409 | Lossadan Cairn | — | 9 | ☑ |
 | tw-410 | Lossadan Camp | — | 3 | ☑ |
 | tw-411 | Minas Morgul | — | 7 | ☑ |
 | tw-412 | Minas Tirith | — | 4 | ☑ |
@@ -1051,7 +1051,7 @@
 | wh-2 | Doeth (Durthak) | — | 6 | ☑ |
 | wh-3 | Euog (Ulzog) | — | 12 | ☑ |
 | wh-4 | Gandalf | — | 13 | ☑ |
-| wh-5 | Ill-favoured Fellow | — | 6 | ☑ |
+| wh-5 | Ill-favoured Fellow | — | 7 | ☑ |
 | wh-6 | Lugdush | — | 2 | ☑ |
 | wh-7 | Pallando | — | 6 | ☑ |
 | wh-8 | Radagast | — | 12 | ☑ |
