@@ -538,17 +538,24 @@ function isAhuntInPlay(state: GameState, m: ManifestId): boolean {
 }
 
 /**
- * Returns true when any player has a `reduce-attacks-to-one` permanent event
- * in cardsInPlay (i.e. *Forewarned Is Forearmed* is in play).
+ * Returns true when the *defending* player has a `reduce-attacks-to-one`
+ * permanent event in cardsInPlay (i.e. *Forewarned Is Forearmed* is in play).
+ *
+ * Forewarned Is Forearmed is a defensive resource event: it protects the
+ * company of the player who played it from multi-attack hazards/sites. It
+ * must not be scoped to "any player" — a hazard player who happens to have
+ * their own copy in play (protecting their own companies elsewhere in the
+ * game) must not have it weaken hazards *they* are playing against the
+ * opponent.
  */
-export function isReduceAttacksToOneInPlay(state: GameState): boolean {
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      if (!def) continue;
-      if (!('effects' in def)) continue;
-      if (hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one')) return true;
-    }
+export function isReduceAttacksToOneInPlay(state: GameState, defendingPlayerIndex: number): boolean {
+  const player = state.players[defendingPlayerIndex];
+  if (!player) return false;
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    if (!('effects' in def)) continue;
+    if (hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one')) return true;
   }
   return false;
 }

@@ -3448,7 +3448,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   );
   const rawMultiAttackCount = multiAttackEffect?.count ?? 1;
   // Forewarned Is Forearmed: reduce any multi-attack creature to 1 attack
-  const forewarnedActive = rawMultiAttackCount > 1 && isReduceAttacksToOneInPlay(state);
+  const forewarnedActive = rawMultiAttackCount > 1 && isReduceAttacksToOneInPlay(state, activePlayerIndex);
   if (forewarnedActive) {
     logDetail(`Forewarned Is Forearmed: reducing multi-attack from ${rawMultiAttackCount} to 1`);
   }
