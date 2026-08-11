@@ -73,7 +73,7 @@ function offeredActions(seeds: readonly number[]): GameAction[] {
 }
 
 /** A whole game does not fit vitest's default when files run in parallel. */
-const GAME_TIMEOUT = 60_000;
+const GAME_TIMEOUT = 120_000;
 
 describe('the spellings an action uses', () => {
   test('every action that is about a card or character names one we can find', () => {
