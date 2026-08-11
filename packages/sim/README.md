@@ -816,6 +816,67 @@ What stands after all of it:
 - Both rating methods disagreed in sign on both runs, which remains
   unexplained and is a reason to trust neither one's magnitude.
 
+### Site-deck flow: diagnosed, three fixes, and still not closed
+
+`hand-flow` now reports movement cadence, which is where the remaining gap to
+`heuristic` lives. Twelve games:
+
+| | H2 | `heuristic` |
+|---|---|---|
+| turns / game | 42 | 42 |
+| … turns that planned a move | **30%** | **43%** |
+| site changes / game | **16.8** | **26.7** |
+| distinct sites entered / game | **4.9** | **6.6** |
+
+H2 sits still. The `explain` tree at a declined movement says why in one line:
+
+```text
+travel to Lórien: 0.0%
+├─ destination: 0
+│  ├─ regions crossed: 0  [already here]
+│  ├─ travel cost: +0.0  {regionCrossingCost}
+│  └─ acquisition modules: +0.0  [items / factions / allies do not exist yet]
+```
+
+**A destination with nothing playable on it scores exactly zero, and `pass` is
+zero by definition.** Every movement ties with staying put.
+
+Three changes followed, each defensible on its own terms and **none of which
+moved the cadence**:
+
+- **A spurious penalty on every lateral move, removed.** `travel` answered a
+  movement to any site other than the plan's with `0` — *impossible* — so a
+  commitment worth 12 TSD priced every reachable alternative at −3 against
+  `pass` at zero. Since the engine only offers destinations reachable this
+  turn, a plan for anywhere further made the agent refuse to move at all.
+  Cadence: 33% → 32%.
+- **Reach graded by distance** (`services/reach`, `reachProbability`). The
+  route step was binary, so only a candidate landing exactly on the plan's site
+  could move it. It is now `rate^(regions − 1)` on the engine's own inclusive
+  region distance, with `planUnroutedReachProbability` re-read as the chance of
+  covering one region — no new constant, and progress toward a distant goal
+  finally has a value. Cadence: 32% → 31%.
+- **The site's printed resource draws, priced.** Movement is how a deck is
+  drawn, and the destination model ignored it entirely. Now counted as
+  potential at the same `resourceDrawValue` the module already spends on
+  `select-company`. Cadence: 31% → 30%.
+
+The one lever that *did* respond is the travel cost. At
+`regionCrossingCost=0.05` — an eighth of the shipped 0.4 — distinct sites go
+**4.9 → 5.7** against `heuristic`'s 6.8, though moving turns only reach 32%.
+Combined with `beliefs` scaling the charge by `(1 + P(opponent holds a
+creature))`, which sits near 1.87 with almost nothing seen, the cost of
+crossing three regions is around 2.2 TSD against a destination value rarely
+above 1. That is the arithmetic keeping the agent at home, and it is a
+constant that has never been swept.
+
+**The gap is not closed and none of the three changes is evidence that it can
+be closed this way.** What is established is the diagnosis — destination value
+is dominated by a travel cost that no gate has ever validated — and one
+constant with measured leverage. `sweep --over tunable:regionCrossingCost`
+followed by a gate is the next step, and it is a question about a number
+rather than about a model.
+
 ### Coverage, measured
 
 There is a CLI for this now, because it is the number that decides which module

@@ -107,6 +107,12 @@ interface Report {
   distinctSites: number[];
   /** Site-deck size at the last decision seen, per game. */
   siteDeckLeft: number[];
+  /** Times any company's current site changed, per game. */
+  siteChanges: number[];
+  /** Turns in which at least one movement was planned, per game. */
+  movingTurns: number[];
+  /** Turns seen, per game. */
+  turnsSeen: number[];
 }
 
 const args = parseCliArgs(process.argv.slice(2));
@@ -137,6 +143,9 @@ function emptyReport(spec: string): Report {
     classSum: Object.fromEntries(CLASSES.map(c => [c, 0])) as Record<CardClass, number>,
     distinctSites: [],
     siteDeckLeft: [],
+    siteChanges: [],
+    movingTurns: [],
+    turnsSeen: [],
   };
 }
 
@@ -157,6 +166,12 @@ function playableHere(view: PlayerView, siteDefinitionId: string): number {
 for (let g = 0; g < games; g++) {
   const perGameSites = specs.map(() => new Set<string>());
   const lastSiteDeck = specs.map(() => 0);
+  // Where each company last stood, so a change of site is counted once rather
+  // than once per decision made while standing there.
+  const lastSiteOf = specs.map(() => new Map<string, string>());
+  const changes = specs.map(() => 0);
+  const movingTurns = specs.map(() => new Set<number>());
+  const turnsSeen = specs.map(() => new Set<number>());
 
   /** Wrap an agent so the arrival measurements see the view it acted on. */
   const spy = (index: number): Agent => {
@@ -168,6 +183,20 @@ for (let g = 0; g < games; g++) {
       chooseAction(context: AgentContext) {
         const decision = inner.chooseAction(context);
         lastSiteDeck[index] = context.view.self.siteDeck.length;
+        turnsSeen[index].add(context.view.turnNumber);
+        if (decision.action.type === 'plan-movement') movingTurns[index].add(context.view.turnNumber);
+        // Movement cadence, counted from the board rather than from the
+        // action: a company that plans a move and never completes it has not
+        // reached anywhere, and `plan-movement` alone cannot tell them apart.
+        for (const c of context.view.self.companies) {
+          const here = c.currentSite?.definitionId;
+          if (here === undefined) continue;
+          const key = c.id as unknown as string;
+          if (lastSiteOf[index].get(key) !== here) {
+            if (lastSiteOf[index].has(key)) changes[index]++;
+            lastSiteOf[index].set(key, here);
+          }
+        }
 
         // The engine's marked undos are dropped, as every agent drops them, so
         // an arrival is counted where the agent really had the choice.
@@ -216,6 +245,9 @@ for (let g = 0; g < games; g++) {
   reports.forEach((report, i) => {
     report.distinctSites.push(perGameSites[i].size);
     report.siteDeckLeft.push(lastSiteDeck[i]);
+    report.siteChanges.push(changes[i]);
+    report.movingTurns.push(movingTurns[i].size);
+    report.turnsSeen.push(turnsSeen[i].size);
   });
   process.stderr.write(`  … ${g + 1}/${games} games\n`);
 }
@@ -245,6 +277,9 @@ if (asJson) {
     ),
     meanDistinctSitesEntered: mean(r.distinctSites),
     meanSiteDeckLeft: mean(r.siteDeckLeft),
+    meanSiteChanges: mean(r.siteChanges),
+    meanMovingTurns: mean(r.movingTurns),
+    meanTurns: mean(r.turnsSeen),
   })), null, 2));
 } else {
   console.log(`\nhand-flow: ${games} games, ${specs.join(' vs ')}, `
@@ -268,6 +303,9 @@ if (asJson) {
   console.log('');
   console.log(`${label('distinct sites entered / game')}${cells(r => mean(r.distinctSites).toFixed(1))}`);
   console.log(`${label('site deck left at end')}${cells(r => mean(r.siteDeckLeft).toFixed(1))}`);
+  console.log(`${label('site changes / game')}${cells(r => mean(r.siteChanges).toFixed(1))}`);
+  console.log(`${label('turns / game')}${cells(r => mean(r.turnsSeen).toFixed(1))}`);
+  console.log(`${label('  … turns that planned a move')}${cells(r => `${mean(r.movingTurns).toFixed(1)} (${(mean(r.movingTurns) / Math.max(1, mean(r.turnsSeen)) * 100).toFixed(0)}%)`)}`);
   console.log('\nArriving with nothing playable is a hand-flow failure; arriving fewer');
   console.log('times is a site-deck-flow one. They need different fixes.\n');
 }
