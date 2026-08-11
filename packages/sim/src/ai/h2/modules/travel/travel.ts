@@ -37,15 +37,17 @@
 
 import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
+import type { Plan, PlanStep } from '../../core/plan.js';
+import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeBeliefs } from '../../services/beliefs.js';
-import { computeDefence } from '../../services/defence.js';
+import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
-import type { AttackProfile } from '../../services/strike/sequence.js';
+import { computeReach } from '../../services/reach.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
@@ -204,25 +206,6 @@ function siteDefinitionOf(context: ModuleContext, companyId: string): string | u
   return (company?.destinationSite ?? company?.currentSite)?.definitionId;
 }
 
-/** The attacks a site inflicts on any company that enters it, as attack profiles. */
-function automaticAttacksOf(
-  cardPool: ModuleContext['cardPool'],
-  siteDefinitionId: string,
-): AttackProfile[] {
-  const def = cardPool[siteDefinitionId] as unknown as {
-    automaticAttacks?: readonly {
-      strikes?: number; prowess?: number; body?: number; creatureType?: string;
-    }[];
-  } | undefined;
-  return (def?.automaticAttacks ?? []).map(attack => ({
-    strikeProwess: attack.prowess ?? 0,
-    strikes: attack.strikes ?? 1,
-    creatureBody: attack.body ?? null,
-    detainment: false,
-    bodyCheckModifier: 0,
-    name: attack.creatureType,
-  }));
-}
 
 /** Assumptions every travel evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
@@ -272,7 +255,22 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const threat = beliefs.holdsAtLeastOne('creature');
   const tempo = site.pathLength * tunables.regionCrossingCost * (1 + threat);
 
-  const dtsd = netTsdDelta({ realized, potential, tempo }, tunables);
+  // The cards the site draws on arrival. Priced at the same
+  // `resourceDrawValue` this module already spends on `select-company`, so the
+  // two cannot disagree about what a card is worth — and counted as potential
+  // rather than realized, because a drawn card is not a point until it is
+  // played.
+  //
+  // Leaving it out was the whole of the "sits still" problem. A destination
+  // with nothing playable on it scored *exactly* zero, and `pass` is zero by
+  // definition, so every movement tied with staying put and the tie fell
+  // wherever it fell: measured against `heuristic`, a move planned on 31% of
+  // turns against 42%, and 16.8 site changes a game against 26.6. Movement is
+  // how a deck is drawn in this game, and a destination model that ignores the
+  // draw cannot see the main reason to go anywhere.
+  const draws = site.resourceDraws * tunables.resourceDrawValue;
+
+  const dtsd = netTsdDelta({ realized, potential: potential + draws, tempo }, tunables);
   const label = playableNow.length > 0
     ? `arrive at ${site.name} and play ${playableNow.map(c => c.name).join(', ')}`
     : `arrive at ${site.name} with nothing to play`;
@@ -290,6 +288,11 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         + `${beliefs.observed} cards seen)`,
     }),
     leaf('taps available', destination.tapsAvailable),
+    leaf('resource draws', draws, {
+      unit: 'tsd',
+      tunable: 'resourceDrawValue',
+      note: `${site.resourceDraws} card(s) printed on the site, discounted as potential`,
+    }),
   ];
   for (const card of playableNow) {
     detail.push(leaf(card.name, card.tsd, {
@@ -587,6 +590,76 @@ export const travelModule: H2Module = {
       || a.type === 'declare-path'
       || a.type === 'enter-site'
       || a.type === 'select-company');
+  },
+
+  /**
+   * The plan layer's first consumer: whether anything is actually going there.
+   *
+   * `travel` owns every `route` step because reaching a site is a movement
+   * question, and a proposer that answered it would be a second model of
+   * movement — the thing this module's own header refuses on `plan-movement`
+   * and `cancel-movement`. The proposer names the requirement; this decides
+   * what a candidate does to it.
+   *
+   * Two answers. Planning the required company's movement to the plan's site
+   * makes reaching it certain; entering that site completes the journey.
+   * Everything else — including moving that company somewhere else — leaves
+   * the step alone, because a detour delays a plan rather than killing it.
+   *
+   * The gap between the unrouted prior and the certainty a movement buys is
+   * exactly the value of the trip — which is the number
+   * `evaluateEnterSite` has never had. It prices entering as what becomes
+   * playable now minus the site's attacks now, so with nothing in hand it is
+   * strictly negative against `pass`, and it was measured ranking dead last on
+   * every decline. The model was never wrong; it was being asked after the
+   * decision that would have justified the journey was already lost.
+   */
+  planStepDelta(
+    action: GameAction,
+    plan: Plan,
+    step: PlanStep,
+    _stepIndex: number,
+    context: ModuleContext,
+  ): number | null {
+    if (step.tag !== ROUTE_STEP) return null;
+    const required = plan.requirements.find(r => r.kind === 'company-at-site');
+    if (!required || required.kind !== 'company-at-site') return null;
+    const named = (action as unknown as { companyId?: string }).companyId;
+    if (named !== (required.companyId as unknown as string)) return null;
+
+    // Entering is the moment the play becomes possible, and it was invisible
+    // to the first version of this: a company standing on the plan's site
+    // counted as "routed" at probability 1, so entering moved nothing, earned
+    // nothing, and was priced by `evaluateEnterSite` alone — what becomes
+    // playable *now* minus the site's attacks *now*, which is negative
+    // whenever the hand is not already holding the card. It ranked dead last
+    // on every decline, measured at a mean fractional rank of 1.00 both before
+    // the plan layer and after it, which is what gave the defect away: a
+    // number that does not move when you add a mechanism is a number the
+    // mechanism never reached.
+    if (action.type === 'enter-site') {
+      const company = context.view.self.companies.find(
+        c => (c.id as unknown as string) === named,
+      );
+      return company?.currentSite?.definitionId === required.siteDefinitionId ? 1 : null;
+    }
+
+    if (action.type !== 'plan-movement') return null;
+    const destination = destinationOf(context.view, action);
+    if (!destination) return null;
+    if (destination.definitionId === required.siteDefinitionId) return 1;
+
+    // Not the plan's site, but possibly nearer to it. Progress is the whole
+    // point: the engine only offers destinations reachable this turn, so a
+    // commitment to anywhere further can *only* be served by a staging move,
+    // and a step that recognised nothing but the final hop credited none of
+    // them. Recomputed with the same service and the same rate the proposer
+    // used, so the two cannot disagree about the map.
+    const reach = computeReach(context.cardPool);
+    const distance = reach.between(destination.definitionId, required.siteDefinitionId);
+    if (distance === null) return null;
+    return reachProbability(distance, context.tunables.planUnroutedReachProbability);
+
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {

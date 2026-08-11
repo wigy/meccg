@@ -392,7 +392,7 @@ Status by phase:
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
 | P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
-| Plan layer | scaffolding only — `core/plan`, `services/portfolio`, `H2Module.proposePlans`, printed by `explain`. **No module proposes yet**, so the portfolio is always empty and nothing reads it |
+| Plan layer | `core/plan`, `services/portfolio`, `services/plan-value`, printed by `explain`. `resources` and `factions` propose; `travel`, `hand` and `characters` own steps. Measured at n=20 against its own off-switch: behaviour moves, score does not. No survival step yet; not gated |
 
 ### The plan layer
 
@@ -442,10 +442,440 @@ PLANS
   └─ nothing proposed: no module offered a plan for this position
 ```
 
-That is what it says today, everywhere, and correctly: no module implements
-`proposePlans`. The first proposer (`resources`) and the first consumer
-(`travel`) are the next step, along with the rule that turns a plan into a
-number on a candidate.
+#### The first proposer, the first consumer, and what a plan is worth
+
+`resources` proposes: *play this card at that site*, with the site taken from
+the **site deck** rather than from wherever the company happens to stand. That
+is the strategic half its own module comment has always said was missing, in
+its narrowest form. `travel` owns the one step — whether anything is actually
+going there — because reaching a site is a movement question, and a proposer
+that answered it would be the second model of movement this module already
+refuses to have.
+
+A contribution is then
+
+```text
+score(a) = Σ_p ∈ committed  payoff_p × [ P_p(complete | a) − P_p(complete | pass) ]
+         + tactical(a)
+```
+
+with `W` applied **once**, to the evaluation's own outcome distribution shifted
+by that sum. Three things about that are load-bearing:
+
+- **The sum is in TSD.** `W` is nonlinear, so adding two ΔP(win) figures is
+  arithmetically wrong, and wrong hardest in the close games that matter most.
+- **The distribution is shifted, not the mean.** A plan contribution is
+  deterministic given the action, so it moves every outcome equally and leaves
+  σ intact — which is what keeps the risk posture's grip on the action.
+- **Only a step's owner may move it.** The plan owning the payoff stops two
+  modules booking the same points; it does nothing about two modules each
+  claiming they raised the same `P(complete)` by 0.3. One owner per step makes
+  that double-count structurally impossible, exactly as the single-owner action
+  registry does for evaluations. A step driven to zero *is* the veto channel,
+  so there is one mechanism rather than two.
+
+Both aggregation rules ship, per §7 of the spec: `planAggregationMode` 0 sums
+as above, 1 is Borda over the tactical ranking plus one ballot per committed
+plan. Voting discards magnitude by construction — that is the property being
+bought and the reason it is the challenger rather than the default. The gate
+decides.
+
+#### Does it work? The funnel says yes; the scoreline says not yet
+
+Six games, `h2` versus `heuristic`, challenge decks A/B, seeds 1–6 — the same
+run as the baseline above:
+
+| | baseline | with the plan layer |
+|---|---|---|
+| `play-hero-resource` **offered** | 4 | **10** |
+| `influence-attempt` offered | 7 | 11 |
+| `enter-site` take-rate | 17.2% | **29.9%** |
+| games taking any scoring action | 4/6 | **5/6** |
+| item MP | 0.7 (0 in 4/6) | 1.0 (0 in 3/6) |
+| faction MP | 2.2 | 3.3 |
+| ally MP | 0.0 (0 in 6/6) | 0.3 (0 in 5/6) |
+| character MP | 1.5 | 2.2 |
+| `misc` MP | −0.8 | 0.0 |
+
+Every column moves the way the design predicts, and the one that matters most
+is the first: the acquisition modules are asked two and a half times as often,
+because something is finally routing companies to sites where a card in hand
+can be played. `enter-site` is taken nearly twice as often for the same reason
+— the trip now has a value the moment it is planned, instead of being priced
+only on arrival, when the model correctly concludes there is nothing to do
+there.
+
+What this is **not** is a strength result. `heuristic` still scores 5.5 item MP
+a game against the plan layer's 1.0, the human corpus median is 6, and six
+games carry no confidence interval worth quoting. Nothing here has been gated.
+The claim is that the mechanism fires and moves the metric it was built to
+move; whether it wins games is step 5's question.
+
+One game in six still hits the decision limit — the `split-company` →
+`plan-movement` → `merge-companies` cycle, which is untouched by any of this
+and tracked separately.
+
+#### Widening it, three bugs, and a clean negative result
+
+The six-game table above did not survive a larger sample, and it should not
+have been quoted as a result: at that size the differences it reports are
+inside what six games produce by themselves. Run properly — **20 games, same
+seeds, same binary**, against `h2:all/planContributionWeight=0` as the control,
+which is the layer switched off rather than a different branch:
+
+| | control (weight 0) | plan layer |
+|---|---|---|
+| `enter-site` take-rate | 23.4% | **50.5%** |
+| `play-hero-resource` offered | 19 | **33** |
+| `influence-attempt` offered | 28 | **43** |
+| games taking any scoring action | 13/20 | **18/20** |
+| item MP | 0.5 (0 in 15/20) | 0.5 (0 in 15/20) |
+| faction MP | 2.1 | 2.1 |
+| ally MP | 0.0 (0 in 20/20) | 0.0 (0 in 20/20) |
+| character MP | 1.9 | 1.9 |
+| `misc` MP | −1.0 | −1.0 |
+| `kill` MP | 3.9 | 5.0 |
+
+**The behaviour changes a great deal and the score does not move at all.**
+Entering a site is taken twice as often, resource plays are offered nearly
+twice as often and taken 32 times out of 33, and something scores in 18 games
+of 20 instead of 13 — and every marshalling-point category the layer targets
+comes out identical to the control. The only category that moves is `kill`,
+which is the passive one: entering more sites means facing more automatic
+attacks, and some of them die.
+
+That is the honest state of it. The mechanism does what it was designed to do
+and converts none of it into points.
+
+The leading explanation is a step that is **not** in the model: nothing in
+`P(complete)` asks whether the company survives. A plan says *get there, hold
+the card, keep someone untapped, play it* and never *and live*. So the agent
+now walks into sites it cannot survive, gains the item, and loses it with the
+character carrying it — which is consistent with `misc` sitting at −1.0 and
+`kill` being the one number that moved. Modelling the arrival is the obvious
+next change, and §6's calibration is what would prove it: a `P(complete)`
+that is systematically higher than the rate plans actually complete at is
+exactly what an unmodelled step looks like.
+
+Three real defects were found and fixed getting to this point, each caught by
+dumping the ranking at a decision rather than by reasoning about it:
+
+- **`travel` never answered `enter-site`.** Entry is the moment a plan pays
+  off, and the module only responded to `plan-movement`, so entering moved no
+  probability and earned no contribution. It was priced by `evaluateEnterSite`
+  alone — what becomes playable now minus the site's attacks now — which is
+  negative whenever the hand is not already holding the card. Measured on one
+  position: **−0.465% before, +18.3% after**, with a +6.0 TSD contribution.
+  The giveaway was that `enter-site`'s mean rank when declined was 1.00 both
+  before the plan layer and after it. A number that does not move when you add
+  a mechanism is a number the mechanism never reached.
+- **The carrier step read a present-tense fact as a future probability.**
+  "Is anyone untapped *right now*" is not the question for a goal three turns
+  out, with an untap phase in between — and during the site phase, when
+  companies are tapped, it zeroed every plan. One probed position went from
+  **0 committed plans to 5**.
+- **Proposers scanned only the site deck.** A site the company is standing on
+  has *left* the deck, so the proposal vanished and the portfolio dropped the
+  commitment as `withdrawn` one decision before the `enter-site` that would
+  have completed it. Plans died exactly when they were about to pay.
+
+#### Adding the missing step: what the trip costs
+
+A plan that never asked whether the company survives is not a plan, so the
+site's printed automatic attacks are now priced through `defence` and **netted
+off the payoff** before a plan is proposed at all. In TSD rather than as a
+probability: `defence` reports harm in TSD, and a harm-to-probability
+conversion would be a second model of the same thing, which is what this
+service exists to prevent. `automaticAttacksOf` moved out of `travel` and into
+`defence` for the same reason — three consumers, one number.
+
+The filter that already dropped points capped to zero now also drops goals the
+site would take back. It behaves exactly as designed: the agent became more
+selective, entering sites 42.0% of the time rather than 50.5%.
+
+**It did not move the score.** Against the same control:
+
+| n=20, same seeds | control | plan layer | + survival cost |
+|---|---|---|---|
+| `enter-site` take-rate | 23.4% | 50.5% | 42.0% |
+| `play-hero-resource` offered | 19 | 33 | 27 |
+| games scoring anything | 13/20 | 18/20 | 15/20 |
+| item MP | 0.5 | 0.5 | 0.7 |
+| faction MP | 2.1 | 2.1 | 2.0 |
+| character MP | 1.9 | 1.9 | 1.6 |
+
+With 14 of 20 games still scoring zero item MP, 0.5 → 0.7 is one extra game,
+not a result.
+
+#### What the head-to-head funnel says, and it is not what the spec assumed
+
+The same run reports `heuristic`'s chain beside H2's, and that comparison is
+the most useful number produced by any of this work:
+
+| per 20 games | H2 + plan layer | `heuristic` |
+|---|---|---|
+| `enter-site` offered | 345 | **534** |
+| `enter-site` take-rate | 42.0% | 44.0% |
+| `declare-path` | 270 | **404** |
+| `play-hero-resource` offered | 27 | **91** |
+| plays per site entered | 0.19 | **0.39** |
+| games scoring anything | 15/20 | **20/20** |
+| item MP | 0.7 | 4.5 |
+
+The entering decision is **not** the difference: 42.0% against 44.0% is a tie,
+and the plan layer closed that gap from 23.4%. What is left is upstream of
+everything the plan layer touches. `heuristic` reaches half again as many
+sites, and when it arrives it holds something playable **twice as often per
+entry**. Its destination score is the crude `max(10, mp × 20)` per playable
+hand card that §2.1 exists to criticise — and crude or not, it is picking
+places where its hand can do something, more reliably than a marginal-TSD
+model netted of harm.
+
+So the spec's §1 hypothesis — that the AI scores nothing because nothing
+routes it to scoring sites — has been tested over three measured iterations
+and is at best incomplete. It now routes and enters at very nearly
+`heuristic`'s rate and still scores a fifth as much. The remaining gap is in
+*which* sites and *what is in hand when it gets there*.
+
+### Hand flow and site-deck flow, and the thing actually stopping it
+
+```sh
+npm run hand-flow -w @meccg/sim -- --games 12
+```
+
+`scoring-loop` counts what is offered. It cannot see the state the company is
+*in* when it arrives, and that turned out to be the whole story. This reports,
+at every arrival — every decision where `enter-site` is on the table — what is
+in hand, whether any of it is playable **at that site**, and whether anyone in
+the company is still untapped to play it.
+
+Twelve games, H2 with the plan layer against `heuristic`:
+
+```text
+                                                h2       heuristic
+arrivals (enter-site offered)                  193             329
+  … entered                             71 (36.8%)     145 (44.1%)
+  … nothing playable there              22 (11.4%)     168 (51.1%)
+mean playable at arrival                      1.96            0.78
+mean untapped in that company                 0.55            1.73
+  … arrivals with nobody to tap        145 (75.1%)      77 (23.4%)
+hand: item                                    2.47            0.68
+hand: faction                                 2.12            0.25
+distinct sites entered / game                  4.4             7.3
+```
+
+Read the middle two rows first, because they invert the hypothesis that
+prompted the diagnostic. **Hand flow is not the problem.** H2 arrives holding
+1.96 playable cards against `heuristic`'s 0.78, and arrives with nothing
+playable 11.4% of the time against 51.1%. Its hand is *fuller* of exactly the
+right cards — 2.47 items and 2.12 factions against 0.68 and 0.25 — because it
+never plays them. `heuristic`'s hand is empty of items for the best possible
+reason.
+
+**H2 arrives at a site with nobody left to tap 75.1% of the time.** The cards
+are there, the company is there, and there is no untapped character to tap for
+the play, so `play-hero-resource` is never offered at all.
+
+`tapTempoCost`'s own doc comment predicted this in as many words — *"an AI
+that taps freely arrives at its site unable to score"* — and it is a flat 0.3
+TSD that does not know a commitment exists. `influence-attempt` is taken by H2
+at 93.9% against `heuristic`'s 73.9%, and every one of those taps somebody.
+
+So the price of the **last** tap is now the plan it forfeits. `characters`
+already owned the carrier step for company-shape actions; it now answers for
+*any* action that spends the last untapped character in a company carrying a
+commitment, whatever the action is called. That is the plan layer doing the
+one thing a flat tunable cannot: attaching a cost that belongs to a commitment
+to a decision that has no idea the commitment is there.
+
+Measured on the same twelve games:
+
+| | before | after |
+|---|---|---|
+| arrivals with nobody to tap | 145 (75.1%) | **124 (64.6%)** |
+| mean untapped in that company | 0.55 | **0.67** |
+| `enter-site` take-rate | 36.8% | **42.7%** |
+| distinct sites entered / game | 4.4 | **4.9** |
+| hand: item | 2.47 | **2.06** |
+| hand: faction | 2.12 | 2.06 |
+
+Every column moves, including the one that matters most: the hand stops
+filling up with items, because they are being played.
+
+### A note on what these tables can and cannot show
+
+The marshalling-point means quoted throughout this section are **not**
+significant at the sample sizes they were taken at, and should not be read as
+though they were. At n=20 between 14 and 17 of the 20 games score zero item
+MP, so the mean is three games wearing a decimal point, and it has moved
+0.5 → 0.5 → 0.7 → 0.3 across four changes whose funnel metrics all improved
+monotonically.
+
+The funnel counts are trustworthy — they aggregate thousands of decisions per
+run and they have moved consistently and in one direction throughout. The
+score column is not, and every claim in this section is stated against the
+funnel for that reason. Whether any of it is worth Elo is a question for
+`gate`, which is the instrument built for exactly this and the only one quoted
+here with a confidence interval.
+
+### The gate: the layer against its own off-switch
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/planContributionWeight=0' --pairs 24 --rounds 2 --jobs 6 --min-elo 0
+```
+
+The cleanest A/B available: the same binary, the same modules, the same
+proposals and portfolio, with only the contribution weight changed. 96 games,
+paired seeds, side-swapped.
+
+```text
+score:     38W-25L-1D (score 60.2%) over 64 rated games
+elo diff:  +72 [-12, +165] (95% CI, challenger − champion)
+  paired:  +92 [-2, +203] over 25 complete pair(s) — the criterion
+failures:  32
+
+FAIL — Elo-diff lower bound -2 < 0: challenger is too weak
+FAIL — 32 game(s) did not complete (engine bug or decision limit)
+```
+
+**It does not pass, and it misses by two Elo points.** The criterion is the
+paired lower bound at `--min-elo 0` — a strict promotion bar, "must
+demonstrably beat the champion" — and −2 fails it. That is a real failure and
+not a rounding argument: the honest statement is that 96 games cannot
+distinguish this from no effect.
+
+It is also the first number in this work that points anywhere. 60.2% and a
+paired point estimate of +92 Elo is not nothing, and the interval is wide
+because the sample is small — which brings up the thing now blocking every
+measurement here.
+
+**A third of the games did not finish.** 32 of 96 hit the decision limit, all
+of them in the `split-company` → `plan-movement` → `merge-companies` cycle
+described above, and they are excluded from the rating: 64 rated games out of
+96 played. The cycle is not merely an embarrassment in a lobby game, it is
+the reason this gate cannot resolve — it throws away a third of every sample
+and widens the interval by roughly the amount needed to clear zero. Fixing it
+is now the highest-value work available, ahead of anything else in this
+section.
+
+One caution on reading the output: the `glicko-2` line disagrees in *sign*
+with the Elo estimate on this run, and that is unexplained. The paired Elo
+bound is the documented criterion and is what is quoted here, but two rating
+methods disagreeing is itself a reason to treat +92 as a direction rather than
+a magnitude.
+
+### The cycle guard, and what it did to that number
+
+The organization-phase cycle is fixed. A deterministic argmax policy plus a
+legal no-op loop is a hang, and `state-signature` already existed for it — but
+the `bc` agent's guard keys on *action identity*, and every `split-company`
+mints a fresh company ID, so the `merge-companies` that follows is a move the
+guard has never seen. `cycle-guard.ts` keys on the **position** instead:
+revisit a signature often enough and the conclusion is not that some move was
+wrong, it is that everything tried from here led back here. Above the
+threshold the spent action *types* are dropped; if that leaves nothing, `pass`
+ends the phase and the position cannot recur.
+
+It only ever narrows, so below the threshold — every position in a healthy
+game — behaviour is bit-identical. Eight visits is chosen above the longest
+legitimate run of same-signature decisions, because the signature is coarse
+enough that a long attack can assign several strikes without moving anything
+it watches.
+
+Re-running the same gate with it in place:
+
+| | 32 failures | 2 failures |
+|---|---|---|
+| games not completing | 32 of 96 | **2 of 96** |
+| complete pairs rated | 25 | **46** |
+| score | 60.2% | 45.7% |
+| paired Elo | **+92 [−2, +203]** | **−30 [−91, +28]** |
+
+**The +92 was an artifact of the discarded third of the sample.** With the
+sample repaired the plan layer shows no measurable strength effect at all:
+−30 Elo with an interval straddling zero. That is not "it fails by two
+points"; it is "there is nothing here to detect at 96 games", and the earlier
+number was the most encouraging figure in this whole section.
+
+The bias is not mysterious in hindsight. The discarded games were exactly the
+ones where the cycle fired, and whether it fires is not independent of which
+agent is playing — so throwing them away threw away a non-random third. Any
+result computed on a sample with a third of it missing for a
+behaviour-dependent reason deserves the suspicion this one turned out to
+warrant.
+
+What stands after all of it:
+
+- **The cycle guard is a clear win** and the only unambiguous one: 32
+  unfinished games to 2, and a lobby game against a human can no longer hang.
+- **The plan layer moves behaviour reliably and strength not at all.**
+  `enter-site` take-rate 23.4% → 47.6%, arrivals with nobody to tap 75.1% →
+  64.6%, resource plays offered 19 → 31 — every funnel metric, monotonically,
+  across five changes. Elo: nothing detectable.
+- Both rating methods disagreed in sign on both runs, which remains
+  unexplained and is a reason to trust neither one's magnitude.
+
+### Site-deck flow: diagnosed, three fixes, and still not closed
+
+`hand-flow` now reports movement cadence, which is where the remaining gap to
+`heuristic` lives. Twelve games:
+
+| | H2 | `heuristic` |
+|---|---|---|
+| turns / game | 42 | 42 |
+| … turns that planned a move | **30%** | **43%** |
+| site changes / game | **16.8** | **26.7** |
+| distinct sites entered / game | **4.9** | **6.6** |
+
+H2 sits still. The `explain` tree at a declined movement says why in one line:
+
+```text
+travel to Lórien: 0.0%
+├─ destination: 0
+│  ├─ regions crossed: 0  [already here]
+│  ├─ travel cost: +0.0  {regionCrossingCost}
+│  └─ acquisition modules: +0.0  [items / factions / allies do not exist yet]
+```
+
+**A destination with nothing playable on it scores exactly zero, and `pass` is
+zero by definition.** Every movement ties with staying put.
+
+Three changes followed, each defensible on its own terms and **none of which
+moved the cadence**:
+
+- **A spurious penalty on every lateral move, removed.** `travel` answered a
+  movement to any site other than the plan's with `0` — *impossible* — so a
+  commitment worth 12 TSD priced every reachable alternative at −3 against
+  `pass` at zero. Since the engine only offers destinations reachable this
+  turn, a plan for anywhere further made the agent refuse to move at all.
+  Cadence: 33% → 32%.
+- **Reach graded by distance** (`services/reach`, `reachProbability`). The
+  route step was binary, so only a candidate landing exactly on the plan's site
+  could move it. It is now `rate^(regions − 1)` on the engine's own inclusive
+  region distance, with `planUnroutedReachProbability` re-read as the chance of
+  covering one region — no new constant, and progress toward a distant goal
+  finally has a value. Cadence: 32% → 31%.
+- **The site's printed resource draws, priced.** Movement is how a deck is
+  drawn, and the destination model ignored it entirely. Now counted as
+  potential at the same `resourceDrawValue` the module already spends on
+  `select-company`. Cadence: 31% → 30%.
+
+The one lever that *did* respond is the travel cost. At
+`regionCrossingCost=0.05` — an eighth of the shipped 0.4 — distinct sites go
+**4.9 → 5.7** against `heuristic`'s 6.8, though moving turns only reach 32%.
+Combined with `beliefs` scaling the charge by `(1 + P(opponent holds a
+creature))`, which sits near 1.87 with almost nothing seen, the cost of
+crossing three regions is around 2.2 TSD against a destination value rarely
+above 1. That is the arithmetic keeping the agent at home, and it is a
+constant that has never been swept.
+
+**The gap is not closed and none of the three changes is evidence that it can
+be closed this way.** What is established is the diagnosis — destination value
+is dominated by a travel cost that no gate has ever validated — and one
+constant with measured leverage. `sweep --over tunable:regionCrossingCost`
+followed by a gate is the next step, and it is a question about a number
+rather than about a model.
 
 ### Coverage, measured
 

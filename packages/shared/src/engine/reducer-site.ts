@@ -3092,6 +3092,11 @@ function handleSitePlayHeroResource(
     // site (other than the item-player) makes a corruption check modified by
     // subtracting the item's corruption points.
     afterAttach = fireItemPlayCorruptionChecks(afterAttach, playerIndex, siteState.activeCompanyIndex, targetCharId, def);
+    // Wizard's Ring (tw-363): "Bearer makes a corruption check when this
+    // item is played" — a self-enters-play force-check declared on the
+    // item itself, distinct from fireItemPlayCorruptionChecks above (which
+    // fires other characters' checks off a site-bound constraint like Greed).
+    afterAttach = fireItemSelfPlayCorruptionCheck(afterAttach, playerIndex, targetCharId, action.cardInstanceId, def);
   }
 
   // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
@@ -3171,6 +3176,53 @@ function handleSitePlayHeroResource(
   }
 
   return { state: afterAttach };
+}
+
+/**
+ * Fire an item's own `on-event: self-enters-play` → `enqueue-corruption-check`
+ * effect on its newly attached bearer (e.g. Wizard's Ring tw-363: "Bearer
+ * makes a corruption check when this item is played"). Unlike
+ * `fireItemPlayCorruptionChecks` (Greed's site-bound constraint firing checks
+ * for *other* characters at the site), this reads the effect straight off
+ * the played item's own definition and checks only its bearer — mirroring
+ * the short-event/permanent-event `self-enters-play` → `enqueue-corruption-check`
+ * handling in `reducer-events.ts` / `chain-reducer.ts`, extended to items.
+ */
+function fireItemSelfPlayCorruptionCheck(
+  state: GameState,
+  playerIndex: number,
+  targetCharId: CardInstanceId,
+  itemInstanceId: CardInstanceId,
+  itemDef: ReturnType<typeof defById>,
+): GameState {
+  const effects = getOnEventEffects(itemDef, 'self-enters-play')
+    .filter(e => e.apply.type === 'enqueue-corruption-check');
+  if (effects.length === 0) return state;
+
+  const player = state.players[playerIndex];
+  const char = player.characters[targetCharId];
+  if (!char) return state;
+  const charDef = defById(state, char.definitionId);
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? 'item';
+
+  let newState = state;
+  for (const effect of effects) {
+    const apply = effect.apply as { readonly modifier?: number; readonly onSuccess?: import('../types/effects.js').TriggeredAction };
+    logDetail(`${itemName}: self-enters-play triggers a corruption check for bearer ${charDef?.name ?? (targetCharId as string)}`);
+    newState = enqueueCorruptionCheck(newState, {
+      source: itemInstanceId,
+      actor: player.id,
+      scope: { kind: 'phase', phase: Phase.Site },
+      characterId: targetCharId,
+      modifier: apply.modifier ?? 0,
+      reason: itemName,
+      onSuccess: apply.onSuccess,
+      // CoE 7.1.1: any corruption check declared but not yet resolved may
+      // be supported by tapping untapped company mates for +1 each.
+      allowSupport: true,
+    });
+  }
+  return newState;
 }
 
 /**

@@ -105,6 +105,32 @@ export interface PlanStep {
   readonly label: string;
   /** Probability it does, in [0, 1]. */
   readonly p: number;
+  /**
+   * The one module allowed to move this probability.
+   *
+   * Ownership is per *step*, and it is what makes contributions addable. §4 of
+   * the spec forbids two modules booking the same payoff, and the plan owning
+   * the payoff settles that — but it says nothing about two modules each
+   * claiming they raised `P(complete)` by 0.3, which is the same double-count
+   * one level down and just as wrong. One owner per step makes it structurally
+   * impossible rather than merely forbidden, in the same way the single-owner
+   * action registry does for evaluations.
+   *
+   * The owner is normally not the proposer: `resources` proposes *play this
+   * item at that site* and owns the roll, while the probability of ever
+   * reaching the site belongs to `travel`, which is the only module that knows
+   * what movement costs.
+   */
+  readonly owner: string;
+  /**
+   * Machine-readable kind, for the owner to recognise its own step by.
+   *
+   * Labels carry the site name and read differently per plan, so matching on
+   * them would couple an owner to a proposer's phrasing. The tag is the
+   * contract between them: `travel` moves the step tagged `route`, whoever
+   * proposed the plan and whatever they called it.
+   */
+  readonly tag?: string;
   /** Which service produced `p`, for the rationale tree. */
   readonly source?: string;
 }
@@ -143,6 +169,22 @@ export interface Plan {
  */
 export function completionProbability(plan: Plan): number {
   return plan.steps.reduce((p, step) => p * step.p, 1);
+}
+
+/**
+ * `P(complete)` with some steps' probabilities replaced, keyed by step index.
+ *
+ * The counterfactual behind every plan contribution: what the commitment would
+ * be worth if this candidate action were taken. Indexed rather than matched by
+ * label because two steps of one plan may legitimately read the same — two
+ * regions to cross, both risky — and a label collision would silently move the
+ * wrong one.
+ */
+export function completionProbabilityWith(
+  plan: Plan,
+  revised: ReadonlyMap<number, number>,
+): number {
+  return plan.steps.reduce((p, step, index) => p * (revised.get(index) ?? step.p), 1);
 }
 
 /** What the commitment is worth right now: payoff discounted by getting there. */
@@ -216,4 +258,78 @@ export function describeRequirement(requirement: Requirement): string {
     case 'card-in-hand':
       return `${requirement.cardInstanceId} still in hand`;
   }
+}
+
+/**
+ * Tag of the step asking whether anything is actually going to the site.
+ *
+ * Named here rather than in either module because it is the contract between
+ * them: a proposer marks the step, `travel` recognises it, and neither has to
+ * import the other — which is the boundary `architecture.test` enforces.
+ */
+export const ROUTE_STEP = 'route';
+
+/**
+ * Tag of the step asking whether the card is still in hand to be played.
+ *
+ * Owned by `hand`, which is the only module that discards. Its whole job is
+ * to be driven to zero: a plan whose card has been thrown away is not a worse
+ * bet, it is not a bet at all, and expressing that as a probability keeps one
+ * mechanism where a separate veto channel would be two.
+ */
+export const CARD_STEP = 'card-in-hand';
+
+/**
+ * Tag of the step asking whether anyone in the company can still make the play.
+ *
+ * Owned by `characters`, because every action that changes who stands in a
+ * company is one of its — `split-company`, `move-to-company`,
+ * `discard-character`. It is binary rather than graded: the rules ask for one
+ * untapped character, so the company either has one or it does not, and a
+ * fraction here would be a constant nobody could calibrate.
+ */
+export const CARRIER_STEP = 'carrier';
+
+/**
+ * Tag of the step asking whether the influence check passes.
+ *
+ * Owned by `factions`, and the one step in the layer that **nothing moves** —
+ * deliberately, and unlike the others. A step no module can move is normally a
+ * constant pretending to be a probability, which is why the first proposer
+ * shipped with one step rather than four. This one is a real 2d6, and no
+ * candidate action changes the die: it belongs in `P(complete)` because
+ * leaving it out would overstate every faction plan, and it stays static
+ * because that is the truth about it.
+ */
+export const CHECK_STEP = 'influence-check';
+
+/**
+ * Probability of covering a remaining region distance, from a per-region rate.
+ *
+ * The route step used to be binary — certain when the company was already
+ * headed to the site, a flat prior otherwise — and that is what made the agent
+ * stand still. MECCG movement is multi-hop and the engine only offers
+ * destinations reachable this turn, so a commitment to a distant site is
+ * routinely one that no candidate can serve. Every reachable move then moved
+ * the step not at all, and `travel` scores a destination with nothing playable
+ * on it at exactly zero, so every movement tied with `pass` and the agent went
+ * nowhere: a move planned on 32% of turns against `heuristic`'s 44%, and 16.8
+ * site changes a game against 29.8.
+ *
+ * Grading it by distance is what makes *progress* worth something. `rate` is
+ * the chance of covering one more region — `planUnroutedReachProbability`,
+ * read as what it was always approximating — and the distance is the engine's
+ * own inclusive region distance, where 1 means "already in that region". So a
+ * company four regions out prices the plan at `rate³`, and a move that brings
+ * it to two regions out raises that to `rate`, which is a real number the
+ * contribution can be computed from rather than a step change nothing can
+ * reach.
+ *
+ * No new constant: one existing tunable, one number from the map, and a shape
+ * that is forced rather than chosen — independent hops multiply, which is the
+ * same assumption `completionProbability` already makes about steps.
+ */
+export function reachProbability(inclusiveRegionDistance: number, rate: number): number {
+  const hops = Math.max(0, inclusiveRegionDistance - 1);
+  return hops === 0 ? 1 : Math.pow(rate, hops);
 }

@@ -10,8 +10,8 @@
  * the avatar with the strongest companions when there are two companies.
  */
 
-import type { GameAction, CardDefinition, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CharacterCard } from '@meccg/shared';
-import { isAvatarCharacter } from '@meccg/shared';
+import type { GameAction, CardDefinition, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CharacterCard, ModifyAttackEffect } from '@meccg/shared';
+import { isAvatarCharacter, matchesCondition } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import { lookupDef, isCharacter, isItem } from './common.js';
@@ -68,14 +68,31 @@ export const setupEvaluator: ActionEvaluator = {
       }
 
       case 'assign-starting-item': {
-        // Prefer giving items to the highest-prowess character.
+        // Prefer giving items to the highest-prowess character, but avoid
+        // bearers who can't meet a `when` gate on the item's activated
+        // ability (dead weight) or who trigger `discardIfBearerNot` the
+        // first time it's used (e.g. Black Arrow: Warrior only, discards
+        // when tapped by a bearer who isn't a Man).
         const view = context.view;
         const target = view.self.characters[action.characterInstanceId];
         if (!target) return 1;
         const def = lookupDef(pool, action.itemDefId);
         if (!isItem(def)) return 1;
-        // Score: prowess of target + small bonus for matching weapon to high prowess.
-        return Math.max(1, target.effectiveStats.prowess + def.prowessModifier);
+        const charDef = lookupDef(pool, target.definitionId);
+        const base = target.effectiveStats.prowess + def.prowessModifier;
+        const modifyAttack = (def.effects ?? []).find(
+          (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !e.fromHand,
+        );
+        let penalty = 0;
+        if (modifyAttack && isCharacter(charDef)) {
+          const whenCtx = { bearer: { race: charDef.race, skills: charDef.skills } };
+          if (modifyAttack.when && !matchesCondition(modifyAttack.when, whenCtx)) {
+            penalty = 50;
+          } else if (modifyAttack.discardIfBearerNot && !modifyAttack.discardIfBearerNot.race.includes(charDef.race)) {
+            penalty = 10;
+          }
+        }
+        return Math.max(1, base - penalty);
       }
 
       case 'add-character-to-deck': {
