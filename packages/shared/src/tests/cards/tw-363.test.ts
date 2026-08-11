@@ -14,6 +14,9 @@
  *   2. play-target (character) — bearer must be a Wizard
  *   3. duplication-limit (character, max 1) — cannot be duplicated on a
  *      given Wizard
+ *   4. stat-modifier (direct-influence, +5) — per the authoritative card
+ *      database's `directInfluence: "+5"` attribute, not stated in the
+ *      printed text
  *
  * Regression: a Wizardhaven's `playableResources` list is printed empty
  * (Havens allow items only via each item's own site restriction), so
@@ -30,6 +33,7 @@ import {
   buildSitePhaseState,
   viableActions,
   charIdAt,
+  getCharacter,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
@@ -113,5 +117,16 @@ describe('Wizard’s Ring (tw-363)', () => {
         && ea.action.attachToCharacterId === gandalfId,
     );
     expect(onGandalf).toBeUndefined();
+  });
+
+  // ─── Rule 4: +5 direct influence ─────────────────────────────────────────
+
+  test('bearer gets +5 direct influence', () => {
+    const state = buildSitePhaseState({
+      site: LORIEN,
+      characters: [{ defId: GANDALF, items: [WIZARDS_RING] }],
+    });
+
+    expect(getCharacter(state, RESOURCE_PLAYER, GANDALF).effectiveStats.directInfluence).toBe(15); // base 10 + 5
   });
 });

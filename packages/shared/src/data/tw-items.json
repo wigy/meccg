@@ -1963,6 +1963,11 @@
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5
       }
     ],
     "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played."
