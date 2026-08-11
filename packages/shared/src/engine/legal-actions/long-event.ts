@@ -362,8 +362,20 @@ export function heroResourceShortEventActions(
       return false;
     });
     if (allCombatOnly) {
-      logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
-      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during combat`));
+      // When an attack is already active, the dedicated combat legal-action
+      // generators (e.g. `cancelAttackActions`) are the authority on whether
+      // this card is currently playable — they account for the specific
+      // attack's race/keying and the defending company's characters. Saying
+      // "can only be played during combat" here would be actively wrong (we
+      // *are* in combat) and would mislead the player into thinking the card
+      // should work rather than, e.g., the company simply lacking a required
+      // skill (Crept Along Cleverly wh-43: "Ranger only").
+      if (!state.combat) {
+        logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during combat`));
+      } else {
+        logDetail(`${def.name}: combat-only short-event, deferring to combat-specific legal actions (already in combat)`);
+      }
       continue;
     }
 
