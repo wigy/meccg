@@ -4622,20 +4622,9 @@ function discardInfluencedCard(
     }
   }
 
-  // Handle followers — try to place under GI, otherwise discard
+  // Handle followers — revert to general influence, deferred (CoE 2.II.2.2.3)
   const newCharacters = { ...opponent.characters };
-  freeOrDiscardFollowers(state, newCharacters, targetChar, opponent.id, {
-    discardOwn: card => newDiscard.push(card),
-    // Dispatch follower hazards to their owner's discard pile
-    discardHazard: haz => {
-      const hazOwner = ownerOf(haz.instanceId);
-      let hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
-      if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
-      if (hazOwnerIdx === opponentIndex) newDiscard.push(haz);
-      else newHazardDiscard.push(haz);
-      logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched`);
-    },
-  }, 'discardInfluencedCard');
+  freeOrDiscardFollowers(state, newCharacters, targetChar, 'discardInfluencedCard');
 
   // Remove the target character
   delete newCharacters[pending.targetInstanceId];

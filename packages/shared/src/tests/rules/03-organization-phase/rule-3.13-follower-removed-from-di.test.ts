@@ -20,8 +20,8 @@ import {
   buildTestState, resetMint, dispatch, viableActions, executeAction,
   companyIdAt, findCharInstanceId, makeShadowMHState, recomputeDerived,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ARAGORN, FARAMIR, LEGOLAS, ELROND, BEREGOND,
-  MORIA, LORIEN, MINAS_TIRITH,
+  ARAGORN, FARAMIR, LEGOLAS, ELROND, BEREGOND, GLORFINDEL_II,
+  MORIA, LORIEN, MINAS_TIRITH, RIVENDELL,
 } from '../../test-helpers.js';
 
 // Indûr the Ringwraith (5 direct influence) with Bade to Rule (le-167, -2
@@ -105,6 +105,57 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
     // pick up Faramir's mind.
     expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBeLessThan(giBefore);
     expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(0);
+  });
+
+  test('controller discarded by CoE 3.47 influence overflow: follower reverts to GI, deferred, not discarded', () => {
+    // Bug report: Balin (leader, mind 5) with Bofur following him under direct
+    // influence was removed by the CoE 3.47 end-of-organization overflow
+    // discard, and the engine incorrectly discarded Bofur along with him.
+    // Reproduced here with Aragorn + Elrond + Glorfindel II (27 mind, over the
+    // 20-point pool) and Beregond (mind 2) following Elrond (4 direct
+    // influence). Discarding Elrond to settle the overflow must not also
+    // discard Beregond — he reverts to general influence with the mind
+    // subtraction deferred to the next organization phase (CoE 2.II.2.2.3).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: ARAGORN }, { defId: ELROND }, { defId: GLORFINDEL_II },
+              { defId: BEREGOND, followerOf: 1 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
+    const beregondId = findCharInstanceId(state, RESOURCE_PLAYER, BEREGOND);
+    expect(state.players[RESOURCE_PLAYER].characters[beregondId].controlledBy).toBe(elrondId);
+    expect(state.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(27);
+
+    const passed = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const after = dispatch(passed, { type: 'influence-overflow-discard', player: PLAYER_1, characterInstanceId: elrondId });
+
+    // Elrond is gone, settling the overflow (27 − 10 = 17).
+    expect(after.players[RESOURCE_PLAYER].characters[elrondId]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === elrondId)).toBe(true);
+    expect(after.pendingResolutions.some(r => r.kind.type === 'influence-overflow-discard')).toBe(false);
+
+    // Beregond survives, uncontrolled, with the mind subtraction deferred.
+    const beregond = after.players[RESOURCE_PLAYER].characters[beregondId];
+    expect(beregond).toBeDefined();
+    expect(beregond.controlledBy).toBe('general');
+    expect(beregond.influenceUnsubtracted).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === beregondId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(17);
   });
 
   test('controller\'s direct influence reduced by an in-play effect: follower released at the end of the organization phase it happened in', () => {

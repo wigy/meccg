@@ -2009,20 +2009,9 @@ export function returnCharacterToHand(
     logDetail(`return-character-to-hand: discarding hazard ${hazard.definitionId as string} from returned character`);
   }
 
-  // Handle followers — fall to GI if room, otherwise discard
+  // Handle followers — revert to general influence, deferred (CoE 2.II.2.2.3)
   const newCharacters = { ...player.characters };
-  freeOrDiscardFollowers(state, newCharacters, charInPlay, player.id, {
-    discardOwn: card => newDiscard.push(card),
-    discardHazard: hazard => {
-      logDetail(`return-character-to-hand: discarding hazard ${hazard.instanceId as string} from discarded follower`);
-      const hazOwner = ownerOf(hazard.instanceId);
-      if ((newPlayers[opponentIndex].id as string) === hazOwner) {
-        newOpponentDiscard.push(hazard);
-      } else {
-        newDiscard.push(hazard);
-      }
-    },
-  }, 'return-character-to-hand');
+  freeOrDiscardFollowers(state, newCharacters, charInPlay, 'return-character-to-hand');
 
   // Remove the target character from characters map
   delete newCharacters[characterId];
@@ -2147,10 +2136,7 @@ function discardCharacter(
   }
 
   const newCharacters = { ...player.characters };
-  freeOrDiscardFollowers(state, newCharacters, charInPlay, player.id, {
-    discardOwn: card => newDiscard.push(card),
-    discardHazard: hazard => newOpponentDiscard.push(hazard),
-  }, 'discard-character');
+  freeOrDiscardFollowers(state, newCharacters, charInPlay, 'discard-character');
 
   const affectedCompanies = player.companies
     .filter(c => c.characters.includes(characterId))
