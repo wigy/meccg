@@ -83,7 +83,20 @@ export interface CardPrices {
   quote(definitionId: string): CardWorth;
   /** Every card in hand, most valuable first. */
   ranked(): readonly CardWorth[];
-  /** What a card whose use cannot be modelled is assumed to be worth. */
+  /**
+   * The least a card in hand is worth to keep.
+   *
+   * Not merely the answer for a card the model gave up on: {@link worth}
+   * applies it to *every* held card, because the residual it stands for —
+   * option value, a play the plan has not found, a future standing where a
+   * capped source is no longer capped — belongs to all of them. Without that,
+   * a card the model could price and scored at zero ranked below one it could
+   * not price at all.
+   *
+   * {@link quote} deliberately does **not** floor. It answers what a card
+   * would be worth if it *arrived*, which is a question about acquisition
+   * rather than retention, and no measurement here speaks to it.
+   */
   readonly floor: number;
 }
 
@@ -215,11 +228,36 @@ function buildComputeCardPrices(
     };
   };
 
+  /**
+   * The floor is a **floor**, and it was not being applied as one.
+   *
+   * A card whose use cannot be modelled at all returned `floor`; a card that
+   * *could* be priced and came out at zero returned zero. So an unmodellable
+   * hazard event outranked a 2 MP item whose source happened to be capped, and
+   * `hand` kept the event and threw the item.
+   *
+   * That is measurable against the recorded corpus, and it is not subtle. On
+   * the discards where a human and the agent both chose to discard, the human
+   * threw a resource or hazard *event* 44 times against the agent's 17, and the
+   * agent threw a 2 MP hero item **20 times against the human's 3** and an
+   * MP-bearing character 13 against 3. Sampled over 200 real discard
+   * positions, a source priced at exactly zero in 63 (`character`) and 57
+   * (`item`) of them, while every unpriceable event sat at the flat 1.0.
+   *
+   * The residual the floor stands for — option value, a play the plan has not
+   * found, a standing the cap no longer bites in — belongs to *every* card in
+   * hand, not only to the ones the model gave up on. Pricing a capped item at
+   * zero asserts the opposite: that its value is fully known and is nothing,
+   * when playing it is precisely how a capped source stops being capped.
+   */
+  const atLeastFloor = (worth: CardWorth): CardWorth =>
+    (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
+
   const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return priceDefinition(instanceId, definitionId, () => {
+    return atLeastFloor(priceDefinition(instanceId, definitionId, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -234,7 +272,7 @@ function buildComputeCardPrices(
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
           : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
-    });
+    }));
   };
 
   return {

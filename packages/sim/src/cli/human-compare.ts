@@ -58,6 +58,7 @@ import { parseCliArgs, numberFlag, resolveAgent, stringFlag } from './common.js'
 import { hashState, withStandardCardPool } from '../ai/h2/scenario-store.js';
 import { readGameLog } from '../ai/h2/game-log.js';
 import { forwardActions } from '../ai/regress.js';
+import { namedCard } from '../ai/h2/core/action-fields.js';
 import type { AgentContext } from '../types.js';
 
 /** Flag reference, printed by `--help`. */
@@ -79,6 +80,9 @@ Options:
   --games <n>       how many games to sample from --dir (default 5)
   --agent <spec>    agent to poll (default h2)
   --top <n>         disagreeing action types to list (default 12)
+  --detail <type>   for one action type, report *which card* each side named
+                    when both chose that type — the question a count cannot
+                    answer, e.g. --detail discard-card
   --max-decisions <n>  stop a game after this many attributed decisions
   --json            machine-readable summary
   --help            this message
@@ -112,6 +116,7 @@ const sampleSize = numberFlag(args, 'games', 5);
 const agentSpec = stringFlag(args, 'agent') ?? 'h2';
 const topN = numberFlag(args, 'top', 12);
 const maxDecisions = numberFlag(args, 'max-decisions', Number.POSITIVE_INFINITY);
+const detailType = stringFlag(args, 'detail');
 const asJson = args.flags['json'] === true;
 
 if (!corpusDir && !singleGame) {
@@ -263,6 +268,31 @@ const totals = {
 const byType = new Map<string, { seen: number; agreed: number }>();
 /** What the agent played instead, keyed `human → agent`. */
 const swaps = new Map<string, number>();
+/**
+ * For `--detail`, the cards each side named when both chose the same type.
+ *
+ * A same-type disagreement is the cleanest signal the corpus offers, because
+ * the decision to act is not in dispute — only which card. `discard-card` is
+ * 196 decisions at 15.8% agreement and 141 of the misses are discard-versus-
+ * discard, so what is being compared is purely the hand's valuation ordering.
+ */
+const detail = { human: new Map<string, number>(), agent: new Map<string, number>() };
+
+/** A short description of a card: its class and what it is printed with. */
+function describeCard(instanceId: string | undefined): string {
+  if (instanceId === undefined) return '(no card named)';
+  const definitionId = cardsByInstance.get(instanceId);
+  const def = definitionId === undefined ? undefined : cardPool[definitionId];
+  if (!def) return '(unknown card)';
+  const printed = def as unknown as {
+    cardType?: string; marshallingPoints?: number; name?: string;
+  };
+  const mp = printed.marshallingPoints ?? 0;
+  return `${printed.cardType ?? '?'}${mp > 0 ? ` (${mp} MP)` : ''}`;
+}
+
+/** Instance → definition for every card the acting player can see. */
+const cardsByInstance = new Map<string, string>();
 
 for (const target of targets) {
   if (!fs.existsSync(target.ref)) continue;
@@ -292,6 +322,13 @@ for (const target of targets) {
       continue;
     }
 
+    if (detailType !== undefined) {
+      cardsByInstance.clear();
+      for (const card of view.self.hand) {
+        cardsByInstance.set(card.instanceId as unknown as string, card.definitionId as unknown as string);
+      }
+    }
+
     totals.decisions++;
     const humanType = decision.chosen.type;
     const entry = byType.get(humanType) ?? { seen: 0, agreed: 0 };
@@ -306,6 +343,15 @@ for (const target of targets) {
     } else {
       const key = `${humanType} → ${played.type}`;
       swaps.set(key, (swaps.get(key) ?? 0) + 1);
+      // Only where both sides chose the same type: otherwise the comparison is
+      // between a card and an action that names none, which says nothing about
+      // valuation.
+      if (detailType !== undefined && humanType === detailType && played.type === detailType) {
+        const humanCard = describeCard(namedCard(decision.chosen) as unknown as string | undefined);
+        const agentCard = describeCard(namedCard(played) as unknown as string | undefined);
+        detail.human.set(humanCard, (detail.human.get(humanCard) ?? 0) + 1);
+        detail.agent.set(agentCard, (detail.agent.get(agentCard) ?? 0) + 1);
+      }
     }
     byType.set(humanType, entry);
   }
@@ -324,6 +370,11 @@ if (asJson) {
     agreement: totals.decisions === 0 ? null : totals.agreed / totals.decisions,
     byType: Object.fromEntries([...byType].map(([t, e]) => [t, { ...e, rate: e.agreed / e.seen }])),
     swaps: Object.fromEntries(swaps),
+    detail: detailType === undefined ? null : {
+      type: detailType,
+      human: Object.fromEntries(detail.human),
+      agent: Object.fromEntries(detail.agent),
+    },
   }, null, 2));
 } else {
   console.log(`\nhuman-compare: ${agentSpec} against ${targets.length} recorded human game(s)\n`);
@@ -347,6 +398,16 @@ if (asJson) {
   console.log('\n── what the agent played instead, most common first ──\n');
   for (const [key, count] of [...swaps].sort((a, b) => b[1] - a[1]).slice(0, topN)) {
     console.log(`  ${String(count).padStart(5)}  ${key}`);
+  }
+  if (detailType !== undefined) {
+    console.log(`\n── on a \`${detailType}\` both sides chose, which card did each name? ──\n`);
+    const classes = [...new Set([...detail.human.keys(), ...detail.agent.keys()])]
+      .sort((a, b) => (detail.human.get(b) ?? 0) - (detail.human.get(a) ?? 0));
+    console.log('card class                              human      agent');
+    for (const cardClass of classes) {
+      console.log(`  ${cardClass.padEnd(36)}${String(detail.human.get(cardClass) ?? 0).padStart(7)}`
+        + `${String(detail.agent.get(cardClass) ?? 0).padStart(11)}`);
+    }
   }
   console.log('\nAgreement is not correctness. A disagreement is a position worth explaining:');
   console.log('  npm run explain -w @meccg/sim -- --game <id> --seq <n>\n');
