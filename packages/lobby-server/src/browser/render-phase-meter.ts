@@ -84,14 +84,21 @@ interface Segment {
   readonly substeps?: { readonly total: number; readonly filled: number };
 }
 
-/** Display labels for the normal turn phases, in turn order. */
-const PHASE_LABELS: Readonly<Record<string, string>> = {
+/**
+ * Display labels for all phases. Exported for reuse by the toolbar status
+ * readout (`render-toolbar-status.ts`) so it names phases the same way the
+ * phase meter does, instead of duplicating the mapping.
+ */
+export const PHASE_LABELS: Readonly<Record<string, string>> = {
   [Phase.Untap]: 'Untap',
   [Phase.Organization]: 'Organization',
   [Phase.LongEvent]: 'Long-event',
   [Phase.MovementHazard]: 'Movement/Hazard',
   [Phase.Site]: 'Site',
   [Phase.EndOfTurn]: 'End of Turn',
+  [Phase.Setup]: 'Setup',
+  [Phase.FreeCouncil]: 'Free Council',
+  [Phase.GameOver]: 'Game Over',
 };
 
 /** Ordered setup steps with display labels (used when the meter is in setup mode). */

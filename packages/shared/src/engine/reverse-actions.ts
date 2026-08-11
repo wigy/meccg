@@ -89,9 +89,16 @@ function matchesAction(a: GameAction, b: GameAction): boolean {
         && a.targetCompanyId === r.targetCompanyId;
     }
     case 'merge-companies': {
+      // Unordered: a stored reverse only ever exists because a split created
+      // these two company IDs from one, and reuniting them undoes that split
+      // regardless of which side is nominally "source" vs "target" — the
+      // legal-action computer offers both directions for any pair of
+      // companies at the same site (`organization-companies.ts`), and only
+      // matching the exact stored direction let the AI take the mirrored
+      // merge as if it were fresh progress, split again, and repeat forever.
       const r = b as MergeCompaniesAction;
-      return a.sourceCompanyId === r.sourceCompanyId
-        && a.targetCompanyId === r.targetCompanyId;
+      return (a.sourceCompanyId === r.sourceCompanyId && a.targetCompanyId === r.targetCompanyId)
+        || (a.sourceCompanyId === r.targetCompanyId && a.targetCompanyId === r.sourceCompanyId);
     }
     default:
       return false;

@@ -24,6 +24,7 @@
     "sweep": "npx tsx src/cli/sweep.ts",
     "horizon": "npx tsx src/cli/horizon.ts",
     "coverage": "npx tsx src/cli/coverage.ts",
+    "scoring-loop": "npx tsx src/cli/scoring-loop.ts",
     "hand-flow": "npx tsx src/cli/hand-flow.ts",
     "headtohead": "npx tsx src/cli/headtohead.ts",
     "mc-horizon-probe": "npx tsx src/cli/mc-horizon-probe.ts"

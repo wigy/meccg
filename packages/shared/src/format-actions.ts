@@ -288,6 +288,10 @@ export function describeAction(
         : `Move ${instName(action.characterInstanceId)} under direct influence of ${instName(action.controlledBy)}`;
     case 'influence-overflow-discard':
       return `Remove ${instName(action.characterInstanceId)} from play — over general influence (CoE 3.47)`;
+    case 'remove-corruption-offer':
+      return action.corruptionInstanceId
+        ? `${playerName(action.player)} removes corruption card ${instName(action.corruptionInstanceId)} (Elf-song)`
+        : `${playerName(action.player)} declines to remove a corruption card (Elf-song)`;
     case 'plan-movement':
       return `Move ${compName(action.companyId)} to ${instName(action.destinationSite)}`;
     case 'cancel-movement':

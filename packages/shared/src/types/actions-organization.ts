@@ -745,3 +745,18 @@ export interface InfluenceOverflowDiscardAction {
   /** The character to remove from play. */
   readonly characterInstanceId: CardInstanceId;
 }
+
+/**
+ * Resolve a queued `remove-corruption-offer` pending resolution (Elf-song,
+ * tw-223). The eligible character's controller either removes one of the
+ * character's corruption cards (`corruptionInstanceId` present) or declines
+ * (omitted) — the rest, if any, stay attached.
+ */
+export interface RemoveCorruptionOfferAction {
+  /** Action discriminant. */
+  readonly type: 'remove-corruption-offer';
+  /** The eligible character's controller (resolves the pending resolution). */
+  readonly player: PlayerId;
+  /** The corruption card to remove; omitted to decline. */
+  readonly corruptionInstanceId?: CardInstanceId;
+}

@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1122 | 1121 | 1 | 99.9% |
+| 1124 | 1123 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -15,9 +15,9 @@
 | AS | 108 | 108 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 100 | 100 | 100.0% |
-| LE | 301 | 300 | 99.7% |
+| LE | 302 | 301 | 99.7% |
 | TD | 91 | 91 | 100.0% |
-| TW | 337 | 337 | 100.0% |
+| TW | 338 | 338 | 100.0% |
 | WH | 88 | 88 | 100.0% |
 
 ## Detailed Test Matrix
@@ -432,6 +432,7 @@
 | le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
 | le-132 | Rebel-talk | — | 12 | ☑ |
+| le-134 | River | — | 1 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-137 | Shut Yer Mouth | — | 11 | ☑ |
@@ -627,7 +628,7 @@
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-416 | Wose Passage-hold | — | 5 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
-| le-418 | The Arkenstone | — | 18 | ☑ |
+| le-418 | The Arkenstone | — | 19 | ☑ |
 | le-203-the-lidless-eye | — | — | 11 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
@@ -888,6 +889,7 @@
 | tw-212 | Durin’s Axe | — | 9 | ☑ |
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
+| tw-223 | Elf-song | — | 6 | ☑ |
 | tw-224 | Elf-stone | — | 6 | ☑ |
 | tw-225 | Elven Cloak | — | 6 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |

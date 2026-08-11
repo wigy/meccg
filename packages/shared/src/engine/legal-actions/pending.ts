@@ -2683,6 +2683,49 @@ export function influenceOverflowDiscardActions(
 }
 
 /**
+ * Legal actions while a `remove-corruption-offer` resolution is at the head
+ * of the queue (Elf-song tw-223). The eligible character's controller either
+ * removes one of the character's current corruption cards, or declines —
+ * always offered, mirroring `transfer-returned-item`'s "may" decline.
+ */
+export function removeCorruptionOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'remove-corruption-offer') return [];
+  const { characterId } = top.kind;
+
+  let owner: PlayerState | undefined;
+  let char: import('../../index.js').CharacterInPlay | undefined;
+  for (const p of state.players) {
+    const c = p.characters[characterId];
+    if (c) { owner = p; char = c; break; }
+  }
+  if (!owner || owner.id !== actor || !char) return [];
+
+  const actions: EvaluatedAction[] = [
+    { action: { type: 'remove-corruption-offer', player: actor }, viable: true },
+  ];
+
+  for (const hazard of char.hazards) {
+    const hazardDef = defById(state, hazard.definitionId);
+    const hazardKeywords = hazardDef && 'keywords' in hazardDef
+      ? (hazardDef as { keywords?: readonly string[] }).keywords
+      : undefined;
+    const isCorruption = hazardDef?.cardType === 'hazard-corruption' || hazardKeywords?.includes('corruption') === true;
+    if (!isCorruption) continue;
+    const name = hazardDef?.name ?? (hazard.instanceId as string);
+    logDetail(`remove-corruption-offer: offering removal of "${name}" from ${characterId as string}`);
+    actions.push({
+      action: { type: 'remove-corruption-offer', player: actor, corruptionInstanceId: hazard.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Legal actions for an `event-maintenance` pending resolution — one stage of
  * the upkeep exchange over an in-play event (Thrice Outnumbered le-142,
  * Balance Between Powers dm-118).
