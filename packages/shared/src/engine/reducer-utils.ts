@@ -5994,6 +5994,13 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     logDetail(`Fetch: revealing ${def?.name ?? '?'} (${fetchedCard.instanceId as string}) to opponent`);
     newState = revealInstances(newState, [fetchedCard]);
   }
+  // unlockTappedSitePlay (Dragon-lore td-108): the fetched item may be played
+  // immediately despite its target site already being tapped.
+  if (fetchTo === 'hand' && current.effect.type === 'fetch-to-deck' && current.effect.unlockTappedSitePlay
+    && newState.phaseState.phase === Phase.Site) {
+    logDetail(`Fetch: ${def?.name ?? '?'} (${fetchedCard.instanceId as string}) unlocked for play at the tapped site`);
+    newState = { ...newState, phaseState: { ...newState.phaseState, tappedSiteItemUnlock: fetchedCard.instanceId } };
+  }
   if (remaining.length === 0) {
     if (current.skipDiscard) {
       if (current.postCorruptionCheck) {

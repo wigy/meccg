@@ -1702,7 +1702,16 @@ function playResourcesActions(
         logDetail(`Item ${itemDef.name}: burglary attempt unlocked ${siteName} — site-tapped gate bypassed`);
       }
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !burglaryUnlockActive) {
+      // Dragon-lore (td-108): the item just fetched from the play deck/discard
+      // pile "may be immediately played" at the (already tapped) Dragon's
+      // lair that gated the search — bypasses the tapped-site gate for this
+      // one item instance only.
+      const tappedSiteFetchUnlockActive = siteState.tappedSiteItemUnlock === cardInstanceId;
+      if (tappedSiteFetchUnlockActive) {
+        logDetail(`Item ${itemDef.name}: Dragon-lore fetch unlocked ${siteName} — site-tapped gate bypassed`);
+      }
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !burglaryUnlockActive && !tappedSiteFetchUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;

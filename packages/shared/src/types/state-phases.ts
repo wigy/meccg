@@ -1028,6 +1028,16 @@ export interface SitePhaseState {
    */
   readonly burglaryItemUnlock?: CardInstanceId;
   /**
+   * Card instance ID of an item just fetched from the play deck/discard pile
+   * (via an `enqueue-pending-fetch` with `unlockTappedSitePlay: true`) that
+   * may be played despite the active company's site already being tapped
+   * (Dragon-lore, td-108: "This item may be immediately played with
+   * bearer's company"). Consumed (cleared) the moment that item is played.
+   * Absent (undefined) unless such a fetch has just completed this slot;
+   * reset to absent when a new company's site phase begins.
+   */
+  readonly tappedSiteItemUnlock?: CardInstanceId;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */
