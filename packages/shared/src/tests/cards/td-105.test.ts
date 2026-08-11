@@ -377,6 +377,56 @@ describe('Cram (td-105)', () => {
     expect(next.combat?.phase).toBe('resolve-strike');
   });
 
+  // ── Bug report (game msosuz1s-y1tnx9): untap-bearer while assigning
+  // strikes, before any strike has been assigned yet (CoE 3.i Pre-Assignment
+  // Actions). A player whose character tapped for an unrelated reason wanted
+  // to discard Cram to untap it so it could be chosen for a strike instead of
+  // being skipped in favor of an already-tapped/wounded character. The
+  // `assign-strikes` case of the combat sub-state machine wired in
+  // `preAssignmentResourceEvents` (short-events) but never
+  // `grantedActionActivations('anyPhase')`, so Cram was silently unreachable
+  // during this window even though it is `anyPhase: true`.
+  test('untap-bearer available during strike assignment before any strike is assigned', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const combat: CombatState = {
+      attackSource: { type: 'creature', instanceId: 'fake-creature' as never },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 5,
+      creatureBody: 5,
+      strikeAssignments: [],
+      currentStrikeIndex: 0,
+      phase: 'assign-strikes',
+      assignmentPhase: 'defender',
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+
+    const ready = { ...state, phaseState: makeMHState(), combat };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer');
+    expect(untapActions.length).toBe(1);
+
+    const next = dispatch(ready, untapActions[0].action);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
+    expectInDiscardPile(next, RESOURCE_PLAYER, CRAM);
+    expect(next.combat?.phase).toBe('assign-strikes');
+  });
+
   test('extra-region-movement NOT available during movement/hazard phase', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
