@@ -37,6 +37,8 @@
 
 import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
+import type { Plan, PlanStep } from '../../core/plan.js';
+import { ROUTE_STEP } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
@@ -587,6 +589,49 @@ export const travelModule: H2Module = {
       || a.type === 'declare-path'
       || a.type === 'enter-site'
       || a.type === 'select-company');
+  },
+
+  /**
+   * The plan layer's first consumer: whether anything is actually going there.
+   *
+   * `travel` owns every `route` step because reaching a site is a movement
+   * question, and a proposer that answered it would be a second model of
+   * movement — the thing this module's own header refuses on `plan-movement`
+   * and `cancel-movement`. The proposer names the requirement; this decides
+   * what a candidate does to it.
+   *
+   * Three answers, and the third is the one that matters. Planning the required
+   * company's movement to the plan's site makes reaching it certain. Planning
+   * that company somewhere *else* makes it impossible, and saying so is what
+   * stops the agent booking the same company against four commitments at once.
+   * Everything else leaves the step alone.
+   *
+   * The gap between the unrouted prior and the certainty a movement buys is
+   * exactly the value of the trip — which is the number
+   * `evaluateEnterSite` has never had. It prices entering as what becomes
+   * playable now minus the site's attacks now, so with nothing in hand it is
+   * strictly negative against `pass`, and it was measured ranking dead last on
+   * every decline. The model was never wrong; it was being asked after the
+   * decision that would have justified the journey was already lost.
+   */
+  planStepDelta(
+    action: GameAction,
+    plan: Plan,
+    step: PlanStep,
+    _stepIndex: number,
+    context: ModuleContext,
+  ): number | null {
+    if (step.tag !== ROUTE_STEP) return null;
+    if (action.type !== 'plan-movement') return null;
+
+    const required = plan.requirements.find(r => r.kind === 'company-at-site');
+    if (!required || required.kind !== 'company-at-site') return null;
+    const movingCompany = (action as unknown as { companyId?: string }).companyId;
+    if (movingCompany !== (required.companyId as unknown as string)) return null;
+
+    const destination = destinationOf(context.view, action);
+    if (!destination) return null;
+    return destination.definitionId === required.siteDefinitionId ? 1 : 0;
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {

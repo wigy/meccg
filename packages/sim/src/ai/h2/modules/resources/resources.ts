@@ -24,13 +24,31 @@
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
+import type { Plan } from '../../core/plan.js';
+import { ROUTE_STEP } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeCharacterValue } from '../../services/character-value.js';
+import { resourcePlayableAt } from '../../../evaluators/common.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-hero-resource', 'play-minor-item'] as const;
+
+/** Site card types across every alignment — the site deck holds only these. */
+const SITE_CARD_TYPES = new Set([
+  'hero-site', 'minion-site', 'fallen-wizard-site', 'balrog-site',
+]);
+
+/** Whether a definition from the site deck is really a site. */
+function isSiteDefinition(def: CardDefinition): boolean {
+  return SITE_CARD_TYPES.has((def as unknown as { cardType?: string }).cardType ?? '');
+}
+
+/** A site's printed name, for the plan's label. */
+function siteNameOf(def: CardDefinition): string {
+  return (def as unknown as { name?: string }).name ?? 'an unnamed site';
+}
 
 /** The card a play action names, with the source its points count against. */
 function cardOf(
@@ -74,6 +92,101 @@ const ASSUMPTIONS: readonly string[] = [
 export const resourcesModule: H2Module = {
   name: 'resources',
   ownedActionTypes: OWNED_ACTION_TYPES,
+
+  /**
+   * The first proposer of the plan layer: *play this card at that site*.
+   *
+   * This is the strategic half the module docstring above says is missing, in
+   * its narrowest possible form. `evaluate` prices a card that can be played
+   * **now**, at the site the company is already standing on — and the measured
+   * consequence is that `play-hero-resource` reaches the candidate list four
+   * times in six games, because nothing ever routes a company to a site where a
+   * card in hand is playable. The module was never declining to score; it was
+   * never asked.
+   *
+   * So the goal is the card, the site comes from the *site deck* rather than
+   * from where the company happens to stand, and the single step is whether
+   * anything is actually going there. `travel` owns that step, because the
+   * probability of reaching a site is a movement question and `resources` has
+   * no business answering it.
+   *
+   * One step, not four. Surviving the arrival, having a tap free, and keeping
+   * the card in hand are all real and all belong here eventually; each needs a
+   * module that can move it, and a step no module can move is a constant
+   * pretending to be a probability.
+   */
+  proposePlans(context: ModuleContext) {
+    const { view, cardPool, standing, tunables } = context;
+    const plans: Plan[] = [];
+
+    for (const company of view.self.companies) {
+      const standingAt = company.currentSite?.definitionId;
+      for (const card of view.self.hand) {
+        const def = cardPool[card.definitionId];
+        if (!def) continue;
+        const fields = def as unknown as {
+          name?: string;
+          marshallingPoints?: number;
+          marshallingCategory?: string;
+        };
+        const mp = fields.marshallingPoints ?? 0;
+        // A card worth no points is not a commitment. It may still be worth
+        // playing when the company is already standing there, and `evaluate`
+        // is where that is decided.
+        if (mp <= 0) continue;
+        const source = (fields.marshallingCategory ?? 'misc') as MpSource;
+        // What the points are worth *here*, which is zero at the half-total
+        // cap — the whole reason this is a marginal figure and not `mp * 20`.
+        const payoffTsd = standing.tsdAfter({ [source]: mp }) - standing.tsd;
+        if (payoffTsd <= 0) continue;
+
+        for (const site of view.self.siteDeck) {
+          const siteDef = cardPool[site.definitionId];
+          if (!siteDef || !isSiteDefinition(siteDef)) continue;
+          // Playability is the engine's own rule, reused rather than restated:
+          // guessing which site types accept which item classes is how the
+          // agent ends up entering a site for an item it is then refused.
+          if (!resourcePlayableAt(def, siteDef as never)) continue;
+
+          const routed = standingAt === site.definitionId
+            || company.destinationSite?.definitionId === site.definitionId;
+          plans.push({
+            // Stable across turns: the card and the site are what the
+            // commitment is about, and the portfolio recognises an incumbent
+            // by this string alone.
+            id: `resources/${card.instanceId as string}@${site.definitionId}`,
+            module: 'resources',
+            goal: {
+              label: `play ${fields.name ?? card.definitionId} at ${siteNameOf(siteDef)}`,
+              source,
+              mp,
+              cardInstanceId: card.instanceId,
+              siteDefinitionId: site.definitionId,
+            },
+            payoffTsd,
+            // The site deck is walked in order and a site is spent when it is
+            // reached, so a plan that has not happened within the horizon has
+            // been overtaken by the game rather than merely delayed.
+            deadline: view.turnNumber + tunables.planHorizonTurns,
+            requirements: [{
+              kind: 'company-at-site',
+              companyId: company.id,
+              siteDefinitionId: site.definitionId,
+              byTurn: view.turnNumber + tunables.planHorizonTurns,
+            }],
+            steps: [{
+              label: `route to ${siteNameOf(siteDef)}`,
+              p: routed ? 1 : tunables.planUnroutedReachProbability,
+              owner: 'travel',
+              tag: ROUTE_STEP,
+              source: routed ? 'already there or already headed there' : 'planUnroutedReachProbability',
+            }],
+          });
+        }
+      }
+    }
+    return plans;
+  },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     const card = cardOf(context, action);

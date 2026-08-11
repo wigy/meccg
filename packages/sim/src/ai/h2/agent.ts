@@ -82,6 +82,7 @@ import type { WinProbModel } from './core/winprob.js';
 import { loadWinProbModel } from './core/winprob.js';
 import { ALL_MODULES, evaluateDecision, proposePlans, resolveModules } from './core/registry.js';
 import { createPlanPortfolio } from './services/portfolio.js';
+import { rankWithPlans } from './services/plan-value.js';
 import { computeStanding } from './services/standing.js';
 
 /** Construction options for {@link createHeuristic2Agent}. */
@@ -248,17 +249,25 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
       };
-      // Commit once per turn. Nothing reads the portfolio yet — no module
-      // implements `proposePlans`, so this commits an empty set at the cost of
-      // one loop over the module list. It is wired here rather than with the
-      // first proposer so that the plumbing, and its per-game reset, ship and
-      // are tested before anything depends on them.
-      portfolio.commit(
+      // Commit once per turn, then price every candidate against what is
+      // committed. Re-selecting per decision would let the portfolio churn
+      // inside one organization phase, which is the plan-thrash on a shorter
+      // clock — see `services/portfolio`.
+      const commitment = portfolio.commit(
         context.view.turnNumber,
         proposePlans(modules, moduleContext),
         tunables,
       );
-      const { modules: contributors, evaluations, complete } = evaluateDecision(modules, moduleContext);
+      const { modules: contributors, evaluations: tactical, complete }
+        = evaluateDecision(modules, moduleContext);
+      // The plan contributions are folded in here rather than inside
+      // `evaluateDecision` because they are not a module's opinion about an
+      // action — they are what the *commitment* says about it, and the registry
+      // is the wrong place for a number no module owns. Re-ranking is the whole
+      // point: a candidate that serves a commitment has to be able to outrank
+      // one that looked better tactically.
+      const planned = rankWithPlans(modules, tactical, commitment, moduleContext);
+      const evaluations = planned.map(p => p.evaluation);
       const best = evaluations[0];
       const worst = evaluations[evaluations.length - 1];
       // A ranking whose candidates all score the same is not an opinion, it is
