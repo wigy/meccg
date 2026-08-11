@@ -624,7 +624,7 @@ export function addOpponentInfluenceTargets(
 }
 
 /** Human-friendly labels for granted action IDs. */
-const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
+export const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
   'untap-bearer': 'Untap Bearer',
   'extra-region-movement': 'Extra Movement',
   'remove-self-on-roll': 'Attempt Removal',
