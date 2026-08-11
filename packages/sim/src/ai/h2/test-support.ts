@@ -59,10 +59,23 @@ export function testStandingView(
   opponent: Partial<MarshallingPointTotals>,
   turnNumber: number,
 ): PlayerView {
+  // The empty zones are not decoration: `viewSignature` fingerprints a position
+  // by the quantities that any real progress moves, and the agent computes one
+  // on every decision for the cycle guard. A view missing them is not a
+  // simplification, it is a view the agent cannot read.
+  const zones = {
+    hand: [], playDeck: [], discardPile: [], cardsInPlay: [],
+    siteDeck: [], killPile: [], outOfPlayPile: [],
+    companies: [], characters: {}, generalInfluenceUsed: 0,
+  };
   return {
-    self: { marshallingPoints: testMarshallingPoints(self), companies: [], characters: {} },
-    opponent: { marshallingPoints: testMarshallingPoints(opponent) },
+    self: { ...zones, marshallingPoints: testMarshallingPoints(self) },
+    opponent: { ...zones, marshallingPoints: testMarshallingPoints(opponent) },
     turnNumber,
+    activePlayer: null,
+    combat: null,
+    chain: null,
+    pendingEffects: [],
     // The Heuristics-1 fallback reads the phase, so a view used to exercise
     // that path needs one; standing itself never looks.
     phaseState: { phase: 'organization' },
