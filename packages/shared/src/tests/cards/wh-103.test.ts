@@ -49,7 +49,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint, makeMHState,
-  viableActions, dispatch,
+  viableActions,
   findCharInstanceId, findHandCardId, addCardToHand,
   playPermanentEventAndResolve,
   getCharacter,
