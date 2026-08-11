@@ -1333,6 +1333,50 @@ built part of the design: `resolve-strike` 79.0% against 40.7%,
 human play closely. `play-hazard`, which H2 owns and has never calibrated,
 goes the other way — 32.9% against 46.1%.
 
+### The gate that says not to do any of this
+
+`human-compare` was used over five iterations to drive changes: agreement with
+recorded human play went from **39.74% to 41.41%**, `pass` from 22.6% to 26.7%,
+`play-hazard` from 32.9% to 40.8%. Every change was measured, several were
+reverted when the measurement refused to move, and two real modelling bugs came
+out of it — `place-on-guard` was priced as a free option when it forecloses the
+card's use for the turn, and `card-price`'s floor ranked a card it could price
+*below* one it could not.
+
+Then the same work was gated against `heuristic`, before and after, on
+identical seeds with the same paired side-swapped protocol:
+
+| | score | paired Elo | unfinished |
+|---|---|---|---|
+| before the five iterations | 47.9% | **−14 [−82, +52]** | 0/96 |
+| after them | 41.1% | **−62 [−141, +10]** | 0/96 |
+
+**The point estimate moved 48 Elo the wrong way.** The intervals overlap, so
+this is not proof of harm — but there is no evidence of gain anywhere in it,
+and the direction is consistent across score, Elo and both rating methods.
+
+This was foreseeable and was in fact foreseen. `human-compare`'s own header
+records the measurement that should have stopped it: H2 agreed with humans on
+**39.7%** of decisions against `heuristic`'s **35.4%**, while scoring **0.5**
+item MP a game against `heuristic`'s **4.5**. The agent closer to human play
+was already the weaker one. Optimising the proxy anyway, for five iterations,
+is how a metric that was explicitly labelled "not a fitness function" became
+one.
+
+So the tool keeps its value and the method does not:
+
+- **`human-compare` localises.** It found `place-on-guard` in one run when five
+  model changes and two gates had not, and it ruled out four hypotheses —
+  `marginalFor`, blanket flooring, belief scaling, and the free-grant branch —
+  that reasoning alone would have shipped. As a *diagnostic* it outperformed
+  every other instrument here.
+- **Agreement must not be the objective.** A disagreement is a position worth
+  explaining. A rising agreement rate is not a better agent, and this is the
+  measurement that settles it.
+
+The one thing in this section that gated cleanly is the cycle guard: **0
+unfinished games in 96, twice**, against 32/96 before it existed.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
