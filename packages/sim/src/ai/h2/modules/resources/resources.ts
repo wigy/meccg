@@ -25,11 +25,12 @@
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan } from '../../core/plan.js';
-import { ROUTE_STEP } from '../../core/plan.js';
+import { CARD_STEP, CARRIER_STEP, ROUTE_STEP } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeCharacterValue } from '../../services/character-value.js';
+import { computeBudget } from '../../services/budget.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
 /** Action types this module scores. */
@@ -43,6 +44,32 @@ const SITE_CARD_TYPES = new Set([
 /** Whether a definition from the site deck is really a site. */
 function isSiteDefinition(def: CardDefinition): boolean {
   return SITE_CARD_TYPES.has((def as unknown as { cardType?: string }).cardType ?? '');
+}
+
+
+/**
+ * Every site a company's plan could name: where it stands, where it is headed,
+ * and everything still in the deck.
+ *
+ * The first two matter because they are precisely the sites that are *not* in
+ * the deck. A proposer that scanned only the deck withdrew each plan the turn
+ * its site was reached — the portfolio saw the proposal disappear and dropped
+ * the commitment one decision before the `enter-site` that would have paid it
+ * off. Deduplicated by definition, because a site can be both current and
+ * still listed if the deck holds another copy.
+ */
+function sitesFor(
+  company: { currentSite?: { definitionId: string } | null; destinationSite?: { definitionId: string } | null },
+  siteDeck: readonly { definitionId: string }[],
+): { definitionId: string }[] {
+  const seen = new Set<string>();
+  const sites: { definitionId: string }[] = [];
+  for (const site of [company.currentSite, company.destinationSite, ...siteDeck]) {
+    if (!site || seen.has(site.definitionId)) continue;
+    seen.add(site.definitionId);
+    sites.push({ definitionId: site.definitionId });
+  }
+  return sites;
 }
 
 /** A site's printed name, for the plan's label. */
@@ -104,23 +131,32 @@ export const resourcesModule: H2Module = {
    * card in hand is playable. The module was never declining to score; it was
    * never asked.
    *
-   * So the goal is the card, the site comes from the *site deck* rather than
-   * from where the company happens to stand, and the single step is whether
-   * anything is actually going there. `travel` owns that step, because the
-   * probability of reaching a site is a movement question and `resources` has
-   * no business answering it.
+   * So the goal is the card, and the site comes from the *site deck* rather
+   * than from where the company happens to stand.
    *
-   * One step, not four. Surviving the arrival, having a tap free, and keeping
-   * the card in hand are all real and all belong here eventually; each needs a
-   * module that can move it, and a step no module can move is a constant
-   * pretending to be a probability.
+   * Three steps, and `resources` owns none of them. Getting there is
+   * `travel`'s, because the probability of reaching a site is a movement
+   * question. Keeping the card is `hand`'s, because `hand` is what discards.
+   * Having someone able to make the play is `characters`', because every
+   * action that changes who stands in a company is one of its. A proposer
+   * naming a step it cannot move would be a constant pretending to be a
+   * probability; naming one another module owns is the whole coupling
+   * mechanism.
    */
   proposePlans(context: ModuleContext) {
     const { view, cardPool, standing, tunables } = context;
+    const budget = computeBudget(view, cardPool);
     const plans: Plan[] = [];
 
     for (const company of view.self.companies) {
       const standingAt = company.currentSite?.definitionId;
+      const untappedInCompany = budget.untappedIn(company.id).length;
+      // The site deck is not the whole world. A site the company is standing
+      // on, or already headed to, has *left* the deck — so scanning the deck
+      // alone withdrew every plan at the exact moment it was about to pay off,
+      // and the portfolio dropped it as `withdrawn` one decision before the
+      // `enter-site` that would have completed it.
+      const candidateSites = sitesFor(company, view.self.siteDeck);
       for (const card of view.self.hand) {
         const def = cardPool[card.definitionId];
         if (!def) continue;
@@ -140,7 +176,7 @@ export const resourcesModule: H2Module = {
         const payoffTsd = standing.tsdAfter({ [source]: mp }) - standing.tsd;
         if (payoffTsd <= 0) continue;
 
-        for (const site of view.self.siteDeck) {
+        for (const site of candidateSites) {
           const siteDef = cardPool[site.definitionId];
           if (!siteDef || !isSiteDefinition(siteDef)) continue;
           // Playability is the engine's own rule, reused rather than restated:
@@ -148,8 +184,12 @@ export const resourcesModule: H2Module = {
           // agent ends up entering a site for an item it is then refused.
           if (!resourcePlayableAt(def, siteDef as never)) continue;
 
-          const routed = standingAt === site.definitionId
-            || company.destinationSite?.definitionId === site.definitionId;
+          // Standing on the site is deliberately *not* routed. Entry is a
+          // separate decision with the site's automatic attacks behind it, and
+          // counting arrival as certainty is what made `enter-site` worth
+          // nothing to the plan it was about to complete.
+          const routed = company.destinationSite?.definitionId === site.definitionId;
+          const here = standingAt === site.definitionId;
           plans.push({
             // Stable across turns: the card and the site are what the
             // commitment is about, and the portfolio recognises an incumbent
@@ -174,13 +214,30 @@ export const resourcesModule: H2Module = {
               siteDefinitionId: site.definitionId,
               byTurn: view.turnNumber + tunables.planHorizonTurns,
             }],
-            steps: [{
-              label: `route to ${siteNameOf(siteDef)}`,
-              p: routed ? 1 : tunables.planUnroutedReachProbability,
-              owner: 'travel',
-              tag: ROUTE_STEP,
-              source: routed ? 'already there or already headed there' : 'planUnroutedReachProbability',
-            }],
+            steps: [
+              {
+                label: `route to ${siteNameOf(siteDef)}`,
+                p: routed ? 1 : tunables.planUnroutedReachProbability,
+                owner: 'travel',
+                tag: ROUTE_STEP,
+                source: routed ? 'already there or already headed there' : 'planUnroutedReachProbability',
+              },
+              {
+                label: `still hold ${fields.name ?? card.definitionId}`,
+                p: 1,
+                owner: 'hand',
+                tag: CARD_STEP,
+              },
+              {
+                label: 'someone left untapped to play it',
+                // Present tense, and only where the play is imminent — see
+                // the note in `factions`: three turns out an untap phase
+                // stands between here and the goal.
+                p: !here || untappedInCompany > 0 ? 1 : 0,
+                owner: 'characters',
+                tag: CARRIER_STEP,
+              },
+            ],
           });
         }
       }

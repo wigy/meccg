@@ -268,3 +268,37 @@ export function describeRequirement(requirement: Requirement): string {
  * import the other — which is the boundary `architecture.test` enforces.
  */
 export const ROUTE_STEP = 'route';
+
+/**
+ * Tag of the step asking whether the card is still in hand to be played.
+ *
+ * Owned by `hand`, which is the only module that discards. Its whole job is
+ * to be driven to zero: a plan whose card has been thrown away is not a worse
+ * bet, it is not a bet at all, and expressing that as a probability keeps one
+ * mechanism where a separate veto channel would be two.
+ */
+export const CARD_STEP = 'card-in-hand';
+
+/**
+ * Tag of the step asking whether anyone in the company can still make the play.
+ *
+ * Owned by `characters`, because every action that changes who stands in a
+ * company is one of its — `split-company`, `move-to-company`,
+ * `discard-character`. It is binary rather than graded: the rules ask for one
+ * untapped character, so the company either has one or it does not, and a
+ * fraction here would be a constant nobody could calibrate.
+ */
+export const CARRIER_STEP = 'carrier';
+
+/**
+ * Tag of the step asking whether the influence check passes.
+ *
+ * Owned by `factions`, and the one step in the layer that **nothing moves** —
+ * deliberately, and unlike the others. A step no module can move is normally a
+ * constant pretending to be a probability, which is why the first proposer
+ * shipped with one step rather than four. This one is a real 2d6, and no
+ * candidate action changes the die: it belongs in `P(complete)` because
+ * leaving it out would overstate every faction plan, and it stays static
+ * because that is the truth about it.
+ */
+export const CHECK_STEP = 'influence-check';

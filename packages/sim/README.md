@@ -392,7 +392,7 @@ Status by phase:
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
 | P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
-| Plan layer | `core/plan`, `services/portfolio`, `services/plan-value`, printed by `explain`. `resources` proposes and `travel` owns the route step; both aggregation rules ship behind `planAggregationMode`. Not gated |
+| Plan layer | `core/plan`, `services/portfolio`, `services/plan-value`, printed by `explain`. `resources` and `factions` propose; `travel`, `hand` and `characters` own steps. Measured at n=20 against its own off-switch: behaviour moves, score does not. No survival step yet; not gated |
 
 ### The plan layer
 
@@ -514,6 +514,70 @@ move; whether it wins games is step 5's question.
 One game in six still hits the decision limit — the `split-company` →
 `plan-movement` → `merge-companies` cycle, which is untouched by any of this
 and tracked separately.
+
+#### Widening it, three bugs, and a clean negative result
+
+The six-game table above did not survive a larger sample, and it should not
+have been quoted as a result: at that size the differences it reports are
+inside what six games produce by themselves. Run properly — **20 games, same
+seeds, same binary**, against `h2:all/planContributionWeight=0` as the control,
+which is the layer switched off rather than a different branch:
+
+| | control (weight 0) | plan layer |
+|---|---|---|
+| `enter-site` take-rate | 23.4% | **50.5%** |
+| `play-hero-resource` offered | 19 | **33** |
+| `influence-attempt` offered | 28 | **43** |
+| games taking any scoring action | 13/20 | **18/20** |
+| item MP | 0.5 (0 in 15/20) | 0.5 (0 in 15/20) |
+| faction MP | 2.1 | 2.1 |
+| ally MP | 0.0 (0 in 20/20) | 0.0 (0 in 20/20) |
+| character MP | 1.9 | 1.9 |
+| `misc` MP | −1.0 | −1.0 |
+| `kill` MP | 3.9 | 5.0 |
+
+**The behaviour changes a great deal and the score does not move at all.**
+Entering a site is taken twice as often, resource plays are offered nearly
+twice as often and taken 32 times out of 33, and something scores in 18 games
+of 20 instead of 13 — and every marshalling-point category the layer targets
+comes out identical to the control. The only category that moves is `kill`,
+which is the passive one: entering more sites means facing more automatic
+attacks, and some of them die.
+
+That is the honest state of it. The mechanism does what it was designed to do
+and converts none of it into points.
+
+The leading explanation is a step that is **not** in the model: nothing in
+`P(complete)` asks whether the company survives. A plan says *get there, hold
+the card, keep someone untapped, play it* and never *and live*. So the agent
+now walks into sites it cannot survive, gains the item, and loses it with the
+character carrying it — which is consistent with `misc` sitting at −1.0 and
+`kill` being the one number that moved. Modelling the arrival is the obvious
+next change, and §6's calibration is what would prove it: a `P(complete)`
+that is systematically higher than the rate plans actually complete at is
+exactly what an unmodelled step looks like.
+
+Three real defects were found and fixed getting to this point, each caught by
+dumping the ranking at a decision rather than by reasoning about it:
+
+- **`travel` never answered `enter-site`.** Entry is the moment a plan pays
+  off, and the module only responded to `plan-movement`, so entering moved no
+  probability and earned no contribution. It was priced by `evaluateEnterSite`
+  alone — what becomes playable now minus the site's attacks now — which is
+  negative whenever the hand is not already holding the card. Measured on one
+  position: **−0.465% before, +18.3% after**, with a +6.0 TSD contribution.
+  The giveaway was that `enter-site`'s mean rank when declined was 1.00 both
+  before the plan layer and after it. A number that does not move when you add
+  a mechanism is a number the mechanism never reached.
+- **The carrier step read a present-tense fact as a future probability.**
+  "Is anyone untapped *right now*" is not the question for a goal three turns
+  out, with an untap phase in between — and during the site phase, when
+  companies are tapped, it zeroed every plan. One probed position went from
+  **0 committed plans to 5**.
+- **Proposers scanned only the site deck.** A site the company is standing on
+  has *left* the deck, so the proposal vanished and the portfolio dropped the
+  commitment as `withdrawn` one decision before the `enter-site` that would
+  have completed it. Plans died exactly when they were about to pay.
 
 ### Coverage, measured
 
