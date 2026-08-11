@@ -32,6 +32,8 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
+import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
+import { rosterOf } from '../../services/strike/prowess.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 import type { Plan } from '../../core/plan.js';
 import { CARD_STEP, CARRIER_STEP, CHECK_STEP, ROUTE_STEP } from '../../core/plan.js';
@@ -155,6 +157,7 @@ export const factionsModule: H2Module = {
   proposePlans(context: ModuleContext) {
     const { view, cardPool, standing, tunables } = context;
     const budget = computeBudget(view, cardPool);
+    const defence = computeDefence(view, cardPool, standing, tunables);
     const plans: Plan[] = [];
 
     for (const company of view.self.companies) {
@@ -164,6 +167,7 @@ export const factionsModule: H2Module = {
       // See `resources`: a site in play has left the site deck, and scanning
       // the deck alone withdraws a plan the turn it arrives.
       const candidateSites = sitesFor(company, view.self.siteDeck);
+      const roster = rosterOf(company, view.self.characters, cardPool);
 
       for (const card of view.self.hand) {
         const def = cardPool[card.definitionId];
@@ -177,10 +181,10 @@ export const factionsModule: H2Module = {
         if (!FACTION_CARD_TYPES.has(fields.cardType ?? '')) continue;
         const mp = fields.marshallingPoints ?? 0;
         if (mp <= 0) continue;
-        const payoffTsd = standing.tsdAfter({ faction: mp }) - standing.tsd;
+        const grossPayoffTsd = standing.tsdAfter({ faction: mp }) - standing.tsd;
         // Zero at the half-total cap (CoE 10.3), and a plan chasing points
         // that cap straight back off is not a plan.
-        if (payoffTsd <= 0) continue;
+        if (grossPayoffTsd <= 0) continue;
 
         // The printed target, reduced by the influence the company can bring.
         // `evaluate` gets the engine's exact modifier; a plan cannot.
@@ -198,6 +202,21 @@ export const factionsModule: H2Module = {
           // separate decision with the site's automatic attacks behind it, and
           // counting arrival as certainty is what made `enter-site` worth
           // nothing to the plan it was about to complete.
+          // What the journey costs. A plan that never asked whether the
+          // company survives is how the agent came to walk confidently into
+          // sites it cannot live through: measured at n=20 the layer doubled
+          // the rate of entering sites and moved no marshalling-point category
+          // at all, while `kill` — the passive one — was the only number that
+          // rose. Netted off the payoff rather than expressed as a probability,
+          // because `defence` reports harm in TSD and a harm-to-probability
+          // conversion would be a second model of the same thing.
+          const harmTsd = defence.harmFrom(roster, automaticAttacksOf(cardPool, site.definitionId));
+          const netPayoffTsd = grossPayoffTsd - harmTsd;
+          // A goal worth less than the trip is not a goal. The filter that
+          // already dropped points capped to zero now also drops the ones the
+          // site would take back.
+          if (netPayoffTsd <= 0) continue;
+
           const routed = company.destinationSite?.definitionId === site.definitionId;
           const here = standingAt === site.definitionId;
           plans.push({
@@ -210,7 +229,7 @@ export const factionsModule: H2Module = {
               cardInstanceId: card.instanceId,
               siteDefinitionId: site.definitionId,
             },
-            payoffTsd,
+            payoffTsd: netPayoffTsd,
             deadline: view.turnNumber + tunables.planHorizonTurns,
             requirements: [{
               kind: 'company-at-site',

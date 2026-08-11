@@ -326,3 +326,32 @@ function buildComputeDefence(
  * candidate for an answer that cannot differ. See `core/memo`.
  */
 export const computeDefence = memoizeOnFirst(buildComputeDefence);
+
+
+/**
+ * The attacks a site prints, as profiles the harm model can price.
+ *
+ * Shared rather than private to `travel` because three modules now need the
+ * same number: `travel` prices entering, and both proposers have to net what
+ * the journey costs off what the goal is worth. A second copy of this would be
+ * a second opinion about what a site does to a company, which is the failure
+ * this whole service exists to prevent.
+ */
+export function automaticAttacksOf(
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  siteDefinitionId: string,
+): AttackProfile[] {
+  const def = cardPool[siteDefinitionId] as unknown as {
+    automaticAttacks?: readonly {
+      strikes?: number; prowess?: number; body?: number; creatureType?: string;
+    }[];
+  } | undefined;
+  return (def?.automaticAttacks ?? []).map(attack => ({
+    strikeProwess: attack.prowess ?? 0,
+    strikes: attack.strikes ?? 1,
+    creatureBody: attack.body ?? null,
+    detainment: false,
+    bodyCheckModifier: 0,
+    name: attack.creatureType,
+  }));
+}
