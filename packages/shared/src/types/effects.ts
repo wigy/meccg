@@ -2124,6 +2124,7 @@ export type TriggeredActionType =
   | 'peek-opponent-hand'
   | 'reveal-opponent-hand'
   | 'discard-target-corruption-card'
+  | 'offer-corruption-removal-at-site'
   | 'roll-check'
   | 'roll-then-apply'
   | 'un-eliminate-creature'
@@ -2873,6 +2874,24 @@ export interface DiscardTargetCorruptionCardAction extends TriggeredActionBase {
   readonly type: 'discard-target-corruption-card';
 }
 
+/**
+ * `offer-corruption-removal-at-site` — on entering play, offer each
+ * character (either player's) currently standing at a site whose effective
+ * type is in `siteTypes` and bearing at least one corruption card the
+ * one-time option to remove one of them (their choice which, if more than
+ * one; may decline). Enqueues one `remove-corruption-offer` pending
+ * resolution per eligible character (`chain-reducer.ts`,
+ * `resolvePermanentEvent`'s self-enters-play dispatch).
+ *
+ * Used by Elf-song (tw-223): "When Elf-song comes into play, each character
+ * at a Haven [{H}] may immediately remove one corruption card."
+ */
+export interface OfferCorruptionRemovalAtSiteAction extends TriggeredActionBase {
+  readonly type: 'offer-corruption-removal-at-site';
+  /** Site types (e.g. `"haven"`) a character must occupy to be offered the removal. */
+  readonly siteTypes: readonly SiteType[];
+}
+
 /** `roll-discard-opponent-non-unique-ally` — roll 2d6 ≥ threshold to discard a non-unique ally (CvCC pre-strike). */
 export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionBase {
   readonly type: 'roll-discard-opponent-non-unique-ally';
@@ -3230,6 +3249,7 @@ export type TriggeredAction =
   | PeekOpponentHandAction
   | RevealOpponentHandAction
   | DiscardTargetCorruptionCardAction
+  | OfferCorruptionRemovalAtSiteAction
   | RollDiscardOpponentNonUniqueAllyAction
   | OfferCharJoinAttackAction
   | OfferResourcePlayAction
@@ -6327,6 +6347,35 @@ export interface ProtectFromRemovalEffect extends EffectBase {
 }
 
 /**
+ * While the carrying card (a resource long-event) is in play, no character —
+ * either player's — currently standing at a site whose effective
+ * {@link SiteType} is in `siteTypes` may be discarded or returned to hand for
+ * any reason. Unlike {@link ProtectFromRemovalEffect} (a turn-scoped
+ * constraint on one selected character), this is a continuous, location-gated
+ * protection over a dynamic population: a character gains it the moment it
+ * stands at a matching site and loses it the moment it leaves, for as long as
+ * the carrying long-event stays in play.
+ *
+ * Checked by `isSiteRemovalProtected` (`engine/removal-protection.ts`)
+ * alongside the turn-scoped `character-removal-protected` constraint,
+ * consulted by the same two central helpers (`returnCharacterToHand` /
+ * `discardCharacter` in `pending-reducers.ts`). Because those helpers back
+ * every removal path (dice-check returns, CoE 3.47 influence overflow, body
+ * checks, …), this also covers the CRF-22 ruling that Elf-song "will
+ * effectively stop influence attempts against characters" — no extra wiring
+ * needed.
+ *
+ * Used by Elf-song (tw-223): "While Elf-song is in play, no character at a
+ * Haven [{H}] may be discarded or returned to its owner's hand for any
+ * reason."
+ */
+export interface RemovalProtectionEffect extends EffectBase {
+  readonly type: 'removal-protection';
+  /** Site types (e.g. `"haven"`) a character must currently occupy to be protected. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
  * Forces a body or corruption check on every character in the active company
  * when this hazard short event resolves.
  *
@@ -8284,7 +8333,8 @@ export type CardEffect =
   | FactionInfluenceRestrictionEffect
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
-  | TapDiscardInPlayEffect;
+  | TapDiscardInPlayEffect
+  | RemovalProtectionEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of

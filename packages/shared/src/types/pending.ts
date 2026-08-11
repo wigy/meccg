@@ -889,6 +889,23 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Elf-song (tw-223): "each character at a Haven [{H}] may immediately
+         * remove one corruption card." One resolution per eligible character
+         * (bearing at least one corruption card, standing at a matching site
+         * when Elf-song entered play), enqueued by
+         * `offer-corruption-removal-at-site`. The character's controller
+         * either removes one of the character's corruption cards (their
+         * choice, if more than one) or declines — either way the resolution
+         * clears.
+         */
+        readonly type: 'remove-corruption-offer';
+        /** The eligible character. */
+        readonly characterId: CardInstanceId;
+        /** Definition ID of the source card (Elf-song), for logging. */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Revealed to all Watchers (dm-85): the playing player has just refilled
          * their hand and placed their set-aside (non-hazard) cards on top of the
          * play deck. They now choose the order of those top cards ("in any order

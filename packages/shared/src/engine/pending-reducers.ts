@@ -1583,6 +1583,66 @@ export function applyTransferReturnedItemResolution(
 }
 
 /**
+ * Resolve a queued `remove-corruption-offer` resolution (Elf-song, tw-223).
+ * The eligible character's controller either removes one of the character's
+ * corruption cards — back to that card's own owner's discard pile, exactly
+ * like `discard-target-corruption-card` (`grant-action-apply.ts`) — or
+ * declines; any remaining corruption cards stay attached either way.
+ */
+export function applyRemoveCorruptionOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'remove-corruption-offer') return null;
+  if (action.type !== 'remove-corruption-offer') {
+    return { state, error: `Pending remove-corruption-offer requires 'remove-corruption-offer', got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: `Wrong player for pending remove-corruption-offer` };
+  }
+  const { characterId } = top.kind;
+  const post = dequeueResolution(state, top.id);
+
+  if (!action.corruptionInstanceId) {
+    logDetail(`Remove-corruption-offer: declined for ${characterId as string}`);
+    return { state: post };
+  }
+
+  let ownerIndex = -1;
+  let char: CharacterInPlay | undefined;
+  for (let pi = 0; pi < post.players.length; pi++) {
+    const c = post.players[pi].characters[characterId];
+    if (c) { ownerIndex = pi; char = c; break; }
+  }
+  if (ownerIndex < 0 || !char) {
+    return { state, error: `Character ${characterId as string} is not in play` };
+  }
+
+  const corruption = char.hazards.find(h => h.instanceId === action.corruptionInstanceId);
+  if (!corruption) {
+    return { state, error: `Corruption card ${action.corruptionInstanceId as string} not found on ${characterId as string}` };
+  }
+
+  const corruptionOwnerIdx = getPlayerIndex(post, ownerOf(corruption.instanceId));
+  const corruptionName = defById(post, corruption.definitionId)?.name ?? (corruption.definitionId as string);
+  const charName = cardName(post, char.definitionId);
+  logDetail(`Remove-corruption-offer: removing "${corruptionName}" from ${charName}`);
+
+  const corruptionInstanceId = action.corruptionInstanceId;
+  const newState = updatePlayer(post, ownerIndex, p => updateCharacter(p, characterId, c => ({
+    ...c,
+    hazards: c.hazards.filter(h => h.instanceId !== corruptionInstanceId),
+  })));
+  const finalState = updatePlayer(newState, corruptionOwnerIdx, p => ({
+    ...p,
+    discardPile: [...p.discardPile, toCardInstance(corruption)],
+  }));
+
+  return { state: finalState };
+}
+
+/**
  * Resolve a queued `flattery-attempt` resolution (Flatter a Foe, td-116).
  * The defending player rolls 2d6; total = roll + unusedDI + diplomatBonus (if
  * the character has the diplomat skill). Success if total > threshold: cancel

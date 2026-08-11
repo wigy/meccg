@@ -3233,6 +3233,31 @@ Apply types:
                "onSuccess": { "type": "win-game", "via": "one-ring" } } }
   ```
 
+- `offer-corruption-removal-at-site` -- under `on-event: self-enters-play` on a
+  resource long-event/permanent-event, offer every character — either
+  player's — currently standing at a site whose effective type is in
+  `siteTypes` and bearing at least one corruption card (a hazard whose card
+  definition has `cardType: "hazard-corruption"` or carries the `"corruption"`
+  keyword) the one-time option to remove one of them. One
+  `remove-corruption-offer` pending resolution is enqueued per eligible
+  character; the character's controller either removes one of its corruption
+  cards (their choice, if more than one — sent to that card's own owner's
+  discard pile) or declines, mirroring `transfer-returned-item`'s always-offered
+  decline. Implemented in `chain-reducer.ts`
+  (`applyOfferCorruptionRemovalOnResolve`, called from both `resolveLongEvent`
+  and the generic `resolvePermanentEvent` self-enters-play loop), with the
+  resolution's legal actions/apply in `legal-actions/pending.ts`
+  (`removeCorruptionOfferActions`) and `pending-reducers.ts`
+  (`applyRemoveCorruptionOfferResolution`).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "offer-corruption-removal-at-site", "siteTypes": ["haven"] } }
+  ```
+
+  Used by *Elf-song* (tw-223): "each character at a Haven [{H}] may
+  immediately remove one corruption card."
+
 - `malady-without-healing` -- the bespoke `self-enters-play` orchestrator for
   A Malady Without Healing (le-159). On resolution it locates the target
   (`action.targetCharacterId`, which may be an **opponent's** character) and
@@ -6852,6 +6877,36 @@ Hobbit to hand; the resource mode protects your own Hobbit from that same return
 (and any discard) for the rest of the turn. Offered as a `play-short-event` by
 `playShortEventActions` (`legal-actions/organization-events.ts`) and resolved in
 `handlePlayShortEvent` (`reducer-events.ts`).
+
+### 23b. `removal-protection`
+
+While the carrying card (a resource long-event/permanent-event) sits in
+`cardsInPlay`, no character — either player's — currently standing at a site
+whose effective type is in `siteTypes` may be discarded or returned to hand
+for any reason. Unlike `protect-from-removal` above (a turn-scoped constraint
+on one selected character), this is a continuous, location-gated protection
+over a dynamic population: a character gains it the moment it stands at a
+matching site and loses it the moment it leaves, for as long as the carrying
+card stays in play — no constraint to install or clear.
+
+```json
+{ "type": "removal-protection", "siteTypes": ["haven"] }
+```
+
+Checked by `isSiteRemovalProtected` (`engine/removal-protection.ts`), which
+scans both players' `cardsInPlay` for a matching clause and resolves the
+target character's current site's effective type via `getEffectiveSiteType`.
+Folded into `isCharacterRemovalProtected` alongside the turn-scoped
+`character-removal-protected` constraint, so both sources are consulted by
+the same two central helpers (`returnCharacterToHand` / `discardCharacter` in
+`pending-reducers.ts`) that back every removal path — dice-check returns,
+CoE 3.47 influence-overflow returns, body-check discards, and so on.
+
+Used by Elf-song (tw-223): "While Elf-song is in play, no character at a
+Haven [{H}] may be discarded or returned to its owner's hand for any
+reason." Because the central helpers back every removal path, this also
+covers the CRF-22 ruling that Elf-song "will effectively stop influence
+attempts against characters" with no extra wiring.
 
 ### 24. `mass-body-check`
 
