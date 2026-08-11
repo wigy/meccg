@@ -208,6 +208,54 @@ function stubFallback(pick: GameAction): Agent & { calls: AgentContext[] } {
   };
 }
 
+describe('a tie at the top with an unrelated worse candidate', () => {
+  const model = testWinProbModel();
+  // Reproduces game msp8zwew-ddwnxz, turn 2: a resource player offered several
+  // marshalling-point-neutral `transfer-item`/`store-item` choices (correctly
+  // tied at utility 0) alongside a `split-company` that `defence` prices
+  // negative. `best.utility - worst.utility` reads that spread as an opinion
+  // and plays whichever tied candidate the stable sort put first — which is
+  // how H2 came to shuffle two starting items around and store them for
+  // nothing, never once comparing them to `pass`.
+  const TRANSFER = { type: 'transfer-item', id: 't' } as unknown as GameAction;
+  const STORE = { type: 'store-item', id: 's' } as unknown as GameAction;
+  const SPLIT = { type: 'split-company', id: 'c' } as unknown as GameAction;
+  const tiedTopWorseOutlier: H2Module = {
+    name: 'shape-and-items',
+    ownedActionTypes: ['transfer-item', 'store-item', 'split-company'],
+    evaluate(action) {
+      const dtsd = action === SPLIT ? -4 : 0;
+      const utility = action === SPLIT ? -0.04 : 0;
+      return {
+        action, module: 'shape-and-items',
+        outcomes: [{ p: 1, label: 'x', dtsd }],
+        expectedTsd: dtsd, sigmaTsd: 0, utility,
+        method: 'integrated', rationale: leaf('x', 0), assumptions: [],
+      };
+    },
+  };
+
+  test('defers to the fallback instead of playing the first tied candidate', () => {
+    const fallback = stubFallback(PASS_A);
+    const agent = createHeuristic2Agent({
+      available: [tiedTopWorseOutlier], model, temperature: 0.0001, fallback,
+    });
+    const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT]));
+    expect(decision.note).toContain('stub-fallback fallback');
+    expect(fallback.calls).toHaveLength(1);
+  });
+
+  test('still acts when the top is uncontested', () => {
+    // Same shape, minus the tie: one candidate clears the runner-up, so
+    // there is a real opinion and the module tree keeps the decision.
+    const agent = createHeuristic2Agent({
+      available: [tiedTopWorseOutlier], model, temperature: 0.0001,
+      fallback: stubFallback(PASS_A),
+    });
+    expect(agent.chooseAction(decisionContext([TRANSFER, SPLIT])).action).toBe(TRANSFER);
+  });
+});
+
 describe('yielding to a fallback that can search', () => {
   const model = testWinProbModel();
 
