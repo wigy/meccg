@@ -2387,9 +2387,53 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Pallando"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.isOwnWizardhaven": true
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            { "target.skills": { "$includes": "sage" } },
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.race": { "$ne": "dwarf" } }
+          ]
+        }
+      },
+      {
+        "type": "grant-skill",
+        "skill": "sorcery"
+      },
+      {
+        "type": "grant-skill",
+        "skill": "spirit-magic"
+      },
+      {
+        "type": "grant-skill",
+        "skill": "shadow-magic"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
       }
     ],
-    "text": "Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage at one of your Wizardhavens [{H}] (or in your starting company). The character may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated on a given character."
+    "text": "Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage at one of your Wizardhavens [{H}] (or in your starting company). The character may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated on a given character.",
+    "certified": "2026-08-11"
   },
   {
     "cardType": "minion-resource-event",

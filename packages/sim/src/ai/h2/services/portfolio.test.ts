@@ -66,7 +66,7 @@ describe('select — compatibility', () => {
     const commitment = select(1, [], [
       plan('longshot', 20, {
         requirements: [atSite(COMPANY_A, 'tolfalas')],
-        steps: [{ label: 'get there', p: 0.1 }],
+        steps: [{ label: 'get there', p: 0.1, owner: 'travel' }],
       }),
       plan('sure-thing', 5, { requirements: [atSite(COMPANY_A, 'isengard')] }),
     ], TUNABLES);
@@ -111,8 +111,8 @@ describe('select — hysteresis', () => {
     // The same commitment is a different bet once the company is two regions
     // closer, and carrying last turn's figure would make the abandon rule read
     // a stale probability.
-    const before = plan('a', 4, { steps: [{ label: 'get there', p: 0.5 }] });
-    const after = plan('a', 4, { steps: [{ label: 'get there', p: 0.9 }] });
+    const before = plan('a', 4, { steps: [{ label: 'get there', p: 0.5, owner: 'travel' }] });
+    const after = plan('a', 4, { steps: [{ label: 'get there', p: 0.9, owner: 'travel' }] });
 
     const commitment = select(2, [before], [after], TUNABLES);
     expect(commitment.plans[0].steps[0].p).toBe(0.9);
@@ -140,14 +140,14 @@ describe('select — leaving the portfolio', () => {
   });
 
   test('abandons a plan whose completion probability has collapsed', () => {
-    const doomed = plan('a', 5, { steps: [{ label: 'survive', p: 0.01 }] });
+    const doomed = plan('a', 5, { steps: [{ label: 'survive', p: 0.01, owner: 'travel' }] });
     const commitment = select(2, [doomed], [doomed], TUNABLES);
     expect(commitment.plans).toEqual([]);
     expect(commitment.dropped[0].reason).toBe('abandoned');
   });
 
   test('never admits a challenger that would be abandoned immediately', () => {
-    const doomed = plan('a', 50, { steps: [{ label: 'survive', p: 0.001 }] });
+    const doomed = plan('a', 50, { steps: [{ label: 'survive', p: 0.001, owner: 'travel' }] });
     expect(select(1, [], [doomed], TUNABLES).plans).toEqual([]);
   });
 });

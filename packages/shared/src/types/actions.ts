@@ -102,6 +102,7 @@ export type {
   TapAllyBodyCheckBoostAction,
   ModifyAttackAction,
   TapItemForStrikeAction,
+  FaceStrikeOnTapAction,
   SalvageItemAction,
   ShieldDiscardRollAction,
   DiscardItemFromCompanyAction,

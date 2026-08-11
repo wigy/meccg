@@ -56,6 +56,8 @@ import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeHazardPlan } from '../../services/hazard-plan.js';
+import type { Plan, PlanStep } from '../../core/plan.js';
+import { CARD_STEP } from '../../core/plan.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -130,6 +132,32 @@ function isHazard(def: CardDefinition | undefined): boolean {
 export const handModule: H2Module = {
   name: 'hand',
   ownedActionTypes: OWNED_ACTION_TYPES,
+
+  /**
+   * Whether the card a plan is built on survives to be played.
+   *
+   * `hand` owns this step because `hand` owns `discard-card`, and the
+   * end-of-turn discard is where a commitment dies quietly: the module prices
+   * a card by what it is worth *in hand* — its shadow price — and a card being
+   * held for a site three turns away looks, to that price, exactly like a card
+   * doing nothing. The plan is what says otherwise, and this is the channel it
+   * says it through.
+   *
+   * Zero rather than a discount, because the card is gone. That is the veto
+   * the spec asks for, expressed as a probability so the layer keeps one
+   * mechanism instead of two.
+   */
+  planStepDelta(
+    action: GameAction,
+    plan: Plan,
+    step: PlanStep,
+  ): number | null {
+    if (step.tag !== CARD_STEP) return null;
+    if (action.type !== 'discard-card') return null;
+    const discarded = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!discarded) return null;
+    return discarded === plan.goal.cardInstanceId ? 0 : null;
+  },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     const owned = new Set<string>(OWNED_ACTION_TYPES);

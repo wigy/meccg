@@ -73,13 +73,13 @@ function offeredActions(seeds: readonly number[]): GameAction[] {
 }
 
 /**
- * A whole game does not fit vitest's default when files run in parallel.
- * Doubled from the plain single-game budget (see baseline.test.ts) because
- * this file's game runs after other slow sim files in the same CI job and
- * was observed timing out right at 60s under that contention while taking
- * ~28s locally with no contention.
+ * Two whole games do not fit vitest's default when files run in parallel, and
+ * they do not fit a minute either: the pair takes ~80s on a developer machine
+ * and longer on a shared CI runner. The budget is set well above both, because
+ * the only failure it should ever report is a game that has stopped making
+ * progress — not one that is merely slower than the machine it was timed on.
  */
-const GAME_TIMEOUT = 120_000;
+const GAME_TIMEOUT = 300_000;
 
 describe('the spellings an action uses', () => {
   test('every action that is about a card or character names one we can find', () => {

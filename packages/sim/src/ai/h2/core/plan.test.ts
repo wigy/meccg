@@ -40,7 +40,7 @@ function plan(overrides: Partial<Plan> = {}): Plan {
 
 /** A step that goes right with probability `p`. */
 function step(label: string, p: number): PlanStep {
-  return { label, p };
+  return { label, p, owner: 'travel' };
 }
 
 const COMPANY_A = 'company-p1-0' as CompanyId;

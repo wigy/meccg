@@ -21,7 +21,7 @@ import type { RiskPosture, ScoredOutcomes } from './risk.js';
 import type { MpDelta, MpSource } from './tsd.js';
 import type { WinProbModel } from './winprob.js';
 import type { Tunables } from './tunables.js';
-import type { Plan } from './plan.js';
+import type { Plan, PlanStep } from './plan.js';
 
 /** Unit of a {@link Rationale} value, so renderers can format it correctly. */
 export type RationaleUnit =
@@ -208,4 +208,29 @@ export interface H2Module {
    * is meaningless without it.
    */
   proposePlans?(context: ModuleContext): readonly Plan[];
+  /**
+   * What this action would do to a plan step this module owns.
+   *
+   * Returns the step's revised probability, or `null` to say the action leaves
+   * it alone — which is the answer for almost every (action, step) pair, so
+   * returning `null` cheaply matters more than the interesting case being fast.
+   *
+   * Only the step's {@link PlanStep.owner} is ever asked. That is the rule that
+   * makes contributions addable: without it, `travel` and `resources` can each
+   * report that they raised the same `P(complete)` by 0.3, and the sum is wrong
+   * in exactly the way the single-owner action registry exists to prevent.
+   *
+   * The baseline is `pass`, so this answers "instead of doing nothing", which
+   * is the same counterfactual every H2 utility is already measured against.
+   * A step driven to zero *is* the veto channel: an action that discards the
+   * card the plan needs makes the plan impossible rather than merely worse, and
+   * expressing that as a probability keeps one mechanism instead of two.
+   */
+  planStepDelta?(
+    action: GameAction,
+    plan: Plan,
+    step: PlanStep,
+    stepIndex: number,
+    context: ModuleContext,
+  ): number | null;
 }

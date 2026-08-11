@@ -223,6 +223,60 @@ export interface Tunables {
    * which is the state it is in today.
    */
   readonly planAbandonProbability: number;
+  /**
+   * How much of a plan contribution reaches the ranking.
+   *
+   * One at the shipped value, so a plan is worth what it is worth. It exists
+   * because the whole layer has to be switchable off in a gate without
+   * rebuilding the agent: at zero every number is exactly what it was before
+   * the plan layer existed, which is what makes "did this help" answerable.
+   */
+  readonly planContributionWeight: number;
+  /**
+   * Most a single plan may contribute to one decision, in TSD.
+   *
+   * Most modules are uncalibrated — five are, 46 claims in all — so a proposer
+   * with a broken payoff would otherwise dominate every ranking it touches, and
+   * a plan layer that makes the agent worse in one position is harder to
+   * diagnose than one that never fires. This bounds the damage; `calibrate` is
+   * the actual fix.
+   */
+  readonly planInfluenceCapTsd: number;
+  /**
+   * Which aggregation rule combines plan contributions with tactical value.
+   *
+   * `0` sums in TSD and converts through `W` once — the default, and what §4 of
+   * the plan-layer spec argues for, because `W` is nonlinear and ΔP(win) is
+   * therefore not additive. `1` is rank-based voting over the tactical ranking
+   * and one ballot per committed plan, which discards magnitude in exchange for
+   * being unable to be dominated by a miscalibrated module.
+   *
+   * A mode rather than a magnitude, which is the one place this file bends: §7
+   * settles additive-versus-voting by gate rather than by argument, and a gate
+   * needs both rules in the same binary.
+   */
+  readonly planAggregationMode: number;
+  /**
+   * Chance a company ends up at a plan's site with nothing routing it there.
+   *
+   * The prior on the `route` step, and the number the whole first proposer
+   * turns on. Not zero, because a plan priced at zero is abandoned the turn it
+   * is proposed and could never earn the movement that would rescue it; not
+   * one, because then routing the company would be worth nothing and the layer
+   * would credit the trip it exists to motivate. The gap between this and the
+   * certainty a committed movement buys *is* the value of going.
+   */
+  readonly planUnroutedReachProbability: number;
+  /**
+   * How far ahead a proposed plan may reach, in turns.
+   *
+   * The deadline every proposer stamps on a commitment. The site deck is
+   * walked in order and a site is spent when it is reached, so a plan that has
+   * not happened within the horizon has been overtaken by the game rather than
+   * merely delayed — carrying it further would hold a company against a site
+   * the deck has moved past.
+   */
+  readonly planHorizonTurns: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -248,6 +302,11 @@ export const DEFAULT_TUNABLES: Tunables = {
   onGuardDiscount: 0.5,
   planSwitchMarginTsd: 1,
   planAbandonProbability: 0.05,
+  planContributionWeight: 1,
+  planInfluenceCapTsd: 6,
+  planAggregationMode: 0,
+  planUnroutedReachProbability: 0.25,
+  planHorizonTurns: 6,
 };
 
 /**

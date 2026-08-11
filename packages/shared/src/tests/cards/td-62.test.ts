@@ -13,17 +13,12 @@
  * Effects:
  * | # | Effect Type    | Status | Notes                                                          |
  * |---|----------------|--------|----------------------------------------------------------------|
- * | 1 | dragon-at-home | OK     | +Dragon (3 strikes, 16 prowess) on Gondmaeglom — hero td-177    |
- * |   |                |        | and minion le-379, both `lairOf` td-60; suppressed while Scatha |
- * |   |                |        | Ahunt (td-61, the same chain's long-event) is in play           |
+ * | 1 | dragon-at-home | OK     | +Dragon (3 strikes, 16 prowess, 9 body) on Gondmaeglom — hero    |
+ * |   |                |        | td-177 and minion le-379, both `lairOf` td-60; suppressed while  |
+ * |   |                |        | Scatha Ahunt (td-61, the same chain's long-event) is in play     |
  * | 2 | check-modifier | OK     | -1 to every influence attempt by EITHER player                  |
  * |   |                |        | (`check: "influence"`, `target: "all-in-play"`, the td-76       |
  * |   |                |        | Times Are Evil game-wide scope)                                 |
- *
- * The augment attack's printed "/9" body follows the codebase convention for
- * Dragon lair auto-attacks: every printed Dragon-lair automatic-attack
- * (including Gondmaeglom's own 1×14) is modeled with strikes+prowess only, so
- * the augment is likewise modeled as {Dragon, 3 strikes, 16 prowess}.
  *
  * Rule coverage:
  * | # | Rule                                                                    | Status      |
@@ -138,7 +133,7 @@ describe('Scatha at Home (td-62)', () => {
     const attacks = getActiveAutoAttacks(state, gondmaeglom);
     expect(attacks).toHaveLength(2);
     expect(attacks[0]).toMatchObject({ creatureType: 'Dragon', strikes: 1, prowess: 14 });
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 16 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 16, body: 9 });
   });
 
   test('At-Home also augments the minion version of Gondmaeglom (le-379)', () => {
@@ -155,7 +150,7 @@ describe('Scatha at Home (td-62)', () => {
     const gondmaeglomMinion = state.cardPool[GONDMAEGLOM_MINION] as SiteCard;
     const attacks = getActiveAutoAttacks(state, gondmaeglomMinion);
     expect(attacks).toHaveLength(2);
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 16 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 16, body: 9 });
   });
 
   test('Scatha Ahunt in play suppresses the At-Home augmentation', () => {

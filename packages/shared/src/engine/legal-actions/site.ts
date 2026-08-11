@@ -408,7 +408,14 @@ function revealOnGuardAttacksActions(
           // for reveal here even though it is not a `stat-modifier` effect.
           || (e.type === 'on-event' && e.event === 'company-arrives-at-site'
             && e.apply.type === 'add-constraint' && e.apply.constraint === 'auto-attack-prowess-boost'
-            && (!siteDef || !isSiteCard(siteDef) || e.apply.siteType === siteDef.siteType)),
+            && (!siteDef || !isSiteCard(siteDef) || e.apply.siteType === siteDef.siteType))
+          // Rule 2.V.i.1: adding an additional automatic-attack counts as
+          // affecting the site's automatic-attack(s) — Spawn-type permanent
+          // events (e.g. Balrog of Moria tw-12) that augment this specific
+          // site are eligible for reveal here too, not just after the
+          // printed attacks have already resolved.
+          || (e.type === 'permanent-event-auto-attack' && siteDef && isSiteCard(siteDef)
+            && (e.siteIds.includes(siteDef.id) || (e.siteType !== undefined && siteDef.siteType === e.siteType))),
       );
       // A site-targeting event is played on the company's site as it is
       // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,

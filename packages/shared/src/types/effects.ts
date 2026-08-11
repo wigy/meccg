@@ -7252,6 +7252,8 @@ export interface DragonAtHomeEffect extends EffectBase {
     readonly creatureType: string;
     readonly strikes: number;
     readonly prowess: number;
+    /** Absent means no body check. Each "At Home" card prints one (e.g. Scorba at Home "13/8"). */
+    readonly body?: number;
   };
 }
 
