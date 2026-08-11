@@ -20,6 +20,7 @@ import {
   ARAGORN, LEGOLAS, BILBO,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   expectCharStatus, RESOURCE_PLAYER, HAZARD_PLAYER,
+  attachAllyToChar, setAllyStatus, expectAllyStatus, GWAIHIR,
 } from '../../test-helpers.js';
 
 
@@ -69,6 +70,25 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
     expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
+  });
+
+  test('Wounded ally at haven is healed to tapped position', () => {
+    // CoE 2.V.2.2: allies are treated as characters for healing. Rivendell is
+    // a haven — a wounded (inverted) ally should heal to tapped, same as a
+    // wounded character, not stay wounded forever.
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    state = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
+    state = setAllyStatus(state, RESOURCE_PLAYER, ARAGORN, GWAIHIR, CardStatus.Inverted);
+
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
+    expectAllyStatus(nextState, RESOURCE_PLAYER, ARAGORN, GWAIHIR, CardStatus.Tapped);
   });
 
   test('Untapped characters remain untapped', () => {
