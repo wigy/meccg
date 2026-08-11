@@ -188,6 +188,17 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const preAssignmentResourceEvents = playerId === state.activePlayer && combat.strikeAssignments.length === 0
     ? heroResourceShortEventActions(state, playerId, state.phaseState.phase as string)
     : [];
+  // Rule 2.1.1 / 3.i: the resource player may also activate any-phase
+  // grant-actions during the pre-assignment window — most relevantly Cram's
+  // discard-to-untap-bearer, letting a tapped character shed its tapped
+  // status so it can be assigned a strike instead of only tapped/wounded
+  // characters remaining eligible for the opponent's leftover assignments.
+  // `combatActions` is a self-contained dispatcher (see module doc), so
+  // without this the any-phase grant is unreachable during assign-strikes,
+  // same gap fixed for `resolveStrikeActions` below.
+  const preAssignmentGrantedActions = playerId === state.activePlayer && combat.strikeAssignments.length === 0
+    ? grantedActionActivations(state, playerId, 'anyPhase')
+    : [];
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -214,6 +225,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...allyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
           ...preAssignmentResourceEvents,
+          ...preAssignmentGrantedActions,
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
@@ -237,7 +249,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           return preAssignActions;
         }
       }
-      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
