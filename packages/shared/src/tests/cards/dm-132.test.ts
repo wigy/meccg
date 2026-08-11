@@ -305,6 +305,64 @@ describe('Forewarned Is Forearmed (dm-132)', () => {
     expect(afterChain.combat!.uncancelable).toBe(true);
   });
 
+  test('hazard player\'s own copy does NOT reduce a multi-attack creature they play against the opponent', () => {
+    // Bug report: Forewarned Is Forearmed protects the company of the player
+    // who played it. A hazard player who happens to have their own copy in
+    // play (protecting their own companies elsewhere) must not have it
+    // weaken an Assassin *they* are playing against the opponent's company.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: PhaseEnum.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const fiaCard: CardInPlay = {
+      instanceId: 'fia-hazard-player' as CardInstanceId,
+      definitionId: FOREWARNED_IS_FOREARMED,
+      status: CardStatus.Untapped,
+    };
+    const stateWithFia = pushCardInPlay(state, HAZARD_PLAYER, fiaCard);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...stateWithFia, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    expect(afterChain.combat).not.toBeNull();
+    // Assassin keeps its full 3 attacks — the hazard player's own Forewarned
+    // Is Forearmed does not apply to attacks they play against the opponent.
+    expect(afterChain.combat!.strikesTotal).toBe(3);
+    expect(afterChain.combat!.isolated).toBeFalsy();
+    expect(afterChain.combat!.uncancelable).toBeFalsy();
+  });
+
   // ── Rule 4: Isolated attack cannot be canceled ───────────────────────────
 
   test('isolated attack from Forewarned cannot be canceled', () => {
