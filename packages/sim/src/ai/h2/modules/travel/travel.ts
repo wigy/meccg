@@ -622,13 +622,29 @@ export const travelModule: H2Module = {
     context: ModuleContext,
   ): number | null {
     if (step.tag !== ROUTE_STEP) return null;
-    if (action.type !== 'plan-movement') return null;
-
     const required = plan.requirements.find(r => r.kind === 'company-at-site');
     if (!required || required.kind !== 'company-at-site') return null;
-    const movingCompany = (action as unknown as { companyId?: string }).companyId;
-    if (movingCompany !== (required.companyId as unknown as string)) return null;
+    const named = (action as unknown as { companyId?: string }).companyId;
+    if (named !== (required.companyId as unknown as string)) return null;
 
+    // Entering is the moment the play becomes possible, and it was invisible
+    // to the first version of this: a company standing on the plan's site
+    // counted as "routed" at probability 1, so entering moved nothing, earned
+    // nothing, and was priced by `evaluateEnterSite` alone — what becomes
+    // playable *now* minus the site's attacks *now*, which is negative
+    // whenever the hand is not already holding the card. It ranked dead last
+    // on every decline, measured at a mean fractional rank of 1.00 both before
+    // the plan layer and after it, which is what gave the defect away: a
+    // number that does not move when you add a mechanism is a number the
+    // mechanism never reached.
+    if (action.type === 'enter-site') {
+      const company = context.view.self.companies.find(
+        c => (c.id as unknown as string) === named,
+      );
+      return company?.currentSite?.definitionId === required.siteDefinitionId ? 1 : null;
+    }
+
+    if (action.type !== 'plan-movement') return null;
     const destination = destinationOf(context.view, action);
     if (!destination) return null;
     return destination.definitionId === required.siteDefinitionId ? 1 : 0;
