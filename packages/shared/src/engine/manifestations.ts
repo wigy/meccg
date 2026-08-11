@@ -648,6 +648,7 @@ function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[
             creatureType: attack.creatureType,
             strikes: attack.strikes,
             prowess: attack.prowess,
+            ...(attack.body !== undefined ? { body: attack.body } : {}),
           });
         }
       }

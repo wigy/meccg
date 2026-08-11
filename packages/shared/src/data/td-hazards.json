@@ -508,7 +508,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 2,
-          "prowess": 16
+          "prowess": 16,
+          "body": 9
         }
       }
     ],
@@ -531,7 +532,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 2,
-          "prowess": 15
+          "prowess": 15,
+          "body": 7
         }
       }
     ],
@@ -554,7 +556,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 3,
-          "prowess": 14
+          "prowess": 14,
+          "body": 8
         }
       },
       {
@@ -582,7 +585,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 2,
-          "prowess": 18
+          "prowess": 18,
+          "body": 7
         }
       }
     ],
@@ -605,7 +609,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 3,
-          "prowess": 19
+          "prowess": 19,
+          "body": 8
         }
       },
       {
@@ -634,7 +639,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 2,
-          "prowess": 17
+          "prowess": 17,
+          "body": 8
         }
       }
     ],
@@ -657,7 +663,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 3,
-          "prowess": 16
+          "prowess": 16,
+          "body": 9
         }
       },
       {
@@ -687,7 +694,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 3,
-          "prowess": 13
+          "prowess": 13,
+          "body": 8
         }
       },
       {
@@ -718,7 +726,8 @@
         "attack": {
           "creatureType": "Dragon",
           "strikes": 2,
-          "prowess": 18
+          "prowess": 18,
+          "body": 8
         }
       },
       {
