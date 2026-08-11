@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1117 | 1116 | 1 | 99.9% |
+| 1122 | 1121 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 108 | 108 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 99 | 99 | 100.0% |
+| DM | 100 | 100 | 100.0% |
 | LE | 301 | 300 | 99.7% |
-| TD | 88 | 88 | 100.0% |
-| TW | 336 | 336 | 100.0% |
+| TD | 91 | 91 | 100.0% |
+| TW | 337 | 337 | 100.0% |
 | WH | 88 | 88 | 100.0% |
 
 ## Detailed Test Matrix
@@ -304,12 +304,13 @@
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
 | dm-130 | Fireworks | — | 17 | ☑ |
-| dm-132 | Forewarned Is Forearmed | — | 13 | ☑ |
+| dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
 | dm-134 | Hall of Fire | — | 12 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
+| dm-143 | The Hunt | — | 14 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
@@ -681,11 +682,14 @@
 | td-94 | Thráin II | — | 4 | ☑ |
 | td-95 | A Short Rest | — | 6 | ☑ |
 | td-96 | Adamant Helmet | — | 10 | ☑ |
+| td-97 | Alert the Folk | — | 11 | ☑ |
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
+| td-99 | Arrows Shorn of Ebony | — | 13 | ☑ |
 | td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-103 | Burglary  | — | 13 | ☑ |
 | td-105 | Cram | — | 16 | ☑ |
+| td-108 | Dragon-lore | — | 15 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 21 | ☑ |
@@ -722,7 +726,7 @@
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
-| tw-008 | — | — | 10 | ☑ |
+| tw-008 | — | — | 11 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
@@ -832,6 +836,7 @@
 | tw-150 | Fíli | — | 5 | ☑ |
 | tw-151 | Forlong | — | 2 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
+| tw-154 | Galva | — | 9 | ☑ |
 | tw-155 | Gamling the Old | — | 3 | ☑ |
 | tw-156 | Gandalf | — | 9 | ☑ |
 | tw-158 | Gildor Inglorion | — | 2 | ☑ |

@@ -4473,6 +4473,7 @@ later strikes of the same attack see the unmodified body). Available during
 character.
 
 Two cost variants:
+
 - `cost: { "tap": "self" }` — the item must be untapped; taps on activation.
   Used by Shield of Iron-bound Ash (tw-327): tap to gain +1 prowess against
   one strike.
