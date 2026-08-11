@@ -1270,10 +1270,56 @@ wrong, and the reason is structural rather than numeric: an unmodellable event
 is priced *at* the floor, so anything floored to the same value ties with it
 whatever that value is. Lowering the floor lowers both sides together.
 
-Recovering discard discrimination therefore needs what `card-price` says it
-does not have — *"hazard events, corruption cards, resources that carry no
-points"* have no valuation at all, only the flat price. That is a module to
+Recovering discard discrimination therefore needs what `card-price` said it
+did not have — *"hazard events, corruption cards, resources that carry no
+points"* had no valuation at all, only the flat price. That is a module to
 write, not a constant to tune, and the sweep is what establishes it.
+
+#### The event valuation, and a trade-off that does not go away
+
+`services/event-value` is that module. It is `events`' effect reading lifted
+out of the module and into a service, because two consumers now need the same
+number: `events` asks what an event achieves at a *named* target, and
+`card-price` asks what it would achieve at the best one available. Sharing the
+reading is the point — a card the agent pays to play and refuses to keep is an
+incoherence nothing in the output would explain.
+
+Extracting it exposed a real mispricing on the way. `events` was charging the
+card's *held* value as the cost of playing it, and once `card-price` learned
+to value events those became the same number — a card whose only modelled use
+is the play being scored, charged against that play's own gain. It is the
+identical trap that made moving `hazards` onto the held price achieve nothing,
+and it now has a name in both places: **a shadow price is an opportunity cost
+only when it prices the next-best use.** `events` charges
+`provisionalCardPrice` and holds `heldCardFloor`, which is what splitting the
+two constants was for.
+
+The valuation itself **changed no corpus number** — 40.76% before and after,
+in either floor configuration. What it did make possible is the tidier floor
+rule, applied only to cards nothing can read, and that rule was measured and
+**rejected**:
+
+| | overall | `pass` | `discard-card` |
+|---|---|---|---|
+| floor on every held card | **40.76%** | **26.6%** | 6.6% |
+| floor only where unread | 39.48% | 22.2% | **14.3%** |
+
+It buys back most of the discard precision the blanket floor costs and pays
+more than it gains, because `pass` is 1101 of those decisions and
+`discard-card` is 196. **Five and a half times as many decisions turn on how
+reluctant the agent is to spend anything at all as on which card it throws.**
+
+So the floor stays on everything, the reason is recorded in the code, and the
+arithmetic could change: value the remaining modelled zeros — a creature the
+plan cannot use, a character whose mind does not fit, an event that declares no
+effect — and the tidier rule should win.
+
+The cumulative movement from the corpus, over 2642 attributed decisions:
+
+| | overall | `pass` |
+|---|---|---|
+| before any of it | 39.74% | 22.6% |
+| now | **40.76%** | **26.6%** |
 
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not

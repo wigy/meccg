@@ -55,6 +55,7 @@ import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
 import { computeBudget } from './budget.js';
 import { computeHazardPlan } from './hazard-plan.js';
+import { heldGain } from './event-value.js';
 
 /** What one card in hand is worth keeping. */
 export interface CardWorth {
@@ -267,35 +268,56 @@ function buildComputeCardPrices(
       };
     }
 
+    // No points and no attack: ask what the card *does*. This was the flat
+    // price, and it is the reason discards were arbitrary — every hazard
+    // event, resource event and corruption card in the hand priced identically,
+    // so which one the agent threw was decided by array order. `event-value`
+    // reads the same effects `events` reads when it decides to play one.
+    const event = heldGain(definitionId, { view, cardPool, standing, tunables, legalActions: [] });
+    if (event !== null) {
+      return {
+        instanceId,
+        name: def.name,
+        tsd: event.tsd * tunables.potentialDiscount,
+        reason: `${event.reason} — discounted as potential`,
+      };
+    }
     return {
       instanceId,
       name: def.name,
       tsd: floor,
-      reason: 'no points and no attack to model — the flat price',
+      reason: 'no points, no attack, and no effect this reads — the flat price',
     };
   };
 
   /**
-   * The floor is a **floor**, and it was not being applied as one.
+   * Every held card is worth at least the floor, and that is a measured
+   * choice rather than an obvious one.
    *
-   * A card whose use cannot be modelled at all returned `floor`; a card that
-   * *could* be priced and came out at zero returned zero. So an unmodellable
-   * hazard event outranked a 2 MP item whose source happened to be capped, and
-   * `hand` kept the event and threw the item.
+   * Applying it only to cards nothing can read is the tidier rule, and it is
+   * what the two new valuations were built to make possible: a capped source
+   * priced at the standing its own hand would create is no longer spuriously
+   * zero, and an event priced by `event-value` is no longer spuriously the
+   * floor. Measured over 2642 attributed human decisions, that tidier rule
+   * **loses**:
    *
-   * That is measurable against the recorded corpus, and it is not subtle. On
-   * the discards where a human and the agent both chose to discard, the human
-   * threw a resource or hazard *event* 44 times against the agent's 17, and the
-   * agent threw a 2 MP hero item **20 times against the human's 3** and an
-   * MP-bearing character 13 against 3. Sampled over 200 real discard
-   * positions, a source priced at exactly zero in 63 (`character`) and 57
-   * (`item`) of them, while every unpriceable event sat at the flat 1.0.
+   * ```text
+   *                             overall    pass   discard
+   *   floor on every held card   40.76%   26.6%      6.6%
+   *   floor only where unread    39.48%   22.2%     14.3%
+   * ```
    *
-   * The residual the floor stands for — option value, a play the plan has not
-   * found, a standing the cap no longer bites in — belongs to *every* card in
-   * hand, not only to the ones the model gave up on. Pricing a capped item at
-   * zero asserts the opposite: that its value is fully known and is nothing,
-   * when playing it is precisely how a capped source stops being capped.
+   * It buys back most of the discard precision the blanket floor costs — and
+   * pays more for it than it gains, because `pass` is 1101 of those decisions
+   * and `discard-card` is 196. Five and a half times as many decisions turn on
+   * how reluctant the agent is to spend anything at all as on which card it
+   * throws.
+   *
+   * So the floor stays on everything, and the reason is recorded because the
+   * arithmetic could change: value the remaining zeros properly and the tidier
+   * rule should win. What is left at a modelled zero is a creature the plan
+   * cannot use, a character whose mind does not fit, and an event that declares
+   * no effect.
    */
   const atLeastFloor = (worth: CardWorth): CardWorth =>
     (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
