@@ -143,6 +143,25 @@ describe('Barrow-blade (dm-119)', () => {
     expect(getCharacter(after, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(beforeProwess + 1);
   });
 
+  // ── Corruption: Barrow-blade adds 1 CP to the Dagger's bearer ───────────────
+
+  test('adds 1 corruption point to the bearer once attached', () => {
+    const base = buildSitePhaseState({
+      site: BARROW_DOWNS,
+      characters: [{ defId: ARAGORN, items: [DAGGER_OF_WESTERNESSE] }],
+      hand: [BARROW_BLADE],
+    });
+    const daggerId = findItemInstanceId(base, RESOURCE_PLAYER, DAGGER_OF_WESTERNESSE);
+    const cardId = base.players[0].hand.find(c => c.definitionId === BARROW_BLADE)!.instanceId;
+
+    const beforeCp = getCharacter(base, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints;
+    const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, undefined, {
+      targetItemInstanceId: daggerId,
+    });
+
+    expect(getCharacter(after, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(beforeCp + 1);
+  });
+
   // ── Duplication: one Barrow-blade per Dagger ────────────────────────────────
 
   test('cannot be duplicated on a Dagger that already carries a Barrow-blade', () => {

@@ -53,6 +53,9 @@ import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeDefence } from '../../services/defence.js';
+import { namedCharacter } from '../../core/action-fields.js';
+import type { Plan, PlanStep } from '../../core/plan.js';
+import { CARRIER_STEP } from '../../core/plan.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 
@@ -334,6 +337,78 @@ function evaluateShape(context: ModuleContext, action: GameAction): Evaluation |
 export const charactersModule: H2Module = {
   name: 'characters',
   ownedActionTypes: OWNED_ACTION_TYPES,
+
+  /**
+   * Whether the company a plan depends on can still make the play.
+   *
+   * `characters` owns this step because every action that changes who stands
+   * in a company is one of its own — `split-company`, `move-to-company`,
+   * `discard-character`. The rules ask for one untapped character to make the
+   * play, so the step is binary: the company has one or it does not, and a
+   * fraction here would be a constant nobody could calibrate.
+   *
+   * This is also where company shape acquires a *reason*. `defence` prices a
+   * split by the harm it changes, which is why a split and its undo can both
+   * look positive and the agent spends whole games oscillating between them.
+   * A committed plan breaks that symmetry: stripping the last untapped
+   * character out of the company carrying a commitment now costs the whole
+   * commitment, and putting one back is worth having it. The cycle is not the
+   * target of this change and it is not fixed by it — but the shape decision
+   * finally has something at stake beyond a difference of potentials.
+   */
+  planStepDelta(
+    action: GameAction,
+    plan: Plan,
+    step: PlanStep,
+    _stepIndex: number,
+    context: ModuleContext,
+  ): number | null {
+    if (step.tag !== CARRIER_STEP) return null;
+    const required = plan.requirements.find(r => r.kind === 'company-at-site');
+    if (!required || required.kind !== 'company-at-site') return null;
+
+    const fields = action as unknown as {
+      sourceCompanyId?: string;
+      targetCompanyId?: string;
+    };
+    const companyId = required.companyId as unknown as string;
+    const leaving = (action.type === 'split-company' || action.type === 'move-to-company'
+      || action.type === 'discard-character')
+      && fields.sourceCompanyId === companyId;
+    const arriving = action.type === 'move-to-company' && fields.targetCompanyId === companyId;
+
+    const budget = computeBudget(context.view, context.cardPool);
+    const untapped = budget.untappedIn(required.companyId);
+    if (arriving) return untapped.length > 0 ? null : 1;
+
+    // Anything that spends the company's last untapped character costs the
+    // commitment, whatever the action is called.
+    //
+    // This is the measured bottleneck rather than a guess. Instrumented over
+    // twelve games, H2 arrives at a site with **nobody left to tap 75.1% of
+    // the time**, against `heuristic`'s 23.4% — while holding 2.5 items and
+    // 2.1 factions it could have played. `tapTempoCost`'s own doc comment
+    // predicted exactly this: "an AI that taps freely arrives at its site
+    // unable to score." It is a flat 0.3 TSD and it does not know a commitment
+    // exists; `influence-attempt` alone is taken by H2 at 93.9% against
+    // `heuristic`'s 73.9%, and every one of those taps somebody.
+    //
+    // So the price of the *last* tap is the plan it forfeits, which is the
+    // whole reason the plan layer exists — a cost that belongs to a
+    // commitment, made visible to a decision that has no idea the commitment
+    // is there.
+    const named = namedCharacter(action);
+    if (!leaving && named === undefined) return null;
+    if (!leaving && !untapped.some(c => c.instanceId === named)) return null;
+
+    // Leaving takes the named character and their followers; tapping spends
+    // only the named one. Followers are not counted in either case, so a
+    // character carrying untapped followers is under-charged — recorded rather
+    // than guessed at, because the view does not report the attachment this
+    // would need.
+    const remaining = untapped.filter(c => c.instanceId !== named).length;
+    return remaining > 0 ? null : 0;
+  },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     if (action.type === 'split-company' || action.type === 'merge-companies'

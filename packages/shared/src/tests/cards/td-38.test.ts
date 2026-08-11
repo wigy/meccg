@@ -12,13 +12,8 @@
  * Effects:
  * | # | Effect Type            | Status | Notes                                                       |
  * |---|------------------------|--------|-------------------------------------------------------------|
- * | 1 | dragon-at-home         | OK     | +Dragon (3 strikes, 19 prow) on Gold Hill; suppressed by Itangast Ahunt |
+ * | 1 | dragon-at-home         | OK     | +Dragon (3 strikes, 19 prow, 8 body) on Gold Hill; suppressed by Itangast Ahunt |
  * | 2 | in-play-item-modifier  | OK     | +1 corruption point on every greater item (both players)    |
- *
- * The augment attack's printed "/8" body follows the codebase convention for
- * Dragon lair auto-attacks: every site auto-attack (including Gold Hill's own
- * printed Dragon attack) is modeled with strikes+prowess only, so the augment
- * is likewise modeled as {Dragon, 3 strikes, 19 prowess}.
  *
  * Corruption fixtures: The Arkenstone (tw-341, subtype greater, printed
  * corruption 2) is the affected item; Dagger of Westernesse (tw-206, subtype
@@ -126,7 +121,7 @@ describe('Itangast at Home (td-38)', () => {
     const attacks = getActiveAutoAttacks(state, goldHill);
     expect(attacks).toHaveLength(2);
     expect(attacks[0]).toMatchObject({ strikes: 1, prowess: 15 });
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 19 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 19, body: 8 });
   });
 
   test('Itangast Ahunt in play suppresses the At-Home augmentation', () => {

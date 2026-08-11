@@ -71,9 +71,12 @@
  * confident preference that went to Heuristics 1 every turn of every game.
  */
 
+import type { GameAction } from '@meccg/shared';
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
 import { createHeuristicAgent } from '../../agents/heuristic-agent.js';
 import { forwardActions } from '../regress.js';
+import { createCycleGuard } from '../../cycle-guard.js';
+import { viewSignature } from '../../state-signature.js';
 import { sampleWeighted } from '../strategy.js';
 import type { H2Module, ModuleContext } from './core/types.js';
 import type { Tunables } from './core/tunables.js';
@@ -82,6 +85,7 @@ import type { WinProbModel } from './core/winprob.js';
 import { loadWinProbModel } from './core/winprob.js';
 import { ALL_MODULES, evaluateDecision, proposePlans, resolveModules } from './core/registry.js';
 import { createPlanPortfolio } from './services/portfolio.js';
+import { rankWithPlans } from './services/plan-value.js';
 import { computeStanding } from './services/standing.js';
 
 /** Construction options for {@link createHeuristic2Agent}. */
@@ -224,23 +228,42 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   // because carrying one across games would have an early game silently steer
   // a later one — the failure the `bc` agent's guard memory already documents.
   const portfolio = createPlanPortfolio();
+  // Three filters now run in front of the modules, and they answer different
+  // questions. `forwardActions` drops what the engine has *proved* undoes this
+  // phase's progress; the cycle guard drops what has *demonstrably* led back to
+  // this position, which is the part the engine cannot see when every lap mints
+  // fresh instance IDs; the plan layer then re-ranks what is left. See
+  // `cycle-guard`.
+  const cycleGuard = createCycleGuard();
 
   return {
     name: label,
 
     startGame(): void {
       portfolio.reset();
+      // Signatures are coarse on purpose, so one game's history must never
+      // narrow another's candidates.
+      cycleGuard.reset();
     },
 
     chooseAction(context: AgentContext): AgentDecision {
       if (context.legalActions.length === 0) {
         throw new Error('h2 agent asked to choose with no legal actions');
       }
+      const signature = viewSignature(context.view);
       // The engine marks candidates that undo this phase's own progress, and
       // that is a fact rather than a preference — see `ai/regress`. Filtering
       // here rather than inside a module keeps every module's coverage honest:
       // an action H2 never sees cannot be one it declined to score.
-      const legalActions = forwardActions(context.legalActions);
+      const legalActions = cycleGuard.allow(signature, forwardActions(context.legalActions));
+      const decision = decide(context, legalActions);
+      cycleGuard.taken(signature, decision.action);
+      return decision;
+    },
+  };
+
+  /** The ranking itself, on whatever candidate list survived the filters. */
+  function decide(context: AgentContext, legalActions: readonly GameAction[]): AgentDecision {
       const moduleContext: ModuleContext = {
         view: context.view,
         cardPool: context.cardPool,
@@ -248,17 +271,25 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
       };
-      // Commit once per turn. Nothing reads the portfolio yet — no module
-      // implements `proposePlans`, so this commits an empty set at the cost of
-      // one loop over the module list. It is wired here rather than with the
-      // first proposer so that the plumbing, and its per-game reset, ship and
-      // are tested before anything depends on them.
-      portfolio.commit(
+      // Commit once per turn, then price every candidate against what is
+      // committed. Re-selecting per decision would let the portfolio churn
+      // inside one organization phase, which is the plan-thrash on a shorter
+      // clock — see `services/portfolio`.
+      const commitment = portfolio.commit(
         context.view.turnNumber,
         proposePlans(modules, moduleContext),
         tunables,
       );
-      const { modules: contributors, evaluations, complete } = evaluateDecision(modules, moduleContext);
+      const { modules: contributors, evaluations: tactical, complete }
+        = evaluateDecision(modules, moduleContext);
+      // The plan contributions are folded in here rather than inside
+      // `evaluateDecision` because they are not a module's opinion about an
+      // action — they are what the *commitment* says about it, and the registry
+      // is the wrong place for a number no module owns. Re-ranking is the whole
+      // point: a candidate that serves a commitment has to be able to outrank
+      // one that looked better tactically.
+      const planned = rankWithPlans(modules, tactical, commitment, moduleContext);
+      const evaluations = planned.map(p => p.evaluation);
       const best = evaluations[0];
       const worst = evaluations[evaluations.length - 1];
       // A ranking whose candidates all score the same is not an opinion, it is
@@ -336,6 +367,5 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         note: `${contributors.join('+')}: best ΔP(win) ${(best.utility * 100).toFixed(2)}% `
           + `(E[Δtsd] ${best.expectedTsd.toFixed(1)}, σ ${best.sigmaTsd.toFixed(1)}, ${best.method})`,
       };
-    },
-  };
+  }
 }

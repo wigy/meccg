@@ -560,6 +560,11 @@
         }
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "duplication-limit",
         "scope": "item",
         "max": 1

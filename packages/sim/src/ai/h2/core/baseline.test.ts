@@ -53,8 +53,14 @@ describe('the spellings of doing nothing', () => {
   });
 });
 
-/** A whole game does not fit vitest's default when files run in parallel. */
-const GAME_TIMEOUT = 60_000;
+/**
+ * Two whole games do not fit vitest's default when files run in parallel, and
+ * they do not fit a minute either: the pair takes ~80s on a developer machine
+ * and longer on a shared CI runner. The budget is set well above both, because
+ * the only failure it should ever report is a game that has stopped making
+ * progress — not one that is merely slower than the machine it was timed on.
+ */
+const GAME_TIMEOUT = 300_000;
 
 describe('the list against the engine', () => {
   test('the engine still offers every spelling this claims to cover', () => {

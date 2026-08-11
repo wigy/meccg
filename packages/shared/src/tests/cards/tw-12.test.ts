@@ -40,8 +40,9 @@ import {
   findCharInstanceId, findInPile,
   attachItemToChar,
   resetMint,
+  buildSitePhaseTwoPlayer, placeOnGuard, makeSitePhase, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, GameState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, GameState, RevealOnGuardAction } from '../../index.js';
 import { reduce } from '../../index.js';
 
 const BALROG_OF_MORIA = 'tw-12' as CardDefinitionId;
@@ -286,5 +287,63 @@ describe('Balrog of Moria (tw-12)', () => {
     // Balrog should NOT be in defender's kill pile — Bilbo could not defeat it
     const inKillPile = findInPile(s.state, 0, 'killPile', balrogInPlay.instanceId);
     expect(inKillPile).toBeUndefined();
+  });
+
+  // ─── On-guard reveal (rule 2.V.i.1) ───────────────────────────────────────
+
+  test('bug regression: placed on-guard at Moria, is offered for reveal in Step 1 alongside the Orcs auto-attack', () => {
+    // Bug report: Balrog of Moria placed on-guard was never offered for
+    // reveal during Step 1 (reveal-on-guard-attacks) even though Moria
+    // already has an automatic-attack (Orcs). Root cause: the
+    // reveal-on-guard-attacks eligibility check recognized
+    // `stat-modifier`/`site-entry-roll-attack`/prowess-boost `on-event`
+    // shapes but not `permanent-event-auto-attack` — the effect type Balrog
+    // of Moria uses to add its 2nd automatic-attack. Per rule 2.V.i.1, adding
+    // an additional automatic-attack counts as affecting the site's
+    // automatic-attack(s) for reveal purposes. Without the fix, the Balrog
+    // sat on-guard through the whole turn and was simply returned to the
+    // hazard player's hand at end of turn instead of ever attacking.
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, BALROG_OF_MORIA);
+    const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(revealActions).toHaveLength(1);
+    expect((revealActions[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
+  });
+
+  test('bug regression: revealing Balrog on-guard at Step 1 moves it to cardsInPlay and its 2nd auto-attack resolves', () => {
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, BALROG_OF_MORIA);
+    const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const afterReveal = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+
+    // No longer on-guard; now a permanent event in the hazard player's cardsInPlay.
+    expect(afterReveal.players[0].companies[0].onGuardCards).toHaveLength(0);
+    expect(afterReveal.players[1].cardsInPlay.map(c => c.instanceId)).toContain(ogCard.instanceId);
+
+    // Hazard player has nothing left to reveal → passes to the automatic-attacks step.
+    const afterPass = dispatch(afterReveal, { type: 'pass', player: PLAYER_2 });
+    expect((afterPass.phaseState as { step: string }).step).toBe('automatic-attacks');
+
+    // 1st automatic-attack: Orcs (4 strikes, 7 prowess).
+    let next = dispatch(afterPass, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(4);
+    expect(next.combat!.strikeProwess).toBe(7);
+
+    // 2nd automatic-attack: the revealed Balrog (1 strike, 18 prowess, no body).
+    // Skip past resolving the 1st attack's combat (covered by the other
+    // tests above) by jumping straight to automaticAttacksResolved = 1.
+    next = {
+      ...afterPass,
+      phaseState: { ...(afterPass.phaseState as object), automaticAttacksResolved: 1 },
+    } as GameState;
+    next = dispatch(next, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(1);
+    expect(next.combat!.strikeProwess).toBe(18);
+    expect(next.combat!.creatureBody).toBeNull();
   });
 });
