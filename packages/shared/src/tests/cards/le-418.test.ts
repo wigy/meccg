@@ -5,10 +5,11 @@
  * Type: minion-resource-item (greater, hoard, unique, ringwraith)
  * Corruption: 3 · MP: 3
  *
- * Text: "Unique. +5 to bearer's direct influence against Dwarves and Dwarf
- * factions. Each Dwarf in play has +1 mind. If the bearer of this item is
- * at the same site as a Dwarf character, you may discard this item to force
- * the discard of the Dwarf (and all non-follower cards he controls)."
+ * Text: "Unique. Hoard item. +5 to bearer's direct influence against Dwarves
+ * and Dwarf factions. Each Dwarf in play has +1 mind. If the bearer of this
+ * item is at the same site as a Dwarf character, you may discard this item
+ * to force the discard of the Dwarf (and all non-follower cards he
+ * controls)."
  *
  * Effects:
  * | # | Effect Type               | Status | Notes                                                              |
@@ -75,6 +76,15 @@ const THE_PUKEL_DEEPS = 'as-158' as CardDefinitionId;
 
 describe('The Arkenstone (le-418)', () => {
   beforeEach(() => resetMint());
+
+  test('card text carries the "Hoard item." designation, matching every other hoard item', () => {
+    // Regression test: the minion printing's text field was missing "Hoard
+    // item." (unlike every other hoard-keyword card in the data set, e.g.
+    // td-96, as-129), even though `keywords` already listed "hoard" and the
+    // engine correctly enforced hoard-site-only play. Bug report: minion
+    // Arkenstone still doesn't bear the wording "Hoard Item".
+    expect(pool[THE_ARKENSTONE as string].text).toContain('Hoard item.');
+  });
 
   // ── Effect 1: item-play-site (hoard) ──────────────────────────────────────
 
