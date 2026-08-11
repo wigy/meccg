@@ -32,6 +32,7 @@ import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
 import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
+import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
 
 /**
@@ -780,6 +781,13 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   // pile, so nothing is disposed on cancel either).
   if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
     stateWithCancelledPlayers = advanceGreatHuntReveal(stateWithCancelledPlayers, combat.attackSource.greatHuntInstanceId);
+  }
+
+  // The Hunt (dm-143): "If untapped, tap [the bearer] afterwards" applies
+  // even when the attack is canceled — the forced-attack sequence still
+  // "happened", just without strikes.
+  if (combat.attackSource.type === 'hunt-attack') {
+    stateWithCancelledPlayers = tapHuntBearerAfterwards(stateWithCancelledPlayers, combat.defendingPlayerId, combat.attackSource.bearerInstanceId);
   }
 
   // Sweep attack-scoped constraints (e.g. duplication-limit markers from

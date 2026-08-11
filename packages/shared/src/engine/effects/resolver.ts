@@ -974,6 +974,13 @@ export interface CreatureAttackBoostContext {
   readonly companyId: import('../../types/common.js').CompanyId;
   /** The current attacker's instance ID (to skip self-boost). */
   readonly creatureInstanceId?: CardInstanceId;
+  /**
+   * When true, skip constraints sourced from a `spell`-keyword card — The
+   * Hunt (dm-143): "cannot ... benefit from spells against the attack"
+   * suppresses Wizard's Flame's (tw-361) `creature-attack-boost` prowess
+   * reduction for this combat. Mirrors `CombatState.spellsIneffective`.
+   */
+  readonly suppressSpellSources?: boolean;
 }
 
 /**
@@ -1018,6 +1025,7 @@ function collectCreatureAttackBoostEffects(
     if (value === 0) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
+    if (ctx.suppressSpellSources && (sourceDef as { keywords?: readonly string[] }).keywords?.includes('spell')) continue;
     const synthesized: StatModifierEffect = { type: 'stat-modifier', stat, value };
     results.push({ effect: synthesized, sourceDef, sourceInstance: constraint.source });
   }

@@ -3982,6 +3982,35 @@ export interface RevealAndAttackEffect extends EffectBase {
 }
 
 /**
+ * The Hunt (dm-143) — Alatar's short-event resource event. Playable on Alatar
+ * during the organization phase: the controller names one hazard-creature
+ * instance the opponent's game state has already revealed to them (its
+ * identity present in `GameState.handRevealedInstances`) that currently sits
+ * in the opponent's play deck or discard pile ("Unless eliminated or
+ * prevented from being in play" — a creature no longer in either pile simply
+ * offers no candidate). The named creature immediately attacks the bearer as
+ * a `hunt-attack` combat:
+ *
+ * - The bearer defends alone, "as though he were a one-character company"
+ *   (`CombatState.soloDefenderInstanceId`), regardless of his actual company.
+ * - "Cannot use or benefit from spells against the attack" —
+ *   `CombatState.spellsIneffective` suppresses spell-keyword `cancel-attack`
+ *   plays (Vanishment tw-356, Wizard's River-horses tw-364) and spell-sourced
+ *   `creature-attack-boost` constraints (Wizard's Flame tw-361) for this
+ *   combat only.
+ * - The creature card is never moved out of its pile — attacked in place,
+ *   exactly like The Great Hunt (wh-91) / Lucky Search (tw-269) — so
+ *   finalization neither discards nor awards it. If the creature was found in
+ *   the play deck (not the discard pile), the deck is reshuffled once it is
+ *   named ("reshuffling his play deck if it was searched").
+ * - "If untapped, tap [the bearer] afterwards" — applied once the forced
+ *   attack concludes (finalized or canceled).
+ */
+export interface NamedCreatureHuntEffect extends EffectBase {
+  readonly type: 'named-creature-hunt';
+}
+
+/**
  * Tap an agent of the specified skill at the target company's current site,
  * triggering an agent attack during the movement/hazard phase (rule 9.06).
  *
@@ -8131,6 +8160,7 @@ export type CardEffect =
   | TriggerAttackOnPlayEffect
   | DeckSearchAttackEffect
   | RevealAndAttackEffect
+  | NamedCreatureHuntEffect
   | TapAgentEffect
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect

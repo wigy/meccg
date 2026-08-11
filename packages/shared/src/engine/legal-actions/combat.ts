@@ -2916,6 +2916,22 @@ function cancelAttackActions(
     });
   }
 
+  // The Hunt (dm-143): "cannot use ... spells against the attack" drops every
+  // cancel-attack option sourced from a `spell`-keyword card (Vanishment
+  // tw-356, Wizard's River-horses tw-364), regardless of which loop above
+  // offered it.
+  if (combat.spellsIneffective) {
+    return actions.filter(a => {
+      if (a.action.type !== 'cancel-attack') return true;
+      const def = resolveDef(state, a.action.cardInstanceId);
+      const isSpell = !!def && 'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes('spell');
+      if (isSpell) {
+        logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? a.action.cardInstanceId as string}: suppressed — spells cannot be used against this attack (The Hunt)`);
+      }
+      return !isSpell;
+    });
+  }
+
   return actions;
 }
 

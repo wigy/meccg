@@ -165,6 +165,23 @@ export type AttackSource =
       readonly continuation: 'reveal' | 'none';
     }
   /**
+   * Triggered by The Hunt (dm-143) via the `named-creature-hunt` DSL effect: a
+   * named hazard-creature (already known to the controller via
+   * `GameState.handRevealedInstances`, sitting in the opponent's play deck or
+   * discard pile) immediately attacks the bearer of The Hunt as though he were
+   * a one-character company (`CombatState.soloDefenderInstanceId`). The
+   * creature card is never moved out of its pile — attacked in place, exactly
+   * like a `great-hunt-attack` — so finalization does not discard or award it.
+   * `bearerInstanceId` is tapped (if untapped) once the attack concludes,
+   * whether finalized or canceled.
+   */
+  | {
+      readonly type: 'hunt-attack';
+      readonly huntInstanceId: CardInstanceId;
+      readonly creatureInstanceId: CardInstanceId;
+      readonly bearerInstanceId: CardInstanceId;
+    }
+  /**
    * Triggered by Traitor (tw-105) via `on-event: corruption-check-failed` +
    * `traitor-attack`: a character who failed a corruption check "becomes a
    * traitor" and an attack (prowess = traitor's printed prowess + 10, same
@@ -688,6 +705,20 @@ export interface CombatState {
    * prowess".
    */
   readonly weaponsIneffective?: boolean;
+  /**
+   * When true, the defending player "cannot use or benefit from spells
+   * against the attack" (The Hunt dm-143). Centrally enforced — not exposed
+   * to card `when` conditions like {@link weaponsIneffective} — at the two
+   * points spells could otherwise help the defender:
+   * - `cancelAttackActions` (legal-actions/combat.ts) drops every
+   *   `cancel-attack` option sourced from a card carrying the `spell` keyword
+   *   (Vanishment tw-356, Wizard's River-horses tw-364).
+   * - `collectCreatureAttackBoostEffects` (effects/resolver.ts) skips active
+   *   `creature-attack-boost` constraints sourced from a `spell`-keyword card
+   *   (Wizard's Flame tw-361's prowess reduction) when computing this
+   *   attack's effective prowess/strikes.
+   */
+  readonly spellsIneffective?: boolean;
   /**
    * When true, this attack was reduced from multiple attacks by
    * *Forewarned Is Forearmed*. Exposed as `attack.isolated` in the

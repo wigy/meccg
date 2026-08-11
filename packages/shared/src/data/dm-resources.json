@@ -1049,8 +1049,13 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Alatar during the organization phase. Name a specific hazard creature card your opponent revealed to you through a mechanism of the game and discarded. Unless eliminated or prevented from being in play, your opponent then finds this particular card (reshuffling his play deck if it was searched). This creature immediately attacks Alatar as though he were a one-character company. Alatar cannot use or benefit from spells against the attack. If untapped, tap Alatar afterwards."
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.name": "Alatar" } },
+      { "type": "named-creature-hunt" }
+    ],
+    "text": "Playable on Alatar during the organization phase. Name a specific hazard creature card your opponent revealed to you through a mechanism of the game and discarded. Unless eliminated or prevented from being in play, your opponent then finds this particular card (reshuffling his play deck if it was searched). This creature immediately attacks Alatar as though he were a one-character company. Alatar cannot use or benefit from spells against the attack. If untapped, tap Alatar afterwards.",
+    "certified": "2026-08-11"
   },
   {
     "cardType": "hero-resource-event",

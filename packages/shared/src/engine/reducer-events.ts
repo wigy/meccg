@@ -1577,6 +1577,46 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: working };
   }
 
+  // named-creature-hunt (The Hunt dm-143): the controller names a hazard
+  // creature the opponent has already revealed (recorded in
+  // GameState.handRevealedInstances) that still sits in their play deck or
+  // discard pile; it immediately attacks the bearer as a one-character
+  // company. The event card discards immediately; the interactive naming
+  // step is a `hunt-target-choice` pending resolution — `huntTargetChoiceActions`
+  // offers one action per live candidate, or a mandatory `pass` when none
+  // exists ("Unless eliminated or prevented from being in play").
+  const huntEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').NamedCreatureHuntEffect => e.type === 'named-creature-hunt',
+  );
+  if (huntEffect) {
+    const bearerId = action.targetCharacterId!;
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+    const company = findCharacterCompany(working.players[playerIndex].companies, bearerId);
+    if (!company) {
+      logDetail(`${def.name}: bearer is not in a company — event fizzles`);
+      return { state: working };
+    }
+    const opponentIndex = 1 - playerIndex;
+    const opponentId = working.players[opponentIndex].id;
+    logDetail(`${def.name}: ${action.player as string} names a hazard creature revealed and held by ${opponentId as string}`);
+    working = enqueueResolution(working, {
+      source: handCard.instanceId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: working.phaseState.phase },
+      kind: {
+        type: 'hunt-target-choice',
+        huntInstanceId: handCard.instanceId,
+        bearerInstanceId: bearerId,
+        opponentId,
+        companyId: company.id,
+      },
+    });
+    return { state: working };
+  }
+
   // peek-shuffle-deck-top (Mirror of Galadriel tw-282): look at the opponent's
   // whole hand, then choose any one play deck whose top `count` cards are
   // looked at, shuffled, and returned to the top. The hand look is a "may" with

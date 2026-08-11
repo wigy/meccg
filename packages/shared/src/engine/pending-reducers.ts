@@ -70,6 +70,7 @@ import { revealInstances } from './visibility.js';
 import { handleRevealAgent } from './mh-hazard-play.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
+import { findHuntCandidates, buildHuntCombat } from './hunt.js';
 import { afterAttackPlayTargets } from './post-attack-play.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 
@@ -4903,6 +4904,47 @@ export function applyGreatHuntDiscardAttackResolution(
     return { state: cleared };
   }
   return { state: { ...cleared, combat } };
+}
+
+/**
+ * Resolve a `hunt-target-choice` pending resolution (The Hunt dm-143): the
+ * controller named a hazard-creature instance among the opponent's
+ * revealed-and-known piles, or passed because none exists. No attack occurs
+ * on `pass` — the bearer is only tapped once an actual `hunt-attack` combat
+ * concludes (see `tapHuntBearerAfterwards`), so a fizzled naming leaves the
+ * bearer untouched.
+ */
+export function applyHuntTargetChoiceResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'hunt-target-choice') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for hunt-target-choice' };
+  }
+  const { huntInstanceId, bearerInstanceId, opponentId, companyId } = top.kind;
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail(`hunt-target-choice: ${action.player as string} has no hazard creature to name — The Hunt fizzles`);
+    return { state: cleared };
+  }
+  if (action.type !== 'choose-hunt-target') {
+    return { state, error: `Pending hunt-target-choice requires choose-hunt-target, got '${action.type}'` };
+  }
+  const candidate = findHuntCandidates(cleared, opponentId).find(c => c.instanceId === action.creatureInstanceId);
+  if (!candidate) {
+    return { state, error: 'The Hunt: named creature is no longer a valid candidate' };
+  }
+  const { state: withReshuffle, combat } = buildHuntCombat(
+    cleared, huntInstanceId, candidate, bearerInstanceId, action.player, opponentId, companyId,
+  );
+  if (!combat) {
+    logDetail(`hunt-target-choice: named creature could not attack (missing definition/company)`);
+    return { state: withReshuffle };
+  }
+  return { state: { ...withReshuffle, combat } };
 }
 
 /**
