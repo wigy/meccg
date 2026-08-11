@@ -50,7 +50,7 @@
 import { CardStatus } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
-import type { MpSource } from '../core/tsd.js';
+import type { MpDelta, MpSource } from '../core/tsd.js';
 import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
 import { computeBudget } from './budget.js';
@@ -162,8 +162,53 @@ function buildComputeCardPrices(
   standing: Standing,
   tunables: Tunables,
 ): CardPrices {
-  const floor = tunables.provisionalCardPrice;
+  const floor = tunables.heldCardFloor;
   const budget = computeBudget(view, cardPool);
+
+
+  /**
+   * The marshalling points the rest of the hand would add if it all landed.
+   *
+   * The standing a held card is *scored* in is not the standing it is *held*
+   * in. CoE 10.3 step 4 reduces a source contributing more than half the
+   * total until it is no more than half — so a source is capped relative to
+   * everything else, and everything else is exactly what the rest of the hand
+   * is for. Valuing a card at today's marginal rate prices a 2 MP item at zero
+   * whenever the item source happens to lead, when playing it alongside the
+   * faction and the ally in the same hand is what stops it leading.
+   *
+   * Computed once per position from the hand alone. Optimistic by
+   * construction — it assumes the hand lands — which is what
+   * `potentialDiscount` already exists to charge for, and why the projection is
+   * not discounted a second time here.
+   */
+  const handPotential = ((): MpDelta => {
+    const totals: Record<string, number> = {};
+    for (const card of view.self.hand) {
+      const def = printed(cardPool[card.definitionId as string], card.definitionId as string);
+      if (!def || def.marshallingPoints <= 0) continue;
+      const source = CHARACTER_TYPES.test(def.cardType) ? 'character' : def.marshallingCategory;
+      totals[source] = (totals[source] ?? 0) + def.marshallingPoints;
+    }
+    return totals as MpDelta;
+  })();
+
+  /**
+   * What a card's points are worth at the standing its hand would create.
+   *
+   * The marginal contribution of this card *within* the projected total, not
+   * against today's: `tsdAfter(all of it) − tsdAfter(all of it but this)`. A
+   * card whose source is capped now but would not be once its neighbours land
+   * scores what it will actually be worth, and one in a source that stays
+   * capped however the hand plays still scores nothing — which is the half of
+   * §10.3 that was always right.
+   */
+  const projectedGain = (source: MpSource, points: number): number => {
+    const withCard = { ...handPotential };
+    const without = { ...handPotential };
+    without[source] = Math.max(0, (without[source] ?? 0) - points);
+    return standing.tsdAfter(withCard) - standing.tsdAfter(without);
+  };
 
   const plan = computeHazardPlan(view, cardPool, standing, tunables);
   /** Quotes already computed in this position, by definition ID. */
@@ -198,7 +243,7 @@ function buildComputeCardPrices(
         };
       }
       const gain = def.marshallingPoints > 0
-        ? standing.tsdAfter({ character: def.marshallingPoints }) - standing.tsd
+        ? projectedGain('character', def.marshallingPoints)
         : 0;
       return {
         instanceId,
@@ -209,14 +254,16 @@ function buildComputeCardPrices(
     }
 
     if (def.marshallingPoints > 0) {
-      const gain = standing.tsdAfter({ [def.marshallingCategory]: def.marshallingPoints }) - standing.tsd;
+      const gain = projectedGain(def.marshallingCategory, def.marshallingPoints);
       return {
         instanceId,
         name: def.name,
         tsd: gain * tunables.potentialDiscount,
         reason: gain > 0
-          ? `${def.marshallingPoints} ${def.marshallingCategory} MP, worth ${gain.toFixed(1)} in this standing`
-          : `${def.marshallingPoints} ${def.marshallingCategory} MP — but that source is already capped`,
+          ? `${def.marshallingPoints} ${def.marshallingCategory} MP, worth ${gain.toFixed(1)} `
+            + 'at the standing this hand would create'
+          : `${def.marshallingPoints} ${def.marshallingCategory} MP — that source stays capped `
+            + 'however the rest of the hand plays',
       };
     }
 
