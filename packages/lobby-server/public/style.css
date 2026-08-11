@@ -3347,6 +3347,26 @@ h2 {
   gap: 0.5rem;
 }
 
+/* Always-visible "Game X · Turn N · Phase" readout, so a game can be
+   identified for a bug report without opening the (normally hidden) debug
+   view. Muted and small so it doesn't compete with the icon-button row;
+   empty (and takes no space) until a game is assigned. Clicking it copies
+   the text, mirroring the debug-heading's copy-game-code-btn. */
+#toolbar-status {
+  font-size: 0.72rem;
+  color: #778;
+  cursor: pointer;
+  user-select: none;
+}
+
+#toolbar-status:empty {
+  display: none;
+}
+
+#toolbar-status:hover {
+  color: #aab;
+}
+
 /* Icon-only toolbar buttons (view toggle, dev menu) match the
    background:none/border:none/padding:4px inline style used on other
    toolbar icons, so they sit flush alongside settings/bug/disconnect. */

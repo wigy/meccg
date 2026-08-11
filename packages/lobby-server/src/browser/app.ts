@@ -562,8 +562,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tutorialLine = appState.currentTutorialStep !== null
       ? `\nTutorial step: ${appState.currentTutorialStep}`
       : '';
+    const turnPhaseLine = appState.currentTurnNumber !== null && appState.currentPhase !== null
+      ? `\nTurn: ${appState.currentTurnNumber}\nPhase: ${appState.currentPhase}`
+      : '';
     const fullBody = inGame
-      ? `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}${tutorialLine}\n\n${text}`
+      ? `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}${turnPhaseLine}${tutorialLine}\n\n${text}`
       : text;
     void (async () => {
       const r = await apiSend('/api/mail/bug-report', 'POST', {
