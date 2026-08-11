@@ -5,7 +5,8 @@ than superseding it — every module, service and CLI described there stays.
 What this adds is a layer above them, and one change to how their numbers are
 combined.*
 
-*Nothing here is implemented. One design decision is still open (§7).*
+*Nothing here is implemented. The one open design decision is resolved in §7:
+both aggregation rules ship behind a constant and the gate decides.*
 
 ## 1. The evidence
 
@@ -206,15 +207,34 @@ candidate's contribution per plan — otherwise this layer is undebuggable.
 
 The outcome metric is the §1 table: item, faction and ally MP moving off zero.
 
-## 7. Open decision
+## 7. Resolved: ship both, behind a constant
 
-Aggregate in TSD with bounded per-module influence plus factual vetoes (§4),
-or true rank-based voting across modules?
+The choice between bounded additive TSD (§4) and rank-based voting is
+**settled empirically rather than by argument**: both aggregation rules ship,
+selected by a tunable, and the gate decides.
 
-This spec argues for the first. If the motivation for voting is distrust of
-the modules' *scales* rather than of their *preferences*, the cap-and-veto
-version buys that without discarding magnitude. **Resolve before writing
-types.**
+That is what the rest of the package already does with a contested constant —
+`sweep` varies one number and watches a real decision change, `gate` measures
+whether the change is worth anything, and §8.2 of the H2 spec makes a module
+falsifiable rather than plausible. An aggregation rule is a bigger lever than
+a constant, which is an argument for measuring it, not for choosing it up
+front.
+
+It is also cheap, because **both rules read the same module output**. Modules
+already return `Evaluation`s carrying a utility; ordinal ranks derive from
+those utilities by sorting, so voting needs no second interface and no module
+knows which rule is in force. The cost is one branch in one function.
+
+Two things this does not license:
+
+- **The default is still the additive rule.** §4's argument stands until a
+  gate says otherwise: `W` is nonlinear, so ΔP(win) is not additive and
+  aggregation has to happen in TSD; and discarding magnitude discards real
+  information. Voting is the challenger.
+- **The influence cap and the veto channel are not part of the switch.** They
+  belong to the additive rule and stay on with it. Turning aggregation into a
+  vote to bound a miscalibrated module would be treating the symptom; the cap
+  is the direct fix and §6 is the real one.
 
 ## 8. Incremental path
 
