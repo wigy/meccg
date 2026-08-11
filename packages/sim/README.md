@@ -77,6 +77,9 @@ npm run horizon -w @meccg/sim -- --games 8
 # How often do two agents actually choose differently, and where?
 npm run compare -w @meccg/sim -- --agents heuristic,h2 [--games 6]
 npm run compare -w @meccg/sim -- --scenarios --agents heuristic,h2
+
+# Where does the marshalling-point loop break? (offered vs taken, per action)
+npm run scoring-loop -w @meccg/sim -- --games 4 [--agents h2,heuristic] [--json]
 ```
 
 Run `compare` **before** paying for a gate. It answers in seconds what a gate
@@ -482,6 +485,87 @@ could not serve:
   because harm to that company is the thing being aimed for. It now gates on the
   company being ours, and `hazards` takes the window — it is a denial choice
   like any other.
+
+### The scoring loop, measured against the live corpus
+
+Coverage and divergence both answer "which candidate does the agent prefer".
+Neither can see a class of candidate that is *never offered*, and that turns out
+to be where the game against a human is actually lost.
+
+The live server's recorded games (`~/backup/ai-meccg.com`, 107 completed
+human-versus-AI games across 21 distinct human players) are **107–0**. The
+per-category marshalling-point breakdown says why in a way the scoreline does
+not:
+
+| category | human med/mean | AI med/mean | AI games scoring zero |
+|---|---|---|---|
+| character | 7.0 / 7.7 | 2.0 / 2.4 | 30/102 |
+| item | 6.0 / 6.7 | 0.0 / **0.7** | **77/102** |
+| faction | 5.0 / 5.7 | 0.0 / **1.0** | **67/102** |
+| ally | 2.0 / 3.0 | 0.0 / 0.1 | **94/102** |
+| kill | 2.0 / 2.5 | 2.0 / 2.2 | 22/102 |
+| misc | 2.0 / 2.6 | 0.0 / **−1.7** | 65/102 |
+
+The only category the AI keeps pace on is `kill`, which is the passive one — it
+happens to you when a hazard connects. `misc` is net *negative*: the AI sheds
+points it never had a plan for. Items, factions and allies are near-total
+zeros, and those three are 15 of the human's median 42.
+
+That is not a ranking problem, so:
+
+```sh
+npm run scoring-loop -w @meccg/sim -- --games 4 --agents h2,heuristic
+```
+
+replays games and reports the chain — hold a resource worth playing, build a
+company that can carry it, route it to a site where it is playable, play it —
+as a funnel of **offered versus taken** per action type. The distinction it
+exists to draw is between *never offered* and *offered and declined*. A scoring
+action that never appears among the candidates is a break upstream, and no
+amount of work on the module that owns it produces a single point; one offered
+often and taken rarely is a valuation bug, and the mean fractional rank when it
+is declined says how badly.
+
+Over four games of `h2` versus `heuristic` on the challenge decks, `h2` scored
+**zero item MP in 4/4 games** and zero ally MP in 4/4, and the funnel puts the
+break well upstream of the modules that own the scoring actions:
+
+```text
+action                     offered    taken   take-rate   mean rank when declined
+  — enabling —
+  plan-movement              2464     2444    99.2%                       0.24
+  declare-path                 50       50   100.0%                          —
+  enter-site                   48       16    33.3%                       1.00
+  — scoring —
+  play-hero-resource            3        3   100.0%                          —
+  play-minor-item               0        0        —                          —
+  faction-influence-roll        0        0        —                          —
+```
+
+Two things to read off it. First, `play-hero-resource` was offered **three
+times in four games** and taken every time: the acquisition modules are not
+declining to score, they are never asked. `travel`'s own module comment already
+says why — a destination is worth only what the cards *already in hand* would
+pay there, because the strategic half of §3.3 is unwritten — and that closes a
+loop with `hand`, which has no reason to keep a resource for a site the agent
+will never route to.
+
+Second, `enter-site` is declined two times in three, and its mean fractional
+rank when declined is **1.00** — dead last, every single time. That is what
+`evaluateEnterSite` is built to say: it prices entering as the value of what
+becomes playable minus the site's automatic attacks, so with nothing playable
+in hand the realized value is zero and the attacks make the whole thing
+strictly negative against `pass` at zero. The model is not wrong; it is being
+asked the question after the mistake has already been made.
+
+The `plan-movement` column is a third finding and a separate defect. 2464
+offers against `heuristic`'s 123 is not a preference, it is a loop: one of the
+four games spends its entire decision budget in a period-three
+`split-company` → `plan-movement` → `merge-companies` cycle, rotating the
+planned destination between four sites so that no lap repeats a state the
+engine's `regress` flag has seen. It is the same family the `h2>mc` composition
+already refuses to yield (see `NEVER_YIELDED_ACTION_TYPES`), but plain `h2`
+rides it alone, for 3718 laps in the game that hit the limit.
 
 ### The other work list: what a divergence costs
 
