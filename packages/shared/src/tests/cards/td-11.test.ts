@@ -14,13 +14,8 @@
  * Effects:
  * | # | Effect Type                | Status | Notes                                                    |
  * |---|----------------------------|--------|----------------------------------------------------------|
- * | 1 | dragon-at-home             | OK     | +Dragon (3 strikes, 14 prow) on Dancing Spire; suppressed by Daelomin Ahunt |
+ * | 1 | dragon-at-home             | OK     | +Dragon (3 strikes, 14 prow, 8 body) on Dancing Spire; suppressed by Daelomin Ahunt |
  * | 2 | discard-for-hazard-limit   | OK     | discard from play → +2 hazard limit vs one company       |
- *
- * The augment attack's printed "/8" body follows the codebase convention for
- * Dragon lair auto-attacks: every TW site auto-attack (including Dancing
- * Spire's own printed Dragon attack) is modeled with strikes+prowess only, so
- * the augment is likewise modeled as {Dragon, 3 strikes, 14 prowess}.
  *
  * Playable: YES
  */
@@ -110,7 +105,7 @@ describe('Daelomin at Home (td-11)', () => {
     const attacks = getActiveAutoAttacks(state, spire);
     expect(attacks).toHaveLength(2);
     expect(attacks[0]).toMatchObject({ strikes: 2, prowess: 11 });
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 14 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 14, body: 8 });
   });
 
   test('Daelomin Ahunt in play suppresses the At-Home augmentation', () => {

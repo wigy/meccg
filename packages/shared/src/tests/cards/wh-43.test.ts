@@ -23,13 +23,13 @@ import {
   viableActions,
   makeMHState,
   playCreatureHazardAndResolve,
-  handCardId, companyIdAt, dispatch, expectInDiscardPile, resolveChain,
+  handCardId, findHandCardId, companyIdAt, dispatch, expectInDiscardPile, resolveChain,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   expectCharStatus, CardStatus,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
-import { RegionType, SiteType } from '../../index.js';
+import { RegionType, SiteType, computeLegalActions } from '../../index.js';
 
 const CREPT_ALONG_CLEVERLY = 'wh-43' as CardDefinitionId;
 
@@ -186,5 +186,42 @@ describe('Crept Along Cleverly (wh-43)', () => {
     expect(combatState.combat).toBeDefined();
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
+  });
+
+  test('not-playable reason does not claim "outside combat" while an attack is active', () => {
+    // Regression: during the live combat cancel-window, the generic
+    // resource-short-event path used to still tag the card
+    // "can only be played during combat" even though combat was already
+    // under way — the actual reason it can't be played is the missing
+    // Ranger in the defending company. The card should either be silently
+    // omitted from `not-playable`, or given an accurate reason — never the
+    // combat-window message while already in combat.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [LAGDUF] }], hand: [CREPT_ALONG_CLEVERLY], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ERADAN] }], hand: [BARROW_WIGHT], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const stateAtMH = { ...base, phaseState: makeMHState(MH_PATH) };
+
+    const barrowWightId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, barrowWightId, targetCompanyId,
+      { method: 'region-type', value: 'shadow' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    const creptAlongCleverlyId = findHandCardId(combatState, RESOURCE_PLAYER, CREPT_ALONG_CLEVERLY);
+    const notPlayable = computeLegalActions(combatState, PLAYER_1).find(
+      ea => !ea.viable && ea.action.type === 'not-playable'
+        && (ea.action as { cardInstanceId?: unknown }).cardInstanceId === creptAlongCleverlyId,
+    );
+    if (notPlayable) {
+      expect(notPlayable.reason).not.toMatch(/can only be played during combat/i);
+    }
   });
 });

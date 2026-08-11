@@ -18,7 +18,7 @@ export { effectiveItemCorruptionPoints, collectItemModifiersFromDefs, itemModifi
 export type { InPlayItemModifier } from './item-corruption.js';
 export { resolveThrallCharacterPairings, hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from './stage-resource-characters.js';
 export type { StageResourceCharacterRef, ThrallCharacterPairing } from './stage-resource-characters.js';
-export { buildMovementMap, getReachableSites, findRegionPaths } from './movement-map.js';
+export { buildMovementMap, getReachableSites, findRegionPaths, regionDistanceInclusive } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
 export { effectiveGeneralInfluence, generalInfluenceControlLimit } from './engine/reducer-utils.js';
 export { reduce } from './engine/reducer.js';

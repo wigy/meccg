@@ -14,18 +14,13 @@
  * Effects:
  * | # | Effect Type    | Status | Notes                                                          |
  * |---|----------------|--------|----------------------------------------------------------------|
- * | 1 | dragon-at-home | OK     | +Dragon (2 strikes, 18 prow) on The Lonely Mountain (hero       |
- * |   |                |        | tw-428 and minion le-387, both lairOf tw-90); suppressed while  |
- * |   |                |        | Smaug Ahunt (td-70, same manifestId) is in play                |
+ * | 1 | dragon-at-home | OK     | +Dragon (2 strikes, 18 prow, 8 body) on The Lonely Mountain      |
+ * |   |                |        | (hero tw-428 and minion le-387, both lairOf tw-90); suppressed   |
+ * |   |                |        | while Smaug Ahunt (td-70, same manifestId) is in play            |
  * | 2 | draw-modifier  | OK     | draw resource, value -1, min 1, appliesTo "any-company" — the   |
  * |   |                |        | moving company's own (resource) draws shrink by one, floored at |
  * |   |                |        | one, and the modifier reaches across the table from the hazard  |
  * |   |                |        | player's cardsInPlay                                            |
- *
- * The augment attack's printed "/8" body follows the codebase convention for
- * Dragon lair auto-attacks: every printed Dragon-lair automatic-attack
- * (including The Lonely Mountain's own) is modeled with strikes+prowess only,
- * so the augment is likewise {Dragon, 2 strikes, 18 prowess}.
  *
  * "…each moving company draws…" is the company's own draw pool (the resource
  * player's lighter box, CoE 2.IV.v), the same reading as A Short Rest (td-95)
@@ -130,7 +125,7 @@ describe('Smaug at Home (td-71)', () => {
     const attacks = getActiveAutoAttacks(state, lonely);
     expect(attacks).toHaveLength(2);
     expect(attacks[0]).toMatchObject({ creatureType: 'Dragon', strikes: 1, prowess: 14 });
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 2, prowess: 18 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 2, prowess: 18, body: 8 });
   });
 
   test('At-Home also augments the minion version of The Lonely Mountain (le-387)', () => {
@@ -147,7 +142,7 @@ describe('Smaug at Home (td-71)', () => {
     const lonelyMinion = state.cardPool[LONELY_MOUNTAIN_MINION] as SiteCard;
     const attacks = getActiveAutoAttacks(state, lonelyMinion);
     expect(attacks).toHaveLength(2);
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 2, prowess: 18 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 2, prowess: 18, body: 8 });
   });
 
   test('Smaug Ahunt in play suppresses the At-Home augmentation', () => {

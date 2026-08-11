@@ -71,9 +71,12 @@
  * confident preference that went to Heuristics 1 every turn of every game.
  */
 
+import type { GameAction } from '@meccg/shared';
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
 import { createHeuristicAgent } from '../../agents/heuristic-agent.js';
 import { forwardActions } from '../regress.js';
+import { createCycleGuard } from '../../cycle-guard.js';
+import { viewSignature } from '../../state-signature.js';
 import { sampleWeighted } from '../strategy.js';
 import type { H2Module, ModuleContext } from './core/types.js';
 import type { Tunables } from './core/tunables.js';
@@ -225,23 +228,42 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   // because carrying one across games would have an early game silently steer
   // a later one — the failure the `bc` agent's guard memory already documents.
   const portfolio = createPlanPortfolio();
+  // Three filters now run in front of the modules, and they answer different
+  // questions. `forwardActions` drops what the engine has *proved* undoes this
+  // phase's progress; the cycle guard drops what has *demonstrably* led back to
+  // this position, which is the part the engine cannot see when every lap mints
+  // fresh instance IDs; the plan layer then re-ranks what is left. See
+  // `cycle-guard`.
+  const cycleGuard = createCycleGuard();
 
   return {
     name: label,
 
     startGame(): void {
       portfolio.reset();
+      // Signatures are coarse on purpose, so one game's history must never
+      // narrow another's candidates.
+      cycleGuard.reset();
     },
 
     chooseAction(context: AgentContext): AgentDecision {
       if (context.legalActions.length === 0) {
         throw new Error('h2 agent asked to choose with no legal actions');
       }
+      const signature = viewSignature(context.view);
       // The engine marks candidates that undo this phase's own progress, and
       // that is a fact rather than a preference — see `ai/regress`. Filtering
       // here rather than inside a module keeps every module's coverage honest:
       // an action H2 never sees cannot be one it declined to score.
-      const legalActions = forwardActions(context.legalActions);
+      const legalActions = cycleGuard.allow(signature, forwardActions(context.legalActions));
+      const decision = decide(context, legalActions);
+      cycleGuard.taken(signature, decision.action);
+      return decision;
+    },
+  };
+
+  /** The ranking itself, on whatever candidate list survived the filters. */
+  function decide(context: AgentContext, legalActions: readonly GameAction[]): AgentDecision {
       const moduleContext: ModuleContext = {
         view: context.view,
         cardPool: context.cardPool,
@@ -345,6 +367,5 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         note: `${contributors.join('+')}: best ΔP(win) ${(best.utility * 100).toFixed(2)}% `
           + `(E[Δtsd] ${best.expectedTsd.toFixed(1)}, σ ${best.sigmaTsd.toFixed(1)}, ${best.method})`,
       };
-    },
-  };
+  }
 }

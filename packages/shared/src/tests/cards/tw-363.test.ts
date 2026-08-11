@@ -31,6 +31,7 @@ import {
   viableActions,
   charIdAt,
   RESOURCE_PLAYER,
+  dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 
@@ -113,5 +114,32 @@ describe('Wizard’s Ring (tw-363)', () => {
         && ea.action.attachToCharacterId === gandalfId,
     );
     expect(onGandalf).toBeUndefined();
+  });
+
+  // ─── Rule 4: corruption check on play ───────────────────────────────────
+
+  test('bearer makes a corruption check when Wizard’s Ring is played', () => {
+    const state = buildSitePhaseState({
+      site: LORIEN,
+      characters: [GANDALF],
+      hand: [WIZARDS_RING],
+    });
+
+    const gandalfId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    const onGandalf = plays.find(
+      ea => ea.action.type === 'play-hero-resource'
+        && ea.action.attachToCharacterId === gandalfId,
+    );
+    expect(onGandalf).toBeDefined();
+
+    const after = dispatch(state, onGandalf!.action);
+
+    const corruptionChecks = after.pendingResolutions.filter(
+      r => r.kind.type === 'corruption-check',
+    );
+    expect(corruptionChecks).toHaveLength(1);
+    const cc = corruptionChecks[0].kind as { characterId: unknown };
+    expect(cc.characterId).toBe(gandalfId);
   });
 });

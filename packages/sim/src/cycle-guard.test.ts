@@ -16,8 +16,9 @@ import { createBcAgent } from './agents/bc-agent.js';
 import { createHeuristicAgent } from './agents/heuristic-agent.js';
 import { loadDeck } from './decks.js';
 import { viewSignature } from './state-signature.js';
+import { createCycleGuard } from './cycle-guard.js';
 import type { Agent } from './types.js';
-import type { PlayerView } from '@meccg/shared';
+import type { GameAction, PlayerView } from '@meccg/shared';
 
 const FIXTURE = path.join(__dirname, '..', 'test-fixtures', 'bc-mini-weights.json');
 const DECKS: [ReturnType<typeof loadDeck>, ReturnType<typeof loadDeck>] =
@@ -121,5 +122,67 @@ describe('bc agent cycle guard', () => {
     playGame({ agents, decks: DECKS, seed: 91, maxDecisions: 60 });
     playGame({ agents, decks: DECKS, seed: 92, maxDecisions: 60 });
     expect(starts).toEqual([2, 2]);
+  });
+});
+
+/** A candidate of the given type — the guard reads nothing else off an action. */
+function action(type: string): GameAction {
+  return { type } as unknown as GameAction;
+}
+
+describe('position cycle guard', () => {
+  test('does not narrow a position it has not seen too often', () => {
+    const guard = createCycleGuard({ visitsBeforeGuarding: 3 });
+    const candidates = [action('split-company'), action('merge-companies'), action('pass')];
+    for (let i = 0; i < 3; i++) {
+      expect(guard.allow('S', candidates)).toBe(candidates);
+      guard.taken('S', candidates[0]);
+    }
+  });
+
+  test('drops the action types already spent here, whatever IDs they carried', () => {
+    // The cycle this exists for mints a fresh company ID every lap, so a guard
+    // keyed on action identity sees moves it has never tried before.
+    const guard = createCycleGuard({ visitsBeforeGuarding: 2 });
+    guard.taken('S', action('split-company'));
+    guard.taken('S', action('merge-companies'));
+
+    const allowed = guard.allow('S', [
+      action('split-company'), action('merge-companies'), action('plan-movement'),
+    ]);
+    expect(allowed.map(a => a.type)).toEqual(['plan-movement']);
+  });
+
+  test('falls through to pass once every kind of action here has been tried', () => {
+    const guard = createCycleGuard({ visitsBeforeGuarding: 1 });
+    guard.taken('S', action('split-company'));
+    guard.taken('S', action('plan-movement'));
+
+    const allowed = guard.allow('S', [action('split-company'), action('plan-movement'), action('pass')]);
+    expect(allowed.map(a => a.type)).toEqual(['pass']);
+  });
+
+  test('hands back the full list rather than nothing when there is no pass', () => {
+    const guard = createCycleGuard({ visitsBeforeGuarding: 1 });
+    guard.taken('S', action('split-company'));
+    const candidates = [action('split-company'), action('split-company')];
+    expect(guard.allow('S', candidates)).toBe(candidates);
+  });
+
+  test('never narrows a forced decision', () => {
+    const guard = createCycleGuard({ visitsBeforeGuarding: 1 });
+    guard.taken('S', action('split-company'));
+    const only = [action('split-company')];
+    expect(guard.allow('S', only)).toBe(only);
+  });
+
+  test('keeps positions apart, and forgets them all on reset', () => {
+    const guard = createCycleGuard({ visitsBeforeGuarding: 1 });
+    guard.taken('S', action('split-company'));
+    const candidates = [action('split-company'), action('pass')];
+    expect(guard.allow('T', candidates)).toBe(candidates);
+    expect(guard.allow('S', candidates).map(a => a.type)).toEqual(['pass']);
+    guard.reset();
+    expect(guard.allow('S', candidates)).toBe(candidates);
   });
 });

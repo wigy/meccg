@@ -635,8 +635,247 @@ So the spec's §1 hypothesis — that the AI scores nothing because nothing
 routes it to scoring sites — has been tested over three measured iterations
 and is at best incomplete. It now routes and enters at very nearly
 `heuristic`'s rate and still scores a fifth as much. The remaining gap is in
-*which* sites and *what is in hand when it gets there*, which is deck flow and
-site-deck ordering rather than commitment tracking.
+*which* sites and *what is in hand when it gets there*.
+
+### Hand flow and site-deck flow, and the thing actually stopping it
+
+```sh
+npm run hand-flow -w @meccg/sim -- --games 12
+```
+
+`scoring-loop` counts what is offered. It cannot see the state the company is
+*in* when it arrives, and that turned out to be the whole story. This reports,
+at every arrival — every decision where `enter-site` is on the table — what is
+in hand, whether any of it is playable **at that site**, and whether anyone in
+the company is still untapped to play it.
+
+Twelve games, H2 with the plan layer against `heuristic`:
+
+```text
+                                                h2       heuristic
+arrivals (enter-site offered)                  193             329
+  … entered                             71 (36.8%)     145 (44.1%)
+  … nothing playable there              22 (11.4%)     168 (51.1%)
+mean playable at arrival                      1.96            0.78
+mean untapped in that company                 0.55            1.73
+  … arrivals with nobody to tap        145 (75.1%)      77 (23.4%)
+hand: item                                    2.47            0.68
+hand: faction                                 2.12            0.25
+distinct sites entered / game                  4.4             7.3
+```
+
+Read the middle two rows first, because they invert the hypothesis that
+prompted the diagnostic. **Hand flow is not the problem.** H2 arrives holding
+1.96 playable cards against `heuristic`'s 0.78, and arrives with nothing
+playable 11.4% of the time against 51.1%. Its hand is *fuller* of exactly the
+right cards — 2.47 items and 2.12 factions against 0.68 and 0.25 — because it
+never plays them. `heuristic`'s hand is empty of items for the best possible
+reason.
+
+**H2 arrives at a site with nobody left to tap 75.1% of the time.** The cards
+are there, the company is there, and there is no untapped character to tap for
+the play, so `play-hero-resource` is never offered at all.
+
+`tapTempoCost`'s own doc comment predicted this in as many words — *"an AI
+that taps freely arrives at its site unable to score"* — and it is a flat 0.3
+TSD that does not know a commitment exists. `influence-attempt` is taken by H2
+at 93.9% against `heuristic`'s 73.9%, and every one of those taps somebody.
+
+So the price of the **last** tap is now the plan it forfeits. `characters`
+already owned the carrier step for company-shape actions; it now answers for
+*any* action that spends the last untapped character in a company carrying a
+commitment, whatever the action is called. That is the plan layer doing the
+one thing a flat tunable cannot: attaching a cost that belongs to a commitment
+to a decision that has no idea the commitment is there.
+
+Measured on the same twelve games:
+
+| | before | after |
+|---|---|---|
+| arrivals with nobody to tap | 145 (75.1%) | **124 (64.6%)** |
+| mean untapped in that company | 0.55 | **0.67** |
+| `enter-site` take-rate | 36.8% | **42.7%** |
+| distinct sites entered / game | 4.4 | **4.9** |
+| hand: item | 2.47 | **2.06** |
+| hand: faction | 2.12 | 2.06 |
+
+Every column moves, including the one that matters most: the hand stops
+filling up with items, because they are being played.
+
+### A note on what these tables can and cannot show
+
+The marshalling-point means quoted throughout this section are **not**
+significant at the sample sizes they were taken at, and should not be read as
+though they were. At n=20 between 14 and 17 of the 20 games score zero item
+MP, so the mean is three games wearing a decimal point, and it has moved
+0.5 → 0.5 → 0.7 → 0.3 across four changes whose funnel metrics all improved
+monotonically.
+
+The funnel counts are trustworthy — they aggregate thousands of decisions per
+run and they have moved consistently and in one direction throughout. The
+score column is not, and every claim in this section is stated against the
+funnel for that reason. Whether any of it is worth Elo is a question for
+`gate`, which is the instrument built for exactly this and the only one quoted
+here with a confidence interval.
+
+### The gate: the layer against its own off-switch
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/planContributionWeight=0' --pairs 24 --rounds 2 --jobs 6 --min-elo 0
+```
+
+The cleanest A/B available: the same binary, the same modules, the same
+proposals and portfolio, with only the contribution weight changed. 96 games,
+paired seeds, side-swapped.
+
+```text
+score:     38W-25L-1D (score 60.2%) over 64 rated games
+elo diff:  +72 [-12, +165] (95% CI, challenger − champion)
+  paired:  +92 [-2, +203] over 25 complete pair(s) — the criterion
+failures:  32
+
+FAIL — Elo-diff lower bound -2 < 0: challenger is too weak
+FAIL — 32 game(s) did not complete (engine bug or decision limit)
+```
+
+**It does not pass, and it misses by two Elo points.** The criterion is the
+paired lower bound at `--min-elo 0` — a strict promotion bar, "must
+demonstrably beat the champion" — and −2 fails it. That is a real failure and
+not a rounding argument: the honest statement is that 96 games cannot
+distinguish this from no effect.
+
+It is also the first number in this work that points anywhere. 60.2% and a
+paired point estimate of +92 Elo is not nothing, and the interval is wide
+because the sample is small — which brings up the thing now blocking every
+measurement here.
+
+**A third of the games did not finish.** 32 of 96 hit the decision limit, all
+of them in the `split-company` → `plan-movement` → `merge-companies` cycle
+described above, and they are excluded from the rating: 64 rated games out of
+96 played. The cycle is not merely an embarrassment in a lobby game, it is
+the reason this gate cannot resolve — it throws away a third of every sample
+and widens the interval by roughly the amount needed to clear zero. Fixing it
+is now the highest-value work available, ahead of anything else in this
+section.
+
+One caution on reading the output: the `glicko-2` line disagrees in *sign*
+with the Elo estimate on this run, and that is unexplained. The paired Elo
+bound is the documented criterion and is what is quoted here, but two rating
+methods disagreeing is itself a reason to treat +92 as a direction rather than
+a magnitude.
+
+### The cycle guard, and what it did to that number
+
+The organization-phase cycle is fixed. A deterministic argmax policy plus a
+legal no-op loop is a hang, and `state-signature` already existed for it — but
+the `bc` agent's guard keys on *action identity*, and every `split-company`
+mints a fresh company ID, so the `merge-companies` that follows is a move the
+guard has never seen. `cycle-guard.ts` keys on the **position** instead:
+revisit a signature often enough and the conclusion is not that some move was
+wrong, it is that everything tried from here led back here. Above the
+threshold the spent action *types* are dropped; if that leaves nothing, `pass`
+ends the phase and the position cannot recur.
+
+It only ever narrows, so below the threshold — every position in a healthy
+game — behaviour is bit-identical. Eight visits is chosen above the longest
+legitimate run of same-signature decisions, because the signature is coarse
+enough that a long attack can assign several strikes without moving anything
+it watches.
+
+Re-running the same gate with it in place:
+
+| | 32 failures | 2 failures |
+|---|---|---|
+| games not completing | 32 of 96 | **2 of 96** |
+| complete pairs rated | 25 | **46** |
+| score | 60.2% | 45.7% |
+| paired Elo | **+92 [−2, +203]** | **−30 [−91, +28]** |
+
+**The +92 was an artifact of the discarded third of the sample.** With the
+sample repaired the plan layer shows no measurable strength effect at all:
+−30 Elo with an interval straddling zero. That is not "it fails by two
+points"; it is "there is nothing here to detect at 96 games", and the earlier
+number was the most encouraging figure in this whole section.
+
+The bias is not mysterious in hindsight. The discarded games were exactly the
+ones where the cycle fired, and whether it fires is not independent of which
+agent is playing — so throwing them away threw away a non-random third. Any
+result computed on a sample with a third of it missing for a
+behaviour-dependent reason deserves the suspicion this one turned out to
+warrant.
+
+What stands after all of it:
+
+- **The cycle guard is a clear win** and the only unambiguous one: 32
+  unfinished games to 2, and a lobby game against a human can no longer hang.
+- **The plan layer moves behaviour reliably and strength not at all.**
+  `enter-site` take-rate 23.4% → 47.6%, arrivals with nobody to tap 75.1% →
+  64.6%, resource plays offered 19 → 31 — every funnel metric, monotonically,
+  across five changes. Elo: nothing detectable.
+- Both rating methods disagreed in sign on both runs, which remains
+  unexplained and is a reason to trust neither one's magnitude.
+
+### Site-deck flow: diagnosed, three fixes, and still not closed
+
+`hand-flow` now reports movement cadence, which is where the remaining gap to
+`heuristic` lives. Twelve games:
+
+| | H2 | `heuristic` |
+|---|---|---|
+| turns / game | 42 | 42 |
+| … turns that planned a move | **30%** | **43%** |
+| site changes / game | **16.8** | **26.7** |
+| distinct sites entered / game | **4.9** | **6.6** |
+
+H2 sits still. The `explain` tree at a declined movement says why in one line:
+
+```text
+travel to Lórien: 0.0%
+├─ destination: 0
+│  ├─ regions crossed: 0  [already here]
+│  ├─ travel cost: +0.0  {regionCrossingCost}
+│  └─ acquisition modules: +0.0  [items / factions / allies do not exist yet]
+```
+
+**A destination with nothing playable on it scores exactly zero, and `pass` is
+zero by definition.** Every movement ties with staying put.
+
+Three changes followed, each defensible on its own terms and **none of which
+moved the cadence**:
+
+- **A spurious penalty on every lateral move, removed.** `travel` answered a
+  movement to any site other than the plan's with `0` — *impossible* — so a
+  commitment worth 12 TSD priced every reachable alternative at −3 against
+  `pass` at zero. Since the engine only offers destinations reachable this
+  turn, a plan for anywhere further made the agent refuse to move at all.
+  Cadence: 33% → 32%.
+- **Reach graded by distance** (`services/reach`, `reachProbability`). The
+  route step was binary, so only a candidate landing exactly on the plan's site
+  could move it. It is now `rate^(regions − 1)` on the engine's own inclusive
+  region distance, with `planUnroutedReachProbability` re-read as the chance of
+  covering one region — no new constant, and progress toward a distant goal
+  finally has a value. Cadence: 32% → 31%.
+- **The site's printed resource draws, priced.** Movement is how a deck is
+  drawn, and the destination model ignored it entirely. Now counted as
+  potential at the same `resourceDrawValue` the module already spends on
+  `select-company`. Cadence: 31% → 30%.
+
+The one lever that *did* respond is the travel cost. At
+`regionCrossingCost=0.05` — an eighth of the shipped 0.4 — distinct sites go
+**4.9 → 5.7** against `heuristic`'s 6.8, though moving turns only reach 32%.
+Combined with `beliefs` scaling the charge by `(1 + P(opponent holds a
+creature))`, which sits near 1.87 with almost nothing seen, the cost of
+crossing three regions is around 2.2 TSD against a destination value rarely
+above 1. That is the arithmetic keeping the agent at home, and it is a
+constant that has never been swept.
+
+**The gap is not closed and none of the three changes is evidence that it can
+be closed this way.** What is established is the diagnosis — destination value
+is dominated by a travel cost that no gate has ever validated — and one
+constant with measured leverage. `sweep --over tunable:regionCrossingCost`
+followed by a gate is the next step, and it is a question about a number
+rather than about a model.
 
 ### Coverage, measured
 

@@ -12,15 +12,11 @@
  * Effects:
  * | # | Effect Type             | Status | Notes                                                        |
  * |---|-------------------------|--------|--------------------------------------------------------------|
- * | 1 | dragon-at-home          | OK     | +Dragon (3 strikes, 13 prow) on Zarak Dûm (hero td-181 and   |
- * |   |                         |        | minion le-417, both lairOf td-63); suppressed by Scorba Ahunt |
+ * | 1 | dragon-at-home          | OK     | +Dragon (3 strikes, 13 prow, 8 body) on Zarak Dûm (hero      |
+ * |   |                         |        | td-181 and minion le-417, both lairOf td-63); suppressed by   |
+ * |   |                         |        | Scorba Ahunt                                                   |
  * | 2 | in-play-item-modifier   | OK     | +1 corruption point to every major item (both players);      |
  * |   |                         |        | itemFilter { item.subtype: "major" }, no MP delta            |
- *
- * The augment attack's printed "/8" body follows the codebase convention for
- * Dragon lair auto-attacks: every printed Dragon-lair automatic-attack
- * (including Zarak Dûm's own) is modeled with strikes+prowess only, so the
- * augment is likewise modeled as {Dragon, 3 strikes, 13 prowess}.
  *
  * Playable: YES
  */
@@ -96,7 +92,7 @@ describe('Scorba at Home (td-65)', () => {
     expect(attacks[0]).toMatchObject({ creatureType: 'Dragon', strikes: 1, prowess: 11 });
   });
 
-  test('At-Home in play appends the extra Dragon (3 strikes, 13 prowess) to hero Zarak Dûm', () => {
+  test('At-Home in play appends the extra Dragon (3 strikes, 13 prowess, 8 body) to hero Zarak Dûm', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -111,7 +107,12 @@ describe('Scorba at Home (td-65)', () => {
     const attacks = getActiveAutoAttacks(state, zarakDum);
     expect(attacks).toHaveLength(2);
     expect(attacks[0]).toMatchObject({ creatureType: 'Dragon', strikes: 1, prowess: 11 });
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 13 });
+    // The card text prints "3 strikes at 13/8" — the augment must carry the
+    // body value so a defeated strike triggers a body check (bug: previously
+    // the `dragon-at-home` effect schema had no `body` field at all, so
+    // Scorba at Home's strikes could never eliminate the manifestation via
+    // body check even when every strike was defeated).
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 13, body: 8 });
   });
 
   test('At-Home also augments the minion version of Zarak Dûm (le-417)', () => {
@@ -128,7 +129,7 @@ describe('Scorba at Home (td-65)', () => {
     const zarakDumMinion = state.cardPool[ZARAK_DUM_MINION] as SiteCard;
     const attacks = getActiveAutoAttacks(state, zarakDumMinion);
     expect(attacks).toHaveLength(2);
-    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 13 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 3, prowess: 13, body: 8 });
   });
 
   test('Scorba Ahunt in play suppresses the At-Home augmentation', () => {

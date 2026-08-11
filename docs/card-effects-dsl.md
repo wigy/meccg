@@ -3206,6 +3206,14 @@ Apply types:
   user — Ringwraiths are exempt from the check, so the filter excludes them.
   Implemented in `chain-reducer.ts` `resolvePermanentEvent()`.
 
+  **Hero-resource-items** (site phase): targets the character the item was
+  just attached to (its bearer). Fired immediately after the item is attached
+  in `handleSitePlayHeroResource`, not deferred through the chain resolver —
+  items attach directly rather than passing through a chain entry. Used by
+  *Wizard's Ring* (tw-363): "Bearer makes a corruption check when this item
+  is played." Implemented in `reducer-site.ts`
+  (`fireItemSelfPlayCorruptionCheck`).
+
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "enqueue-corruption-check", "modifier": -3 } }
