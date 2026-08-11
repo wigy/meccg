@@ -45,9 +45,8 @@ import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeBeliefs } from '../../services/beliefs.js';
-import { computeDefence } from '../../services/defence.js';
+import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
-import type { AttackProfile } from '../../services/strike/sequence.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
@@ -206,25 +205,6 @@ function siteDefinitionOf(context: ModuleContext, companyId: string): string | u
   return (company?.destinationSite ?? company?.currentSite)?.definitionId;
 }
 
-/** The attacks a site inflicts on any company that enters it, as attack profiles. */
-function automaticAttacksOf(
-  cardPool: ModuleContext['cardPool'],
-  siteDefinitionId: string,
-): AttackProfile[] {
-  const def = cardPool[siteDefinitionId] as unknown as {
-    automaticAttacks?: readonly {
-      strikes?: number; prowess?: number; body?: number; creatureType?: string;
-    }[];
-  } | undefined;
-  return (def?.automaticAttacks ?? []).map(attack => ({
-    strikeProwess: attack.prowess ?? 0,
-    strikes: attack.strikes ?? 1,
-    creatureBody: attack.body ?? null,
-    detainment: false,
-    bodyCheckModifier: 0,
-    name: attack.creatureType,
-  }));
-}
 
 /** Assumptions every travel evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [

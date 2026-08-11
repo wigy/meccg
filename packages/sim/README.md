@@ -579,6 +579,65 @@ dumping the ranking at a decision rather than by reasoning about it:
   commitment as `withdrawn` one decision before the `enter-site` that would
   have completed it. Plans died exactly when they were about to pay.
 
+#### Adding the missing step: what the trip costs
+
+A plan that never asked whether the company survives is not a plan, so the
+site's printed automatic attacks are now priced through `defence` and **netted
+off the payoff** before a plan is proposed at all. In TSD rather than as a
+probability: `defence` reports harm in TSD, and a harm-to-probability
+conversion would be a second model of the same thing, which is what this
+service exists to prevent. `automaticAttacksOf` moved out of `travel` and into
+`defence` for the same reason — three consumers, one number.
+
+The filter that already dropped points capped to zero now also drops goals the
+site would take back. It behaves exactly as designed: the agent became more
+selective, entering sites 42.0% of the time rather than 50.5%.
+
+**It did not move the score.** Against the same control:
+
+| n=20, same seeds | control | plan layer | + survival cost |
+|---|---|---|---|
+| `enter-site` take-rate | 23.4% | 50.5% | 42.0% |
+| `play-hero-resource` offered | 19 | 33 | 27 |
+| games scoring anything | 13/20 | 18/20 | 15/20 |
+| item MP | 0.5 | 0.5 | 0.7 |
+| faction MP | 2.1 | 2.1 | 2.0 |
+| character MP | 1.9 | 1.9 | 1.6 |
+
+With 14 of 20 games still scoring zero item MP, 0.5 → 0.7 is one extra game,
+not a result.
+
+#### What the head-to-head funnel says, and it is not what the spec assumed
+
+The same run reports `heuristic`'s chain beside H2's, and that comparison is
+the most useful number produced by any of this work:
+
+| per 20 games | H2 + plan layer | `heuristic` |
+|---|---|---|
+| `enter-site` offered | 345 | **534** |
+| `enter-site` take-rate | 42.0% | 44.0% |
+| `declare-path` | 270 | **404** |
+| `play-hero-resource` offered | 27 | **91** |
+| plays per site entered | 0.19 | **0.39** |
+| games scoring anything | 15/20 | **20/20** |
+| item MP | 0.7 | 4.5 |
+
+The entering decision is **not** the difference: 42.0% against 44.0% is a tie,
+and the plan layer closed that gap from 23.4%. What is left is upstream of
+everything the plan layer touches. `heuristic` reaches half again as many
+sites, and when it arrives it holds something playable **twice as often per
+entry**. Its destination score is the crude `max(10, mp × 20)` per playable
+hand card that §2.1 exists to criticise — and crude or not, it is picking
+places where its hand can do something, more reliably than a marginal-TSD
+model netted of harm.
+
+So the spec's §1 hypothesis — that the AI scores nothing because nothing
+routes it to scoring sites — has been tested over three measured iterations
+and is at best incomplete. It now routes and enters at very nearly
+`heuristic`'s rate and still scores a fifth as much. The remaining gap is in
+*which* sites and *what is in hand when it gets there*, which is deck flow and
+site-deck ordering rather than commitment tracking.
+
 ### Coverage, measured
 
 There is a CLI for this now, because it is the number that decides which module
