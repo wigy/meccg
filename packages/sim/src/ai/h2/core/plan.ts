@@ -1,0 +1,219 @@
+/**
+ * @module ai/h2/core/plan
+ *
+ * The vocabulary of a long-term commitment, per
+ * `specs/2026-08-11-h2-plan-layer.md` §2.
+ *
+ * Every H2 utility is a one-step change in win probability relative to doing
+ * nothing, and that is exactly what the agent cannot score with. The 107
+ * recorded human-versus-AI games are 107–0, and the AI's points are
+ * concentrated in `kill` — the one marshalling-point category that requires no
+ * plan, because it happens to you when a hazard connects. Item, faction and
+ * ally each need a multi-turn commitment, and the AI scores near-zero in all
+ * three.
+ *
+ * A plan is what a one-step utility cannot express. Not a sequence of intended
+ * actions — a **commitment carrying a payoff and a completion probability**:
+ *
+ * - the **goal**, an MP-bearing event that has not happened yet;
+ * - its **payoff**, the *marginal* TSD of that event through `standing` and
+ *   never its nominal MP, because CoE 10.3 step 4 caps a source at half the
+ *   total and a third faction can be worth exactly zero;
+ * - a **deadline**, the turn by which it must land;
+ * - **requirements** naming what other modules have to deliver, which is how
+ *   cross-module planning happens without any module modelling the whole game;
+ * - **steps**, whose probabilities multiply into `P(complete)`.
+ *
+ * The steps are the reason this layer fits: reaching the site is `exposure`
+ * and `beliefs`, surviving the automatic attack is `defence`, having a tap is
+ * `budget`, making the roll is `dice`. `P(complete)` is mostly *composition of
+ * services that already exist*, not new modelling.
+ *
+ * Nothing here scores an action. This module is the vocabulary and the
+ * arithmetic; `services/portfolio` decides what is committed, and the modules
+ * decide what a candidate does to it.
+ */
+
+import type { CardInstanceId, CompanyId } from '@meccg/shared';
+import type { Rationale } from './types.js';
+import type { MpSource } from './tsd.js';
+import { leaf, node } from './rationale.js';
+
+/**
+ * Stable identity for a plan across turns.
+ *
+ * Stability is the whole point: the portfolio recognises a re-proposed plan as
+ * *the same commitment* by this string, and hysteresis is meaningless without
+ * that. Proposers must therefore derive it from what the plan is about — the
+ * card, the site, the company — and never from a counter or the turn number.
+ */
+export type PlanId = string;
+
+/** The MP-bearing event a plan exists to bring about. */
+export interface PlanGoal {
+  /** Stable, human-readable description, e.g. `"play Hauberk at Isengard"`. */
+  readonly label: string;
+  /** Which marshalling-point source the payoff lands in. */
+  readonly source: MpSource;
+  /** Raw marshalling points the event awards, before tournament adjustment. */
+  readonly mp: number;
+  /** The card whose play *is* the goal, when there is one. */
+  readonly cardInstanceId?: CardInstanceId;
+  /** Where the goal has to happen, as a site definition ID. */
+  readonly siteDefinitionId?: string;
+}
+
+/**
+ * Something another module has to deliver before the goal can happen.
+ *
+ * Requirements are named rather than assumed because that is the entire
+ * coupling mechanism: `resources` proposes *play this item at that site* and
+ * names the `company-at-site` it needs, `travel` sees an unmet requirement and
+ * proposes the routing that satisfies it. Neither module has to know what the
+ * other is for.
+ */
+export type Requirement =
+  | {
+    /** A company must be standing at a site by a given turn. */
+    readonly kind: 'company-at-site';
+    readonly companyId: CompanyId;
+    readonly siteDefinitionId: string;
+    readonly byTurn: number;
+  }
+  | {
+    /** A character must be untapped when the goal fires. */
+    readonly kind: 'untapped-character';
+    readonly characterInstanceId: CardInstanceId;
+  }
+  | {
+    /** A card must still be in hand when the goal fires. */
+    readonly kind: 'card-in-hand';
+    readonly cardInstanceId: CardInstanceId;
+  };
+
+/**
+ * One thing that has to go right, with the probability that it does.
+ *
+ * Split out rather than folded into a single number so `explain` can print
+ * *which* step is killing a plan. A plan at `P(complete) = 0.2` because the
+ * roll is hard is a different problem from one at 0.2 because the company will
+ * not survive the journey, and the portfolio's abandon rule cannot tell them
+ * apart on its own.
+ */
+export interface PlanStep {
+  /** What has to go right, e.g. `"reach Isengard"`. */
+  readonly label: string;
+  /** Probability it does, in [0, 1]. */
+  readonly p: number;
+  /** Which service produced `p`, for the rationale tree. */
+  readonly source?: string;
+}
+
+/** A commitment: a payoff, a deadline, and the probability of getting there. */
+export interface Plan {
+  /** Stable identity — see {@link PlanId}. */
+  readonly id: PlanId;
+  /** Module that proposed it. */
+  readonly module: string;
+  /** The MP-bearing event. */
+  readonly goal: PlanGoal;
+  /**
+   * Marginal TSD of the goal, through `standing`.
+   *
+   * Never nominal MP. A planner that chases nominal points chases points it
+   * cannot score, which is §2.1 of the H2 spec applied one level up.
+   */
+  readonly payoffTsd: number;
+  /** Turn by which the goal must land, after which the plan is dead. */
+  readonly deadline: number;
+  /** What other modules must deliver. */
+  readonly requirements: readonly Requirement[];
+  /** The steps whose probabilities multiply into `P(complete)`. */
+  readonly steps: readonly PlanStep[];
+}
+
+/**
+ * Probability every remaining step goes right.
+ *
+ * A product, which assumes the steps are independent. They are not exactly —
+ * a company mauled on the way to the site is likelier to fail the roll when it
+ * arrives — and the assumption is recorded rather than hidden, because it
+ * biases `P(complete)` *upward* and the abandon rule reads that number. A plan
+ * with no steps is certain by construction: there is nothing left to go wrong.
+ */
+export function completionProbability(plan: Plan): number {
+  return plan.steps.reduce((p, step) => p * step.p, 1);
+}
+
+/** What the commitment is worth right now: payoff discounted by getting there. */
+export function expectedValueTsd(plan: Plan): number {
+  return plan.payoffTsd * completionProbability(plan);
+}
+
+/**
+ * Whether two plans can be committed at the same time.
+ *
+ * Three ways they cannot, all of them physical rather than strategic: a
+ * company cannot stand in two places, a character cannot tap twice for two
+ * different goals, and a card cannot be played twice. Anything subtler than
+ * this belongs in the proposing module, not here — the portfolio's job is to
+ * refuse the impossible, not to arbitrate the unwise.
+ */
+export function conflicts(a: Plan, b: Plan): boolean {
+  if (a.goal.cardInstanceId !== undefined && a.goal.cardInstanceId === b.goal.cardInstanceId) {
+    return true;
+  }
+  for (const first of a.requirements) {
+    for (const second of b.requirements) {
+      if (first.kind === 'company-at-site' && second.kind === 'company-at-site'
+        && first.companyId === second.companyId
+        && first.siteDefinitionId !== second.siteDefinitionId) {
+        return true;
+      }
+      if (first.kind === 'untapped-character' && second.kind === 'untapped-character'
+        && first.characterInstanceId === second.characterInstanceId) {
+        return true;
+      }
+      if (first.kind === 'card-in-hand' && second.kind === 'card-in-hand'
+        && first.cardInstanceId === second.cardInstanceId) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** The plan as an explanation tree, for `explain` and module rationales. */
+export function planRationale(plan: Plan): Rationale {
+  const steps = plan.steps.map(step => leaf(step.label, step.p, {
+    unit: 'p',
+    note: step.source,
+  }));
+  return node(plan.goal.label, expectedValueTsd(plan), [
+    leaf('payoff', plan.payoffTsd, {
+      unit: 'tsd',
+      note: `${plan.goal.mp} ${plan.goal.source} MP, marginal at this standing`,
+    }),
+    leaf('deadline', plan.deadline, { unit: 'turns' }),
+    node('P(complete)', completionProbability(plan), steps, {
+      unit: 'p',
+      note: steps.length === 0 ? 'nothing left to go wrong' : 'steps assumed independent',
+    }),
+    ...(plan.requirements.length > 0
+      ? [node('requires', plan.requirements.length,
+        plan.requirements.map(r => leaf(r.kind, describeRequirement(r))))]
+      : []),
+  ], { unit: 'tsd', note: `proposed by ${plan.module}` });
+}
+
+/** One requirement as a short string, for the rationale tree. */
+export function describeRequirement(requirement: Requirement): string {
+  switch (requirement.kind) {
+    case 'company-at-site':
+      return `${requirement.companyId} at ${requirement.siteDefinitionId} by turn ${requirement.byTurn}`;
+    case 'untapped-character':
+      return `${requirement.characterInstanceId} untapped`;
+    case 'card-in-hand':
+      return `${requirement.cardInstanceId} still in hand`;
+  }
+}

@@ -21,6 +21,7 @@ import type { RiskPosture, ScoredOutcomes } from './risk.js';
 import type { MpDelta, MpSource } from './tsd.js';
 import type { WinProbModel } from './winprob.js';
 import type { Tunables } from './tunables.js';
+import type { Plan } from './plan.js';
 
 /** Unit of a {@link Rationale} value, so renderers can format it correctly. */
 export type RationaleUnit =
@@ -187,4 +188,24 @@ export interface H2Module {
   claims?(context: ModuleContext): boolean;
   /** Score one action. Returning `null` withdraws the module's claim. */
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null;
+  /**
+   * Long-term commitments this module can see from here, if any.
+   *
+   * Optional, and most modules will never implement it: `combat` and
+   * `corruption` price what is happening now, and nothing about a strike is a
+   * multi-turn commitment. What a proposer offers is a *candidate* future —
+   * `services/portfolio` decides which proposals are compatible and which
+   * survive from last turn, because N modules each carrying a private future
+   * is the disagreement `travel` already warns about, at strategic scale.
+   *
+   * Called once per turn rather than once per decision. A proposer may be
+   * asked in any phase and must return the same commitments it would return
+   * anywhere else in the turn; anything that changes within a turn is a
+   * tactical judgement and belongs in {@link evaluate}.
+   *
+   * Re-proposing an unchanged commitment **must** reuse its {@link Plan.id} —
+   * that string is how the portfolio recognises an incumbent, and hysteresis
+   * is meaningless without it.
+   */
+  proposePlans?(context: ModuleContext): readonly Plan[];
 }

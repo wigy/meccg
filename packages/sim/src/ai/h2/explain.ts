@@ -14,6 +14,8 @@ import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import { buildCompanyNames, buildInstanceLookup, describeAction, stripCardMarkers } from '@meccg/shared';
 import type { Evaluation } from './core/types.js';
 import { renderRationale } from './core/rationale.js';
+import { commitmentRationale } from './services/portfolio.js';
+import type { Commitment } from './services/portfolio.js';
 import type { Standing } from './services/standing.js';
 import type { Budget } from './services/budget.js';
 import type { Exposure } from './services/exposure.js';
@@ -48,6 +50,15 @@ export interface ExplanationInput {
   readonly prices?: CardPrices;
   /** What each hazard in hand is for — §3.4's plan, standing rather than per-decision. */
   readonly hazardPlan?: HazardPlan;
+  /**
+   * The long-term commitments in force — the plan layer's portfolio.
+   *
+   * Printed above the ranking rather than beside it, because a candidate's
+   * contribution is only readable against the commitment it serves: "+0.4 tsd"
+   * means nothing until you know it is 0.4 of the way to playing an item worth
+   * 4. Without this section the layer is undebuggable.
+   */
+  readonly commitment?: Commitment;
 }
 
 /** Build a describer for the acting player's view. */
@@ -100,6 +111,12 @@ export function renderExplanation(input: ExplanationInput): string[] {
   lines.push('STANDING');
   lines.push(...renderRationale(standing.rationale(), '  '));
   lines.push('');
+
+  if (input.commitment) {
+    lines.push('PLANS');
+    lines.push(...renderRationale(commitmentRationale(input.commitment), '  '));
+    lines.push('');
+  }
 
   if (input.budget) {
     // The constraints are as much a part of "why" as the score is: a faction

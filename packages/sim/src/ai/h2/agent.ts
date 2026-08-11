@@ -80,7 +80,8 @@ import type { Tunables } from './core/tunables.js';
 import { DEFAULT_TUNABLES } from './core/tunables.js';
 import type { WinProbModel } from './core/winprob.js';
 import { loadWinProbModel } from './core/winprob.js';
-import { ALL_MODULES, evaluateDecision, resolveModules } from './core/registry.js';
+import { ALL_MODULES, evaluateDecision, proposePlans, resolveModules } from './core/registry.js';
+import { createPlanPortfolio } from './services/portfolio.js';
 import { computeStanding } from './services/standing.js';
 
 /** Construction options for {@link createHeuristic2Agent}. */
@@ -218,8 +219,18 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
     ? `${sampled}${yieldToFallback ? '>' : '+'}${fallback.name}`
     : sampled;
 
+  // The long-term commitments in force. Per-agent because a commitment is
+  // exactly the state a stateless evaluator cannot hold, and reset per game
+  // because carrying one across games would have an early game silently steer
+  // a later one — the failure the `bc` agent's guard memory already documents.
+  const portfolio = createPlanPortfolio();
+
   return {
     name: label,
+
+    startGame(): void {
+      portfolio.reset();
+    },
 
     chooseAction(context: AgentContext): AgentDecision {
       if (context.legalActions.length === 0) {
@@ -237,6 +248,16 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
       };
+      // Commit once per turn. Nothing reads the portfolio yet — no module
+      // implements `proposePlans`, so this commits an empty set at the cost of
+      // one loop over the module list. It is wired here rather than with the
+      // first proposer so that the plumbing, and its per-game reset, ship and
+      // are tested before anything depends on them.
+      portfolio.commit(
+        context.view.turnNumber,
+        proposePlans(modules, moduleContext),
+        tunables,
+      );
       const { modules: contributors, evaluations, complete } = evaluateDecision(modules, moduleContext);
       const best = evaluations[0];
       const worst = evaluations[evaluations.length - 1];
