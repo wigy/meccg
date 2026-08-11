@@ -36,20 +36,25 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1,
-  LORIEN,
+  PLAYER_1, PLAYER_2,
+  LORIEN, MINAS_TIRITH, LEGOLAS,
   resetMint, pool,
   buildSitePhaseState,
+  buildTestState,
   dispatch,
   viableActions,
 } from '../test-helpers.js';
 import {
   GLAMDRING, DAGGER_OF_WESTERNESSE, THE_MITHRIL_COAT,
-  isSiteCard, buildMovementMap, getReachableSites,
+  isSiteCard, buildMovementMap, getReachableSites, Phase, Alignment,
 } from '../../index.js';
-import type { SiteCard, SitePhaseState, CardDefinitionId } from '../../index.js';
+import { reduce } from '../../engine/reducer.js';
+import type {
+  SiteCard, SitePhaseState, CardDefinitionId, GameState,
+} from '../../index.js';
 
 const SARN_GORIWING = 'tw-423' as CardDefinitionId;
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
 
 describe('Sarn Goriwing (tw-423)', () => {
   beforeEach(() => resetMint());
@@ -115,5 +120,62 @@ describe('Sarn Goriwing (tw-423)', () => {
     expect(nextState.combat!.strikesTotal).toBe(3);
     expect(nextState.combat!.strikeProwess).toBe(5);
     expect(nextState.combat!.attackSource.type).toBe('automatic-attack');
+  });
+
+  test('Orcs automatic attack is NOT detainment against a Ringwraith company', () => {
+    // Regression: bug report msotr1yy-z2yrcq, seq 95. Sarn Goriwing's card
+    // text is plain — "Automatic-attacks: Orcs — 3 strikes with 5 prowess" —
+    // with no detainment qualifier of any kind. A site's own automatic-attack
+    // is not a hazard creature card, so per the CoE glossary ("only attacks
+    // from hazard creature cards are considered keyed") it is never
+    // implicitly "keyed to" the site's shadow-hold type, and §3.II.2.R1 (which
+    // requires keying) does not detain a Ringwraith company here.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: SARN_GORIWING, characters: [ORC_CAPTAIN] }],
+          hand: [],
+          siteDeck: [LORIEN],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'automatic-attacks' as const,
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: false,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const state: GameState = { ...base, phaseState: sitePhaseState };
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat).not.toBeNull();
+    expect(afterAttack.combat!.creatureRace).toBe('orc');
+    expect(afterAttack.combat!.detainment).toBe(false);
   });
 });
