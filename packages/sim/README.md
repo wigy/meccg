@@ -715,6 +715,53 @@ funnel for that reason. Whether any of it is worth Elo is a question for
 `gate`, which is the instrument built for exactly this and the only one quoted
 here with a confidence interval.
 
+### The gate: the layer against its own off-switch
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/planContributionWeight=0' --pairs 24 --rounds 2 --jobs 6 --min-elo 0
+```
+
+The cleanest A/B available: the same binary, the same modules, the same
+proposals and portfolio, with only the contribution weight changed. 96 games,
+paired seeds, side-swapped.
+
+```text
+score:     38W-25L-1D (score 60.2%) over 64 rated games
+elo diff:  +72 [-12, +165] (95% CI, challenger − champion)
+  paired:  +92 [-2, +203] over 25 complete pair(s) — the criterion
+failures:  32
+
+FAIL — Elo-diff lower bound -2 < 0: challenger is too weak
+FAIL — 32 game(s) did not complete (engine bug or decision limit)
+```
+
+**It does not pass, and it misses by two Elo points.** The criterion is the
+paired lower bound at `--min-elo 0` — a strict promotion bar, "must
+demonstrably beat the champion" — and −2 fails it. That is a real failure and
+not a rounding argument: the honest statement is that 96 games cannot
+distinguish this from no effect.
+
+It is also the first number in this work that points anywhere. 60.2% and a
+paired point estimate of +92 Elo is not nothing, and the interval is wide
+because the sample is small — which brings up the thing now blocking every
+measurement here.
+
+**A third of the games did not finish.** 32 of 96 hit the decision limit, all
+of them in the `split-company` → `plan-movement` → `merge-companies` cycle
+described above, and they are excluded from the rating: 64 rated games out of
+96 played. The cycle is not merely an embarrassment in a lobby game, it is
+the reason this gate cannot resolve — it throws away a third of every sample
+and widens the interval by roughly the amount needed to clear zero. Fixing it
+is now the highest-value work available, ahead of anything else in this
+section.
+
+One caution on reading the output: the `glicko-2` line disagrees in *sign*
+with the Elo estimate on this run, and that is unexplained. The paired Elo
+bound is the documented criterion and is what is quoted here, but two rating
+methods disagreeing is itself a reason to treat +92 as a direction rather than
+a magnitude.
+
 ### Coverage, measured
 
 There is a CLI for this now, because it is the number that decides which module
