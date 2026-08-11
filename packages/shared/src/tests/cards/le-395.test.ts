@@ -3,10 +3,11 @@
  *
  * Card test: Mount Gundabad (le-395)
  * Type: minion-site (shadow-hold) in Gundabad
- * Effects: 0 (the "detainment against overt company" qualifier is fully
- *   covered by §3.II.2.R1/B1 for its only valid targets — minion companies at
- *   a shadow-hold; FW and hero companies are never overt for detainment, per
- *   rule 2.IV.vii.F1)
+ * Effects: 0 (the "detainment against overt company" qualifier is expressed
+ *   directly on the automatic-attack via `detainmentAgainstOvert: true` — a
+ *   site's own automatic-attack is not a hazard creature card, so per the CoE
+ *   glossary it is never implicitly "keyed to" the site's type, and §3.II.2.R1/
+ *   B1 (which require keying) do not apply to it on their own)
  *
  * Text:
  *   "Nearest Darkhaven: Carn Dûm
@@ -33,10 +34,8 @@
  * | 2 | Item playability                | IMPLEMENTED | minor, major via playableResources                           |
  * | 3 | Haven path movement             | IMPLEMENTED | Carn Dûm ↔ Mount Gundabad via starter movement               |
  * | 4 | Auto-attack (each-character)    | IMPLEMENTED | strikesTotal = company.characters.length, pre-assigned       |
- * | 5 | Detainment vs Ringwraith        | IMPLEMENTED | §3.II.2.R1 — shadow-hold → always detainment                 |
- * | 6 | Detainment vs Balrog            | IMPLEMENTED | §3.II.2.B1 — shadow-hold → always detainment                 |
- * | 7 | Not detainment vs fallen-wizard | IMPLEMENTED | FW is a hero company for detainment (rule 2.IV.vii.F1)        |
- * | 8 | Not detainment vs hero          | IMPLEMENTED | default — no matching rule fires                             |
+ * | 5 | Detainment vs overt company     | IMPLEMENTED | `detainmentAgainstOvert: true` on the attack, per §3.II.2      |
+ * | 6 | Not detainment vs covert company| IMPLEMENTED | default — `detainmentAgainstOvert` requires an overt company  |
  *
  * Playable: YES
  * Certified: 2026-06-04
@@ -61,6 +60,7 @@ const MOUNT_GUNDABAD = 'le-395' as CardDefinitionId;
 const CARN_DUM = 'le-359' as CardDefinitionId;
 const LIEUTENANT_OF_MORGUL = 'le-22' as CardDefinitionId;
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
+const HORSEMAN_IN_THE_NIGHT = 'le-16' as CardDefinitionId;
 
 describe('Mount Gundabad (le-395)', () => {
   beforeEach(() => resetMint());
@@ -93,10 +93,14 @@ describe('Mount Gundabad (le-395)', () => {
     expect(notReachable).toBeUndefined();
   });
 
-  // ─── Detainment: direct isDetainmentAttack helper tests ────────────────────
-  // These tests mirror the reducer's call signature: the engine passes the
-  // site's type as attackKeyedTo so that §3.II.2.R1/B1 fire correctly for
-  // Ringwraith/Balrog companies at shadow-holds and dark-holds.
+  // ─── Detainment: general isDetainmentAttack §3.II.2.R1/B1 behavior ─────────
+  // These tests exercise the general isDetainmentAttack helper with a
+  // creature actually keyed to a shadow-hold (e.g. a hazard creature played
+  // by hand) — NOT Mount Gundabad's own automatic-attack, which is not a
+  // hazard creature card and so is never implicitly "keyed" per the CoE
+  // glossary. The automatic-attack's real "detainment against overt company"
+  // behavior is covered by the `detainmentAgainstOvert` integration tests
+  // below, which run the actual reducer.
 
   test('Ringwraith defender at Mount Gundabad: Orc auto-attack is detainment (§3.II.2.R1 shadow-hold)', () => {
     // Shadow-hold keying triggers R1 for Ringwraith players.
@@ -170,9 +174,10 @@ describe('Mount Gundabad (le-395)', () => {
   // ─── Each-character auto-attack: integration via reducer ───────────────────
 
   test('2-character company at Mount Gundabad: each-character attack assigns 1 strike per character', () => {
-    // PLAYER_1 is Ringwraith with a 2-character company at Mount Gundabad.
-    // When the auto-attack triggers, each character gets exactly 1 strike
-    // (strikesTotal = 2, both pre-assigned, no defender assignment needed).
+    // PLAYER_1 is Ringwraith with a 2-character company (containing an Orc,
+    // so the company is overt) at Mount Gundabad. When the auto-attack
+    // triggers, each character gets exactly 1 strike (strikesTotal = 2, both
+    // pre-assigned, no defender assignment needed).
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -223,8 +228,65 @@ describe('Mount Gundabad (le-395)', () => {
     expect(afterAttack.combat!.strikeAssignments).toHaveLength(2);
     expect(afterAttack.combat!.strikeProwess).toBe(7);
     expect(afterAttack.combat!.creatureRace).toBe('orc');
-    // Ringwraith defender at shadow-hold → detainment
+    // Overt company (contains an Orc) → detainmentAgainstOvert fires
     expect(afterAttack.combat!.detainment).toBe(true);
+  });
+
+  test('covert company at Mount Gundabad: auto-attack is NOT detainment', () => {
+    // A Ringwraith company with no Orc/Troll/Balrog-avatar is covert, so the
+    // "(detainment against overt company)" qualifier does not apply — the
+    // attack wounds normally. Regression guard: the site's own
+    // automatic-attack must not fall back to unconditional §3.II.2.R1
+    // shadow-hold detainment now that the implicit site-type keying has been
+    // removed from reducer-site.ts (bug report: msotr1yy-z2yrcq, seq 95 —
+    // Sarn Goriwing wrongly detained a non-overt company the same way).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MOUNT_GUNDABAD, characters: [HORSEMAN_IN_THE_NIGHT] }],
+          hand: [],
+          siteDeck: [CARN_DUM],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'automatic-attacks' as const,
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: false,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const state: GameState = { ...base, phaseState: sitePhaseState };
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat).not.toBeNull();
+    expect(afterAttack.combat!.creatureRace).toBe('orc');
+    expect(afterAttack.combat!.detainment).toBe(false);
   });
 
   test('2-character company: each character resolves their own strike independently', () => {

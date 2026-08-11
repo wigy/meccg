@@ -96,6 +96,7 @@ const SABLE_SHIELD = 'le-341' as CardDefinitionId;      // major minion item
 const SCROLL_OF_ISILDUR = 'le-343' as CardDefinitionId; // greater minion item (NOT playable here)
 const ORC_RAIDERS = 'le-85' as CardDefinitionId;        // non-unique Orc, keyed ONLY to Ruins & Lairs (+ wilderness/border)
 const ORC_PATROL = 'tw-074' as CardDefinitionId;        // non-unique Orc, keyed to Shadow-hold (also R&L, Dark-hold)
+const GORBAG = 'le-11' as CardDefinitionId;             // Orc-race minion character — makes its company overt
 
 const SHADOW_HOLD_KEYING = { method: 'site-type' as const, value: SiteType.ShadowHold };
 
@@ -130,14 +131,18 @@ function dualHandState(opts: {
   return { ...state, phaseState: makeSitePhase({ step: opts.step ?? 'enter-or-skip', siteEntered: opts.siteEntered ?? false }) };
 }
 
-/** A minion company at The Under-leas, sitting at the automatic-attacks step. */
+/**
+ * An OVERT minion company (The Mouth + Gorbag, an Orc — CoE glossary: a
+ * company is covert unless it contains a Balrog, Orc, Troll, or Ringwraith in
+ * Fell Rider mode) at The Under-leas, sitting at the automatic-attacks step.
+ */
 function minionAutoAttackStep(): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.Site,
     recompute: true,
     players: [
-      { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: THE_UNDER_LEAS, characters: [THE_MOUTH] }], hand: [], siteDeck: [DOL_GULDUR] },
+      { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: THE_UNDER_LEAS, characters: [THE_MOUTH, GORBAG] }], hand: [], siteDeck: [DOL_GULDUR] },
       { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
     ],
   });
@@ -284,7 +289,7 @@ describe('The Under-leas (as-167)', () => {
     expect(detainment).toBe(false);
   });
 
-  test('minion (always overt) company at The Under-leas faces the 1st Orc attack as detainment (integration)', () => {
+  test('overt minion company at The Under-leas faces the 1st Orc attack as detainment (integration)', () => {
     const state = minionAutoAttackStep();
     const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     expect(next.combat).not.toBeNull();

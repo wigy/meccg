@@ -11,23 +11,26 @@
  *     (1st) Trolls — 3 strikes with 10 prowess
  *     (2nd) Opponent may play as an automatic-attack one non-unique hazard
  *           creature from his hand normally keyed to a Shadow-hold.
+ *   Special: Creatures keyed to this site attack normally, not as detainment.
  *
- * Rules interpretation: The Under-courts is a near-mirror of The Under-galleries
+ * Rules interpretation: The Under-courts is an exact mirror of The Under-galleries
  * (ba-99) — same dynamically-played 2nd automatic-attack (a non-unique hazard
- * creature keyed to a Shadow-hold), same under-deeps dark-hold shape. The one
- * meaningful difference is that ba-98 has NO "Special:" line: it does NOT carry
- * an `attacks-not-detainment` override. So the standard CoE §3.II.2.B1 rule
- * applies unchanged — the site's own dark-hold-keyed automatic-attacks (and any
- * Shadow-hold-keyed hazard creature played here) ARE detainment against the
- * defending Balrog/Ringwraith company. This test asserts that default detainment
- * behaviour precisely to prove the absence of any override.
+ * creature keyed to a Shadow-hold), same under-deeps dark-hold shape, and the
+ * same unconditional `attacks-not-detainment` Special line (authoritative source:
+ * `data/cards.json` BA-98 `attributes.special`). Per CoE glossary, a site's own
+ * automatic-attack is not itself "keyed" (only hazard creature cards are keyed),
+ * so nothing here would be detainment under §3.II.2.B1 in the first place — the
+ * Special line additionally guarantees any Shadow-hold-keyed hazard creature
+ * played here (the 2nd auto-attack) also attacks normally, not as detainment.
  *
  * Data encoding:
  *   - `playableResources: [minor, major]` — filled this pass (was `[]` in the
  *     imported data despite the printed "Playable" line, the recurring BA/LE-site
  *     empty-playableResources bug). Note: NO information (unlike ba-99).
  *   - `site-rule: dynamic-auto-attack` keyed to Shadow-hold {S} (2nd attack).
- *   - No `attacks-not-detainment` effect (no Special line).
+ *   - `site-rule: attacks-not-detainment` (unconditional) — was missing from the
+ *     imported data despite the printed Special line; added to match ba-99 and
+ *     the authoritative card database.
  *
  * Site Structural Checks:
  * | # | Property          | Status | Notes                                                              |
@@ -42,7 +45,7 @@
  * | 8 | hazardDraws       | OK     | 3                                                                   |
  * | 9 | keywords          | OK     | ["under-deeps"]                                                     |
  * | 10| adjacentSites     | OK     | Barad-dûr (0), The Under-galleries (6), The Sulfur-deeps (7)      |
- * | 11| effects           | OK     | dynamic-auto-attack (shadow-hold) only — no detainment override    |
+ * | 11| effects           | FIXED  | dynamic-auto-attack (shadow-hold) + attacks-not-detainment (added) |
  *
  * Engine Support:
  * | # | Feature                                        | Status          | Notes                                                    |
@@ -51,7 +54,7 @@
  * | 2 | Item playability (minor + major; not greater)  | IMPLEMENTED     | site.ts enforces playableResources                        |
  * | 3 | Automatic attacks (1st, static Trolls 3x10)    | IMPLEMENTED     | Trolls in automaticAttacks                                |
  * | 4 | Dynamic auto-attack (2nd, Shadow-hold keyed)   | IMPLEMENTED     | play-site-auto-attack step; shadow-hold filter            |
- * | 5 | Default detainment (no override)               | IMPLEMENTED     | §3.II.2.B1 dark-hold/shadow-hold keyed vs Balrog          |
+ * | 5 | Special: keyed creatures attack normally       | IMPLEMENTED     | site-rule attacks-not-detainment (unconditional)          |
  * | 6 | Under-deeps movement roll                      | NOT IMPLEMENTED | General rule 3.45; not specific to this card              |
  *
  * Playable: YES
@@ -66,7 +69,7 @@ import {
   buildTestState, makeSitePhase,
   viableActions, dispatch,
 } from '../test-helpers.js';
-import { Phase, Alignment, SiteType } from '../../index.js';
+import { Phase, Alignment } from '../../index.js';
 import { isDetainmentAttack } from '../../engine/detainment.js';
 import { Race } from '../../types/common.js';
 import type {
@@ -186,7 +189,7 @@ describe('The Under-courts (ba-98)', () => {
     expect(actions).toHaveLength(0);
   });
 
-  test('playing Orc-patrol as 2nd auto-attack initiates combat — detainment vs the Balrog company (no override)', () => {
+  test('playing Orc-patrol as 2nd auto-attack initiates combat — NOT detainment (Special: keyed creatures attack normally)', () => {
     const state = dualHandState({ step: 'play-site-auto-attack', siteEntered: true, hazardHand: [ORC_PATROL] });
     const orcPatrolInst = state.players[1].hand[0].instanceId;
     const next = dispatch(state, {
@@ -200,44 +203,44 @@ describe('The Under-courts (ba-98)', () => {
     expect(next.combat!.strikesTotal).toBe(3);
     expect(next.combat!.strikeProwess).toBe(6);
     expect((next.phaseState as SitePhaseState).step).toBe('automatic-attacks');
-    // No Special line: a Shadow-hold-keyed creature vs the Balrog company here is
-    // detainment per §3.II.2.B1 (unlike ba-99, which overrides this to false).
-    expect(next.combat!.detainment).toBe(true);
+    // Special: "Creatures keyed to this site attack normally, not as detainment"
+    // (unconditional attacks-not-detainment) overrides §3.II.2.B1 — same as ba-99.
+    expect(next.combat!.detainment).toBe(false);
   });
 
-  // ─── Default detainment: no override at this site ──────────────────────────
+  // ─── Special: keyed creatures attack normally, not as detainment ───────────
 
-  test('1st Trolls automatic attack against the Balrog company IS detainment (direct helper)', () => {
-    // §3.II.2.B1: the site's own dark-hold-keyed auto-attack is detainment
-    // against the Balrog defender. ba-98 carries no attacks-not-detainment
-    // override, so the flag stays on.
+  test('1st Trolls automatic attack against the Balrog company is NOT detainment (direct helper)', () => {
+    // The site's own automatic-attack is not itself "keyed" (only hazard
+    // creature cards are keyed — CoE glossary), so §3.II.2.B1 never applied to
+    // it in the first place; the unconditional attacks-not-detainment Special
+    // rule additionally forecloses detainment for any keyed creature here.
     const siteDef = pool[THE_UNDER_COURTS as string] as SiteCard;
     const detainment = isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: Race.Troll,
-      attackKeyedTo: [{ siteTypes: [SiteType.DarkHold] }],
       defendingAlignment: Alignment.Balrog,
       defendingSiteEffects: siteDef.effects,
       isAutomaticAttack: true,
     });
-    expect(detainment).toBe(true);
+    expect(detainment).toBe(false);
   });
 
-  test('site effects carry the dynamic-auto-attack rule but NO attacks-not-detainment override', () => {
+  test('site effects carry both the dynamic-auto-attack rule and the attacks-not-detainment Special', () => {
     const siteDef = pool[THE_UNDER_COURTS as string] as SiteCard;
     const rules = (siteDef.effects ?? []).filter((e) => e.type === 'site-rule');
     expect(rules.some((e) => (e as { rule?: string }).rule === 'dynamic-auto-attack')).toBe(true);
-    expect(rules.some((e) => (e as { rule?: string }).rule === 'attacks-not-detainment')).toBe(false);
+    expect(rules.some((e) => (e as { rule?: string }).rule === 'attacks-not-detainment')).toBe(true);
   });
 
-  test('Balrog company at The Under-courts faces the 1st Troll attack (3x10) as detainment (integration)', () => {
+  test('Balrog company at The Under-courts faces the 1st Troll attack (3x10) as a normal attack (integration)', () => {
     const state = balrogAutoAttackStep();
     const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     expect(next.combat).not.toBeNull();
     expect(next.combat!.creatureRace).toBe('troll');
     expect(next.combat!.strikeProwess).toBe(10);
     expect(next.combat!.strikesTotal).toBe(3);
-    // No Special line → default §3.II.2.B1 detainment against the Balrog defender.
-    expect(next.combat!.detainment).toBe(true);
+    // Special: "Creatures keyed to this site attack normally, not as detainment".
+    expect(next.combat!.detainment).toBe(false);
   });
 });

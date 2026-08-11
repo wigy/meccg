@@ -1413,7 +1413,6 @@ function handleSiteAutomaticAttacks(
       const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRaceM ?? null,
-        attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
@@ -1593,14 +1592,17 @@ function handleSiteAutomaticAttacks(
     // `aa.forceDetainment` is set on runtime-injected attacks with no race/keying
     // (FEAR! FIRE! FOES! as-29 Mode A), for which the §3.II derivation cannot
     // apply — still overridden to normal when the defender forces normal attacks.
+    // Per the CoE glossary, "only attacks from hazard creature cards are
+    // considered keyed (unless a card's effect states otherwise)" — a site's
+    // own automatic-attack is not a hazard creature card, so it is never
+    // implicitly "keyed to" the site's type for §3.II.2.R1/B1 purposes.
+    // Detainment for an automatic-attack must come from an explicit source:
+    // `aa.forceDetainment` / `aa.detainmentAgainstPlayer` /
+    // `aa.detainmentAgainstOvert` above, or a `combat-detainment` /
+    // `attacks-are-detainment` site effect consulted inside isDetainmentAttack.
     detainment: (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace ?? null,
-      // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
-      // The effective type honors any site-type override (e.g. Hold Rebuilt and
-      // Repaired turning a Ruins & Lairs into a Shadow-hold) so the standard
-      // detainment rules fire correctly for Ringwraith/Balrog companies.
-      attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingCovert,
       defendingSiteEffects: siteDef.effects,
@@ -1699,7 +1701,6 @@ function buildSiteRepeatedAttackCombat(
   const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace ?? null,
-    attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
     defendingAlignment: state.players[activePlayerIndex].alignment,
     defendingCovert,
     defendingSiteEffects: siteDef.effects,

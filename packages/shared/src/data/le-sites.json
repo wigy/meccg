@@ -1209,7 +1209,8 @@
         "prowess": 7,
         "combatRules": [
           "each-character"
-        ]
+        ],
+        "detainmentAgainstOvert": true
       }
     ],
     "resourceDraws": 2,
