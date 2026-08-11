@@ -302,3 +302,34 @@ export const CARRIER_STEP = 'carrier';
  * because that is the truth about it.
  */
 export const CHECK_STEP = 'influence-check';
+
+/**
+ * Probability of covering a remaining region distance, from a per-region rate.
+ *
+ * The route step used to be binary — certain when the company was already
+ * headed to the site, a flat prior otherwise — and that is what made the agent
+ * stand still. MECCG movement is multi-hop and the engine only offers
+ * destinations reachable this turn, so a commitment to a distant site is
+ * routinely one that no candidate can serve. Every reachable move then moved
+ * the step not at all, and `travel` scores a destination with nothing playable
+ * on it at exactly zero, so every movement tied with `pass` and the agent went
+ * nowhere: a move planned on 32% of turns against `heuristic`'s 44%, and 16.8
+ * site changes a game against 29.8.
+ *
+ * Grading it by distance is what makes *progress* worth something. `rate` is
+ * the chance of covering one more region — `planUnroutedReachProbability`,
+ * read as what it was always approximating — and the distance is the engine's
+ * own inclusive region distance, where 1 means "already in that region". So a
+ * company four regions out prices the plan at `rate³`, and a move that brings
+ * it to two regions out raises that to `rate`, which is a real number the
+ * contribution can be computed from rather than a step change nothing can
+ * reach.
+ *
+ * No new constant: one existing tunable, one number from the map, and a shape
+ * that is forced rather than chosen — independent hops multiply, which is the
+ * same assumption `completionProbability` already makes about steps.
+ */
+export function reachProbability(inclusiveRegionDistance: number, rate: number): number {
+  const hops = Math.max(0, inclusiveRegionDistance - 1);
+  return hops === 0 ? 1 : Math.pow(rate, hops);
+}

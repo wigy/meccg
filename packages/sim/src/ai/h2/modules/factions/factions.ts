@@ -33,10 +33,11 @@ import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
+import { computeReach } from '../../services/reach.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 import type { Plan } from '../../core/plan.js';
-import { CARD_STEP, CARRIER_STEP, CHECK_STEP, ROUTE_STEP } from '../../core/plan.js';
+import { CARD_STEP, CARRIER_STEP, CHECK_STEP, ROUTE_STEP, reachProbability } from '../../core/plan.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['influence-attempt'] as const;
@@ -158,6 +159,7 @@ export const factionsModule: H2Module = {
     const { view, cardPool, standing, tunables } = context;
     const budget = computeBudget(view, cardPool);
     const defence = computeDefence(view, cardPool, standing, tunables);
+    const reach = computeReach(cardPool);
     const plans: Plan[] = [];
 
     for (const company of view.self.companies) {
@@ -217,8 +219,23 @@ export const factionsModule: H2Module = {
           // site would take back.
           if (netPayoffTsd <= 0) continue;
 
-          const routed = company.destinationSite?.definitionId === site.definitionId;
+          // Graded by distance rather than by a yes/no. A binary step could
+          // only be moved by a candidate that lands exactly on the plan's
+          // site, and the engine offers those only when the site is already
+          // within one turn's movement — so a commitment to anywhere further
+          // credited no move at all, and the agent stood still.
           const here = standingAt === site.definitionId;
+          const heading = company.destinationSite?.definitionId === site.definitionId;
+          const from = company.destinationSite?.definitionId ?? standingAt;
+          const distance = from === undefined ? null : reach.between(from, site.definitionId);
+          const routeProbability = heading || here
+            ? 1
+            : distance === null
+              // The map does not join them. Treated as the old flat prior
+              // rather than as impossible: an unreachable-looking site is far
+              // more often a gap in the map than a real island.
+              ? tunables.planUnroutedReachProbability
+              : reachProbability(distance, tunables.planUnroutedReachProbability);
           plans.push({
             id: `factions/${card.instanceId as string}@${site.definitionId}`,
             module: 'factions',
@@ -240,10 +257,12 @@ export const factionsModule: H2Module = {
             steps: [
               {
                 label: `route to ${siteNameOf(siteDef)}`,
-                p: routed ? 1 : tunables.planUnroutedReachProbability,
+                p: routeProbability,
                 owner: 'travel',
                 tag: ROUTE_STEP,
-                source: routed ? 'already there or already headed there' : 'planUnroutedReachProbability',
+                source: heading || here
+                  ? 'already there or already headed there'
+                  : `${distance ?? '?'} region(s) away, at planUnroutedReachProbability per region`,
               },
               {
                 label: `still hold ${fields.name ?? card.definitionId}`,
