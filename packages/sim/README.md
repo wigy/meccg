@@ -1381,12 +1381,73 @@ No new constant.
 +2 decisions of 2642 — small in aggregate, and +1.1 points on the 196 discards
 where it actually applies.
 
+#### Localising `pass` before changing anything about it
+
+`pass` is 1101 of the 2642 attributed decisions and by far the largest block of
+disagreement, so `human-compare --detail pass` now reports *where* it happens
+rather than only how often it is missed:
+
+| phase | human passed | agent agreed |
+|---|---|---|
+| **movement-hazard** | **579** | **15.9%** |
+| site | 158 | 48.7% |
+| end-of-turn | 144 | 68.8% |
+| **organization** | **83** | **0.0%** |
+| untap | 48 | 29.2% |
+| long-event | 41 | 17.1% |
+| free-council | 41 | 12.2% |
+
+Over half of it is one phase, and in `organization` the agent has **never once
+passed** across eight games. Broken down by what it did instead:
+
+```text
+154  movement-hazard / place-on-guard
+135  movement-hazard / play-hazard
+ 88  movement-hazard / play-short-event
+ 59  movement-hazard / activate-granted-action
+ 36  free-council   / support-corruption-check
+ 30  organization   / plan-movement
+```
+
+That is a different picture from "the agent over-acts". It over-acts **as the
+hazard player**, and the single largest specific action is one the module
+models as *free*.
+
+#### An option that forecloses another is not free
+
+`reducer-site.ts` returns an unrevealed on-guard card to its owner's hand **at
+cleanup**, and `hazards` reads that correctly: placement does not spend the
+card, and charging half a card price for it — as the module once did — is a
+cost the rules do not impose.
+
+What that missed is that cleanup is the *end of the turn*. While the card sits
+on a site it cannot be played against a company that has yet to move, so
+placement forecloses the alternative use where passing keeps it. `hazard-plan`
+already computes what that alternative is worth: the marginal the card
+contributes to the turn's assignment if it is played rather than parked. The
+two uses are mutually exclusive, so it is a cost and not a double count.
+
+| | overall | `pass` | `play-hazard` |
+|---|---|---|---|
+| before | 41.22% | 26.7% | 32.9% |
+| **+ forgone hazard use** | **41.41%** | 26.7% | **40.8%** |
+
+Spurious placements fell from 154 to 116, and agreement on `play-hazard` rose
+**7.9 points** — the largest single-metric movement in this section — because
+the cards are now played rather than parked. `heuristic` sits at 46.1% on the
+same measure.
+
+It also overturns a recorded decision, and only half of it: the test that said
+placement *"costs nothing, because an unrevealed on-guard card comes back"* now
+says it does not spend the card and may still cost what it forecloses, and
+pins both halves.
+
 The cumulative movement from the corpus, over 2642 attributed decisions:
 
 | | overall | `pass` |
 |---|---|---|
 | before any of it | 39.74% | 22.6% |
-| now | **41.22%** | **26.7%** |
+| now | **41.41%** | **26.7%** |
 
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not

@@ -253,11 +253,24 @@ describe('the attacker assigning an excess strike', () => {
 });
 
 describe('placing a card on guard', () => {
-  test('costs nothing, because an unrevealed on-guard card comes back', () => {
+  test('does not spend the card, but does commit it for the turn', () => {
     // `reducer-site.ts` returns unrevealed on-guard cards to the hazard
-    // player's hand at cleanup, so placement does not spend the card. The
-    // module used to charge half a card price for it — a cost the rules do not
-    // impose, which made placing look worse than passing.
+    // player's hand at cleanup, so placement does not *spend* the card — and
+    // charging half a card price for it, as this module once did, is a cost
+    // the rules do not impose. That half of the correction stands.
+    //
+    // The other half — "a free option cannot cost" — was wrong, and the
+    // recorded corpus is what said so. The card comes back at *cleanup*, so
+    // while it sits on the site it cannot be played against a company that has
+    // yet to move: placement forecloses the alternative use, where passing
+    // keeps it. `place-on-guard` was what the agent did instead of passing 154
+    // times in 8 games, all of it in the movement/hazard phase where its `pass`
+    // agreement is 15.9%. Charging the forgone hazard use took spurious
+    // placements to 116 and lifted agreement on `play-hazard` from 32.9% to
+    // 40.8%, because the cards are now played rather than parked.
+    //
+    // So a placement may cost — but only up to what the card would have denied
+    // played. It is never charged for the card itself.
     const { scenario, view, cardPool, standing } = position();
     const legalActions = viableActions(scenario);
     const { evaluations } = evaluateDecision([hazardsModule], {
@@ -265,8 +278,14 @@ describe('placing a card on guard', () => {
     });
     const placements = evaluations.filter(e => e.action.type === 'place-on-guard');
     expect(placements.length).toBeGreaterThan(0);
-    // Nothing is worse than doing nothing: a free option cannot cost.
-    for (const placement of placements) expect(placement.expectedTsd).toBeGreaterThanOrEqual(0);
+    for (const placement of placements) {
+      const text = JSON.stringify(placement.rationale);
+      // Never the card price — that is the half of the rules correction that
+      // still holds.
+      expect(text).not.toContain('provisionalCardPrice');
+      // A cost, where there is one, is named as the alternative it forecloses.
+      if (placement.expectedTsd < 0) expect(text).toContain('the hazard it is not');
+    }
   });
 
   test('every card can be placed, and a non-creature is scored at its floor', () => {
