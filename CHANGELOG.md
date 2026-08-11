@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.98.0 — 2026-08-11
+
+Elf-song lifts corruption, and the AI stops pacing in circles
+
+### Game Engine
+
+- The AI no longer loops forever splitting and re-merging a company. When a company splits, the engine records the reverse as `merge(newCompany -> oldCompany)`, but `computeLegalActions` offers both merge directions for any two companies at the same site and `isRegressive` only matched the exact stored direction — so the mirrored `merge(oldCompany -> newCompany)` read as fresh progress instead of the undo it was. A player (or AI) could split, move a character across, merge back via the unflagged direction and split again forever, with the planned destination alternating between two sites so the state never repeated. Reverses for `merge-companies` are now matched as an unordered pair of company IDs. Reported: AI-Modular stuck cycling split → plan-movement → move-to-company → merge in one organization phase (game msog03js-l8uj9s, seq ~765)
+
+### Cards
+
+- Elf-song (tw-223) is certified, adding two reusable DSL primitives. `offer-corruption-removal-at-site` (on self-enters-play) offers every character at a matching site — either player's — that bears a corruption card the one-time option to remove one, via a new `remove-corruption-offer` pending resolution, dispatched from a shared helper called by both `resolveLongEvent` and the generic permanent-event self-enters-play loop. `removal-protection` is a continuous, location-gated variant of the turn-scoped `protect-from-removal`: while the card is in play, a character at a matching site cannot be discarded or returned to hand for any reason. Folded into `isCharacterRemovalProtected`, it reaches every existing removal path (dice-check returns, CoE 3.47 influence overflow, body-check discards) with no per-path wiring, reproducing the CRF-22 ruling that Elf-song "will effectively stop influence attempts against characters"
+- River (le-134) offers its ranger tap-to-cancel again. Its site-phase-do-nothing constraint encoded the ability as a `cancelWhen` field, a property no engine code reads, leaving affected companies locked into `pass` for the whole site phase. Its twin tw-84 already encodes the same rule correctly as a `sequence` of two add-constraint effects — the restriction plus a companion granted-action constraint — and le-134 now uses that shape. Reported: Gildor Inglorion, a ranger, could not be tapped to cancel (game msofql34-nfz3ai, seq 600-602)
+- The minion printing of The Arkenstone (le-418) now carries the "Hoard item." wording every other hoard-keyword card has; the keyword itself was already correct. (The reported illegal play at Gondmaeglom is not a bug — a permanent Dragon automatic-attack makes a site contain a hoard per CoE glossary g.hoa.1.)
+
+### Web Client
+
+- Storing an item at a haven now asks for confirmation. The click handler fired `store-item` instantly, unlike the sibling self-discard and transfer branches that already gate on an explicit choice — and storing removes the item from play for the rest of the game, so a misclick lost it permanently. Reported: bug e05a8c55854c7e12 (game msofql34-nfz3ai, seq 774)
+- The item-discard confirmation names what the discard buys. Clicking a self-discarding item's sole granted action showed a bare "Discard Cram?", ambiguous with more than one such item in play; it now reads "Discard Cram (Untap Bearer)?"
+- The toolbar shows "Game X · Turn N · Phase" at all times, so a game can be identified for a bug report without opening the normally hidden debug view. Clicking it copies the text; auto-captured bug reports carry the same turn/phase info
+
+### AI / Simulation
+
+- New `scoring-loop` diagnostic reports the scoring chain as a funnel of offered-versus-taken per action type, separating "never offered" (a break upstream of the module owning the action) from "offered and declined" (a valuation bug, ranked by mean fractional rank). Offers are counted per decision rather than per candidate, and rank is fractional, since branching spans two orders of magnitude. The recorded baseline: `play-hero-resource` offered four times in six games — the acquisition modules are never asked, and heuristic scores 5.0 item MP a game against h2's 0.7
+- Plan-layer scaffolding (spec `specs/2026-08-11-h2-plan-layer.md`, steps 0-1), inert: no module implements `proposePlans` yet. `core/plan` is the vocabulary — a plan is a commitment carrying a payoff in marginal TSD (never nominal MP, since CoE 10.3 step 4 caps a source at half the total) and a completion probability composed from existing services. `services/portfolio` is the commitment plus hysteresis: a committed plan is never dropped for being marginally out-ranked, which is what keeps the plan layer from reproducing h2's shape-change/undo alternation one level up. Both aggregation rules — bounded additive TSD (default) and rank-based voting — ship behind a constant, to be settled by the gate
+
 ## 0.97.0 — 2026-08-11
 
 Excess strikes counted right, and the wounded finally heal
