@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.99.0 — 2026-08-11
+
+Automatic attacks corrected, and the AI measured against the humans who beat it
+
+### Game Engine
+
+- Site automatic-attacks no longer detain minion and balrog companies at shadow-holds and dark-holds. The attack was keyed so that companies of those alignments were treated as arriving at a hostile site, and a detainment attack cannot wound or kill — so an attack that should have been lethal was silently declawed. Keying now follows the company's alignment against the site's, not the site alone
+- Goblin-gate's automatic-attack is no longer flagged as detainment, for the same root cause at a site whose own alignment made the mis-keying easy to miss
+- Dragon "At Home" automatic-attacks perform the body check they were skipping, so a character defeated by one is resolved through the same path as any other strike rather than surviving unharmed
+- Cram's untap-bearer granted action is reachable during the pre-assignment strike window. The action was computed only after strike assignment, which is exactly too late for the window the card exists to serve
+- Balrog of Moria is offered for on-guard reveal at site entry; the reveal candidate was never generated, so an on-guard copy sat unplayable for the whole site phase
+
+### Cards
+
+- Arcane School (wh-103) is certified
+- Wizard's Ring (tw-363) gains both of its missing rules: the +5 direct influence its card-database entry carries, and the on-play corruption check its printed text requires. The two were fixed on separate branches and both are now on the card — either alone would have left the other half unenforced
+- Barrow-blade's corruption point is restored on Dagger of Westernesse
+
+### Web Client
+
+- Clicking Bow of Alatar to redirect a strike now works; the click handler resolved no action at all
+- The "can only be played during combat" message no longer appears during live combat, where it was both wrong and actively misleading about why a card was refused
+
+### AI / Simulation
+
+- The plan layer is now live end to end: `resources` proposes, `travel` routes, and plans reach the ranking, with a plan's survival cost priced in. Gated against its own off-switch it wins 60.2% of games but **fails by 2 Elo** — reported as the null result it is, not as a win
+- The cycle guard is restored, and doing so **invalidates the gate result it was meant to support** — recorded here rather than quietly re-run
+- Site-deck flow diagnosed: H2 sits still, planning a move on 30% of turns against the heuristic's 43%. Three model errors are corrected on their own terms (a spurious penalty on every lateral move, a binary reach step now graded by distance, and a destination model blind to the site's own printed resource draws). None of them closes the gap; the arithmetic keeping the agent home is `regionCrossingCost`, a constant no gate has ever validated
+- New `human-compare` replays recorded human games, recovers the move the human actually made by applying each candidate and hashing the result, and asks an agent what it would have done in the identical position. Over 8 games and 2642 attributed decisions, H2 agrees with the human 39.7% of the time against the heuristic's 35.4% — and `pass` is 42% of all human decisions, where agreement falls to 22.6%. The AI acts when humans do nothing
+- AI-Heuristic's starting-item bearer choice respects discard and activation gates it was ignoring
+
+### Infrastructure
+
+- The two game-playing H2 core tests are given a budget they can meet. Each plays two full games and had 60 seconds to do it, which the work exceeds on any machine — so master and ten open pull requests were red at once, in whichever Node matrix job lost the race. Raised to five minutes. Worth remembering: vitest's `test(name, fn, timeout)` third argument overrides `--testTimeout`, so the failure reads as a hang no CLI flag can shift
+
 ## 0.98.0 — 2026-08-11
 
 Elf-song lifts corruption, and the AI stops pacing in circles

@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1124 | 1123 | 1 | 99.9% |
+| 1125 | 1124 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -18,7 +18,7 @@
 | LE | 302 | 301 | 99.7% |
 | TD | 91 | 91 | 100.0% |
 | TW | 338 | 338 | 100.0% |
-| WH | 88 | 88 | 100.0% |
+| WH | 89 | 89 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -296,7 +296,7 @@
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
-| dm-119 | Barrow-blade | — | 10 | ☑ |
+| dm-119 | Barrow-blade | — | 11 | ☑ |
 | dm-120 | Choice of Lúthien | — | 13 | ☑ |
 | dm-121 | Crown of Flowers | — | 8 | ☑ |
 | dm-123 | Dark Numbers | — | 14 | ☑ |
@@ -588,7 +588,7 @@
 | le-375 | Gladden Fields | — | 10 | ☑ |
 | le-376 | Glittering Caves | — | 11 | ☑ |
 | le-377 | Gobel Mírlond | — | 13 | ☑ |
-| le-378 | Goblin-gate | — | 9 | ☑ |
+| le-378 | Goblin-gate | — | 12 | ☑ |
 | le-379 | Gondmaeglom | — | 11 | ☑ |
 | le-380 | Haudh-in-Gwanûr | — | 10 | ☑ |
 | le-381 | Henneth Annûn | — | 7 | ☑ |
@@ -605,7 +605,7 @@
 | le-392 | Moria | — | 12 | ☑ |
 | le-393 | Mount Doom | — | 13 | ☑ |
 | le-394 | Mount Gram | — | 9 | ☑ |
-| le-395 | Mount Gundabad | — | 10 | ☑ |
+| le-395 | Mount Gundabad | — | 11 | ☑ |
 | le-396 | Nûrniag Camp | — | 9 | ☑ |
 | le-397 | Ost-in-Edhil | — | 12 | ☑ |
 | le-398 | Pelargir | — | 9 | ☑ |
@@ -689,7 +689,7 @@
 | td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-103 | Burglary  | — | 13 | ☑ |
-| td-105 | Cram | — | 16 | ☑ |
+| td-105 | Cram | — | 17 | ☑ |
 | td-108 | Dragon-lore | — | 15 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
@@ -730,7 +730,7 @@
 | tw-008 | — | — | 11 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
-| tw-12 | Balrog of Moria | — | 8 | ☑ |
+| tw-12 | Balrog of Moria | — | 10 | ☑ |
 | tw-13 | Bane of the Ithil-stone | — | 15 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
@@ -979,7 +979,7 @@
 | tw-358 | Vilya | — | 10 | ☑ |
 | tw-361 | Wizard’s Flame | — | 7 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
-| tw-363 | Wizard’s Ring | — | 5 | ☑ |
+| tw-363 | Wizard’s Ring | — | 7 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
@@ -1037,7 +1037,7 @@
 | tw-420 | Rhosgobel | — | 5 | ☑ |
 | tw-421 | Rivendell | — | 6 | ☑ |
 | tw-422 | Ruined Signal Tower | — | 6 | ☑ |
-| tw-423 | Sarn Goriwing | — | 5 | ☑ |
+| tw-423 | Sarn Goriwing | — | 6 | ☑ |
 | tw-424 | Shelob’s Lair | — | 6 | ☑ |
 | tw-425 | Shrel-Kain | — | 2 | ☑ |
 | tw-426 | Southron Oasis | — | 4 | ☑ |
@@ -1090,7 +1090,7 @@
 | wh-38 | Beasts of the Wood | — | 16 | ☑ |
 | wh-39 | Wild Horses | — | 13 | ☑ |
 | wh-40 | Wild Hounds | — | 15 | ☑ |
-| wh-43 | Crept Along Cleverly | — | 5 | ☑ |
+| wh-43 | Crept Along Cleverly | — | 6 | ☑ |
 | wh-45 | Govern the Storms | — | 9 | ☑ |
 | wh-46 | Open to the Summons | — | 11 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
@@ -1135,6 +1135,7 @@
 | wh-98 | Gandalf’s Friend | — | 9 | ☑ |
 | wh-99 | Give Welcome to the Unexpected | — | 13 | ☑ |
 | wh-100 | Grey Embassy | — | 17 | ☑ |
+| wh-103 | Arcane School | — | 9 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
 | wh-105 | Pallando’s Hood | — | 9 | ☑ |
 | wh-106 | Prophet of Doom | — | 15 | ☑ |
