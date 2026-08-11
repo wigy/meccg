@@ -1019,6 +1019,95 @@ The `kill` and `misc` rows are the corpus finding reproduced in self-play:
 `h2` out-scores `heuristic` on the category that requires no plan, and sheds
 points on the one that has no plan behind it.
 
+### Against the humans: what the corpus says the AI does differently
+
+```sh
+npm run human-compare -w @meccg/sim -- --dir ~/backup/ai-meccg.com --games 8
+```
+
+Every other instrument here measures the AI against something this repository
+built — `compare` against another agent, `gate` against another rating,
+`coverage` against its own module registry. The live corpus is a better
+reference: **107–0** to the humans across 21 players, at a median 42
+marshalling points to the AI's 2, with every game on disk as a full state per
+decision.
+
+The log does not record which candidate was taken. It does not have to: the
+engine is a pure reducer with its RNG **in the state**, so the move is
+recovered exactly by applying each candidate to state N and hashing the result
+against state N+1. Dice replay identically because the seed travelled with the
+position. The next record's `reason` names the acting *type*, which is what
+separates "the human chose otherwise" from "the opponent moved" — without it,
+in simultaneous phases, every one of the other seat's moves reads as a failed
+attribution.
+
+Two things had to be got right before the numbers meant anything, and both
+were wrong on the first run. The log lists every candidate the engine
+considered, viable or not, with the refusal on `reason` — feeding the rest to
+an agent had it playing `not-playable`, an engine marker, 66 times. And
+attribution counts only where exactly one candidate of the acted type
+reproduces the state; everything else is reported rather than hidden, because
+an attribution rate that quietly falls is how a corpus tool starts lying.
+
+Over 8 games and **2642 attributed decisions** (4216 forced, 1024
+unattributable, 2 ambiguous):
+
+| the human chose | times | `h2` agreed | `heuristic` agreed |
+|---|---|---|---|
+| **`pass`** | **1101** | **22.6%** | **20.5%** |
+| `draw-cards` | 313 | 100.0% | 100.0% |
+| `discard-card` | 196 | 15.8% | 10.2% |
+| `select-company` | 122 | 53.3% | 44.3% |
+| `pass-chain-priority` | 87 | 39.1% | 5.7% |
+| `resolve-strike` | 81 | 79.0% | 40.7% |
+| `play-hazard` | 76 | 32.9% | 46.1% |
+| `enter-site` | 70 | 82.9% | 88.6% |
+| `plan-movement` | 51 | 31.4% | 25.5% |
+| **overall** | **2642** | **39.7%** | **35.4%** |
+
+#### The finding: the AI acts when humans do nothing
+
+`pass` is 42% of all attributed decisions and the agreement on it is 22.6%.
+What H2 does instead:
+
+```text
+167  pass → play-short-event
+154  pass → place-on-guard
+135  pass → play-hazard
+ 97  pass → activate-granted-action
+ 65  pass → discard-card
+ 36  pass → support-corruption-check
+```
+
+Roughly 850 times in 8 games, a human declined to act and the AI spent a card,
+a tap or an on-guard placement. `heuristic` does it *more*, so this is not a
+Heuristics-2 defect — it is what both agents have in common and what neither
+shares with a human.
+
+It is also the tap-out finding from the other side. `hand-flow` reports the AI
+arriving at a site with nobody left to tap **75.1%** of the time against
+`heuristic`'s 23.4%, holding items it cannot play. A policy that acts whenever
+an action prices above zero arrives everywhere spent, and `pass` is zero by
+definition — so any action worth a thousandth of a win probability beats doing
+nothing, every time, all game.
+
+#### And a caveat this measured rather than argued
+
+**Agreement does not track strength.** H2 agrees with humans on 39.7% of
+decisions against `heuristic`'s 35.4%, and `heuristic` scores 4.5 item MP a
+game against H2's 0.5. The agent closer to human play is the weaker one.
+
+So this cannot be a fitness function, and converging on it would be the
+mistake `compare` already warns about. What it is good for is *localisation*:
+it took one run to point at `pass`, which five model changes and two gates had
+not managed between them.
+
+Where H2 does beat `heuristic` is worth noting, because it is exactly the
+built part of the design: `resolve-strike` 79.0% against 40.7%,
+`pass-chain-priority` 39.1% against 5.7%. The calibrated combat modules track
+human play closely. `play-hazard`, which H2 owns and has never calibrated,
+goes the other way — 32.9% against 46.1%.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
