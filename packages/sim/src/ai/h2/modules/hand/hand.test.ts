@@ -180,28 +180,40 @@ describe('the end-of-turn hand', () => {
     expect(faction.utility).toBeLessThan(blank.utility);
   });
 
-  test('points in a capped source are worth less to keep, but not nothing', () => {
-    // This asserted `toBe(0)` — that four marshalling points the diversity cap
-    // will not let them score are worth *less* than a card whose use is merely
-    // unknown. The §10.3 half of that is right and still holds below: capped
-    // points are worth less than uncapped ones, which no flat price can say.
+  test('a capped source is worth keeping when the rest of the hand un-caps it', () => {
+    // The fixture is the case exactly: 3 item MP on the board, a 4 MP item and
+    // a 2 MP faction in hand. Priced against *today's* standing the item is
+    // capped and worth nothing, so it ranked below a blank card and the agent
+    // threw it — 20 times against a human's 3, over the recorded corpus.
     //
-    // The other half was measured wrong against the recorded corpus. "The cap
-    // will never let them score" is only true of a player who never scores
-    // anything else, and the cap rises as the other sources do — playing the
-    // card is how a capped source stops being capped. Over 200 real discard
-    // positions a source priced at exactly zero in 63 of them, and on discards
-    // where a human and the agent both discarded, the agent threw a 2 MP hero
-    // item 20 times against the human's 3 while keeping the events the human
-    // threw 44 times. Pricing a capped resource below an unmodellable event
-    // inverted every one of those.
+    // Priced against the standing this hand would create, the faction landing
+    // beside it is what lifts the half-total cap, and the item is worth
+    // keeping again. That is not a softening of CoE 10.3; it is 10.3 applied
+    // to the total the player is actually playing toward.
     const capped = handModule.evaluate(discardCapped, context)!;
     const blank = handModule.evaluate(discardBlank, context)!;
+    expect(capped.expectedTsd).toBeLessThan(blank.expectedTsd);
+  });
+
+  test('a source that stays capped however the hand plays is still worth nothing', () => {
+    // The half of §10.3 that was always right, and the half the projection
+    // must not throw away: with nothing else to play, the item source cannot
+    // get out from under the cap, and the points are worth no more to hold
+    // than a card with none.
+    const alone = contextWith(40, 12);
+    const view = alone.view as unknown as { self: { hand: unknown[] } };
+    view.self.hand = [
+      { instanceId: 'c-capped', definitionId: 'capped' },
+      { instanceId: 'c-blank', definitionId: 'blank' },
+    ];
+    const capped = handModule.evaluate(discardCapped, alone)!;
+    const blank = handModule.evaluate(discardBlank, alone)!;
     expect(capped.expectedTsd).toBe(blank.expectedTsd);
-    expect(capped.expectedTsd).toBeLessThan(0);
-    // …and still strictly worse to keep than points that would actually score.
+  });
+
+  test('points that would actually score are worth more than either', () => {
     expect(handModule.evaluate(discardFaction, context)!.expectedTsd)
-      .toBeLessThan(capped.expectedTsd);
+      .toBeLessThan(handModule.evaluate(discardBlank, context)!.expectedTsd);
   });
 
   test('says which card it is throwing and why', () => {

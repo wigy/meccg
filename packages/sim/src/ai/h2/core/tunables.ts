@@ -277,6 +277,25 @@ export interface Tunables {
    * the deck has moved past.
    */
   readonly planHorizonTurns: number;
+  /**
+   * The least a card in hand is worth to keep, in TSD.
+   *
+   * Split from `provisionalCardPrice`, which was doing two different jobs: the
+   * price a module pays to *spend* a card, and the floor under what a card is
+   * worth to *hold*. One number for both is exactly what this file exists to
+   * prevent — the two move in opposite directions, since raising the spending
+   * price makes an agent act less and raising the holding floor makes it
+   * discriminate less among the cards it keeps.
+   *
+   * The floor matters because it is applied to every held card, so it is also
+   * a *ceiling on discrimination*: every card whose modelled value falls below
+   * it ties with every other. Measured against the recorded corpus, moving it
+   * up to the shipped 1.0 gained 4 points of agreement on `pass` and lost 9 on
+   * which card gets discarded, because most of a hand prices below 1.0.
+   *
+   * Ships at the value it inherited so the split alone changes nothing.
+   */
+  readonly heldCardFloor: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -307,6 +326,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  heldCardFloor: 1,
 };
 
 /**

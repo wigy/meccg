@@ -1235,10 +1235,45 @@ card agreement fell, because the pick among ties is arbitrary. `hand`'s whole
 job is to have an opinion about which card to throw, and this flattens it among
 the cheap ones.
 
-Net +26 decisions of 2642. Worth having, not worth mistaking for finished: the
-refinement is to floor without flattening, which needs a capped source valued
-at what it will be worth once the cap stops binding rather than at zero — and
-that is a real number `standing` could compute, not a constant to invent.
+Net +26 decisions of 2642.
+
+Two follow-ups were tried on that trade-off, and the second refuted the first's
+premise.
+
+**Valuing a capped source at the standing the hand would create.** "The cap
+will never let them score" is only true of a player who never scores anything
+else, so a card's points are now priced by their marginal contribution
+*within* the whole hand's potential — `tsdAfter(all of it) −
+tsdAfter(all of it but this)` — rather than against today's totals. The fixture
+in `hand.test.ts` is the case exactly: 3 item MP on the board, a 4 MP item and
+a 2 MP faction in hand, and it is the faction landing beside it that lifts the
+cap. Both halves of §10.3 are now pinned by tests — a source that stays capped
+however the hand plays is still worth nothing. It is a correct model and it
+bought **+1 decision**.
+
+**Sweeping the floor.** The obvious reading of the discard loss is that a floor
+of 1.0 is large next to typical card values, so most of the hand ties at it.
+Splitting `heldCardFloor` out of `provisionalCardPrice` — one number was doing
+two opposed jobs, the price to *spend* a card and the floor under holding one —
+made that sweepable:
+
+| `heldCardFloor` | overall | `pass` | `discard-card` |
+|---|---|---|---|
+| (floor not applied) | 39.74% | 22.6% | 15.8% |
+| **1.0** | **40.76%** | **26.6%** | 6.6% |
+| 0.5 | 40.12% | 25.2% | 6.6% |
+| 0.25 | 40.12% | 25.1% | 6.6% |
+| 0.1 | 40.12% | 25.1% | 6.6% |
+
+**Discard agreement does not move at any value.** The magnitude hypothesis is
+wrong, and the reason is structural rather than numeric: an unmodellable event
+is priced *at* the floor, so anything floored to the same value ties with it
+whatever that value is. Lowering the floor lowers both sides together.
+
+Recovering discard discrimination therefore needs what `card-price` says it
+does not have — *"hazard events, corruption cards, resources that carry no
+points"* have no valuation at all, only the flat price. That is a module to
+write, not a constant to tune, and the sweep is what establishes it.
 
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not
