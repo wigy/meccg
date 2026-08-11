@@ -1102,6 +1102,32 @@ mistake `compare` already warns about. What it is good for is *localisation*:
 it took one run to point at `pass`, which five model changes and two gates had
 not managed between them.
 
+#### One attempt at it, and why it cancelled
+
+The obvious reading of "the AI acts when humans pass" is that acting is
+under-charged, and there is a documented candidate: `combat`, `factions`,
+`hazards` and `kill` all pay the flat `provisionalCardPrice` when they spend a
+card, while `card-price` computes a real per-card shadow price. `hand`'s own
+assumptions list has recorded that as unfinished since it shipped.
+
+Moving `hazards` and its bundle search onto the real price **changed nothing**:
+agreement 39.7% → 39.7%, `pass` 22.6% → 22.6%, with the over-actions merely
+swapping places (`pass → play-hazard` 135 → 152, `pass → place-on-guard` 154 →
+135). The change is reverted.
+
+The reason is in `card-price`'s own description: a hazard creature *"is worth
+what it contributes to `hazard-plan` — the standing assignment of every hazard
+in hand to a company it would be played against"*. For a hazard, the shadow
+price **is** the value of the play being scored, so charging it against that
+play's own gain double-counts and roughly cancels. A shadow price is only an
+opportunity cost when it prices the *next-best* use; here it prices this one.
+
+That is worth recording rather than rediscovering. It also means the real
+missing term is not a mispriced cost at all but the **option value of not
+acting yet** — information and flexibility that no service currently
+expresses — and inventing a constant for it is exactly the move that has
+failed five times in this section already.
+
 Where H2 does beat `heuristic` is worth noting, because it is exactly the
 built part of the design: `resolve-strike` 79.0% against 40.7%,
 `pass-chain-priority` 39.1% against 5.7%. The calibrated combat modules track
