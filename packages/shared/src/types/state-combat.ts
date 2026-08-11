@@ -291,6 +291,26 @@ export interface StrikeAssignment {
    * the strike is resolved.
    */
   readonly strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll';
+  /**
+   * Amount added to the creature's body value for this strike's own body
+   * check only (not persisted to {@link CombatState.creatureBody}). Set by
+   * a `modify-attack` effect with `scope: "current-strike"` (e.g. Arrows
+   * Shorn of Ebony td-99: "-2 body"). Read in `handleBodyCheckRoll`
+   * alongside the other creature-body-check modifiers.
+   */
+  readonly strikeCreatureBodyModifier?: number;
+  /**
+   * When true, if this strike ultimately resolves as defeated (`result`
+   * ends as `'success'` — including passing any creature body check),
+   * every other unresolved strike of the same attack automatically
+   * resolves as defeated too, by setting {@link CombatState.forcedStrikeDefeat}.
+   * Set by a `modify-attack` effect with `scope: "current-strike"` and
+   * `cascadeDefeatOnSuccess: true` (Arrows Shorn of Ebony td-99: "If this
+   * strike is defeated, all other subsequent failed strikes from this
+   * attack are automatically defeated"). Checked in `resolveStrikeCore`
+   * (no-body-check path) and `handleBodyCheckRoll` (creature-body-check path).
+   */
+  readonly cascadesOnDefeat?: boolean;
 }
 
 /**
@@ -624,13 +644,19 @@ export interface CombatState {
   readonly bodyCheckModifier?: number;
   /**
    * When true, every strike of this attack automatically resolves as
-   * defeated (as if parried), regardless of the roll — set at combat
-   * initiation from a consumed `defeat-attack-strikes` constraint (Liquid
-   * Fire wh-52: "cause all strikes from all attacks of a … creature keyed to
-   * a site to fail"). Each defeated strike still triggers the normal
-   * creature body check when the creature has body ({@link creatureBody}),
-   * so the defending company may still kill it — just at
-   * {@link forcedDefeatBodyCheckModifier} odds. Consumed in
+   * defeated (as if parried), regardless of the roll. Two sources:
+   * - Set at combat initiation from a consumed `defeat-attack-strikes`
+   *   constraint (Liquid Fire wh-52: "cause all strikes from all attacks
+   *   of a … creature keyed to a site to fail").
+   * - Set mid-combat, after a single strike resolves, by a
+   *   {@link StrikeAssignment.cascadesOnDefeat} strike ending as defeated
+   *   (Arrows Shorn of Ebony td-99: "If this strike is defeated, all other
+   *   subsequent failed strikes from this attack are automatically
+   *   defeated") — applies only to strikes still unresolved at that point.
+   * Each defeated strike still triggers the normal creature body check when
+   * the creature has body ({@link creatureBody}), so the defending company
+   * may still kill it — just at {@link forcedDefeatBodyCheckModifier} odds
+   * (0 unless a Liquid-Fire-style source also set that field). Consumed in
    * `combat-strike.ts`'s `resolveStrikeCore`.
    */
   readonly forcedStrikeDefeat?: boolean;

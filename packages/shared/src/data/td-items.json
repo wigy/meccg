@@ -122,8 +122,34 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "modify-attack",
+        "scope": "current-strike",
+        "cost": {
+          "discard": "self"
+        },
+        "prowessModifier": 1,
+        "bodyModifier": -2,
+        "cascadeDefeatOnSuccess": true,
+        "when": {
+          "$and": [
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "attack.source": "creature"
+            },
+            {
+              "attack.siteKeyed": false
+            }
+          ]
+        }
       }
     ],
+    "certified": "2026-08-11",
     "text": "Hoard item. Warrior only: discard Arrows Shorn of Ebony to modify a strike from a hazard creature attack not keyed to a site by -1 prowess, -2 body. If this strike is defeated, all other subsequent failed strikes from this attack are automatically defeated."
   },
   {

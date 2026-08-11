@@ -1104,6 +1104,38 @@ function buildAttackKeyingCtx(combat: CombatState): Record<string, unknown> {
 }
 
 /**
+ * Build the `when` evaluation context shared by both `modify-attack` scopes
+ * (whole-attack in {@link modifyAttackActions} and `"current-strike"` in
+ * {@link tapItemForStrikeActions}): `bearer.*` (race/skills/name),
+ * `enemy.race`, and `attack.*` (`source`, `keying`, `siteKeyed`,
+ * `weaponsIneffective`). `attack.siteKeyed` is true only for a
+ * creature/on-guard-creature attack keyed purely to a site type or name (no
+ * region-type keying) — lets a card gate on "a hazard creature attack not
+ * keyed to a site" (Bow of Dragon-horn td-102, Arrows Shorn of Ebony td-99).
+ */
+function modifyAttackWhenContext(
+  combat: CombatState,
+  bearer: { race: Race; skills: readonly string[]; name?: string },
+): Record<string, unknown> {
+  const ctx: Record<string, unknown> = { bearer };
+  if (combat.creatureRace) ctx['enemy'] = { race: combat.creatureRace };
+  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
+  if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
+  const isSiteKeyedCreature = (
+    combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
+  ) && !(combat.attackKeying && combat.attackKeying.length > 0)
+    && !!(combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0);
+  attackCtx['siteKeyed'] = isSiteKeyedCreature;
+  // `attack.weaponsIneffective` is true for attacks whose strikes carry the
+  // printed "weapons do not modify prowess" clause (Trap, Lava Flows, Rock
+  // Fall). Dwarven Light-stone (dm-168) taps to lower such an attack's
+  // prowess by 2.
+  attackCtx['weaponsIneffective'] = combat.weaponsIneffective === true;
+  ctx['attack'] = attackCtx;
+  return ctx;
+}
+
+/**
  * Scan `candidates` (a struck character's untapped items/allies, or a struck
  * ally itself) for `cancel-strike` effects that tap themselves to protect their
  * bearer (cost `tap: 'self'`, target absent or `'self'`), emitting one
@@ -1785,9 +1817,13 @@ function shortEventsAffectingStrike(
  * Generate tap-item-for-strike actions for the defending player during
  * the resolve-strike phase. Scans items on the current strike target
  * character for `modify-attack` effects with `scope: "current-strike"`.
- * One action is emitted per eligible untapped item.
+ * One action is emitted per eligible item — a `cost: { tap: "self" }` item
+ * must be untapped; a `cost: { discard: "self" }` item is offered regardless
+ * of status (it leaves play either way).
  *
- * Used by Shield of Iron-bound Ash (tw-327).
+ * Used by Shield of Iron-bound Ash (tw-327): tap to gain +1 prowess against
+ * one strike. Used by Arrows Shorn of Ebony (td-99): discard to give -1
+ * prowess, -2 body to one hazard-creature strike not keyed to a site.
  */
 function tapItemForStrikeActions(
   state: GameState,
@@ -1819,24 +1855,19 @@ function tapItemForStrikeActions(
   const actions: EvaluatedAction[] = [];
 
   for (const item of charData.items) {
-    if (item.status !== CardStatus.Untapped) continue;
     const itemDef = defById(state, item.definitionId);
     if (!itemDef) continue;
     const effect = getCardEffects(itemDef).find(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
     );
     if (!effect) continue;
-    if (effect.cost?.tap !== 'self') continue;
+    const isTapCost = effect.cost?.tap === 'self';
+    const isDiscardCost = effect.cost?.discard === 'self';
+    if (!isTapCost && !isDiscardCost) continue;
+    if (isTapCost && item.status !== CardStatus.Untapped) continue;
 
     if (effect.when) {
-      const ctx: Record<string, unknown> = {
-        bearer: {
-          race: charDef.race,
-          skills: charDef.skills,
-          name: charDef.name,
-        },
-      };
-      if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
+      const ctx = modifyAttackWhenContext(combat, { race: charDef.race, skills: charDef.skills, name: charDef.name });
       if (!matchesCondition(effect.when, ctx)) {
         const itemName = itemDef?.name ?? (item.definitionId as string);
         logDetail(`Tap-item-for-strike ${itemName}: when condition not met for bearer ${charDef.name ?? ''}`);
@@ -1849,7 +1880,7 @@ function tapItemForStrikeActions(
     const modifiedNeed = Math.max(2, strikeProwess - modifiedProwess + 1);
     const itemName = itemDef?.name ?? (item.definitionId as string);
     const explanation = `${itemName}: need ${modifiedNeed}+ (prowess ${modifiedProwess} vs ${strikeProwess}, ${formatSignedNumber(bonus)})`;
-    logDetail(`Tap-item-for-strike available: tap ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
+    logDetail(`Tap-item-for-strike available: ${isDiscardCost ? 'discard' : 'tap'} ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
     actions.push({
       action: {
         type: 'tap-item-for-strike',
@@ -3373,23 +3404,7 @@ function modifyAttackActions(
           if (tapCost === 'bearer' && charData.status !== CardStatus.Untapped) continue;
 
           if (effect.when) {
-            const ctx: Record<string, unknown> = {
-              bearer: { race: charDef.race, skills: charDef.skills, name: charDef.name },
-            };
-            if (combat.creatureRace) ctx['enemy'] = { race: combat.creatureRace };
-            const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
-            if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
-            const isSiteKeyedCreature = (
-              combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
-            ) && !(combat.attackKeying && combat.attackKeying.length > 0)
-              && !!(combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0);
-            attackCtx['siteKeyed'] = isSiteKeyedCreature;
-            // `attack.weaponsIneffective` is true for attacks whose strikes carry
-            // the printed "weapons do not modify prowess" clause (Trap, Lava
-            // Flows, Rock Fall). Dwarven Light-stone (dm-168) taps to lower such
-            // an attack's prowess by 2.
-            attackCtx['weaponsIneffective'] = combat.weaponsIneffective === true;
-            ctx['attack'] = attackCtx;
+            const ctx = modifyAttackWhenContext(combat, { race: charDef.race, skills: charDef.skills, name: charDef.name });
             if (!matchesCondition(effect.when, ctx)) {
               const itemName = itemDef?.name ?? item.definitionId as string;
               logDetail(`Modify-attack ${itemName}: when condition not met (bearer ${charDef.name ?? ''})`);

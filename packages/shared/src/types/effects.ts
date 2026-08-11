@@ -5456,11 +5456,17 @@ export interface ModifyAttackEffect extends EffectBase {
    *   to `CombatState.creatureBody`. Used by Black Arrow and Star-glass.
    * - `"current-strike"`: single-strike modifier, available during the
    *   `resolve-strike` phase. Applies `prowessModifier` to
-   *   `StrikeAssignment.strikeProwessBonus` for the current strike only,
-   *   benefiting only the one character assigned that strike. The item must
-   *   be untapped and must belong to the current strike target. Activates
-   *   via the `tap-item-for-strike` action type. Used by Shield of Iron-bound
-   *   Ash (tw-327): tap to gain +1 prowess against one strike.
+   *   `StrikeAssignment.strikeProwessBonus` and (if set) `bodyModifier` to
+   *   a per-strike `StrikeAssignment.strikeCreatureBodyModifier` — both
+   *   benefit only the current strike, not the whole attack. The item must
+   *   belong to the current strike target; a `cost: { tap: "self" }` item
+   *   must also be untapped (a `cost: { discard: "self" }` item has no
+   *   status requirement — it leaves play either way). Activates via the
+   *   `tap-item-for-strike` action type (used for both cost variants). Used
+   *   by Shield of Iron-bound Ash (tw-327): tap to gain +1 prowess against
+   *   one strike. Used by Arrows Shorn of Ebony (td-99): discard to give
+   *   -1 prowess, -2 body to one hazard-creature strike not keyed to a
+   *   site (see {@link cascadeDefeatOnSuccess}).
    */
   readonly scope?: 'current-strike';
   /**
@@ -5503,7 +5509,13 @@ export interface ModifyAttackEffect extends EffectBase {
   readonly enqueueCorruptionCheck?: true;
   /** Amount added to the attack's strike prowess or current-strike prowess bonus. */
   readonly prowessModifier?: number;
-  /** Amount added to the creature's body value for the creature body check (whole-attack scope only). */
+  /**
+   * Amount added to the creature's body value for the creature body check.
+   * Whole-attack scope: added persistently to `CombatState.creatureBody`.
+   * `"current-strike"` scope: added only to this one strike's own creature
+   * body check (`StrikeAssignment.strikeCreatureBodyModifier`) — not
+   * persisted, so it has no effect on any other strike of the attack.
+   */
   readonly bodyModifier?: number;
   /**
    * Amount added to the attack's total strike count (whole-attack scope only, usually negative).
@@ -5553,6 +5565,17 @@ export interface ModifyAttackEffect extends EffectBase {
   readonly discardIfBearerNot?: {
     readonly race: readonly Race[];
   };
+  /**
+   * `"current-strike"` scope only. When true, if this modified strike
+   * ultimately resolves as defeated (`StrikeAssignment.result` ends as
+   * `'success'` — including passing any creature body check triggered by
+   * this strike), every other still-unresolved strike of the same attack
+   * automatically resolves as defeated too — `CombatState.forcedStrikeDefeat`
+   * is set. Used by Arrows Shorn of Ebony (td-99): "If this strike is
+   * defeated, all other subsequent failed strikes from this attack are
+   * automatically defeated."
+   */
+  readonly cascadeDefeatOnSuccess?: true;
 }
 
 /**
