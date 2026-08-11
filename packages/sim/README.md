@@ -1339,12 +1339,54 @@ It keeps the whole `pass` gain and recovers most of the discard precision:
 in this section whose result was *predicted* before it was run rather than
 discovered afterwards, which is what having the decomposition right looks like.
 
+#### The remaining modelled zeros, counted before being fixed
+
+With the clamp gone, a card priced at exactly zero ranks below everything, so
+it is worth knowing which zeros are real. Sampled over 300 recorded discard
+positions and 2462 priced cards, **344 came out at zero (14.0%)**:
+
+| cause | cards |
+|---|---|
+| creature this turn's plan cannot place | **162** |
+| character whose mind does not fit the free influence | 50 |
+| event that declares no effect | 39 |
+| character with no marshalling points | 35 |
+| source that stays capped however the hand plays | 28 |
+| removal with nothing in play to remove | 23 |
+
+**The creature case dominates and resisted the obvious fix.** `hazard-plan`
+already exposes `marginalFor` — *"what a creature not yet held would add,
+against the best target with a slot left"* — which is exactly the neighbouring
+question a fetch asks. Using it as the fallback rescued **0 of the 162**,
+because it asks the same one-turn question under the same hazard limits. The
+value of *holding* a creature is what it will be worth on a turn with different
+limits and a different board, and nothing in the plan answers that. Recorded
+here so the next attempt starts somewhere else.
+
+**The character case did move.** A mind that does not fit the free general
+influence is a timing fact, not a valuation — influence is freed by every
+character that leaves play — and it is the third instance of the same
+present-tense-standing-for-future-probability error as the capped source and
+the tapped-out carrier. It is now valued at its projected marshalling points
+discounted **twice**, because the discount is distance from playable and this
+card is one step further away than one whose mind fits, which is the reading
+`hand` already applies to a card going to the discard rather than to the deck.
+No new constant.
+
+| | overall | `pass` | `discard-card` |
+|---|---|---|---|
+| floor + worth | 41.14% | 26.7% | 12.2% |
+| **+ mind-does-not-fit** | **41.22%** | 26.7% | **13.3%** |
+
++2 decisions of 2642 — small in aggregate, and +1.1 points on the 196 discards
+where it actually applies.
+
 The cumulative movement from the corpus, over 2642 attributed decisions:
 
 | | overall | `pass` |
 |---|---|---|
 | before any of it | 39.74% | 22.6% |
-| now | **41.14%** | **26.7%** |
+| now | **41.22%** | **26.7%** |
 
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not
