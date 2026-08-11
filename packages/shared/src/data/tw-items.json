@@ -1965,6 +1965,11 @@
         "max": 1
       },
       {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5
+      },
+      {
         "type": "on-event",
         "event": "self-enters-play",
         "apply": { "type": "enqueue-corruption-check" }
