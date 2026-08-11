@@ -136,12 +136,36 @@ describe('characters owns the carrier step', () => {
       .toBeNull();
   });
 
-  test('moving a character out of a different company is not this plan\'s problem', () => {
+  test('an action naming somebody outside the company is not this plan\'s problem', () => {
     const p = plan([step(CARRIER_STEP, 'characters')]);
     const action = {
-      type: 'split-company', sourceCompanyId: OTHER_COMPANY, characterId: THEODEN,
+      type: 'split-company', sourceCompanyId: OTHER_COMPANY, characterId: GIMLI,
     } as unknown as GameAction;
+    // GIMLI is not in the plan's company here, so nothing it does can spend
+    // the last character who could make the play.
     expect(charactersModule.planStepDelta?.(action, p, p.steps[0], 0, context([THEODEN]))).toBeNull();
+  });
+
+  test('spending the last untapped character costs the commitment, whatever taps him', () => {
+    // The measured bottleneck: H2 arrives at a site with nobody left to tap
+    // 75.1% of the time. `tapTempoCost` is a flat 0.3 and does not know a
+    // commitment exists, so the price of the last tap has to come from the
+    // plan it forfeits — and that is true of an influence attempt just as much
+    // as of a company split.
+    const p = plan([step(CARRIER_STEP, 'characters')]);
+    const action = {
+      type: 'influence-attempt', characterInstanceId: THEODEN,
+    } as unknown as GameAction;
+    expect(charactersModule.planStepDelta?.(action, p, p.steps[0], 0, context([THEODEN]))).toBe(0);
+  });
+
+  test('spending one of two leaves the play possible', () => {
+    const p = plan([step(CARRIER_STEP, 'characters')]);
+    const action = {
+      type: 'influence-attempt', characterInstanceId: THEODEN,
+    } as unknown as GameAction;
+    expect(charactersModule.planStepDelta?.(action, p, p.steps[0], 0, context([THEODEN, GIMLI])))
+      .toBeNull();
   });
 
   test('moving someone into an empty company restores the play', () => {
