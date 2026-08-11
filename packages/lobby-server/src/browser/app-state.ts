@@ -102,6 +102,10 @@ function createDefaultAppState() {
   currentGameId: null as string | null,
   /** Latest state sequence number (updated on each 'state' message). */
   currentStateSeq: 0,
+  /** Current turn number (updated on each 'state' message). Null until the first state arrives. */
+  currentTurnNumber: null as number | null,
+  /** Current phase (updated on each 'state' message). Null until the first state arrives. */
+  currentPhase: null as string | null,
   /**
    * Tutorial progress line for bug reports ("step 5/42 (item-draft)"), from
    * the latest state broadcast. Null outside tutorial games.

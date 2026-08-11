@@ -23,6 +23,7 @@ import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
 import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
+import { buildToolbarStatusText } from './render-toolbar-status.js';
 
 // Forward-declared function references set by the lobby module to avoid
 // circular imports. The lobby module calls setLobbyCallbacks() at startup.
@@ -409,9 +410,20 @@ export function connect(name: string): void {
         appState.reconnectAttempts = 0;
         appState.playerId = msg.playerId;
         appState.currentGameId = msg.gameId;
+        appState.currentTurnNumber = null;
+        appState.currentPhase = null;
         clearEffectLog();
         clearGameMessageLog();
         renderLog(`Game ${msg.gameId} -- assigned player ID: ${appState.playerId}`);
+        { const statusEl = document.getElementById('toolbar-status');
+          if (statusEl) {
+            const text = buildToolbarStatusText(appState.currentGameId, null, undefined);
+            statusEl.textContent = text;
+            statusEl.onclick = () => {
+              void navigator.clipboard.writeText(statusEl.textContent ?? '').then(() => showNotification('Copied!'));
+            };
+          }
+        }
         { const h = document.getElementById('state-heading');
           if (h) {
             // Set text without destroying the copy button child
@@ -439,6 +451,15 @@ export function connect(name: string): void {
         await waitForDice();
         clearAwaitingResponse();
         appState.currentStateSeq = msg.view.stateSeq;
+        appState.currentTurnNumber = msg.view.turnNumber;
+        appState.currentPhase = msg.view.phaseState.phase;
+        { const statusEl = document.getElementById('toolbar-status');
+          if (statusEl) {
+            statusEl.textContent = buildToolbarStatusText(
+              appState.currentGameId, appState.currentTurnNumber, msg.view.phaseState.phase,
+            );
+          }
+        }
         appState.currentTutorialStep = msg.view.tutorial
           ? `step ${msg.view.tutorial.stepIndex + 1}/${msg.view.tutorial.stepCount} (${msg.view.tutorial.stepId})`
           : null;
