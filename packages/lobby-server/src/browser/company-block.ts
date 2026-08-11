@@ -488,13 +488,18 @@ export function renderCompanyBlock(
       };
     }
 
-    // Only storing is available — commit the store action directly.
+    // Only storing is available — a misclick would remove the item from play
+    // for the rest of the game with no way to undo it, so confirm first
+    // (bug report e05a8c55854c7e12: store-item fired instantly on click).
     if (resolution.kind === 'store') {
+      const action = resolution.action;
       return {
         cls: 'company-card--transfer-source',
         handler: (e) => {
           e.stopPropagation();
-          onAction(resolution.action);
+          void showConfirm(`Store ${itemName ?? 'this item'} at this site?`).then(ok => {
+            if (ok) onAction(action);
+          });
         },
       };
     }
