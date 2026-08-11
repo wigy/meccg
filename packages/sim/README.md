@@ -765,6 +765,57 @@ bound is the documented criterion and is what is quoted here, but two rating
 methods disagreeing is itself a reason to treat +92 as a direction rather than
 a magnitude.
 
+### The cycle guard, and what it did to that number
+
+The organization-phase cycle is fixed. A deterministic argmax policy plus a
+legal no-op loop is a hang, and `state-signature` already existed for it — but
+the `bc` agent's guard keys on *action identity*, and every `split-company`
+mints a fresh company ID, so the `merge-companies` that follows is a move the
+guard has never seen. `cycle-guard.ts` keys on the **position** instead:
+revisit a signature often enough and the conclusion is not that some move was
+wrong, it is that everything tried from here led back here. Above the
+threshold the spent action *types* are dropped; if that leaves nothing, `pass`
+ends the phase and the position cannot recur.
+
+It only ever narrows, so below the threshold — every position in a healthy
+game — behaviour is bit-identical. Eight visits is chosen above the longest
+legitimate run of same-signature decisions, because the signature is coarse
+enough that a long attack can assign several strikes without moving anything
+it watches.
+
+Re-running the same gate with it in place:
+
+| | 32 failures | 2 failures |
+|---|---|---|
+| games not completing | 32 of 96 | **2 of 96** |
+| complete pairs rated | 25 | **46** |
+| score | 60.2% | 45.7% |
+| paired Elo | **+92 [−2, +203]** | **−30 [−91, +28]** |
+
+**The +92 was an artifact of the discarded third of the sample.** With the
+sample repaired the plan layer shows no measurable strength effect at all:
+−30 Elo with an interval straddling zero. That is not "it fails by two
+points"; it is "there is nothing here to detect at 96 games", and the earlier
+number was the most encouraging figure in this whole section.
+
+The bias is not mysterious in hindsight. The discarded games were exactly the
+ones where the cycle fired, and whether it fires is not independent of which
+agent is playing — so throwing them away threw away a non-random third. Any
+result computed on a sample with a third of it missing for a
+behaviour-dependent reason deserves the suspicion this one turned out to
+warrant.
+
+What stands after all of it:
+
+- **The cycle guard is a clear win** and the only unambiguous one: 32
+  unfinished games to 2, and a lobby game against a human can no longer hang.
+- **The plan layer moves behaviour reliably and strength not at all.**
+  `enter-site` take-rate 23.4% → 47.6%, arrivals with nobody to tap 75.1% →
+  64.6%, resource plays offered 19 → 31 — every funnel metric, monotonically,
+  across five changes. Elo: nothing detectable.
+- Both rating methods disagreed in sign on both runs, which remains
+  unexplained and is a reason to trust neither one's magnitude.
+
 ### Coverage, measured
 
 There is a CLI for this now, because it is the number that decides which module
