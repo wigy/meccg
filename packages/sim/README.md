@@ -77,6 +77,9 @@ npm run horizon -w @meccg/sim -- --games 8
 # How often do two agents actually choose differently, and where?
 npm run compare -w @meccg/sim -- --agents heuristic,h2 [--games 6]
 npm run compare -w @meccg/sim -- --scenarios --agents heuristic,h2
+
+# Where does the marshalling-point loop break? (offered vs taken, per action)
+npm run scoring-loop -w @meccg/sim -- --games 6 [--agents h2,heuristic] [--json]
 ```
 
 Run `compare` **before** paying for a gate. It answers in seconds what a gate
@@ -482,6 +485,116 @@ could not serve:
   because harm to that company is the thing being aimed for. It now gates on the
   company being ours, and `hazards` takes the window — it is a denial choice
   like any other.
+
+### The scoring loop, measured against the live corpus
+
+Coverage and divergence both answer "which candidate does the agent prefer".
+Neither can see a class of candidate that is *never offered*, and that turns
+out to be where the game against a human is actually lost.
+
+The live server's recorded games (`~/backup/ai-meccg.com`, 107 completed
+human-versus-AI games across 21 distinct human players) are **107–0**. The
+per-category marshalling-point breakdown says why in a way the scoreline does
+not:
+
+| category | human med/mean | AI med/mean | AI games scoring zero |
+|---|---|---|---|
+| character | 7.0 / 7.7 | 2.0 / 2.4 | 30/102 |
+| item | 6.0 / 6.7 | 0.0 / **0.7** | **77/102** |
+| faction | 5.0 / 5.7 | 0.0 / **1.0** | **67/102** |
+| ally | 2.0 / 3.0 | 0.0 / 0.1 | **94/102** |
+| kill | 2.0 / 2.5 | 2.0 / 2.2 | 22/102 |
+| misc | 2.0 / 2.6 | 0.0 / **−1.7** | 65/102 |
+
+The only category the AI keeps pace on is `kill`, which is the passive one —
+it happens to you when a hazard connects. `misc` is net *negative*. Items,
+factions and allies are near-total zeros, and those three are 15 of the
+human's median 42.
+
+That is not a ranking problem, so:
+
+```sh
+npm run scoring-loop -w @meccg/sim -- --games 6 --agents h2,heuristic
+```
+
+replays games and reports the chain — hold a resource worth playing, build a
+company that can carry it, route it to a site where it is playable, play it —
+as a funnel of **offered versus taken** per action type. The distinction it
+exists to draw is between *never offered* and *offered and declined*. A
+scoring action that never appears among the candidates is a break upstream,
+and no amount of work on the module that owns it produces a single point; one
+offered often and taken rarely is a valuation bug, and the mean fractional
+rank when it is declined says how badly.
+
+Two properties of the tally are load-bearing enough to live in a tested module
+(`cli/scoring-funnel.ts`) rather than in the CLI. **Offered is counted per
+decision, not per candidate** — a site phase offering eleven different
+`play-hero-resource` actions is one opportunity to score, and counting eleven
+would divide every take-rate by the branching factor. And **rank is
+fractional**, because branching here spans two orders of magnitude: 8th of 10
+and 8th of 1000 are opposite findings.
+
+#### The baseline, before any of the plan-layer work
+
+Six games, `h2` versus `heuristic`, challenge decks A/B, seeds 1–6. Five
+completed; seed 6 hit the decision limit.
+
+```text
+category                 h2 (p1)      heuristic (p2)   human median
+character         1.5 (0 in 3/6)      3.3 (0 in 0/6)              7
+item              0.7 (0 in 4/6)      5.0 (0 in 1/6)              6
+faction           2.2 (0 in 2/6)      2.0 (0 in 2/6)              5
+ally              0.0 (0 in 6/6)      0.5 (0 in 5/6)              2
+kill              6.3 (0 in 0/6)      3.5 (0 in 0/6)              2
+misc             -0.8 (0 in 5/6)     -0.8 (0 in 5/6)              2
+
+── h2 (p1) — the chain ──
+games where any scoring action was taken: 4/6
+
+action                     offered    taken   take-rate   mean rank when declined
+  — enabling —
+  plan-movement             16331     8202    50.2%                       0.35
+  declare-path                 86       86   100.0%                          —
+  enter-site                   93       16    17.2%                       0.99
+  — scoring —
+  play-hero-resource            4        4   100.0%                          —
+  play-minor-item               0        0        —                          —
+  faction-influence-roll        0        0        —                          —
+  influence-attempt             7        7   100.0%                          —
+```
+
+Three things to read off it.
+
+First, **`play-hero-resource` was offered four times in six games, and taken
+every time.** The acquisition modules are not declining to score; they are
+never asked. `travel`'s own module comment already says why — a destination is
+worth only what the cards *already in hand* would pay there, because the
+strategic half of §3.3 is unwritten — and that closes a loop with `hand`,
+which has no reason to keep a resource for a site the agent will never route
+to. `heuristic`, with a cruder model and no such gap, reaches 5.0 item MP a
+game against H2's 0.7.
+
+Second, **`enter-site` is declined five times in six, at a mean fractional
+rank of 0.99** — effectively dead last whenever it is not taken. That is what
+`evaluateEnterSite` is built to say: it prices entering as the value of what
+becomes playable minus the site's automatic attacks, so with nothing playable
+in hand the realized value is zero and the attacks make the whole thing
+strictly negative against `pass` at zero. The model is not wrong; it is being
+asked the question after the mistake has already been made.
+
+Third, **`plan-movement` at 16331 offers against `heuristic`'s 228** is not a
+preference, it is a loop. Seed 6 spends its entire decision budget on a
+period-three `split-company` → `plan-movement` → `merge-companies` cycle,
+rotating the planned destination between four sites so that no lap repeats a
+state the engine's `regress` flag has seen — every `split-company` mints a
+fresh company ID, so the `merge-companies` that follows names a different
+company each lap. It is the same family the `h2>mc` composition already
+refuses to yield (`NEVER_YIELDED_ACTION_TYPES`), but plain `h2` rides it
+alone. Tracked separately from the scoring work.
+
+The `kill` and `misc` rows are the corpus finding reproduced in self-play:
+`h2` out-scores `heuristic` on the category that requires no plan, and sheds
+points on the one that has no plan behind it.
 
 ### The other work list: what a divergence costs
 
