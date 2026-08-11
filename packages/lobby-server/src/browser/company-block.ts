@@ -56,7 +56,7 @@ import {
 } from './company-view-state.js';
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
-import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu } from './company-modals.js';
+import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu, GRANTED_ACTION_LABELS } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { resolveItemClick, isSelfDiscardGrantedAction } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
@@ -481,7 +481,8 @@ export function renderCompanyBlock(
             onAction(action);
             return;
           }
-          void showConfirm(`Discard ${itemName ?? 'this card'}?`).then(ok => {
+          const actionLabel = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
+          void showConfirm(`Discard ${itemName ?? 'this card'} (${actionLabel})?`).then(ok => {
             if (ok) onAction(action);
           });
         },

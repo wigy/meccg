@@ -43,6 +43,7 @@ vi.mock('./dialog.js', () => ({ showConfirm }));
 // static imports run), so company-block picks up the mocked showConfirm.
 import { renderCompanyBlock } from './company-block.js';
 import { getGrantedActions } from './company-actions.js';
+import { setCachedInstanceLookup } from './company-view-state.js';
 
 const pool = loadCardPool();
 
@@ -195,5 +196,81 @@ describe('an item whose sole granted action discards itself (Secret Book untap-s
 
     await Promise.resolve();
     expect(onAction).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Regression test for bug report a7d8a7ae4ab95daa (game msofql34-nfz3ai, seq
+ * 602/544): "pop up should say discard to untap character not just discard
+ * is ambiguous" — the confirmation dialog above named only the discarded
+ * card ("Discard Cram?"), not what the discard accomplishes. A player with
+ * several self-discarding items in play (e.g. Secret Book AND Cram) can't
+ * tell from that prompt alone which effect they're about to trigger. The
+ * dialog now names the granted action too ("Discard Cram (Untap Bearer)?").
+ */
+describe('the confirmation names the granted action, not just the discarded card', () => {
+  const CRAM = 'td-105' as CardDefinitionId;
+  const CRAM_INST = 'p1-26' as CardInstanceId;
+
+  const bearerWithCram: CharacterInPlay = {
+    instanceId: BEARER_INST,
+    definitionId: ODOACER,
+    status: CardStatus.Tapped,
+    items: [
+      { instanceId: CRAM_INST, definitionId: CRAM, status: CardStatus.Untapped },
+    ],
+    allies: [],
+    hazards: [],
+    followers: [],
+    controlledBy: 'general',
+    effectiveStats: { prowess: 4, body: 6, directInfluence: 0, corruptionPoints: 0 },
+  } as unknown as CharacterInPlay;
+
+  const untapBearer: ActivateGrantedAction = {
+    type: 'activate-granted-action',
+    player: PLAYER,
+    characterId: BEARER_INST,
+    sourceCardId: CRAM_INST,
+    sourceCardDefinitionId: CRAM,
+    actionId: 'untap-bearer',
+    rollThreshold: 0,
+  };
+
+  function boardViewWithCram(legalActionsRaw: GameAction[]): PlayerView {
+    const legalActions: EvaluatedAction[] = legalActionsRaw.map(action => ({ action, viable: true }));
+    return {
+      self: {
+        id: 'p1',
+        companies: [company],
+        characters: { [BEARER_INST as string]: bearerWithCram },
+        cardsInPlay: [],
+      },
+      opponent: { id: 'p2', companies: [], characters: {}, cardsInPlay: [] },
+      activePlayer: 'p1',
+      phaseState: { phase: 'organization' },
+      legalActions,
+    } as unknown as PlayerView;
+  }
+
+  test('clicking Cram asks to confirm discarding it to untap the bearer', async () => {
+    const onAction = vi.fn();
+    showConfirm.mockResolvedValue(true);
+    setCachedInstanceLookup((id: CardInstanceId) => (id === CRAM_INST ? CRAM : undefined));
+    const view = boardViewWithCram([untapBearer]);
+    const block = renderCompanyBlock(company, view.self.characters, view, pool, 'self', {
+      onAction,
+      grantedActions: getGrantedActions(view),
+    }) as unknown as StubEl;
+
+    const img = block.all().find(e => e.tagName === 'img' && e.dataset.instanceId === (CRAM_INST as string));
+    expect(img).toBeDefined();
+
+    img!.click();
+
+    expect(showConfirm).toHaveBeenCalledTimes(1);
+    expect(showConfirm.mock.calls[0][0]).toBe('Discard Cram (Untap Bearer)?');
+
+    await Promise.resolve();
+    expect(onAction).toHaveBeenCalledWith(untapBearer);
   });
 });
