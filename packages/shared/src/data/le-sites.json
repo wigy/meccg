@@ -610,6 +610,17 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, gold ring). Automatic-attacks: Orcs — 3 strikes with 6 prowess.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": {
+          "enemy.race": {
+            "$ne": "ringwraith"
+          }
+        }
+      }
+    ],
     "certified": "2026-04-19",
     "unique": true
   },

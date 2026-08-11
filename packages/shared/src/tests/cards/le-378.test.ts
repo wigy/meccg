@@ -3,7 +3,7 @@
  *
  * Card test: Goblin-gate (le-378)
  * Type: minion-site (shadow-hold) in High Pass
- * Effects: 0 (special rule defers to an unimplemented engine mechanic)
+ * Effects: 1 (site-rule attacks-not-detainment filtered to non-Nazgûl)
  *
  * Text:
  *   Nearest Darkhaven: Carn Dûm.
@@ -20,42 +20,42 @@
  * | 3 | nearestHaven      | OK     | "Carn Dûm" — valid minion haven in card pool (le-359)                  |
  * | 4 | region            | OK     | "High Pass" — valid region in card pool                                |
  * | 5 | playableResources | OK     | [minor, gold-ring] — matches card text                                 |
- * | 6 | automaticAttacks  | OK     | Orcs, 3 strikes, 6 prowess — data only (auto-attack combat stubbed)    |
+ * | 6 | automaticAttacks  | OK     | Orcs, 3 strikes, 6 prowess                                             |
  * | 7 | resourceDraws     | OK     | 2                                                                      |
  * | 8 | hazardDraws       | OK     | 2                                                                      |
  *
  * Engine Support:
- * | # | Feature                         | Status          | Notes                                                       |
- * |---|---------------------------------|-----------------|-------------------------------------------------------------|
- * | 1 | Site phase flow                 | IMPLEMENTED     | select-company, enter-or-skip, play-resources               |
- * | 2 | Haven path movement             | IMPLEMENTED     | movement-map.ts resolves nearestHaven ↔ Carn Dûm            |
- * | 3 | Region movement                 | IMPLEMENTED     | regional distance from Angmar / Southern Mirkwood           |
- * | 4 | Card draws                      | IMPLEMENTED     | resourceDraws / hazardDraws thread through M/H phase        |
- * | 5 | Automatic attacks at site       | NOT IMPLEMENTED | auto-attack trigger is stubbed; data-only for now           |
- * | 6 | Non-Nazgûl "attack normally"    | NOT APPLICABLE  | site-specific exception to minion detainment (rule 8.33),   |
- * |   | exception to detainment         |                 | which is itself unimplemented (CombatState.detainment is    |
- * |   |                                 |                 | never set to true). Defer until rule 8.33 lands.            |
+ * | # | Feature                         | Status      | Notes                                                       |
+ * |---|---------------------------------|-------------|---------------------------------------------------------------|
+ * | 1 | Site phase flow                 | IMPLEMENTED | select-company, enter-or-skip, play-resources               |
+ * | 2 | Haven path movement             | IMPLEMENTED | movement-map.ts resolves nearestHaven ↔ Carn Dûm            |
+ * | 3 | Region movement                 | IMPLEMENTED | regional distance from Angmar / Southern Mirkwood           |
+ * | 4 | Card draws                      | IMPLEMENTED | resourceDraws / hazardDraws thread through M/H phase        |
+ * | 5 | Automatic attacks at site       | IMPLEMENTED | site-phase auto-attack initiates Orc combat (3/6)           |
+ * | 6 | Attacks-not-detainment override | IMPLEMENTED | site-rule overrides CoE §3.II.2.R1 for non-Nazgûl            |
  *
- * Playable: YES — no DSL effects are required for the current engine.
- *   The special rule carves out an exception to rule 8.33 (minion/balrog
- *   detainment), a mechanic that has not yet been wired in. When minion
- *   detainment is implemented, revisit this card.
+ * Playable: YES
  *
  * Certified: 2026-04-19
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { resetMint, pool, LORIEN } from '../test-helpers.js';
+import {
+  resetMint, pool, LORIEN, buildMinionSitePhaseState, setupAutoAttackStep, dispatch, PLAYER_1,
+} from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import {
-  isSiteCard, buildMovementMap, getReachableSites,
+  isSiteCard, buildMovementMap, getReachableSites, Alignment, SiteType,
 } from '../../index.js';
+import { isDetainmentAttack } from '../../engine/detainment.js';
 import type { SiteCard } from '../../index.js';
+import { Race } from '../../types/common.js';
 
 const GOBLIN_GATE_LE = 'le-378' as CardDefinitionId;
 const GOBLIN_GATE_TW = 'tw-398' as CardDefinitionId;
 const CARN_DUM = 'le-359' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+const GRISHNAKH = 'le-12' as CardDefinitionId;
 
 describe('Goblin-gate (le-378)', () => {
   beforeEach(() => resetMint());
@@ -184,5 +184,54 @@ describe('Goblin-gate (le-378)', () => {
 
     expect(havenLinks).toBeDefined();
     expect(havenLinks!.has('Goblin-gate')).toBe(false);
+  });
+
+  // ─── attacks-not-detainment: direct detainment helper tests ─────────────────
+
+  test('non-Nazgûl creature keyed to Shadow-hold at Goblin-gate: detainment overridden to false', () => {
+    // CoE §3.II.2.R1 would normally flag this as detainment (Ringwraith
+    // defender, Orc keyed to Shadow-hold). Goblin-gate's site rule overrides it.
+    const goblinGateDef = pool[GOBLIN_GATE_LE as string] as SiteCard;
+    const detainment = isDetainmentAttack({
+      attackRace: Race.Orc,
+      attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
+      defendingAlignment: Alignment.Ringwraith,
+      defendingSiteEffects: goblinGateDef.effects,
+    });
+    expect(detainment).toBe(false);
+  });
+
+  test('Nazgûl creature at Goblin-gate: override filter skips it, detainment preserved', () => {
+    // Filter is `{ enemy.race: { $ne: nazgul } }`. A Nazgûl attack does NOT
+    // match the filter, so the override does not fire. The attack is still
+    // detainment via R1 (keyed to Shadow-hold).
+    const goblinGateDef = pool[GOBLIN_GATE_LE as string] as SiteCard;
+    const detainment = isDetainmentAttack({
+      attackRace: 'ringwraith' as Race,
+      attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
+      defendingAlignment: Alignment.Ringwraith,
+      defendingSiteEffects: goblinGateDef.effects,
+    });
+    expect(detainment).toBe(true);
+  });
+
+  // ─── attacks-not-detainment: integration via reducer ───────────────────────
+
+  test('site automatic-attack (Orc, 3 strikes/6 prowess) at Goblin-gate is not detainment', () => {
+    // Reproduces the reported game (msotr1yy-z2yrcq, stateSeq 171): a
+    // Ringwraith-aligned company at Goblin-gate faces the site's own
+    // automatic-attack. combat.detainment must be false per the card text,
+    // not true as the engine previously computed via CoE §3.II.2.R1
+    // (Ringwraith defender + attack keyed to Shadow-hold).
+    const state = buildMinionSitePhaseState({ site: GOBLIN_GATE_LE, characters: [GRISHNAKH] });
+    const readyState = setupAutoAttackStep(state);
+
+    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(3);
+    expect(next.combat!.strikeProwess).toBe(6);
+    expect(next.combat!.creatureRace).toBe('orc');
+    expect(next.combat!.attackSource.type).toBe('automatic-attack');
+    expect(next.combat!.detainment).toBe(false);
   });
 });
