@@ -6,8 +6,8 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, Alignment } from '@meccg/shared';
-import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard } from '@meccg/shared';
+import type { CardDefinition, CardEffect, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, Alignment } from '@meccg/shared';
+import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard, hasPlayFlag } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
 export function $(id: string): HTMLElement {
@@ -144,6 +144,24 @@ export function inPlayCardDefs(
   return [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
     .map(c => cardPool[c.definitionId as string])
     .filter((d): d is CardDefinition => d != null);
+}
+
+/**
+ * Find the display name of the in-play permanent event carrying the
+ * `reduce-attacks-to-one` play-flag (*Forewarned Is Forearmed*), or
+ * `undefined` if it is not in play or its definition is redacted from this
+ * view. Used by the combat situation banner to name the card responsible
+ * for isolating a multi-attack creature to a single uncancelable attack
+ * (`combat.isolated`) — without this, a player facing (or making) such an
+ * attack has no way to see which card caused it (bug cbf2c68230315b0d).
+ */
+export function findIsolatingEventName(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string | undefined {
+  return inPlayCardDefs(view, cardPool)
+    .find(def => hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one'))
+    ?.name;
 }
 
 /**
