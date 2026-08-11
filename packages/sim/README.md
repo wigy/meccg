@@ -1442,6 +1442,47 @@ placement *"costs nothing, because an unrevealed on-guard card comes back"* now
 says it does not spend the card and may still cost what it forecloses, and
 pins both halves.
 
+#### Two models of one risk, reconciled — and why it barely mattered
+
+Shutting a company to creatures (Stealth, the most-offered short event in the
+game) was priced at `defence.expectedHarm(roster, size)` — the whole hazard
+plan the opponent could aim at that company, **unscaled**. `travel` prices the
+identical risk the other way, at
+`pathLength × regionCrossingCost × (1 + beliefs.holdsAtLeastOne('creature'))`.
+Two models of one thing, and this was the optimistic one. It is the second
+largest of the movement/hazard over-actions, at 88.
+
+Scaling it by the same belief is the obvious reconciliation, and it moved
+almost nothing: `pass → play-short-event` 166 → 165, overall agreement
+unchanged at 41.41%.
+
+**The reason is worth more than the fix.** Sampled over 400 real
+movement/hazard positions:
+
+| `beliefs.holdsAtLeastOne('creature')` | |
+|---|---|
+| mean | 0.861 |
+| p10 / p50 / p90 | 0.790 / 0.862 / 0.939 |
+| min / max | 0.650 / 0.978 |
+| mean confidence | 0.359 |
+| cards observed | 6.9 mean, 12 max |
+
+**The belief model is a constant.** It spans 0.15 across the entire corpus,
+because it has seen seven cards of a sixty-card deck. Every consumer that
+scales by it is applying a fixed ~14% discount wearing the costume of an
+estimate — `travel`'s `(1 + threat)` is a fixed ×1.86, and this new scaling a
+fixed ×0.86.
+
+That has two consequences worth recording. Wiring further consumers to
+`beliefs` buys nothing until `beliefs` itself discriminates. And it partly
+explains the earlier `regionCrossingCost` sweep: the term it multiplies is
+constant, so the product behaves like one constant, which is why moving it
+moved the cadence smoothly and moved nothing else.
+
+The scaling is kept because two modules pricing one risk two ways is a defect
+whatever its current magnitude — but it is recorded as a consistency fix, not
+as an improvement.
+
 The cumulative movement from the corpus, over 2642 attributed decisions:
 
 | | overall | `pass` |

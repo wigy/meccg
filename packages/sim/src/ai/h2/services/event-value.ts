@@ -29,6 +29,7 @@
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { ModuleContext } from '../core/types.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
+import { computeBeliefs } from './beliefs.js';
 import { computeDefence } from './defence.js';
 import { rosterOf } from './strike/prowess.js';
 import type { StrikeTarget } from './strike/prowess.js';
@@ -245,10 +246,24 @@ export function gainOf(
     if (!target) return null;
     const defence = computeDefence(context.view, context.cardPool, context.standing, tunables);
     const harm = defence.expectedHarm(target.roster, target.size);
+    // Shutting a company to creatures is worth what the opponent *would* have
+    // aimed at it, which is nothing if they hold no creature to aim.
+    //
+    // The unscaled figure assumed they will always spend a full hazard limit on
+    // this company, and `travel` already prices the identical risk the other
+    // way — `pathLength * regionCrossingCost * (1 + holdsAtLeastOne)`. Two
+    // models of one thing, and this was the optimistic one: measured against
+    // the recorded corpus, `play-short-event` is what the agent does instead of
+    // passing 88 times in eight games, all in the movement/hazard phase where
+    // its agreement with a human's `pass` is 15.9%.
+    const beliefs = computeBeliefs(context.view, context.cardPool);
+    const threat = beliefs.holdsAtLeastOne('creature');
     return {
-      tsd: harm,
-      reason: `no creature may be played on that company this turn — ${harm.toFixed(1)} of harm `
-        + `they cannot aim at its ${target.size} character(s)`,
+      tsd: harm * threat,
+      reason: `no creature may be played on that company this turn — ${(harm * threat).toFixed(1)} `
+        + `of harm they cannot aim at its ${target.size} character(s), at a `
+        + `${(threat * 100).toFixed(0)}% chance they hold a creature at all `
+        + `(${(beliefs.confidence * 100).toFixed(0)}% confidence, ${beliefs.observed} cards seen)`,
     };
   }
 
