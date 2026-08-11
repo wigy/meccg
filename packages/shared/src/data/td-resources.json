@@ -408,8 +408,38 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company facing a Dragon or Drake attack (not Eärcaraxë). Discard from your hand any one or two factions playable at sites in Northern Rhovanion, Iron Hills, Woodland Realm, or Anduin Vales. All characters facing the attack gain a bonus to their prowess equal to the total marshalling point values (as printed on their cards) of the factions discarded."
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["dragon", "drake"] } },
+            { "enemy.name": { "$ne": "Eärcaraxë" } }
+          ]
+        },
+        "costDiscard": {
+          "source": "hand",
+          "filter": {
+            "$and": [
+              { "marshallingCategory": "faction" },
+              {
+                "$or": [
+                  { "faction.playableRegions": { "$includes": "Northern Rhovanion" } },
+                  { "faction.playableRegions": { "$includes": "Iron Hills" } },
+                  { "faction.playableRegions": { "$includes": "Woodland Realm" } },
+                  { "faction.playableRegions": { "$includes": "Anduin Vales" } }
+                ]
+              }
+            ]
+          },
+          "minCount": 1,
+          "maxCount": 2
+        }
+      }
+    ],
+    "text": "Playable on a company facing a Dragon or Drake attack (not Eärcaraxë). Discard from your hand any one or two factions playable at sites in Northern Rhovanion, Iron Hills, Woodland Realm, or Anduin Vales. All characters facing the attack gain a bonus to their prowess equal to the total marshalling point values (as printed on their cards) of the factions discarded.",
+    "certified": "2026-08-11"
   },
   {
     "cardType": "hero-resource-event",

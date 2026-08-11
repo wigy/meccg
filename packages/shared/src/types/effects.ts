@@ -4140,8 +4140,12 @@ export interface CompanyCombatBoostEffect extends EffectBase {
   readonly type: 'company-combat-boost';
   /** The stat to modify (`"prowess"` or `"body"`). */
   readonly stat: 'prowess' | 'body';
-  /** The modifier value (positive to boost, negative to penalise). */
-  readonly value: number;
+  /**
+   * The modifier value (positive to boost, negative to penalise). Ignored
+   * (and may be omitted) when `costDiscard` is present — the boost value is
+   * then computed from the discarded cost cards instead.
+   */
+  readonly value?: number;
   /**
    * Optional DSL condition evaluated against
    * `{ target: { race, name, skills, keywords } }` for each character in the
@@ -4164,6 +4168,50 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * contain a Leader or The Balrog, and then every character is boosted.
    */
   readonly companyFilter?: Condition;
+  /**
+   * Optional gate restricting which attack the card may be played against.
+   * Evaluated against `{ enemy: { race, name } }`, where `race` is the
+   * current attack's creature race (set for hazard creatures, on-guard
+   * reveals, played-auto-attacks, and site automatic-attacks alike) and
+   * `name` is the specific creature card's printed name (empty string when
+   * the attack has no individual creature card, e.g. a generic
+   * automatic-attack). When absent, the card may be played against any
+   * attack.
+   *
+   * Used by Alert the Folk (td-97): "Playable on a company facing a Dragon
+   * or Drake attack (not Eärcaraxë)" — `{ "$and": [{ "enemy.race": { "$in":
+   * ["dragon", "drake"] } }, { "enemy.name": { "$ne": "Eärcaraxë" } }] }`.
+   */
+  readonly when?: Condition;
+  /**
+   * Replaces the fixed `value` with a variable one, computed at play time
+   * from cards the controller chooses to discard from `source` as part of
+   * playing the event. The player picks between `minCount` and `maxCount`
+   * cards matching `filter` (evaluated against each candidate card's
+   * definition, extended with `faction.playableRegions` — see
+   * {@link buildFactionPlayableRegions} — for faction candidates); the
+   * chosen cards move to their owner's discard pile and the boost `value`
+   * becomes the sum of their printed `marshallingPoints`.
+   *
+   * Used by Alert the Folk (td-97): "Discard from your hand any one or two
+   * factions playable at sites in Northern Rhovanion, Iron Hills, Woodland
+   * Realm, or Anduin Vales. All characters facing the attack gain a bonus to
+   * their prowess equal to the total marshalling point values … of the
+   * factions discarded" — `minCount: 1, maxCount: 2`.
+   */
+  readonly costDiscard?: CompanyCombatBoostDiscardCost;
+}
+
+/** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */
+export interface CompanyCombatBoostDiscardCost {
+  /** Pile the cost cards are discarded from. Currently only `"hand"`. */
+  readonly source: 'hand';
+  /** DSL condition matched against candidate card definitions in `source`. */
+  readonly filter: Condition;
+  /** Minimum number of matching cards the player must discard. */
+  readonly minCount: number;
+  /** Maximum number of matching cards the player may discard. */
+  readonly maxCount: number;
 }
 
 /**
