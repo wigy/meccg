@@ -635,8 +635,135 @@ So the spec's §1 hypothesis — that the AI scores nothing because nothing
 routes it to scoring sites — has been tested over three measured iterations
 and is at best incomplete. It now routes and enters at very nearly
 `heuristic`'s rate and still scores a fifth as much. The remaining gap is in
-*which* sites and *what is in hand when it gets there*, which is deck flow and
-site-deck ordering rather than commitment tracking.
+*which* sites and *what is in hand when it gets there*.
+
+### Hand flow and site-deck flow, and the thing actually stopping it
+
+```sh
+npm run hand-flow -w @meccg/sim -- --games 12
+```
+
+`scoring-loop` counts what is offered. It cannot see the state the company is
+*in* when it arrives, and that turned out to be the whole story. This reports,
+at every arrival — every decision where `enter-site` is on the table — what is
+in hand, whether any of it is playable **at that site**, and whether anyone in
+the company is still untapped to play it.
+
+Twelve games, H2 with the plan layer against `heuristic`:
+
+```text
+                                                h2       heuristic
+arrivals (enter-site offered)                  193             329
+  … entered                             71 (36.8%)     145 (44.1%)
+  … nothing playable there              22 (11.4%)     168 (51.1%)
+mean playable at arrival                      1.96            0.78
+mean untapped in that company                 0.55            1.73
+  … arrivals with nobody to tap        145 (75.1%)      77 (23.4%)
+hand: item                                    2.47            0.68
+hand: faction                                 2.12            0.25
+distinct sites entered / game                  4.4             7.3
+```
+
+Read the middle two rows first, because they invert the hypothesis that
+prompted the diagnostic. **Hand flow is not the problem.** H2 arrives holding
+1.96 playable cards against `heuristic`'s 0.78, and arrives with nothing
+playable 11.4% of the time against 51.1%. Its hand is *fuller* of exactly the
+right cards — 2.47 items and 2.12 factions against 0.68 and 0.25 — because it
+never plays them. `heuristic`'s hand is empty of items for the best possible
+reason.
+
+**H2 arrives at a site with nobody left to tap 75.1% of the time.** The cards
+are there, the company is there, and there is no untapped character to tap for
+the play, so `play-hero-resource` is never offered at all.
+
+`tapTempoCost`'s own doc comment predicted this in as many words — *"an AI
+that taps freely arrives at its site unable to score"* — and it is a flat 0.3
+TSD that does not know a commitment exists. `influence-attempt` is taken by H2
+at 93.9% against `heuristic`'s 73.9%, and every one of those taps somebody.
+
+So the price of the **last** tap is now the plan it forfeits. `characters`
+already owned the carrier step for company-shape actions; it now answers for
+*any* action that spends the last untapped character in a company carrying a
+commitment, whatever the action is called. That is the plan layer doing the
+one thing a flat tunable cannot: attaching a cost that belongs to a commitment
+to a decision that has no idea the commitment is there.
+
+Measured on the same twelve games:
+
+| | before | after |
+|---|---|---|
+| arrivals with nobody to tap | 145 (75.1%) | **124 (64.6%)** |
+| mean untapped in that company | 0.55 | **0.67** |
+| `enter-site` take-rate | 36.8% | **42.7%** |
+| distinct sites entered / game | 4.4 | **4.9** |
+| hand: item | 2.47 | **2.06** |
+| hand: faction | 2.12 | 2.06 |
+
+Every column moves, including the one that matters most: the hand stops
+filling up with items, because they are being played.
+
+### A note on what these tables can and cannot show
+
+The marshalling-point means quoted throughout this section are **not**
+significant at the sample sizes they were taken at, and should not be read as
+though they were. At n=20 between 14 and 17 of the 20 games score zero item
+MP, so the mean is three games wearing a decimal point, and it has moved
+0.5 → 0.5 → 0.7 → 0.3 across four changes whose funnel metrics all improved
+monotonically.
+
+The funnel counts are trustworthy — they aggregate thousands of decisions per
+run and they have moved consistently and in one direction throughout. The
+score column is not, and every claim in this section is stated against the
+funnel for that reason. Whether any of it is worth Elo is a question for
+`gate`, which is the instrument built for exactly this and the only one quoted
+here with a confidence interval.
+
+### The gate: the layer against its own off-switch
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/planContributionWeight=0' --pairs 24 --rounds 2 --jobs 6 --min-elo 0
+```
+
+The cleanest A/B available: the same binary, the same modules, the same
+proposals and portfolio, with only the contribution weight changed. 96 games,
+paired seeds, side-swapped.
+
+```text
+score:     38W-25L-1D (score 60.2%) over 64 rated games
+elo diff:  +72 [-12, +165] (95% CI, challenger − champion)
+  paired:  +92 [-2, +203] over 25 complete pair(s) — the criterion
+failures:  32
+
+FAIL — Elo-diff lower bound -2 < 0: challenger is too weak
+FAIL — 32 game(s) did not complete (engine bug or decision limit)
+```
+
+**It does not pass, and it misses by two Elo points.** The criterion is the
+paired lower bound at `--min-elo 0` — a strict promotion bar, "must
+demonstrably beat the champion" — and −2 fails it. That is a real failure and
+not a rounding argument: the honest statement is that 96 games cannot
+distinguish this from no effect.
+
+It is also the first number in this work that points anywhere. 60.2% and a
+paired point estimate of +92 Elo is not nothing, and the interval is wide
+because the sample is small — which brings up the thing now blocking every
+measurement here.
+
+**A third of the games did not finish.** 32 of 96 hit the decision limit, all
+of them in the `split-company` → `plan-movement` → `merge-companies` cycle
+described above, and they are excluded from the rating: 64 rated games out of
+96 played. The cycle is not merely an embarrassment in a lobby game, it is
+the reason this gate cannot resolve — it throws away a third of every sample
+and widens the interval by roughly the amount needed to clear zero. Fixing it
+is now the highest-value work available, ahead of anything else in this
+section.
+
+One caution on reading the output: the `glicko-2` line disagrees in *sign*
+with the Elo estimate on this run, and that is unexplained. The paired Elo
+bound is the documented criterion and is what is quoted here, but two rating
+methods disagreeing is itself a reason to treat +92 as a direction rather than
+a magnitude.
 
 ### Coverage, measured
 

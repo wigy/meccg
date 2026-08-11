@@ -53,6 +53,7 @@ import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeDefence } from '../../services/defence.js';
+import { namedCharacter } from '../../core/action-fields.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { CARRIER_STEP } from '../../core/plan.js';
 import { rosterOf } from '../../services/strike/prowess.js';
@@ -369,25 +370,42 @@ export const charactersModule: H2Module = {
     const fields = action as unknown as {
       sourceCompanyId?: string;
       targetCompanyId?: string;
-      characterId?: CardInstanceId;
-      characterInstanceId?: CardInstanceId;
     };
     const companyId = required.companyId as unknown as string;
     const leaving = (action.type === 'split-company' || action.type === 'move-to-company'
       || action.type === 'discard-character')
       && fields.sourceCompanyId === companyId;
     const arriving = action.type === 'move-to-company' && fields.targetCompanyId === companyId;
-    if (!leaving && !arriving) return null;
 
     const budget = computeBudget(context.view, context.cardPool);
     const untapped = budget.untappedIn(required.companyId);
     if (arriving) return untapped.length > 0 ? null : 1;
 
-    // Leaving: the named character and their followers go. Only the named one
-    // is counted, so a character carrying untapped followers is under-charged
-    // — recorded rather than guessed at, because the view does not report the
-    // follower attachment this would need.
-    const named = fields.characterId ?? fields.characterInstanceId;
+    // Anything that spends the company's last untapped character costs the
+    // commitment, whatever the action is called.
+    //
+    // This is the measured bottleneck rather than a guess. Instrumented over
+    // twelve games, H2 arrives at a site with **nobody left to tap 75.1% of
+    // the time**, against `heuristic`'s 23.4% — while holding 2.5 items and
+    // 2.1 factions it could have played. `tapTempoCost`'s own doc comment
+    // predicted exactly this: "an AI that taps freely arrives at its site
+    // unable to score." It is a flat 0.3 TSD and it does not know a commitment
+    // exists; `influence-attempt` alone is taken by H2 at 93.9% against
+    // `heuristic`'s 73.9%, and every one of those taps somebody.
+    //
+    // So the price of the *last* tap is the plan it forfeits, which is the
+    // whole reason the plan layer exists — a cost that belongs to a
+    // commitment, made visible to a decision that has no idea the commitment
+    // is there.
+    const named = namedCharacter(action);
+    if (!leaving && named === undefined) return null;
+    if (!leaving && !untapped.some(c => c.instanceId === named)) return null;
+
+    // Leaving takes the named character and their followers; tapping spends
+    // only the named one. Followers are not counted in either case, so a
+    // character carrying untapped followers is under-charged — recorded rather
+    // than guessed at, because the view does not report the attachment this
+    // would need.
     const remaining = untapped.filter(c => c.instanceId !== named).length;
     return remaining > 0 ? null : 0;
   },
