@@ -20,7 +20,7 @@ import {
   LORIEN, MORIA, MINAS_TIRITH, RIVENDELL, BREE,
   viableActions,
 } from '../../test-helpers.js';
-import type { GameState, MergeCompaniesAction } from '../../../index.js';
+import type { GameState, MergeCompaniesAction, SplitCompanyAction } from '../../../index.js';
 
 describe('Rule 3.30 — Join Companies', () => {
   beforeEach(() => resetMint());
@@ -259,5 +259,55 @@ describe('Rule 3.30 — Join Companies', () => {
     // Merged company should have no destination (it was company B's, which had none)
     expect(after.players[0].companies[0].destinationSite).toBeNull();
     expect(after.players[0].companies).toHaveLength(1);
+  });
+
+  test('both merge directions for a just-split company are marked regressive', () => {
+    // Bug report: an AI split a company, moved a character into the new
+    // company, then merged the two straight back together and split again,
+    // forever. `computeLegalActions` offers both merge(A into B) and
+    // merge(B into A) for any two companies sharing a site, but the split's
+    // stored reverse only names one direction (merge the new company back
+    // into the old one) — the mirrored direction went unflagged, so it read
+    // as fresh progress instead of the undo it actually was.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, FRODO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const originalCompanyId = state.players[0].companies[0].id;
+    const frodoInstId = state.players[0].companies[0].characters[1];
+
+    const split: SplitCompanyAction = {
+      type: 'split-company',
+      player: PLAYER_1,
+      sourceCompanyId: originalCompanyId,
+      characterId: frodoInstId,
+    };
+    const afterSplit = dispatch(state, split);
+    const newCompanyId = afterSplit.players[0].companies.find(c => c.id !== originalCompanyId)!.id;
+
+    const merges = viableActions(afterSplit, PLAYER_1, 'merge-companies')
+      .map(ea => ea.action as MergeCompaniesAction);
+
+    const newIntoOld = merges.find(
+      a => a.sourceCompanyId === newCompanyId && a.targetCompanyId === originalCompanyId,
+    );
+    const oldIntoNew = merges.find(
+      a => a.sourceCompanyId === originalCompanyId && a.targetCompanyId === newCompanyId,
+    );
+    expect(newIntoOld).toBeDefined();
+    expect(oldIntoNew).toBeDefined();
+
+    expect(newIntoOld!.regress).toBe(true);
+    expect(oldIntoNew!.regress).toBe(true);
   });
 });
