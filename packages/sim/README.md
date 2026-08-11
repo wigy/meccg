@@ -1483,6 +1483,47 @@ The scaling is kept because two modules pricing one risk two ways is a defect
 whatever its current magnitude — but it is recorded as a consistency fix, not
 as an improvement.
 
+#### One more over-action ruled out, and a check that the score has not moved
+
+`activate-granted-action` is the last large piece of the movement/hazard block
+— 59 there, 20 more in the site phase — and the obvious hypothesis was the
+same one that paid off on `place-on-guard`: an action modelled as free.
+`grants.costOf` has three branches and one of them returns
+`{ tsd: 0, reason: 'the grant declares no cost' }`.
+
+Evaluated over **188 real `activate-granted-action` candidates** from the
+corpus, that branch fired **zero** times. 174 charged the tap through
+`character-value.tapCost`, 14 took another path, and only 34.6% scored
+positive at all — the agent is not taking every grant it is offered. The
+hypothesis is wrong and `grants` is left alone.
+
+That is the fourth attempt to reach the over-activity from the *cost* side —
+after the flat card price in `hazards`, the held-price experiment, and the
+belief scaling — and the third to come back empty. What keeps working is
+finding an action whose model is missing a *specific* forgone alternative
+(`place-on-guard`), and what keeps failing is looking for a price that is
+merely too low.
+
+Separately, every change in this section has been measured on agreement with
+recorded human play rather than on the game. Twelve games of `h2` versus
+`heuristic` on the stack:
+
+```text
+category                 h2 (p1)      heuristic (p2)
+character        0.9 (0 in 7/12)     2.9 (0 in 1/12)
+item             1.0 (0 in 9/12)     3.8 (0 in 4/12)
+faction          2.3 (0 in 6/12)     0.8 (0 in 9/12)
+ally            0.0 (0 in 12/12)     1.3 (0 in 4/12)
+kill             4.1 (0 in 0/12)     4.7 (0 in 0/12)
+misc            -2.1 (0 in 7/12)    -0.7 (0 in 7/12)
+outcomes: 12 completed, 0 hit the decision limit
+```
+
+Twelve of twelve games finished, which is the cycle guard holding. The
+marshalling-point means are not comparable to the earlier n=20 figures and are
+not evidence either way at this sample — they are recorded so that a later
+gate has something to be surprised by, not as a result.
+
 The cumulative movement from the corpus, over 2642 attributed decisions:
 
 | | overall | `pass` |
