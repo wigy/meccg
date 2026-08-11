@@ -53,8 +53,12 @@ describe('the spellings of doing nothing', () => {
   });
 });
 
-/** A whole game does not fit vitest's default when files run in parallel. */
-const GAME_TIMEOUT = 60_000;
+/**
+ * A whole game does not fit vitest's default when files run in parallel —
+ * and even 60s is too tight under CI's parallel matrix load (observed
+ * 56-68s for the same two seeded games run standalone in ~28s).
+ */
+const GAME_TIMEOUT = 120_000;
 
 describe('the list against the engine', () => {
   test('the engine still offers every spelling this claims to cover', () => {
