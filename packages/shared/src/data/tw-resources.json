@@ -2450,8 +2450,13 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "When Elf-song comes into play, each character at a Haven [{H}] may immediately remove one corruption card.While Elf-song is in play, no character at a Haven may be discarded or returned to its owner’s hand for any reason."
+    "effects": [
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "offer-corruption-removal-at-site", "siteTypes": ["haven"] } },
+      { "type": "removal-protection", "siteTypes": ["haven"] }
+    ],
+    "text": "When Elf-song comes into play, each character at a Haven [{H}] may immediately remove one corruption card.While Elf-song is in play, no character at a Haven may be discarded or returned to its owner’s hand for any reason.",
+    "certified": "2026-08-11"
   },
   {
     "cardType": "hero-resource-faction",

@@ -31,7 +31,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize, getEffectiveSkills } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { siteAttacksCanceled } from './effective.js';
+import { siteAttacksCanceled, getEffectiveSiteType } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
@@ -2893,6 +2893,12 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
   }
 
+  // offer-corruption-removal-at-site (Elf-song tw-223): shared with
+  // `resolveLongEvent` below, since long-event resource cards resolve via a
+  // separate, simpler path that does not run the generic self-enters-play
+  // loop above.
+  newState = applyOfferCorruptionRemovalOnResolve(newState, def, card);
+
   // The Great Hunt (wh-91): on entering play, kick off the reveal-and-attack
   // process (a `great-hunt-source` choice) and establish the ongoing discard
   // trigger. General permanent event (no character/site/item target).
@@ -3135,7 +3141,71 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
 
   // Apply any tap-sites-in-play clause now that the environment is in play
   // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
-  return applyTapSitesInPlayOnResolve(afterProhibit, def);
+  const afterTapSites = applyTapSitesInPlayOnResolve(afterProhibit, def);
+
+  // Elf-song (tw-223): "each character at a Haven may immediately remove one
+  // corruption card."
+  return applyOfferCorruptionRemovalOnResolve(afterTapSites, def, card);
+}
+
+/**
+ * Apply a resolving card's `offer-corruption-removal-at-site` self-enters-play
+ * clause (Elf-song tw-223): offer every character — either player's —
+ * currently at a site whose effective type is in the clause's `siteTypes`
+ * and bearing at least one corruption card the one-time option to remove one
+ * of them. One `remove-corruption-offer` pending resolution is enqueued per
+ * eligible character, each an independent "may" choice.
+ *
+ * Called from both `resolveLongEvent` (Elf-song's own resolution path,
+ * which does not run the generic self-enters-play loop `resolvePermanentEvent`
+ * uses) and that generic loop, so any future permanent-event carrying the
+ * same clause is covered too.
+ */
+function applyOfferCorruptionRemovalOnResolve(
+  state: GameState,
+  def: import('../index.js').CardDefinition | undefined,
+  card: CardInstance,
+): GameState {
+  const clauses = getCardEffects(def).filter(
+    (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'self-enters-play'
+      && e.apply.type === 'offer-corruption-removal-at-site',
+  );
+  if (clauses.length === 0) return state;
+
+  let newState = state;
+  for (const clause of clauses) {
+    const siteTypes = (clause.apply as import('../types/effects.js').OfferCorruptionRemovalAtSiteAction).siteTypes;
+    let offered = 0;
+    for (let pi = 0; pi < newState.players.length; pi++) {
+      const p = newState.players[pi];
+      for (const [charIdStr, c] of Object.entries(p.characters)) {
+        const charId = charIdStr as CardInstanceId;
+        const hasCorruption = c.hazards.some(h => {
+          const hDef = defById(newState, h.definitionId);
+          const hKeywords = hDef && 'keywords' in hDef ? (hDef as { keywords?: readonly string[] }).keywords : undefined;
+          return hDef?.cardType === 'hazard-corruption' || hKeywords?.includes('corruption') === true;
+        });
+        if (!hasCorruption) continue;
+        const company = findCharacterCompany(p.companies, charId);
+        if (!company?.currentSite) continue;
+        const siteDef = defById(newState, company.currentSite.definitionId);
+        if (!isSiteCard(siteDef)) continue;
+        const effectiveType = getEffectiveSiteType(
+          newState, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId,
+        );
+        if (!siteTypes.includes(effectiveType)) continue;
+        offered++;
+        newState = enqueueResolution(newState, {
+          source: card.instanceId,
+          actor: p.id,
+          scope: { kind: 'phase', phase: newState.phaseState.phase },
+          kind: { type: 'remove-corruption-offer', characterId: charId, sourceDefinitionId: card.definitionId },
+        });
+      }
+    }
+    logDetail(`"${def?.name ?? '?'}" entered play — offered corruption removal to ${offered} character(s) at a matching site`);
+  }
+  return newState;
 }
 
 /**

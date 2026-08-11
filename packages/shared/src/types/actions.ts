@@ -57,6 +57,7 @@ export type {
   OpposedRollAction,
   UseItemAction,
   InfluenceOverflowDiscardAction,
+  RemoveCorruptionOfferAction,
   ActivateOrgFetchAction,
 } from './actions-organization.js';
 
@@ -198,7 +199,7 @@ export type {
 
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, PlaceStartingCompanyEventAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, SelectStageResourceSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
-import type { UntapAction, PlayCharacterAction, ReanimateFromDiscardAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, ChooseGoldRingTestRollAction, PlayRingAfterTestAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, ManifestationSwapAction, DiscardToRecruitAction, TestRingAtSiteAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction, DiscardCharacterOrgAction, DiscardStageResourceAction, VoluntaryDiscardInPlayAction, ReturnAttachedToHandAction, ActivateOrgFetchAction, DiscardForEvilHourMovementAction, PayMovementTaxAction, OpposedRollAction, UseItemAction, InfluenceOverflowDiscardAction } from './actions-organization.js';
+import type { UntapAction, PlayCharacterAction, ReanimateFromDiscardAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, ChooseGoldRingTestRollAction, PlayRingAfterTestAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, ManifestationSwapAction, DiscardToRecruitAction, TestRingAtSiteAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction, DiscardCharacterOrgAction, DiscardStageResourceAction, VoluntaryDiscardInPlayAction, ReturnAttachedToHandAction, ActivateOrgFetchAction, DiscardForEvilHourMovementAction, PayMovementTaxAction, OpposedRollAction, UseItemAction, InfluenceOverflowDiscardAction, RemoveCorruptionOfferAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction, TapDiscardInPlayAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, SideboardWithNazgulAction, TapAltPermanentEventAction, AttackFromAltPermanentEventAction, PlayAgentManifestationAction, AssignStrikeAction, AllocateCvccExcessAction, ResolveStrikeAction, AgentStrikeRollAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, ConvertCreatureToAllyAction, CancelByTapAction, CancelStrikeAction, FleeFromStrikeAction, ProtectFromStrikeAssignmentAction, HalveStrikesAction, TapAllyCombatBoostAction, TapAllyBodyCheckBoostAction, ModifyAttackAction, ApplyAttackerAttackOptionAction, TapItemForStrikeAction, FaceStrikeOnTapAction, CancelWeaponEffectsAction, SalvageItemAction, ShieldDiscardRollAction, DiscardItemFromCompanyAction, PlayStrikeEventAction, ResolveDiceCheckAction, SeizedByTerrorRollAction, CompanyTapRollAction, HavenJoinAttackAction, CancelReturnToOriginAction, CancelHazardEventAction, PlayCounterCancelRollAction, CounterCancelAttackAction, TapAllyDiscardHazardAction, PlayAgentHazardAction, RevealAgentAction, RevealHazardForSnakeAction, TapRevealAgentForSnakeAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction, UnderDeepsRollAction, GangwaysExtraMoveAction, ExtraMHMoveAction, AllyTapExtraMHPhaseAction, CharacterTapExtraMHPhaseAction, FlateryAttemptRollAction, GoodwillAttemptRollAction, RiddlingAttemptRollAction, RiddlingGuessAction, TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction, TakeTrophyAction, ReserveCreatureAction, PlayReservedCreatureAction, PlayCreatureFromDiscardAction, SpawnReplayCreatureAction, StayHerAppetiteRollAction, ForceDiscardCardAction, TransferReturnedItemAction, UseDiscardSubstituteAction } from './actions-movement-hazard.js';
@@ -240,6 +241,7 @@ export type GameAction =
   | PlayRingAfterTestAction
   | MoveToInfluenceAction
   | InfluenceOverflowDiscardAction
+  | RemoveCorruptionOfferAction
   | PlanMovementAction
   | CancelMovementAction
   | PlayPermanentEventAction
