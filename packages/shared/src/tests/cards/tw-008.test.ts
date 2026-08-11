@@ -25,11 +25,15 @@ import {
   ARAGORN, LEGOLAS, GIMLI,
   ASSASSIN, DARK_QUARRELS,
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
+  CardStatus,
   buildTestState, resetMint, makeMHState,
   resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.js';
+
+const RANK_UPON_RANK = 'dm-80' as CardDefinitionId;
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Assassin (tw-8)', () => {
@@ -673,5 +677,85 @@ describe('Assassin (tw-8)', () => {
       a => a.viable && a.action.type === 'pass',
     );
     expect(passActions).toHaveLength(1);
+  });
+
+  test('boosted strikes (Rank upon Rank) become excess strikes, not extra attacks (CRF 22 regression)', () => {
+    // Rank upon Rank (dm-80): "+1 prowess and +1 strikes" to all non-agent Man
+    // attacks. Assassin is a Man creature, so its printed 1 strike/attack
+    // becomes 2, and its 11 prowess becomes 12. Per CRF 22 Assassin: "If an
+    // attack from Assassin is given more than one strike, each additional
+    // strike becomes an excess strike (-1 prowess modification) against the
+    // attacked character" — the attack count must stay at 3 (not become 6
+    // real strikes), with a -1 prowess excess-strike penalty on each attack.
+    const rankInPlay: CardInPlay = {
+      instanceId: 'rank-1' as CardInstanceId,
+      definitionId: RANK_UPON_RANK,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+          cardsInPlay: [rankInPlay],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    // Still 3 attacks — not 6 — with the boost prowess folded in and the
+    // strike boost tracked separately as a per-attack excess.
+    expect(afterChain.combat!.strikesTotal).toBe(3);
+    expect(afterChain.combat!.multiAttackCount).toBe(3);
+    expect(afterChain.combat!.strikesPerAttack).toBe(1);
+    expect(afterChain.combat!.strikeProwess).toBe(12);
+    expect(afterChain.combat!.excessStrikesPerAttack).toBe(1);
+
+    // Defender passes cancel-window, attacker assigns all strikes to Aragorn.
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
+    const assignResult = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Exactly 3 strike assignments (one per attack), each carrying a single
+    // excess strike (-1 prowess) — not 6 full-strength assignments.
+    const combat = assignResult.combat!;
+    expect(combat.strikeAssignments).toHaveLength(3);
+    expect(combat.strikeAssignments.every(sa => sa.characterId === aragornCharId)).toBe(true);
+    expect(combat.strikeAssignments.every(sa => sa.excessStrikes === 1)).toBe(true);
   });
 });
