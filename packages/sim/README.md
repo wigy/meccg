@@ -1122,6 +1122,63 @@ price **is** the value of the play being scored, so charging it against that
 play's own gain double-counts and roughly cancels. A shadow price is only an
 opportunity cost when it prices the *next-best* use; here it prices this one.
 
+#### What the discards said, and the one change that moved the number
+
+`human-compare --detail discard-card` asks a question a count cannot: when a
+human and the agent *both* discard, which card does each name? On 196 discard
+decisions the agreement was 15.8%, and 141 of the misses were
+discard-versus-discard — so the decision to throw was never in dispute, only
+what to throw:
+
+| card class | human | H2 |
+|---|---|---|
+| `hero-resource-event` | 23 | 9 |
+| `hazard-event` | 21 | 8 |
+| `hazard-creature` | 17 | 32 |
+| **`hero-resource-item` (2 MP)** | **3** | **20** |
+| `hero-character` (2 MP) | 2 | 9 |
+
+**The agent throws the scoring cards and keeps the events. Humans do the
+opposite.** Sampled over 200 real discard positions, `card-price` ranked the
+whole hand at exactly 1.0 — the flat floor — with the MP-bearing cards *below*
+it, because a source priced at zero in 63 of those positions (`character`) and
+57 (`item`).
+
+The cause is one line, and the floor's own name gives it away. A card whose use
+could not be modelled returned `floor`; a card that *could* be priced and came
+out at zero returned zero. So an unmodellable hazard event outranked a 2 MP
+item whose source happened to be capped. `worth` now applies the floor to every
+held card: the residual it stands for — option value, a play the plan has not
+found, a future standing where the cap no longer bites — belongs to all of
+them, and playing a capped card is precisely how its source stops being capped.
+
+This overturns a deliberate decision, recorded in `hand.test.ts` as *"points in
+a capped source are worth nothing to keep"* with a §10.3 citation. Half of that
+still holds and is still tested: capped points are worth less than uncapped
+ones. The other half — that the cap "will never let them score" — is only true
+of a player who never scores anything else.
+
+Measured against the same 8 games and 2642 attributed decisions:
+
+| | before | after |
+|---|---|---|
+| overall agreement | 39.74% | **40.73%** (+26 decisions) |
+| **`pass`** | **22.6%** | **26.6%** |
+| `discard-card` (exact card) | 15.8% | **6.6%** |
+
+The first movement on `pass` from any change in this section, and it comes with
+a real cost. Flooring **compresses**: cards that differed only below the floor
+now tie at it, so the *distribution* of discards moved toward the human's — 2 MP
+items thrown 20 → 7, MP characters 13 → 0, events 9 → 39 — while the *exact*
+card agreement fell, because the pick among ties is arbitrary. `hand`'s whole
+job is to have an opinion about which card to throw, and this flattens it among
+the cheap ones.
+
+Net +26 decisions of 2642. Worth having, not worth mistaking for finished: the
+refinement is to floor without flattening, which needs a capped source valued
+at what it will be worth once the cap stops binding rather than at zero — and
+that is a real number `standing` could compute, not a constant to invent.
+
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not
 acting yet** — information and flexibility that no service currently

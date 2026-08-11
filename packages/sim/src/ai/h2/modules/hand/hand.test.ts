@@ -180,13 +180,28 @@ describe('the end-of-turn hand', () => {
     expect(faction.utility).toBeLessThan(blank.utility);
   });
 
-  test('points in a capped source are worth nothing to keep', () => {
-    // Four marshalling points the diversity cap will never let them score are
-    // worth less than a card whose use is merely unknown — which no flat price
-    // can express, and which is the whole argument of §10.3.
+  test('points in a capped source are worth less to keep, but not nothing', () => {
+    // This asserted `toBe(0)` — that four marshalling points the diversity cap
+    // will not let them score are worth *less* than a card whose use is merely
+    // unknown. The §10.3 half of that is right and still holds below: capped
+    // points are worth less than uncapped ones, which no flat price can say.
+    //
+    // The other half was measured wrong against the recorded corpus. "The cap
+    // will never let them score" is only true of a player who never scores
+    // anything else, and the cap rises as the other sources do — playing the
+    // card is how a capped source stops being capped. Over 200 real discard
+    // positions a source priced at exactly zero in 63 of them, and on discards
+    // where a human and the agent both discarded, the agent threw a 2 MP hero
+    // item 20 times against the human's 3 while keeping the events the human
+    // threw 44 times. Pricing a capped resource below an unmodellable event
+    // inverted every one of those.
     const capped = handModule.evaluate(discardCapped, context)!;
-    expect(capped.expectedTsd).toBe(0);
-    expect(handModule.evaluate(discardBlank, context)!.expectedTsd).toBeLessThan(0);
+    const blank = handModule.evaluate(discardBlank, context)!;
+    expect(capped.expectedTsd).toBe(blank.expectedTsd);
+    expect(capped.expectedTsd).toBeLessThan(0);
+    // …and still strictly worse to keep than points that would actually score.
+    expect(handModule.evaluate(discardFaction, context)!.expectedTsd)
+      .toBeLessThan(capped.expectedTsd);
   });
 
   test('says which card it is throwing and why', () => {
