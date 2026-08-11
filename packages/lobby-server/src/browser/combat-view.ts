@@ -27,6 +27,7 @@ import type {
   CancelAttackAction,
   ModifyAttackAction,
   TapItemForStrikeAction,
+  FaceStrikeOnTapAction,
   SalvageItemAction,
   EvaluatedAction,
   CardEffect,
@@ -38,6 +39,7 @@ import { withIsolatedSuffix } from './combat-isolated-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
+import { resolveFaceStrikeOnTapAction } from './combat-face-strike-action.js';
 import { strikeResultDisplay } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, inPlayCardDefs, findIsolatingEventName } from './render-utils.js';
@@ -139,6 +141,7 @@ export function renderCombatView(
   const cancelAttackActions = viable.filter((a): a is CancelAttackAction => a.type === 'cancel-attack');
   const modifyAttackActions = viable.filter((a): a is ModifyAttackAction => a.type === 'modify-attack');
   const tapItemForStrikeActions = viable.filter((a): a is TapItemForStrikeAction => a.type === 'tap-item-for-strike');
+  const faceStrikeOnTapActions = viable.filter((a): a is FaceStrikeOnTapAction => a.type === 'face-strike-on-tap');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
 
   // Two-step attacker selection is used in two CvCC sub-phases:
@@ -165,7 +168,7 @@ export function renderCombatView(
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool, assignActions, selectedCvCCAttacker, selectedCvCCDefender, iAmDefender, onAction);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, faceStrikeOnTapActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -550,6 +553,7 @@ function renderDefenderRow(
   cancelAttackActions: CancelAttackAction[],
   modifyAttackActions: ModifyAttackAction[],
   tapItemForStrikeActions: TapItemForStrikeAction[],
+  faceStrikeOnTapActions: FaceStrikeOnTapAction[],
   selectedCvCCAttacker: CardInstanceId | null,
   selectedCvCCDefender: CardInstanceId | null,
   onAction: (action: GameAction) => void,
@@ -669,7 +673,7 @@ function renderDefenderRow(
     const char = charMap[charId];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, faceStrikeOnTapActions, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, onAction);
     container.appendChild(col);
   }
 
@@ -701,6 +705,7 @@ function renderCombatCharacterColumn(
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   modifyAttackMap: Map<string, ModifyAttackAction>,
   tapItemForStrikeMap: Map<string, TapItemForStrikeAction>,
+  faceStrikeOnTapActions: FaceStrikeOnTapAction[],
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   cancelByTapActions: CancelByTapAction[],
@@ -910,6 +915,7 @@ function renderCombatCharacterColumn(
       const allyChooseOrder = chooseOrderMap.get(allyIdStr);
       const modifyAction = modifyAttackMap.get(allyIdStr);
       const tapForStrikeAction = tapItemForStrikeMap.get(allyIdStr);
+      const faceStrikeAction = resolveFaceStrikeOnTapAction(faceStrikeOnTapActions, allyIdStr);
 
       const allyCancelAttackInPlay = cancelAttackInPlayMap.get(allyIdStr);
 
@@ -930,6 +936,15 @@ function renderCombatCharacterColumn(
         itemEl.addEventListener('click', (e) => {
           e.stopPropagation();
           onAction(tapForStrikeAction);
+        });
+      } else if (faceStrikeAction) {
+        // Item can be tapped to let its bearer face a strike regardless of the
+        // attack's normal capabilities and the bearer's status (Bow of Alatar).
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(faceStrikeAction);
         });
       } else if (allyCancelAttackInPlay) {
         // In-play ally cancel-attack: tap this ally to cancel the attack directly
