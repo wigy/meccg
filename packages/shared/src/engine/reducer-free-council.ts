@@ -424,6 +424,32 @@ function resolveCorruptionCheck(
 }
 
 /**
+ * Collects the names of all unique cards a player has in play, for CoE
+ * 10.3.v (unique card reveal) matching. `cardsInPlay` only holds cards not
+ * attached to a character (factions, permanent events, unattached
+ * resources) — characters themselves plus the items and allies attached to
+ * them live in `characters` instead, so both sources must be scanned or a
+ * unique character/item/ally in play (e.g. Gimli) is invisible to the reveal
+ * check.
+ */
+function collectUniqueNamesInPlay(state: GameState, player: GameState['players'][number]): Set<string> {
+  const names = new Set<string>();
+  const addIfUnique = (definitionId: CardDefinitionId): void => {
+    const def = defById(state, definitionId);
+    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
+      names.add((def as { name: string }).name);
+    }
+  };
+  for (const card of player.cardsInPlay) addIfUnique(card.definitionId);
+  for (const character of Object.values(player.characters)) {
+    addIfUnique(character.definitionId);
+    for (const item of character.items) addIfUnique(item.definitionId);
+    for (const ally of character.allies) addIfUnique(ally.definitionId);
+  }
+  return names;
+}
+
+/**
  * Computes final tournament scores for both players.
  *
  * Applies steps 2-4 (via computeTournamentScore), step 6 (avatar elimination
@@ -448,20 +474,8 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
   // MELE §6 step 5: Unique card reveal — scan each player's hand for unique
   // resource cards whose name matches a unique card the *opponent* has in play.
   // Each match reduces the opponent's final total by 1 (automatic, non-interactive).
-  const uniqueNamesInPlay0 = new Set<string>();
-  const uniqueNamesInPlay1 = new Set<string>();
-  for (const card of p0.cardsInPlay) {
-    const def = defById(state, card.definitionId);
-    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
-      uniqueNamesInPlay0.add((def as { name: string }).name);
-    }
-  }
-  for (const card of p1.cardsInPlay) {
-    const def = defById(state, card.definitionId);
-    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
-      uniqueNamesInPlay1.add((def as { name: string }).name);
-    }
-  }
+  const uniqueNamesInPlay0 = collectUniqueNamesInPlay(state, p0);
+  const uniqueNamesInPlay1 = collectUniqueNamesInPlay(state, p1);
   for (const handCard of p0.hand) {
     const def = defById(state, handCard.definitionId);
     if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
