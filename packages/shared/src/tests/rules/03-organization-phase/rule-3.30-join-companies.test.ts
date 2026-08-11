@@ -261,14 +261,16 @@ describe('Rule 3.30 — Join Companies', () => {
     expect(after.players[0].companies).toHaveLength(1);
   });
 
-  test('both merge directions for a just-split company are marked regressive', () => {
-    // Bug report: an AI split a company, moved a character into the new
-    // company, then merged the two straight back together and split again,
-    // forever. `computeLegalActions` offers both merge(A into B) and
-    // merge(B into A) for any two companies sharing a site, but the split's
-    // stored reverse only names one direction (merge the new company back
-    // into the old one) — the mirrored direction went unflagged, so it read
-    // as fresh progress instead of the undo it actually was.
+  test('neither merge direction is offered for companies split from each other this organization phase (rule 2.II.3.6)', () => {
+    // Bug report: the resource player split a company at Iron Hill Dwarf-hold
+    // into three, then merged two of them straight back together within the
+    // same organization phase, leaving two companies stranded at the site
+    // with no movement declared. Rule 2.II.3.6's middle clause — "the
+    // resulting companies cannot be rejoined during the same organization
+    // phase" — was never enforced: `computeLegalActions` offered both
+    // merge(A into B) and merge(B into A) for a just-split pair, only
+    // flagging them `regress: true` (informational, for AI/UI) rather than
+    // withholding them.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -304,10 +306,7 @@ describe('Rule 3.30 — Join Companies', () => {
     const oldIntoNew = merges.find(
       a => a.sourceCompanyId === originalCompanyId && a.targetCompanyId === newCompanyId,
     );
-    expect(newIntoOld).toBeDefined();
-    expect(oldIntoNew).toBeDefined();
-
-    expect(newIntoOld!.regress).toBe(true);
-    expect(oldIntoNew!.regress).toBe(true);
+    expect(newIntoOld).toBeUndefined();
+    expect(oldIntoNew).toBeUndefined();
   });
 });
