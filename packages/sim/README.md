@@ -392,7 +392,7 @@ Status by phase:
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
 | P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
-| Plan layer | scaffolding only — `core/plan`, `services/portfolio`, `H2Module.proposePlans`, printed by `explain`. **No module proposes yet**, so the portfolio is always empty and nothing reads it |
+| Plan layer | `core/plan`, `services/portfolio`, `services/plan-value`, printed by `explain`. `resources` proposes and `travel` owns the route step; both aggregation rules ship behind `planAggregationMode`. Not gated |
 
 ### The plan layer
 
@@ -442,10 +442,78 @@ PLANS
   └─ nothing proposed: no module offered a plan for this position
 ```
 
-That is what it says today, everywhere, and correctly: no module implements
-`proposePlans`. The first proposer (`resources`) and the first consumer
-(`travel`) are the next step, along with the rule that turns a plan into a
-number on a candidate.
+#### The first proposer, the first consumer, and what a plan is worth
+
+`resources` proposes: *play this card at that site*, with the site taken from
+the **site deck** rather than from wherever the company happens to stand. That
+is the strategic half its own module comment has always said was missing, in
+its narrowest form. `travel` owns the one step — whether anything is actually
+going there — because reaching a site is a movement question, and a proposer
+that answered it would be the second model of movement this module already
+refuses to have.
+
+A contribution is then
+
+```text
+score(a) = Σ_p ∈ committed  payoff_p × [ P_p(complete | a) − P_p(complete | pass) ]
+         + tactical(a)
+```
+
+with `W` applied **once**, to the evaluation's own outcome distribution shifted
+by that sum. Three things about that are load-bearing:
+
+- **The sum is in TSD.** `W` is nonlinear, so adding two ΔP(win) figures is
+  arithmetically wrong, and wrong hardest in the close games that matter most.
+- **The distribution is shifted, not the mean.** A plan contribution is
+  deterministic given the action, so it moves every outcome equally and leaves
+  σ intact — which is what keeps the risk posture's grip on the action.
+- **Only a step's owner may move it.** The plan owning the payoff stops two
+  modules booking the same points; it does nothing about two modules each
+  claiming they raised the same `P(complete)` by 0.3. One owner per step makes
+  that double-count structurally impossible, exactly as the single-owner action
+  registry does for evaluations. A step driven to zero *is* the veto channel,
+  so there is one mechanism rather than two.
+
+Both aggregation rules ship, per §7 of the spec: `planAggregationMode` 0 sums
+as above, 1 is Borda over the tactical ranking plus one ballot per committed
+plan. Voting discards magnitude by construction — that is the property being
+bought and the reason it is the challenger rather than the default. The gate
+decides.
+
+#### Does it work? The funnel says yes; the scoreline says not yet
+
+Six games, `h2` versus `heuristic`, challenge decks A/B, seeds 1–6 — the same
+run as the baseline above:
+
+| | baseline | with the plan layer |
+|---|---|---|
+| `play-hero-resource` **offered** | 4 | **10** |
+| `influence-attempt` offered | 7 | 11 |
+| `enter-site` take-rate | 17.2% | **29.9%** |
+| games taking any scoring action | 4/6 | **5/6** |
+| item MP | 0.7 (0 in 4/6) | 1.0 (0 in 3/6) |
+| faction MP | 2.2 | 3.3 |
+| ally MP | 0.0 (0 in 6/6) | 0.3 (0 in 5/6) |
+| character MP | 1.5 | 2.2 |
+| `misc` MP | −0.8 | 0.0 |
+
+Every column moves the way the design predicts, and the one that matters most
+is the first: the acquisition modules are asked two and a half times as often,
+because something is finally routing companies to sites where a card in hand
+can be played. `enter-site` is taken nearly twice as often for the same reason
+— the trip now has a value the moment it is planned, instead of being priced
+only on arrival, when the model correctly concludes there is nothing to do
+there.
+
+What this is **not** is a strength result. `heuristic` still scores 5.5 item MP
+a game against the plan layer's 1.0, the human corpus median is 6, and six
+games carry no confidence interval worth quoting. Nothing here has been gated.
+The claim is that the mechanism fires and moves the metric it was built to
+move; whether it wins games is step 5's question.
+
+One game in six still hits the decision limit — the `split-company` →
+`plan-movement` → `merge-companies` cycle, which is untouched by any of this
+and tracked separately.
 
 ### Coverage, measured
 

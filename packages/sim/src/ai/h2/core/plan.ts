@@ -105,6 +105,32 @@ export interface PlanStep {
   readonly label: string;
   /** Probability it does, in [0, 1]. */
   readonly p: number;
+  /**
+   * The one module allowed to move this probability.
+   *
+   * Ownership is per *step*, and it is what makes contributions addable. §4 of
+   * the spec forbids two modules booking the same payoff, and the plan owning
+   * the payoff settles that — but it says nothing about two modules each
+   * claiming they raised `P(complete)` by 0.3, which is the same double-count
+   * one level down and just as wrong. One owner per step makes it structurally
+   * impossible rather than merely forbidden, in the same way the single-owner
+   * action registry does for evaluations.
+   *
+   * The owner is normally not the proposer: `resources` proposes *play this
+   * item at that site* and owns the roll, while the probability of ever
+   * reaching the site belongs to `travel`, which is the only module that knows
+   * what movement costs.
+   */
+  readonly owner: string;
+  /**
+   * Machine-readable kind, for the owner to recognise its own step by.
+   *
+   * Labels carry the site name and read differently per plan, so matching on
+   * them would couple an owner to a proposer's phrasing. The tag is the
+   * contract between them: `travel` moves the step tagged `route`, whoever
+   * proposed the plan and whatever they called it.
+   */
+  readonly tag?: string;
   /** Which service produced `p`, for the rationale tree. */
   readonly source?: string;
 }
@@ -143,6 +169,22 @@ export interface Plan {
  */
 export function completionProbability(plan: Plan): number {
   return plan.steps.reduce((p, step) => p * step.p, 1);
+}
+
+/**
+ * `P(complete)` with some steps' probabilities replaced, keyed by step index.
+ *
+ * The counterfactual behind every plan contribution: what the commitment would
+ * be worth if this candidate action were taken. Indexed rather than matched by
+ * label because two steps of one plan may legitimately read the same — two
+ * regions to cross, both risky — and a label collision would silently move the
+ * wrong one.
+ */
+export function completionProbabilityWith(
+  plan: Plan,
+  revised: ReadonlyMap<number, number>,
+): number {
+  return plan.steps.reduce((p, step, index) => p * (revised.get(index) ?? step.p), 1);
 }
 
 /** What the commitment is worth right now: payoff discounted by getting there. */
@@ -217,3 +259,12 @@ export function describeRequirement(requirement: Requirement): string {
       return `${requirement.cardInstanceId} still in hand`;
   }
 }
+
+/**
+ * Tag of the step asking whether anything is actually going to the site.
+ *
+ * Named here rather than in either module because it is the contract between
+ * them: a proposer marks the step, `travel` recognises it, and neither has to
+ * import the other — which is the boundary `architecture.test` enforces.
+ */
+export const ROUTE_STEP = 'route';
