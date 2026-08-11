@@ -198,6 +198,31 @@ export interface Tunables {
    * which charged half a card for a placement the rules charge nothing for.
    */
   readonly onGuardDiscount: number;
+  /**
+   * How much better, in TSD, a challenger plan must be to displace what it
+   * conflicts with.
+   *
+   * The hysteresis that stops the portfolio thrashing. Plain `h2` already
+   * spends whole games alternating between a shape change and its undo because
+   * both score positive; two plans alternating every turn is the same defect at
+   * strategic scale, and worse, because nothing completes and the symptom is a
+   * slow loss rather than a hang. A committed plan is therefore never dropped
+   * for being *marginally* out-ranked.
+   *
+   * Charged against the **sum** of what the challenger displaces, so one plan
+   * worth slightly more than the best of three cannot evict all three.
+   */
+  readonly planSwitchMarginTsd: number;
+  /**
+   * `P(complete)` below which a plan is abandoned rather than carried.
+   *
+   * The other half of the hysteresis: a plan leaves the portfolio on an
+   * explicit trigger — deadline passed, proposer withdrew it, or this floor —
+   * and not because something else looked better this turn. Set low, because
+   * abandoning early is how the agent ends up with no commitments at all,
+   * which is the state it is in today.
+   */
+  readonly planAbandonProbability: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -221,6 +246,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   deniedPlayMp: 1,
   hazardMaxBundle: 3,
   onGuardDiscount: 0.5,
+  planSwitchMarginTsd: 1,
+  planAbandonProbability: 0.05,
 };
 
 /**

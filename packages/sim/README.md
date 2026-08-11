@@ -389,6 +389,60 @@ Status by phase:
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
 | P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
+| Plan layer | scaffolding only — `core/plan`, `services/portfolio`, `H2Module.proposePlans`, printed by `explain`. **No module proposes yet**, so the portfolio is always empty and nothing reads it |
+
+### The plan layer
+
+Every utility above is a one-step change in win probability relative to doing
+nothing, and that is the thing the agent cannot score with. The 107 recorded
+human-versus-AI games are 107–0, and the AI's points sit almost entirely in
+`kill` — the one marshalling-point category that requires no plan, because it
+happens to you when a hazard connects. Item, faction and ally each need a
+multi-turn commitment, and the AI scores near-zero in all three.
+
+`specs/2026-08-11-h2-plan-layer.md` is the design. What is in the tree so far
+is its vocabulary and its bookkeeping, deliberately inert:
+
+- **`core/plan`** — a plan is a commitment carrying a payoff and a completion
+  probability. Its payoff is the *marginal* TSD of the goal through `standing`,
+  never nominal MP, because CoE 10.3 step 4 caps a source at half the total and
+  a third faction can be worth exactly zero. `P(complete)` is the product of
+  its steps, and those steps are `exposure`, `beliefs`, `defence`, `budget` and
+  `dice` — composition of services that already exist rather than new
+  modelling.
+- **`H2Module.proposePlans`** — optional, called once per turn. Most modules
+  will never implement it: nothing about a strike is a multi-turn commitment.
+- **`services/portfolio`** — every module proposes, one service commits. That
+  split is what keeps `travel`'s rule intact: two models of the same choice
+  eventually disagree and nothing in the output says which was wrong, and N
+  modules each carrying a private future is that failure at strategic scale.
+  Proposal is per-module; the future is shared.
+
+The portfolio's second job is the one that would break if it were skipped.
+Plain `h2` already spends whole games alternating between a shape change and
+its undo, because both score positive and the argmax of that pair oscillates —
+the same family `NEVER_YIELDED_ACTION_TYPES` keeps from the `mc` fallback. Two
+*plans* alternating every turn is that defect one level up, and worse, because
+nothing completes and the symptom is a slow loss rather than a hang. So a
+committed plan is never dropped for being marginally out-ranked: a challenger
+must beat the **sum** of what it displaces by `planSwitchMarginTsd`, and a plan
+otherwise leaves only on an explicit trigger — deadline passed, proposer
+withdrew it, or `P(complete)` fell through `planAbandonProbability`.
+
+`explain` prints the portfolio above the ranking, which is the only way the
+layer will ever be debuggable — a candidate's contribution is unreadable
+except against the commitment it serves:
+
+```text
+PLANS
+  committed plans: +0.0  [turn 2]
+  └─ nothing proposed: no module offered a plan for this position
+```
+
+That is what it says today, everywhere, and correctly: no module implements
+`proposePlans`. The first proposer (`resources`) and the first consumer
+(`travel`) are the next step, along with the rule that turns a plan into a
+number on a candidate.
 
 ### Coverage, measured
 

@@ -14,7 +14,8 @@ import { projectPlayerView } from '@meccg/game-server';
 import { parseCliArgs, numberFlag, stringFlag } from './common.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
-import { evaluateDecision, resolveModules } from '../ai/h2/core/registry.js';
+import { evaluateDecision, proposePlans, resolveModules } from '../ai/h2/core/registry.js';
+import { select } from '../ai/h2/services/portfolio.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
 import { computeBudget } from '../ai/h2/services/budget.js';
 import { computeExposure } from '../ai/h2/services/exposure.js';
@@ -161,6 +162,18 @@ const fallback = contributors.length === 0
   ? heuristicStrategy.weighActions({ view, cardPool, legalActions })
   : undefined;
 
+// What the modules would commit to from this position, with no history behind
+// it. `explain` sees one position rather than a game, so there are no
+// incumbents to retain and the hysteresis has nothing to hold on to — this is
+// the portfolio a fresh agent would choose here, not necessarily the one an
+// agent that had been playing would still be carrying.
+const commitment = select(
+  view.turnNumber,
+  [],
+  proposePlans(modules, { view, cardPool, legalActions, tunables, standing }),
+  tunables,
+);
+
 // ---- Report ----
 
 // The board, rendered by the same `format-state` helpers the server logs and
@@ -218,5 +231,6 @@ if (asJson) {
     exposure: computeExposure(view, cardPool),
     prices: computeCardPrices(view, cardPool, standing, tunables),
     hazardPlan: computeHazardPlan(view, cardPool, standing, tunables),
+    commitment,
   }).join('\n'));
 }

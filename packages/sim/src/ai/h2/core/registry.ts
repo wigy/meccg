@@ -37,6 +37,7 @@
 
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext } from './types.js';
+import type { Plan } from './plan.js';
 import { assertValidDistribution } from './tsd.js';
 import { BASELINE_ACTION_TYPES, BASELINE_NAME, evaluateBaseline } from './baseline.js';
 import { combatModule } from '../modules/combat/combat.js';
@@ -169,4 +170,50 @@ export function evaluateDecision(
     complete: uncovered.length === 0 && evaluations.length > 0,
     uncovered: [...new Set(uncovered)].sort(),
   };
+}
+
+/**
+ * Ask every module what it would commit to from here.
+ *
+ * The proposal half of the plan layer (`specs/2026-08-11-h2-plan-layer.md`
+ * §3). Most modules never implement `proposePlans` — `combat` and `corruption`
+ * price what is happening now — so this is usually a short loop over nothing,
+ * which is why it can afford to ask all of them rather than maintain a second
+ * registry of proposers.
+ *
+ * A proposer that throws would take down a decision the rest of the module set
+ * could have handled, so it does not get to: a module whose proposal pass
+ * fails contributes nothing and the others are still asked. There is no
+ * equivalent tolerance in `evaluateDecision`, and the asymmetry is deliberate
+ * — a broken *evaluation* is a wrong ranking, which must be loud, while a
+ * broken *proposal* costs a commitment the agent did not have a moment ago.
+ *
+ * Duplicate IDs across modules are dropped, first proposer winning. Two
+ * modules proposing the same commitment is not a conflict to arbitrate; it is
+ * one plan named twice, and the portfolio's hysteresis needs each ID to
+ * identify exactly one incumbent.
+ */
+export function proposePlans(
+  modules: readonly H2Module[],
+  context: ModuleContext,
+): readonly Plan[] {
+  const plans: Plan[] = [];
+  const seen = new Set<string>();
+  for (const module of modules) {
+    if (!module.proposePlans) continue;
+    let proposed: readonly Plan[];
+    try {
+      proposed = module.proposePlans(context);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`h2: module "${module.name}" failed to propose plans: ${reason}`);
+      continue;
+    }
+    for (const plan of proposed) {
+      if (seen.has(plan.id)) continue;
+      seen.add(plan.id);
+      plans.push(plan);
+    }
+  }
+  return plans;
 }
