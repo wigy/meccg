@@ -1636,6 +1636,40 @@ So the tool keeps its value and the method does not:
 The one thing in this section that gated cleanly is the cycle guard: **0
 unfinished games in 96, twice**, against 32/96 before it existed.
 
+### What was reverted, and what was kept
+
+The five corpus-driven iterations were merged before the powered gates
+finished. The gates then said the combination costs about 33 Elo, so the parts
+that earned it have been reverted on their own terms rather than by undoing
+the lot.
+
+Gated individually against `heuristic`, 384 games per arm, paired and
+side-swapped, zero unfinished games in every run:
+
+| change | paired Elo | kept? |
+|---|---|---|
+| baseline before any of it | −9 [−42, +24] | — |
+| `place-on-guard` forecloses its alternative | −14 [−41, +13] | **kept** |
+| `corruption` owns `support-corruption-check` | **+3 [−30, +36]** | **kept** |
+| all five iterations together | −42 [−75, −10] | — |
+| held-card floor decomposition | *reverted* | no |
+| character whose mind does not fit, valued | *reverted* | no |
+
+The two reverted changes are the two chosen because a metric moved. The floor
+decomposition was adopted because discard agreement recovered from 6.6% to
+12.2%; the mind valuation because agreement gained two decisions in 2642.
+Neither had a rule behind it, and neither was gated before it landed.
+
+The two kept changes each had a rules argument that stands without reference
+to any agreement number — an unrevealed on-guard card returns at *cleanup*, so
+placement commits it for the turn; and an untapped character "may tap for +1
+each before the roll", so supporting is worth exactly the failure it averts.
+One gates neutral and one gates slightly positive.
+
+That is the whole lesson of this section in one table. A rules argument was
+necessary and not sufficient: it predicted which changes would be harmless,
+not which would help. An agreement gain predicted neither.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
