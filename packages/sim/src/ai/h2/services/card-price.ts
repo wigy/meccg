@@ -236,11 +236,27 @@ function buildComputeCardPrices(
 
     if (CHARACTER_TYPES.test(def.cardType)) {
       if (def.mind > budget.freeGeneralInfluence) {
+        // Not playable *now* is not worthless. General influence is freed by
+        // every character that leaves play and by every one moved back to the
+        // pool, so a mind that does not fit today is a timing fact, not a
+        // valuation — the same present-tense-standing-for-future-probability
+        // error that priced a capped source at zero and a tapped-out company's
+        // plan at zero. Sampled over 300 real discard positions it accounts
+        // for 50 of the 344 cards priced at exactly zero.
+        //
+        // Discounted twice rather than once, because the discount is distance
+        // from playable and this card is one step further away than one whose
+        // mind fits — which is the same reading `hand` already applies to a
+        // card going to the discard rather than to the deck. No new constant.
+        const gain = def.marshallingPoints > 0
+          ? projectedGain('character', def.marshallingPoints)
+          : 0;
         return {
           instanceId,
           name: def.name,
-          tsd: 0,
-          reason: `mind ${def.mind} does not fit the ${budget.freeGeneralInfluence} influence free`,
+          tsd: gain * tunables.potentialDiscount * tunables.potentialDiscount,
+          reason: `mind ${def.mind} does not fit the ${budget.freeGeneralInfluence} influence free `
+            + '— a turn further from playable, discounted twice',
         };
       }
       const gain = def.marshallingPoints > 0
