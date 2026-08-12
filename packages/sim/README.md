@@ -1591,6 +1591,7 @@ Read with the gate results above, the state of the project is: **H2 covers the
 game, models it more faithfully than it did, and is still not stronger than
 the crude agent it exists to replace.** Coverage was the thing that could be
 finished by building, and it has been. What remains cannot be.
+
 ### The gate that says not to do any of this
 
 `human-compare` was used over five iterations to drive changes: agreement with
