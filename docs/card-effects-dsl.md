@@ -91,6 +91,13 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
 
 Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`, `untap-penalty`.
 
+A `when` condition sees `bearer.skills` — the bearer's *effective* skills,
+printed plus every item/effect grant, including the modifier's own card (see
+`grant-skill` §54). A card that both grants a skill and conditions a bonus on
+already having it must instead read `bearer.naturalSkills` (printed skills
+only) to implement the "already a *X*" convention — see §54's "Same
+convention for `stat-modifier`" note.
+
 During strike resolution the combat context also exposes `combat.strikeMode` —
 the way the character is facing the current strike (`"tap"`, `"untap"`,
 `"dodge"`, `"reroll"`). It lets a prowess modifier apply only "when tapping to
@@ -10608,6 +10615,16 @@ evaluated against the bearer's *natural* skills (from the character card definit
 not the granted skills. This correctly implements the card text "if the bearer is
 *already* a scout."
 
+**Same convention for `stat-modifier`**: a `stat-modifier`'s `when` is evaluated in
+the effective-stats context, where `bearer.skills` is the *merged* set (printed +
+every granted skill, including the card's own `grant-skill`). A card that grants a
+skill and also conditions a bonus on the bearer already having that skill must
+therefore read `bearer.naturalSkills` (printed skills only) instead of `bearer.skills`
+— otherwise its own grant would make the condition trivially always true. Used by
+Magic Ring of Courage (tw-271): "gives the bearer warrior skill; if already a
+warrior, +2 prowess" —
+`{ "type": "stat-modifier", "stat": "prowess", "value": 2, "when": { "bearer.naturalSkills": { "$includes": "warrior" } } }`.
+
 | Field | Required | Description |
 |-------|----------|-------------|
 | `skill` | yes | The skill name to grant (e.g. `"scout"`, `"sage"`, `"warrior"`). |
@@ -10616,7 +10633,7 @@ not the granted skills. This correctly implements the card text "if the bearer i
 { "type": "grant-skill", "skill": "scout" }
 ```
 
-Used by Magic Ring of Stealth (tw-274).
+Used by Magic Ring of Stealth (tw-274), Magic Ring of Courage (tw-271).
 
 ---
 
