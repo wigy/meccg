@@ -573,7 +573,7 @@ export function describeAction(
     case 'under-deeps-roll':
       return `${playerName(action.player)} rolls for Under-deeps movement`;
     case 'haven-return':
-      return `${playerName(action.player)} returns company to origin haven`;
+      return `${playerName(action.player)} returns company to its site of origin`;
     case 'run-home':
       return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move company ${action.companyId} to its nearest haven (Bill the Pony)`;
     case 'pay-event-maintenance':

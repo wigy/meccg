@@ -2579,6 +2579,18 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * somewhere other than a Border-hold. Omit for an unconditional grant.
    */
   readonly requiresDestinationSiteType?: string;
+  /**
+   * For a `haven-return-option` constraint (Ancient Stair dm-115): only offer
+   * the end-of-turn return option when the target company's site at end of
+   * turn carries this keyword — "If company moved to an Under-deeps site, at
+   * the end of the turn the company may replace its site card with the site
+   * card at which it began the turn" → `"under-deeps"`. Checked when the
+   * option is offered (`havenReturnActions`, `legal-actions/end-of-turn.ts`),
+   * not at play time, since the company's final site for the turn is not yet
+   * known when an end-of-org card is played. Omit for an unconditional offer
+   * (Great-road tw-249, always offered regardless of where the company went).
+   */
+  readonly requiresMovedToKeyword?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**

@@ -490,17 +490,18 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
 }
 
 /**
- * Execute a Great-road haven-return: move the company back to the origin haven
- * recorded in the `haven-return-option` constraint. Per the card text, "This is
- * considered movement with no movement/hazard phase", so site card lifecycle
- * rules apply (CoE 2.IV.viii):
+ * Execute a haven-return: move the company back to the origin site recorded
+ * in the `haven-return-option` constraint (Great-road tw-249; also Ancient
+ * Stair dm-115, whose origin site is an Under-deeps-adjacent surface site,
+ * not a Haven). Per the card text, "This is considered movement with no
+ * movement/hazard phase", so site card lifecycle rules apply (CoE 2.IV.viii):
  *
  * 1. The company's current (departure) site is returned to the location deck if
  *    untapped or a haven, or discarded if tapped — provided `siteCardOwned` is
  *    true (otherwise a sibling company still holds the card).
- * 2. The origin haven is pulled from the location deck (removed) and becomes the
+ * 2. The origin site is pulled from the location deck (removed) and becomes the
  *    company's new `currentSite`. If another company is already at the origin
- *    haven, the haven is shared and `siteCardOwned` is set to `false`.
+ *    site, the site is shared and `siteCardOwned` is set to `false`.
  * 3. The constraint is consumed so the option cannot be exercised twice.
  */
 function handleHavenReturn(state: GameState, action: GameAction): ReducerResult {
