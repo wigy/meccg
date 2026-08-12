@@ -3073,6 +3073,10 @@ function handleSitePlayHeroResource(
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
       ...(usingBurglaryUnlock ? { burglaryItemUnlock: undefined } : {}),
       ...(usingTappedSiteFetchUnlock ? { tappedSiteItemUnlock: undefined } : {}),
+      // Ent-draughts (tw-227): "in addition to an ally or faction that has
+      // been successfully played at Wellinghall this turn" — record that an
+      // ally was played at the current site this site phase.
+      ...(isAlly ? { allyOrFactionPlayedAtSite: true } : {}),
     },
   };
 
@@ -3985,6 +3989,9 @@ export function resolveInfluenceAttemptRoll(
         resourcePlayed: true,
         minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
         ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
+        // Ent-draughts (tw-227): record that a faction was successfully
+        // played at the current site this site phase.
+        allyOrFactionPlayedAtSite: true,
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
     // Lure of Power (tw-59): a successful influence attempt by a matching

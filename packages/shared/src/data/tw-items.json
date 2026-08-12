@@ -1373,8 +1373,33 @@
     "prowessModifier": 1,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Only playable at Wellinghall in addition to an ally or faction that has been successfully played at Wellinghall this turn. +1 to prowess. This item may not be stolen, transferred, or stored. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["Wellinghall"],
+        "allowTapped": true
+      },
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": { "company.allyOrFactionPlayedAtSite": true }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-transfer"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-store"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Only playable at Wellinghall in addition to an ally or faction that has been successfully played at Wellinghall this turn. +1 to prowess. This item may not be stolen, transferred, or stored. Cannot be duplicated on a given character.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-item",

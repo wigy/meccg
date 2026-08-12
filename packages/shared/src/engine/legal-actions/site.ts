@@ -1826,6 +1826,24 @@ function playResourcesActions(
         }
       }
 
+      // play-condition: active-company — a generic DSL condition on the
+      // active company. Ent-draughts (tw-227): "in addition to an ally or
+      // faction that has been successfully played at Wellinghall this turn"
+      // reads `company.allyOrFactionPlayedAtSite`, set by
+      // `handleSitePlayHeroResource` / the influence-attempt success branch
+      // in `reducer-site.ts`.
+      const itemActiveCompanyCond = findPlayConditionEffect(itemDef, 'active-company');
+      if (itemActiveCompanyCond?.condition) {
+        const ctx = buildActiveCompanyContext(state, player, company, {
+          allyOrFactionPlayedAtSite: siteState.allyOrFactionPlayedAtSite ?? false,
+        });
+        if (!matchesCondition(itemActiveCompanyCond.condition, ctx)) {
+          logDetail(`Item ${itemDef.name}: active-company play-condition not satisfied at ${siteName}`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: play condition not met`));
+          continue;
+        }
+      }
+
       // One action per untapped character that could carry the item (plus
       // the burgling character, if a burglary attempt just unlocked one).
       for (const ch of itemEligibleCharacters) {

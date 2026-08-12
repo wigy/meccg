@@ -36,6 +36,7 @@ import { getItemSlot, pickActiveItemsForCharacter } from './item-slots.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { isLongEventProtected } from './protected-long-event.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -1388,6 +1389,14 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
     return { state, error: 'Card is not an item and cannot be transferred' };
   }
 
+  // `no-transfer` play-flag (Ent-draughts tw-227: "This item may not be …
+  // transferred"). Reject as a backstop to the legal-action suppression in
+  // transferItemActions.
+  if (hasPlayFlag(itemDef, 'no-transfer')) {
+    logDetail(`Transfer rejected: ${itemDef.name} carries the no-transfer play-flag`);
+    return { state, error: `${itemDef.name} may not be transferred` };
+  }
+
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== fromCharId) return { state, error: 'Item not found on source character' };
   const item = removed.attachment;
@@ -1618,6 +1627,16 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     && storeSiteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
     logDetail(`Store item rejected: ${storeSiteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${storeSiteDef.name}` };
+  }
+
+  // `no-store` play-flag (Ent-draughts tw-227: "This item may not be …
+  // stored"). Reject as a backstop to the legal-action suppression in
+  // storeItemActions, mirroring the no-storage site-rule check above.
+  const storeItemEntry = player.characters[charId].items.find(i => i.instanceId === itemInstId);
+  const storeItemDef = storeItemEntry ? defById(state, storeItemEntry.definitionId) : undefined;
+  if (storeItemDef && isItemCard(storeItemDef) && hasPlayFlag(storeItemDef, 'no-store')) {
+    logDetail(`Store item rejected: ${storeItemDef.name} carries the no-store play-flag`);
+    return { state, error: `${storeItemDef.name} may not be stored` };
   }
 
   const removed = removeAttachment(player, 'items', itemInstId);

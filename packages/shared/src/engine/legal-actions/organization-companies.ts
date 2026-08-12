@@ -21,7 +21,7 @@ import type {
   CardDefinitionId,
   Alignment as AlignmentType,
 } from '../../index.js';
-import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission } from '../../effects/play-flags.js';
+import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
@@ -1110,6 +1110,13 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
 
+        // `no-transfer` play-flag: the item's own text forbids transfer
+        // (e.g. Ent-draughts tw-227: "This item may not be … transferred").
+        if (hasPlayFlag(itemDef, 'no-transfer')) {
+          logDetail(`  → not transferable: ${itemName} on ${charName} carries the no-transfer play-flag`);
+          continue;
+        }
+
         for (const targetInstId of charsAtSite) {
           if (targetInstId === charInstId) continue;
           const target = player.characters[targetInstId];
@@ -1313,6 +1320,15 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
           isStorable = siteNameMatch || siteTypeMatch;
         } else if (isItemCard(itemDef) && siteType === 'haven') {
           isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || isStorableSpecialItem(itemDef);
+        }
+
+        // `no-store` play-flag: the item's own text forbids storage (e.g.
+        // Ent-draughts tw-227: "This item may not be … stored"), overriding
+        // any of the storability paths above the same way The One Ring's
+        // `the-one-ring` keyword exception does.
+        if (isStorable && (effects?.some(e => e.type === 'play-flag' && (e as { flag?: string }).flag === 'no-store') ?? false)) {
+          logDetail(`  → not storable: ${itemDef.name} on ${charName} carries the no-store play-flag`);
+          isStorable = false;
         }
 
         if (!isStorable) continue;
