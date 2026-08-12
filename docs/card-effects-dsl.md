@@ -3644,17 +3644,28 @@ Apply types:
 
 - `set-site-phase-flag` -- under `on-event: self-enters-play`, sets a named
   `SitePhaseState` boolean to `true` (fires only during the site phase). Valid
-  `flag` values: `hoardBountyAvailable`, `thoroughSearchAvailable`, and
-  `firstItemNoTapAvailable`. The last (Come By Night Upon Them le-176) lets the
-  **first item** played at the site this site phase — any subtype — be played
-  without tapping the site; `handleSitePlayResources` (`reducer-site.ts`) treats
-  it like Thorough Search (leaves the site untapped, does not count as the
-  site-tapping resource, consumes the flag), while the item still taps its
-  bearer normally.
+  `flag` values: `hoardBountyAvailable`, `thoroughSearchAvailable`,
+  `firstItemNoTapAvailable`, and `hoardKeywordGranted`. The third (Come By Night
+  Upon Them le-176) lets the **first item** played at the site this site phase
+  — any subtype — be played without tapping the site; `handleSitePlayResources`
+  (`reducer-site.ts`) treats it like Thorough Search (leaves the site untapped,
+  does not count as the site-tapping resource, consumes the flag), while the
+  item still taps its bearer normally. The fourth (Dwarven Hoard td-109) makes
+  the active site-phase company's current site "considered to contain a hoard
+  until the end of the turn" regardless of its printed keywords: while set,
+  `buildActiveCompanyContext` (`legal-actions/organization.ts`) and the item
+  `item-play-site` keyword computation (`legal-actions/site.ts`, both the
+  `itemOwnSiteRestrictionMatches` filter context and the `hoardBountyBonus`
+  `siteIsHoard` check) synthesize a `hoard` keyword onto the site, exactly like
+  the existing Deep Mines `under-deeps` synthesis. Absent (undefined → false);
+  reset when a new company's site phase begins, which is what bounds it to
+  "until the end of the turn" in practice.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "set-site-phase-flag", "flag": "firstItemNoTapAvailable" } }
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "set-site-phase-flag", "flag": "hoardKeywordGranted" } }
   ```
 
 ### Pending resolutions
