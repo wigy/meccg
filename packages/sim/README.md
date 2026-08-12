@@ -1314,12 +1314,37 @@ arithmetic could change: value the remaining modelled zeros — a creature the
 plan cannot use, a character whose mind does not fit, an event that declares no
 effect — and the tidier rule should win.
 
+#### Separating the two jobs the floor was doing
+
+The blanket floor bought agreement on `pass` and paid for it on `discard-card`
+because it was doing two things at once: making every discard expensive, which
+is right, and flattening every card priced below it into a tie, which is not.
+
+Those are separable, and separating them belongs to `hand` rather than to
+`card-price`. What a card is worth to hold is a **valuation**; what throwing one
+*costs* is a **decision**. So `worth` returns the modelled value unclamped, and
+`hand` charges `heldCardFloor` **plus** that value. Adding is also the more
+honest arithmetic — the floor stands for the residual every card carries and
+the valuation for the part that is modelled, and a card has both.
+
+| | overall | `pass` | `discard-card` |
+|---|---|---|---|
+| before any of this | 39.74% | 22.6% | 15.8% |
+| clamp the valuation | 40.76% | 26.6% | 6.6% |
+| floor only where unread | 39.48% | 22.2% | 14.3% |
+| **floor + worth** | **41.14%** | **26.7%** | **12.2%** |
+
+It keeps the whole `pass` gain and recovers most of the discard precision:
++37 decisions on the baseline, +10 on the clamp. It is also the first change
+in this section whose result was *predicted* before it was run rather than
+discovered afterwards, which is what having the decomposition right looks like.
+
 The cumulative movement from the corpus, over 2642 attributed decisions:
 
 | | overall | `pass` |
 |---|---|---|
 | before any of it | 39.74% | 22.6% |
-| now | **40.76%** | **26.6%** |
+| now | **41.14%** | **26.7%** |
 
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not
