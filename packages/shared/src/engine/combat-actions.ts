@@ -1912,6 +1912,9 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         strikesTotal: newStrikesTotal,
         detainment: newDetainment,
         ...(cancelProtection ? { cancelProtection } : {}),
+        ...(effect.postAttackMindRollSplit
+          ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }
+          : {}),
       },
     };
 

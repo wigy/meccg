@@ -30,7 +30,7 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { isSiteCard, isCharacterCard, isHalfOrc } from '../types/cards.js';
+import { isSiteCard, isCharacterCard, isHalfOrc, printedMind } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -676,6 +676,45 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
             kind: { type: 'deny-scout-resources' },
           });
         }
+      }
+    }
+  }
+
+  // Turning Hope to Despair (as-41): a hand-played modify-attack scheduled a
+  // post-attack mind-roll split. If the attack was NOT fully defeated, every
+  // character still in the defending company rolls 2d6 + mind against the
+  // card's threshold; each one who rolls below it splits off individually
+  // (`split-into-own-company`, resolved via `splitCharacterOffCompany`).
+  if (!allDefeated && combat.mindRollSplitPending) {
+    const { threshold } = combat.mindRollSplitPending;
+    const defIdxSplit = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const companySplit = companyById(stateAfterCombat.players[defIdxSplit].companies, combat.companyId);
+    if (companySplit) {
+      const defPlayerSplit = stateAfterCombat.players[defIdxSplit];
+      for (const charId of companySplit.characters) {
+        const charInPlay = defPlayerSplit.characters[charId];
+        if (!charInPlay) continue;
+        const charDef = defById(stateAfterCombat, charInPlay.definitionId);
+        const effectiveMind = charInPlay.effectiveStats.mind ?? printedMind(charDef);
+        const charName = charDef?.name ?? (charId as string);
+        logDetail(`Turning Hope to Despair: enqueuing mind roll for ${charName} — need 2d6 + mind ${effectiveMind} >= ${threshold} to stay together`);
+        stateAfterCombat = enqueueResolution(stateAfterCombat, {
+          source: null,
+          actor: combat.defendingPlayerId,
+          scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+          kind: {
+            type: 'dice-check',
+            label: `${charName} — mind roll (Turning Hope to Despair)`,
+            roller: combat.defendingPlayerId,
+            modifiers: [{ kind: 'constant', value: effectiveMind }],
+            threshold,
+            comparison: 'gte',
+            onFail: { type: 'split-into-own-company' },
+            continuation: { kind: 'dequeue-only' },
+            targetCharacterId: charId,
+            targetCompanyId: combat.companyId,
+          },
+        });
       }
     }
   }

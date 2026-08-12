@@ -41,7 +41,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, ringwraithReclaimMark, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, ringwraithReclaimMark, roll2d6, splitCharacterOffCompany, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -1380,6 +1380,22 @@ function applyDiceCheckBranch(
         kind: { type: 'company-cannot-move' },
       }),
     };
+  }
+  if (branch.type === 'split-into-own-company') {
+    // Turning Hope to Despair (as-41): the mind roll failed, so peel this
+    // character off his company into his own (or, if he was alone, flag his
+    // company for a separate M/H phase) via the shared helper.
+    if (!ctx.targetCharacterId || !ctx.targetCompanyId) {
+      logDetail('split-into-own-company: missing target character/company — no-op');
+      return { state };
+    }
+    const targetCompanyId = ctx.targetCompanyId;
+    const ownerIndex = state.players.findIndex(p => p.companies.some(c => c.id === targetCompanyId));
+    if (ownerIndex === -1) {
+      logDetail(`split-into-own-company: company ${targetCompanyId as string} no longer exists — no-op`);
+      return { state };
+    }
+    return { state: splitCharacterOffCompany(state, ownerIndex, ctx.targetCharacterId, targetCompanyId) };
   }
   if (branch.type === 'untap-site') {
     // Fireworks (dm-130): the roll passed, so untap the site the target

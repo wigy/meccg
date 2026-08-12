@@ -2131,6 +2131,7 @@ export type TriggeredActionType =
   | 'transform-site'
   | 'untap-site'
   | 'lock-company-movement'
+  | 'split-into-own-company'
   | 'cancel-current-attack'
   | 'traitor-attack'
   | 'site-entry-attack'
@@ -3145,6 +3146,19 @@ export interface LockCompanyMovementAction extends TriggeredActionBase {
 }
 
 /**
+ * `split-into-own-company` — the `onFail` verb of a per-character mind-roll
+ * `dice-check` (Turning Hope to Despair as-41). Peels `ctx.targetCharacterId`
+ * off `ctx.targetCompanyId` into his own new company sharing the same site
+ * path (or, if he was alone, flags his own company for one extra separate
+ * M/H phase) via the shared `splitCharacterOffCompany` helper
+ * (`reducer-utils.ts`) — the generalized, auto-rejoining sibling of Left
+ * Behind's `applyLeftBehindSplit`. Type-only marker.
+ */
+export interface SplitIntoOwnCompanyAction extends TriggeredActionBase {
+  readonly type: 'split-into-own-company';
+}
+
+/**
  * `cancel-current-attack` — cancel the combat currently in `state.combat`
  * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
  * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
@@ -3271,6 +3285,7 @@ export type TriggeredAction =
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
+  | SplitIntoOwnCompanyAction
   | CancelCurrentAttackAction
   | TraitorAttackAction
   | TransferItemFreeAction;
@@ -5690,6 +5705,22 @@ export interface ModifyAttackEffect extends EffectBase {
    * automatically defeated."
    */
   readonly cascadeDefeatOnSuccess?: true;
+  /**
+   * When set (`fromHand` path only), playing the card schedules a post-attack
+   * conditional split instead of (or alongside) any stat modifiers: if the
+   * attack is not fully defeated, every character still in the defending
+   * company at combat finalization rolls 2d6 plus his mind against
+   * `threshold`; each character whose total is strictly below it splits off
+   * into his own company sharing the same site path, facing a separate
+   * movement/hazard phase this turn with a hazard limit of one (see
+   * {@link Company.forcedSoloHazardLimit}). Unlike {@link LeftBehindSplitEffect},
+   * there is no explicit "may rejoin" — the split company merges back through
+   * the normal rule 2.IV.6 same-site auto-merge once its own separate phase
+   * ends. Used by Turning Hope to Despair (as-41): "If the attack is not
+   * defeated, each character in the company makes a roll and adds his mind.
+   * If the result is less than 11, the character splits off..."
+   */
+  readonly postAttackMindRollSplit?: { readonly threshold: number };
 }
 
 /**
