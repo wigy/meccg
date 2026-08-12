@@ -1333,6 +1333,47 @@ built part of the design: `resolve-strike` 79.0% against 40.7%,
 human play closely. `play-hazard`, which H2 owns and has never calibrated,
 goes the other way — 32.9% against 46.1%.
 
+### Gating the corpus-driven work, properly powered
+
+Five iterations of changes driven by `human-compare` raised agreement with
+recorded human play from 39.74% to 41.41%. Gated against `heuristic` at **384
+games per arm** — same seeds, same champion, paired and side-swapped, zero
+unfinished games in every run:
+
+| | score | paired Elo | criterion |
+|---|---|---|---|
+| before the iterations | 48.7% | **−9 [−42, +24]** | — |
+| **`place-on-guard` change alone** | 48.0% | **−14 [−41, +13]** | **passes** |
+| all five iterations together | 44.0% | **−42 [−75, −10]** | fails |
+
+Read the intervals rather than the point estimates. Before the work, H2's
+interval **includes zero** — it is statistically indistinguishable from the
+crude agent it exists to replace. After all five changes it **excludes zero**.
+An earlier 96-game pair showed the same direction (−14 → −62) at a sample too
+small to resolve it; this one resolves it.
+
+Three things follow, and the second is the one that cost something to learn.
+
+**Agreement is a localiser, not an objective.** It found `place-on-guard`
+priced as a free option and `card-price`'s floor ranking a card it could price
+*below* one it could not — in single runs, where five model changes and two
+gates had found nothing. Both are checkable against the rules without
+reference to any agreement number. But choosing changes *because* agreement
+rose cost about 33 Elo.
+
+**Being rules-grounded protected against harm and did not produce gain.** The
+`place-on-guard` correction is right on the rules — an unrevealed card returns
+at *cleanup*, so placement commits it for the turn and forecloses playing it
+against a company still to move — and it moved agreement on `play-hazard` by
+7.9 points. Its gate is −14 against a baseline of −9: neutral. A correct model
+is not automatically a stronger one, and the honest claim for it is fidelity,
+not strength.
+
+**The damage was in the changes a metric chose.** What is left in the stack
+once `place-on-guard` is removed is the `card-price` floor decomposition and
+the valuations that followed it — all selected because discard or `pass`
+agreement moved, none with a rule behind them.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
