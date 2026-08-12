@@ -3,8 +3,12 @@ name: CI
 on:
   push:
     branches: [main, master]
+  # Deliberately unfiltered by base branch. A `branches:` filter here skips
+  # stacked pull requests — one whose base is another feature branch — and the
+  # skip is silent: `gh pr view` reports an empty check rollup while
+  # mergeStateStatus still says CLEAN, so the PR looks merely pending and can
+  # be merged having never been tested once.
   pull_request:
-    branches: [main, master]
 
 jobs:
   lint-and-test:
