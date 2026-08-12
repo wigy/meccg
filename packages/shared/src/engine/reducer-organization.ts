@@ -2070,9 +2070,25 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   const charDef = defById(state, char.definitionId);
   const splittingIsLeader = isLeaderCharacter(charDef);
 
+  // Rule 2.II.3.6: record both companies under a shared split-lineage group
+  // so a later merge or end-of-phase check can enforce "the resulting
+  // companies cannot be rejoined during the same organization phase and all
+  // but one of the companies must declare movement to a new site". The
+  // source company joins its own existing group if it already split this
+  // phase; otherwise it seeds a new group keyed by its own id.
+  const orgState = requirePhaseState(state, Phase.Organization);
+  const sourceCid = sourceCompany.id as string;
+  const groupId = orgState.splitLineage?.[sourceCid] ?? sourceCid;
+  const splitLineage = {
+    ...(orgState.splitLineage ?? {}),
+    [sourceCid]: groupId,
+    [newCompany.id as string]: groupId,
+  };
+
   let result = sweepCompanyMembershipChangedEvents({
     ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck: newSiteDeck })),
     reverseActions: [...state.reverseActions, reverseAction],
+    phaseState: { ...orgState, splitLineage },
   }, [sourceCompany.id]);
 
   if (splittingIsLeader) {
