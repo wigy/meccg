@@ -18,6 +18,7 @@ import type {
   EvaluatedAction,
 } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
+import { Phase } from '@meccg/shared';
 
 // ---- View focus state ----
 
@@ -207,6 +208,26 @@ export function isCombatBlockedByPendingCorruptionCheck(
 ): boolean {
   return legalActions.some(ea =>
     ea.viable && (ea.action.type === 'corruption-check' || ea.action.type === 'support-corruption-check'));
+}
+
+/**
+ * Decide whether the hand-arc must stay visible despite the all-companies
+ * overview being forced on. CoE 10.3.i lets either player play reactive
+ * resource/character actions from hand (e.g. A Friend or Three's
+ * corruption-check-boost) while a Free Council corruption check is pending,
+ * and the all-companies overview is forced on for the *entire* Free Council
+ * phase (so support taps across every company stay reachable, unlike the
+ * opponent-turn override that {@link shouldClearOverrideForNewCombat} only
+ * needs to interrupt around combat) — so the CSS that hides `#hand-arc`
+ * whenever `all-companies-mode` is set (see public/style.css) must be
+ * suppressed for the phase's whole duration, or the reactive-play window is
+ * unreachable: the player can see the pending check but never click the card.
+ *
+ * @param phase - The current phase.
+ * @returns True if the hand-arc must stay visible (Free Council).
+ */
+export function handStaysVisibleDuringOverview(phase: PlayerView['phaseState']['phase']): boolean {
+  return phase === Phase.FreeCouncil;
 }
 
 /** Track the last active player so we can reset view state on turn change. */
