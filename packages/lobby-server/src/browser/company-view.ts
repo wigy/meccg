@@ -47,6 +47,7 @@ import {
   shouldClearOverrideForNewCombat,
   shouldRestoreOverrideAfterCombat,
   isCombatBlockedByPendingCorruptionCheck,
+  handStaysVisibleDuringOverview,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -486,8 +487,15 @@ export function renderCompanyViews(
   const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
 
   // In all-companies view, hide hand arcs, text log, and score boxes to maximise
-  // screen real estate for the company grid.
+  // screen real estate for the company grid. During Free Council, though, CoE
+  // 10.3.i lets either player play reactive resource/character actions from
+  // hand (e.g. A Friend or Three's corruption-check-boost) while a corruption
+  // check is pending, and the all-companies view is forced for the whole
+  // phase (so support taps across every company stay reachable) — hiding the
+  // hand-arc there would strand that reactive window with no way to click the
+  // card. free-council-mode carves out that one exception in CSS.
   document.body.classList.toggle('all-companies-mode', !showingSingle);
+  document.body.classList.toggle('free-council-mode', handStaysVisibleDuringOverview(view.phaseState.phase));
 
   if (showingSingle) {
     renderSingleView(board, view, cardPool);

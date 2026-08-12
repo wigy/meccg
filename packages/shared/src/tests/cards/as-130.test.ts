@@ -41,7 +41,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   CardStatus, CardDefinitionId,
   dispatch, grantedActionsFor, findCharInstanceId, findHandCardId,
-  expectCharItemCount, expectInDiscardPile,
+  expectCharItemCount, expectInDiscardPile, recomputeDerived,
 } from '../test-helpers.js';
 import { addConstraint } from '../../engine/pending.js';
 import { computeLegalActions, SetupStep } from '../../index.js';
@@ -160,6 +160,22 @@ describe('Records Unread (as-130)', () => {
     expect(next.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
     expectCharItemCount(next, RESOURCE_PLAYER, BURAT, 0);
     expectInDiscardPile(next, RESOURCE_PLAYER, RECORDS_UNREAD);
+  });
+
+  // ── Printed corruption: 1 (bottom-right icon on the card) ────────────────
+
+  test('bearer\'s corruption points include Records Unread\'s printed value of 1', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DEAD_MARSHES, characters: [{ defId: BURAT, items: [RECORDS_UNREAD] }] }], hand: [], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [DEAD_MARSHES] },
+      ],
+    });
+    const derived = recomputeDerived(state);
+    const burat = findCharInstanceId(derived, RESOURCE_PLAYER, BURAT);
+    expect(derived.players[RESOURCE_PLAYER].characters[burat].effectiveStats.corruptionPoints).toBe(1);
   });
 
   // ── Rule 3: Discard to make Information playable at any Shadow-hold ──────
