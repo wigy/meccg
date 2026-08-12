@@ -2013,9 +2013,12 @@ function enumerateGrantActionTargets(
     // The Arkenstone (tw-341): "tapped to untap a Dwarf character in the same
     // company" — enumerate the bearer's own company (including the bearer),
     // skipping already-untapped members (mirrors `characters-at-site`).
+    // `excludeBearer` (Waybread td-165) drops the bearer from the candidates
+    // when the ability separately untaps the bearer via its own `apply`.
     const company = findCharacterCompany(player.companies, charId);
     if (!company) return [];
     for (const memberId of company.characters) {
+      if (targets.excludeBearer && memberId === charId) continue;
       const member = player.characters[memberId];
       if (!member) continue;
       if (member.status === CardStatus.Untapped) continue;

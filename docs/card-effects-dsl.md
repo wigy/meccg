@@ -2826,6 +2826,29 @@ one activation per matching card, each carrying the candidate's
 - `filter` — optional DSL `Condition` matched against each candidate's
   card definition (or, for `"own-hazard-corruption-cards"`, the candidate's
   bearer character's definition); candidates that fail the filter are skipped.
+- `excludeBearer` — for scope `"company-characters"`, drops the bearer from
+  the enumerated candidates, leaving only company-mates. Used when the
+  `apply` already untaps the bearer directly via `target: "bearer"` and the
+  per-target loop should only offer the *other* company member.
+
+Example (Waybread td-165 — discard to untap the bearer, or the bearer **and**
+one other company-mate; the same `discard: "self"` cost across all three
+modes means using any one of them consumes the item, naturally ruling out
+the others — no `oncePerTurn` lock needed):
+
+```json
+{ "type": "grant-action", "action": "untap-bearer",
+  "anyPhase": true, "cost": { "discard": "self" },
+  "when": { "bearer.status": "tapped" },
+  "apply": { "type": "set-character-status", "target": "bearer", "status": "untapped" } }
+{ "type": "grant-action", "action": "untap-bearer-and-company-character",
+  "anyPhase": true, "cost": { "discard": "self" },
+  "targets": { "scope": "company-characters", "excludeBearer": true },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "set-character-status", "target": "bearer", "status": "untapped" },
+    { "type": "set-character-status", "target": "target-character", "status": "untapped" }
+  ] } }
+```
 
 Example (The Arkenstone tw-341 — tap to untap a Dwarf company-mate, who
 then makes a corruption check modified -2; `enqueue-corruption-check`'s
