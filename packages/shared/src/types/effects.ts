@@ -3404,6 +3404,36 @@ export interface FleeFromStrikeEffect extends EffectBase {
 }
 
 /**
+ * A from-hand Wizard-only permanent-event spell played after strikes are
+ * assigned against the Wizard's company (not company-vs-company combat): all
+ * strikes of the attack automatically fail (as if the character defeated
+ * each), with a `+3` modifier to any resulting creature body checks. The
+ * Wizard is then discarded ("becomes unrevealed") along with any non-item,
+ * non-follower cards he controls (allies, attached hazards); his followers
+ * disperse to general influence as normal; his items are placed off to the
+ * side with this card (MEAS §1) and still count as in play.
+ *
+ * If the Wizard is later put back into play by any other means, his items
+ * return to him and this card is placed with him, granting +1 prowess, body,
+ * and direct influence for as long as it remains attached. Cannot be
+ * duplicated on a given Wizard (enforced by tracking the sacrificed Wizard's
+ * instance ID on the host `CardInPlay` entry — see `sacrifice-of-form.ts`).
+ * After being played, the controller may not reveal a different Wizard
+ * avatar (`PlayerState.wizardSacrificed`, mirroring the Ringwraith
+ * `ringwraithReturnedToHand` restriction) — the opponent-may-not-play-it
+ * clause needs no code since a player can never play a card from an
+ * opponent's discard pile.
+ *
+ * Mechanically reuses `CombatState.forcedStrikeDefeat` /
+ * `forcedDefeatBodyCheckModifier` (Liquid Fire wh-52's mechanism) for the
+ * strike-failure + body-check-bonus half, and `set-aside.ts` (MEAS §1) for
+ * holding the Wizard's items. Used by Sacrifice of Form (tw-321).
+ */
+export interface SacrificeOfFormEffect extends EffectBase {
+  readonly type: 'sacrifice-of-form';
+}
+
+/**
  * On-play roll that untaps the target character's company's current site.
  *
  * Carried by a resource permanent-event played on a character at a site. When
@@ -8139,6 +8169,7 @@ export type CardEffect =
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
+  | SacrificeOfFormEffect
   | RollUntapSiteEffect
   | UntapMindRollEffect
   | SkipNextUntapOnPlayEffect

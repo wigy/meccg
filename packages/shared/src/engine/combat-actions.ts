@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
@@ -337,6 +337,67 @@ export function handleFleeFromStrike(state: GameState, action: GameAction, comba
   newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
   return advanceStrikeOrFinalize(nextState, combatWithAssignments);
+}
+
+/**
+ * Sacrifice of Form (tw-321): play from hand after strikes are assigned
+ * against the Wizard's company. Sets `forcedStrikeDefeat` (every remaining
+ * strike of this attack automatically resolves as defeated — the same
+ * mechanism Liquid Fire wh-52 uses) with `forcedDefeatBodyCheckModifier`
+ * raised by +3, and records `pendingSacrificeOfForm` so the deferred sweep
+ * (`sacrifice-of-form.ts`) discards the Wizard and sets his items aside once
+ * the whole attack has finished resolving — not immediately, so his
+ * `CharacterInPlay` data stays available for any remaining strikes of this
+ * attack still assigned to him.
+ */
+export function handleSacrificeOfForm(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'play-sacrifice-of-form') return wrongActionType(state, action, 'play-sacrifice-of-form');
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Sacrifice of Form card not found in hand' };
+  const cardDef = defById(state, handCard.definitionId);
+  const effect = getCardEffects(cardDef).find((e): e is SacrificeOfFormEffect => e.type === 'sacrifice-of-form');
+  if (!effect) return { state, error: 'Card has no sacrifice-of-form effect' };
+
+  const wizardId = action.characterInstanceId;
+  if (!defPlayer.characters[wizardId]) return { state, error: 'Wizard not found in play' };
+  if (combat.attackSource.type === 'company-attack') {
+    return { state, error: 'Sacrifice of Form cannot be used in company-vs-company combat' };
+  }
+  if (combat.strikeAssignments.length === 0 || combat.strikeAssignments.some(a => a.resolved)) {
+    return { state, error: 'Sacrifice of Form must be played after strikes are assigned, before any strike resolves' };
+  }
+  if (defPlayer.cardsInPlay.some(c => c.sacrificeOfFormCharacterInstanceId === wizardId)) {
+    return { state, error: 'Sacrifice of Form cannot be duplicated on a given Wizard' };
+  }
+
+  const cardLabel = cardName(state, handCard.definitionId);
+  logDetail(`${cardLabel}: played after strikes assigned — all strikes of this attack fail (+3 to any creature body checks); ${wizardId as string} will be discarded (items set aside) once the attack resolves`);
+
+  const nextState = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, handCard.instanceId),
+    cardsInPlay: [
+      ...p.cardsInPlay,
+      {
+        instanceId: handCard.instanceId,
+        definitionId: handCard.definitionId,
+        status: CardStatus.Untapped,
+        sacrificeOfFormCharacterInstanceId: wizardId,
+      },
+    ],
+  }));
+
+  const newCombat: CombatState = {
+    ...combat,
+    forcedStrikeDefeat: true,
+    forcedDefeatBodyCheckModifier: (combat.forcedDefeatBodyCheckModifier ?? 0) + 3,
+    pendingSacrificeOfForm: { hostInstanceId: handCard.instanceId, characterInstanceId: wizardId },
+  };
+
+  return { state: { ...nextState, combat: newCombat } };
 }
 
 /**

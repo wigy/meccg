@@ -492,6 +492,8 @@ export function describeAction(
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
     case 'flee-from-strike':
       return `Play ${instName(action.cardInstanceId)} to flee the strike (cancel it, tap the character)`;
+    case 'play-sacrifice-of-form':
+      return `Play ${instName(action.cardInstanceId)}: sacrifice ${instName(action.characterInstanceId)} — all strikes of this attack fail (+3 body checks)`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     case 'resolve-dice-check':

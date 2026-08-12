@@ -5001,6 +5001,98 @@ otherwise untap, make him tapped instead and discard this card. Cannot be
 duplicated." — `flee-from-strike` `{ characterName: "The Balrog" }` +
 `duplication-limit` scope `game` max 1.
 
+### 11a-2. `sacrifice-of-form`
+
+A from-hand **Wizard-only** combat permanent-event, offered to the defending
+player once strikes are assigned against a company containing their Wizard
+avatar and before any strike of that attack has resolved (`combat.phase` is
+`choose-strike-order`, or `resolve-strike` with every `strikeAssignment`
+still `resolved: false`). Not offered when the attack source is
+`company-attack` ("cannot be used in company vs. company combat"), or when
+any in-play card already carries `sacrificeOfFormCharacterInstanceId` for
+that Wizard's instance ("cannot be duplicated on a given Wizard").
+
+```json
+{ "type": "sacrifice-of-form" }
+```
+
+On play (`play-sacrifice-of-form` action → `handleSacrificeOfForm` in
+`combat-actions.ts`):
+
+- the card leaves hand and enters the controller's `cardsInPlay` stamped
+  with `sacrificeOfFormCharacterInstanceId` (the Wizard's instance ID) — not
+  yet `attachedTo` him, since he is about to leave play;
+- `CombatState.forcedStrikeDefeat` is set and `forcedDefeatBodyCheckModifier`
+  raised by `+3` — the same mechanism Liquid Fire (wh-52) uses, so every
+  remaining strike of the attack auto-resolves as defeated and any creature
+  body check it produces is modified by `+3` ("all strikes … fail; +3 to any
+  body checks made to determine if the attack is defeated");
+- `CombatState.pendingSacrificeOfForm` records the host and Wizard instance
+  IDs for the deferred discard below.
+
+The Wizard is **not** discarded immediately — his `CharacterInPlay` data must
+stay available while any other strikes of the same attack (assigned to him or
+to company-mates) still resolve, per the CRF ruling that he "faces any
+effects of a failed strike that was assigned to him" (e.g. Dragon's Blood).
+Instead, `sweepSacrificeOfForm` (`engine/sacrifice-of-form.ts`, hooked into
+`postReduce` in `reducer.ts` via the same prev/next `combat` diff
+`enqueuePostAttackPlayOffers` uses to detect "an attack just ended" — see
+§ Pending resolutions) fires once the whole attack has concluded:
+
+- his allies are discarded (or returned to hand, per the normal
+  `partitionLeavingAllies` rule), his attached hazards return to their own
+  owners, and his followers disperse to general influence (`freeOrDiscardFollowers`
+  — **not** discarded, per CRF);
+- his items are placed "off to the side" with the host card via `placeCardSetAside`
+  (MEAS §1, `set-aside.ts`) with `keepOnHostRemoval: true` — they stay in play
+  even if the host itself is later discarded;
+- the Wizard card itself goes to his owner's discard pile ("he becomes
+  unrevealed");
+- `PlayerState.wizardSacrificed` is set to the Wizard's definition ID (once,
+  never cleared — see below).
+
+If the same Wizard is ever put back into play by any means, `sweepSacrificeOfFormReturn`
+(same module, same prev/next-diff pattern watching for a `characters` map
+entry newly appearing for an instance ID some in-play host still names with no
+`attachedTo` yet) reattaches the host (`attachedTo` set to him) and moves every
+item from the host's `setAside` list onto his `items[]`. Because
+`collectCharacterEffects` (`effects/resolver.ts`) has no generic pathway that
+turns a plain `attachedTo`-attached permanent-event's own `effects` into
+bearer stat modifiers (unlike `attachedToItem`, which does), the host's own
+`+1 prowess/body/direct-influence` `stat-modifier` effects are synthesised at
+reattach time into `until-cleared` `character-stat-modifier` active
+constraints on him — the same delivery mechanism opposed-roll outcomes and
+Vilya-style bonuses use.
+
+"You may not play a different Wizard" is enforced via `PlayerState.wizardSacrificed`
+(mirroring the Ringwraith `ringwraithReturnedToHand` restriction, but never
+cleared — CoE 2.II.2.1.1 bars a *different* avatar reveal for the rest of the
+game, not just until the same one replays) and two `CHARACTER_PLAY_RULES`
+gates (`rules/definitions/character-play.ts`): `differentWizardBlockedBySacrifice`
+blocks this player from revealing a different Wizard avatar, and
+`opponentSacrificedThisWizard` blocks the opponent from revealing this exact
+one — though ordinary ownership invariants (a player can never play a card
+from another player's discard pile) already make the opponent clause
+unreachable in practice; the gate exists for symmetry with the ruling text.
+
+```json
+{ "type": "sacrifice-of-form" }
+{ "type": "stat-modifier", "stat": "prowess", "value": 1 }
+{ "type": "stat-modifier", "stat": "body", "value": 1 }
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 1 }
+```
+
+Used by Sacrifice of Form (tw-321): "Spell. Wizard only. All of the strikes
+from one attack against your Wizard's company fail; +3 to any body checks
+made to determine if the attack is defeated. Discard the Wizard … Place any
+items he controls under this card and keep these off to the side … If the
+Wizard is put back into play, return his items to him and place Sacrifice of
+Form with him. Wizard receives +1 to his prowess, body, and direct
+influence. Cannot be duplicated on a given Wizard. Cannot be used in company
+vs. company combat. After Sacrifice of Form is played, you may not play a
+different Wizard and your opponent may not play the Wizard you sacrificed.
+This card is played after strikes are assigned."
+
 ### 11b. `protect-from-strike-assignment`
 
 A short event played from hand during the **defending** player's
