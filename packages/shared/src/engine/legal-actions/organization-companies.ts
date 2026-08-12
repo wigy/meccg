@@ -1666,6 +1666,10 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
   // Build map from site instance ID → companies at that site
   const siteToCompanies = groupCompaniesBySite(state, player);
 
+  // Rule 2.II.3.6: companies that trace back to the same split this
+  // organization phase may not be rejoined until the phase ends.
+  const splitLineage = state.phaseState.phase === Phase.Organization ? state.phaseState.splitLineage : undefined;
+
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     const companiesAtSite = siteToCompanies.get(siteGroupKey(state, company.currentSite.instanceId)) ?? [];
@@ -1673,6 +1677,15 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
 
     for (const targetCompany of companiesAtSite) {
       if (targetCompany.id === company.id) continue;
+
+      if (splitLineage) {
+        const sourceGroup = splitLineage[company.id as string];
+        const targetGroup = splitLineage[targetCompany.id as string];
+        if (sourceGroup !== undefined && sourceGroup === targetGroup) {
+          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — both split from the same company this organization phase (rule 2.II.3.6)`);
+          continue;
+        }
+      }
 
       const atHaven = companyAtHaven(state, targetCompany, player.alignment, player.id);
       const mergedCharIds = [...targetCompany.characters, ...company.characters];
@@ -1718,4 +1731,43 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
   }
 
   return actions;
+}
+
+/**
+ * Rule 2.II.3.6 (last clause): "all but one of the companies must declare
+ * movement to a new site during that organization phase." Returns the ids of
+ * companies that still violate this — members of a split-lineage group (see
+ * {@link OrganizationPhaseState.splitLineage}) with no `destinationSite`,
+ * when more than one such member remains in that group. A group with at most
+ * one undeclared member satisfies the rule and contributes nothing.
+ *
+ * Consulted by `organizationActions` to withhold `pass` until resolved (or,
+ * if no legal movement remains for any offending company, to let it through
+ * rather than deadlock the phase).
+ */
+export function companiesPendingSplitMovementDeclaration(state: GameState, playerId: PlayerId): CompanyId[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const splitLineage = state.phaseState.phase === Phase.Organization ? state.phaseState.splitLineage : undefined;
+  if (!splitLineage) return [];
+
+  const groups = new Map<string, Company[]>();
+  for (const company of player.companies) {
+    const groupId = splitLineage[company.id as string];
+    if (groupId === undefined) continue;
+    const members = groups.get(groupId) ?? [];
+    members.push(company);
+    groups.set(groupId, members);
+  }
+
+  const pending: CompanyId[] = [];
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    const undeclared = members.filter(c => c.destinationSite === null);
+    if (undeclared.length > 1) {
+      logDetail(`Rule 2.II.3.6: ${undeclared.length} split companies still lack declared movement — ${undeclared.map(c => c.id as string).join(', ')}`);
+      pending.push(...undeclared.map(c => c.id));
+    }
+  }
+  return pending;
 }

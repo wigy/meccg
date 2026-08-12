@@ -1314,12 +1314,222 @@ arithmetic could change: value the remaining modelled zeros — a creature the
 plan cannot use, a character whose mind does not fit, an event that declares no
 effect — and the tidier rule should win.
 
+#### Separating the two jobs the floor was doing
+
+The blanket floor bought agreement on `pass` and paid for it on `discard-card`
+because it was doing two things at once: making every discard expensive, which
+is right, and flattening every card priced below it into a tie, which is not.
+
+Those are separable, and separating them belongs to `hand` rather than to
+`card-price`. What a card is worth to hold is a **valuation**; what throwing one
+*costs* is a **decision**. So `worth` returns the modelled value unclamped, and
+`hand` charges `heldCardFloor` **plus** that value. Adding is also the more
+honest arithmetic — the floor stands for the residual every card carries and
+the valuation for the part that is modelled, and a card has both.
+
+| | overall | `pass` | `discard-card` |
+|---|---|---|---|
+| before any of this | 39.74% | 22.6% | 15.8% |
+| clamp the valuation | 40.76% | 26.6% | 6.6% |
+| floor only where unread | 39.48% | 22.2% | 14.3% |
+| **floor + worth** | **41.14%** | **26.7%** | **12.2%** |
+
+It keeps the whole `pass` gain and recovers most of the discard precision:
++37 decisions on the baseline, +10 on the clamp. It is also the first change
+in this section whose result was *predicted* before it was run rather than
+discovered afterwards, which is what having the decomposition right looks like.
+
+#### The remaining modelled zeros, counted before being fixed
+
+With the clamp gone, a card priced at exactly zero ranks below everything, so
+it is worth knowing which zeros are real. Sampled over 300 recorded discard
+positions and 2462 priced cards, **344 came out at zero (14.0%)**:
+
+| cause | cards |
+|---|---|
+| creature this turn's plan cannot place | **162** |
+| character whose mind does not fit the free influence | 50 |
+| event that declares no effect | 39 |
+| character with no marshalling points | 35 |
+| source that stays capped however the hand plays | 28 |
+| removal with nothing in play to remove | 23 |
+
+**The creature case dominates and resisted the obvious fix.** `hazard-plan`
+already exposes `marginalFor` — *"what a creature not yet held would add,
+against the best target with a slot left"* — which is exactly the neighbouring
+question a fetch asks. Using it as the fallback rescued **0 of the 162**,
+because it asks the same one-turn question under the same hazard limits. The
+value of *holding* a creature is what it will be worth on a turn with different
+limits and a different board, and nothing in the plan answers that. Recorded
+here so the next attempt starts somewhere else.
+
+**The character case did move.** A mind that does not fit the free general
+influence is a timing fact, not a valuation — influence is freed by every
+character that leaves play — and it is the third instance of the same
+present-tense-standing-for-future-probability error as the capped source and
+the tapped-out carrier. It is now valued at its projected marshalling points
+discounted **twice**, because the discount is distance from playable and this
+card is one step further away than one whose mind fits, which is the reading
+`hand` already applies to a card going to the discard rather than to the deck.
+No new constant.
+
+| | overall | `pass` | `discard-card` |
+|---|---|---|---|
+| floor + worth | 41.14% | 26.7% | 12.2% |
+| **+ mind-does-not-fit** | **41.22%** | 26.7% | **13.3%** |
+
++2 decisions of 2642 — small in aggregate, and +1.1 points on the 196 discards
+where it actually applies.
+
+#### Localising `pass` before changing anything about it
+
+`pass` is 1101 of the 2642 attributed decisions and by far the largest block of
+disagreement, so `human-compare --detail pass` now reports *where* it happens
+rather than only how often it is missed:
+
+| phase | human passed | agent agreed |
+|---|---|---|
+| **movement-hazard** | **579** | **15.9%** |
+| site | 158 | 48.7% |
+| end-of-turn | 144 | 68.8% |
+| **organization** | **83** | **0.0%** |
+| untap | 48 | 29.2% |
+| long-event | 41 | 17.1% |
+| free-council | 41 | 12.2% |
+
+Over half of it is one phase, and in `organization` the agent has **never once
+passed** across eight games. Broken down by what it did instead:
+
+```text
+154  movement-hazard / place-on-guard
+135  movement-hazard / play-hazard
+ 88  movement-hazard / play-short-event
+ 59  movement-hazard / activate-granted-action
+ 36  free-council   / support-corruption-check
+ 30  organization   / plan-movement
+```
+
+That is a different picture from "the agent over-acts". It over-acts **as the
+hazard player**, and the single largest specific action is one the module
+models as *free*.
+
+#### An option that forecloses another is not free
+
+`reducer-site.ts` returns an unrevealed on-guard card to its owner's hand **at
+cleanup**, and `hazards` reads that correctly: placement does not spend the
+card, and charging half a card price for it — as the module once did — is a
+cost the rules do not impose.
+
+What that missed is that cleanup is the *end of the turn*. While the card sits
+on a site it cannot be played against a company that has yet to move, so
+placement forecloses the alternative use where passing keeps it. `hazard-plan`
+already computes what that alternative is worth: the marginal the card
+contributes to the turn's assignment if it is played rather than parked. The
+two uses are mutually exclusive, so it is a cost and not a double count.
+
+| | overall | `pass` | `play-hazard` |
+|---|---|---|---|
+| before | 41.22% | 26.7% | 32.9% |
+| **+ forgone hazard use** | **41.41%** | 26.7% | **40.8%** |
+
+Spurious placements fell from 154 to 116, and agreement on `play-hazard` rose
+**7.9 points** — the largest single-metric movement in this section — because
+the cards are now played rather than parked. `heuristic` sits at 46.1% on the
+same measure.
+
+It also overturns a recorded decision, and only half of it: the test that said
+placement *"costs nothing, because an unrevealed on-guard card comes back"* now
+says it does not spend the card and may still cost what it forecloses, and
+pins both halves.
+
+#### Two models of one risk, reconciled — and why it barely mattered
+
+Shutting a company to creatures (Stealth, the most-offered short event in the
+game) was priced at `defence.expectedHarm(roster, size)` — the whole hazard
+plan the opponent could aim at that company, **unscaled**. `travel` prices the
+identical risk the other way, at
+`pathLength × regionCrossingCost × (1 + beliefs.holdsAtLeastOne('creature'))`.
+Two models of one thing, and this was the optimistic one. It is the second
+largest of the movement/hazard over-actions, at 88.
+
+Scaling it by the same belief is the obvious reconciliation, and it moved
+almost nothing: `pass → play-short-event` 166 → 165, overall agreement
+unchanged at 41.41%.
+
+**The reason is worth more than the fix.** Sampled over 400 real
+movement/hazard positions:
+
+| `beliefs.holdsAtLeastOne('creature')` | |
+|---|---|
+| mean | 0.861 |
+| p10 / p50 / p90 | 0.790 / 0.862 / 0.939 |
+| min / max | 0.650 / 0.978 |
+| mean confidence | 0.359 |
+| cards observed | 6.9 mean, 12 max |
+
+**The belief model is a constant.** It spans 0.15 across the entire corpus,
+because it has seen seven cards of a sixty-card deck. Every consumer that
+scales by it is applying a fixed ~14% discount wearing the costume of an
+estimate — `travel`'s `(1 + threat)` is a fixed ×1.86, and this new scaling a
+fixed ×0.86.
+
+That has two consequences worth recording. Wiring further consumers to
+`beliefs` buys nothing until `beliefs` itself discriminates. And it partly
+explains the earlier `regionCrossingCost` sweep: the term it multiplies is
+constant, so the product behaves like one constant, which is why moving it
+moved the cadence smoothly and moved nothing else.
+
+The scaling is kept because two modules pricing one risk two ways is a defect
+whatever its current magnitude — but it is recorded as a consistency fix, not
+as an improvement.
+
+#### One more over-action ruled out, and a check that the score has not moved
+
+`activate-granted-action` is the last large piece of the movement/hazard block
+— 59 there, 20 more in the site phase — and the obvious hypothesis was the
+same one that paid off on `place-on-guard`: an action modelled as free.
+`grants.costOf` has three branches and one of them returns
+`{ tsd: 0, reason: 'the grant declares no cost' }`.
+
+Evaluated over **188 real `activate-granted-action` candidates** from the
+corpus, that branch fired **zero** times. 174 charged the tap through
+`character-value.tapCost`, 14 took another path, and only 34.6% scored
+positive at all — the agent is not taking every grant it is offered. The
+hypothesis is wrong and `grants` is left alone.
+
+That is the fourth attempt to reach the over-activity from the *cost* side —
+after the flat card price in `hazards`, the held-price experiment, and the
+belief scaling — and the third to come back empty. What keeps working is
+finding an action whose model is missing a *specific* forgone alternative
+(`place-on-guard`), and what keeps failing is looking for a price that is
+merely too low.
+
+Separately, every change in this section has been measured on agreement with
+recorded human play rather than on the game. Twelve games of `h2` versus
+`heuristic` on the stack:
+
+```text
+category                 h2 (p1)      heuristic (p2)
+character        0.9 (0 in 7/12)     2.9 (0 in 1/12)
+item             1.0 (0 in 9/12)     3.8 (0 in 4/12)
+faction          2.3 (0 in 6/12)     0.8 (0 in 9/12)
+ally            0.0 (0 in 12/12)     1.3 (0 in 4/12)
+kill             4.1 (0 in 0/12)     4.7 (0 in 0/12)
+misc            -2.1 (0 in 7/12)    -0.7 (0 in 7/12)
+outcomes: 12 completed, 0 hit the decision limit
+```
+
+Twelve of twelve games finished, which is the cycle guard holding. The
+marshalling-point means are not comparable to the earlier n=20 figures and are
+not evidence either way at this sample — they are recorded so that a later
+gate has something to be surprised by, not as a result.
+
 The cumulative movement from the corpus, over 2642 attributed decisions:
 
 | | overall | `pass` |
 |---|---|---|
 | before any of it | 39.74% | 22.6% |
-| now | **40.76%** | **26.6%** |
+| now | **41.41%** | **26.7%** |
 
 That is worth recording rather than rediscovering. It also means the real
 missing term is not a mispriced cost at all but the **option value of not

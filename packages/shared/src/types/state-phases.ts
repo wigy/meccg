@@ -281,6 +281,24 @@ export interface OrganizationPhaseState {
    */
   readonly movementTaxPaid?: Readonly<Record<string, number>>;
   /**
+   * Rule 2.II.3.6: tracks which companies trace back to the same
+   * split-company chain this organization phase, keyed by `CompanyId` (as a
+   * string) → a shared group id (the id of the company that first split,
+   * also a `CompanyId` string). Populated by `split-company`: both the
+   * source and the new company are recorded under the same group id, so
+   * further splits of either one join the same group.
+   *
+   * Consulted by `mergeCompaniesActions` (companies sharing a group id may
+   * not be rejoined this organization phase — "the resulting companies
+   * cannot be rejoined during the same organization phase") and by
+   * `organizationActions` (a group with more than one member still lacking
+   * a `destinationSite` withholds `pass` — "all but one of the companies
+   * must declare movement to a new site during that organization phase").
+   * Reset each organization phase (the phase state is rebuilt on entry).
+   * Optional — absent/`{}` means no split has occurred yet.
+   */
+  readonly splitLineage?: Readonly<Record<string, string>>;
+  /**
    * The Lidless Eye (le-203) / Sauron (ba-43): "Once during each of your
    * organization phases, you may..." — whether that dual-mode granted ability
    * (sideboard-fetch or peek-opponent-hand) has already been used this

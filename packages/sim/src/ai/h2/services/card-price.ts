@@ -236,11 +236,27 @@ function buildComputeCardPrices(
 
     if (CHARACTER_TYPES.test(def.cardType)) {
       if (def.mind > budget.freeGeneralInfluence) {
+        // Not playable *now* is not worthless. General influence is freed by
+        // every character that leaves play and by every one moved back to the
+        // pool, so a mind that does not fit today is a timing fact, not a
+        // valuation — the same present-tense-standing-for-future-probability
+        // error that priced a capped source at zero and a tapped-out company's
+        // plan at zero. Sampled over 300 real discard positions it accounts
+        // for 50 of the 344 cards priced at exactly zero.
+        //
+        // Discounted twice rather than once, because the discount is distance
+        // from playable and this card is one step further away than one whose
+        // mind fits — which is the same reading `hand` already applies to a
+        // card going to the discard rather than to the deck. No new constant.
+        const gain = def.marshallingPoints > 0
+          ? projectedGain('character', def.marshallingPoints)
+          : 0;
         return {
           instanceId,
           name: def.name,
-          tsd: 0,
-          reason: `mind ${def.mind} does not fit the ${budget.freeGeneralInfluence} influence free`,
+          tsd: gain * tunables.potentialDiscount * tunables.potentialDiscount,
+          reason: `mind ${def.mind} does not fit the ${budget.freeGeneralInfluence} influence free `
+            + '— a turn further from playable, discounted twice',
         };
       }
       const gain = def.marshallingPoints > 0
@@ -291,42 +307,27 @@ function buildComputeCardPrices(
   };
 
   /**
-   * Every held card is worth at least the floor, and that is a measured
-   * choice rather than an obvious one.
+   * The floor is no longer clamped onto the valuation, because the two jobs it
+   * was doing pull against each other.
    *
-   * Applying it only to cards nothing can read is the tidier rule, and it is
-   * what the two new valuations were built to make possible: a capped source
-   * priced at the standing its own hand would create is no longer spuriously
-   * zero, and an event priced by `event-value` is no longer spuriously the
-   * floor. Measured over 2642 attributed human decisions, that tidier rule
-   * **loses**:
+   * Applied to every held card it made discarding uniformly expensive, which
+   * is right, *and* flattened every card priced below it into a tie, which is
+   * not. Measured over 2642 attributed human decisions, that bought 4.1 points
+   * of agreement on `pass` and cost 9.2 on which card gets discarded.
    *
-   * ```text
-   *                             overall    pass   discard
-   *   floor on every held card   40.76%   26.6%      6.6%
-   *   floor only where unread    39.48%   22.2%     14.3%
-   * ```
-   *
-   * It buys back most of the discard precision the blanket floor costs — and
-   * pays more for it than it gains, because `pass` is 1101 of those decisions
-   * and `discard-card` is 196. Five and a half times as many decisions turn on
-   * how reluctant the agent is to spend anything at all as on which card it
-   * throws.
-   *
-   * So the floor stays on everything, and the reason is recorded because the
-   * arithmetic could change: value the remaining zeros properly and the tidier
-   * rule should win. What is left at a modelled zero is a creature the plan
-   * cannot use, a character whose mind does not fit, and an event that declares
-   * no effect.
+   * Those are separable, and separating them is `hand`'s job rather than this
+   * service's: what a card is worth to hold is a valuation, and what throwing
+   * one *costs* is a decision. `hand` now charges the floor **plus** the
+   * modelled worth, so every discard is expensive and the cheapest card to
+   * throw is still the least valuable one. Adding is also the more honest
+   * arithmetic — the floor stands for the residual every card carries and the
+   * valuation for the part that is modelled, and a card has both.
    */
-  const atLeastFloor = (worth: CardWorth): CardWorth =>
-    (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
-
   const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return atLeastFloor(priceDefinition(instanceId, definitionId, () => {
+    return priceDefinition(instanceId, definitionId, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -341,7 +342,7 @@ function buildComputeCardPrices(
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
           : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
-    }));
+    });
   };
 
   return {
