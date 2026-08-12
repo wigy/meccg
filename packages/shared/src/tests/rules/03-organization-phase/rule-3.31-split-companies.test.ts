@@ -20,10 +20,10 @@ import {
   buildTestState, resetMint, Phase, dispatch,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO,
-  MORIA, MINAS_TIRITH, RIVENDELL,
+  MORIA, MINAS_TIRITH, RIVENDELL, LORIEN,
   viableActions, charIdAt, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
-import type { GameState, SplitCompanyAction } from '../../../index.js';
+import type { GameState, SplitCompanyAction, PlanMovementAction } from '../../../index.js';
 
 describe('Rule 3.31 — Split Companies', () => {
   beforeEach(() => resetMint());
@@ -168,5 +168,75 @@ describe('Rule 3.31 — Split Companies', () => {
     // The duplicate Rivendell was removed from the site deck.
     expect(after.players[0].siteDeck).toHaveLength(siteDeckBefore - 1);
     expect(after.players[0].siteDeck.some(c => c.definitionId === RIVENDELL)).toBe(false);
+  });
+
+  test('all but one split company must declare movement before the organization phase can end (rule 2.II.3.6)', () => {
+    // Bug report: the resource player split a company into three at Iron
+    // Hill Dwarf-hold; only one declared movement, and the engine let the
+    // organization phase end (via `pass`) with two split companies stranded
+    // at the site. Rule 2.II.3.6's last clause requires all but one of a
+    // split's resulting companies to declare movement to a new site before
+    // the organization phase that split them ends.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [ARAGORN, LEGOLAS, FRODO] }],
+          hand: [],
+          // Both Moria and Minas Tirith are reachable from Lórien via
+          // starter movement (their printed nearestHaven is Lórien).
+          siteDeck: [MORIA, MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const originalCompanyId = state.players[0].companies[0].id;
+    const legolasInstId = charIdAt(state, RESOURCE_PLAYER, 0, 1);
+    let after = dispatch(state, {
+      type: 'split-company',
+      player: PLAYER_1,
+      sourceCompanyId: originalCompanyId,
+      characterId: legolasInstId,
+    });
+    const companyB = after.players[0].companies.find(c => c.id !== originalCompanyId)!.id;
+
+    const frodoInstId = after.players[0].companies.find(c => c.id === originalCompanyId)!.characters[1];
+    after = dispatch(after, {
+      type: 'split-company',
+      player: PLAYER_1,
+      sourceCompanyId: originalCompanyId,
+      characterId: frodoInstId,
+    });
+    const companyC = after.players[0].companies.find(c => c.id !== originalCompanyId && c.id !== companyB)!.id;
+
+    // Three companies now share the split, none has declared movement —
+    // ending the organization phase is not offered.
+    expect(viableActions(after, PLAYER_1, 'pass')).toHaveLength(0);
+
+    // Declare movement for the original company: two of the three still
+    // lack a destination, so passing remains illegal.
+    const moriaInstId = after.players[0].siteDeck.find(c => c.definitionId === MORIA)!.instanceId;
+    after = dispatch(after, {
+      type: 'plan-movement',
+      player: PLAYER_1,
+      companyId: originalCompanyId,
+      destinationSite: moriaInstId,
+    } satisfies PlanMovementAction);
+    expect(viableActions(after, PLAYER_1, 'pass')).toHaveLength(0);
+
+    // Declare movement for a second company: only one now remains without
+    // a destination, satisfying "all but one" — passing is legal again.
+    const minasTirithInstId = after.players[0].siteDeck.find(c => c.definitionId === MINAS_TIRITH)!.instanceId;
+    after = dispatch(after, {
+      type: 'plan-movement',
+      player: PLAYER_1,
+      companyId: companyB,
+      destinationSite: minasTirithInstId,
+    } satisfies PlanMovementAction);
+    expect(viableActions(after, PLAYER_1, 'pass')).toHaveLength(1);
+    expect(after.players[0].companies.find(c => c.id === companyC)!.destinationSite).toBeNull();
   });
 });

@@ -14,7 +14,7 @@
  * |---|---------------|--------|------------------------------------------------------|
  * | 1 | stat-modifier | OK     | +2 prowess (max 9), id durins-axe-prowess            |
  * | 2 | stat-modifier | OK     | +4 prowess (max 9) if Dwarf, overrides durins-axe-prowess |
- * | 3 | stat-modifier | OK     | +3 corruption-points if Dwarf bearer                 |
+ * | 3 | stat-modifier | OK     | base 2 corruption points; +1 if Dwarf bearer (total 3) |
  * | 4 | mp-modifier   | OK     | +2 MP if Dwarf bearer (base 2 → total 4)             |
  *
  * Playable: YES
@@ -109,13 +109,13 @@ describe("Durin's Axe (tw-212)", () => {
     expect(getCharacter(state, RESOURCE_PLAYER, GIMLI).effectiveStats.corruptionPoints).toBe(3);
   });
 
-  test('non-dwarf bearer has 0 corruption points from the axe', () => {
+  test('non-dwarf bearer has 2 corruption points from the axe', () => {
     const state = recomputeDerived(buildSitePhaseState({
       characters: [{ defId: ARAGORN, items: [DURINS_AXE] }],
       site: MORIA,
     }));
 
-    expect(getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(0);
+    expect(getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(2);
   });
 
   // ─── Rule 4: Marshalling points ────────────────────────────────────────────
