@@ -440,6 +440,37 @@ export function orgPhaseFetchActivations(state: GameState, playerId: PlayerId): 
 }
 
 /**
+ * Item-cache hand-store actions (Armory dm-116): "You may place any minor
+ * items from your hand under Armory during your organization phase." For
+ * each in-play card the player controls that carries an
+ * `item-cache-hand-store` effect, offer one `store-item-in-cache` action per
+ * hand item whose subtype matches the effect's `subtypes` list. Unlike
+ * `store-item`, this path has no site or bearer requirement — the item is
+ * moved directly from hand, never having been played.
+ */
+export function itemCacheHandStoreActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const host of player.cardsInPlay) {
+    const hostDef = defById(state, host.definitionId);
+    const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-hand-store');
+    if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') continue;
+    for (const card of player.hand) {
+      const itemDef = defById(state, card.definitionId);
+      if (!itemDef || !isItemCard(itemDef)) continue;
+      if (!cacheEffect.subtypes.includes(itemDef.subtype)) continue;
+      logDetail(`${hostDef?.name ?? '?'}: ${itemDef.name} may be placed under it from hand`);
+      actions.push({
+        action: { type: 'store-item-in-cache', player: playerId, itemInstanceId: card.instanceId, hostInstanceId: host.instanceId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Pair-resource-with-CoF actions (Crown of Flowers, dm-121).
  *
  * Crown of Flowers enters play as an environment with "no effect until you
@@ -724,6 +755,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Store-item actions (store items at matching sites)
   actions.push(...storeItemActions(state, playerId));
+
+  // Item-cache hand-store actions (Armory dm-116): place minor items from hand
+  // under a cache host directly, without playing them.
+  actions.push(...itemCacheHandStoreActions(state, playerId));
 
   // Split-company actions (move GI character + followers to a new company)
   actions.push(...splitCompanyActions(state, playerId));

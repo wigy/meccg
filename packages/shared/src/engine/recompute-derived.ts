@@ -1941,6 +1941,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // Item-cache count-threshold bonus (Armory dm-116): "If you have at least
+  // three minor items under Armory, gain 1 marshalling point." One host may
+  // carry `item-cache-count-bonus`; award it once its own `setAside` list
+  // reaches the declared threshold. Individual cached items already score no
+  // MP of their own (`setAsideNoMp`, above) — this bonus is the only MP the
+  // cache contributes.
+  for (const host of player.cardsInPlay) {
+    const hostDef = resolveDef(state, host.instanceId);
+    if (!hostDef) continue;
+    const countBonus = getCardEffects(hostDef).find(e => e.type === 'item-cache-count-bonus');
+    if (!countBonus || countBonus.type !== 'item-cache-count-bonus') continue;
+    const cachedCount = host.setAside?.length ?? 0;
+    if (cachedCount >= countBonus.count) {
+      mp = { ...mp, misc: mp.misc + countBonus.mp };
+    }
+  }
+
   // Alliance of Free Peoples (as-45): while a `faction-mp-bonus` gate holds, each
   // of the controller's in-play factions whose race the bonus lists gains extra
   // faction MP. A separate pass (not folded into the per-card MP loop above) so
