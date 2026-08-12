@@ -291,7 +291,6 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       const planned = rankWithPlans(modules, tactical, commitment, moduleContext);
       const evaluations = planned.map(p => p.evaluation);
       const best = evaluations[0];
-      const worst = evaluations[evaluations.length - 1];
       // A ranking whose candidates all score the same is not an opinion, it is
       // a tie — and acting on it means choosing uniformly at random where
       // Heuristics 1 would at least have a preference. Complete coverage is
@@ -303,18 +302,36 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // acting on identical scores samples uniformly where Heuristics 1 would
       // at least have a preference.
       //
+      // The comparison is against the *runner-up*, not the worst candidate.
+      // A decision with several tied 0-utility actions (e.g. `transfer-item`,
+      // `store-item`, `pass`, all correctly scored as "moves no points") and
+      // one clearly worse one (`split-company`, priced negative by `defence`)
+      // has a real spread between best and worst — but no opinion at the top:
+      // `evaluations[0]` after the stable sort is just whichever tied
+      // candidate happened to appear first in `legalActions`, not a preferred
+      // one. Comparing best to worst called that "discriminating" and played
+      // it, which is how H2 came to deterministically hand away two starting
+      // items it never had a reason to move (game msp8zwew-ddwnxz, turn 2).
+      // Comparing to the runner-up asks the right question: is the top of the
+      // ranking uncontested? A single covered candidate has no runner-up to
+      // clear, so it falls through to the `best.utility > TIE_EPSILON` check
+      // below rather than discriminating by default — a lone action scored
+      // exactly 0 (e.g. `pass` on the baseline, with no modules registered)
+      // still has to earn `speaks` on its own, which is what keeps `h2` with
+      // no modules an exact replay of Heuristics 1.
+      //
       // Requiring the *margin* instead cost real decisions. Drawing a card is
       // worth `resourceDrawValue`, which comes out around +0.3% against passing
       // at 0 — a correct and confident preference that fell below the 0.5%
       // margin and went to H1 every turn of every game.
-      const discriminates = evaluations.length > 0
-        && best.utility - worst.utility > TIE_EPSILON;
+      const runnerUp = evaluations[1];
+      const discriminates = evaluations.length > 0 && runnerUp !== undefined
+        && best.utility - runnerUp.utility > TIE_EPSILON;
       // …and a *near* tie is only a tie worth keeping when the fallback is
       // weaker than the module tree. It is a parameter now, so this is too:
       // `decisiveMargin` is how far the best candidate must beat its runner-up
       // before H2 claims a decision it fully covers. At the shipped zero the
       // clause cannot fire and the rule above is unchanged.
-      const runnerUp = evaluations[1];
       const decisive = tunables.decisiveMargin <= 0
         || runnerUp === undefined
         || best.utility - runnerUp.utility > tunables.decisiveMargin;

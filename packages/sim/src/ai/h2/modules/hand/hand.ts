@@ -180,8 +180,18 @@ export const handModule: H2Module = {
       // worth on average. This is the whole point of the shadow price: the
       // module can now prefer throwing the faction it can never score over the
       // creature that would tap their company.
+      // The floor **plus** the modelled worth, not the larger of the two.
+      //
+      // Clamping the valuation at the floor made every card priced below it
+      // tie, so which card the agent threw among them was decided by array
+      // order — measured as discard agreement falling from 15.8% to 6.6% and
+      // refusing to move at any floor between 1.0 and 0.1. Charging the floor
+      // here instead keeps both properties the clamp was trying to hold at
+      // once: every discard is expensive, which is where the agreement on
+      // `pass` came from, and the cheapest card to throw is still the least
+      // valuable one.
       const dtsd = discarding
-        ? -(discarded?.tsd ?? tunables.provisionalCardPrice)
+        ? -(tunables.heldCardFloor + (discarded?.tsd ?? 0))
         : tunables.resourceDrawValue;
       const outcomes: Outcome[] = [{
         p: 1,

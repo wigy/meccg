@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.100.0 — 2026-08-12
+
+Split companies held to the rules, and the agreement metric refuted
+
+### Game Engine
+
+- Rule 2.II.3.6 is enforced in full: companies produced by a split can no longer be rejoined during the same organization phase, and all but one of them must declare movement to a new site. Split lineage is now tracked per organization phase, merge actions exclude pairs tracing back to the same split, and `pass` is withheld while more than one member of a lineage still lacks a destination. Reported via game msp4od96-kfyqdn, where a split at Iron Hill Dwarf-hold left two companies stranded at the origin after an illegal merge
+
+### Cards
+
+- Durin's Axe (tw-212) carries its printed base corruption. The card recorded 0 with a +3 effect for Dwarf bearers, so a non-Dwarf bearer took no corruption from it at all; it is now 2 base with a +1 Dwarf delta, the "2(3)" the card database records and the pattern sibling Dwarven Ring of Durin's Tribe already used
+- Records Unread (as-130) gains the 1 corruption point its printed card shows, which had been recorded as 0
+
+### Web Client
+
+- The hand is reachable during Free Council. The phase forces the all-companies overview on so support taps stay available, and the stylesheet hid the hand-arc whenever that mode was set — making CoE 10.3.i's reactive hand plays legal, in hand, and impossible to click
+- Regular stored items appear in the Game Over marshalling-point breakdown. Items storable at any Haven without an explicit storable-at effect were dropped from the thumbnail row even though the authoritative total already counted them
+
+### AI / Simulation
+
+- A tie at the top is treated as a tie. `discriminates` compared the best-scored action to the *worst*, so a single bad outlier made the agent claim an opinion it did not have and play whichever tied candidate the sort happened to order first — in practice round-robining two starting items through every character before storing them
+- The held-card floor is decomposed into the two jobs it was doing. What a card is worth to hold is a valuation and what throwing one costs is a decision, so `hand` now charges the floor **plus** the modelled worth instead of clamping the valuation. Every discard stays expensive and the cheapest card to throw is again the least valuable one
+- On-guard placement is charged what it forecloses: the card comes back at cleanup, but while it sits on a site it cannot be played against a company still to move. Spurious placements fell from 154 to 116
+- A character whose mind does not fit the free general influence is valued rather than zeroed — a timing fact, not a valuation, and the third instance of the same present-tense-standing-for-future-probability error
+- Stealth's risk is scaled by the same belief `travel` uses, ending two models of one risk. Measuring that belief is the more useful result: it spans 0.15 across the whole corpus, so every consumer scaling by it applies a fixed discount wearing the costume of an estimate
+
+#### The gate, and what it refutes
+
+Five iterations of corpus-driven work raised agreement with recorded human play from 39.74% to 41.41%. Gated against `heuristic` on identical seeds with a paired side-swapped protocol, the same work moved the score from 47.9% to 41.1% and the paired Elo from -14 to -62 — 48 points the wrong way. The intervals overlap, so this is not proof of harm; there is no evidence of gain anywhere in it.
+
+This was foreseeable and had been foreseen: H2 already agreed with humans more often than `heuristic` did while scoring a fraction of the marshalling points. **Agreement is not the objective**, and a rising agreement rate is not a better agent. The tool keeps its value as a localiser — it found the on-guard mispricing that five model changes and two gates had missed, and ruled out four hypotheses — but it is not a fitness function.
+
+The one thing here that gated cleanly is the cycle guard: 0 unfinished games in 96, twice, against 32 of 96 before it existed.
+
 ## 0.99.0 — 2026-08-11
 
 Automatic attacks corrected, and the AI measured against the humans who beat it

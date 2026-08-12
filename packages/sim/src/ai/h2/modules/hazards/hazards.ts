@@ -75,6 +75,7 @@ import { leaf, node } from '../../core/rationale.js';
 import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { computeExposure } from '../../services/exposure.js';
+import { computeHazardPlan } from '../../services/hazard-plan.js';
 import { bodyOf, effectiveStrikeProwess, needAgainst, rosterOf } from '../../services/strike/prowess.js';
 import { strikeOutcomes } from '../../services/strike/strike-model.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
@@ -289,11 +290,17 @@ function evaluateBundle(
   context: ModuleContext,
   discount: number,
   headline: string,
+  forgoneTsd = 0,
 ): Evaluation {
   const { standing } = context;
-  const outcomes = discount === 1
+  const scaled = discount === 1
     ? bundle.outcomes
     : bundle.outcomes.map(o => ({ ...o, dtsd: o.dtsd * discount }));
+  // A deterministic cost shifts every outcome equally, which is what keeps σ
+  // — and so the risk posture's grip on the action — intact.
+  const outcomes = forgoneTsd === 0
+    ? scaled
+    : scaled.map(o => ({ ...o, dtsd: o.dtsd - forgoneTsd }));
   const scored = standing.score(outcomes);
   const plannedWith = bundle.cards.slice(1);
 
@@ -315,6 +322,12 @@ function evaluateBundle(
     detail.push(leaf('on-guard discount', discount, {
       tunable: 'onGuardDiscount',
       note: 'costs no hazard limit, but may never fire',
+    }));
+  }
+  if (forgoneTsd !== 0) {
+    detail.push(leaf('the hazard it is not', forgoneTsd, {
+      unit: 'tsd',
+      note: 'what this card would have denied played against a company still to move',
     }));
   }
 
@@ -725,9 +738,29 @@ function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation
     // hand over more kill MP than it denies simply is not revealed, and the
     // card comes back — so its placement is worth the floor, not the negative.
     if (single.expectedTsd > 0) {
+      // Placement does not spend the card — the rules return it at cleanup —
+      // but it does **commit** it for the turn: a card sitting on a site is not
+      // available to be played against a company that has yet to move. That
+      // opportunity cost was missing, and it is the whole of the difference
+      // between "an option that costs nothing" and one that costs the best
+      // alternative use.
+      //
+      // It is the largest single disagreement with recorded human play:
+      // `place-on-guard` is what the agent does instead of passing 154 times
+      // in 8 games, all of it in the movement/hazard phase, against a `pass`
+      // agreement of 15.9% there. An action modelled as free is one a
+      // zero-baseline policy takes whenever it has any upside at all.
+      //
+      // `hazard-plan` already knows the number: the marginal this card
+      // contributes to the turn's assignment if it is played rather than
+      // placed. The two uses are mutually exclusive, so it is a cost and not a
+      // double count.
+      const forgone = Math.max(0, computeHazardPlan(
+        context.view, context.cardPool, context.standing, tunables,
+      ).worth(card.instanceId)?.marginal ?? 0);
       return evaluateBundle(
         action, plan, single, context, tunables.onGuardDiscount,
-        `place ${single.cards[0].name} on guard`,
+        `place ${single.cards[0].name} on guard`, forgone,
       );
     }
     return freeOption(

@@ -7,7 +7,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay } from '@meccg/shared';
-import { cardImageProxyPath, computeTournamentScore, computeTournamentBreakdown, Phase } from '@meccg/shared';
+import { cardImageProxyPath, computeTournamentScore, computeTournamentBreakdown, isItemCard, Phase } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import { mpCategories } from './mp-categories.js';
 
@@ -16,7 +16,7 @@ import { mpCategories } from './mp-categories.js';
  * Collect card definition IDs contributing to each MP category for a player.
  * Returns a map from category key to array of { defId, mp } entries.
  */
-function collectMPCards(
+export function collectMPCards(
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardsInPlay: readonly { definitionId: CardDefinitionId }[],
   killPile: readonly { definitionId: CardDefinitionId }[],
@@ -66,6 +66,13 @@ function collectMPCards(
       const mp = storableEffect.marshallingPoints ?? (('marshallingPoints' in def) ? (def as { marshallingPoints: number }).marshallingPoints : 0);
       const cat = ('marshallingCategory' in def) ? (def as { marshallingCategory: string }).marshallingCategory : 'misc';
       result[cat]?.push({ defId: card.definitionId as string, mp });
+      continue;
+    }
+    // Regular items (CoE rule 2.II.4): storable at any Haven without a
+    // `storable-at` effect on the card — still score their printed MP once
+    // stored, same as recompute-derived's addItemMP fallback.
+    if (isItemCard(def)) {
+      result[def.marshallingCategory]?.push({ defId: card.definitionId as string, mp: def.marshallingPoints });
       continue;
     }
     if ('killMarshallingPoints' in def) {

@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { EvaluatedAction } from '@meccg/shared';
+import { Phase } from '@meccg/shared';
 import {
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
   shouldClearOverrideForNewCombat,
   shouldRestoreOverrideAfterCombat,
   isCombatBlockedByPendingCorruptionCheck,
+  handStaysVisibleDuringOverview,
 } from './company-view-state.js';
 
 /**
@@ -204,5 +206,27 @@ describe('isCombatBlockedByPendingCorruptionCheck', () => {
 
   it('does NOT block when there are no legal actions', () => {
     expect(isCombatBlockedByPendingCorruptionCheck([])).toBe(false);
+  });
+});
+
+/**
+ * Regression test for bug report 1a19775ad8f882a0 (game msosuz1s-y1tnx9, seq
+ * 1115): "I have a Friend of Tree (I think) but my hand is no longer
+ * visible." During Free Council corruption checks, the all-companies overview
+ * is forced on for the whole phase (so support taps across every company
+ * stay reachable) and public/style.css hides `#hand-arc` whenever
+ * `all-companies-mode` is set on `document.body`. That left CoE 10.3.i's
+ * reactive hand plays — e.g. A Friend or Three's corruption-check-boost,
+ * which the player had legally available for this exact check — completely
+ * unreachable: the card was in hand but never rendered, so it could never be
+ * clicked.
+ */
+describe('handStaysVisibleDuringOverview', () => {
+  it('keeps the hand-arc visible during Free Council so reactive plays (CoE 10.3.i) stay reachable', () => {
+    expect(handStaysVisibleDuringOverview(Phase.FreeCouncil)).toBe(true);
+  });
+
+  it('does NOT keep the hand-arc visible during the opponent-turn overview outside Free Council', () => {
+    expect(handStaysVisibleDuringOverview(Phase.MovementHazard)).toBe(false);
   });
 });

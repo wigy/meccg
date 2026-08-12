@@ -277,6 +277,19 @@ const swaps = new Map<string, number>();
  * discard, so what is being compared is purely the hand's valuation ordering.
  */
 const detail = { human: new Map<string, number>(), agent: new Map<string, number>() };
+/**
+ * Where a `--detail` type's disagreements happen, by phase and by what the
+ * agent did instead.
+ *
+ * A rate says how often the agent is wrong about an action; it cannot say
+ * *where*. `pass` is 1101 of 2642 attributed decisions and the single largest
+ * block of disagreement in the corpus, so before another model change is aimed
+ * at it, it is worth knowing whether the agent over-acts everywhere or in one
+ * phase — those want different fixes, and only one of them is a valuation.
+ */
+const byPhase = new Map<string, { seen: number; agreed: number }>();
+/** What the agent played instead, keyed `phase / agent action`. */
+const phaseSwaps = new Map<string, number>();
 
 /** A short description of a card: its class and what it is printed with. */
 function describeCard(instanceId: string | undefined): string {
@@ -333,6 +346,17 @@ for (const target of targets) {
     const humanType = decision.chosen.type;
     const entry = byType.get(humanType) ?? { seen: 0, agreed: 0 };
     entry.seen++;
+    if (detailType !== undefined && humanType === detailType) {
+      const phase = byPhase.get(decision.phase) ?? { seen: 0, agreed: 0 };
+      phase.seen++;
+      if (played === decision.chosen) {
+        phase.agreed++;
+      } else {
+        const key = `${decision.phase} / ${played.type}`;
+        phaseSwaps.set(key, (phaseSwaps.get(key) ?? 0) + 1);
+      }
+      byPhase.set(decision.phase, phase);
+    }
     // Identity, not deep equality: the candidate list handed to the agent is
     // the same array the human's move was recovered from, so the agreed case
     // is the same object.
@@ -374,6 +398,8 @@ if (asJson) {
       type: detailType,
       human: Object.fromEntries(detail.human),
       agent: Object.fromEntries(detail.agent),
+      byPhase: Object.fromEntries([...byPhase].map(([p, e]) => [p, e])),
+      phaseSwaps: Object.fromEntries(phaseSwaps),
     },
   }, null, 2));
 } else {
@@ -398,6 +424,20 @@ if (asJson) {
   console.log('\n── what the agent played instead, most common first ──\n');
   for (const [key, count] of [...swaps].sort((a, b) => b[1] - a[1]).slice(0, topN)) {
     console.log(`  ${String(count).padStart(5)}  ${key}`);
+  }
+  if (detailType !== undefined && byPhase.size > 0) {
+    console.log(`\n── where the human's \`${detailType}\` decisions happen ──\n`);
+    console.log('phase                          human chose it   agent agreed');
+    for (const [phase, e] of [...byPhase].sort((a, b) => b[1].seen - a[1].seen)) {
+      console.log(`  ${phase.padEnd(28)}${String(e.seen).padStart(9)}`
+        + `${`${e.agreed} (${rate(e.agreed, e.seen)})`.padStart(18)}`);
+    }
+  }
+  if (detailType !== undefined && phaseSwaps.size > 0) {
+    console.log(`\n── what the agent did instead of \`${detailType}\`, by phase ──\n`);
+    for (const [key, count] of [...phaseSwaps].sort((a, b) => b[1] - a[1]).slice(0, 16)) {
+      console.log(`  ${String(count).padStart(5)}  ${key}`);
+    }
   }
   if (detailType !== undefined) {
     console.log(`\n── on a \`${detailType}\` both sides chose, which card did each name? ──\n`);
