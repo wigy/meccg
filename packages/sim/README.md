@@ -1543,6 +1543,55 @@ built part of the design: `resolve-strike` 79.0% against 40.7%,
 human play closely. `play-hazard`, which H2 owns and has never calibrated,
 goes the other way — 32.9% against 46.1%.
 
+### Coverage is no longer the problem
+
+Cross-referencing every action type a human decided in the corpus against the
+`ownedActionTypes` of all fourteen modules and the baseline:
+
+| unowned action type | humans decided it | agreed |
+|---|---|---|
+| `play-permanent-event` | 18 | 33.3% |
+| `tap-item-for-strike` | 7 | 0.0% |
+| `cancel-strike` | 7 | 0.0% |
+| `untap` | 5 | 100.0% |
+| everything else unowned | ≤3 each | — |
+
+**Total disagreements on action types no module owns: 34**, against roughly
+1550 disagreements overall. H2 owns 47 action types and they cover essentially
+every decision a human actually makes. Writing more modules is not what is
+left.
+
+What is left is the rows H2 *does* own and gets wrong:
+
+| owned action type | seen | agreed |
+|---|---|---|
+| **`play-short-event`** | 26 | **0.0%** |
+| **`move-to-influence`** | 37 | **8.1%** |
+| `play-character` | 14 | 14.3% |
+| **`draft-pick`** | 38 | **15.8%** |
+| `exchange-sideboard` | 13 | 0.0% |
+| `split-company` / `move-to-company` | 7 / 7 | 0.0% / 0.0% |
+
+Two of these are worth more attention than their counts suggest.
+
+**`move-to-influence` is a declared gap, not a bug.** `characters` owns it and
+its own docstring says what it does: *"scored as point-neutral with the
+influence change reported… the honest shape until the strategic half can say
+what that influence is for."* It is owned and unpriced, which `coverage`
+counts as covered and the corpus counts as 34 disagreements.
+
+**`draft-pick` compounds.** Thirty-eight decisions is a small count, but they
+are the most consequential in the game — the opening draft fixes the starting
+company, and every later decision is conditioned on it. A mid-game tap costs a
+tap; a draft pick costs the game it sets up. 15.8% agreement on the decisions
+that determine everything downstream is a different kind of number from 15.8%
+on discards.
+
+Read with the gate results above, the state of the project is: **H2 covers the
+game, models it more faithfully than it did, and is still not stronger than
+the crude agent it exists to replace.** Coverage was the thing that could be
+finished by building, and it has been. What remains cannot be.
+
 ### The gate that says not to do any of this
 
 `human-compare` was used over five iterations to drive changes: agreement with
