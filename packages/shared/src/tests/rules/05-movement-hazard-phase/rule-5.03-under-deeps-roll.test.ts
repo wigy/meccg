@@ -233,6 +233,60 @@ describe('Rule 5.03 — Under-Deeps Movement Roll', () => {
     expect(company.currentSite?.definitionId).toBe(THE_UNDER_GATES);
   });
 
+  test('Under-deeps roll failure still conducts the company\'s movement/hazard phase (rule 2.IV)', () => {
+    // Rule 2.IV: "they must initiate a movement/hazard phase for each of their
+    // companies... each proceeds through the following Steps 1-8 ... regardless
+    // of whether the company is moving." A failed under-deeps roll (5.03) must
+    // not skip straight to the next company — it must continue through the
+    // hazard-limit/hazard-play steps at the company's current site, just like
+    // a company that never declared movement at all.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: THE_UNDER_GATES, characters: [ARAGORN], destinationSite: THE_UNDER_GROTTOS }],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const revealState = { ...base, phaseState: makeMHState({ step: 'reveal-new-site', siteRevealed: false }) };
+    const afterDeclare = reduce(revealState, {
+      type: 'declare-path',
+      player: PLAYER_1,
+      movementType: MovementType.UnderDeeps,
+    });
+    expect(afterDeclare.error).toBeUndefined();
+
+    // Roll 7 (failure — less than required 8)
+    const afterRoll = reduce(
+      { ...afterDeclare.state, cheatRollTotal: 7 },
+      { type: 'under-deeps-roll', player: PLAYER_1 },
+    );
+    expect(afterRoll.error).toBeUndefined();
+
+    const mhState = afterRoll.state.phaseState as MovementHazardPhaseState;
+    // Still processing this company (index 0), not advanced past it, and its
+    // hazard limit was set for its current site — the phase is not skipped.
+    expect(mhState.activeCompanyIndex).toBe(0);
+    expect(mhState.handledCompanyIds).not.toContain('company-p1-0');
+    expect(mhState.step).toBe('play-hazards');
+    expect(mhState.hazardLimitAtReveal).toBeGreaterThan(0);
+    expect(mhState.destinationSiteName).toBe('The Under-gates');
+
+    // The hazard player must now be able to act against this company.
+    expect(viableActionTypes(afterRoll.state, PLAYER_2).length).toBeGreaterThan(0);
+  });
+
   test('Under-deeps movement: hazard player has no actions during under-deeps-roll step', () => {
     // During the under-deeps-roll step, only the resource player acts (rolling dice).
     // The hazard player must have no legal actions.

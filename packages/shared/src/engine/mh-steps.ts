@@ -11,10 +11,8 @@
  * as the provably-closed transitive closure of these step handlers (call-graph
  * fixpoint) — it calls no other reducer-movement-hazard function.
  * reducer-movement-hazard imports the step handlers its dispatcher references
- * one-way from here; this module imports only shared leaves plus mh-hazard-play,
- * so no cycle forms.
- *
- * Pure relocation: the logic is unchanged from its previous home.
+ * one-way from here; this module imports only shared leaves, so no cycle
+ * forms.
  */
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, PlayerState } from '../index.js';
@@ -39,7 +37,6 @@ import { buildInPlayNames, applyRegionMovementReduction } from './recompute-deri
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
 import { manifestIdOf } from './manifestations.js';
-import { advanceAfterCompanyMH } from './mh-hazard-play.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 
@@ -592,8 +589,11 @@ export function getUnderDeepsRequiredRoll(state: GameState, origin: import('../i
  * Handle the `under-deeps-roll` step: the resource player rolls 2d6.
  *
  * - Roll >= required: company moves; advance to `set-hazard-limit`.
- * - Roll < required: company stays; destination returned to location deck;
- *   advance to next company (does NOT count as "returned to origin").
+ * - Roll < required: company stays at its current site; destination returned
+ *   to the location deck (does NOT count as "returned to origin"); the
+ *   company still conducts its full movement/hazard phase (rule 2.IV) at its
+ *   current site, so also advance to `set-hazard-limit` rather than skipping
+ *   straight to the next company.
  */
 export function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'under-deeps-roll') {
@@ -655,7 +655,24 @@ export function handleUnderDeepsRoll(state: GameState, action: GameAction, mhSta
   };
 
   const withRoll: GameState = { ...state, rng, cheatRollTotal, players: newPlayers };
-  const result = advanceAfterCompanyMH(withRoll, { ...mhState, underDeepsRollRequired: undefined });
+
+  // Rule 2.IV: every company's movement/hazard phase proceeds through all
+  // steps (1-8) regardless of whether the company moved. A failed under-deeps
+  // roll (2.IV.i.1) means the company stays at its current site — the same
+  // "conducts a full movement/hazard phase" treatment as illegal-movement
+  // negation (rule 5.04, see the non-moving branch of handleRevealNewSite) —
+  // so continue this company's phase (hazard limit, hazard play, etc.)
+  // instead of skipping straight to the next company.
+  const currentSiteDef = company.currentSite ? defById(withRoll, company.currentSite.definitionId) : undefined;
+  const currentSite = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef : undefined;
+  const result = enterSetHazardLimitAndAutoAdvance(withRoll, {
+    ...mhState,
+    underDeepsRollRequired: undefined,
+    resolvedSitePath: [],
+    resolvedSitePathNames: [],
+    destinationSiteType: currentSite?.siteType ?? null,
+    destinationSiteName: currentSite?.name ?? null,
+  });
   return { ...result, effects: [rollEffect, ...(result.effects ?? [])] };
 }
 
