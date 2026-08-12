@@ -46,7 +46,7 @@ const LORIEN = 'tw-408' as CardDefinitionId;           // hero haven
 const ATHELAS = 'tw-195' as CardDefinitionId;          // hero item, cp 1
 const RED_ARROW = 'tw-312' as CardDefinitionId;        // hero item, cp 2
 const PALANTIR_AMON_SUL = 'tw-296' as CardDefinitionId;// hero item, cp 3
-const DURINS_AXE = 'tw-212' as CardDefinitionId;       // hero item, +3 corruption on a Dwarf (stat-modifier)
+const DURINS_AXE = 'tw-212' as CardDefinitionId;       // hero item, base 2 corruption + 1 more on a Dwarf (stat-modifier)
 
 /** Corruption points of a character after recomputing derived stats. */
 function cpOf(state: ReturnType<typeof buildTestState>, playerIdx: number): number {
@@ -137,13 +137,13 @@ describe('The Balance of Things (tw-93)', () => {
     );
     base = attachItemToChar(base, RESOURCE_PLAYER, GIMLI, DURINS_AXE);
     base = recomputeDerived(attachItemToChar(base, HAZARD_PLAYER, BEORN, DURINS_AXE));
-    // Dwarf: +3 corruption via the effect; Man: 0.
+    // Dwarf: base 2 + effect 1 = 3 corruption; Man: base 2 only.
     expect(cpOf(base, RESOURCE_PLAYER)).toBe(3);
-    expect(cpOf(base, HAZARD_PLAYER)).toBe(0);
+    expect(cpOf(base, HAZARD_PLAYER)).toBe(2);
 
     const withBalance = recomputeDerived(addCardInPlay(base, RESOURCE_PLAYER, BALANCE_OF_THINGS));
-    expect(cpOf(withBalance, RESOURCE_PLAYER)).toBe(6); // effect source doubled: 3 + 3
-    expect(cpOf(withBalance, HAZARD_PLAYER)).toBe(0);   // no source → unaffected
+    expect(cpOf(withBalance, RESOURCE_PLAYER)).toBe(4); // smallest source (effect, 1) doubled: 3 + 1
+    expect(cpOf(withBalance, HAZARD_PLAYER)).toBe(4);   // item's base cp (2) is a source too: 2 + 2
   });
 
   test('picks the smallest source across effect-sourced and item-sourced corruption', () => {
@@ -151,12 +151,12 @@ describe('The Balance of Things (tw-93)', () => {
       { site: RIVENDELL, characters: [GIMLI] },
       { site: LORIEN, characters: [BEORN] },
     );
-    // Durin's Axe (effect, +3 on Dwarf) + Athelas (item, cp 1): total 4.
+    // Durin's Axe (base item cp 2 + effect 1 on Dwarf) + Athelas (item, cp 1): total 4.
     base = attachItemToChar(base, RESOURCE_PLAYER, GIMLI, DURINS_AXE);
     base = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GIMLI, ATHELAS));
     expect(cpOf(base, RESOURCE_PLAYER)).toBe(4);
 
-    // Smallest source is Athelas (1): 4 + 1 = 5.
+    // Smallest source is the axe's effect or Athelas (both 1): 4 + 1 = 5.
     const withBalance = recomputeDerived(addCardInPlay(base, RESOURCE_PLAYER, BALANCE_OF_THINGS));
     expect(cpOf(withBalance, RESOURCE_PLAYER)).toBe(5);
   });

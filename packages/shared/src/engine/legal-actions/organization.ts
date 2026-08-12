@@ -62,6 +62,7 @@ import {
   moveToCompanyActions,
   mergeCompaniesActions,
   companyMovementTaxUnpaid,
+  companiesPendingSplitMovementDeclaration,
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -762,7 +763,20 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Voluntary return-to-hand of an attached ally (Radagast's Black Bird wh-114)
   actions.push(...returnAttachedToHandActions(state, playerId));
 
-  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  // Rule 2.II.3.6: "all but one of the companies must declare movement to a
+  // new site during that organization phase." Withhold pass while more than
+  // one split-lineage company still lacks a destination and a plan-movement
+  // action remains available to fix it — otherwise let pass through so a
+  // company with nowhere to go doesn't deadlock the phase.
+  const pendingSplitMovement = companiesPendingSplitMovementDeclaration(state, playerId);
+  const canStillDeclareMovement = pendingSplitMovement.length > 0 && actions.some(
+    ea => ea.action.type === 'plan-movement' && pendingSplitMovement.includes(ea.action.companyId),
+  );
+  if (canStillDeclareMovement) {
+    logDetail(`Organization: withholding pass — rule 2.II.3.6 requires ${pendingSplitMovement.length} more split company(ies) to declare movement`);
+  } else {
+    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  }
   return actions;
 }
 
