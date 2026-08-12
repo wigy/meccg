@@ -3551,6 +3551,29 @@ Apply types:
                "removeFromGame": true } }
   ```
 
+  A `threshold` field on the apply gates the cancel behind a 2d6 roll
+  instead of applying it unconditionally: as this card's own chain entry
+  resolves (`resolveEntry`, `chain-reducer.ts`), the engine rolls 2d6
+  (honouring `cheatRollTotal` for deterministic tests) and only negates the
+  target entry when the total is at or above `threshold` — a failed roll
+  still discards this card normally, leaving the target untouched. The roll
+  is surfaced as a `dice-roll` {@link GameEffect}. Used by *Wrath of the
+  West* (le-151): "Playable on a minion resource short-event declared
+  earlier in the same chain of effects. Make a roll—if the result is
+  greater than 6, the event is canceled and discarded" (`threshold: 7` =
+  "greater than 6"). Unlike Ire of the East, le-151 carries no
+  `declaredBy.alignment` restriction (any minion alignment qualifies) and
+  no `removeFromGame` (the target is discarded normally on success).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "filter": { "target.cardType": "minion-resource-event",
+                           "target.eventType": "short" },
+               "threshold": 7 } }
+  ```
+
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
   raises a pending "may join the attacked company" offer for the
   bearer. The defender sees a `haven-join-attack` legal action during
