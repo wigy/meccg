@@ -70,7 +70,14 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // (strikes resolved, canceled on the chain, canceled by tap) is covered by
   // the single `prev.combat → next.combat` transition.
   const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterLongEventProtection) : afterLongEventProtection;
-  return accrueRevealedInstances(recomputeDerived(afterAttackWindow));
+  // Pale Dream-maker (dm-78): a corruption check for each card the bearer's
+  // controller discards from hand during their own turn. Another prev/next
+  // diff — hand discards happen through several independent code paths with
+  // no single call site to instrument.
+  const afterHandDiscardChecks = prevState
+    ? applyHandDiscardCorruptionChecks(prevState, afterAttackWindow)
+    : afterAttackWindow;
+  return accrueRevealedInstances(recomputeDerived(afterHandDiscardChecks));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -83,6 +90,7 @@ import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
 import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
 import { discardOrphanedLongEventAttachedEvents, sweepProtectedLongEventCascade } from './protected-long-event.js';
 import { enqueuePostAttackPlayOffers } from './post-attack-play.js';
+import { applyHandDiscardCorruptionChecks } from './hand-discard-trigger.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';

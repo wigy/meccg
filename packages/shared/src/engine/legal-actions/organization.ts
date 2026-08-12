@@ -1029,9 +1029,13 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         // sage in the bearer's company — pays the tap, not the bearer.
         // One action per eligible sage (e.g. Dragon's Curse: "a sage in
         // the target character's company may tap to attempt to remove
-        // this card"). Handled here and we skip the later tap=bearer
-        // branches for this effect.
-        if (effect.cost.tap === 'sage-in-company') {
+        // this card"). `sage-in-company-excluding-bearer` is the same but
+        // additionally excludes the bearer itself (Pale Dream-maker dm-78:
+        // "a sage in target character's company (other than character)").
+        // Handled here and we skip the later tap=bearer branches for this
+        // effect.
+        if (effect.cost.tap === 'sage-in-company' || effect.cost.tap === 'sage-in-company-excluding-bearer') {
+          const excludeBearer = effect.cost.tap === 'sage-in-company-excluding-bearer';
           const bearerCompany = findCharacterCompany(player.companies, charId);
           if (!bearerCompany) {
             logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: bearer has no company`);
@@ -1039,6 +1043,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           let emitted = 0;
           for (const companionId of bearerCompany.characters) {
+            if (excludeBearer && companionId === charId) continue;
             const companion = player.characters[companionId];
             if (!companion) continue;
             if (companion.status !== CardStatus.Untapped) continue;
@@ -2457,6 +2462,10 @@ export function buildPlayOptionContext(
       isInfluencing,
       itemNames,
       allyNames,
+      // Races of attacks that wounded this character so far this turn (Pale
+      // Dream-maker dm-78, Endless Whispers dm-54: "Playable on a non-Wizard
+      // character wounded by an Undead attack this turn").
+      woundedByRaceThisTurn: char.woundedByRaceThisTurn ?? [],
     },
     company: {
       siteType: companySiteType,

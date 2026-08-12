@@ -3525,6 +3525,11 @@ function playHazardsActions(
                     possessions: possessionNames,
                     itemKeywords,
                     itemSubtypes,
+                    // Races of attacks that wounded this character so far
+                    // this turn (Pale Dream-maker dm-78, Endless Whispers
+                    // dm-54: "Playable on a non-Wizard character wounded by
+                    // an Undead attack this turn").
+                    woundedByRaceThisTurn: charData.woundedByRaceThisTurn ?? [],
                   },
                   company: charTargetCompanyCtx,
                 };
