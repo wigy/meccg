@@ -4435,6 +4435,68 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
 }
 
 /**
+ * `postReduce` sweep: taps every untapped item in a character's `items`
+ * whose definition carries a `tap-at-site` effect once the bearer's company
+ * currently sits at one of the named sites. A level-triggered check (not an
+ * arrival-edge trigger) re-run after every action, so it catches arrival,
+ * staying put, and a company that was already at the site when the card was
+ * played — matching "if bearer is ever at <site>" card text. Pairing the
+ * card with `play-flag: "no-auto-untap"` (checked separately by
+ * `handleUntap`, `reducer-untap.ts`) makes the tap permanent.
+ *
+ * Used by Map to Mithril (td-133): "Tap Map to Mithril if bearer is ever at
+ * Moria; this card never untaps."
+ */
+export function sweepTapAtSiteItems(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    for (const company of player.companies) {
+      if (!company.currentSite) continue;
+      const siteDef = defById(state, company.currentSite.definitionId);
+      const siteName = siteDef?.name;
+      if (!siteName) continue;
+
+      for (const charId of company.characters) {
+        const char = player.characters[charId];
+        if (!char) continue;
+
+        const toTap: string[] = [];
+        for (const item of char.items) {
+          if (item.status !== CardStatus.Untapped) continue;
+          const itemDef = defById(state, item.definitionId);
+          const trigger = (getCardEffects(itemDef) as CardEffect[]).find(
+            (e): e is import('../types/effects.js').TapAtSiteEffect =>
+              e.type === 'tap-at-site' && e.siteNames.includes(siteName),
+          );
+          if (trigger) {
+            logDetail(`sweepTapAtSiteItems: tapping "${itemDef?.name}" on ${charId as string} — bearer at ${siteName}`);
+            toTap.push(item.instanceId as string);
+          }
+        }
+
+        if (toTap.length > 0) {
+          changed = true;
+          const tapSet = new Set(toTap);
+          const newItems = char.items.map(i => tapSet.has(i.instanceId as string) ? { ...i, status: CardStatus.Tapped } : i);
+          newPlayers[pi] = {
+            ...newPlayers[pi],
+            characters: {
+              ...newPlayers[pi].characters,
+              [charId]: { ...newPlayers[pi].characters[charId], items: newItems },
+            },
+          };
+        }
+      }
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
  * Post-action housekeeping primitive: discard every in-play card matching
  * `predicate` from each player's `cardsInPlay` into that **same** player's
  * `discardPile`. Returns the (possibly unchanged) state together with the

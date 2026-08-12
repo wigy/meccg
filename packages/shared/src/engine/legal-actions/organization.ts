@@ -1788,6 +1788,24 @@ export function buildGrantActionContext(
 ): Record<string, unknown> {
   const statusStr = cardStatusToName(char.status);
 
+  // `self` — the status of the specific card instance carrying this
+  // grant-action (an item/hazard/ally, or the bearer's own card when a
+  // character-def grant-action passes its own instance id as source), for
+  // abilities gated on their own source card's status rather than the
+  // bearer's. Used by Map to Mithril (td-133): "If Map to Mithril ... is
+  // tapped, the bearer may tap himself and place this card with a
+  // non-unique weapon..." — `{ "self.status": "tapped" }`.
+  let selfStatusStr: string | undefined;
+  if (sourceInstanceId === char.instanceId) {
+    selfStatusStr = statusStr;
+  } else if (sourceInstanceId !== undefined) {
+    const found = char.items.find(i => i.instanceId === sourceInstanceId)
+      ?? char.hazards.find(h => h.instanceId === sourceInstanceId)
+      ?? char.allies.find(a => a.instanceId === sourceInstanceId);
+    if (found) selfStatusStr = cardStatusToName(found.status);
+  }
+  const self = selfStatusStr !== undefined ? { status: selfStatusStr } : null;
+
   // A turn-scoped `can-use-palantir` constraint grants the ability for the one
   // Palantír that placed it (constraint `source` === the card being gated), so
   // it never leaks to another Palantír the same character happens to bear.
@@ -1869,13 +1887,18 @@ export function buildGrantActionContext(
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
+    // Site-carried DSL keywords (e.g. `dwarf-hold`), for grant-actions gated
+    // on a race-flavor site tag rather than the formal `siteType`. Used by
+    // Map to Mithril (td-133): "If ... at a Dwarf-hold ..." —
+    // `{ "site.keywords": { "$includes": "dwarf-hold" } }`.
+    keywords: (siteDef as { keywords?: readonly string[] } | undefined)?.keywords ?? [],
   } : null;
   // Current phase, exposed so a grant-action `when` clause can restrict an
   // ability to a specific phase (e.g. Strangling Coils ba-76's company untap
   // is legal only during the movement/hazard phase). Combine with
   // `anyPhase: true` so the M/H scanner offers the ability at all.
   const phase = state.phaseState.phase;
-  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx, phase };
+  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase };
 }
 
 /**

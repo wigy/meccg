@@ -550,6 +550,11 @@ export function collectCharacterEffects(
       // member (including the bearer) by collectCompanyItemEffects below;
       // skip here to avoid double-counting on the bearer.
       if (r.effect.type === 'check-modifier' && r.effect.target === 'company') continue;
+      // A stat-modifier flagged `activeWhileAttachedToItem` (Map to Mithril
+      // td-133) is dormant while the card merely sits as its own bearer's
+      // item — it is collected below only once re-parented onto a weapon via
+      // `attachedToItem` (the `reattach-to-item` grant-action).
+      if (r.effect.type === 'stat-modifier' && r.effect.activeWhileAttachedToItem) continue;
       results.push(r);
     }
 

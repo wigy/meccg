@@ -857,8 +857,87 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Dwarf during the site phase at a site at which Information is playable. Tap the Dwarf and site.Tap Map to Mithril if bearer is ever at Moria; this card never untaps.If Map to Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and place this card with a non-unique weapon in his company. This gives the weapon a +3 prowess bonus."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "playableResources": {
+            "$includes": "information"
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-auto-untap"
+      },
+      {
+        "type": "tap-at-site",
+        "siteNames": [
+          "Moria"
+        ]
+      },
+      {
+        "type": "grant-action",
+        "action": "map-to-mithril-attach-weapon",
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "$and": [
+            {
+              "self.status": "tapped"
+            },
+            {
+              "site.keywords": {
+                "$includes": "dwarf-hold"
+              }
+            }
+          ]
+        },
+        "targets": {
+          "scope": "company-items",
+          "filter": {
+            "$and": [
+              {
+                "keywords": {
+                  "$includes": "weapon"
+                }
+              },
+              {
+                "unique": false
+              }
+            ]
+          }
+        },
+        "apply": {
+          "type": "reattach-to-item"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "activeWhileAttachedToItem": true
+      }
+    ],
+    "text": "Playable on a Dwarf during the site phase at a site at which Information is playable. Tap the Dwarf and site.Tap Map to Mithril if bearer is ever at Moria; this card never untaps.If Map to Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and place this card with a non-unique weapon in his company. This gives the weapon a +3 prowess bonus.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",
