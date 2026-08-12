@@ -1085,8 +1085,14 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the movement/hazard phase on a company that has moved to an Under-deeps site. That company may attempt to move to an additional site on the same turn. Another site card may be played and a movement/hazard phase immediately follows."
+    "effects": [
+      {
+        "type": "grant-extra-mh-phase",
+        "movement": "under-deeps"
+      }
+    ],
+    "text": "Playable at the end of the movement/hazard phase on a company that has moved to an Under-deeps site. That company may attempt to move to an additional site on the same turn. Another site card may be played and a movement/hazard phase immediately follows.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",
