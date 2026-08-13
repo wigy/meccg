@@ -95,6 +95,13 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
   if (view.phaseState.phase === Phase.EndOfTurn) {
     switch (view.phaseState.step) {
       case 'discard': return 'Done';
+      // Movement/Hazard has its own unrelated `reset-hand` step (per-company
+      // hazard-phase draw/discard) that also renders "Continue" — without a
+      // distinct label here, a player finishing MH's reset-hand could
+      // mistake it for already being in End-of-Turn's reset-hand (CoE
+      // 2.VI.ii hand-size reconciliation), where different actions (e.g.
+      // Huntsman's Garb's end-of-turn fetch) become legal.
+      case 'reset-hand': return 'Reconcile Hand';
       case 'signal-end': return 'End Turn';
       default: return 'Continue';
     }
