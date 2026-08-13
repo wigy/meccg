@@ -3032,6 +3032,16 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
    * resolves un-negated — "Remove this card from the game" (wh-24).
    */
   readonly removeFromGame?: boolean;
+  /**
+   * For `select: 'target'`: gate the cancel on a 2d6 roll instead of applying
+   * it unconditionally. When set, `resolveEntry` rolls 2d6 as this card's own
+   * chain entry resolves and only negates the target entry when the total is
+   * ≥ `threshold` (a failed roll still discards this card normally — the
+   * target is untouched). Used by Wrath of the West (le-151): "Make a
+   * roll—if the result is greater than 6, the event is canceled and
+   * discarded" (threshold 7 = "greater than 6").
+   */
+  readonly threshold?: number;
 }
 
 /**
