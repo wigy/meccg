@@ -2555,11 +2555,17 @@ export function buildPlayOptionContext(
  * a same-turn special-movement prerequisite (Army of the Dead tw-193: "on the
  * same turn that [Aragorn II] plays Paths of the Dead") without a per-card
  * keyword.
+ *
+ * `extra` merges additional caller-supplied fields into `company` — used by
+ * the site-phase item branch to fold in `allyOrFactionPlayedAtSite` (Ent-
+ * draughts tw-227), a `SitePhaseState` flag this function has no access to
+ * on its own.
  */
 export function buildActiveCompanyContext(
   state: GameState,
   player: PlayerState,
   company: import('../../types/state-cards.js').Company,
+  extra?: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const siteName = siteDef?.name;
@@ -2588,7 +2594,7 @@ export function buildActiveCompanyContext(
 
   return {
     site: { name: siteName, type: siteType, keywords: siteKeywords },
-    company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement },
+    company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement, ...(extra ?? {}) },
   };
 }
 
