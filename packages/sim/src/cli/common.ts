@@ -62,24 +62,17 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
   return raw === undefined || raw === true ? undefined : raw;
 }
 
-/**
- * Available agent names for the CLIs.
- *
- * `h2` additionally composes: `h2+<spec>` names the agent it hands the
- * decisions its modules decline to, so `h2+mc` is the module tree with a
- * Monte-Carlo fallback in place of Heuristics 1.
- */
+/** Available agent names for the CLIs. */
 export const AGENT_NAMES = [
-  'random', 'heuristic', 'noisy-heuristic', 'h2', 'h2+<agent>', 'bc', 'search', 'search-h2', 'mc',
+  'random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2', 'mc',
 ] as const;
 
 /**
  * `h2` spec grammar, for the CLIs that print it.
  *
- * `h2[:<modules>][@<temperature>][/<tunable>=<value>…][+<fallback spec>]`
+ * `h2[:<modules>][@<temperature>][/<tunable>=<value>…]`
  */
-export const H2_SPEC_GRAMMAR =
-  'h2[:<modules>][@<temperature>][/<tunable>=<value>...][+<fallback agent>]';
+export const H2_SPEC_GRAMMAR = 'h2[:<modules>][@<temperature>][/<tunable>=<value>...]';
 
 /**
  * Parses an `mc` spec's `key=value/key=value` parameter list. The
@@ -189,11 +182,12 @@ export function resolveAgent(spec: string): Agent {
       // what a gate wants; `@T` is for generating exploratory self-play data,
       // where position coverage matters more than winning.
       //
-      // `+<spec>` names that fallback: `h2+mc`, `h2:all@0.5+mc:rollouts=4`.
-      // `>` is the same composition, plus: defer every decision the fallback
-      // reports it can search on its own (`Agent.canDecide`). `h2>mc` is the
-      // measured configuration — the modules keep the windows `mc` cannot
-      // determinize and `mc` decides the rest.
+      // `+<spec>` and `>` used to compose a fallback agent — `h2+mc`, `h2>mc`.
+      // Both are rejected now: H2 has no fallback. It answers every decision
+      // itself, including the ones it cannot rank, because a ceiling made of
+      // another agent cannot be raised by working on this one. Rejected rather
+      // than ignored so a script asking for `h2>mc` is told it no longer
+      // exists instead of quietly getting plain `h2`.
       //
       // `/name=value` overrides a tunable: `h2:all/tapTempoCost=0.6`. Without
       // it a constant can only be swept on a single scenario, and every
@@ -203,14 +197,13 @@ export function resolveAgent(spec: string): Agent {
         ? []
         : [param.indexOf('+'), param.indexOf('>')].filter(i => i >= 0);
       const plus = opIndexes.length === 0 ? -1 : Math.min(...opIndexes);
-      // `>` is `+` that also yields: the module tree keeps only the decisions
-      // the fallback says it cannot search itself.
-      const yields = plus >= 0 && param![plus] === '>';
-      const fallbackSpec = plus >= 0 ? param!.slice(plus + 1) : undefined;
-      if (fallbackSpec !== undefined && fallbackSpec.length === 0) {
-        throw new Error('h2 expects an agent spec after "+" or ">", as in `h2+mc` or `h2>mc`');
+      if (plus >= 0) {
+        throw new Error(
+          `h2 no longer composes a fallback, so "${param!.slice(plus, plus + 1)}" is not accepted: `
+          + 'it answers every decision with its own modules. Use plain `h2`.',
+        );
       }
-      const beforeFallback = plus >= 0 ? param!.slice(0, plus) : param;
+      const beforeFallback = param;
       const slash = beforeFallback === undefined ? -1 : beforeFallback.indexOf('/');
       const head = slash >= 0 ? beforeFallback!.slice(0, slash) : beforeFallback;
       const tunables = slash >= 0 ? parseH2Tunables(beforeFallback!.slice(slash + 1)) : undefined;
@@ -225,8 +218,6 @@ export function resolveAgent(spec: string): Agent {
         temperature,
         tunables,
         sample: temperature !== undefined,
-        fallback: fallbackSpec === undefined ? undefined : resolveAgent(fallbackSpec),
-        yieldWhenFallbackCanSearch: yields,
       });
     }
     case 'search-h2': {

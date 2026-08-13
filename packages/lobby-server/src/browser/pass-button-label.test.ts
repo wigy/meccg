@@ -153,8 +153,8 @@ describe('passButtonLabel — other phases', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.EndOfTurn, step: 'signal-end' }))).toBe('End Turn');
   });
 
-  test('Phase.EndOfTurn unknown step falls back to Continue', () => {
-    expect(passButtonLabel(passAction, viewWith({ phase: Phase.EndOfTurn, step: 'reset-hand' }))).toBe('Continue');
+  test('Phase.EndOfTurn reset-hand -> Reconcile Hand', () => {
+    expect(passButtonLabel(passAction, viewWith({ phase: Phase.EndOfTurn, step: 'reset-hand' }))).toBe('Reconcile Hand');
   });
 
   test('Phase.FreeCouncil with a pending support window -> Roll', () => {

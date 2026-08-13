@@ -90,10 +90,13 @@ describe('the odds', () => {
   });
 
   test('a check that cannot fail has one outcome and risks nothing', () => {
+    // Risks nothing, and is still worth taking: it releases the organization
+    // phase, which is the only thing a check that cannot fail can be about.
     const safe = { ...CHECK, need: 2 } as unknown as GameAction;
     const evaluation = corruptionModule.evaluate(safe, contextWith(BALANCED, BALANCED, safe))!;
     expect(evaluation.outcomes).toHaveLength(1);
-    expect(evaluation.expectedTsd).toBe(0);
+    expect(evaluation.sigmaTsd).toBe(0);
+    expect(evaluation.expectedTsd).toBeCloseTo(DEFAULT_TUNABLES.gatingResolutionTsd, 9);
   });
 });
 
@@ -120,6 +123,27 @@ describe('what is at stake', () => {
     const risk = (e: typeof doubled): number =>
       e.outcomes.find(o => o.label.includes('corrupted'))!.dtsd;
     expect(risk(doubled)).toBeLessThan(risk(capped));
+  });
+
+  test('is worth taking, because declining does not avoid it', () => {
+    // A pending check gates every other organization action until it resolves,
+    // so `pass` does not buy safety — it stalls the phase in which every
+    // resource has to be played. Scored as a bare risk this came out at or
+    // below zero in all 43 corpus positions offering it, and H2 passed on every
+    // one while the human took every one.
+    const evaluation = corruptionModule.evaluate(CHECK, contextWith(BALANCED, BALANCED))!;
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+  });
+
+  test('and the risk it carries is untouched by that', () => {
+    // The shift prices the decision, not the event: the corrupted outcome is
+    // still a loss, and the spread between outcomes still says how dangerous
+    // the roll is. Only the baseline it is measured against moved.
+    const evaluation = corruptionModule.evaluate(CHECK, contextWith(BALANCED, BALANCED))!;
+    const lost = evaluation.outcomes.find(o => o.label.includes('corrupted'))!;
+    const held = evaluation.outcomes.find(o => o.label.includes('holds'))!;
+    expect(lost.dtsd).toBeLessThan(held.dtsd);
+    expect(evaluation.sigmaTsd).toBeGreaterThan(0);
   });
 
   test('declines an action without a published target', () => {
