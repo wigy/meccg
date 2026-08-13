@@ -1733,6 +1733,49 @@ piece of work rather than a line, and it is the most consequential decision in
 the game — which is the argument for doing it and the reason not to rush a
 half-model into the one decision everything else is conditioned on.
 
+### The deck already knew: favourites
+
+The valuation above is still the right long-term answer, and it was the wrong
+place to start, because the answer was already written down. Deck files carry a
+`favourite` flag on pool entries — `DeckListEntry.favourite`, "whether this is a
+favourite character (starting company pick) in the pool" — and both gate decks
+star four of their twelve pool characters. Nothing outside the lobby's deck
+editor had ever read it.
+
+That flag is not a heuristic about the card; it is the deck author saying which
+characters the deck is *built around*. Whether a character's race matches the
+factions, whether its influence carries the allies, whether its home site is on
+the intended route — none of that is printed on the character, and all of it was
+decided when the deck was built.
+
+Measured on the corpus, replaying every attributed `draft-pick` from a game whose
+human seat played a deck with favourite marks:
+
+| | picks a favourite | picks the human's exact card |
+| --- | --- | --- |
+| Human | 75.3% | — |
+| Chance (favourites' share of the candidates offered) | 40.6% | — |
+| H2 before | 11.3% | 9.3% |
+| H2 after | 98.7% | 24.0% |
+
+150 attributed picks. H2 was not merely indifferent to the deck's plan, it was
+*anti*-correlated with it — a third of the chance rate — which is what a flat
+zero plus a stable tie-break order produces: not a coin flip, a stuck coin.
+
+The change is a definition-ID list carried from the deck file to the draft
+state (`PlayerConfig.favourites` → `DraftPlayerState.favourites`), stripped from
+the opponent's copy in projection because which characters someone intends to
+start with is a statement of their plan, and read in `fetching` as
+`favouriteCharacterTsd` (2 TSD, two cards' worth) added to the quote. It binds
+no rule: every pool card stays legal to draft, and a large enough quote would
+still outweigh the mark if `card-price` ever stops returning zero at 0–0.
+
+Exact-card agreement more than doubled but stopped at 24%, and the ceiling is
+structural: a flat bonus makes every favourite tie, so which favourite gets
+picked is still the tie-break. Humans distinguish *among* their own favourites,
+and doing likewise is what the character valuation above is for. What this
+change buys is that the draft now happens inside the right set.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
