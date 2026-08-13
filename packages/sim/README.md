@@ -2563,6 +2563,53 @@ more than their playability suggests, that is where the difference would live �
 but it is a modelling question, not a constant, and it should be built before it
 is weighed.
 
+### Movement, third look: the destination does not explain it
+
+The last hypothesis standing was that a destination's danger is not "more
+hazards" but *which* hazards — the rules let an opponent play only creatures
+keyed to a region type in the site path, or to the destination's site type, and
+`keyedTo: { regionTypes, siteTypes }` is exact card data. So the danger of a
+journey is computable from the card pool without any constant at all.
+
+Computed over the same 64 decisions:
+
+| | creatures the rules admit | worst prowess × strikes | mean threat |
+| --- | --- | --- | --- |
+| human | 72.5 | 35.2 | 16.3 |
+| H2 | 73.2 | 35.2 | 16.4 |
+
+**Flat.** Identical on the measure that was supposed to separate them, because
+most creatures are keyed to wilderness and nearly every site path crosses one.
+The rules-derived threat of a destination barely varies across the destinations
+actually on offer.
+
+#### Three hypotheses, three negatives
+
+| hypothesis | prediction | measured |
+| --- | --- | --- |
+| `travel` cannot see what a destination is for | H2's sites play less | H2's play **more** (3.41 MP vs 2.59) |
+| the human buys survivability | H2's sites are more dangerous | marginally, and H2 travels *shorter* paths |
+| danger is *which* creatures the path admits | H2's sites admit worse | **identical** (35.2 vs 35.2) |
+
+Taken together these say something more useful than any of them separately:
+**the disagreement is not explained by any attribute of the destination.** Three
+independent readings of "what is this site worth" all fail to separate a choice
+the two sides make differently half the time.
+
+What is left is what a single-decision instrument cannot see. `plan-movement` is
+scored as one decision, but a company's route is a *sequence* — this site, then
+the site it makes reachable, then the haven it can retreat to — and the human is
+choosing a path where H2 is choosing a step. Every measurement in this document
+compares one decision against one decision, which is exactly the shape that
+cannot detect a difference in plan.
+
+That is a tooling gap before it is a modelling gap. The plan layer exists
+(`services/portfolio`, `services/plan-value`) and was measured earlier as
+committing at most one goal per company, so the machinery for multi-step
+intentions is present and inert. Whether movement is where it should finally pay
+is the open question, and answering it needs an instrument that scores a *route*
+against the route the human took — which does not exist yet.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
