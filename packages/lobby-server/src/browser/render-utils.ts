@@ -7,7 +7,7 @@
  */
 
 import type { CardDefinition, CardEffect, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, Alignment } from '@meccg/shared';
-import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard, hasPlayFlag } from '@meccg/shared';
+import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard, isCharacterCard, hasPlayFlag } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
 export function $(id: string): HTMLElement {
@@ -178,11 +178,13 @@ export function appendItemCards(
   bearerAlignment?: Alignment,
 ): void {
   const inPlayDefs = inPlayCardDefs(view, cardPool);
+  const charDef = cardPool[char.definitionId as string];
+  const bearerRace = isCharacterCard(charDef) ? charDef.race : undefined;
   for (const item of char.items) {
     const itemDef = cardPool[item.definitionId as string];
     const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'drafted-card drafted-item', item.instanceId as string);
     if (!itemEl) continue;
-    const itemCp = itemDef && isItemCard(itemDef) ? effectiveItemCorruptionPoints(itemDef, inPlayDefs, bearerAlignment) : 0;
+    const itemCp = itemDef && isItemCard(itemDef) ? effectiveItemCorruptionPoints(itemDef, inPlayDefs, bearerAlignment, bearerRace) : 0;
     if (itemCp > 0) {
       const itemWrap = document.createElement('div');
       itemWrap.className = 'item-card-wrap';
