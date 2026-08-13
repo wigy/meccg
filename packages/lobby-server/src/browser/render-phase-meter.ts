@@ -176,7 +176,10 @@ const SITE_PROGRESS_STEPS: readonly string[] = [
 /** Friendly label for each End-of-Turn sub-step. */
 const END_OF_TURN_STEP_LABELS: ReadonlyArray<readonly [string, string]> = [
   ['discard', 'Discard'],
-  ['reset-hand', 'Reset hand'],
+  // Distinct from Movement/Hazard's own 'reset-hand' segment (a different,
+  // per-company draw/discard step) — see pass-button-label.ts for why the
+  // shared "Reset hand" text was ambiguous.
+  ['reset-hand', 'Reconcile hand'],
   ['signal-end', 'Signal end'],
 ];
 
