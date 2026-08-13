@@ -1911,6 +1911,76 @@ everywhere else in the game, and pricing it as a benefit anywhere but the draft
 would be wrong. It is right here only because the budget is a knapsack and the
 draft is where it gets spent.
 
+### The discard is a tie-break on the placeholder
+
+With the draft settled, the largest remaining disagreement is `discard-card`,
+and it is not close. Over twelve recorded games:
+
+| the human's action | they chose it | H2 agreed |
+| --- | --- | --- |
+| `pass` | 1437 | 24.8% |
+| `draw-cards` | 414 | 100.0% |
+| **`discard-card`** | **306** | **7.8%** |
+| `resolve-strike` | 164 | 72.6% |
+| `select-company` | 160 | 53.1% |
+
+221 of those are decisions where *both* sides chose to discard and named a
+different card — the largest same-type disagreement in the corpus.
+
+The two sides throw away different kinds of card, and consistently:
+
+| card class | human discards | H2 discards |
+| --- | --- | --- |
+| hazard creature | 46 | 20 |
+| hazard event | 41 | 23 |
+| characters (all) | 25 | 9 |
+| resources carrying MP (items, factions, allies) | ~19 | ~67 |
+
+H2 is throwing away the cards that score.
+
+#### The mechanism is the placeholder, not the standing
+
+The obvious guess — the half-total cap zeroing a source, as it does at the draft
+— is wrong, and the probe says so: over 300 attributed discard decisions and 2841
+priced candidates, **not one candidate quoted zero**. What it found instead:
+
+```text
+candidates quoting exactly 0:                        0 (0.0%)
+decisions where the cheapest price is a tie:       299 (99.7%)
+mean quote of the card the HUMAN discarded:      1.331
+mean quote of the card the AGENT discards:       1.000
+```
+
+The cheapest price is **exactly `provisionalCardPrice`**, and almost every card
+in hand sits on it. `card-price` has a real opinion about a card that scores or
+attacks, and no opinion at all about the rest — so they all land on the flat
+floor, tie, and the discard falls to whatever breaks ties. The stuck coin again,
+in the second-highest-volume decision type in the game.
+
+This is not a hidden bug. `provisionalCardPrice` documents itself as "a
+placeholder … one number where there should be a function of the standing, the
+deck remaining, and what the hazard side expects to need", and `hand`'s discard
+branch says it is pricing "even while that number is still the flat placeholder
+rather than a real reservation value". The measurement is what turns a known
+placeholder into a ranked piece of work: it decides 306 decisions per twelve
+games, more often than every scoring decision combined.
+
+#### What the fix has to be
+
+Not a better marshalling-point estimate — the cards involved mostly have no MP,
+which is why they are on the floor. What separates the cards humans throw from
+the cards they keep is whether they can ever be **played**: a resource-side deck
+holds hazards it can only use during an opponent's movement, and a resource it
+has no site, influence or company for is just as dead. `hand-flow` already
+measures playability-at-arrival, and `budget`, `exposure` and `hazard-plan`
+already price the three conditions separately.
+
+So the next piece is a real reservation value for a held card, which is what
+§3.5 asked for in the first place. Recorded here rather than attempted in the
+same pass, because `card-price` is the file this project has twice changed on a
+metric and twice reverted (see the reverts above) — the fix has to come from what
+the rules say a card in hand can do, not from what moves agreement.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
