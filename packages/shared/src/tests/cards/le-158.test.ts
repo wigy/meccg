@@ -126,6 +126,27 @@ describe('The Warg-king (le-158)', () => {
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
+  test('Warg-king IS also playable at a TAPPED Ruins & Lairs site with a Wolf automatic-attack', () => {
+    // Card text: "Playable at any tapped or untapped Ruins & Lairs with a
+    // Wolf automatic-attack." — mirrors War-warg (le-156), which shares the
+    // identical clause and carries the `playable-at-tapped-site` flag.
+    const state = buildSitePhaseState({
+      characters: [ASTERNAK],
+      site: WHITE_TOWERS,
+      hand: [WARG_KING],
+      siteStatus: CardStatus.Tapped,
+    });
+
+    const wargKingInstanceId = state.players[0].hand[0].instanceId;
+    const actions = computeLegalActions(state, PLAYER_1);
+    const playActions = actions
+      .filter(a => a.viable && a.action.type === 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === wargKingInstanceId);
+
+    expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
   test('Warg-king is NOT playable at a Ruins & Lairs site without a Wolf automatic-attack', () => {
     // Dimrill Dale (le-365) is ruins-and-lairs but has only an Orcs
     // auto-attack — the `when` clause must reject this site.

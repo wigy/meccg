@@ -307,6 +307,10 @@
     ],
     "effects": [
       {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
         "type": "cancel-attack",
         "cost": {
           "tap": "self"
