@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viableActions, findCharInstanceId, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, ADRAZAR, LEGOLAS, FRODO,
+  ARAGORN, ADRAZAR, LEGOLAS, FRODO, THEODEN,
   RIVENDELL, LORIEN, MINAS_TIRITH,
   RESOURCE_PLAYER,
   attachHazardToChar,
@@ -131,6 +131,71 @@ describe('Rule 3.27 — Move Character to Follower', () => {
 
     expect(result.error).toBeUndefined();
     expect(result.state.players[0].characters[aragornId].followers).toEqual([adrId]);
+  });
+
+  test('a follower with no followers of its own may be reassigned directly to a different non-follower controller', () => {
+    // Bug report: Threlin controls Nain as a follower; the player wants to
+    // move Threlin under a Wizard's DI while splitting Nain off to a
+    // different controller, but the engine only offered "move to GI" for
+    // Nain — which was rejected because it would exceed general influence.
+    // Rule 3.27 doesn't require the source to be GI: a followerless character
+    // may move directly between two non-follower controllers in the same
+    // company. Here, Adrazar (mind 3) starts as Aragorn's follower (DI 3) and
+    // must also be offered as a follower of Théoden (DI 3) without first
+    // returning to general influence.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, THEODEN, ADRAZAR] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const aragornId = findCharInstanceId(built, RESOURCE_PLAYER, ARAGORN);
+    const theodenId = findCharInstanceId(built, RESOURCE_PLAYER, THEODEN);
+    const adrId = findCharInstanceId(built, RESOURCE_PLAYER, ADRAZAR);
+
+    // Start from Adrazar already following Aragorn (not general influence).
+    const state: GameState = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          characters: {
+            ...built.players[0].characters,
+            [aragornId]: { ...built.players[0].characters[aragornId], followers: [adrId] },
+            [adrId]: { ...built.players[0].characters[adrId], controlledBy: aragornId },
+          },
+        },
+        built.players[1],
+      ],
+    };
+
+    const moves = viableActions(recomputeDerived(state), PLAYER_1, 'move-to-influence') as { action: MoveToInfluenceAction }[];
+
+    // Adrazar can move directly to Théoden's DI without passing through GI.
+    expect(moves.some(a =>
+      a.action.characterInstanceId === adrId &&
+      a.action.controlledBy === theodenId,
+    )).toBe(true);
+
+    // Re-assigning to its current controller (Aragorn) is not offered as a no-op move.
+    expect(moves.some(a =>
+      a.action.characterInstanceId === adrId &&
+      a.action.controlledBy === aragornId,
+    )).toBe(false);
   });
 
   test('uses the controlled character\'s effective mind (not printed mind) against available DI', () => {
