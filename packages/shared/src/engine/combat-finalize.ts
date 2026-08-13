@@ -30,7 +30,7 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { isSiteCard, isCharacterCard, isHalfOrc } from '../types/cards.js';
+import { isSiteCard, isCharacterCard, isHalfOrc, printedMind } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -680,6 +680,45 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // Turning Hope to Despair (as-41): a hand-played modify-attack scheduled a
+  // post-attack mind-roll split. If the attack was NOT fully defeated, every
+  // character still in the defending company rolls 2d6 + mind against the
+  // card's threshold; each one who rolls below it splits off individually
+  // (`split-into-own-company`, resolved via `splitCharacterOffCompany`).
+  if (!allDefeated && combat.mindRollSplitPending) {
+    const { threshold } = combat.mindRollSplitPending;
+    const defIdxSplit = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const companySplit = companyById(stateAfterCombat.players[defIdxSplit].companies, combat.companyId);
+    if (companySplit) {
+      const defPlayerSplit = stateAfterCombat.players[defIdxSplit];
+      for (const charId of companySplit.characters) {
+        const charInPlay = defPlayerSplit.characters[charId];
+        if (!charInPlay) continue;
+        const charDef = defById(stateAfterCombat, charInPlay.definitionId);
+        const effectiveMind = charInPlay.effectiveStats.mind ?? printedMind(charDef);
+        const charName = charDef?.name ?? (charId as string);
+        logDetail(`Turning Hope to Despair: enqueuing mind roll for ${charName} — need 2d6 + mind ${effectiveMind} >= ${threshold} to stay together`);
+        stateAfterCombat = enqueueResolution(stateAfterCombat, {
+          source: null,
+          actor: combat.defendingPlayerId,
+          scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+          kind: {
+            type: 'dice-check',
+            label: `${charName} — mind roll (Turning Hope to Despair)`,
+            roller: combat.defendingPlayerId,
+            modifiers: [{ kind: 'constant', value: effectiveMind }],
+            threshold,
+            comparison: 'gte',
+            onFail: { type: 'split-into-own-company' },
+            continuation: { kind: 'dequeue-only' },
+            targetCharacterId: charId,
+            targetCompanyId: combat.companyId,
+          },
+        });
+      }
+    }
+  }
+
   // Check for on-event: attack-strike-successful effects on the attack source.
   // Fires when at least one of this creature's own strikes wounded or
   // eliminated a defender (struckCharIds, computed above) while the defending
@@ -842,8 +881,15 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // Handle permanent-event auto-attack onDefeat:'remove-from-play' (e.g. Balrog of Moria TW-12).
   // When all strikes of a site automatic-attack are defeated and the attack's source
-  // is a permanent-event carrying this flag, remove the event from the hazard player's
+  // is a permanent-event carrying this flag, remove the event from its owner's
   // cardsInPlay and move it to the defending player's killPile to award kill MPs.
+  //
+  // The source card's owner is whichever player originally played the permanent
+  // event (found by scanning cardsInPlay for the instance), NOT necessarily
+  // `combat.attackingPlayerId` — a site-bound auto-attack like Balrog of Moria
+  // applies regardless of whose company later visits the site, so the "attacking"
+  // side of a given combat instance may differ from the card's actual owner (e.g.
+  // when the player who played it later visits the site themselves).
   if (allDefeated && combat.attackSource.type === 'automatic-attack') {
     const { siteInstanceId, attackIndex } = combat.attackSource;
     const siteDef = resolveDef(state, siteInstanceId);
@@ -859,15 +905,16 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           const peaEff = eff;
           if (peaEff.onDefeat !== 'remove-from-play') continue;
           const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? '?';
-          const hazardIdx = getPlayerIndex(stateAfterCombat, combat.attackingPlayerId);
           const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
-          const sourceCard = stateAfterCombat.players[hazardIdx]?.cardsInPlay.find(c => c.instanceId === sourceInstId);
+          const ownerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
+          const sourceCard = ownerIdx >= 0 ? stateAfterCombat.players[ownerIdx].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
           if (sourceCard) {
             const cardRef = toCardInstance(sourceCard);
             const updatedPlayersOD = stateAfterCombat.players.map((p, idx) => {
-              if (idx === hazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
-              if (idx === defIdx) return { ...p, killPile: [...p.killPile, cardRef] };
-              return p;
+              let next = p;
+              if (idx === ownerIdx) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
+              if (idx === defIdx) next = { ...next, killPile: [...next.killPile, cardRef] };
+              return next;
             }) as unknown as typeof stateAfterCombat.players;
             stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersOD };
             logDetail(`Permanent-event "${sourceName}" defeated — removed from play, kill MPs awarded to defender`);
@@ -880,8 +927,10 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // Handle permanent-event auto-attack discardAfterUse (e.g. Witch-king at Iron-deeps / Under-leas).
   // Fires regardless of outcome (win or lose). When a site auto-attack's source is a permanent
-  // event with discardAfterUse: true, move the card from the hazard player's cardsInPlay to their
-  // discard pile. No kill MPs are awarded ("ignore result of defeat").
+  // event with discardAfterUse: true, move the card from its owner's cardsInPlay to their
+  // discard pile. No kill MPs are awarded ("ignore result of defeat"). See the owner-lookup
+  // note above the remove-from-play block: the owner is found by scanning cardsInPlay, not
+  // assumed to be `combat.attackingPlayerId`.
   if (combat.attackSource.type === 'automatic-attack') {
     const { siteInstanceId: dauSiteInstId, attackIndex: dauAttackIdx } = combat.attackSource;
     const dauSiteDef = resolveDef(state, dauSiteInstId);
@@ -896,12 +945,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           if (dauEff.type !== 'permanent-event-auto-attack') continue;
           if (!dauEff.discardAfterUse) continue;
           const dauSourceName = (dauSourceDef as { name?: string } | undefined)?.name ?? '?';
-          const dauHazardIdx = getPlayerIndex(stateAfterCombat, combat.attackingPlayerId);
-          const dauSourceCard = stateAfterCombat.players[dauHazardIdx]?.cardsInPlay.find(c => c.instanceId === dauSourceInstId);
+          const dauOwnerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === dauSourceInstId));
+          const dauSourceCard = dauOwnerIdx >= 0 ? stateAfterCombat.players[dauOwnerIdx].cardsInPlay.find(c => c.instanceId === dauSourceInstId) : undefined;
           if (dauSourceCard) {
             const dauCardRef = toCardInstance(dauSourceCard);
             const dauUpdatedPlayers = stateAfterCombat.players.map((p, idx) => {
-              if (idx === dauHazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== dauSourceInstId), discardPile: [...p.discardPile, dauCardRef] };
+              if (idx === dauOwnerIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== dauSourceInstId), discardPile: [...p.discardPile, dauCardRef] };
               return p;
             }) as unknown as typeof stateAfterCombat.players;
             stateAfterCombat = { ...stateAfterCombat, players: dauUpdatedPlayers };

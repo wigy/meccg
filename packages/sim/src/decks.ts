@@ -18,6 +18,11 @@ export interface DeckEntry {
   name: string;
   card: string | null;
   qty: number;
+  /**
+   * Pool entries only: the deck author marked this character as one the deck
+   * wants in its starting company (see `DeckListEntry.favourite`).
+   */
+  favourite?: boolean;
 }
 
 /** On-disk deck structure (`data/decks/*.json`). */
@@ -59,6 +64,17 @@ export function expandEntries(entries: DeckEntry[]): CardDefinitionId[] {
   return ids;
 }
 
+/**
+ * The pool entries the deck author starred, as definition IDs.
+ *
+ * Deduplicated: the flag is a property of the character, so two copies of a
+ * starred entry say nothing more than one does.
+ */
+export function favouriteIds(entries: DeckEntry[]): CardDefinitionId[] {
+  const ids = entries.filter(e => e.favourite === true && e.card !== null).map(e => e.card as CardDefinitionId);
+  return [...new Set(ids)];
+}
+
 /** A catalog deck expanded into the flat card lists the engine consumes. */
 export interface LoadedDeck {
   /** Catalog ID (file basename). */
@@ -76,6 +92,8 @@ export interface LoadedDeck {
    */
   readonly approved: boolean;
   readonly draftPool: readonly CardDefinitionId[];
+  /** Pool characters the author marked as starting-company picks. */
+  readonly favourites: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
   readonly sideboard: readonly CardDefinitionId[];
@@ -99,6 +117,7 @@ export function loadDeck(deckId: string): LoadedDeck {
     alignment: DECK_ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
     alignmentLabel: deck.alignment,
     draftPool: expandEntries(deck.pool),
+    favourites: favouriteIds(deck.pool),
     playDeck: [
       ...expandEntries(deck.deck.characters),
       ...expandEntries(deck.deck.resources),
@@ -135,6 +154,7 @@ export function deckToPlayerConfig(deck: LoadedDeck, id: PlayerId, name: string)
     name,
     alignment: deck.alignment,
     draftPool: deck.draftPool,
+    favourites: deck.favourites,
     playDeck: deck.playDeck,
     siteDeck: deck.siteDeck,
     sideboard: deck.sideboard,

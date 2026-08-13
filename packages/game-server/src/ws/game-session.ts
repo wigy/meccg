@@ -769,6 +769,11 @@ export class GameSession {
       name,
       alignment: p.join.alignment,
       draftPool: p.join.draftPool,
+      // The editor-validated deck list is the only place the author's favourite
+      // marks survive; `draftPool` is already flattened to bare definition IDs.
+      favourites: p.join.deckList?.pool
+        .filter(e => e.favourite === true && e.card !== null)
+        .map(e => e.card as CardDefinitionId),
       playDeck: p.join.playDeck,
       siteDeck: p.join.siteDeck,
       sideboard: p.join.sideboard,

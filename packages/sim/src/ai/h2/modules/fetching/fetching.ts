@@ -73,6 +73,9 @@ const ASSUMPTIONS: readonly string[] = [
   + 'of its best resource is worse to draw from afterwards',
   'where a card goes is not priced, only which card it is — so every way of assigning the same '
   + 'starting item to a different character ties, and the choice of bearer falls to Heuristics 1',
+  'a favourite mark is taken at face value: the deck author is assumed to have meant it, and no '
+  + 'check is made that the marked characters can actually form a legal starting company together '
+  + '(the mind limit is enforced by the engine, not weighed here)',
   'a deck-exhaust exchange is priced as though both cards were equally likely to be drawn again; '
   + 'the discard pile becomes the whole new play deck, so that is close, but a five-card swap is '
   + 'scored one pair at a time and the fifth is priced against the same standing as the first',
@@ -150,6 +153,46 @@ function chosenCard(action: GameAction, context: ModuleContext): { definitionId:
 }
 
 /**
+ * Whether a starting-character pick takes one of the characters this deck's
+ * author marked as a favourite.
+ *
+ * At 0–0 every source's marginal contribution is zero — CoE 10.3 step 4's
+ * half-total diversity cap is degenerate on an empty board — so `card-price`
+ * quotes every draft candidate at exactly 0 and the pick falls to whatever order
+ * ties happen to break in. Against the live corpus that made H2 draft a
+ * favourite 11% of the time on decks whose human owners drafted one 75% of the
+ * time, where picking uniformly at random would have got 41%: the one decision
+ * every later decision is conditioned on, decided by nothing, and decided worse
+ * than a coin.
+ *
+ * Nothing printed on a character says a deck is built around it. Whether its
+ * race matches the deck's factions, whether its influence carries the allies,
+ * whether its home site is on the intended route — all of that lives in the
+ * deck's construction, not on the card. So the only honest signal is the
+ * author's own declaration, which the deck file has been carrying all along and
+ * which now reaches the draft state.
+ *
+ * The pool holding the picked card identifies the seat: a player may only pick
+ * from their own pool, and the projection hides the opponent's pool — and their
+ * favourites with it, that being a statement of their plan.
+ */
+function isFavouritePick(action: GameAction, context: ModuleContext): boolean {
+  if (action.type !== 'draft-pick') return false;
+  const instanceId = namedCharacter(action) ?? namedCard(action);
+  if (!instanceId) return false;
+  const setup = (context.view.phaseState as unknown as {
+    setupStep?: {
+      draftState?: readonly { pool?: readonly PoolCard[]; favourites?: readonly string[] }[];
+    };
+  }).setupStep;
+  for (const round of setup?.draftState ?? []) {
+    const card = (round.pool ?? []).find(c => c.instanceId === instanceId);
+    if (card) return (round.favourites ?? []).includes(card.definitionId);
+  }
+  return false;
+}
+
+/**
  * The deck-exhaust exchange: one card out of the new play deck, one in.
  *
  * The discard pile *is* the next play deck (`completeDeckExhaust` shuffles it
@@ -224,11 +267,15 @@ export const fetchingModule: H2Module = {
 
     const { standing, view, cardPool, tunables } = context;
     const quote = computeCardPrices(view, cardPool, standing, tunables).quote(chosen.definitionId);
+    const favourite = isFavouritePick(action, context) ? tunables.favouriteCharacterTsd : 0;
+    const total = quote.tsd + favourite;
 
     const outcomes: Outcome[] = [{
       p: 1,
-      label: `take ${quote.name} from the ${chosen.where} — ${quote.reason}`,
-      dtsd: quote.tsd,
+      label: favourite > 0
+        ? `take ${quote.name} from the ${chosen.where} — the deck asked for it`
+        : `take ${quote.name} from the ${chosen.where} — ${quote.reason}`,
+      dtsd: total,
     }];
     const scored = standing.score(outcomes);
 
@@ -241,6 +288,13 @@ export const fetchingModule: H2Module = {
         note: quote.reason,
       }),
     ];
+    if (favourite > 0) {
+      detail.push(leaf('the deck wants it in the starting company', favourite, {
+        unit: 'tsd',
+        tunable: 'favouriteCharacterTsd',
+        note: 'marked a favourite by the deck author',
+      }));
+    }
 
     return {
       action,
@@ -251,7 +305,7 @@ export const fetchingModule: H2Module = {
       utility: scored.utility,
       method: scored.method,
       rationale: node(`take ${quote.name}`, scored.utility, [
-        node('the card', quote.tsd, detail),
+        node('the card', total, detail),
         scored.rationale,
       ], { unit: 'winprob' }),
       assumptions: ASSUMPTIONS,
