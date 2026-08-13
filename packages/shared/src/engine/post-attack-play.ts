@@ -156,7 +156,7 @@ function matchingHandCards(
  * source discriminator (and, for creature attacks, the creature instance)
  * identify the attack well enough for this diff.
  */
-function sameAttack(a: CombatState, b: CombatState): boolean {
+export function sameAttack(a: CombatState, b: CombatState): boolean {
   if (a.companyId !== b.companyId) return false;
   if (a.attackSource.type !== b.attackSource.type) return false;
   const idOf = (c: CombatState): string | null =>

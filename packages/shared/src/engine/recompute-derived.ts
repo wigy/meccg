@@ -728,7 +728,10 @@ function buildEffectiveStatsContext(
   // granting Warrior) — not just `charDef.skills` — so that other borne
   // items' `bearer.skills`-conditioned stat modifiers (e.g. Mechanical Bow
   // wh-53's "+2 prowess, Warrior only") see the granted skill too.
-  const charInfo = { ...buildBearerContext(charDef), skills: effectiveSkills };
+  // `naturalSkills` keeps the printed-only set alongside it, for cards that
+  // grant a skill and also condition a bonus on already having it (Magic
+  // Ring of Courage tw-271) — see the field doc on `ResolverContext.bearer`.
+  const charInfo = { ...buildBearerContext(charDef), skills: effectiveSkills, naturalSkills: charDef.skills };
   return {
     reason: 'effective-stats',
     bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints },
@@ -1938,6 +1941,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const effect = getLeaderControlEffect(def);
     if (effect && count >= effect.groupBonus.count) {
       mp = { ...mp, faction: mp.faction + effect.groupBonus.mp };
+    }
+  }
+
+  // Item-cache count-threshold bonus (Armory dm-116): "If you have at least
+  // three minor items under Armory, gain 1 marshalling point." One host may
+  // carry `item-cache-count-bonus`; award it once its own `setAside` list
+  // reaches the declared threshold. Individual cached items already score no
+  // MP of their own (`setAsideNoMp`, above) — this bonus is the only MP the
+  // cache contributes.
+  for (const host of player.cardsInPlay) {
+    const hostDef = resolveDef(state, host.instanceId);
+    if (!hostDef) continue;
+    const countBonus = getCardEffects(hostDef).find(e => e.type === 'item-cache-count-bonus');
+    if (!countBonus || countBonus.type !== 'item-cache-count-bonus') continue;
+    const cachedCount = host.setAside?.length ?? 0;
+    if (cachedCount >= countBonus.count) {
+      mp = { ...mp, misc: mp.misc + countBonus.mp };
     }
   }
 

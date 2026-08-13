@@ -1344,6 +1344,31 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
           },
           viable: true,
         });
+
+        // Item-cache alternate destination (Armory dm-116): "A character at a
+        // Haven can store a minor item under Armory instead of to your
+        // marshalling point pile." Offer one additional store-item action per
+        // matching cache host, alongside the normal kill-pile destination.
+        if (isItemCard(itemDef)) {
+          for (const host of player.cardsInPlay) {
+            const hostDef = defById(state, host.definitionId);
+            const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-alt-storage');
+            if (!cacheEffect || cacheEffect.type !== 'item-cache-alt-storage') continue;
+            if (!cacheEffect.siteTypes.includes(siteType)) continue;
+            if (!cacheEffect.subtypes.includes(itemDef.subtype)) continue;
+            logDetail(`  → viable: store ${itemName} from ${charName} under ${hostDef?.name ?? '?'} instead of marshalling-point pile`);
+            actions.push({
+              action: {
+                type: 'store-item',
+                player: playerId,
+                itemInstanceId: item.instanceId,
+                characterId: charInstId,
+                cacheHostInstanceId: host.instanceId,
+              },
+              viable: true,
+            });
+          }
+        }
       }
     }
   }

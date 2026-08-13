@@ -62,6 +62,16 @@ export interface PlayerConfig {
   readonly name: string;
   readonly alignment: Alignment;
   readonly draftPool: readonly CardDefinitionId[];           // characters + starting minor items for the draft
+  /**
+   * The subset of {@link draftPool} the deck author marked as favourites — the
+   * characters the deck is built around and wants in its starting company.
+   *
+   * This is deck-authoring intent, not a rule: the draft is unaffected by it and
+   * every pool card stays legal to pick. It is carried into the draft state so a
+   * seat playing the deck can honour the author's plan, which matters most for an
+   * AI seat, whose alternative is picking on printed statistics alone.
+   */
+  readonly favourites?: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
   readonly sideboard: readonly CardDefinitionId[];
@@ -155,8 +165,8 @@ export function createGame(
   const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
-    { pool: config.players[0].draftPool.map(defId => mint(minter0, defId)), drafted: [], draftedStageResources: [], currentPick: null, stopped: false },
-    { pool: config.players[1].draftPool.map(defId => mint(minter1, defId)), drafted: [], draftedStageResources: [], currentPick: null, stopped: false },
+    { pool: config.players[0].draftPool.map(defId => mint(minter0, defId)), drafted: [], draftedStageResources: [], currentPick: null, stopped: false, favourites: config.players[0].favourites },
+    { pool: config.players[1].draftPool.map(defId => mint(minter1, defId)), drafted: [], draftedStageResources: [], currentPick: null, stopped: false, favourites: config.players[1].favourites },
   ];
 
   const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

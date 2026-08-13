@@ -1505,7 +1505,8 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "magic-ring"
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
@@ -1513,8 +1514,29 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Magic Ring. Playable only with a gold ring and after a test indicates a Magic Ring. Gives the bearer warrior skill. If the bearer is already a warrior, he gets +2 to prowess. May not be duplicated on a given character."
+    "effects": [
+      {
+        "type": "grant-skill",
+        "skill": "warrior"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "bearer.naturalSkills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Magic Ring. Playable only with a gold ring and after a test indicates a Magic Ring. Gives the bearer warrior skill. If the bearer is already a warrior, he gets +2 to prowess. May not be duplicated on a given character.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-item",
@@ -1545,7 +1567,8 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "magic-ring"
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
@@ -1553,8 +1576,30 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Magic Ring. Playable only with a gold ring and after a test indicates a Magic Ring. Gives the bearer ranger skill. If the bearer is already a ranger, he may tap to cancel an attack against his company. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "grant-skill",
+        "skill": "ranger"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "ranger"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Magic Ring. Playable only with a gold ring and after a test indicates a Magic Ring. Gives the bearer ranger skill. If the bearer is already a ranger, he may tap to cancel an attack against his company. Cannot be duplicated on a given character.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-item",

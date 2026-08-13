@@ -2251,6 +2251,20 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
     return { state: { ...clearedState, phaseState: resetCompanyMHFields(mhState) } };
   }
 
+  // Turning Hope to Despair (as-41), lone-character case: same pattern as
+  // Left Behind's above, but via `forcedSoloExtraPhasePending` — no explicit
+  // rejoin step follows, so `forcedSoloHazardLimit` (still true here) is
+  // consumed and cleared when the re-run reaches `enterSetHazardLimitAndAutoAdvance`.
+  if (currentCompany.forcedSoloExtraPhasePending) {
+    logDetail(`Turning Hope to Despair: lone company ${currentCompany.id as string} takes its separate M/H phase (limit 1)`);
+    const clearedState = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) =>
+        idx !== mhState.activeCompanyIndex ? c : { ...c, forcedSoloExtraPhasePending: false }),
+    }));
+    return { state: { ...clearedState, phaseState: resetCompanyMHFields(mhState) } };
+  }
+
   // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
   // Quick le-202): the company was flagged when the enabling resource event
   // resolved. Now that its move has committed, clear the flag and offer another

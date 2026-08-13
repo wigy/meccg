@@ -37,6 +37,7 @@ import { influenceOverflowAmount, influenceOverflowStep } from './influence-over
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { isLongEventProtected } from './protected-long-event.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
+import { placeCardSetAside } from './set-aside.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -66,6 +67,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'transfer-item': handleTransferItem,
   'use-item': handleUseItem,
   'store-item': handleStoreItem,
+  'store-item-in-cache': handleStoreItemInCache,
   'split-company': handleSplitCompany,
   'move-to-company': handleMoveToCompany,
   'merge-companies': handleMergeCompanies,
@@ -1656,10 +1658,23 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
 
   logDetail(`Enqueuing corruption check for ${charDef?.name ?? '?'} after item storage`);
 
-  const stateAfterStore: GameState = updatePlayer(state, playerIndex, () => ({
-    ...removed.player,
-    killPile: [...removed.player.killPile, storedCard],
-  }));
+  // Item-cache alternate destination (Armory dm-116): "A character at a
+  // Haven can store a minor item under Armory instead of to your marshalling
+  // point pile." The item is moved into the cache host's set-aside pile
+  // (no individual marshalling points) instead of the kill pile — the
+  // corruption check and bearer-cannot-untap cleanup below run unchanged.
+  const stateAfterStore: GameState = action.cacheHostInstanceId !== undefined
+    ? placeCardSetAside(
+      updatePlayer(state, playerIndex, () => removed.player),
+      action.cacheHostInstanceId,
+      storedCard,
+      false,
+      true,
+    )
+    : updatePlayer(state, playerIndex, () => ({
+      ...removed.player,
+      killPile: [...removed.player.killPile, storedCard],
+    }));
 
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
@@ -1737,6 +1752,44 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   }
 
   return { state: stateAfterCheck };
+}
+
+/**
+ * Item-cache hand-store (Armory dm-116): "You may place any minor items from
+ * your hand under Armory during your organization phase." Moves the item
+ * straight from hand into the cache host's set-aside pile — no bearer, no
+ * corruption check (the item was never borne by a character).
+ */
+export function handleStoreItemInCache(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'store-item-in-cache') return wrongActionType(state, action, 'store-item-in-cache');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const item = findById(player.hand, action.itemInstanceId);
+  if (!item) return { state, error: 'Item not found in hand' };
+
+  const host = player.cardsInPlay.find(c => c.instanceId === action.hostInstanceId);
+  if (!host) return { state, error: 'Cache host not found in play' };
+  const hostDef = defById(state, host.definitionId);
+  const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-hand-store');
+  if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') {
+    return { state, error: `${hostDef?.name ?? 'This card'} does not accept items placed under it from hand` };
+  }
+
+  const itemDef = defById(state, item.definitionId);
+  if (!itemDef || !isItemCard(itemDef) || !cacheEffect.subtypes.includes(itemDef.subtype)) {
+    return { state, error: `${itemDef?.name ?? 'This item'} cannot be placed under ${hostDef?.name ?? 'this card'}` };
+  }
+
+  logDetail(`${hostDef?.name ?? '?'}: placing ${itemDef.name} under it from hand`);
+  const stateWithItemRemoved = updatePlayer(state, playerIndex, () => ({
+    ...player,
+    hand: removeById(player.hand, item.instanceId),
+  }));
+  const stateAfterStore = placeCardSetAside(stateWithItemRemoved, action.hostInstanceId, toCardInstance(item), false, true);
+
+  return { state: stateAfterStore };
 }
 
 /**

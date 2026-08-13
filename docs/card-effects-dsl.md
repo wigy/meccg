@@ -91,6 +91,13 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
 
 Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`, `untap-penalty`.
 
+A `when` condition sees `bearer.skills` — the bearer's *effective* skills,
+printed plus every item/effect grant, including the modifier's own card (see
+`grant-skill` §54). A card that both grants a skill and conditions a bonus on
+already having it must instead read `bearer.naturalSkills` (printed skills
+only) to implement the "already a *X*" convention — see §54's "Same
+convention for `stat-modifier`" note.
+
 During strike resolution the combat context also exposes `combat.strikeMode` —
 the way the character is facing the current strike (`"tap"`, `"untap"`,
 `"dodge"`, `"reroll"`). It lets a prowess modifier apply only "when tapping to
@@ -2826,6 +2833,29 @@ one activation per matching card, each carrying the candidate's
 - `filter` — optional DSL `Condition` matched against each candidate's
   card definition (or, for `"own-hazard-corruption-cards"`, the candidate's
   bearer character's definition); candidates that fail the filter are skipped.
+- `excludeBearer` — for scope `"company-characters"`, drops the bearer from
+  the enumerated candidates, leaving only company-mates. Used when the
+  `apply` already untaps the bearer directly via `target: "bearer"` and the
+  per-target loop should only offer the *other* company member.
+
+Example (Waybread td-165 — discard to untap the bearer, or the bearer **and**
+one other company-mate; the same `discard: "self"` cost across all three
+modes means using any one of them consumes the item, naturally ruling out
+the others — no `oncePerTurn` lock needed):
+
+```json
+{ "type": "grant-action", "action": "untap-bearer",
+  "anyPhase": true, "cost": { "discard": "self" },
+  "when": { "bearer.status": "tapped" },
+  "apply": { "type": "set-character-status", "target": "bearer", "status": "untapped" } }
+{ "type": "grant-action", "action": "untap-bearer-and-company-character",
+  "anyPhase": true, "cost": { "discard": "self" },
+  "targets": { "scope": "company-characters", "excludeBearer": true },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "set-character-status", "target": "bearer", "status": "untapped" },
+    { "type": "set-character-status", "target": "target-character", "status": "untapped" }
+  ] } }
+```
 
 Example (The Arkenstone tw-341 — tap to untap a Dwarf company-mate, who
 then makes a corruption check modified -2; `enqueue-corruption-check`'s
@@ -3551,6 +3581,29 @@ Apply types:
                "removeFromGame": true } }
   ```
 
+  A `threshold` field on the apply gates the cancel behind a 2d6 roll
+  instead of applying it unconditionally: as this card's own chain entry
+  resolves (`resolveEntry`, `chain-reducer.ts`), the engine rolls 2d6
+  (honouring `cheatRollTotal` for deterministic tests) and only negates the
+  target entry when the total is at or above `threshold` — a failed roll
+  still discards this card normally, leaving the target untouched. The roll
+  is surfaced as a `dice-roll` {@link GameEffect}. Used by *Wrath of the
+  West* (le-151): "Playable on a minion resource short-event declared
+  earlier in the same chain of effects. Make a roll—if the result is
+  greater than 6, the event is canceled and discarded" (`threshold: 7` =
+  "greater than 6"). Unlike Ire of the East, le-151 carries no
+  `declaredBy.alignment` restriction (any minion alignment qualifies) and
+  no `removeFromGame` (the target is discarded normally on success).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "filter": { "target.cardType": "minion-resource-event",
+                           "target.eventType": "short" },
+               "threshold": 7 } }
+  ```
+
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
   raises a pending "may join the attacked company" offer for the
   bearer. The defender sees a `haven-join-attack` legal action during
@@ -3644,17 +3697,28 @@ Apply types:
 
 - `set-site-phase-flag` -- under `on-event: self-enters-play`, sets a named
   `SitePhaseState` boolean to `true` (fires only during the site phase). Valid
-  `flag` values: `hoardBountyAvailable`, `thoroughSearchAvailable`, and
-  `firstItemNoTapAvailable`. The last (Come By Night Upon Them le-176) lets the
-  **first item** played at the site this site phase — any subtype — be played
-  without tapping the site; `handleSitePlayResources` (`reducer-site.ts`) treats
-  it like Thorough Search (leaves the site untapped, does not count as the
-  site-tapping resource, consumes the flag), while the item still taps its
-  bearer normally.
+  `flag` values: `hoardBountyAvailable`, `thoroughSearchAvailable`,
+  `firstItemNoTapAvailable`, and `hoardKeywordGranted`. The third (Come By Night
+  Upon Them le-176) lets the **first item** played at the site this site phase
+  — any subtype — be played without tapping the site; `handleSitePlayResources`
+  (`reducer-site.ts`) treats it like Thorough Search (leaves the site untapped,
+  does not count as the site-tapping resource, consumes the flag), while the
+  item still taps its bearer normally. The fourth (Dwarven Hoard td-109) makes
+  the active site-phase company's current site "considered to contain a hoard
+  until the end of the turn" regardless of its printed keywords: while set,
+  `buildActiveCompanyContext` (`legal-actions/organization.ts`) and the item
+  `item-play-site` keyword computation (`legal-actions/site.ts`, both the
+  `itemOwnSiteRestrictionMatches` filter context and the `hoardBountyBonus`
+  `siteIsHoard` check) synthesize a `hoard` keyword onto the site, exactly like
+  the existing Deep Mines `under-deeps` synthesis. Absent (undefined → false);
+  reset when a new company's site phase begins, which is what bounds it to
+  "until the end of the turn" in practice.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "set-site-phase-flag", "flag": "firstItemNoTapAvailable" } }
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "set-site-phase-flag", "flag": "hoardKeywordGranted" } }
   ```
 
 ### Pending resolutions
@@ -5000,6 +5064,98 @@ canceled and The Balrog taps, if untapped. The next time The Balrog would
 otherwise untap, make him tapped instead and discard this card. Cannot be
 duplicated." — `flee-from-strike` `{ characterName: "The Balrog" }` +
 `duplication-limit` scope `game` max 1.
+
+### 11a-2. `sacrifice-of-form`
+
+A from-hand **Wizard-only** combat permanent-event, offered to the defending
+player once strikes are assigned against a company containing their Wizard
+avatar and before any strike of that attack has resolved (`combat.phase` is
+`choose-strike-order`, or `resolve-strike` with every `strikeAssignment`
+still `resolved: false`). Not offered when the attack source is
+`company-attack` ("cannot be used in company vs. company combat"), or when
+any in-play card already carries `sacrificeOfFormCharacterInstanceId` for
+that Wizard's instance ("cannot be duplicated on a given Wizard").
+
+```json
+{ "type": "sacrifice-of-form" }
+```
+
+On play (`play-sacrifice-of-form` action → `handleSacrificeOfForm` in
+`combat-actions.ts`):
+
+- the card leaves hand and enters the controller's `cardsInPlay` stamped
+  with `sacrificeOfFormCharacterInstanceId` (the Wizard's instance ID) — not
+  yet `attachedTo` him, since he is about to leave play;
+- `CombatState.forcedStrikeDefeat` is set and `forcedDefeatBodyCheckModifier`
+  raised by `+3` — the same mechanism Liquid Fire (wh-52) uses, so every
+  remaining strike of the attack auto-resolves as defeated and any creature
+  body check it produces is modified by `+3` ("all strikes … fail; +3 to any
+  body checks made to determine if the attack is defeated");
+- `CombatState.pendingSacrificeOfForm` records the host and Wizard instance
+  IDs for the deferred discard below.
+
+The Wizard is **not** discarded immediately — his `CharacterInPlay` data must
+stay available while any other strikes of the same attack (assigned to him or
+to company-mates) still resolve, per the CRF ruling that he "faces any
+effects of a failed strike that was assigned to him" (e.g. Dragon's Blood).
+Instead, `sweepSacrificeOfForm` (`engine/sacrifice-of-form.ts`, hooked into
+`postReduce` in `reducer.ts` via the same prev/next `combat` diff
+`enqueuePostAttackPlayOffers` uses to detect "an attack just ended" — see
+§ Pending resolutions) fires once the whole attack has concluded:
+
+- his allies are discarded (or returned to hand, per the normal
+  `partitionLeavingAllies` rule), his attached hazards return to their own
+  owners, and his followers disperse to general influence (`freeOrDiscardFollowers`
+  — **not** discarded, per CRF);
+- his items are placed "off to the side" with the host card via `placeCardSetAside`
+  (MEAS §1, `set-aside.ts`) with `keepOnHostRemoval: true` — they stay in play
+  even if the host itself is later discarded;
+- the Wizard card itself goes to his owner's discard pile ("he becomes
+  unrevealed");
+- `PlayerState.wizardSacrificed` is set to the Wizard's definition ID (once,
+  never cleared — see below).
+
+If the same Wizard is ever put back into play by any means, `sweepSacrificeOfFormReturn`
+(same module, same prev/next-diff pattern watching for a `characters` map
+entry newly appearing for an instance ID some in-play host still names with no
+`attachedTo` yet) reattaches the host (`attachedTo` set to him) and moves every
+item from the host's `setAside` list onto his `items[]`. Because
+`collectCharacterEffects` (`effects/resolver.ts`) has no generic pathway that
+turns a plain `attachedTo`-attached permanent-event's own `effects` into
+bearer stat modifiers (unlike `attachedToItem`, which does), the host's own
+`+1 prowess/body/direct-influence` `stat-modifier` effects are synthesised at
+reattach time into `until-cleared` `character-stat-modifier` active
+constraints on him — the same delivery mechanism opposed-roll outcomes and
+Vilya-style bonuses use.
+
+"You may not play a different Wizard" is enforced via `PlayerState.wizardSacrificed`
+(mirroring the Ringwraith `ringwraithReturnedToHand` restriction, but never
+cleared — CoE 2.II.2.1.1 bars a *different* avatar reveal for the rest of the
+game, not just until the same one replays) and two `CHARACTER_PLAY_RULES`
+gates (`rules/definitions/character-play.ts`): `differentWizardBlockedBySacrifice`
+blocks this player from revealing a different Wizard avatar, and
+`opponentSacrificedThisWizard` blocks the opponent from revealing this exact
+one — though ordinary ownership invariants (a player can never play a card
+from another player's discard pile) already make the opponent clause
+unreachable in practice; the gate exists for symmetry with the ruling text.
+
+```json
+{ "type": "sacrifice-of-form" }
+{ "type": "stat-modifier", "stat": "prowess", "value": 1 }
+{ "type": "stat-modifier", "stat": "body", "value": 1 }
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 1 }
+```
+
+Used by Sacrifice of Form (tw-321): "Spell. Wizard only. All of the strikes
+from one attack against your Wizard's company fail; +3 to any body checks
+made to determine if the attack is defeated. Discard the Wizard … Place any
+items he controls under this card and keep these off to the side … If the
+Wizard is put back into play, return his items to him and place Sacrifice of
+Form with him. Wizard receives +1 to his prowess, body, and direct
+influence. Cannot be duplicated on a given Wizard. Cannot be used in company
+vs. company combat. After Sacrifice of Form is played, you may not play a
+different Wizard and your opponent may not play the Wizard you sacrificed.
+This card is played after strikes are assigned."
 
 ### 11b. `protect-from-strike-assignment`
 
@@ -6743,6 +6899,60 @@ whole company jointly controls has none.
 ```json
 { "type": "storable-at", "siteTypes": ["haven"],
   "requiresTapped": true, "marshallingPoints": 4 }
+```
+
+### 21z. Item-cache primitives (`item-cache-hand-store`, `item-cache-alt-storage`, `item-cache-play-source`, `item-cache-count-bonus`)
+
+A permanent event that acts as an off-to-the-side cache of a player's own
+minor items, layered on top of the generic `setAside` mechanism
+(`engine/set-aside.ts`, MEAS §1) rather than the marshalling-point pile.
+Used by Armory (dm-116): "Only you and your companies can use Armory. You
+may place any minor items from your hand under Armory during your
+organization phase. A character at a Haven [{H}] can store a minor item
+under Armory instead of to your marshalling point pile. When you otherwise
+would be allowed to play a minor item from your hand at a Border-hold [{B}],
+Free-hold [{F}], or Haven [{H}], you may play an item from under Armory
+instead. If you have at least three minor items under Armory, gain 1
+marshalling point." Four independent effects, each a thin, reusable
+extension of an existing mechanism — no dedicated card-specific code:
+
+- **`item-cache-hand-store`** — a new organization-phase action
+  (`store-item-in-cache`, `legal-actions/organization.ts`
+  `itemCacheHandStoreActions`, `reducer-organization.ts`
+  `handleStoreItemInCache`) moves a hand item of a listed subtype straight
+  into the host's `setAside` pile (`placeCardSetAside(..., noMp: true)`), no
+  site or bearer required — the item was never played.
+- **`item-cache-alt-storage`** — offered alongside the existing `store-item`
+  action wherever an item is already storable at a matching site type
+  (`organization-companies.ts` `storeItemActions`); the emitted action
+  carries an extra `cacheHostInstanceId`, and `handleStoreItem`
+  (`reducer-organization.ts`) branches on its presence to call
+  `placeCardSetAside(..., noMp: true)` instead of pushing to `killPile`. The
+  initial-bearer corruption check and `bearer-cannot-untap` cleanup run
+  unchanged either way.
+- **`item-cache-play-source`** — generalizes the Great Secrets Buried There
+  (dm-63) "play a set-aside item as though in hand" shape
+  (`legal-actions/site.ts`, the hand-card loop in `playResourcesActions`)
+  from a hardcoded Under-deeps keyword check to a declared `siteTypes` list:
+  a player-owned host card's own `setAside` items are merged into the
+  hand-card loop whenever the active company's site's *effective* type
+  (`getEffectiveSiteType`) matches. Every ordinary item-play gate (site
+  resource type, uniqueness, untapped bearer) still applies unchanged, and
+  the existing `fromSetAside` reducer path (`reducer-site.ts`
+  `handleSitePlayHeroResource` / `removeItemFromSetAside`) needed no changes
+  — it was already host-agnostic.
+- **`item-cache-count-bonus`** — a `{ count, mp }` threshold scored in
+  `recompute-derived.ts` by counting the host's own `setAside.length`, the
+  same shape as `leader-control`'s `groupBonus` applied to a card count
+  instead of a faction count. Individual cached items already score no MP
+  (`setAsideNoMp`, set by both storage modes above) — this bonus is the only
+  MP the cache itself contributes.
+
+```json
+{ "type": "item-cache-hand-store", "subtypes": ["minor"] }
+{ "type": "item-cache-alt-storage", "siteTypes": ["haven"], "subtypes": ["minor"] }
+{ "type": "item-cache-play-source", "siteTypes": ["border-hold", "free-hold", "haven"] }
+{ "type": "item-cache-count-bonus", "count": 3, "mp": 1 }
 ```
 
 ### 21a. `storage-site-transfer`
@@ -10608,6 +10818,16 @@ evaluated against the bearer's *natural* skills (from the character card definit
 not the granted skills. This correctly implements the card text "if the bearer is
 *already* a scout."
 
+**Same convention for `stat-modifier`**: a `stat-modifier`'s `when` is evaluated in
+the effective-stats context, where `bearer.skills` is the *merged* set (printed +
+every granted skill, including the card's own `grant-skill`). A card that grants a
+skill and also conditions a bonus on the bearer already having that skill must
+therefore read `bearer.naturalSkills` (printed skills only) instead of `bearer.skills`
+— otherwise its own grant would make the condition trivially always true. Used by
+Magic Ring of Courage (tw-271): "gives the bearer warrior skill; if already a
+warrior, +2 prowess" —
+`{ "type": "stat-modifier", "stat": "prowess", "value": 2, "when": { "bearer.naturalSkills": { "$includes": "warrior" } } }`.
+
 | Field | Required | Description |
 |-------|----------|-------------|
 | `skill` | yes | The skill name to grant (e.g. `"scout"`, `"sage"`, `"warrior"`). |
@@ -10616,7 +10836,7 @@ not the granted skills. This correctly implements the card text "if the bearer i
 { "type": "grant-skill", "skill": "scout" }
 ```
 
-Used by Magic Ring of Stealth (tw-274).
+Used by Magic Ring of Stealth (tw-274), Magic Ring of Courage (tw-271).
 
 ---
 
@@ -15113,3 +15333,145 @@ if the influence check is greater than 11. Standard Modifications: Men with
 home sites in the regions listed above (+3). Tap this faction to allow any
 company with one of the regions listed above in its site path to move up to 1
 additional region."
+
+### 76. `modify-attack` `postAttackMindRollSplit` + `split-into-own-company` (Turning Hope to Despair)
+
+A hazard **short-event**, played from hand (or revealed on-guard) in the same
+attacker-only pre-assignment `modify-attack` window as Unabated in Malice
+(ba-26, §see `modify-attack fromHand`), that schedules a **per-character**
+post-attack roll instead of (or alongside) any stat modifiers: if the attack
+ends up not fully defeated, every character still in the defending company
+rolls 2d6 plus his mind against a threshold, and each one who rolls below it
+splits off into his own company.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "postAttackMindRollSplit": { "threshold": 11 },
+  "when": { "attack.detainment": false,
+    "enemy.race": { "$in": ["undead", "ringwraith", "maia"] } } }
+```
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `postAttackMindRollSplit.threshold` | yes | The 2d6-plus-mind total each character in the company must reach (`>=`) to stay together (11 for Turning Hope to Despair). |
+
+- **Play** — reuses the existing from-hand `modify-attack` offering and
+  playability machinery verbatim (window, `when` gate, hazard-limit
+  bypass via `play-flag: "no-hazard-limit"`, attacker-only `player` gate).
+  `handleModifyAttack` (`combat-actions.ts`) discards the card as usual, but
+  because `postAttackMindRollSplit` is set, stores
+  `{ threshold }` as `CombatState.mindRollSplitPending` instead of (in this
+  card's case, since no `prowessModifier`/etc. are set) applying any stat
+  change.
+- **Roll** — at combat finalization (`finalizeCombat`, `combat-finalize.ts`),
+  if `!allDefeated` and `mindRollSplitPending` is set, the engine enqueues one
+  generic `dice-check` `PendingResolution` per character still in the
+  defending company: `modifiers: [{ kind: "constant", value: <effective mind> }]`,
+  `threshold`, `comparison: "gte"`, `onFail: { type: "split-into-own-company" }`,
+  `targetCharacterId`/`targetCompanyId` set. The company's controller rolls.
+- **Split** — `split-into-own-company` (a new `TriggeredAction` verb) is
+  dispatched by `applyDiceCheckBranch` (`pending-reducers.ts`) on a failed
+  roll, delegating to `splitCharacterOffCompany` (`reducer-utils.ts`): the
+  generalized, auto-rejoining sibling of Left Behind (td-41)'s
+  `applyLeftBehindSplit` (§64 `left-behind-split`). It peels the character
+  into a new `Company` sharing the same site path (`currentSite` /
+  `destinationSite` / `movementPath`), flagged
+  `Company.forcedSoloHazardLimit` — **not** `leftBehind` — since the card
+  carries no "may rejoin" clause. A lone character instead flags his own
+  company `Company.forcedSoloExtraPhasePending`, mirroring
+  `leftBehindExtraPhasePending`.
+- **Separate M/H phase, limit one** — identical mechanism to `left-behind-split`:
+  the new company is created *unhandled*, so the M/H loop's `select-company`
+  naturally gives it its own phase; `enterSetHazardLimitAndAutoAdvance`
+  (`mh-steps.ts`) forces a `forcedSoloHazardLimit` company's snapshot to 1,
+  **clearing the flag the moment it is consumed** (unlike `leftBehind`, which
+  stays set until the explicit rejoin resolves). `advanceAfterCompanyMH`
+  (`mh-hazard-play.ts`) re-runs a `forcedSoloExtraPhasePending` lone company
+  once, mirroring the `leftBehindExtraPhasePending` branch.
+- **No explicit rejoin** — because the flag is gone after the split company's
+  own phase, `autoMergeNonHavenCompanies` (rule 2.IV.6) treats it like any
+  other company: it silently merges back with its origin the moment both are
+  at the same non-Haven site, with no `left-behind-rejoin`-style pending
+  choice. This is the deliberate behavioral difference from Left Behind,
+  whose printed text explicitly grants a "may rejoin" option that Turning
+  Hope to Despair's text does not.
+
+Used by *Turning Hope to Despair* (as-41): "Playable on a company facing a
+non-detainment attack from: Undead, Nazgûl, or Maia; does not count against
+the hazard limit. If the attack is not defeated, each character in the
+company makes a roll and adds his mind. If the result is less than 11, the
+character splits off from the company and forms his own company with the
+same site path as his original company. The character faces a separate
+movement/hazard phase this turn with a hazard limit of one."
+
+### 77. `tap-at-site` + `reattach-to-item` + `activeWhileAttachedToItem` (Map to Mithril)
+
+A card-borne "if bearer is ever at named site, tap this permanent-event
+(permanently); once tapped and at a race-flavor site, move it onto a chosen
+item mid-game and only then grant a stat bonus" shape.
+
+```json
+{ "type": "tap-at-site", "siteNames": ["Moria"] },
+{ "type": "play-flag", "flag": "no-auto-untap" }
+```
+
+- **`tap-at-site`** — a level-triggered (not edge-triggered) passive check on
+  a resource permanent-event currently sitting as its bearer's own `items`
+  entry. The `sweepTapAtSiteItems` `postReduce` sweep (`reducer-utils.ts`)
+  re-runs after every action: whenever the bearer's company's current site
+  name is in `siteNames`, an untapped matching item is tapped. Fires on
+  arrival, on staying put, and even if the company was already at the site
+  when the card was played — matching "if bearer is ever at X" card text,
+  unlike an arrival-edge trigger. Paired with `play-flag: "no-auto-untap"` to
+  make the tap permanent — that flag was extended in this certification to
+  also apply to items borne by a character (`reducer-untap.ts`'s per-item
+  untap loop), not just top-level `cardsInPlay` entries as before.
+
+```json
+{ "type": "grant-action",
+  "action": "map-to-mithril-attach-weapon",
+  "cost": { "tap": "bearer" },
+  "when": { "$and": [
+    { "self.status": "tapped" },
+    { "site.keywords": { "$includes": "dwarf-hold" } } ] },
+  "targets": { "scope": "company-items",
+    "filter": { "$and": [
+      { "keywords": { "$includes": "weapon" } },
+      { "unique": false } ] } },
+  "apply": { "type": "reattach-to-item" } },
+{ "type": "stat-modifier", "stat": "prowess", "value": 3,
+  "activeWhileAttachedToItem": true }
+```
+
+- **`self` grant-action context** (`buildGrantActionContext`,
+  `legal-actions/organization.ts`) — the status of the specific card instance
+  carrying the grant-action (an item/hazard/ally, or the bearer's own card
+  when a character-def grant-action passes its own instance id as source),
+  for abilities gated on their own source card's tapped/untapped/inverted
+  status rather than the bearer's. `{ "self.status": "tapped" }`.
+- **`site.keywords`** — added to the grant-action `site` context alongside
+  `type`/`region`/`isTapped`/etc.: the current site's DSL `keywords` array, so
+  a grant-action can gate on a race-flavor site tag (e.g. the new `dwarf-hold`
+  keyword, tagged onto Blue Mountain Dwarf-hold tw-377 / Iron Hill Dwarf-hold
+  tw-403) rather than only the formal `siteType`.
+- **`reattach-to-item`** — a `TriggeredAction` verb resolved in
+  `runGrantApply` (`grant-action-apply.ts`): re-parents the source card from
+  the bearer's `items` onto a chosen item's `attachedToItem` binding — the
+  same shape Barrow-blade (dm-119) gets at play time, applied here mid-game
+  via a `grant-action` with `targets.scope: "company-items"` supplying the
+  chosen item's instance id as `targetCardId`. No card instance is lost; it
+  simply changes zones, keeping its current (tapped) status.
+- **`activeWhileAttachedToItem`** (`stat-modifier` flag) — mirrors
+  `activeWhileStored`'s dormant-until-state-reached shape: the modifier is
+  skipped while the card sits as its own bearer's plain item
+  (`collectCharacterEffects`'s own-items loop, `effects/resolver.ts`) and is
+  collected only via the existing item-attached-events scan once genuinely
+  bound through `attachedToItem` — so the bonus never leaks onto the bearer
+  before the card is actually re-parented onto the target item.
+
+Used by Map to Mithril (td-133): "Playable on a Dwarf during the site phase
+at a site at which Information is playable. Tap the Dwarf and site. Tap Map
+to Mithril if bearer is ever at Moria; this card never untaps. If Map to
+Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and
+place this card with a non-unique weapon in his company. This gives the
+weapon a +3 prowess bonus."

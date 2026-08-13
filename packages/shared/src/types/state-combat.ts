@@ -640,6 +640,14 @@ export interface CombatState {
    */
   readonly postAttackEffects?: readonly PostAttackEffect[];
   /**
+   * Turning Hope to Despair (as-41): set when a hand-played `modify-attack`
+   * carrying `postAttackMindRollSplit` was played against this attack. If the
+   * attack ends up not fully defeated, `finalizeCombat` rolls a per-character
+   * mind check (2d6 + mind vs. `threshold`) for every character still in the
+   * defending company and splits off each one that fails.
+   */
+  readonly mindRollSplitPending?: { readonly threshold: number };
+  /**
    * True when the creature carries `combat-attacker-chooses-defenders`
    * (e.g. Cave-drake). Determines the post-cancel-window transition:
    * attacker-chooses → `'attacker'` assignment; otherwise → `'defender'`
@@ -685,6 +693,23 @@ export interface CombatState {
    * `handleBodyCheckRoll`.
    */
   readonly forcedDefeatBodyCheckModifier?: number;
+  /**
+   * Sacrifice of Form (tw-321): set when the defending player plays the card
+   * after strikes are assigned (alongside `forcedStrikeDefeat` /
+   * `forcedDefeatBodyCheckModifier`). Names the host card and the Wizard being
+   * sacrificed so the deferred sweep (`sacrifice-of-form.ts` `sweepSacrificeOfForm`,
+   * hooked into `postReduce` via the same prev/next `combat: null` diff as
+   * `enqueuePostAttackPlayOffers`) can discard the Wizard and set his items
+   * aside once the whole attack — not just the current strike — has finished
+   * resolving. Deferring past the end of the attack (rather than discarding
+   * immediately) keeps the Wizard's `CharacterInPlay` data available while any
+   * remaining strikes of this attack resolve, per the CRF ruling that he still
+   * "faces any effects of a failed strike that was assigned to him."
+   */
+  readonly pendingSacrificeOfForm?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly characterInstanceId: CardInstanceId;
+  };
   /**
    * When true, any character (or ally) this attack wounds is immediately
    * eliminated instead of merely wounded — no body check is rolled.

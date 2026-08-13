@@ -422,7 +422,44 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            { "company.atUnderDeepsSurfaceSite": true },
+            { "company.siteUntapped": true }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-draw-multiplier",
+          "scope": "company-mh-phase",
+          "value": 2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "haven-return-option",
+          "scope": "turn",
+          "requiresMovedToKeyword": "under-deeps"
+        }
+      }
+    ],
+    "certified": "2026-08-12",
     "text": "Playable only at the end of the organization phase on a company that starts its turn at an untapped adjacent site of an Under-deeps site. Opponent may draw up to twice the normal number of cards for this company during the movement/hazard phase. If company moved to an Under-deeps site, at the end of the turn the company may replace its site card with the site card at which it began the turn."
   },
   {
@@ -435,8 +472,28 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Only you and your companies can use Armory. You may place any minor items from your hand under Armory during your organization phase. A character at a Haven [{H}] can store a minor item under Armory instead of to your marshalling point pile. When you otherwise would be allowed to play a minor item from your hand at a Border-hold [{B}], Free-hold [{F}], or Haven [{H}], you may play an item from under Armory instead. If you have at least three minor items under Armory, gain 1 marshalling point."
+    "effects": [
+      {
+        "type": "item-cache-hand-store",
+        "subtypes": ["minor"]
+      },
+      {
+        "type": "item-cache-alt-storage",
+        "siteTypes": ["haven"],
+        "subtypes": ["minor"]
+      },
+      {
+        "type": "item-cache-play-source",
+        "siteTypes": ["border-hold", "free-hold", "haven"]
+      },
+      {
+        "type": "item-cache-count-bonus",
+        "count": 3,
+        "mp": 1
+      }
+    ],
+    "text": "Only you and your companies can use Armory. You may place any minor items from your hand under Armory during your organization phase. A character at a Haven [{H}] can store a minor item under Armory instead of to your marshalling point pile. When you otherwise would be allowed to play a minor item from your hand at a Border-hold [{B}], Free-hold [{F}], or Haven [{H}], you may play an item from under Armory instead. If you have at least three minor items under Armory, gain 1 marshalling point.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",
@@ -1085,8 +1142,14 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the movement/hazard phase on a company that has moved to an Under-deeps site. That company may attempt to move to an additional site on the same turn. Another site card may be played and a movement/hazard phase immediately follows."
+    "effects": [
+      {
+        "type": "grant-extra-mh-phase",
+        "movement": "under-deeps"
+      }
+    ],
+    "text": "Playable at the end of the movement/hazard phase on a company that has moved to an Under-deeps site. That company may attempt to move to an additional site on the same turn. Another site card may be played and a movement/hazard phase immediately follows.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",

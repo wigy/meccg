@@ -3436,8 +3436,14 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Spell. Wizard only. All of the strikes from one attack against your Wizard’s company fail; +3 to any body checks made to determine if the attack is defeated. Discard the Wizard (i. e., he becomes unrevealed) and any non-item, non-follower cards he controls. Place any items he controls under this card and keep these off to the side (these items are considered to still be in play).If the Wizard is put back into play, return his items to him and place Sacrifice of Form with him. Wizard receives +1 to his prowess, body, and direct influence. Cannot be duplicated on a given Wizard. Cannot be used in company vs. company combat.After Sacrifice of Form is played, you may not play a different Wizard and your opponent may not play the Wizard you sacrificed. This card is played after strikes are assigned."
+    "effects": [
+      { "type": "sacrifice-of-form" },
+      { "type": "stat-modifier", "stat": "prowess", "value": 1 },
+      { "type": "stat-modifier", "stat": "body", "value": 1 },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1 }
+    ],
+    "text": "Spell. Wizard only. All of the strikes from one attack against your Wizard’s company fail; +3 to any body checks made to determine if the attack is defeated. Discard the Wizard (i. e., he becomes unrevealed) and any non-item, non-follower cards he controls. Place any items he controls under this card and keep these off to the side (these items are considered to still be in play).If the Wizard is put back into play, return his items to him and place Sacrifice of Form with him. Wizard receives +1 to his prowess, body, and direct influence. Cannot be duplicated on a given Wizard. Cannot be used in company vs. company combat.After Sacrifice of Form is played, you may not play a different Wizard and your opponent may not play the Wizard you sacrificed. This card is played after strikes are assigned.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",

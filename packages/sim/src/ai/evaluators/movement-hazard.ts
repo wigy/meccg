@@ -26,6 +26,7 @@ import {
   boostsCreatureAttack,
   enablesHandCardBonus,
   discardBenefitsSelf,
+  diceSuccessPct,
 } from './common.js';
 
 /**
@@ -204,6 +205,26 @@ export const movementHazardEvaluator: ActionEvaluator = {
           return discardBenefitsSelf(view, action.discardTargetInstanceId) ? 20 : 0;
         }
         return null;
+      }
+
+      case 'support-corruption-check': {
+        // Tap-in-support (CoE 7.1.1): each tap is worth exactly what it buys
+        // — the extra sliver of survival probability it adds to the roll.
+        // Left unscored, every support option got the same flat default
+        // weight as the roll action itself, so the AI kept tapping company
+        // mates even after the check could no longer fail on any roll (bug
+        // report: three characters tapped in support of a check that a
+        // single support already made unfailable, needlessly leaving them
+        // tapped for the site phase). Find the paired roll action to read
+        // the check's current `need` and price the marginal point.
+        const rollAction = context.legalActions.find(
+          a => a.type === 'corruption-check' && a.characterId === action.targetCharacterId,
+        );
+        if (!rollAction || rollAction.type !== 'corruption-check') return 3;
+        const currentSuccessPct = diceSuccessPct(rollAction.need);
+        if (currentSuccessPct >= 100) return 0;
+        const improvedSuccessPct = diceSuccessPct(rollAction.need - 1);
+        return Math.max(1, improvedSuccessPct - currentSuccessPct);
       }
 
       case 'place-on-guard': {
