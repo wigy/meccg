@@ -119,10 +119,12 @@ describe('what is reported and what is played', () => {
 });
 
 describe('unowned decisions', () => {
-  test('fall through to Heuristics 1', () => {
+  test('are answered by passing, not handed to Heuristics 1', () => {
     const agent = createHeuristic2Agent({ available: [], model: testWinProbModel() });
-    // With no modules enabled every decision belongs to H1, so an H2 game is
-    // an H1 game — the baseline every per-module gate is measured against.
+    // With no modules enabled H2 has an opinion about nothing — and it plays
+    // the game anyway. It used to be an exact replay of Heuristics 1 here,
+    // which made H1 the floor *and* the ceiling of every measurement taken
+    // against it.
     const notes: (string | undefined)[] = [];
     const watcher: Agent = {
       name: 'watch',
@@ -139,7 +141,8 @@ describe('unowned decisions', () => {
       maxDecisions: 300,
     });
     expect(notes.length).toBeGreaterThan(50);
-    expect(notes.every(n => n?.startsWith('heuristic fallback'))).toBe(true);
+    expect(notes.some(n => n?.includes('fallback'))).toBe(false);
+    expect(notes.every(n => n?.startsWith('no opinion'))).toBe(true);
     expect(run.result.outcome).not.toBe('engine-error');
   }, GAME_TIMEOUT);
 });
@@ -161,7 +164,7 @@ describe('partial coverage', () => {
     expect(decision.considered).toBeUndefined();
   });
 
-  test('falls back when the covered opinion is too weak to stand alone', () => {
+  test('declines when the covered opinion is too weak to stand alone', () => {
     const weak: H2Module = {
       name: 'weak',
       ownedActionTypes: ['pass'],
@@ -176,7 +179,7 @@ describe('partial coverage', () => {
     // No H1 opinion is consulted for comparison — the fallback replaces the
     // whole decision rather than mixing the two scales.
     const decision = agent.chooseAction(decisionContext([PASS_A, UNOWNED]));
-    expect(decision.note).toContain('heuristic fallback');
+    expect(decision.note).toContain('no opinion');
   });
 });
 
@@ -186,27 +189,7 @@ describe('agent identity', () => {
     expect(createHeuristic2Agent({ modules: 'stub', available: [REWARDS], model: testWinProbModel() }).name)
       .toBe('h2:stub');
   });
-
-  test('records a non-default fallback too — it is half of how the agent plays', () => {
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model: testWinProbModel(), fallback: stubFallback(PASS_A),
-    });
-    expect(agent.name).toBe('h2+stub-fallback');
-  });
 });
-
-/** A fallback that always takes `pick`, so its decisions are recognisable. */
-function stubFallback(pick: GameAction): Agent & { calls: AgentContext[] } {
-  const calls: AgentContext[] = [];
-  return {
-    name: 'stub-fallback',
-    calls,
-    chooseAction(context: AgentContext) {
-      calls.push(context);
-      return { action: pick, note: 'stub chose' };
-    },
-  };
-}
 
 describe('a tie at the top with an unrelated worse candidate', () => {
   const model = testWinProbModel();
@@ -235,158 +218,75 @@ describe('a tie at the top with an unrelated worse candidate', () => {
     },
   };
 
-  test('defers to the fallback instead of playing the first tied candidate', () => {
-    const fallback = stubFallback(PASS_A);
+  test('passes instead of playing the first tied candidate', () => {
+    // It used to hand this to a fallback. There is no fallback now, and the
+    // answer is the same one for the same reason: a tie at the top is not a
+    // preference, and an action nothing prices as better still costs a card, a
+    // tap, or information.
     const agent = createHeuristic2Agent({
-      available: [tiedTopWorseOutlier], model, temperature: 0.0001, fallback,
+      available: [tiedTopWorseOutlier], model, temperature: 0.0001,
     });
-    const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT]));
-    expect(decision.note).toContain('stub-fallback fallback');
-    expect(fallback.calls).toHaveLength(1);
+    const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT, PASS_A]));
+    expect(decision.action).toBe(PASS_A);
+    expect(decision.note).toContain('no opinion');
+  });
+
+  test('takes its own best when there is nothing to pass with', () => {
+    // No `pass` on offer, so declining is not available and H2 must still name
+    // a move. It names its own, never anyone else's.
+    const agent = createHeuristic2Agent({
+      available: [tiedTopWorseOutlier], model, temperature: 0.0001,
+    });
+    expect(agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT])).action).not.toBe(SPLIT);
   });
 
   test('still acts when the top is uncontested', () => {
     // Same shape, minus the tie: one candidate clears the runner-up, so
-    // there is a real opinion and the module tree keeps the decision.
+    // there is a real opinion and the module tree acts on it.
     const agent = createHeuristic2Agent({
       available: [tiedTopWorseOutlier], model, temperature: 0.0001,
-      fallback: stubFallback(PASS_A),
     });
     expect(agent.chooseAction(decisionContext([TRANSFER, SPLIT])).action).toBe(TRANSFER);
   });
 });
 
-describe('yielding to a fallback that can search', () => {
-  const model = testWinProbModel();
-
-  test('defers a decision the fallback says it can search itself', () => {
-    // Where `mc` can determinize the view its rollouts beat the modules;
-    // where it cannot, the modules are the only opinion there is. The line is
-    // a property of the position, so it is asked per decision.
-    const searcher = stubFallback(PASS_A);
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model, temperature: 0.0001,
-      fallback: { ...searcher, canDecide: () => true },
-      yieldWhenFallbackCanSearch: true,
-    });
-    const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B]));
-    expect(decision.action).toBe(PASS_A);
-    expect(decision.note).toContain('stub-fallback fallback');
-  });
-
-  test('keeps a decision the fallback says it cannot', () => {
-    const searcher = stubFallback(PASS_A);
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model, temperature: 0.0001,
-      fallback: { ...searcher, canDecide: () => false },
-      yieldWhenFallbackCanSearch: true,
-    });
-    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
-  });
-
-  test('is off by default, so a searching fallback changes nothing', () => {
-    const searcher = stubFallback(PASS_A);
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model, temperature: 0.0001,
-      fallback: { ...searcher, canDecide: () => true },
-    });
-    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
-  });
-
-  test('a fallback that does not implement canDecide is never yielded to', () => {
-    // Absent means "draws no distinction", not "yes". Reading it the other way
-    // would be dangerous: Heuristics 1 does not implement it, and defaulting to
-    // yes would hand the weight soup every decision in the game.
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model, temperature: 0.0001,
-      fallback: stubFallback(PASS_A), yieldWhenFallbackCanSearch: true,
-    });
-    // Absent `canDecide` is not `=== true`, so the module tree keeps it.
-    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
-  });
-
-  test('never yields a company-shape decision, however well the fallback searches', () => {
-    // `defence` prices company shape as a difference of one potential over the
-    // whole board, so a shape change and its undo cannot both score positively.
-    // A one-turn rollout cannot see that: `mc` scores splitting a company and
-    // merging it straight back identically, and the argmax of that tie ran
-    // split -> move -> merge -> split to the decision limit.
-    const SPLIT = { type: 'split-company', id: 's' } as unknown as GameAction;
-    const shapeAware: H2Module = {
-      name: 'shape',
-      ownedActionTypes: ['split-company', 'pass'],
-      evaluate: action => ({
-        action, module: 'shape',
-        outcomes: [{ p: 1, label: 'shape', dtsd: action === SPLIT ? -4 : 0 }],
-        expectedTsd: action === SPLIT ? -4 : 0, sigmaTsd: 0,
-        utility: action === SPLIT ? -0.04 : 0,
-        method: 'integrated', rationale: leaf('shape', 0), assumptions: [],
-      }),
-    };
-    const searcher: Agent = {
-      name: 'searcher',
-      canDecide: () => true,
-      chooseAction: () => ({ action: SPLIT, considered: [{ action: SPLIT, weight: 9 }] }),
-    };
-    const agent = createHeuristic2Agent({
-      available: [shapeAware], model, temperature: 0.0001,
-      fallback: searcher, yieldWhenFallbackCanSearch: true,
-    });
-    // The searcher would split; the module says splitting costs 4 tsd and wins.
-    expect(agent.chooseAction(decisionContext([SPLIT, PASS_A])).action).toBe(PASS_A);
-  });
-
-  test('records the yield in its name, so a replay says which composition played', () => {
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model,
-      fallback: stubFallback(PASS_A), yieldWhenFallbackCanSearch: true,
-    });
-    expect(agent.name).toBe('h2>stub-fallback');
-  });
-});
-
-describe('the fallback seam', () => {
+describe('a decision the modules decline', () => {
   const model = testWinProbModel();
   /** An action type no module owns. */
   const UNOWNED = { type: 'transfer-item', id: 'y' } as unknown as GameAction;
 
-  test('a declined decision goes to the configured agent, not to Heuristics 1', () => {
-    const fallback = stubFallback(PASS_A);
-    const agent = createHeuristic2Agent({ available: [], model, fallback });
+  test('is answered by H2 itself, because there is no one else to ask', () => {
+    const agent = createHeuristic2Agent({ available: [], model });
     const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B, UNOWNED]));
     expect(decision.action).toBe(PASS_A);
-    // The fallback's own note is kept, prefixed by who was asked — a
-    // transcript has to say which agent produced the move.
-    expect(decision.note).toBe('stub-fallback fallback: stub chose');
-    expect(fallback.calls).toHaveLength(1);
+    expect(decision.note).toContain('no opinion');
+    expect(decision.note).not.toContain('fallback');
   });
 
-  test('the fallback sees the forward candidate list, not the raw one', () => {
-    // H2 drops candidates the engine marked as undoing this phase's progress.
-    // A fallback offered them could re-introduce the oscillation `ai/regress`
-    // exists to stop.
+  test('never names a candidate the engine proved undoes this phase', () => {
+    // H2 drops candidates marked as undoing progress. Choosing among the raw
+    // list would re-introduce the oscillation `ai/regress` exists to stop —
+    // which used to be a property of what the *fallback* was shown, and is now
+    // a property of what H2 chooses from directly.
     const undo = { type: 'pass', id: 'undo', regress: true } as unknown as GameAction;
-    const fallback = stubFallback(PASS_A);
-    const agent = createHeuristic2Agent({ available: [], model, fallback });
-    agent.chooseAction(decisionContext([PASS_A, undo]));
-    expect(fallback.calls[0].legalActions).toEqual([PASS_A]);
+    const agent = createHeuristic2Agent({ available: [], model });
+    expect(agent.chooseAction(decisionContext([PASS_A, undo])).action).toBe(PASS_A);
   });
 
-  test('a decision the modules do own never reaches the fallback', () => {
-    const fallback = stubFallback(PASS_A);
-    const agent = createHeuristic2Agent({
-      available: [REWARDS], model, fallback, temperature: 0.0001,
-    });
-    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
-    expect(fallback.calls).toHaveLength(0);
+  test('a decision the modules do own is decided by them, not by declining', () => {
+    const agent = createHeuristic2Agent({ available: [REWARDS], model, temperature: 0.0001 });
+    const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B]));
+    expect(decision.action).toBe(PASS_B);
+    expect(decision.note).not.toContain('no opinion');
   });
 });
 
 describe('a ranking that does not discriminate', () => {
-  test('is handed to Heuristics 1 rather than resolved at random', () => {
+  test('is declined rather than resolved at random', () => {
     // Every candidate identical: `select-company` where nothing is playable at
-    // any site. Coverage is complete, so the old rule would have acted — by
-    // sampling uniformly, which is worse than the preference H1 still has.
+    // any site. Coverage is complete, so an older rule acted here by sampling
+    // uniformly. H2 declines instead — a flat ranking is the absence of a
+    // preference, and inventing one by coin flip is not better than saying so.
     const flat: H2Module = {
       name: 'flat',
       ownedActionTypes: ['pass'],
@@ -398,7 +298,7 @@ describe('a ranking that does not discriminate', () => {
       }),
     };
     const agent = createHeuristic2Agent({ available: [flat], model: testWinProbModel() });
-    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).note).toContain('heuristic fallback');
+    expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).note).toContain('no opinion');
   });
 
   test('still acts when one candidate is clearly better', () => {

@@ -1911,6 +1911,148 @@ everywhere else in the game, and pricing it as a benefit anywhere but the draft
 would be wrong. It is right here only because the budget is a knapsack and the
 draft is where it gets spent.
 
+### The discard is a tie-break on the placeholder
+
+With the draft settled, the largest remaining disagreement is `discard-card`,
+and it is not close. Over twelve recorded games:
+
+| the human's action | they chose it | H2 agreed |
+| --- | --- | --- |
+| `pass` | 1437 | 24.8% |
+| `draw-cards` | 414 | 100.0% |
+| **`discard-card`** | **306** | **7.8%** |
+| `resolve-strike` | 164 | 72.6% |
+| `select-company` | 160 | 53.1% |
+
+221 of those are decisions where *both* sides chose to discard and named a
+different card — the largest same-type disagreement in the corpus.
+
+The two sides throw away different kinds of card, and consistently:
+
+| card class | human discards | H2 discards |
+| --- | --- | --- |
+| hazard creature | 46 | 20 |
+| hazard event | 41 | 23 |
+| characters (all) | 25 | 9 |
+| resources carrying MP (items, factions, allies) | ~19 | ~67 |
+
+H2 is throwing away the cards that score.
+
+#### The mechanism is the placeholder, not the standing
+
+The obvious guess — the half-total cap zeroing a source, as it does at the draft
+— is wrong, and the probe says so: over 300 attributed discard decisions and 2841
+priced candidates, **not one candidate quoted zero**. What it found instead:
+
+```text
+candidates quoting exactly 0:                        0 (0.0%)
+decisions where the cheapest price is a tie:       299 (99.7%)
+mean quote of the card the HUMAN discarded:      1.331
+mean quote of the card the AGENT discards:       1.000
+```
+
+The cheapest price is **exactly `provisionalCardPrice`**, and almost every card
+in hand sits on it. `card-price` has a real opinion about a card that scores or
+attacks, and no opinion at all about the rest — so they all land on the flat
+floor, tie, and the discard falls to whatever breaks ties. The stuck coin again,
+in the second-highest-volume decision type in the game.
+
+This is not a hidden bug. `provisionalCardPrice` documents itself as "a
+placeholder … one number where there should be a function of the standing, the
+deck remaining, and what the hazard side expects to need", and `hand`'s discard
+branch says it is pricing "even while that number is still the flat placeholder
+rather than a real reservation value". The measurement is what turns a known
+placeholder into a ranked piece of work: it decides 306 decisions per twelve
+games, more often than every scoring decision combined.
+
+#### What the fix has to be
+
+Not a better marshalling-point estimate — the cards involved mostly have no MP,
+which is why they are on the floor. What separates the cards humans throw from
+the cards they keep is whether they can ever be **played**: a resource-side deck
+holds hazards it can only use during an opponent's movement, and a resource it
+has no site, influence or company for is just as dead. `hand-flow` already
+measures playability-at-arrival, and `budget`, `exposure` and `hazard-plan`
+already price the three conditions separately.
+
+So the next piece is a real reservation value for a held card, which is what
+§3.5 asked for in the first place. Recorded here rather than attempted in the
+same pass, because `card-price` is the file this project has twice changed on a
+metric and twice reverted (see the reverts above) — the fix has to come from what
+the rules say a card in hand can do, not from what moves agreement.
+
+### Heuristics 1 was 41% of Heuristics 2
+
+H2 handed decisions it could not rank to H1. Measured over the recorded corpus,
+that was not a rare safety net:
+
+```text
+decisions with a real choice: 1564
+  H2 decided it itself:      919 (58.8%)
+  handed to Heuristics 1:    645 (41.2%)
+
+  corruption-check  96.8%      pass           58.7%
+  play-hazard       72.5%      discard-card   55.1%
+  pass-chain-prio   63.0%      assign-strike  51.0%
+```
+
+More than two decisions in five credited to H2 were H1's. Every measurement in
+this document — every agreement figure, every gate — was taken on an agent that
+was 41% another agent, and every module improvement was being measured on the
+fraction of decisions that reached the modules at all. The discard work above
+touched under half the discards it was aimed at.
+
+So the fallback was removed. H2 answers everything itself, and what it says when
+it has no preference is `pass`: every action costs something the model may not
+have priced — a card, a tap, information — and an action with no modelled benefit
+has nothing to set against that.
+
+#### What that revealed
+
+| | overall agreement | `pass` agreement | paired Elo vs H1 | failures |
+| --- | --- | --- | --- | --- |
+| with the H1 fallback | 41.1% | 24.8% | +81 [+46, +117] | 1 |
+| without it | **58.7%** | **73.6%** | **−264 [−315, −221]** | **0** |
+
+Both numbers are large and they point in opposite directions.
+
+**Agreement rose seventeen points**, almost all of it on `pass`. H1's eagerness to
+act was the single biggest source of divergence from human play; H2's own modules
+were closer to human judgement than the agent overruling them two decisions in
+five.
+
+**Strength collapsed to 18%.** H2's modules, standing alone, lose badly to H1.
+The +81 Elo H2 used to carry was mostly H1's, with the modules adding a little on
+top. That is the honest baseline of the modular agent and it had never been
+measured, because the agent had never played a game without help.
+
+The mechanism is not subtle: H2 now passes on 41% of decisions, so it declines to
+play resources, decline to attack, and declines to score. Passing is the right
+answer to a tie and the wrong answer to a decision nobody modelled, and until
+those decisions are owned the two are indistinguishable from inside.
+
+The one unambiguous gain: **zero incomplete games**, where every previous gate in
+this document hit the `movement-hazard` deadlock once. An agent that declines
+instead of acting on a coin flip does not walk into the cycle.
+
+#### The work list, finally ranked by what it costs
+
+The deferral table is the roadmap, because each row is decisions H2 currently
+answers with `pass`:
+
+| action type | deferred | what owning it requires |
+| --- | --- | --- |
+| `pass` | 262/446 | the modules' own opinion about acting at all |
+| `discard-card` | 108/196 | the reservation value §3.5 asked for |
+| `play-hazard` | 37/51 | `hazards` already prices bundles; this is coverage, not valuation |
+| `corruption-check` | 30/31 | nearly untouched |
+| `assign-strike` | 26/51 | fell 44.9% → 12.3% on agreement; no `pass` exists in that window, so H2 takes the first candidate |
+| `select-company` | 26/114 | |
+
+Reading the gate as a verdict on the removal would be a mistake. It is a verdict
+on the modules, taken for the first time without a second agent covering for
+them.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
