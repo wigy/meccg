@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, makeMHState, viableActions, Phase,
+  buildTestState, resetMint, dispatch, makeMHState, viableActions, Phase, Alignment,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   MORIA, LORIEN,
@@ -31,6 +31,18 @@ import type { MovementHazardPhaseState } from '../../../index.js';
 // this destination reachable when originally declared. Single-test use →
 // inline.
 const HENNETH_ANNUN = 'tw-400' as CardDefinitionId;
+
+// Balrog Moria (ba-93, haven, region Redhorn Gate) and the Balrog's own copy
+// of Azog (leader, not the avatar — the avatar locks a company to
+// Under-deeps-only movement, which would mask the bug under test). Isengard
+// here is the minion printing (le-384, region Gap of Isen, nearestHaven
+// Geann a-Lisch — not Moria) that CoE rule 1.4.B1 lets a Balrog player carry
+// in their location deck. Redhorn Gate and Gap of Isen are 3 edges apart
+// (region distance 4), exactly at the default max — reachable only if
+// Isengard's region is indexed for the Balrog player's movement map.
+const MORIA_BALROG = 'ba-93' as CardDefinitionId;
+const AZOG = 'ba-2' as CardDefinitionId;
+const ISENGARD_MINION = 'le-384' as CardDefinitionId;
 
 describe('Rule 5.04 — Illegal Movement Negated', () => {
   beforeEach(() => resetMint());
@@ -71,5 +83,35 @@ describe('Rule 5.04 — Illegal Movement Negated', () => {
     const mh = after.phaseState as MovementHazardPhaseState;
     expect(mh.step).not.toBe('reveal-new-site');
     expect(mh.destinationSiteName).toBe('Moria');
+  });
+
+  test('[BALROG] A Balrog company moving from Moria to a minion site (Isengard) within region range is not falsely negated as illegal', () => {
+    // CoE rule 1.4.B1: a Balrog player's location deck may include minion
+    // sites (other than the ones requiring a dedicated Balrog printing).
+    // The region-movement legality check at reveal time must therefore
+    // resolve the minion destination's region too, not just Balrog-aligned
+    // sites, or every such move is wrongly negated by rule 5.04.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{ site: MORIA_BALROG, characters: [AZOG], destinationSite: ISENGARD_MINION }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = { ...built, phaseState: makeMHState({ step: 'reveal-new-site', siteRevealed: false, maxRegionDistance: 4 }) };
+
+    const declareActions = viableActions(state, PLAYER_1, 'declare-path');
+    expect(declareActions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, declareActions[0].action);
+    const company = after.players[0].companies[0];
+    expect(company.destinationSite?.definitionId).toBe(ISENGARD_MINION);
   });
 });

@@ -117,19 +117,31 @@ function computeAllPairsDistance(
  * Whether a site whose card-alignment is `siteAlignment` belongs in the
  * movement topology of a player whose deck-alignment is `playerAlignment`.
  *
- * Single-alignment players (Wizard, Ringwraith, Balrog) only ever stand on and
- * move between sites of their own alignment, so the match is exact. A
- * Fallen-wizard, however, builds a mixed location deck — one copy of each hero
- * site and each minion site plus Fallen-wizard sites (CoE rule 1.28) — and
- * occupies and moves between all three. Filtering a Fallen-wizard's map to only
- * `fallen-wizard` sites drops the hero and minion sites entirely, leaving their
- * companies with no region indexed and therefore no legal movement.
+ * Wizard and Ringwraith players only ever stand on and move between sites of
+ * their own alignment, so the match is exact. A Fallen-wizard, however,
+ * builds a mixed location deck — one copy of each hero site and each minion
+ * site plus Fallen-wizard sites (CoE rule 1.28) — and occupies and moves
+ * between all three. Filtering a Fallen-wizard's map to only
+ * `fallen-wizard` sites drops the hero and minion sites entirely, leaving
+ * their companies with no region indexed and therefore no legal movement.
+ *
+ * A Balrog player is the same story on a smaller scale: their location deck
+ * may include one copy of each minion site other than the ones with a
+ * dedicated Balrog version (CoE rule 1.4.B1) — so their movement topology
+ * must include `ringwraith`-alignment sites alongside their own `balrog`
+ * ones, or every minion site they legally hold (e.g. Isengard) is invisible
+ * to region/starter-movement pathfinding and every move to one is silently
+ * negated as illegal.
  */
 function alignmentUsesSite(playerAlignment: Alignment, siteAlignment: Alignment | undefined): boolean {
   if (playerAlignment === Alignment.FallenWizard) {
     return siteAlignment === Alignment.Wizard
       || siteAlignment === Alignment.Ringwraith
       || siteAlignment === Alignment.FallenWizard;
+  }
+  if (playerAlignment === Alignment.Balrog) {
+    return siteAlignment === Alignment.Balrog
+      || siteAlignment === Alignment.Ringwraith;
   }
   return siteAlignment === playerAlignment;
 }
