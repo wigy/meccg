@@ -2436,6 +2436,90 @@ why it has not been run broadly, but it is the only measurement that ranks
 decisions by what they are worth rather than by how often they come up. Run it
 before pricing anything, not after.
 
+### What each opinion is actually worth
+
+`place-on-guard` showed that the largest divergence in the corpus is worth zero
+Elo, which made the frequency ranking unusable for deciding what to work on. So
+the ablation was run properly: flatten H2's opinion on a group of action types —
+the candidates stay, every one scores alike, and the tie rule picks among them
+uniformly — and gate. The difference against master is what *knowing which one to
+take* is worth.
+
+Flattening rather than removing is what makes it a measure of the opinion. A
+removed type leaves its candidates uncovered and never chosen, which measures the
+action instead.
+
+| flattened | paired Elo (95% CI) | score | cost of losing the opinion |
+| --- | --- | --- | --- |
+| — (`master`) | −155 [−195, −119] | 29.0% | — |
+| `play-hazard`, `place-on-guard` | −166 [−208, −128] | 27.9% | **−11** |
+| `assign-strike`, `resolve-strike`, `choose-strike-order` | −202 [−247, −163] | 24.0% | **−47** |
+| `plan-movement`, `enter-site`, `select-company`, `declare-path` | −249 [−299, −207] | 19.5% | **−94** |
+
+Standard error on each difference is about 30.
+
+#### The ordering is the opposite of the one this project has been using
+
+| | divergence rank | worth |
+| --- | --- | --- |
+| hazards | **1st** — 253 + 64, the largest in the corpus | ~0 Elo |
+| combat | mid | 47 Elo |
+| movement | low | **94 Elo** |
+
+**The hazard machinery is the most elaborate thing in H2 and it is inert.** The
+bundle beam search resolves whole attacks state by state, `hazard-plan` assigns
+every hazard in hand to a company, `card-price` prices creatures through that
+plan — and replacing all of it with a coin flip costs 11 Elo, inside noise. Every
+hazard-side change in this document was tuning something that does not move the
+result: the on-guard forgone charge (neutral), the held-hazard discount (−41,
+−42), the total order that mostly reordered hazards (−84).
+
+**Movement is where the strength is**, and it has had almost no attention here,
+precisely because H2 already agrees with humans about it reasonably often
+(`enter-site` 71.7%, `declare-path` 79.4%) and so it never rose up a
+divergence-ranked list.
+
+#### What to do with this
+
+Work on movement and combat; stop working on hazards until something explains why
+the machinery cannot pay. The three-way split also bounds the whole project: H2 is
+−155 against Heuristics 1, and its entire measurable opinion is worth about 140
+Elo, so an agent with no opinions at all would sit near −300. The remaining gap to
+a *winning* agent is not in refining these three; it is in whatever H2 does not
+model at all.
+
+### Movement: H2 is greedier than the human, not blinder
+
+The ablation put movement at 94 Elo — the one place H2's opinion demonstrably
+carries the agent — and `plan-movement` is its weakest type. Restricted to
+decisions where the human actually planned movement and had more than one
+destination, H2 picks the same site 30 times in 64 (46.9%).
+
+The obvious hypothesis was that `travel` cannot see what a destination is *for*:
+`regionCrossingCost` is documented in its own tunable as "a stand-in for a hazard
+model", and a big enough distance penalty would swamp the playability term. The
+measurement says the opposite:
+
+| | mean cards in hand playable at the destination | mean MP playable there | destination plays strictly more |
+| --- | --- | --- | --- |
+| human | 1.06 | 2.59 | 6 |
+| **H2** | **1.36** | **3.41** | **18** |
+
+H2's destinations are *better* on immediate playability, three times as often as
+the human's. It is not failing to see what it can play on arrival — it is
+optimising that harder than the human does, and still losing.
+
+So the gap is whatever the human is buying instead. Candidates, none of them
+measured yet: arriving somewhere survivable rather than somewhere lucrative; a
+site that sets up the *next* two turns rather than this one; keeping a company
+within reach of a haven. Each is a real MECCG consideration and none of them is
+"how many cards does this site let me play now", which is the only thing the
+destination score currently maximises.
+
+That is worth recording as a *negative*: the fix everyone would reach for first —
+weight playability higher, or cut the distance penalty that hides it — moves
+`travel` further in the direction it is already overshooting.
+
 ### Movement, second look: a trade, not a blind spot
 
 If H2 is not blind to what it can play on arrival, the next hypothesis was that
