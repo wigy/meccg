@@ -2503,7 +2503,15 @@ export function buildActiveCompanyContext(
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const siteName = siteDef?.name;
   const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
-  const siteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  const printedSiteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  // Dwarven Hoard (td-109): "the site is considered to contain a hoard until
+  // the end of the turn" — widen the active site-phase company's site
+  // keywords with `hoard` while the flag is set, regardless of the site's
+  // printed keywords.
+  const hoardKeywordGranted = state.phaseState.phase === Phase.Site && state.phaseState.hoardKeywordGranted === true;
+  const siteKeywords = hoardKeywordGranted && !printedSiteKeywords.includes('hoard')
+    ? [...printedSiteKeywords, 'hoard']
+    : printedSiteKeywords;
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];
