@@ -1015,6 +1015,19 @@ export interface SitePhaseState {
    */
   readonly prisonersRescuedAtDolGuldurThisSitePhase?: boolean;
   /**
+   * Whether the active company has, this site phase, **successfully played an
+   * ally or a faction at its current site**. Set when an ally is attached in
+   * `handleSitePlayHeroResource`, or when a faction influence attempt
+   * succeeds in the influence-attempt chain resolution. Consulted by the
+   * `active-company` play-condition (via the context key
+   * `company.allyOrFactionPlayedAtSite`) so an item can gate on "in addition
+   * to an ally or faction that has been successfully played at [site] this
+   * turn" (Ent-draughts, tw-227). Absent (undefined → false) until such a
+   * play happens; reset to absent when a new company's site phase begins (a
+   * fresh {@link SitePhaseState} is built).
+   */
+  readonly allyOrFactionPlayedAtSite?: boolean;
+  /**
    * Whether the site's minion-only additional automatic-attack (No Strangers at
    * this Time, as-51 `duplicateFirstAutoAttackVsMinion`) has already been faced
    * this site phase. Set once the copied first automatic-attack has been

@@ -441,6 +441,37 @@ export function orgPhaseFetchActivations(state: GameState, playerId: PlayerId): 
 }
 
 /**
+ * Item-cache hand-store actions (Armory dm-116): "You may place any minor
+ * items from your hand under Armory during your organization phase." For
+ * each in-play card the player controls that carries an
+ * `item-cache-hand-store` effect, offer one `store-item-in-cache` action per
+ * hand item whose subtype matches the effect's `subtypes` list. Unlike
+ * `store-item`, this path has no site or bearer requirement — the item is
+ * moved directly from hand, never having been played.
+ */
+export function itemCacheHandStoreActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const host of player.cardsInPlay) {
+    const hostDef = defById(state, host.definitionId);
+    const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-hand-store');
+    if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') continue;
+    for (const card of player.hand) {
+      const itemDef = defById(state, card.definitionId);
+      if (!itemDef || !isItemCard(itemDef)) continue;
+      if (!cacheEffect.subtypes.includes(itemDef.subtype)) continue;
+      logDetail(`${hostDef?.name ?? '?'}: ${itemDef.name} may be placed under it from hand`);
+      actions.push({
+        action: { type: 'store-item-in-cache', player: playerId, itemInstanceId: card.instanceId, hostInstanceId: host.instanceId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Pair-resource-with-CoF actions (Crown of Flowers, dm-121).
  *
  * Crown of Flowers enters play as an environment with "no effect until you
@@ -725,6 +756,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Store-item actions (store items at matching sites)
   actions.push(...storeItemActions(state, playerId));
+
+  // Item-cache hand-store actions (Armory dm-116): place minor items from hand
+  // under a cache host directly, without playing them.
+  actions.push(...itemCacheHandStoreActions(state, playerId));
 
   // Split-company actions (move GI character + followers to a new company)
   actions.push(...splitCompanyActions(state, playerId));
@@ -1794,6 +1829,24 @@ export function buildGrantActionContext(
 ): Record<string, unknown> {
   const statusStr = cardStatusToName(char.status);
 
+  // `self` — the status of the specific card instance carrying this
+  // grant-action (an item/hazard/ally, or the bearer's own card when a
+  // character-def grant-action passes its own instance id as source), for
+  // abilities gated on their own source card's status rather than the
+  // bearer's. Used by Map to Mithril (td-133): "If Map to Mithril ... is
+  // tapped, the bearer may tap himself and place this card with a
+  // non-unique weapon..." — `{ "self.status": "tapped" }`.
+  let selfStatusStr: string | undefined;
+  if (sourceInstanceId === char.instanceId) {
+    selfStatusStr = statusStr;
+  } else if (sourceInstanceId !== undefined) {
+    const found = char.items.find(i => i.instanceId === sourceInstanceId)
+      ?? char.hazards.find(h => h.instanceId === sourceInstanceId)
+      ?? char.allies.find(a => a.instanceId === sourceInstanceId);
+    if (found) selfStatusStr = cardStatusToName(found.status);
+  }
+  const self = selfStatusStr !== undefined ? { status: selfStatusStr } : null;
+
   // A turn-scoped `can-use-palantir` constraint grants the ability for the one
   // Palantír that placed it (constraint `source` === the card being gated), so
   // it never leaks to another Palantír the same character happens to bear.
@@ -1875,13 +1928,18 @@ export function buildGrantActionContext(
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
+    // Site-carried DSL keywords (e.g. `dwarf-hold`), for grant-actions gated
+    // on a race-flavor site tag rather than the formal `siteType`. Used by
+    // Map to Mithril (td-133): "If ... at a Dwarf-hold ..." —
+    // `{ "site.keywords": { "$includes": "dwarf-hold" } }`.
+    keywords: (siteDef as { keywords?: readonly string[] } | undefined)?.keywords ?? [],
   } : null;
   // Current phase, exposed so a grant-action `when` clause can restrict an
   // ability to a specific phase (e.g. Strangling Coils ba-76's company untap
   // is legal only during the movement/hazard phase). Combine with
   // `anyPhase: true` so the M/H scanner offers the ability at all.
   const phase = state.phaseState.phase;
-  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx, phase };
+  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase };
 }
 
 /**
@@ -2506,11 +2564,17 @@ export function buildPlayOptionContext(
  * a same-turn special-movement prerequisite (Army of the Dead tw-193: "on the
  * same turn that [Aragorn II] plays Paths of the Dead") without a per-card
  * keyword.
+ *
+ * `extra` merges additional caller-supplied fields into `company` — used by
+ * the site-phase item branch to fold in `allyOrFactionPlayedAtSite` (Ent-
+ * draughts tw-227), a `SitePhaseState` flag this function has no access to
+ * on its own.
  */
 export function buildActiveCompanyContext(
   state: GameState,
   player: PlayerState,
   company: import('../../types/state-cards.js').Company,
+  extra?: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const siteName = siteDef?.name;
@@ -2539,7 +2603,7 @@ export function buildActiveCompanyContext(
 
   return {
     site: { name: siteName, type: siteType, keywords: siteKeywords },
-    company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement },
+    company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement, ...(extra ?? {}) },
   };
 }
 

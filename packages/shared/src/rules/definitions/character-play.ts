@@ -37,6 +37,11 @@
  * - `ctx.opponentReturnedThisRingwraith` — true when this Ringwraith was
  *   returned to the *opponent's* hand and may not be revealed by this player
  *   (MELE §8.R1b)
+ * - `ctx.differentWizardBlockedBySacrifice` — true when this player has
+ *   sacrificed a Wizard via Sacrifice of Form (tw-321) and this candidate is a
+ *   *different* Wizard avatar (rule 2.II.2.1.1)
+ * - `ctx.opponentSacrificedThisWizard` — true when the opponent sacrificed
+ *   this exact Wizard via Sacrifice of Form
  * - `ctx.fwOrcTrollPermitted` — true when `card.isOrcOrTroll` is false, or a
  *   Stage resource in play specifically allows Orc/Troll characters
  *   (CoE 2.II.2.2.F2, e.g. Bad Company wh-63)
@@ -139,6 +144,20 @@ export const CHARACTER_PLAY_RULES: RuleSet = {
       id: 'opponent-returned-ringwraith',
       condition: { 'ctx.opponentReturnedThisRingwraith': false },
       failMessage: '{{card.name}}: the opponent\'s Ringwraith of this type was returned to their hand and may not be revealed by you',
+    },
+    {
+      // Sacrifice of Form (tw-321): after a Wizard is sacrificed, the player
+      // may not reveal a different Wizard (rule 2.II.2.1.1).
+      id: 'no-different-wizard-after-sacrifice',
+      condition: { 'ctx.differentWizardBlockedBySacrifice': false },
+      failMessage: '{{card.name}}: a Wizard was sacrificed with Sacrifice of Form — you may not play a different Wizard',
+    },
+    {
+      // Sacrifice of Form (tw-321): "your opponent may not play the Wizard you
+      // sacrificed."
+      id: 'opponent-sacrificed-wizard',
+      condition: { 'ctx.opponentSacrificedThisWizard': false },
+      failMessage: '{{card.name}}: your opponent sacrificed this Wizard with Sacrifice of Form and it may not be revealed by you',
     },
     {
       // CoE 2.II.2.2.F2: a Fallen-wizard player cannot play Orc or Troll

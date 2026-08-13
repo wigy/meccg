@@ -264,6 +264,19 @@ export interface CardInPlay {
    */
   readonly setAsideNoMp?: boolean;
   /**
+   * Sacrifice of Form (tw-321): the instance ID of the Wizard this card
+   * sacrificed, recorded for the lifetime of the game once set. While the
+   * Wizard is discarded this card holds his items in its `setAside` list with
+   * no `attachedTo`; once he is put back into play (by any means) the reactive
+   * sweep (`sacrifice-of-form.ts` `sweepSacrificeOfFormReturn`) sets
+   * `attachedTo` to him, returns the items, and synthesises this card's +1
+   * prowess/body/direct-influence `stat-modifier` effects into
+   * `character-stat-modifier` active constraints on him. Also used to enforce
+   * "cannot be duplicated on a given Wizard" — a second copy is blocked while
+   * any in-play card already names that Wizard's instance ID here.
+   */
+  readonly sacrificeOfFormCharacterInstanceId?: CardInstanceId;
+  /**
    * For a faction placed *under the control of a specific leader* (the LE
    * "Orcs of Udûn"-style factions, e.g. le-262, le-275, le-279, le-281,
    * le-282, le-291): the instance ID of the controlling character. Set when

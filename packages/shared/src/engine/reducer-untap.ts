@@ -327,9 +327,15 @@ function performUntap(state: GameState): GameState {
   // for each after the sweep instead of the plain untap below.
   const untapRollCandidates: Array<{ charId: CardInstanceId; effectiveMind: number; charName: string }> = [];
   for (const [key, ch] of Object.entries(player.characters)) {
-    const untappedItems = ch.items.map(item =>
-      item.status === CardStatus.Tapped ? { ...item, status: CardStatus.Untapped } : item,
-    );
+    // Skip items carrying a `no-auto-untap` effect (Map to Mithril td-133:
+    // "this card never untaps") — mirrors the same check for top-level
+    // `cardsInPlay` entries below.
+    const untappedItems = ch.items.map(item => {
+      if (item.status !== CardStatus.Tapped) return item;
+      const itemDef = defById(state, item.definitionId);
+      if (itemDef && 'effects' in itemDef && hasPlayFlag(itemDef, 'no-auto-untap')) return item;
+      return { ...item, status: CardStatus.Untapped };
+    });
     // CoE rule 2.V.2.2: allies are treated as characters for healing — a
     // wounded (inverted) ally heals to tapped when its bearer's company is
     // at a haven, same as a wounded character.

@@ -694,6 +694,23 @@ export interface CombatState {
    */
   readonly forcedDefeatBodyCheckModifier?: number;
   /**
+   * Sacrifice of Form (tw-321): set when the defending player plays the card
+   * after strikes are assigned (alongside `forcedStrikeDefeat` /
+   * `forcedDefeatBodyCheckModifier`). Names the host card and the Wizard being
+   * sacrificed so the deferred sweep (`sacrifice-of-form.ts` `sweepSacrificeOfForm`,
+   * hooked into `postReduce` via the same prev/next `combat: null` diff as
+   * `enqueuePostAttackPlayOffers`) can discard the Wizard and set his items
+   * aside once the whole attack — not just the current strike — has finished
+   * resolving. Deferring past the end of the attack (rather than discarding
+   * immediately) keeps the Wizard's `CharacterInPlay` data available while any
+   * remaining strikes of this attack resolve, per the CRF ruling that he still
+   * "faces any effects of a failed strike that was assigned to him."
+   */
+  readonly pendingSacrificeOfForm?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly characterInstanceId: CardInstanceId;
+  };
+  /**
    * When true, any character (or ally) this attack wounds is immediately
    * eliminated instead of merely wounded — no body check is rolled.
    * Set by the `wound-eliminates` auto-attack combat rule (e.g. the Spider

@@ -741,6 +741,15 @@ export function playCharacterActions(
             && cardDef.id !== player.ringwraithReturnedToHand,
           opponentReturnedThisRingwraith: isAvatar && cardDef.race === Race.Ringwraith
             && opponentPlayer?.ringwraithReturnedToHand === cardDef.id,
+          // Sacrifice of Form (tw-321): once a Wizard has been sacrificed, this
+          // player may not reveal a *different* Wizard (rule 2.II.2.1.1 — the
+          // restriction persists even while that Wizard is out of play, unlike
+          // the Ringwraith-return-to-hand flag above, which clears on replay).
+          differentWizardBlockedBySacrifice: isAvatar && cardDef.alignment === Alignment.Wizard
+            && player.wizardSacrificed !== undefined
+            && cardDef.id !== player.wizardSacrificed,
+          opponentSacrificedThisWizard: isAvatar && cardDef.alignment === Alignment.Wizard
+            && opponentPlayer?.wizardSacrificed === cardDef.id,
           fwOrcTrollPermitted: orcTrollPerm.permitted,
         },
       },

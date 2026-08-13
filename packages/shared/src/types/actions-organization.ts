@@ -203,6 +203,32 @@ export interface StoreItemAction {
    * with {@link characterId}.
    */
   readonly companyId?: CompanyId;
+  /**
+   * Item-cache alternate destination (`ItemCacheAltStorageEffect`, Armory
+   * dm-116): "A character at a Haven can store a minor item under Armory
+   * instead of to your marshalling point pile." When present, names the
+   * cache host's in-play instance — the item is moved into that host's
+   * `setAside` pile (no individual marshalling points) rather than the
+   * marshalling-point kill pile. The initial-bearer corruption check and
+   * `bearer-cannot-untap` cleanup still run, unchanged by the destination.
+   */
+  readonly cacheHostInstanceId?: CardInstanceId;
+}
+
+/**
+ * Item-cache hand-store (`ItemCacheHandStoreEffect`, Armory dm-116): "You may
+ * place any minor items from your hand under Armory during your organization
+ * phase." Moves an item straight from the controller's hand into the cache
+ * host's set-aside pile — no bearer, no site, no corruption check (the item
+ * was never borne by a character).
+ */
+export interface StoreItemInCacheAction {
+  readonly type: 'store-item-in-cache';
+  readonly player: PlayerId;
+  /** The item card instance in hand being cached. */
+  readonly itemInstanceId: CardInstanceId;
+  /** The cache host's in-play instance (e.g. Armory). */
+  readonly hostInstanceId: CardInstanceId;
 }
 
 /**

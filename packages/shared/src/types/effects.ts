@@ -190,6 +190,20 @@ export interface StatModifierEffect extends EffectBase {
    * entries and picks them up from the stored-card scan instead.
    */
   readonly activeWhileStored?: boolean;
+  /**
+   * When true this modifier applies **only while the source card is bound to
+   * an item via `attachedToItem`** (the Barrow-blade dm-119 shape), never
+   * while the card is a plain item sitting in a character's `items` (its own
+   * bearer would otherwise pick up the bonus directly). Map to Mithril
+   * (td-133): "the bearer may tap himself and place this card with a
+   * non-unique weapon in his company. This gives the weapon a +3 prowess
+   * bonus" — the card starts as a Dwarf's own item (no bonus) and only grants
+   * +3 prowess once re-parented onto a weapon via the `reattach-to-item`
+   * grant-action. {@link collectCharacterEffects} skips such effects in the
+   * character's own `items` loop and picks them up only from the
+   * `attachedToItem` scan.
+   */
+  readonly activeWhileAttachedToItem?: boolean;
   /** Named identifier so other effects can reference and override this one. */
   readonly id?: string;
   /** If set, this effect replaces the named effect when its condition matches. */
@@ -2149,7 +2163,8 @@ export type TriggeredActionType =
   | 'site-entry-attack'
   | 'win-condition-roll'
   | 'win-game'
-  | 'transfer-item-free';
+  | 'transfer-item-free'
+  | 'reattach-to-item';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -3254,6 +3269,27 @@ export interface TransferItemFreeAction extends TriggeredActionBase {
 }
 
 /**
+ * Re-parents the source card (a resource permanent-event currently sitting
+ * as a plain item in its bearer's `CharacterInPlay.items`) onto a chosen
+ * item, using the `targetCardId` carried by the granting action — the same
+ * `attachedToItem` binding Barrow-blade (dm-119) gets at play time, but
+ * applied mid-game via a `grant-action` instead. The source card is removed
+ * from the bearer's `items` and appended to the controller's `cardsInPlay`
+ * with `attachedToItem` set, keeping its current tapped/untapped status (no
+ * card instance is lost — it simply changes zones). Any `stat-modifier`
+ * flagged `activeWhileAttachedToItem` on its definition then flows to the
+ * target item's bearer via the existing item-attached-events collection path
+ * (`effects/resolver.ts`).
+ *
+ * Used by Map to Mithril (td-133): "the bearer may tap himself and place
+ * this card with a non-unique weapon in his company. This gives the weapon
+ * a +3 prowess bonus."
+ */
+export interface ReattachToItemAction extends TriggeredActionBase {
+  readonly type: 'reattach-to-item';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -3322,7 +3358,8 @@ export type TriggeredAction =
   | SplitIntoOwnCompanyAction
   | CancelCurrentAttackAction
   | TraitorAttackAction
-  | TransferItemFreeAction;
+  | TransferItemFreeAction
+  | ReattachToItemAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -3450,6 +3487,36 @@ export interface FleeFromStrikeEffect extends EffectBase {
   readonly type: 'flee-from-strike';
   /** Name of the character that must be facing the current strike (e.g. "The Balrog"). */
   readonly characterName: string;
+}
+
+/**
+ * A from-hand Wizard-only permanent-event spell played after strikes are
+ * assigned against the Wizard's company (not company-vs-company combat): all
+ * strikes of the attack automatically fail (as if the character defeated
+ * each), with a `+3` modifier to any resulting creature body checks. The
+ * Wizard is then discarded ("becomes unrevealed") along with any non-item,
+ * non-follower cards he controls (allies, attached hazards); his followers
+ * disperse to general influence as normal; his items are placed off to the
+ * side with this card (MEAS §1) and still count as in play.
+ *
+ * If the Wizard is later put back into play by any other means, his items
+ * return to him and this card is placed with him, granting +1 prowess, body,
+ * and direct influence for as long as it remains attached. Cannot be
+ * duplicated on a given Wizard (enforced by tracking the sacrificed Wizard's
+ * instance ID on the host `CardInPlay` entry — see `sacrifice-of-form.ts`).
+ * After being played, the controller may not reveal a different Wizard
+ * avatar (`PlayerState.wizardSacrificed`, mirroring the Ringwraith
+ * `ringwraithReturnedToHand` restriction) — the opponent-may-not-play-it
+ * clause needs no code since a player can never play a card from an
+ * opponent's discard pile.
+ *
+ * Mechanically reuses `CombatState.forcedStrikeDefeat` /
+ * `forcedDefeatBodyCheckModifier` (Liquid Fire wh-52's mechanism) for the
+ * strike-failure + body-check-bonus half, and `set-aside.ts` (MEAS §1) for
+ * holding the Wizard's items. Used by Sacrifice of Form (tw-321).
+ */
+export interface SacrificeOfFormEffect extends EffectBase {
+  readonly type: 'sacrifice-of-form';
 }
 
 /**
@@ -3835,8 +3902,17 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   opens its tap window "during the same site phase the company successfully
  *   plays Rescue Prisoners at Dol Guldur". Marked when a bearer is assigned
  *   (the card is kept), never on the declined/discarded branch.
+ * - `no-transfer` — this item may never be offered by `transferItemActions`
+ *   (CoE 2.II.5, organization-phase item transfer between characters at the
+ *   same site). Used by Ent-draughts (tw-227): "This item may not be …
+ *   transferred".
+ * - `no-store` — this item may never be offered by `storeItemActions` (CoE
+ *   2.II.4, storing an item at a Haven for marshalling points), overriding
+ *   the default "any regular/special item is storable at a Haven" rule the
+ *   same way the hardcoded `the-one-ring` keyword exception does. Used by
+ *   Ent-draughts (tw-227): "This item may not be … stored".
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -4769,6 +4845,24 @@ export interface PlayWindowEffect extends EffectBase {
    * the ended attack matches.
    */
   readonly when?: Condition;
+}
+
+/**
+ * Passively taps the source card the moment its bearer's company sits at one
+ * of the named sites — a level-triggered check re-evaluated by the
+ * `sweepTapAtSiteItems` postReduce sweep after every action, so it fires on
+ * arrival, on staying put, and even if the company was already there when the
+ * card was played. Meaningful only on a card that also carries
+ * `play-flag: "no-auto-untap"`, since without it the next untap phase would
+ * immediately undo the tap.
+ *
+ * Used by Map to Mithril (td-133): "Tap Map to Mithril if bearer is ever at
+ * Moria; this card never untaps." — `siteNames: ["Moria"]`.
+ */
+export interface TapAtSiteEffect extends EffectBase {
+  readonly type: 'tap-at-site';
+  /** Site names (matched against the bearer company's current site) that trigger the tap. */
+  readonly siteNames: readonly string[];
 }
 
 /**
@@ -5941,6 +6035,73 @@ export interface StorableAtEffect extends EffectBase {
    * has no bearer); character-borne items ignore it.
    */
   readonly requiresTapped?: boolean;
+}
+
+/**
+ * Item-cache host, mode "hand store" (Armory dm-116): during the
+ * controller's organization phase, an item of a matching subtype may be
+ * moved directly from the controller's hand into the set-aside pile kept
+ * with this card (`CardInPlay.setAside`, via `placeCardSetAside`), rather
+ * than being played. The stored item earns no marshalling points on its own
+ * (`setAsideNoMp`) — only the cache's own {@link ItemCacheCountBonusEffect},
+ * if present, scores anything for it.
+ */
+export interface ItemCacheHandStoreEffect extends EffectBase {
+  readonly type: 'item-cache-hand-store';
+  /** Item subtypes eligible to be moved from hand into the cache. */
+  readonly subtypes: readonly ('minor' | 'major' | 'greater' | 'gold-ring' | 'special')[];
+}
+
+/**
+ * Item-cache host, mode "alternate storage" (Armory dm-116): "A character at
+ * a Haven can store a minor item under Armory instead of to your marshalling
+ * point pile." Offered as an additional destination alongside the normal
+ * `store-item` action (CoE rule 2.II.4) whenever a matching item is storable
+ * at a site whose type is in `siteTypes`; choosing it moves the item into
+ * this card's set-aside pile instead of the marshalling-point kill pile,
+ * scoring no individual marshalling points (`setAsideNoMp`).
+ */
+export interface ItemCacheAltStorageEffect extends EffectBase {
+  readonly type: 'item-cache-alt-storage';
+  /** Site types where the cache destination is offered (e.g. any Haven). */
+  readonly siteTypes: readonly SiteType[];
+  /** Item subtypes eligible for the cache destination. */
+  readonly subtypes: readonly ('minor' | 'major' | 'greater' | 'gold-ring' | 'special')[];
+}
+
+/**
+ * Item-cache host, mode "play source" (Armory dm-116): "When you otherwise
+ * would be allowed to play a minor item from your hand at a Border-hold,
+ * Free-hold, or Haven, you may play an item from under Armory instead."
+ * Items set aside under this host (via {@link ItemCacheHandStoreEffect} or
+ * {@link ItemCacheAltStorageEffect}) are merged into the normal hand-card
+ * loop when the active company's site's effective type is in `siteTypes`,
+ * exactly like a hand card — every ordinary item-play gate (site resource
+ * type, uniqueness, untapped bearer) still applies. Mirrors the
+ * `play-target: targetsSetAside` shape already used by Great Secrets Buried
+ * There (dm-63), generalized to a declarable site-type list instead of a
+ * hardcoded Under-deeps check.
+ */
+export interface ItemCachePlaySourceEffect extends EffectBase {
+  readonly type: 'item-cache-play-source';
+  /** Site types where cached items are playable as though in hand. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
+ * Item-cache host, count-threshold marshalling-point bonus (Armory dm-116):
+ * "If you have at least three minor items under Armory, gain 1 marshalling
+ * point." Scored once per qualifying host in `recompute-derived.ts` by
+ * counting the host's `CardInPlay.setAside` list — the same shape as
+ * `leader-control`'s `groupBonus`, applied to a card-count instead of a
+ * faction-count.
+ */
+export interface ItemCacheCountBonusEffect extends EffectBase {
+  readonly type: 'item-cache-count-bonus';
+  /** Minimum number of cards set aside under this host to earn the bonus. */
+  readonly count: number;
+  /** Marshalling points awarded (misc category) once the threshold is met. */
+  readonly mp: number;
 }
 
 /**
@@ -8204,6 +8365,7 @@ export type CardEffect =
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
+  | SacrificeOfFormEffect
   | RollUntapSiteEffect
   | UntapMindRollEffect
   | SkipNextUntapOnPlayEffect
@@ -8228,6 +8390,7 @@ export type CardEffect =
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | ItemPlayCorruptionCheckEffect
+  | TapAtSiteEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect
@@ -8243,6 +8406,10 @@ export type CardEffect =
   | ItemPlaySiteEffect
   | DiscardSubstituteEffect
   | StorableAtEffect
+  | ItemCacheHandStoreEffect
+  | ItemCacheAltStorageEffect
+  | ItemCachePlaySourceEffect
+  | ItemCacheCountBonusEffect
   | StorageSiteTransferEffect
   | PlayWithStoredCardEffect
   | CallOfHomeCheckEffect

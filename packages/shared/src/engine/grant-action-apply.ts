@@ -128,6 +128,38 @@ function runGrantApply(
     return { updatedChar: currentChar, effects: allEffects, stateOps: allOps };
   }
 
+  // Map to Mithril (td-133): re-parent the source card from the bearer's own
+  // `items` onto a chosen item's `attachedToItem` binding — the same shape
+  // Barrow-blade (dm-119) gets at play time, applied here mid-game via a
+  // grant-action. No card instance is lost: it simply changes zones, keeping
+  // its current (tapped) status.
+  if (apply.type === 'reattach-to-item') {
+    const targetItemId = ctx.action.targetCardId;
+    if (!targetItemId) {
+      return { error: `reattach-to-item: action has no targetCardId on ${ctx.sourceName}` };
+    }
+    const sourceItem = char.items.find(i => i.instanceId === ctx.action.sourceCardId);
+    if (!sourceItem) {
+      return { error: `reattach-to-item: source ${ctx.sourceName} not found in ${ctx.charName}'s items` };
+    }
+    logDetail(`Grant-action ${ctx.action.actionId}: reattaching "${ctx.sourceName}" from ${ctx.charName} to item ${targetItemId as string}`);
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      cardsInPlay: [
+        ...bearerPlayer.cardsInPlay,
+        {
+          instanceId: sourceItem.instanceId,
+          definitionId: sourceItem.definitionId,
+          status: sourceItem.status,
+          attachedToItem: targetItemId,
+        },
+      ],
+    };
+    const updatedItems = char.items.filter(i => i.instanceId !== ctx.action.sourceCardId);
+    return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'set-character-status' && apply.target === 'bearer') {
     if (apply.status === undefined) {
       return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
