@@ -25,18 +25,20 @@ describe('h2 tunable overrides', () => {
       .toBe('h2:combat,kill/tapTempoCost=0.6/resourceDrawValue=0.5');
   });
 
-  test('compose with the fallback operator', () => {
-    // The `+` split happens first, so the fallback's own `/` parameters are
-    // never mistaken for tunables.
-    expect(resolveAgent('h2:all/tapTempoCost=0.6+mc:rollouts=4/turns=1').name)
-      .toBe('h2/tapTempoCost=0.6+mc:rollouts=4/turns=1');
+  test('reject the fallback operator — h2 has no fallback', () => {
+    // `+` used to compose a fallback agent. It answers every decision with
+    // its own modules now, so the operator is rejected rather than ignored.
+    expect(() => resolveAgent('h2:all/tapTempoCost=0.6+mc:rollouts=4/turns=1'))
+      .toThrow(/h2 no longer composes a fallback/);
   });
 
-  test('compose with the yielding operator', () => {
-    // `>` is `+` that also defers every decision the fallback can search.
-    expect(resolveAgent('h2>mc:rollouts=4/turns=1').name).toBe('h2>mc:rollouts=4/turns=1');
-    expect(resolveAgent('h2:combat,kill/tapTempoCost=0.6>mc').name)
-      .toBe('h2:combat,kill/tapTempoCost=0.6>mc');
+  test('reject the yielding operator — h2 has no fallback', () => {
+    // `>` was `+` that also deferred every decision the fallback could
+    // search. Same rejection applies.
+    expect(() => resolveAgent('h2>mc:rollouts=4/turns=1'))
+      .toThrow(/h2 no longer composes a fallback/);
+    expect(() => resolveAgent('h2:combat,kill/tapTempoCost=0.6>mc'))
+      .toThrow(/h2 no longer composes a fallback/);
   });
 
   test('reject an unknown name rather than quietly rating the defaults', () => {
