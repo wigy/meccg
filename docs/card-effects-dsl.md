@@ -15257,3 +15257,75 @@ company makes a roll and adds his mind. If the result is less than 11, the
 character splits off from the company and forms his own company with the
 same site path as his original company. The character faces a separate
 movement/hazard phase this turn with a hazard limit of one."
+
+### 77. `tap-at-site` + `reattach-to-item` + `activeWhileAttachedToItem` (Map to Mithril)
+
+A card-borne "if bearer is ever at named site, tap this permanent-event
+(permanently); once tapped and at a race-flavor site, move it onto a chosen
+item mid-game and only then grant a stat bonus" shape.
+
+```json
+{ "type": "tap-at-site", "siteNames": ["Moria"] },
+{ "type": "play-flag", "flag": "no-auto-untap" }
+```
+
+- **`tap-at-site`** — a level-triggered (not edge-triggered) passive check on
+  a resource permanent-event currently sitting as its bearer's own `items`
+  entry. The `sweepTapAtSiteItems` `postReduce` sweep (`reducer-utils.ts`)
+  re-runs after every action: whenever the bearer's company's current site
+  name is in `siteNames`, an untapped matching item is tapped. Fires on
+  arrival, on staying put, and even if the company was already at the site
+  when the card was played — matching "if bearer is ever at X" card text,
+  unlike an arrival-edge trigger. Paired with `play-flag: "no-auto-untap"` to
+  make the tap permanent — that flag was extended in this certification to
+  also apply to items borne by a character (`reducer-untap.ts`'s per-item
+  untap loop), not just top-level `cardsInPlay` entries as before.
+
+```json
+{ "type": "grant-action",
+  "action": "map-to-mithril-attach-weapon",
+  "cost": { "tap": "bearer" },
+  "when": { "$and": [
+    { "self.status": "tapped" },
+    { "site.keywords": { "$includes": "dwarf-hold" } } ] },
+  "targets": { "scope": "company-items",
+    "filter": { "$and": [
+      { "keywords": { "$includes": "weapon" } },
+      { "unique": false } ] } },
+  "apply": { "type": "reattach-to-item" } },
+{ "type": "stat-modifier", "stat": "prowess", "value": 3,
+  "activeWhileAttachedToItem": true }
+```
+
+- **`self` grant-action context** (`buildGrantActionContext`,
+  `legal-actions/organization.ts`) — the status of the specific card instance
+  carrying the grant-action (an item/hazard/ally, or the bearer's own card
+  when a character-def grant-action passes its own instance id as source),
+  for abilities gated on their own source card's tapped/untapped/inverted
+  status rather than the bearer's. `{ "self.status": "tapped" }`.
+- **`site.keywords`** — added to the grant-action `site` context alongside
+  `type`/`region`/`isTapped`/etc.: the current site's DSL `keywords` array, so
+  a grant-action can gate on a race-flavor site tag (e.g. the new `dwarf-hold`
+  keyword, tagged onto Blue Mountain Dwarf-hold tw-377 / Iron Hill Dwarf-hold
+  tw-403) rather than only the formal `siteType`.
+- **`reattach-to-item`** — a `TriggeredAction` verb resolved in
+  `runGrantApply` (`grant-action-apply.ts`): re-parents the source card from
+  the bearer's `items` onto a chosen item's `attachedToItem` binding — the
+  same shape Barrow-blade (dm-119) gets at play time, applied here mid-game
+  via a `grant-action` with `targets.scope: "company-items"` supplying the
+  chosen item's instance id as `targetCardId`. No card instance is lost; it
+  simply changes zones, keeping its current (tapped) status.
+- **`activeWhileAttachedToItem`** (`stat-modifier` flag) — mirrors
+  `activeWhileStored`'s dormant-until-state-reached shape: the modifier is
+  skipped while the card sits as its own bearer's plain item
+  (`collectCharacterEffects`'s own-items loop, `effects/resolver.ts`) and is
+  collected only via the existing item-attached-events scan once genuinely
+  bound through `attachedToItem` — so the bonus never leaks onto the bearer
+  before the card is actually re-parented onto the target item.
+
+Used by Map to Mithril (td-133): "Playable on a Dwarf during the site phase
+at a site at which Information is playable. Tap the Dwarf and site. Tap Map
+to Mithril if bearer is ever at Moria; this card never untaps. If Map to
+Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and
+place this card with a non-unique weapon in his company. This gives the
+weapon a +3 prowess bonus."

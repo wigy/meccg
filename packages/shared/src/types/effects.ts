@@ -190,6 +190,20 @@ export interface StatModifierEffect extends EffectBase {
    * entries and picks them up from the stored-card scan instead.
    */
   readonly activeWhileStored?: boolean;
+  /**
+   * When true this modifier applies **only while the source card is bound to
+   * an item via `attachedToItem`** (the Barrow-blade dm-119 shape), never
+   * while the card is a plain item sitting in a character's `items` (its own
+   * bearer would otherwise pick up the bonus directly). Map to Mithril
+   * (td-133): "the bearer may tap himself and place this card with a
+   * non-unique weapon in his company. This gives the weapon a +3 prowess
+   * bonus" — the card starts as a Dwarf's own item (no bonus) and only grants
+   * +3 prowess once re-parented onto a weapon via the `reattach-to-item`
+   * grant-action. {@link collectCharacterEffects} skips such effects in the
+   * character's own `items` loop and picks them up only from the
+   * `attachedToItem` scan.
+   */
+  readonly activeWhileAttachedToItem?: boolean;
   /** Named identifier so other effects can reference and override this one. */
   readonly id?: string;
   /** If set, this effect replaces the named effect when its condition matches. */
@@ -2145,7 +2159,8 @@ export type TriggeredActionType =
   | 'site-entry-attack'
   | 'win-condition-roll'
   | 'win-game'
-  | 'transfer-item-free';
+  | 'transfer-item-free'
+  | 'reattach-to-item';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -3250,6 +3265,27 @@ export interface TransferItemFreeAction extends TriggeredActionBase {
 }
 
 /**
+ * Re-parents the source card (a resource permanent-event currently sitting
+ * as a plain item in its bearer's `CharacterInPlay.items`) onto a chosen
+ * item, using the `targetCardId` carried by the granting action — the same
+ * `attachedToItem` binding Barrow-blade (dm-119) gets at play time, but
+ * applied mid-game via a `grant-action` instead. The source card is removed
+ * from the bearer's `items` and appended to the controller's `cardsInPlay`
+ * with `attachedToItem` set, keeping its current tapped/untapped status (no
+ * card instance is lost — it simply changes zones). Any `stat-modifier`
+ * flagged `activeWhileAttachedToItem` on its definition then flows to the
+ * target item's bearer via the existing item-attached-events collection path
+ * (`effects/resolver.ts`).
+ *
+ * Used by Map to Mithril (td-133): "the bearer may tap himself and place
+ * this card with a non-unique weapon in his company. This gives the weapon
+ * a +3 prowess bonus."
+ */
+export interface ReattachToItemAction extends TriggeredActionBase {
+  readonly type: 'reattach-to-item';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -3318,7 +3354,8 @@ export type TriggeredAction =
   | SplitIntoOwnCompanyAction
   | CancelCurrentAttackAction
   | TraitorAttackAction
-  | TransferItemFreeAction;
+  | TransferItemFreeAction
+  | ReattachToItemAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -4765,6 +4802,24 @@ export interface PlayWindowEffect extends EffectBase {
    * the ended attack matches.
    */
   readonly when?: Condition;
+}
+
+/**
+ * Passively taps the source card the moment its bearer's company sits at one
+ * of the named sites — a level-triggered check re-evaluated by the
+ * `sweepTapAtSiteItems` postReduce sweep after every action, so it fires on
+ * arrival, on staying put, and even if the company was already there when the
+ * card was played. Meaningful only on a card that also carries
+ * `play-flag: "no-auto-untap"`, since without it the next untap phase would
+ * immediately undo the tap.
+ *
+ * Used by Map to Mithril (td-133): "Tap Map to Mithril if bearer is ever at
+ * Moria; this card never untaps." — `siteNames: ["Moria"]`.
+ */
+export interface TapAtSiteEffect extends EffectBase {
+  readonly type: 'tap-at-site';
+  /** Site names (matched against the bearer company's current site) that trigger the tap. */
+  readonly siteNames: readonly string[];
 }
 
 /**
@@ -8224,6 +8279,7 @@ export type CardEffect =
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | ItemPlayCorruptionCheckEffect
+  | TapAtSiteEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect

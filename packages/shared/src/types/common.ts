@@ -371,6 +371,7 @@ export type Keyword =
   | 'dragon-manifestation'
   | 'corruption'
   | 'under-deeps'
+  | 'dwarf-hold'
   | 'spawn'
   | 'starting-item'
   | 'Nazgûl'
