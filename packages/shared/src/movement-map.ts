@@ -117,19 +117,29 @@ function computeAllPairsDistance(
  * Whether a site whose card-alignment is `siteAlignment` belongs in the
  * movement topology of a player whose deck-alignment is `playerAlignment`.
  *
- * Single-alignment players (Wizard, Ringwraith, Balrog) only ever stand on and
- * move between sites of their own alignment, so the match is exact. A
- * Fallen-wizard, however, builds a mixed location deck — one copy of each hero
- * site and each minion site plus Fallen-wizard sites (CoE rule 1.28) — and
- * occupies and moves between all three. Filtering a Fallen-wizard's map to only
- * `fallen-wizard` sites drops the hero and minion sites entirely, leaving their
- * companies with no region indexed and therefore no legal movement.
+ * Wizard and Ringwraith players only ever stand on and move between sites of
+ * their own alignment, so the match is exact. A Fallen-wizard, however,
+ * builds a mixed location deck — one copy of each hero site and each minion
+ * site plus Fallen-wizard sites (CoE rule 1.28) — and occupies and moves
+ * between all three. Filtering a Fallen-wizard's map to only `fallen-wizard`
+ * sites drops the hero and minion sites entirely, leaving their companies
+ * with no region indexed and therefore no legal movement.
+ *
+ * A Balrog player's location deck likewise mixes alignments: one copy of
+ * each minion (Ringwraith-alignment) site plus their own `balrog`-alignment
+ * sites (CoE rule 1.4.B1). Minion sites that require a dedicated Balrog
+ * version (Moria, Carn Dûm, Dol Guldur, Minas Morgul, Under-deeps sites,
+ * Dark-Holds) are excluded by name in {@link buildMovementMap} — this
+ * function only narrows by alignment.
  */
 function alignmentUsesSite(playerAlignment: Alignment, siteAlignment: Alignment | undefined): boolean {
   if (playerAlignment === Alignment.FallenWizard) {
     return siteAlignment === Alignment.Wizard
       || siteAlignment === Alignment.Ringwraith
       || siteAlignment === Alignment.FallenWizard;
+  }
+  if (playerAlignment === Alignment.Balrog) {
+    return siteAlignment === Alignment.Balrog || siteAlignment === Alignment.Ringwraith;
   }
   return siteAlignment === playerAlignment;
 }
@@ -142,14 +152,15 @@ function alignmentUsesSite(playerAlignment: Alignment, siteAlignment: Alignment 
  * paths for the region graph (small graph, ~52 nodes).
  *
  * @param cardPool - The full static card definition pool.
- * @param alignment - When provided, only sites of this alignment are indexed
- *   into the site/haven maps. This is essential because the same physical
- *   location has separate site cards per alignment (e.g. hero Rivendell is a
- *   haven while minion Rivendell is a free-hold reachable from Carn Dûm).
- *   Indexing by name across alignments would conflate them, so callers must
- *   pass the moving company's alignment. Region adjacency is alignment-neutral
- *   and is always built from all region cards. Omitting the argument indexes
- *   all alignments (only correct when the pool already holds a single side).
+ * @param alignment - When provided, only sites usable by this alignment (see
+ *   {@link alignmentUsesSite}) are indexed into the site/haven maps. This is
+ *   essential because the same physical location has separate site cards per
+ *   alignment (e.g. hero Rivendell is a haven while minion Rivendell is a
+ *   free-hold reachable from Carn Dûm). Indexing by name across alignments
+ *   would conflate them, so callers must pass the moving company's alignment.
+ *   Region adjacency is alignment-neutral and is always built from all region
+ *   cards. Omitting the argument indexes all alignments (only correct when
+ *   the pool already holds a single side).
  * @returns A frozen {@link MovementMap} ready for queries.
  */
 export function buildMovementMap(
@@ -163,14 +174,24 @@ export function buildMovementMap(
   const havenSites = new Map<string, Set<string>>();
   const havenToHaven = new Map<string, Set<string>>();
 
+  // CoE 1.4.B1: a Balrog player's location deck excludes minion sites that
+  // require a dedicated Balrog version (Moria, Carn Dûm, Dol Guldur, Minas
+  // Morgul, Under-deeps sites, Dark-Holds) — those are already indexed via
+  // their `balrog`-alignment card of the same name. Collect that name set
+  // up front so the exclusion doesn't depend on cardPool iteration order.
+  const balrogSiteNames = alignment === Alignment.Balrog
+    ? new Set(Object.values(cardPool).filter(c => isSiteCard(c) && c.alignment === Alignment.Balrog).map(c => c.name))
+    : null;
+
   for (const card of Object.values(cardPool)) {
     if (!isSiteCard(card)) continue;
     // Only index sites of the moving company's alignment so same-named sites
     // of other alignments do not pollute this side's haven/region topology.
-    // A Fallen-wizard is the exception: its location deck mixes hero, minion,
-    // and Fallen-wizard sites, so all three must be indexed (see
+    // A Fallen-wizard and a Balrog player are the exceptions: their location
+    // decks mix alignments, so more than one alignment must be indexed (see
     // {@link alignmentUsesSite}).
     if (alignment !== undefined && !alignmentUsesSite(alignment, card.alignment)) continue;
+    if (balrogSiteNames && card.alignment === Alignment.Ringwraith && balrogSiteNames.has(card.name)) continue;
 
     const site = card;
     if (site.region) {

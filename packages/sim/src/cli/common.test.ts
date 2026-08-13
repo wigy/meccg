@@ -25,17 +25,14 @@ describe('h2 tunable overrides', () => {
       .toBe('h2:combat,kill/tapTempoCost=0.6/resourceDrawValue=0.5');
   });
 
-  test('reject the fallback operator: h2 has no fallback to compose', () => {
-    // A script asking for a composed fallback is told it no longer exists
-    // instead of quietly getting plain `h2`.
+  test('reject the fallback operator: H2 answers every decision itself now', () => {
     expect(() => resolveAgent('h2:all/tapTempoCost=0.6+mc:rollouts=4/turns=1'))
       .toThrow(/h2 no longer composes a fallback/);
   });
 
-  test('reject the yielding operator: h2 answers every decision itself', () => {
+  test('reject the yielding operator: H2 answers every decision itself now', () => {
     expect(() => resolveAgent('h2>mc:rollouts=4/turns=1')).toThrow(/h2 no longer composes a fallback/);
-    expect(() => resolveAgent('h2:combat,kill/tapTempoCost=0.6>mc'))
-      .toThrow(/h2 no longer composes a fallback/);
+    expect(() => resolveAgent('h2:combat,kill/tapTempoCost=0.6>mc')).toThrow(/h2 no longer composes a fallback/);
   });
 
   test('reject an unknown name rather than quietly rating the defaults', () => {
