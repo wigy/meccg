@@ -645,6 +645,17 @@ export interface DraftPlayerState {
   readonly stopped: boolean;
   /** Pairings of a drafted site-targeting Stage resource (Hidden Haven, wh-75) to the Ruins & Lairs site chosen from the player's site deck. Resolved at draft finalize: non-colliding pairs convert the site to a starting Wizardhaven; colliding pairs (both players chose the same site definition) are set aside per CRF 22. */
   readonly stageResourceSites?: readonly StageResourceSitePairing[];
+  /**
+   * Definition IDs the deck author marked as favourites — the characters this
+   * deck wants in its starting company (see `PlayerConfig.favourites`).
+   *
+   * Carried here rather than derived because nothing on a card says which
+   * characters a deck is built around; it is the author's declaration. It binds
+   * no rule — every pool card remains legal to draft — and it is *hidden
+   * information*: the projection strips it from the opponent's copy, since
+   * knowing which characters they intend to start with is knowing their plan.
+   */
+  readonly favourites?: readonly CardDefinitionId[];
 }
 
 /**

@@ -1733,6 +1733,77 @@ piece of work rather than a line, and it is the most consequential decision in
 the game — which is the argument for doing it and the reason not to rush a
 half-model into the one decision everything else is conditioned on.
 
+### The deck already knew: favourites
+
+The valuation above is still the right long-term answer, and it was the wrong
+place to start, because the answer was already written down. Deck files carry a
+`favourite` flag on pool entries — `DeckListEntry.favourite`, "whether this is a
+favourite character (starting company pick) in the pool" — and both gate decks
+star four of their twelve pool characters. Nothing outside the lobby's deck
+editor had ever read it.
+
+That flag is not a heuristic about the card; it is the deck author saying which
+characters the deck is *built around*. Whether a character's race matches the
+factions, whether its influence carries the allies, whether its home site is on
+the intended route — none of that is printed on the character, and all of it was
+decided when the deck was built.
+
+Measured on the corpus, replaying every attributed `draft-pick` from a game whose
+human seat played a deck with favourite marks:
+
+| | picks a favourite | picks the human's exact card |
+| --- | --- | --- |
+| Human | 75.3% | — |
+| Chance (favourites' share of the candidates offered) | 40.6% | — |
+| H2 before | 11.3% | 9.3% |
+| H2 after | 98.7% | 24.0% |
+
+150 attributed picks. H2 was not merely indifferent to the deck's plan, it was
+*anti*-correlated with it — a third of the chance rate — which is what a flat
+zero plus a stable tie-break order produces: not a coin flip, a stuck coin.
+
+The change is a definition-ID list carried from the deck file to the draft
+state (`PlayerConfig.favourites` → `DraftPlayerState.favourites`), stripped from
+the opponent's copy in projection because which characters someone intends to
+start with is a statement of their plan, and read in `fetching` as
+`favouriteCharacterTsd` (2 TSD, two cards' worth) added to the quote. It binds
+no rule: every pool card stays legal to draft, and a large enough quote would
+still outweigh the mark if `card-price` ever stops returning zero at 0–0.
+
+Exact-card agreement more than doubled but stopped at 24%, and the ceiling is
+structural: a flat bonus makes every favourite tie, so which favourite gets
+picked is still the tie-break. Humans distinguish *among* their own favourites,
+and doing likewise is what the character valuation above is for. What this
+change buys is that the draft now happens inside the right set.
+
+#### It does not show up on the gate
+
+384 games against the heuristic champion, paired seeds, side-swapped, with a
+control run of the identical gate on `master`:
+
+| | paired Elo (95% CI) | score | failures |
+| --- | --- | --- | --- |
+| `master` (control) | +76 [+45, +108] | 230W-149L-4D (60.6%) | 1 |
+| with favourites | +64 [+31, +99] | 224W-155L-4D (59.0%) | 1 |
+
+−12 Elo against a standard error on the difference of about 24: indistinguishable
+from zero, pointing very slightly the wrong way. The one failure is the same
+pre-existing engine deadlock in both arms ("no player has a viable action" in
+`movement-hazard`), on different seeds — not caused by this change.
+
+**Run the control.** The first reading of this gate compared against a baseline
+of −9 [−42, +24] recorded several merged PRs earlier and concluded the change was
+worth ~73 Elo. It was not: `master` had moved to +76 in the meantime, and the
+whole apparent gain belonged to work already merged. A stale baseline is not a
+baseline. Every gate claim in this document is a difference between two arms, and
+the control arm has to be run at the same time as the challenger, not read off an
+earlier page.
+
+So this is a change that does what it says and that the gate cannot see. It is
+kept on the argument that a deck's author declaring which characters the deck is
+built around is information the AI should not be throwing away, and on the
+agreement measurement above — not on strength.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right

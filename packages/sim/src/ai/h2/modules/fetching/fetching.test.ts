@@ -4,8 +4,13 @@
  * The module is almost entirely a lookup into the shadow price, so what the
  * tests pin is the wiring — that each action type's card is found where that
  * action keeps it — and the one property worth stating out loud: at the opening
- * draft every candidate prices at zero, and that is the tournament scorer
- * talking, not a bug here.
+ * draft every *unmarked* candidate prices at zero, and that is the tournament
+ * scorer talking, not a bug here.
+ *
+ * Which is why the favourite mark gets tests of its own. It is the only thing
+ * that separates two draft candidates before anyone has scored a point, so the
+ * pair of cases that matter is the same character with and without it: the card
+ * does not change, the deck's declaration does.
  *
  * The exchange gets more than wiring, because it is the one action here with
  * two legs and the failure mode is silent: read only the card it names and a
@@ -81,7 +86,99 @@ describe('choosing a card', () => {
   });
 });
 
-describe('why the opening draft scores flat', () => {
+/**
+ * The same draft position, with the deck author's favourite marks supplied on
+ * the pool the candidates come from.
+ *
+ * The captured scenario predates the field, which is exactly the state of an
+ * unmarked deck — so marking here is what distinguishes the two cases.
+ */
+function draftMarking(favourites: string[]) {
+  const base = position(DRAFT);
+  const picks = base.legalActions.filter(a => a.type === 'draft-pick');
+  const named = (a: typeof picks[number]): string =>
+    String((a as unknown as { characterInstanceId: string }).characterInstanceId);
+  const setup = (base.context.view.phaseState as unknown as {
+    setupStep: { draftState: { pool?: { instanceId: string; definitionId: string }[] }[] };
+  }).setupStep;
+  const mine = setup.draftState.findIndex(d => d.pool?.some(c => c.instanceId === named(picks[0])));
+  const draftState = setup.draftState.map((d, i) => (i === mine ? { ...d, favourites } : d));
+  const view = {
+    ...base.context.view,
+    phaseState: { ...base.context.view.phaseState, setupStep: { ...setup, draftState } },
+  };
+  const pool = setup.draftState[mine].pool ?? [];
+  return {
+    picks,
+    pool,
+    definitionOf: (a: typeof picks[number]): string =>
+      pool.find(c => c.instanceId === named(a))!.definitionId,
+    context: { ...base.context, view } as ModuleContext,
+  };
+}
+
+describe('a character the deck asked for', () => {
+  test('a marked character outscores every unmarked one', () => {
+    // The measurement behind this: replaying the live corpus, H2 drafted a
+    // favourite 11% of the time on decks whose human owners drafted one 75% of
+    // the time — worse than the 41% a coin would have managed, because a flat
+    // zero leaves the pick to tie-break order.
+    const unmarked = draftMarking([]);
+    const favourite = unmarked.definitionOf(unmarked.picks[0]);
+    const { picks, context, definitionOf } = draftMarking([favourite]);
+
+    const scored = picks.map(a => ({
+      marked: definitionOf(a) === favourite,
+      tsd: fetchingModule.evaluate(a, context)!.expectedTsd,
+    }));
+    const best = Math.max(...scored.filter(s => !s.marked).map(s => s.tsd));
+    for (const pick of scored.filter(s => s.marked)) expect(pick.tsd).toBeGreaterThan(best);
+  });
+
+  test('the mark is named in the rationale, like every other number', () => {
+    const unmarked = draftMarking([]);
+    const favourite = unmarked.definitionOf(unmarked.picks[0]);
+    const { picks, context, definitionOf } = draftMarking([favourite]);
+    const marked = picks.find(a => definitionOf(a) === favourite)!;
+
+    const detail = fetchingModule.evaluate(marked, context)!.rationale.children![0].children!;
+    expect(detail.map(child => child.tunable)).toContain('favouriteCharacterTsd');
+  });
+
+  test('it is the deck talking, not the card: the same character is flat unmarked', () => {
+    // Nothing printed on the character changed between these two evaluations —
+    // only whether the deck that brought it said it wanted it.
+    const unmarked = draftMarking([]);
+    const favourite = unmarked.definitionOf(unmarked.picks[0]);
+    const marked = draftMarking([favourite]);
+    const pick = unmarked.picks[0];
+
+    expect(fetchingModule.evaluate(pick, unmarked.context)!.expectedTsd).toBe(0);
+    expect(fetchingModule.evaluate(pick, marked.context)!.expectedTsd).toBeGreaterThan(0);
+  });
+
+  test('a mark on the other seat\'s pool moves nothing here', () => {
+    // The projection strips the opponent's favourites along with their pool, so
+    // this cannot happen in a real view — but reading the wrong seat's marks is
+    // the failure this shape of lookup invites.
+    const { picks, context, definitionOf } = draftMarking([]);
+    const setup = (context.view.phaseState as unknown as {
+      setupStep: { draftState: { pool?: { instanceId: string }[] }[] };
+    }).setupStep;
+    const named = String((picks[0] as unknown as { characterInstanceId: string }).characterInstanceId);
+    const theirs = setup.draftState.findIndex(d => !d.pool?.some(c => c.instanceId === named));
+    const draftState = setup.draftState.map((d, i) =>
+      (i === theirs ? { ...d, favourites: [definitionOf(picks[0])] } : d));
+    const view = {
+      ...context.view,
+      phaseState: { ...context.view.phaseState, setupStep: { ...setup, draftState } },
+    };
+
+    expect(fetchingModule.evaluate(picks[0], { ...context, view } as ModuleContext)!.expectedTsd).toBe(0);
+  });
+});
+
+describe('why an unmarked opening draft scores flat', () => {
   test('a score made of one source is worth nothing, and two sources are worth plenty', () => {
     // Not a limitation of this module: the tournament scorer caps every source
     // at half the player's total, so points in a single source cancel
@@ -96,7 +193,7 @@ describe('why the opening draft scores flat', () => {
     expect(computeTournamentScore({ ...zero, character: 3, item: 2 }, zero)).toBeGreaterThan(0);
   });
 
-  test('so the module covers the draft without discriminating on it', () => {
+  test('so an unmarked pool covers the draft without discriminating on it', () => {
     const { context, legalActions } = position(DRAFT);
     const scores = legalActions
       .filter(a => a.type === 'draft-pick')
