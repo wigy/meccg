@@ -63,6 +63,7 @@ import {
   mergeCompaniesActions,
   companyMovementTaxUnpaid,
   companiesPendingSplitMovementDeclaration,
+  isUnderDeepsSurfaceSite,
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -2177,6 +2178,11 @@ export function endOfOrgEligibility(
             // "on a moving company" (Down Down to Goblin-town le-181): a company
             // that has planned a destination (or special movement) this org phase.
             moving: company.destinationSite !== null || !!company.specialMovement,
+            // Ancient Stair (dm-115): "a company that starts its turn at an
+            // untapped adjacent site of an Under-deeps site" — the surface
+            // entrance named in some Under-deeps site's `adjacentSites` map.
+            atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
+            siteUntapped: company.currentSite?.status === CardStatus.Untapped,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;

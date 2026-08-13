@@ -422,7 +422,44 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            { "company.atUnderDeepsSurfaceSite": true },
+            { "company.siteUntapped": true }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-draw-multiplier",
+          "scope": "company-mh-phase",
+          "value": 2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "haven-return-option",
+          "scope": "turn",
+          "requiresMovedToKeyword": "under-deeps"
+        }
+      }
+    ],
+    "certified": "2026-08-12",
     "text": "Playable only at the end of the organization phase on a company that starts its turn at an untapped adjacent site of an Under-deeps site. Opponent may draw up to twice the normal number of cards for this company during the movement/hazard phase. If company moved to an Under-deeps site, at the end of the turn the company may replace its site card with the site card at which it began the turn."
   },
   {
