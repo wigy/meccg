@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.102.0 — 2026-08-13
+
+Elo ratings on the Scores page
+
+### Web Client
+
+- The Scores page now ranks players by Elo rating, with **Rating** and **Peak**
+  columns. Provisional ratings — those resting on fewer than 15 games — are
+  marked with `?`, and players whose games predate the ratings sort last.
+- Humans and AI seats share one rating pool, so the AI accounts act as fixed
+  anchors and human ratings mean something even with few human-vs-human games.
+  AI rows stay badged and can be hidden with a "Show AI players" toggle, which
+  renumbers the human ladder from 1 rather than leaving gaps.
+- Each game on the player detail page now shows the rating swing it caused.
+
+### Game Engine
+
+- Finished games produce a classic Elo rating per player: 1500 seed, K=40 while
+  provisional, K=32 once established, draws worth half a point. Both sides'
+  expectations come from the pre-game ratings, so the update is simultaneous.
+- Ratings are folded in where the completed-game record is written — the only
+  point where both player names, the outcome and the engine game id are known
+  together. Updates are idempotent in the game id, so the record rewrite that
+  follows an undo-then-game-over cannot double-count.
+- Ratings are stored per account in `~/.meccg/players/<name>/rating.json`,
+  alongside the existing `info.json` and `games.json`.
+
+### Infrastructure
+
+- New `bin/ratings.ts`: lists ratings, and `bin/ratings.ts rebuild` replays
+  every completed-game record in the order the games ended to recompute all
+  ratings from scratch. It is idempotent, supports `--dry-run`, and drops
+  rating files no record backs any more. **A single run is needed on the
+  server** to seed ratings from the existing game history; until then the
+  Scores page reports no rating and falls back to games-played ordering.
+
 ## 0.101.0 — 2026-08-13
 
 Fourteen cards certified, and the character draft stops flipping a coin
