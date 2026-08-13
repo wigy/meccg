@@ -14,6 +14,7 @@
  * (e.g. "Pass" → "Pass Hazards") fails here instead of confusing new
  * players mid-tutorial.
  */
+import './test-dom-bootstrap.js'; // must precede the pass-button-label import (render-player-names.js reads window.__meccg at load time)
 import { describe, test, expect } from 'vitest';
 import {
   createGame, loadCardPool, reduce, computeLegalActions, setEngineConsoleLog, Phase,
@@ -45,7 +46,16 @@ const PASS_LIKE = new Set([
  */
 const visibleButtonLabels = (state: GameState, beat: TutorialBeat): string[] => {
   const gated: EvaluatedAction[] = gateHumanActions(state, computeLegalActions(state, HUMAN), beat);
-  const view = { phaseState: state.phaseState, legalActions: gated } as unknown as PlayerView;
+  const humanPlayer = state.players.find(p => p.id === HUMAN)!;
+  const mentorPlayer = state.players.find(p => p.id === MENTOR)!;
+  const view = {
+    phaseState: state.phaseState,
+    legalActions: gated,
+    activePlayer: state.activePlayer,
+    self: { id: HUMAN, companies: humanPlayer.companies },
+    opponent: { id: MENTOR, companies: mentorPlayer.companies },
+    activeConstraints: state.activeConstraints,
+  } as unknown as PlayerView;
   const corruptionCheckCount = gated.filter(ea => ea.viable === true && ea.action.type === 'corruption-check').length;
   const passEval = gated.find(ea => ea.viable === true
     && (PASS_LIKE.has(ea.action.type) || (ea.action.type === 'corruption-check' && corruptionCheckCount === 1)));
