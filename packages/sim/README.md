@@ -2103,6 +2103,60 @@ forced, so pricing it against a `pass` that the rules will not honour compares a
 option against one that is not really available. That is a question with a
 definite answer and it has not been asked yet.
 
+### Priced against an option that does not exist
+
+Two rows of the pass work list turned out to be the same bug, and it is not the
+one the rest of this document has been chasing. Neither valuation was *wrong*.
+Both were compared against an alternative that is not really available.
+
+| | what it scored | why that was wrong | agreement | paired Elo |
+| --- | --- | --- | --- | --- |
+| `corruption-check` | ≤ 0 always — a risk with no upside | a pending check gates every other organization action, so declining stalls the phase rather than avoiding the roll | 27.9% → **82.4%** | −247 [−295, −206] |
+| `move-to-influence` | exactly 0 — "marshalling-point neutral, which it is" | the freed direct influence is what an influence attempt spends, so declining costs the attempt | 0.0% → **13.8%** | −232 [−276, −194] |
+
+Against a control of −241 [−288, −201], measured identically twice: −6 and +9
+Elo, both inside a standard error of about 32. **Strength-neutral, and both move
+their decision sharply toward human play.**
+
+The shared shape is worth naming, because it is a different failure from
+everything above. A module computes what an action is worth *in isolation*,
+correctly, and the agent then compares it against `pass` at zero — as though
+declining were free. Where the rules make declining expensive, that comparison
+is simply the wrong subtraction, and no amount of improving the valuation fixes
+it:
+
+- A corruption check cannot be avoided by passing. The roll is coming; the only
+  question is whether the phase moves while it happens. So the risk is **sunk**,
+  and pricing the decision means shifting the distribution by its own
+  expectation — σ untouched, because the risk is real even when the choice is
+  not.
+- Moving a follower to general influence is marshalling-point neutral and always
+  will be. What it buys is probability on an influence attempt: 2d6 against the
+  faction's printed `influenceNumber`, less the influence the company brings.
+
+Both fixes are also correctly **zero most of the time** — a hand with no faction
+and no ally has nothing to spend influence on, and the human declines three
+offers in four. That is the difference between pricing a decision and inventing
+a reason to act.
+
+#### Why this class pays and the discard class did not
+
+Three attempts to make the discard more human-like each cost 41–84 Elo. These
+two cost nothing and were found the same way, in the same corpus, on the same
+instrument. The distinguishing feature is not the size of the disagreement but
+what the human's choice *depends on*:
+
+- What is safe to discard depends on the rest of the player's strategy, which H2
+  does not share. The answer does not transfer.
+- Whether to resolve a gating check, or whether freed influence buys an attempt,
+  depends only on the **rules** and the position in front of both players. The
+  answer transfers because the premise does.
+
+So the usable rule is narrower than "imitate the human" and narrower than
+"ignore agreement": **agreement locates the decision; the rules decide whether
+its answer is portable.** Where a divergence rests on a rule both players are
+bound by, copy it. Where it rests on a strategy only one of them has, do not.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
