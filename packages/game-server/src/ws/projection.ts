@@ -316,6 +316,9 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
       pool: hiddenCardPile(oppPool),
       // Show that opponent has picked (face-down) without revealing what
       currentPick: step.draftState[opponentIndex].currentPick !== null ? { instanceId: step.draftState[opponentIndex].currentPick.instanceId, definitionId: UNKNOWN_CARD } : null,
+      // Which characters the opponent's deck is built around is their plan, not
+      // public information — and their pool is hidden here anyway.
+      favourites: undefined,
       // drafted stays visible — it's public after reveal
     };
     return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };

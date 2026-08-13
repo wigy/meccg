@@ -36,6 +36,7 @@ import {
   getMergeSourceCompanyId, setMergeSourceCompanyId,
   getLastActivePlayer, setLastActivePlayer,
   getLastMhSiteStep, setLastMhSiteStep,
+  getLastOpponentActiveCompanyIndex, setLastOpponentActiveCompanyIndex,
   getLastCombatActive, setLastCombatActive,
   setLastOnAction, setLastView, setLastCardPool,
   setCachedInstanceLookup,
@@ -44,6 +45,7 @@ import {
   resetState,
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
+  shouldResetFocusOnOpponentCompanyAdvance,
   shouldClearOverrideForNewCombat,
   shouldRestoreOverrideAfterCombat,
   isCombatBlockedByPendingCorruptionCheck,
@@ -316,6 +318,25 @@ export function renderCompanyViews(
     }
   }
   setLastMhSiteStep(curStep);
+
+  // Drop a focused opponent company back to the all-companies overview once
+  // its M/H or Site turn has ended (activeCompanyIndex moved to a different
+  // company) — otherwise the hazard player is left staring at a dead
+  // single-company view whose buttons no longer do anything.
+  const isSelfTurn = activeId !== null && activeId === view.self.id;
+  const curOpponentActiveCompanyIndex = (curStep !== null && !isSelfTurn)
+    ? (view.phaseState as { activeCompanyIndex: number }).activeCompanyIndex : null;
+  const lastOpponentActiveCompanyIndex = getLastOpponentActiveCompanyIndex();
+  const focusedForStaleCheck = getFocusedCompanyId();
+  const isFocusedOnOpponentCompany = focusedForStaleCheck !== null
+    && view.opponent.companies.some(c => c.id === focusedForStaleCheck);
+  if (shouldResetFocusOnOpponentCompanyAdvance(
+    isFocusedOnOpponentCompany, lastOpponentActiveCompanyIndex, curOpponentActiveCompanyIndex, activeId, view.self.id as string,
+  )) {
+    setFocusedCompanyId(null);
+    setAllCompaniesOverride(true);
+  }
+  setLastOpponentActiveCompanyIndex(curOpponentActiveCompanyIndex);
 
   // After an action that creates a new company (split-company, play-character
   // at a new site), focus on the new company containing the target character.

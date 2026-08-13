@@ -34,7 +34,12 @@ const CHECK = {
 } as unknown as GameAction;
 
 /** A context whose standing gives item points the stated marginal value. */
-function contextWith(self: Record<string, number>, opponent: Record<string, number>, action = CHECK): ModuleContext {
+function contextWith(
+  self: Record<string, number>,
+  opponent: Record<string, number>,
+  action: GameAction = CHECK,
+  extra: readonly GameAction[] = [],
+): ModuleContext {
   const view = {
     self: {
       id: 'p1',
@@ -61,7 +66,7 @@ function contextWith(self: Record<string, number>, opponent: Record<string, numb
   return {
     view,
     cardPool: POOL,
-    legalActions: [action],
+    legalActions: [action, ...extra],
     tunables: DEFAULT_TUNABLES,
     standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
   };
@@ -120,5 +125,62 @@ describe('what is at stake', () => {
   test('declines an action without a published target', () => {
     const vague = { type: 'corruption-check', characterId: 'hero-1' } as unknown as GameAction;
     expect(corruptionModule.evaluate(vague, contextWith(BALANCED, BALANCED, vague))).toBeNull();
+  });
+});
+
+describe('supporting somebody else\'s check', () => {
+  // An untapped character "may tap for +1 each before the roll", so the whole
+  // value of supporting is the failure it averts: the mass moved out of the
+  // failing band, times what failing costs, less what the tap forgoes. Every
+  // term is published or already priced — there is nothing to estimate.
+  //
+  // It is owned at all because it was not: `support-corruption-check` had no
+  // module, so all 36 of the corpus disagreements on it were decided by the
+  // Heuristics-1 fallback.
+  const SUPPORT = {
+    type: 'support-corruption-check',
+    supportingCharacterId: 'hero-1',
+    targetCharacterId: 'hero-1',
+  } as unknown as GameAction;
+
+  test('is worth the probability mass it moves out of the failing band', () => {
+    const context = contextWith(BALANCED, BALANCED, CHECK, [SUPPORT]);
+    const evaluation = corruptionModule.evaluate(SUPPORT, context)!;
+    expect(evaluation).not.toBeNull();
+    // need 6 → 5 on 2d6 is 26/36 → 30/36, a gain of exactly 4/36.
+    expect(evaluation.outcomes[0].label).toContain('11.1%');
+    expect(evaluation.module).toBe('corruption');
+  });
+
+  test('reads the odds off the check beside it, not from its own fields', () => {
+    const easier = { ...CHECK, need: 4 } as unknown as GameAction;
+    const context = contextWith(BALANCED, BALANCED, easier, [SUPPORT]);
+    const text = JSON.stringify(corruptionModule.evaluate(SUPPORT, context)!.rationale);
+    expect(text).toContain('"label":"need on 2d6","value":4');
+  });
+
+  test('declines when there is no check on the table to price', () => {
+    const context = contextWith(BALANCED, BALANCED, SUPPORT);
+    expect(corruptionModule.evaluate(SUPPORT, context)).toBeNull();
+  });
+
+  test('declines a check that cannot fail, where the +1 buys nothing', () => {
+    const safe = { ...CHECK, need: 2 } as unknown as GameAction;
+    const context = contextWith(BALANCED, BALANCED, safe, [SUPPORT]);
+    expect(corruptionModule.evaluate(SUPPORT, context)).toBeNull();
+  });
+
+  test('charges the tap, and is worth less when the failure costs less', () => {
+    // The whole point of pricing it rather than leaving it to a flat weight:
+    // the same +1 is worth more on a check that would lose real points than on
+    // one whose points the diversity cap has already taken away.
+    const rich = corruptionModule.evaluate(
+      SUPPORT, contextWith(BALANCED, BALANCED, CHECK, [SUPPORT]),
+    )!;
+    const capped = corruptionModule.evaluate(
+      SUPPORT, contextWith({ character: 0, item: 40 }, { character: 0, item: 0 }, CHECK, [SUPPORT]),
+    )!;
+    expect(capped.expectedTsd).toBeLessThan(rich.expectedTsd);
+    expect(JSON.stringify(rich.rationale)).toContain('the tap it spends');
   });
 });

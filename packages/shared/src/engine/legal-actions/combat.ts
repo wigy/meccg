@@ -2505,6 +2505,14 @@ function cancelAttackActions(
   for (const charId of company.characters) {
     const charData = player.characters[charId];
     if (!charData) continue;
+    // Printed skills only (mirrors the cancel-strike `bearer.skills` convention —
+    // charDef.skills, not getEffectiveSkills — so a ring's own `grant-skill`
+    // effect never retroactively satisfies its own "if the bearer is already a
+    // <skill>" gate). Lets an item's `when` clause gate on the bearer's skills,
+    // e.g. Magic Ring of Nature (tw-273): "If the bearer is already a ranger, he
+    // may tap to cancel an attack against his company."
+    const bearerCharDef = defById(state, charData.definitionId);
+    const bearerSkills = bearerCharDef && isCharacterCard(bearerCharDef) ? bearerCharDef.skills : [];
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
       if (!itemDef) continue;
@@ -2525,9 +2533,13 @@ function cancelAttackActions(
         logDetail(`Cancel-attack ${itemName}: bearer tapped, cannot activate`);
         continue;
       }
-      if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-        logDetail(`Cancel-attack ${itemName}: when condition not met`);
-        continue;
+      if (cancelEffect.when) {
+        const baseCtx = whenContext();
+        const itemCtx = { ...baseCtx, bearer: { ...(baseCtx.bearer as object), skills: bearerSkills } };
+        if (!matchesCondition(cancelEffect.when, itemCtx)) {
+          logDetail(`Cancel-attack ${itemName}: when condition not met`);
+          continue;
+        }
       }
       logDetail(`Cancel-attack available: tap ${tapCost === 'bearer' ? 'bearer via' : ''} ${itemName} (in-play item)`);
       actions.push({

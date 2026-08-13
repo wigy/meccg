@@ -63,6 +63,7 @@ import {
   mergeCompaniesActions,
   companyMovementTaxUnpaid,
   companiesPendingSplitMovementDeclaration,
+  isUnderDeepsSurfaceSite,
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -1788,6 +1789,24 @@ export function buildGrantActionContext(
 ): Record<string, unknown> {
   const statusStr = cardStatusToName(char.status);
 
+  // `self` — the status of the specific card instance carrying this
+  // grant-action (an item/hazard/ally, or the bearer's own card when a
+  // character-def grant-action passes its own instance id as source), for
+  // abilities gated on their own source card's status rather than the
+  // bearer's. Used by Map to Mithril (td-133): "If Map to Mithril ... is
+  // tapped, the bearer may tap himself and place this card with a
+  // non-unique weapon..." — `{ "self.status": "tapped" }`.
+  let selfStatusStr: string | undefined;
+  if (sourceInstanceId === char.instanceId) {
+    selfStatusStr = statusStr;
+  } else if (sourceInstanceId !== undefined) {
+    const found = char.items.find(i => i.instanceId === sourceInstanceId)
+      ?? char.hazards.find(h => h.instanceId === sourceInstanceId)
+      ?? char.allies.find(a => a.instanceId === sourceInstanceId);
+    if (found) selfStatusStr = cardStatusToName(found.status);
+  }
+  const self = selfStatusStr !== undefined ? { status: selfStatusStr } : null;
+
   // A turn-scoped `can-use-palantir` constraint grants the ability for the one
   // Palantír that placed it (constraint `source` === the card being gated), so
   // it never leaks to another Palantír the same character happens to bear.
@@ -1869,13 +1888,18 @@ export function buildGrantActionContext(
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
+    // Site-carried DSL keywords (e.g. `dwarf-hold`), for grant-actions gated
+    // on a race-flavor site tag rather than the formal `siteType`. Used by
+    // Map to Mithril (td-133): "If ... at a Dwarf-hold ..." —
+    // `{ "site.keywords": { "$includes": "dwarf-hold" } }`.
+    keywords: (siteDef as { keywords?: readonly string[] } | undefined)?.keywords ?? [],
   } : null;
   // Current phase, exposed so a grant-action `when` clause can restrict an
   // ability to a specific phase (e.g. Strangling Coils ba-76's company untap
   // is legal only during the movement/hazard phase). Combine with
   // `anyPhase: true` so the M/H scanner offers the ability at all.
   const phase = state.phaseState.phase;
-  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx, phase };
+  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase };
 }
 
 /**
@@ -2013,9 +2037,12 @@ function enumerateGrantActionTargets(
     // The Arkenstone (tw-341): "tapped to untap a Dwarf character in the same
     // company" — enumerate the bearer's own company (including the bearer),
     // skipping already-untapped members (mirrors `characters-at-site`).
+    // `excludeBearer` (Waybread td-165) drops the bearer from the candidates
+    // when the ability separately untaps the bearer via its own `apply`.
     const company = findCharacterCompany(player.companies, charId);
     if (!company) return [];
     for (const memberId of company.characters) {
+      if (targets.excludeBearer && memberId === charId) continue;
       const member = player.characters[memberId];
       if (!member) continue;
       if (member.status === CardStatus.Untapped) continue;
@@ -2177,6 +2204,11 @@ export function endOfOrgEligibility(
             // "on a moving company" (Down Down to Goblin-town le-181): a company
             // that has planned a destination (or special movement) this org phase.
             moving: company.destinationSite !== null || !!company.specialMovement,
+            // Ancient Stair (dm-115): "a company that starts its turn at an
+            // untapped adjacent site of an Under-deeps site" — the surface
+            // entrance named in some Under-deeps site's `adjacentSites` map.
+            atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
+            siteUntapped: company.currentSite?.status === CardStatus.Untapped,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
@@ -2497,7 +2529,15 @@ export function buildActiveCompanyContext(
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const siteName = siteDef?.name;
   const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
-  const siteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  const printedSiteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  // Dwarven Hoard (td-109): "the site is considered to contain a hoard until
+  // the end of the turn" — widen the active site-phase company's site
+  // keywords with `hoard` while the flag is set, regardless of the site's
+  // printed keywords.
+  const hoardKeywordGranted = state.phaseState.phase === Phase.Site && state.phaseState.hoardKeywordGranted === true;
+  const siteKeywords = hoardKeywordGranted && !printedSiteKeywords.includes('hoard')
+    ? [...printedSiteKeywords, 'hoard']
+    : printedSiteKeywords;
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];

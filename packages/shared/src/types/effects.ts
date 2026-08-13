@@ -190,6 +190,20 @@ export interface StatModifierEffect extends EffectBase {
    * entries and picks them up from the stored-card scan instead.
    */
   readonly activeWhileStored?: boolean;
+  /**
+   * When true this modifier applies **only while the source card is bound to
+   * an item via `attachedToItem`** (the Barrow-blade dm-119 shape), never
+   * while the card is a plain item sitting in a character's `items` (its own
+   * bearer would otherwise pick up the bonus directly). Map to Mithril
+   * (td-133): "the bearer may tap himself and place this card with a
+   * non-unique weapon in his company. This gives the weapon a +3 prowess
+   * bonus" — the card starts as a Dwarf's own item (no bonus) and only grants
+   * +3 prowess once re-parented onto a weapon via the `reattach-to-item`
+   * grant-action. {@link collectCharacterEffects} skips such effects in the
+   * character's own `items` loop and picks them up only from the
+   * `attachedToItem` scan.
+   */
+  readonly activeWhileAttachedToItem?: boolean;
   /** Named identifier so other effects can reference and override this one. */
   readonly id?: string;
   /** If set, this effect replaces the named effect when its condition matches. */
@@ -1959,6 +1973,14 @@ export interface GrantActionTargets {
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
   /**
+   * For scope `'company-characters'`: excludes the bearer from the enumerated
+   * candidates, leaving only the bearer's company-mates. Used by Waybread
+   * (td-165) — "untap bearer and one other character in his company" pairs
+   * this with a `sequence` apply that separately untaps `"bearer"`, so the
+   * target-selection loop must offer only the *other* company members.
+   */
+  readonly excludeBearer?: boolean;
+  /**
    * For scope `'player-companies'`: restrict the enumerated companies to those
    * that have declared movement this organization phase **and** whose declared
    * destination's printed site path contains at least one region of this type.
@@ -2131,12 +2153,14 @@ export type TriggeredActionType =
   | 'transform-site'
   | 'untap-site'
   | 'lock-company-movement'
+  | 'split-into-own-company'
   | 'cancel-current-attack'
   | 'traitor-attack'
   | 'site-entry-attack'
   | 'win-condition-roll'
   | 'win-game'
-  | 'transfer-item-free';
+  | 'transfer-item-free'
+  | 'reattach-to-item';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -2579,6 +2603,18 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * somewhere other than a Border-hold. Omit for an unconditional grant.
    */
   readonly requiresDestinationSiteType?: string;
+  /**
+   * For a `haven-return-option` constraint (Ancient Stair dm-115): only offer
+   * the end-of-turn return option when the target company's site at end of
+   * turn carries this keyword — "If company moved to an Under-deeps site, at
+   * the end of the turn the company may replace its site card with the site
+   * card at which it began the turn" → `"under-deeps"`. Checked when the
+   * option is offered (`havenReturnActions`, `legal-actions/end-of-turn.ts`),
+   * not at play time, since the company's final site for the turn is not yet
+   * known when an end-of-org card is played. Omit for an unconditional offer
+   * (Great-road tw-249, always offered regardless of where the company went).
+   */
+  readonly requiresMovedToKeyword?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**
@@ -2648,7 +2684,7 @@ export interface RemoveConstraintAction extends TriggeredActionBase {
 export interface SetSitePhaseFlagAction extends TriggeredActionBase {
   readonly type: 'set-site-phase-flag';
   /** The `SitePhaseState` boolean key to set. */
-  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable';
+  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable' | 'hoardKeywordGranted';
 }
 
 /** `discard-character` — discard the wound/body-check-context character (type-only marker). */
@@ -3032,6 +3068,16 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
    * resolves un-negated — "Remove this card from the game" (wh-24).
    */
   readonly removeFromGame?: boolean;
+  /**
+   * For `select: 'target'`: gate the cancel on a 2d6 roll instead of applying
+   * it unconditionally. When set, `resolveEntry` rolls 2d6 as this card's own
+   * chain entry resolves and only negates the target entry when the total is
+   * ≥ `threshold` (a failed roll still discards this card normally — the
+   * target is untouched). Used by Wrath of the West (le-151): "Make a
+   * roll—if the result is greater than 6, the event is canceled and
+   * discarded" (threshold 7 = "greater than 6").
+   */
+  readonly threshold?: number;
 }
 
 /**
@@ -3145,6 +3191,19 @@ export interface LockCompanyMovementAction extends TriggeredActionBase {
 }
 
 /**
+ * `split-into-own-company` — the `onFail` verb of a per-character mind-roll
+ * `dice-check` (Turning Hope to Despair as-41). Peels `ctx.targetCharacterId`
+ * off `ctx.targetCompanyId` into his own new company sharing the same site
+ * path (or, if he was alone, flags his own company for one extra separate
+ * M/H phase) via the shared `splitCharacterOffCompany` helper
+ * (`reducer-utils.ts`) — the generalized, auto-rejoining sibling of Left
+ * Behind's `applyLeftBehindSplit`. Type-only marker.
+ */
+export interface SplitIntoOwnCompanyAction extends TriggeredActionBase {
+  readonly type: 'split-into-own-company';
+}
+
+/**
  * `cancel-current-attack` — cancel the combat currently in `state.combat`
  * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
  * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
@@ -3203,6 +3262,27 @@ export interface TraitorAttackAction extends TriggeredActionBase {
  */
 export interface TransferItemFreeAction extends TriggeredActionBase {
   readonly type: 'transfer-item-free';
+}
+
+/**
+ * Re-parents the source card (a resource permanent-event currently sitting
+ * as a plain item in its bearer's `CharacterInPlay.items`) onto a chosen
+ * item, using the `targetCardId` carried by the granting action — the same
+ * `attachedToItem` binding Barrow-blade (dm-119) gets at play time, but
+ * applied mid-game via a `grant-action` instead. The source card is removed
+ * from the bearer's `items` and appended to the controller's `cardsInPlay`
+ * with `attachedToItem` set, keeping its current tapped/untapped status (no
+ * card instance is lost — it simply changes zones). Any `stat-modifier`
+ * flagged `activeWhileAttachedToItem` on its definition then flows to the
+ * target item's bearer via the existing item-attached-events collection path
+ * (`effects/resolver.ts`).
+ *
+ * Used by Map to Mithril (td-133): "the bearer may tap himself and place
+ * this card with a non-unique weapon in his company. This gives the weapon
+ * a +3 prowess bonus."
+ */
+export interface ReattachToItemAction extends TriggeredActionBase {
+  readonly type: 'reattach-to-item';
 }
 
 /**
@@ -3271,9 +3351,11 @@ export type TriggeredAction =
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
+  | SplitIntoOwnCompanyAction
   | CancelCurrentAttackAction
   | TraitorAttackAction
-  | TransferItemFreeAction;
+  | TransferItemFreeAction
+  | ReattachToItemAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -4753,6 +4835,24 @@ export interface PlayWindowEffect extends EffectBase {
 }
 
 /**
+ * Passively taps the source card the moment its bearer's company sits at one
+ * of the named sites — a level-triggered check re-evaluated by the
+ * `sweepTapAtSiteItems` postReduce sweep after every action, so it fires on
+ * arrival, on staying put, and even if the company was already there when the
+ * card was played. Meaningful only on a card that also carries
+ * `play-flag: "no-auto-untap"`, since without it the next untap phase would
+ * immediately undo the tap.
+ *
+ * Used by Map to Mithril (td-133): "Tap Map to Mithril if bearer is ever at
+ * Moria; this card never untaps." — `siteNames: ["Moria"]`.
+ */
+export interface TapAtSiteEffect extends EffectBase {
+  readonly type: 'tap-at-site';
+  /** Site names (matched against the bearer company's current site) that trigger the tap. */
+  readonly siteNames: readonly string[];
+}
+
+/**
  * Declares what this card targets when played. The engine uses this to
  * generate per-target actions (e.g. one per eligible character).
  *
@@ -5720,6 +5820,22 @@ export interface ModifyAttackEffect extends EffectBase {
    * automatically defeated."
    */
   readonly cascadeDefeatOnSuccess?: true;
+  /**
+   * When set (`fromHand` path only), playing the card schedules a post-attack
+   * conditional split instead of (or alongside) any stat modifiers: if the
+   * attack is not fully defeated, every character still in the defending
+   * company at combat finalization rolls 2d6 plus his mind against
+   * `threshold`; each character whose total is strictly below it splits off
+   * into his own company sharing the same site path, facing a separate
+   * movement/hazard phase this turn with a hazard limit of one (see
+   * {@link Company.forcedSoloHazardLimit}). Unlike {@link LeftBehindSplitEffect},
+   * there is no explicit "may rejoin" — the split company merges back through
+   * the normal rule 2.IV.6 same-site auto-merge once its own separate phase
+   * ends. Used by Turning Hope to Despair (as-41): "If the attack is not
+   * defeated, each character in the company makes a roll and adds his mind.
+   * If the result is less than 11, the character splits off..."
+   */
+  readonly postAttackMindRollSplit?: { readonly threshold: number };
 }
 
 /**
@@ -8194,6 +8310,7 @@ export type CardEffect =
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | ItemPlayCorruptionCheckEffect
+  | TapAtSiteEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect

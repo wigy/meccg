@@ -26,11 +26,12 @@ import type { CardDefinitionId, PlayShortEventAction, HavenReturnAction } from '
 import { reduce } from '../../../engine/reducer.js';
 
 // Great-road (tw-249): "This is considered movement with no movement/hazard
-// phase." — the only card in the pool with a wired end-of-turn site-replacement
-// effect (haven-return-option constraint + haven-return action). Legendary
-// Stair (as-91), Iron-road (le-199) and a DM resource (dm-115) describe the
-// same mechanic in their text but currently carry no DSL effects (effects: []),
-// so they are not yet reachable scenarios.
+// phase." — wired via the same end-of-turn site-replacement effect (
+// haven-return-option constraint + haven-return action) also used by Ancient
+// Stair (dm-115, see tests/cards/dm-115.test.ts — gated by the constraint's
+// `requiresMovedToKeyword: "under-deeps"`). Legendary Stair (as-91) and
+// Iron-road (le-199) describe the same mechanic in their text but currently
+// carry no DSL effects (effects: []), so they are not yet reachable scenarios.
 const GREAT_ROAD = 'tw-249' as CardDefinitionId;
 
 describe('Rule 7.02 — End-of-Turn Site Replacement', () => {

@@ -664,6 +664,9 @@
     "name": "Blue Mountain Dwarf-hold",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BlueMountainDwarfhold.jpg",
     "siteType": "free-hold",
+    "keywords": [
+      "dwarf-hold"
+    ],
     "sitePath": [
       "free",
       "wilderness"
@@ -1108,6 +1111,9 @@
     "text": "Nearest Haven: Lórien",
     "alignment": "wizard",
     "siteType": "free-hold",
+    "keywords": [
+      "dwarf-hold"
+    ],
     "sitePath": [
       "wilderness",
       "border",
