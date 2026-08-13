@@ -196,6 +196,20 @@ export interface PlayerState {
    */
   readonly ringwraithReturnedToHand?: CardDefinitionId;
   /**
+   * Set to the definition ID of this player's Wizard avatar the first time it
+   * is sacrificed via Sacrifice of Form (tw-321). While set:
+   * - This player may not reveal a *different* Wizard avatar.
+   * - The opponent may not reveal this same Wizard (no code needed — a player
+   *   can never play a card from another player's discard pile).
+   *
+   * Unlike {@link ringwraithReturnedToHand}, this is never cleared once set:
+   * per CoE rule 2.II.2.1.1 a player who has revealed an avatar can never
+   * reveal a *different* one for the rest of the game, regardless of whether
+   * that avatar is currently in play — the restriction outlives any single
+   * sacrifice-and-return cycle.
+   */
+  readonly wizardSacrificed?: CardDefinitionId;
+  /**
    * Creatures currently reserved by Summons from Long Sleep (as-39) cards in
    * cardsInPlay. Each entry links the reserved creature instance to the
    * permanent-event card that reserved it. Reserved creatures do not reside

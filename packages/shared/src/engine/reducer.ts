@@ -36,6 +36,7 @@ import { sweepGreatHuntDiscards } from './great-hunt.js';
 import { sweepDiscardSelfWhen } from './discard-self-when.js';
 import { sweepDiscardSelfWhenCompany } from './company-composition.js';
 import { sweepKeywordReplaced } from './keyword-replaced.js';
+import { sweepSacrificeOfForm, sweepSacrificeOfFormReturn } from './sacrifice-of-form.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -70,7 +71,14 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // (strikes resolved, canceled on the chain, canceled by tap) is covered by
   // the single `prev.combat → next.combat` transition.
   const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterLongEventProtection) : afterLongEventProtection;
-  return accrueRevealedInstances(recomputeDerived(afterAttackWindow));
+  // Sacrifice of Form (tw-321): once the attack it was played into has fully
+  // ended (same prev/next `combat` diff as the after-attack window above),
+  // discard the sacrificed Wizard and set his items aside.
+  const afterSacrifice = prevState ? sweepSacrificeOfForm(prevState, afterAttackWindow) : afterAttackWindow;
+  // Reverse direction: if a Wizard previously sacrificed this way is put back
+  // into play by any means, reattach the host card and return his items.
+  const afterSacrificeReturn = prevState ? sweepSacrificeOfFormReturn(prevState, afterSacrifice) : afterSacrifice;
+  return accrueRevealedInstances(recomputeDerived(afterSacrificeReturn));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
