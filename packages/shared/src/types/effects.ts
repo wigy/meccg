@@ -2012,14 +2012,18 @@ export interface ActionCost {
    * The entity to tap. "self" taps the source card itself (the bearer character
    * or the attached item/ally); "bearer" taps the character carrying the source;
    * "character" taps the explicitly targeted character; "sage-in-company" taps an
-   * untapped sage in the bearer's company; "sage-and-scout-in-company" taps one
+   * untapped sage in the bearer's company; "sage-in-company-excluding-bearer"
+   * is the same but excludes the bearer character itself from the eligible
+   * sages (Pale Dream-maker dm-78: "a sage in target character's company
+   * (other than character) may tap"); "sage-and-scout-in-company" taps one
    * untapped sage AND one untapped scout in the bearer's company (The Worthy Hills
    * as-142 special rule — the action carries sage as `characterId` and scout as
    * `secondCharacterId`); "self-and-bearer" taps BOTH the source item AND its
    * bearer character (used by Torque of Hues — requires both item and bearer
    * to be untapped).
    */
-  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-and-scout-in-company' | 'self-and-bearer';
+  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-in-company-excluding-bearer'
+    | 'sage-and-scout-in-company' | 'self-and-bearer';
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use. "named-card"

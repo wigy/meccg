@@ -1053,8 +1053,67 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/PaleDreammaker.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Corruption. Dark Enchantment. Playable on a non-Wizard character wounded by an Undead attack this turn; does not count against the hazard limit. Target character receives 2 corruption points and makes a corruption check each time his player discards a card from his hand during his turn. His direct influence is zero while bearing this card. Cannot be duplicated on a given character.During the organization phase, a sage in target character’s company (other than character) may tap to attempt to remove this card. Make a roll: if the result is greater than 6, discard this card."
+    "keywords": ["corruption", "dark-enchantment"],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.woundedByRaceThisTurn": { "$includes": "undead" } }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-hazard-limit"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "op": "set",
+        "value": 0
+      },
+      {
+        "type": "on-event",
+        "event": "card-discarded-from-hand",
+        "target": "bearer",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "sage-in-company-excluding-bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
+    "text": "Corruption. Dark Enchantment. Playable on a non-Wizard character wounded by an Undead attack this turn; does not count against the hazard limit. Target character receives 2 corruption points and makes a corruption check each time his player discards a card from his hand during his turn. His direct influence is zero while bearing this card. Cannot be duplicated on a given character.During the organization phase, a sage in target character’s company (other than character) may tap to attempt to remove this card. Make a roll: if the result is greater than 6, discard this card.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hazard-event",

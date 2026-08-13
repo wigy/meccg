@@ -414,6 +414,21 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         .filter(a => a.result === 'wounded')
         .map(a => a.characterId);
 
+  // Record the race of the attack against each character wounded this turn,
+  // so a hazard-event playable "on a character wounded by a [race] attack
+  // this turn" (Pale Dream-maker dm-78, Endless Whispers dm-54) can query it
+  // via `target.woundedByRaceThisTurn` in a `play-target` filter. Cleared for
+  // every character at the start of each new turn (`enterUntapPhase`).
+  if (woundedCharIds.length > 0 && combat.creatureRace) {
+    const race = combat.creatureRace;
+    const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p =>
+      woundedCharIds.reduce((pl, charId) => updateCharacter(pl, charId, c => {
+        const existing = c.woundedByRaceThisTurn ?? [];
+        return existing.includes(race) ? c : { ...c, woundedByRaceThisTurn: [...existing, race] };
+      }), p));
+  }
+
   // Combatants whose strike *succeeded* — CoE 3.iv.5: "the strike is successful.
   // The defending character is immediately wounded (which is considered
   // synonymous with the strike succeeding) … and then the hazard player

@@ -71,10 +71,17 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // (strikes resolved, canceled on the chain, canceled by tap) is covered by
   // the single `prev.combat → next.combat` transition.
   const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterLongEventProtection) : afterLongEventProtection;
+  // Pale Dream-maker (dm-78): a corruption check for each card the bearer's
+  // controller discards from hand during their own turn. Another prev/next
+  // diff — hand discards happen through several independent code paths with
+  // no single call site to instrument.
+  const afterHandDiscardChecks = prevState
+    ? applyHandDiscardCorruptionChecks(prevState, afterAttackWindow)
+    : afterAttackWindow;
   // Sacrifice of Form (tw-321): once the attack it was played into has fully
   // ended (same prev/next `combat` diff as the after-attack window above),
   // discard the sacrificed Wizard and set his items aside.
-  const afterSacrifice = prevState ? sweepSacrificeOfForm(prevState, afterAttackWindow) : afterAttackWindow;
+  const afterSacrifice = prevState ? sweepSacrificeOfForm(prevState, afterHandDiscardChecks) : afterHandDiscardChecks;
   // Reverse direction: if a Wizard previously sacrificed this way is put back
   // into play by any means, reattach the host card and return his items.
   const afterSacrificeReturn = prevState ? sweepSacrificeOfFormReturn(prevState, afterSacrifice) : afterSacrifice;
@@ -91,6 +98,7 @@ import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
 import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
 import { discardOrphanedLongEventAttachedEvents, sweepProtectedLongEventCascade } from './protected-long-event.js';
 import { enqueuePostAttackPlayOffers } from './post-attack-play.js';
+import { applyHandDiscardCorruptionChecks } from './hand-discard-trigger.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';

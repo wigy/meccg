@@ -641,9 +641,21 @@ export function enterUntapPhase(state: GameState): GameState {
   // Reset sideboardAccessedDuringUntap for all players at the start of each
   // new turn. Per CoE rule 2.I.2, the hazard limit halving only applies to
   // "this turn's" movement/hazard phases — the flag must not carry over.
-  const players = state.players.map(p =>
-    p.sideboardAccessedDuringUntap ? { ...p, sideboardAccessedDuringUntap: false } : p,
-  ) as unknown as typeof state.players;
+  // Also clear every character's `woundedByRaceThisTurn` history (Pale
+  // Dream-maker dm-78, Endless Whispers dm-54): "this turn" resets with the
+  // new turn regardless of which player it belongs to.
+  const players = state.players.map(p => {
+    const characters = Object.fromEntries(
+      Object.entries(p.characters).map(([id, c]) =>
+        c.woundedByRaceThisTurn && c.woundedByRaceThisTurn.length > 0
+          ? [id, { ...c, woundedByRaceThisTurn: [] }]
+          : [id, c],
+      ),
+    );
+    return p.sideboardAccessedDuringUntap
+      ? { ...p, sideboardAccessedDuringUntap: false, characters }
+      : { ...p, characters };
+  }) as unknown as typeof state.players;
   const withPhase: GameState = {
     ...state,
     players,

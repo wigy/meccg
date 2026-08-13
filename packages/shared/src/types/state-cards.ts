@@ -11,6 +11,7 @@ import {
   CompanyId,
   CardDefinitionId,
   CardStatus,
+  Race,
 } from './common.js';
 import type { ViewCard } from './common.js';
 
@@ -438,6 +439,15 @@ export interface CharacterInPlay {
    * Half-orcs may not take trophies.
    */
   readonly trophies?: readonly CardInstance[];
+  /**
+   * Races of attacks that wounded this character so far this turn, so a
+   * hazard-event playable "on a character wounded by a [race] attack this
+   * turn" (Pale Dream-maker dm-78, Endless Whispers dm-54) can query it via a
+   * `play-target` filter on `target.woundedByRaceThisTurn`. Recorded in
+   * `combat-finalize.ts` whenever a strike wounds the character; cleared for
+   * every character at the start of each new turn (`enterUntapPhase`).
+   */
+  readonly woundedByRaceThisTurn?: readonly Race[];
 }
 
 // ---- Company ----

@@ -20,7 +20,7 @@ import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstanc
 import { PLAYER_1, pool } from './test-helpers-constants.js';
 import { findCharInstanceId } from './test-helpers-queries.js';
 import type { CompanyId, CardInPlay, CharacterInPlay, Company, PlayerState, MarshallingPointTotals } from '../index.js';
-import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
+import { CardStatus, Race, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import { recomputeDerived } from '../engine/recompute-derived.js';
 import { accrueRevealedInstances } from '../engine/visibility.js';
 import { addConstraint } from '../engine/pending.js';
@@ -603,6 +603,31 @@ export function setCharStatus(
   const updatedChars = {
     ...state.players[playerIdx].characters,
     [charId as string]: { ...char, status },
+  };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedChars };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+/**
+ * Directly sets a character's `woundedByRaceThisTurn` history, bypassing a
+ * full strike/body-check sequence. Used by hazard-events playable "on a
+ * character wounded by a [race] attack this turn" (Pale Dream-maker dm-78,
+ * Endless Whispers dm-54) to set up scenarios without redriving combat in
+ * every test.
+ */
+export function setWoundedByRaceThisTurn(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+  races: readonly Race[],
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, defId);
+  const char = state.players[playerIdx].characters[charId];
+  const updatedChars = {
+    ...state.players[playerIdx].characters,
+    [charId as string]: { ...char, woundedByRaceThisTurn: races },
   };
   const updatedPlayer = { ...state.players[playerIdx], characters: updatedChars };
   const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];

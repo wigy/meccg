@@ -15334,7 +15334,73 @@ home sites in the regions listed above (+3). Tap this faction to allow any
 company with one of the regions listed above in its site path to move up to 1
 additional region."
 
-### 76. `modify-attack` `postAttackMindRollSplit` + `split-into-own-company` (Turning Hope to Despair)
+### 76. `target.woundedByRaceThisTurn`, `on-event: card-discarded-from-hand`, `sage-in-company-excluding-bearer`
+
+Three additions for hazard-events that attach to a character following a
+wound and punish hand discards made by that character's own controller.
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.race": { "$ne": "wizard" } },
+    { "target.woundedByRaceThisTurn": { "$includes": "undead" } } ] } }
+```
+
+- **`target.woundedByRaceThisTurn`** is a character play-target filter
+  context field (added to both `buildPlayOptionContext` in
+  `legal-actions/organization.ts` and the bespoke hazard-menu character
+  filter context in `legal-actions/movement-hazard.ts`) listing the races of
+  every attack that has wounded the character so far this turn. Backed by
+  `CharacterInPlay.woundedByRaceThisTurn`, appended to (deduplicated) in
+  `combat-finalize.ts` whenever a strike wounds a character (from
+  `combat.creatureRace`), and cleared for every character of every player at
+  the start of each new turn in `enterUntapPhase` (`reducer-untap.ts`) —
+  mirroring the existing `sideboardAccessedDuringUntap` per-turn reset.
+
+```json
+{ "type": "on-event", "event": "card-discarded-from-hand", "target": "bearer",
+  "apply": { "type": "force-check", "check": "corruption" } }
+```
+
+- **`on-event: card-discarded-from-hand`** fires once per card a player
+  discards from their own hand during their own turn (`state.activePlayer`
+  at the moment of the discard), for every on-event effect of this name on a
+  card attached to one of that player's characters. There is no single
+  reducer call site for "a card left the hand" (end-of-turn hand-size
+  reduction, named-card play costs, hazard-limit discards, …), so it is
+  implemented as a prev/next diff in the new `hand-discard-trigger.ts`
+  module (`applyHandDiscardCorruptionChecks`), hooked into `postReduce`
+  alongside `applyDiscardOnCardLeaves`/`enqueuePostAttackPlayOffers`: a card
+  counts as "discarded from hand" when its instance left `hand` and landed
+  in `discardPile` within the same step (distinguishing a discard from the
+  card being played, which leaves the hand for `cardsInPlay`/a
+  character/etc., not the discard pile). Note CoE rule 2.09 (both play deck
+  and discard pile empty ⇒ the discarded card becomes the new play deck) is
+  therefore *not* currently detected as a discard by this trigger.
+
+```json
+{ "type": "grant-action", "action": "remove-self-on-roll",
+  "cost": { "tap": "sage-in-company-excluding-bearer" },
+  "apply": { "type": "roll-then-apply", "threshold": 7,
+    "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } } }
+```
+
+- **`cost.tap: "sage-in-company-excluding-bearer"`** is the `sage-in-company`
+  sibling (§ various corruption-removal cards) that additionally excludes
+  the bearer character itself from the eligible sages enumerated in
+  `legal-actions/organization.ts`'s grant-action scan.
+
+Used by Pale Dream-maker (dm-78): "Corruption. Dark Enchantment. Playable on
+a non-Wizard character wounded by an Undead attack this turn; does not count
+against the hazard limit. Target character receives 2 corruption points and
+makes a corruption check each time his player discards a card from his hand
+during his turn. His direct influence is zero while bearing this card.
+Cannot be duplicated on a given character. During the organization phase, a
+sage in target character's company (other than character) may tap to
+attempt to remove this card. Make a roll: if the result is greater than 6,
+discard this card."
+
+### 77. `modify-attack` `postAttackMindRollSplit` + `split-into-own-company` (Turning Hope to Despair)
 
 A hazard **short-event**, played from hand (or revealed on-guard) in the same
 attacker-only pre-assignment `modify-attack` window as Unabated in Malice
