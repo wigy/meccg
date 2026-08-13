@@ -161,29 +161,40 @@ describe('shouldClearOverrideForNewCombat', () => {
  * automatic attack resolved. The render was left stuck in single-company
  * view (focused on whichever company fought) for the rest of the opponent's
  * turn, hiding the opponent's other companies from the overview.
+ *
+ * Also covers the follow-up feature request ("Stop the view jumping back to
+ * overview"): the restore must only fire when the all-companies override was
+ * already active (auto-forced) before the interrupting combat started. When
+ * the player had manually focused a specific opponent company before playing
+ * a creature/attacking hazard, the resulting combat must not force them back
+ * to the overview once it resolves.
  */
 describe('shouldRestoreOverrideAfterCombat', () => {
   const SELF = 'p1';
   const OPPONENT = 'p2';
 
-  it('restores the override when combat ends mid-opponent-turn', () => {
-    expect(shouldRestoreOverrideAfterCombat(false, true, OPPONENT, SELF)).toBe(true);
+  it('restores the override when combat ends mid-opponent-turn and the override was active before combat', () => {
+    expect(shouldRestoreOverrideAfterCombat(false, true, OPPONENT, SELF, true)).toBe(true);
+  });
+
+  it('does NOT restore when the override was NOT active before combat (manually focused company)', () => {
+    expect(shouldRestoreOverrideAfterCombat(false, true, OPPONENT, SELF, false)).toBe(false);
   });
 
   it('does NOT restore when combat is still active', () => {
-    expect(shouldRestoreOverrideAfterCombat(true, true, OPPONENT, SELF)).toBe(false);
+    expect(shouldRestoreOverrideAfterCombat(true, true, OPPONENT, SELF, true)).toBe(false);
   });
 
   it('does NOT restore when combat was not active last render', () => {
-    expect(shouldRestoreOverrideAfterCombat(false, false, OPPONENT, SELF)).toBe(false);
+    expect(shouldRestoreOverrideAfterCombat(false, false, OPPONENT, SELF, true)).toBe(false);
   });
 
   it('does NOT restore on our own turn', () => {
-    expect(shouldRestoreOverrideAfterCombat(false, true, SELF, SELF)).toBe(false);
+    expect(shouldRestoreOverrideAfterCombat(false, true, SELF, SELF, true)).toBe(false);
   });
 
   it('does NOT restore when there is no active player', () => {
-    expect(shouldRestoreOverrideAfterCombat(false, true, null, SELF)).toBe(false);
+    expect(shouldRestoreOverrideAfterCombat(false, true, null, SELF, true)).toBe(false);
   });
 });
 

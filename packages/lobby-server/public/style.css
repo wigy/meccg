@@ -5606,6 +5606,12 @@ body.all-companies-mode:has(#debug-view.hidden) {
   margin-left: 0.3rem;
 }
 
+.company-hazard-limit-badge {
+  color: #e94;
+  margin-left: 0.3rem;
+  font-weight: bold;
+}
+
 /* Cards row: site + characters in one horizontal line */
 .company-row {
   display: flex;

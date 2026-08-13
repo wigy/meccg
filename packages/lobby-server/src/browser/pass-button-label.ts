@@ -16,6 +16,7 @@
  */
 import type { GameAction, PlayerView } from '@meccg/shared';
 import { Phase } from '@meccg/shared';
+import { getHazardLimitLabel } from './render-player-names.js';
 
 /**
  * Short label for the bottom-bar pass/action button.
@@ -66,7 +67,13 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
     switch (view.phaseState.step) {
       case 'set-hazard-limit': return 'Continue';
       case 'draw-cards': return 'Pass Draw';
-      case 'play-hazards': return 'Pass Hazards';
+      case 'play-hazards': {
+        // Name what's actually being given up: clicking Pass looks harmless
+        // from the all-companies overview, but ends hazard opportunities
+        // against whichever company is currently active.
+        const remaining = getHazardLimitLabel(view);
+        return remaining !== null ? `Pass Hazards (${remaining} left)` : 'Pass Hazards';
+      }
       case 'reset-hand': return 'Continue';
       default: return 'Continue';
     }

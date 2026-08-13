@@ -215,10 +215,20 @@ export function shouldClearOverrideForNewCombat(
  * companies and any agent hazards until they manually toggle back to the
  * overview.
  *
+ * This must only restore the overview when it was auto-forced on before the
+ * interrupting combat started (`overrideWasActiveBeforeCombat`), not when the
+ * player had manually drilled into a specific opponent company: forcing the
+ * overview back on unconditionally meant a player who deliberately focused a
+ * company to play a hazard against it got kicked back to the overview the
+ * instant that hazard's combat resolved, even though they may want to play
+ * another hazard against the same party.
+ *
  * @param combatActive - Whether combat is active in the current render.
  * @param lastCombatActive - Whether combat was active in the previous render.
  * @param activeId - The active player ID for the current render (null if none).
  * @param selfId - The local player's ID.
+ * @param overrideWasActiveBeforeCombat - Whether the all-companies override
+ *   was active immediately before this combat started.
  * @returns True if the all-companies override should be restored.
  */
 export function shouldRestoreOverrideAfterCombat(
@@ -226,10 +236,11 @@ export function shouldRestoreOverrideAfterCombat(
   lastCombatActive: boolean,
   activeId: string | null,
   selfId: string,
+  overrideWasActiveBeforeCombat: boolean,
 ): boolean {
   const combatJustEnded = !combatActive && lastCombatActive;
   const opponentTurn = activeId !== null && activeId !== selfId;
-  return combatJustEnded && opponentTurn;
+  return combatJustEnded && opponentTurn && overrideWasActiveBeforeCombat;
 }
 
 /**
@@ -295,6 +306,16 @@ let lastOpponentActiveCompanyIndex: number | null = null;
  */
 let lastCombatActive = false;
 
+/**
+ * Whether the all-companies override was active immediately before the
+ * current combat started. Captured by {@link shouldClearOverrideForNewCombat}'s
+ * caller at the combat-start transition, and consumed by
+ * {@link shouldRestoreOverrideAfterCombat} to distinguish an overview that was
+ * auto-forced on (should be restored after combat) from one the player had
+ * manually left in favor of a single-company view (should not be forced back).
+ */
+let overrideActiveBeforeCombat = false;
+
 // ---- Cached render arguments ----
 
 /** Cached instance-to-definition lookup built from the latest PlayerView. */
@@ -355,6 +376,9 @@ export function getLastOpponentActiveCompanyIndex(): number | null { return last
 /** Get whether combat was active on the last render. */
 export function getLastCombatActive(): boolean { return lastCombatActive; }
 
+/** Get whether the all-companies override was active immediately before the current combat started. */
+export function getOverrideActiveBeforeCombat(): boolean { return overrideActiveBeforeCombat; }
+
 /** Get the cached instance lookup function. */
 export function getCachedInstanceLookup(): (id: CardInstanceId) => CardDefinitionId | undefined { return cachedInstanceLookup; }
 
@@ -411,6 +435,9 @@ export function setLastOpponentActiveCompanyIndex(index: number | null): void { 
 /** Set whether combat was active on the last render. */
 export function setLastCombatActive(v: boolean): void { lastCombatActive = v; }
 
+/** Set whether the all-companies override was active immediately before the current combat started. */
+export function setOverrideActiveBeforeCombat(v: boolean): void { overrideActiveBeforeCombat = v; }
+
 /** Set the cached instance lookup function. */
 export function setCachedInstanceLookup(fn: (id: CardInstanceId) => CardDefinitionId | undefined): void { cachedInstanceLookup = fn; }
 
@@ -442,6 +469,7 @@ export function resetState(): void {
   lastMhSiteStep = null;
   lastOpponentActiveCompanyIndex = null;
   lastCombatActive = false;
+  overrideActiveBeforeCombat = false;
   lastOnAction = null;
   lastView = null;
   lastCardPool = null;
