@@ -1670,6 +1670,69 @@ That is the whole lesson of this section in one table. A rules argument was
 necessary and not sufficient: it predicted which changes would be harmless,
 not which would help. An agreement gain predicted neither.
 
+### The draft is decided by a coin flip
+
+`draft-pick` is the decision H2 gets wrong most consequentially: 38 in the
+recorded corpus at 15.8% agreement, and unlike a mid-game tap these fix the
+starting company, so every later decision is conditioned on them.
+
+What humans draft against what H2 drafts, over 35 attributed picks:
+
+| mean of the character picked | human | H2 |
+|---|---|---|
+| mind | **4.51** | 3.97 |
+| marshalling points | **1.43** | 1.29 |
+| direct influence | **1.14** | 0.97 |
+| prowess | 3.89 | 4.00 |
+
+```text
+human Elrond      mind 10, 3 MP, 7 prowess, 4 DI   |   h2 Beretar  mind 5, 2 MP, 5 prowess, 1 DI
+human Thorin II   mind  8, 3 MP, 5 prowess, 2 DI   |   h2 Balin    mind 5, 2 MP, 4 prowess, 2 DI
+```
+
+Humans take the big characters. But the reason H2 does not is neither mind nor
+prowess — it is that **it has no opinion at all**:
+
+```text
+draft decisions sampled: 64
+  where EVERY candidate quotes at exactly 0: 64 (100.0%)
+  candidate quotes at 0: 479/479 (100.0%)
+  standing.marginal at draft time: character 0, item 0, faction 0, ally 0, kill 0, misc 0
+```
+
+`fetching` prices a draft pick through `card-price.quote`, which prices a
+character by its marshalling points *in the current standing*. At the draft the
+standing is 0–0, and CoE 10.3 step 4 caps any source at half the total — so
+every source is worth zero, every candidate quotes at zero, and the pick falls
+through to whatever breaks the tie. 8.6% agreement across roughly ten
+candidates is what chance predicts, and chance is what is happening.
+
+`coverage` already names this state — it counts `degenerateStanding` decisions
+where "every marshalling-point source is worth zero" — but counts it as a
+*valuation* problem to note rather than a decision being made at random. On
+the draft it is the whole decision.
+
+#### What the fix is not, and what it has to be
+
+It is not a mind adjustment. Valuing marshalling points better does not help
+either: at the draft, character MP is the *only* source in play, so the
+half-total cap holds it near zero however it is projected — that is the rule
+working correctly, not a modelling error.
+
+What humans are selecting on is not in the model at all. Elrond's 7 prowess
+and 4 direct influence are what let a company survive to a site and attempt
+what is there — and prowess and direct influence appear nowhere in
+`card-price`'s character branch, which reads only `marshallingPoints` and
+`mind`. The project prices both elsewhere: direct influence is what an
+influence attempt spends (`factions`, `budget.bestInfluencerIn`), and prowess
+is what `defence` and `strike/*` resolve combats with.
+
+So this needs a "what is this character worth to have" valuation that the
+project does not have, assembled from services that already exist. That is a
+piece of work rather than a line, and it is the most consequential decision in
+the game — which is the argument for doing it and the reason not to rush a
+half-model into the one decision everything else is conditioned on.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
