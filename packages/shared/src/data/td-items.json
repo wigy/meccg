@@ -850,7 +850,73 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Only playable at Lórien. Discard to untap bearer or bearer and one other character in his company.Alternatively, discard during organization phase to allow its bearer’s company to play an additional region card."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "Lórien"
+        ]
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-bearer",
+        "anyPhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "bearer.status": "tapped"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "bearer",
+          "status": "untapped"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-bearer-and-company-character",
+        "anyPhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "targets": {
+          "scope": "company-characters",
+          "excludeBearer": true
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "set-character-status",
+              "target": "bearer",
+              "status": "untapped"
+            },
+            {
+              "type": "set-character-status",
+              "target": "target-character",
+              "status": "untapped"
+            }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "extra-region-movement",
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "company.hasPlannedMovement": false,
+          "company.hasExtraRegionDistance": false
+        },
+        "apply": {
+          "type": "increment-company-extra-region-distance",
+          "amount": 1
+        }
+      }
+    ],
+    "text": "Only playable at Lórien. Discard to untap bearer or bearer and one other character in his company.Alternatively, discard during organization phase to allow its bearer’s company to play an additional region card.",
+    "certified": "2026-08-12"
   }
 ]

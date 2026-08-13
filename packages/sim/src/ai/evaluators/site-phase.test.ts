@@ -95,6 +95,23 @@ const SAPLING_OF_THE_WHITE_TREE: CardDefinition = {
   marshallingPoints: 1,
 } as unknown as CardDefinition;
 
+// A Malady Without Healing (le-159): a shadow-magic short event playable
+// during the site phase, targeting a character on either side (`targetScope:
+// any-player`) with a corruption-check orchestrator.
+const MALADY_WITHOUT_HEALING: CardDefinition = {
+  cardType: 'minion-resource-event',
+  eventType: 'short',
+  effects: [
+    { type: 'play-window', phase: 'site' },
+    { type: 'play-target', target: 'character', targetScope: 'any-player' },
+    {
+      type: 'on-event',
+      event: 'self-enters-play',
+      apply: { type: 'malady-without-healing', targetCorruptionModifier: -1, casterCorruptionModifier: -5 },
+    },
+  ],
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'tw-404': ISENGARD,
   'td-178': ISLE_OF_THE_ULOND,
@@ -104,8 +121,36 @@ const POOL: Record<string, CardDefinition> = {
   'tw-182': THEODEN,
   'tw-397': GLITTERING_CAVES,
   'tw-322': SAPLING_OF_THE_WHITE_TREE,
+  'le-159': MALADY_WITHOUT_HEALING,
   hobbit: HOBBIT,
 };
+
+/**
+ * Build a view with one company of a single character, plus an opponent
+ * character, for the Malady Without Healing self-targeting regression.
+ */
+function makeMaladyView(): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'le-159' }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-182', status: 'untapped', items: [] },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'tw-404' },
+          characters: ['c1'],
+        },
+      ],
+    },
+    opponent: {
+      characters: {
+        o1: { instanceId: 'o1', definitionId: 'tw-182', status: 'untapped', items: [] },
+      },
+    },
+  } as unknown as PlayerView;
+}
 
 /**
  * Build a view: one company at Isle of the Ulond with a single UNTAPPED
@@ -235,5 +280,39 @@ describe('sitePhaseEvaluator enter-site', () => {
     const view = makeGlitteringCavesView(12);
     const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
     expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
+  });
+});
+
+describe('sitePhaseEvaluator play-short-event', () => {
+  // Regression (game msq1wzcy-gwjpmx, seq 261): the AI played A Malady
+  // Without Healing on its own character (p2-103) instead of an opponent's.
+  // The engine legally enumerates a target on either side (`targetScope:
+  // any-player`), and left unscored both got the same flat default weight —
+  // a coin flip that regularly had the AI killing its own characters via its
+  // own corruption event.
+  test('scores 0 for A Malady Without Healing targeting the caster\'s own character', () => {
+    const view = makeMaladyView();
+    const action: GameAction = {
+      type: 'play-short-event',
+      player: 'p2',
+      cardInstanceId: 'h1',
+      targetCharacterId: 'c1',
+    } as unknown as GameAction;
+    const context: AiContext = { view, cardPool: POOL, legalActions: [action] };
+    expect(sitePhaseEvaluator.score(action, context)).toBe(0);
+  });
+
+  // Contrast: the same card, targeting the opponent's character, is left
+  // unscored (falls back to the default weight) rather than suppressed.
+  test('does not suppress A Malady Without Healing targeting an opponent\'s character', () => {
+    const view = makeMaladyView();
+    const action: GameAction = {
+      type: 'play-short-event',
+      player: 'p2',
+      cardInstanceId: 'h1',
+      targetCharacterId: 'o1',
+    } as unknown as GameAction;
+    const context: AiContext = { view, cardPool: POOL, legalActions: [action] };
+    expect(sitePhaseEvaluator.score(action, context)).toBeNull();
   });
 });

@@ -78,6 +78,22 @@ export interface Tunables {
    */
   readonly provisionalCardPrice: number;
   /**
+   * What it is worth, in TSD, to draft a character the deck's author marked as
+   * a favourite — one the deck wants in its starting company.
+   *
+   * Two cards' worth. A starting company built off the deck's plan does not
+   * merely score less; it makes part of the deck unplayable, because the
+   * factions want the race, the allies want the influence and the resources
+   * want the route. Two cards is the smallest figure that says so while staying
+   * a valuation rather than a veto — it can be outweighed by a genuinely large
+   * quote, which is the correct behaviour if `card-price` ever stops returning
+   * zero at 0–0.
+   *
+   * The number is a judgement; that favourites should be preferred at all is
+   * not. See `isFavouritePick` for the corpus measurement that motivated it.
+   */
+  readonly favouriteCharacterTsd: number;
+  /**
    * Ceiling on the number of live states while an attack is resolved strike by
    * strike. Beyond it, states are merged — probability mass is conserved, but
    * the enumeration stops being exhaustive and says so.
@@ -308,6 +324,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   woundTempoCost: 1.5,
   eliminationTempoCost: 3,
   provisionalCardPrice: 1,
+  favouriteCharacterTsd: 2,
   attackStateCap: 192,
   regionCrossingCost: 0.4,
   influenceTapCost: 0.6,

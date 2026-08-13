@@ -601,8 +601,30 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Tap a Dwarf at a Dark-hold [{D}] or Shadow-hold [{S}]. The site is considered to contain a hoard until the end of the turn."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site",
+        "siteTypes": ["shadow-hold", "dark-hold"]
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "dwarf",
+          "target.status": "untapped",
+          "company.siteType": { "$in": ["shadow-hold", "dark-hold"] }
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "set-site-phase-flag", "flag": "hoardKeywordGranted" }
+      }
+    ],
+    "text": "Tap a Dwarf at a Dark-hold [{D}] or Shadow-hold [{S}]. The site is considered to contain a hoard until the end of the turn.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",

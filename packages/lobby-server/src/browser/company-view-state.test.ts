@@ -4,6 +4,7 @@ import { Phase } from '@meccg/shared';
 import {
   shouldOverrideToAllCompanies,
   shouldFocusOwnCompanyAfterSelectCompany,
+  shouldResetFocusOnOpponentCompanyAdvance,
   shouldClearOverrideForNewCombat,
   shouldRestoreOverrideAfterCombat,
   isCombatBlockedByPendingCorruptionCheck,
@@ -79,6 +80,49 @@ describe('shouldFocusOwnCompanyAfterSelectCompany', () => {
 
   it('does NOT focus when there is no active player', () => {
     expect(shouldFocusOwnCompanyAfterSelectCompany('select-company', 'draw-cards', null, SELF)).toBe(false);
+  });
+});
+
+/**
+ * Regression tests for bug report 97754b4edc722de1 (game msq1wzcy-gwjpmx,
+ * turn 3, opponent movement/hazard phase): "After playing hazard on the
+ * first company (Haz.Lim 3), it gives a pass hazards... I clicked the
+ * button, but it didn't disappear... realising it had moved to the next
+ * company already... I could not play hazard on that one any more."
+ *
+ * The hazard player can click an opponent company block to bring it into
+ * single-company view (see opponent-company-focus-click.test.ts). Once both
+ * players pass the play-hazards step, `activeCompanyIndex` advances to the
+ * next company, but nothing reset the stale single-company focus — the
+ * player was left looking at a dead view for a company whose hazard window
+ * had already closed, with no visible cue that the turn had moved on.
+ */
+describe('shouldResetFocusOnOpponentCompanyAdvance', () => {
+  const SELF = 'p1';
+  const OPPONENT = 'p2';
+
+  it('resets focus when the opponent\'s active company advances', () => {
+    expect(shouldResetFocusOnOpponentCompanyAdvance(true, 0, 1, OPPONENT, SELF)).toBe(true);
+  });
+
+  it('does NOT reset when the active company index is unchanged', () => {
+    expect(shouldResetFocusOnOpponentCompanyAdvance(true, 0, 0, OPPONENT, SELF)).toBe(false);
+  });
+
+  it('does NOT reset when we are not focused on an opponent company', () => {
+    expect(shouldResetFocusOnOpponentCompanyAdvance(false, 0, 1, OPPONENT, SELF)).toBe(false);
+  });
+
+  it('does NOT reset on our own turn', () => {
+    expect(shouldResetFocusOnOpponentCompanyAdvance(true, 0, 1, SELF, SELF)).toBe(false);
+  });
+
+  it('does NOT reset when there was no previous index (just entered the phase)', () => {
+    expect(shouldResetFocusOnOpponentCompanyAdvance(true, null, 0, OPPONENT, SELF)).toBe(false);
+  });
+
+  it('does NOT reset when there is no active player', () => {
+    expect(shouldResetFocusOnOpponentCompanyAdvance(true, 0, 1, null, SELF)).toBe(false);
   });
 });
 

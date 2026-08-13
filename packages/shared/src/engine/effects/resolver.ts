@@ -142,6 +142,19 @@ export interface ResolverContext {
      * `{ "bearer.homesiteRegions": { "$includes": "Rohan" } }`.
      */
     readonly homesiteRegions?: readonly string[];
+    /**
+     * The character's *printed* skills only — never merged with skills granted
+     * by borne items/effects. Populated only in the effective-stats context
+     * (alongside the item-merged `skills`), so a `stat-modifier`'s `when` can
+     * implement the "already a *X*" convention (mirrors `requiresNaturalSkill`
+     * on {@link ItemSlotModifierEffect}). Needed whenever a card both grants a
+     * skill and conditions a bonus on the bearer already having it — checking
+     * merged `skills` would trivially always pass off the card's own grant.
+     * Used by Magic Ring of Courage (tw-271): "gives the bearer warrior skill;
+     * if already a warrior, +2 prowess" —
+     * `{ "bearer.naturalSkills": { "$includes": "warrior" } }`.
+     */
+    readonly naturalSkills?: readonly string[];
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {
