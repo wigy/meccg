@@ -2389,6 +2389,53 @@ already contradicts, and that is a measurement, not a constant to tune. Three
 attempts at the discard were lost to tuning a constant against a metric; this one
 should not be.
 
+### The largest divergence is worth nothing
+
+The obvious next target after acting on ties was `place-on-guard`: 253 decisions
+where the human passed and H2 placed a card, plus 64 where they played a hazard
+instead — the largest single divergence in the corpus by a wide margin, and the
+second time this document has named it as such.
+
+Before pricing anything, two checks. The first killed the hypothesis this
+section was going to be about: placement happens in the hazard window against
+the **active company**, which has already revealed where it is going, so arrival
+is not uncertain and a probability-of-arrival discount would push H2 to place
+*more*, not less.
+
+The second was an ablation. `place-on-guard` is priced as a **free option** — the
+card returns at cleanup if revealing it would be bad, so the downside is floored
+at zero and only the forgone hazard play is charged. Within that model, taking it
+whenever there is any upside is correct, which is exactly what H2 does. So: price
+placement below every alternative, never place at all, and gate it.
+
+| | paired Elo (95% CI) | score |
+| --- | --- | --- |
+| placing on guard (`master`) | −155 [−195, −119] | 29.0% |
+| never placing on guard | −148 [−188, −112] | 29.8% |
+
+Seven Elo apart against a standard error of about 28. **Placing 253 times and
+placing never are the same strength.** The tactic is inert: H2's placements buy
+nothing, and removing them costs nothing.
+
+#### Frequency of divergence is not importance
+
+This is the correction the work list needed. `compare` ranks action types by how
+often H2 disagrees with the human, and that ordering has been steering this
+project — it is how `place-on-guard` reached the top twice, and it is why the
+forgone-hazard charge was written for it at all (which also gated neutral, and
+now looks like a fix to something that did not matter either way).
+
+A divergence count answers "where does H2 behave differently". It cannot answer
+"where does behaving differently cost anything", and those come apart badly: the
+largest divergence in the corpus is worth zero Elo, while acting on ties — which
+*reduced* agreement by nine points — was worth +110.
+
+The instrument that does answer it is the one used here: **ablate the agent's
+opinion on one decision type and gate.** It costs a full gate per type, which is
+why it has not been run broadly, but it is the only measurement that ranks
+decisions by what they are worth rather than by how often they come up. Run it
+before pricing anything, not after.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
