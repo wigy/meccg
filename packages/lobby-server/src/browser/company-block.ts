@@ -56,6 +56,7 @@ import {
 } from './company-view-state.js';
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
+import { getHazardLimitLabel } from './render-player-names.js';
 import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu, GRANTED_ACTION_LABELS } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { resolveItemClick, isSelfDiscardGrantedAction } from './company-actions.js';
@@ -234,6 +235,24 @@ export function renderCompanyBlock(
       movedBadge.className = 'company-moved-badge';
       movedBadge.textContent = '\u2713'; // checkmark
       nameEl.appendChild(movedBadge);
+    }
+
+    // Remaining hazard-limit badge: shown on the currently active company's
+    // block during play-hazards, so the value is visible directly in the
+    // all-companies overview grid \u2014 not just the single #opponent-hazard-limit
+    // chip, which .all-companies-mode CSS hides entirely in that view.
+    if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'play-hazards') {
+      const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+      const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+      if (activeCompany && company.id === activeCompany.id) {
+        const hazardLimit = getHazardLimitLabel(view);
+        if (hazardLimit !== null) {
+          const hazardLimitBadge = document.createElement('span');
+          hazardLimitBadge.className = 'company-hazard-limit-badge';
+          hazardLimitBadge.textContent = `HL ${hazardLimit}`;
+          nameEl.appendChild(hazardLimitBadge);
+        }
+      }
     }
   }
 

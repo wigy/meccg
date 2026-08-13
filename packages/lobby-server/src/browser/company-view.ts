@@ -38,6 +38,7 @@ import {
   getLastMhSiteStep, setLastMhSiteStep,
   getLastOpponentActiveCompanyIndex, setLastOpponentActiveCompanyIndex,
   getLastCombatActive, setLastCombatActive,
+  getOverrideActiveBeforeCombat, setOverrideActiveBeforeCombat,
   setLastOnAction, setLastView, setLastCardPool,
   setCachedInstanceLookup,
   getCachedInstanceLookup,
@@ -457,10 +458,13 @@ export function renderCompanyViews(
   const combatActive = view.combat !== null;
   const lastCombatActive = getLastCombatActive();
   if (shouldClearOverrideForNewCombat(combatActive, lastCombatActive)) {
+    setOverrideActiveBeforeCombat(getAllCompaniesOverride()); // capture before clearing
     setAllCompaniesOverride(false);
-  } else if (shouldRestoreOverrideAfterCombat(combatActive, lastCombatActive, activeId, view.self.id as string)) {
+  } else if (shouldRestoreOverrideAfterCombat(combatActive, lastCombatActive, activeId, view.self.id as string, getOverrideActiveBeforeCombat())) {
     // Restore the opponent-turn overview once the combat that interrupted it
     // resolves, so the rest of the turn isn't stuck in single-company view.
+    // Only fires if the overview was already active (auto-forced) before this
+    // combat started — a manually focused single-company view is left alone.
     setAllCompaniesOverride(true);
     setFocusedCompanyId(null);
   }

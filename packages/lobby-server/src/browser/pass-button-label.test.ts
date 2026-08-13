@@ -6,6 +6,7 @@
  * generic pass/continue/done branch must name what it is passing on, so two
  * different steps never render the identical bottom-bar button text.
  */
+import './test-dom-bootstrap.js'; // must precede the pass-button-label import (render-player-names.js reads window.__meccg at load time)
 import { describe, test, expect } from 'vitest';
 import { Phase } from '@meccg/shared';
 import type { GameAction, PlayerView, EvaluatedAction } from '@meccg/shared';
@@ -15,6 +16,29 @@ const passAction: GameAction = { type: 'pass', player: 'p1' } as unknown as Game
 
 const viewWith = (phaseState: unknown, legalActions: EvaluatedAction[] = []): PlayerView =>
   ({ phaseState, legalActions } as unknown as PlayerView);
+
+/**
+ * A play-hazards view with the fields {@link getHazardLimitLabel} (via
+ * `pass-button-label.ts`) needs: `self`/`opponent`/`activeConstraints` plus
+ * the hazard-limit phaseState fields. `hazardsPlayedThisCompany` defaults to
+ * `0` so the remaining count equals `hazardLimitAtReveal` unless overridden.
+ */
+const playHazardsViewWith = (hazardLimitAtReveal: number, hazardsPlayedThisCompany = 0): PlayerView =>
+  ({
+    activePlayer: 'p2',
+    self: { id: 'p1', companies: [] },
+    opponent: { id: 'p2', companies: [{ id: 'company-p2-0' }] },
+    activeConstraints: [],
+    phaseState: {
+      phase: Phase.MovementHazard,
+      step: 'play-hazards',
+      activeCompanyIndex: 0,
+      hazardLimitAtReveal,
+      preRevealHazardLimitConstraintIds: [],
+      hazardsPlayedThisCompany,
+    },
+    legalActions: [],
+  } as unknown as PlayerView);
 
 describe('passButtonLabel — action-type specific branches (phase-independent)', () => {
   test.each([
@@ -50,8 +74,15 @@ describe('passButtonLabel — Phase.MovementHazard (generic pass)', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.MovementHazard, step: 'draw-cards' }))).toBe('Pass Draw');
   });
 
-  test('play-hazards -> Pass Hazards', () => {
-    expect(passButtonLabel(passAction, viewWith({ phase: Phase.MovementHazard, step: 'play-hazards' }))).toBe('Pass Hazards');
+  // Feature request "Stop the view jumping back to overview": clicking Pass
+  // from the all-companies overview gave no indication the active party
+  // still had hazard limit remaining. The label must name the cost.
+  test('play-hazards with remaining hazard limit -> Pass Hazards (N left)', () => {
+    expect(passButtonLabel(passAction, playHazardsViewWith(4, 1))).toBe('Pass Hazards (3 left)');
+  });
+
+  test('play-hazards on the last remaining hazard -> Pass Hazards (1 left)', () => {
+    expect(passButtonLabel(passAction, playHazardsViewWith(4, 3))).toBe('Pass Hazards (1 left)');
   });
 
   test('reset-hand -> Continue', () => {
@@ -60,7 +91,7 @@ describe('passButtonLabel — Phase.MovementHazard (generic pass)', () => {
 
   test('draw-cards and play-hazards never render the same text (bug report regression)', () => {
     const draw = passButtonLabel(passAction, viewWith({ phase: Phase.MovementHazard, step: 'draw-cards' }));
-    const hazards = passButtonLabel(passAction, viewWith({ phase: Phase.MovementHazard, step: 'play-hazards' }));
+    const hazards = passButtonLabel(passAction, playHazardsViewWith(4, 1));
     expect(draw).not.toBe(hazards);
   });
 

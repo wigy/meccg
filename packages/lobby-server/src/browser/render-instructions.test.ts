@@ -394,6 +394,29 @@ const viewWithMH = (step: string, legalActions: EvaluatedAction[]): PlayerView =
     activePlayer: 'p1',
   } as unknown as PlayerView);
 
+/**
+ * A play-hazards view with the fields {@link getHazardLimitLabel} (via
+ * `pass-button-label.ts`) needs: `self`/`opponent`/`activeConstraints` plus
+ * the hazard-limit phaseState fields. `hazardsPlayedThisCompany` defaults to
+ * `0` so the remaining count equals `hazardLimitAtReveal` unless overridden.
+ */
+const playHazardsViewWith = (legalActions: EvaluatedAction[], hazardLimitAtReveal = 4, hazardsPlayedThisCompany = 0): PlayerView =>
+  ({
+    activePlayer: 'p2',
+    self: { id: 'p1', companies: [] },
+    opponent: { id: 'p2', companies: [{ id: 'company-p2-0' }] },
+    activeConstraints: [],
+    phaseState: {
+      phase: Phase.MovementHazard,
+      step: 'play-hazards',
+      activeCompanyIndex: 0,
+      hazardLimitAtReveal,
+      preRevealHazardLimitConstraintIds: [],
+      hazardsPlayedThisCompany,
+    },
+    legalActions,
+  } as unknown as PlayerView);
+
 describe('renderPassButton — Movement/Hazard draw-cards vs play-hazards labels', () => {
   test('draw-cards step renders "Draw" and a distinctly-labeled secondary pass button', () => {
     passBtn.parentElement = visualPanel;
@@ -404,17 +427,17 @@ describe('renderPassButton — Movement/Hazard draw-cards vs play-hazards labels
     expect(visualPanel.children[0].textContent).toBe('Pass Draw');
   });
 
-  test('play-hazards step renders "Pass Hazards" on the primary button', () => {
-    renderPassButton(viewWithMH('play-hazards', [passEval()]), () => { /* no-op */ });
+  test('play-hazards step renders "Pass Hazards (N left)" on the primary button', () => {
+    renderPassButton(playHazardsViewWith([passEval()]), () => { /* no-op */ });
 
-    expect(passBtn.textContent).toBe('Pass Hazards');
+    expect(passBtn.textContent).toBe('Pass Hazards (4 left)');
   });
 
   test('draw-cards and play-hazards never render the same primary button text', () => {
     renderPassButton(viewWithMH('draw-cards', [drawCardsEval(), passEval()]), () => { /* no-op */ });
     const drawLabel = passBtn.textContent;
 
-    renderPassButton(viewWithMH('play-hazards', [passEval()]), () => { /* no-op */ });
+    renderPassButton(playHazardsViewWith([passEval()]), () => { /* no-op */ });
     const hazardsLabel = passBtn.textContent;
 
     expect(drawLabel).not.toBe(hazardsLabel);
