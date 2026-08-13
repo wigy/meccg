@@ -2488,6 +2488,38 @@ Elo, so an agent with no opinions at all would sit near −300. The remaining ga
 a *winning* agent is not in refining these three; it is in whatever H2 does not
 model at all.
 
+### Movement: H2 is greedier than the human, not blinder
+
+The ablation put movement at 94 Elo — the one place H2's opinion demonstrably
+carries the agent — and `plan-movement` is its weakest type. Restricted to
+decisions where the human actually planned movement and had more than one
+destination, H2 picks the same site 30 times in 64 (46.9%).
+
+The obvious hypothesis was that `travel` cannot see what a destination is *for*:
+`regionCrossingCost` is documented in its own tunable as "a stand-in for a hazard
+model", and a big enough distance penalty would swamp the playability term. The
+measurement says the opposite:
+
+| | mean cards in hand playable at the destination | mean MP playable there | destination plays strictly more |
+| --- | --- | --- | --- |
+| human | 1.06 | 2.59 | 6 |
+| **H2** | **1.36** | **3.41** | **18** |
+
+H2's destinations are *better* on immediate playability, three times as often as
+the human's. It is not failing to see what it can play on arrival — it is
+optimising that harder than the human does, and still losing.
+
+So the gap is whatever the human is buying instead. Candidates, none of them
+measured yet: arriving somewhere survivable rather than somewhere lucrative; a
+site that sets up the *next* two turns rather than this one; keeping a company
+within reach of a haven. Each is a real MECCG consideration and none of them is
+"how many cards does this site let me play now", which is the only thing the
+destination score currently maximises.
+
+That is worth recording as a *negative*: the fix everyone would reach for first —
+weight playability higher, or cut the distance penalty that hides it — moves
+`travel` further in the direction it is already overshooting.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
