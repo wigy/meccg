@@ -726,6 +726,24 @@ export interface FleeFromStrikeAction {
 }
 
 /**
+ * Play a `sacrifice-of-form` permanent-event (Sacrifice of Form tw-321) from
+ * hand after strikes are assigned against the player's Wizard's company (not
+ * company-vs-company combat). All strikes of the attack automatically fail
+ * (+3 to any resulting creature body checks); the Wizard is discarded and his
+ * items are placed off to the side with this card.
+ */
+export interface PlaySacrificeOfFormAction {
+  /** Action discriminant. */
+  readonly type: 'play-sacrifice-of-form';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The `sacrifice-of-form` card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The Wizard avatar being sacrificed. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Play a `protect-from-strike-assignment` short event (e.g. Ruse mode B)
  * from hand during the assign-strikes phase. The targeted character cannot
  * be assigned any strike from the current attack.

@@ -279,9 +279,13 @@ export function describeAction(
     case 'transfer-item':
       return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
     case 'store-item':
-      return action.characterId
-        ? `Store item ${instName(action.itemInstanceId)} from ${instName(action.characterId)}`
-        : `Store ${instName(action.itemInstanceId)}${action.companyId ? ` from ${compName(action.companyId)}` : ''}`;
+      return action.cacheHostInstanceId
+        ? `Store item ${instName(action.itemInstanceId)} under ${instName(action.cacheHostInstanceId)} instead of the marshalling-point pile`
+        : action.characterId
+          ? `Store item ${instName(action.itemInstanceId)} from ${instName(action.characterId)}`
+          : `Store ${instName(action.itemInstanceId)}${action.companyId ? ` from ${compName(action.companyId)}` : ''}`;
+    case 'store-item-in-cache':
+      return `Place item ${instName(action.itemInstanceId)} under ${instName(action.hostInstanceId)} from hand`;
     case 'move-to-influence':
       return action.controlledBy === 'general'
         ? `Move ${instName(action.characterInstanceId)} to general influence`
@@ -492,6 +496,8 @@ export function describeAction(
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
     case 'flee-from-strike':
       return `Play ${instName(action.cardInstanceId)} to flee the strike (cancel it, tap the character)`;
+    case 'play-sacrifice-of-form':
+      return `Play ${instName(action.cardInstanceId)}: sacrifice ${instName(action.characterInstanceId)} — all strikes of this attack fail (+3 body checks)`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     case 'resolve-dice-check':

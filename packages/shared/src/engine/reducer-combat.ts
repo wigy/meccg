@@ -19,7 +19,7 @@ import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from '.
 import { findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 
@@ -57,6 +57,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'play-strike-event': handlePlayStrikeEvent,
   'cancel-strike': handleCancelStrike,
   'flee-from-strike': handleFleeFromStrike,
+  'play-sacrifice-of-form': handleSacrificeOfForm,
   'protect-from-assignment': handleProtectFromStrikeAssignment,
   'halve-strikes': handleHalveStrikes,
   'tap-item-for-strike': handleTapItemForStrike,

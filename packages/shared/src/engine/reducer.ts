@@ -36,6 +36,7 @@ import { sweepGreatHuntDiscards } from './great-hunt.js';
 import { sweepDiscardSelfWhen } from './discard-self-when.js';
 import { sweepDiscardSelfWhenCompany } from './company-composition.js';
 import { sweepKeywordReplaced } from './keyword-replaced.js';
+import { sweepSacrificeOfForm, sweepSacrificeOfFormReturn } from './sacrifice-of-form.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -53,7 +54,7 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // just left its controller's play area. Prev/next diff, so it runs on the raw
   // post-action state before the single-state sweeps and recompute below.
   const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
-  const swept = sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))))));
+  const swept = sweepTapAtSiteItems(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves))))))))))))))))));
   // The Will of Sauron (tw-100): when the card retaining hazard long-events left
   // play this step, every hazard long-event goes with it. Runs *after* the
   // single-state sweeps so a retainer discarded by its own `discard-self-when`
@@ -70,19 +71,26 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // (strikes resolved, canceled on the chain, canceled by tap) is covered by
   // the single `prev.combat → next.combat` transition.
   const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterLongEventProtection) : afterLongEventProtection;
+  // Sacrifice of Form (tw-321): once the attack it was played into has fully
+  // ended (same prev/next `combat` diff as the after-attack window above),
+  // discard the sacrificed Wizard and set his items aside.
+  const afterSacrifice = prevState ? sweepSacrificeOfForm(prevState, afterAttackWindow) : afterAttackWindow;
+  // Reverse direction: if a Wizard previously sacrificed this way is put back
+  // into play by any means, reattach the host card and return his items.
+  const afterSacrificeReturn = prevState ? sweepSacrificeOfFormReturn(prevState, afterSacrifice) : afterSacrifice;
   // Pale Dream-maker (dm-78): a corruption check for each card the bearer's
   // controller discards from hand during their own turn. Another prev/next
   // diff — hand discards happen through several independent code paths with
   // no single call site to instrument.
   const afterHandDiscardChecks = prevState
-    ? applyHandDiscardCorruptionChecks(prevState, afterAttackWindow)
-    : afterAttackWindow;
+    ? applyHandDiscardCorruptionChecks(prevState, afterSacrificeReturn)
+    : afterSacrificeReturn;
   return accrueRevealedInstances(recomputeDerived(afterHandDiscardChecks));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, discardOrphanedFactionAttachedEvents, discardOrphanedStoredAttachedEvents, sweepProhibitedCompanyEvents } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, discardOrphanedFactionAttachedEvents, discardOrphanedStoredAttachedEvents, sweepProhibitedCompanyEvents, sweepTapAtSiteItems } from './reducer-utils.js';
 import { applyTapDiscardInPlay } from './short-event-discard.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';

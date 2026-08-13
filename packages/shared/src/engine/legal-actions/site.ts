@@ -986,17 +986,45 @@ function playResourcesActions(
   // Under-deeps; when it is not, no candidates are injected and the loop below
   // behaves exactly as before.
   const siteIsUnderDeepsForSetAside = !!(siteDef && isSiteCard(siteDef) && (siteDef.keywords ?? []).includes('under-deeps'));
-  const setAsideItemCandidates = siteIsUnderDeepsForSetAside
+  const underDeepsSetAsideCandidates = siteIsUnderDeepsForSetAside
     ? state.players
       .flatMap(p => p.cardsInPlay)
       .filter(c => isSetAsideCard(c) && ownerOf(c.instanceId) === playerId)
       .filter(c => isItemCard(defById(state, c.definitionId)))
       .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))
     : [];
-  const setAsideInstanceIds = new Set(setAsideItemCandidates.map(c => c.instanceId as string));
-  if (setAsideItemCandidates.length > 0) {
-    logDetail(`Site ${siteName} (Under-deeps): ${setAsideItemCandidates.length} set-aside item(s) playable as though in hand`);
+  if (underDeepsSetAsideCandidates.length > 0) {
+    logDetail(`Site ${siteName} (Under-deeps): ${underDeepsSetAsideCandidates.length} set-aside item(s) playable as though in hand`);
   }
+
+  // Item-cache play source (Armory dm-116): "When you otherwise would be
+  // allowed to play a minor item from your hand at a Border-hold, Free-hold,
+  // or Haven, you may play an item from under Armory instead." A player-owned
+  // in-play host carrying `item-cache-play-source` makes its own set-aside
+  // items (always in this player's `cardsInPlay` — see `placeCardSetAside`)
+  // playable as though in hand once the current site's effective type
+  // matches the effect's `siteTypes` list.
+  const effectiveSiteTypeForCache = siteDef && isSiteCard(siteDef) && siteDefId
+    ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
+    : undefined;
+  const itemCacheCandidates = effectiveSiteTypeForCache
+    ? player.cardsInPlay.flatMap(host => {
+      const hostDef = defById(state, host.definitionId);
+      const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-play-source');
+      if (!cacheEffect || cacheEffect.type !== 'item-cache-play-source') return [];
+      if (!cacheEffect.siteTypes.includes(effectiveSiteTypeForCache)) return [];
+      return (host.setAside ?? [])
+        .map(childId => player.cardsInPlay.find(c => c.instanceId === childId))
+        .filter((c): c is NonNullable<typeof c> => c !== undefined && isItemCard(defById(state, c.definitionId)))
+        .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+    })
+    : [];
+  if (itemCacheCandidates.length > 0) {
+    logDetail(`Site ${siteName}: ${itemCacheCandidates.length} item-cache card(s) playable as though in hand`);
+  }
+
+  const setAsideItemCandidates = [...underDeepsSetAsideCandidates, ...itemCacheCandidates];
+  const setAsideInstanceIds = new Set(setAsideItemCandidates.map(c => c.instanceId as string));
 
   // Evaluate each hand card
   const evaluatedInstances = new Set<string>();
@@ -1830,6 +1858,24 @@ function playResourcesActions(
         if (copiesInCompany >= itemCompanyDupLimit.max) {
           logDetail(`Item ${itemDef.name}: company duplication limit reached (${copiesInCompany}/${itemCompanyDupLimit.max})`);
           actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: cannot be duplicated in a given company`));
+          continue;
+        }
+      }
+
+      // play-condition: active-company — a generic DSL condition on the
+      // active company. Ent-draughts (tw-227): "in addition to an ally or
+      // faction that has been successfully played at Wellinghall this turn"
+      // reads `company.allyOrFactionPlayedAtSite`, set by
+      // `handleSitePlayHeroResource` / the influence-attempt success branch
+      // in `reducer-site.ts`.
+      const itemActiveCompanyCond = findPlayConditionEffect(itemDef, 'active-company');
+      if (itemActiveCompanyCond?.condition) {
+        const ctx = buildActiveCompanyContext(state, player, company, {
+          allyOrFactionPlayedAtSite: siteState.allyOrFactionPlayedAtSite ?? false,
+        });
+        if (!matchesCondition(itemActiveCompanyCond.condition, ctx)) {
+          logDetail(`Item ${itemDef.name}: active-company play-condition not satisfied at ${siteName}`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: play condition not met`));
           continue;
         }
       }
