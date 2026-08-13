@@ -58,6 +58,34 @@ describe('aggregateScoreboard', () => {
     expect(aggregateScoreboard([])).toEqual([]);
     expect(aggregateScoreboard([{ winner: 'Alice' }])).toEqual([]);
   });
+
+  test('ranks by rating, above games played', () => {
+    const games = [
+      record([{ name: 'Alice' }, { name: 'Bob' }], 'Alice', '2026-07-01T10:00:00.000Z'),
+      record([{ name: 'Alice' }, { name: 'Bob' }], 'Alice', '2026-07-02T10:00:00.000Z'),
+      record([{ name: 'Carol' }, { name: 'Bob' }], 'Carol', '2026-07-03T10:00:00.000Z'),
+    ];
+    const rows = aggregateScoreboard(games, new Map([
+      ['alice', { rating: 1550, peak: 1560, ratedGames: 2, provisional: true }],
+      ['bob', { rating: 1420, peak: 1500, ratedGames: 3, provisional: true }],
+      ['carol', { rating: 1700, peak: 1700, ratedGames: 1, provisional: true }],
+    ]));
+
+    // Bob has the most games but the worst rating, so he ranks last.
+    expect(rows.map(r => r.name)).toEqual(['Carol', 'Alice', 'Bob']);
+    expect(rows[1]).toMatchObject({ rating: 1550, peak: 1560, provisional: true, games: 2 });
+  });
+
+  test('players with no rating file rank below every rated player', () => {
+    const rows = aggregateScoreboard([
+      record([{ name: 'Alice' }, { name: 'Bob' }], 'Alice', '2026-07-01T10:00:00.000Z'),
+      record([{ name: 'Alice' }, { name: 'Bob' }], 'Alice', '2026-07-02T10:00:00.000Z'),
+    ], new Map([['bob', { rating: 1400, peak: 1500, ratedGames: 2, provisional: false }]]));
+
+    expect(rows.map(r => r.name)).toEqual(['Bob', 'Alice']);
+    expect(rows[0]).toMatchObject({ rating: 1400, provisional: false });
+    expect(rows[1]).toMatchObject({ rating: null, peak: null, provisional: true });
+  });
 });
 
 describe('playerGames', () => {
@@ -117,6 +145,20 @@ describe('playerGames', () => {
   test('a loss is a game another player won, and unknown players have no games', () => {
     expect(playerGames([detailed], 'AI-MC')[0].result).toBe('loss');
     expect(playerGames([detailed], 'Nobody')).toEqual([]);
+  });
+
+  test('annotates a game with the rating swing it caused', () => {
+    const [game] = playerGames([detailed], 'Alice', new Map([
+      ['g-2', { gameId: 'g-2', before: 1500, after: 1516, delta: 16 }],
+    ]));
+
+    expect(game).toMatchObject({ ratingBefore: 1500, ratingAfter: 1516, ratingDelta: 16 });
+  });
+
+  test('games finished before ratings existed report no swing', () => {
+    const [game] = playerGames([detailed], 'Alice');
+
+    expect(game).toMatchObject({ ratingBefore: null, ratingAfter: null, ratingDelta: null });
   });
 });
 

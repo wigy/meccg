@@ -34,7 +34,8 @@ import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { TutorialController } from './tutorial-controller.js';
 import { ServerLog, GameLog } from './game-log.js';
 import { buildCompletedGameRecord, writeCompletedGameRecord, GAME_RECORDS_DIR } from './game-record.js';
-import type { PlayerDeckInfo } from './game-record.js';
+import type { CompletedGameRecord, PlayerDeckInfo } from './game-record.js';
+import { recordRatedGame, toRatableGame } from './rating-store.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
@@ -1228,8 +1229,30 @@ export class GameSession {
       const record = buildCompletedGameRecord(this.state, this.deckInfo, this.aiPlayers, new Date());
       const filePath = writeCompletedGameRecord(record);
       this.serverLog.log('game-completed', { gameId: record.gameId, path: filePath, winner: record.winner });
+      this.recordRatings(record);
     } catch (err) {
       this.serverLog.log('game-record-error', { gameId: this.state.gameId, error: String(err) });
+    }
+  }
+
+  /**
+   * Fold the finished game into both players' Elo ratings. Kept separate from
+   * the record write so a rating failure never costs us the record: the record
+   * is the source of truth, and `bin/ratings rebuild` can always replay it.
+   */
+  private recordRatings(record: CompletedGameRecord): void {
+    try {
+      const updated = recordRatedGame(toRatableGame(record));
+      if (!updated) {
+        this.serverLog.log('game-not-rated', { gameId: record.gameId });
+        return;
+      }
+      this.serverLog.log('game-rated', {
+        gameId: record.gameId,
+        ratings: updated.map(r => ({ name: r.name, rating: r.rating, delta: r.history.at(-1)?.delta ?? 0 })),
+      });
+    } catch (err) {
+      this.serverLog.log('game-rating-error', { gameId: record.gameId, error: String(err) });
     }
   }
 

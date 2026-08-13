@@ -2,13 +2,16 @@
  * @module scoreboard-page
  *
  * Renders the "Scoreboard" page — per-player completed-game tallies from
- * `GET /api/scoreboard`, ordered by games played (no ratings yet). The
- * rows are aggregated server-side from the completed-game records the
- * game-server writes.
+ * `GET /api/scoreboard`, ranked by Elo rating. The rows are aggregated
+ * server-side from the completed-game records the game-server writes.
+ *
+ * Humans and AI seats share one rating pool, so the AI accounts act as fixed
+ * anchors; AI rows are badged and can be hidden with the filter toggle.
  *
  * Clicking a row drills into that player's game list
  * (`GET /api/scoreboard/players/:name`), which shows every completed game
- * with its full scoring breakdown for both seats.
+ * with its full scoring breakdown for both seats and the rating swing it
+ * caused.
  */
 
 import { type ScreenId } from './app-state.js';
@@ -33,6 +36,9 @@ interface ScoreboardRow {
   readonly wins: number;
   readonly losses: number;
   readonly draws: number;
+  readonly rating: number | null;
+  readonly peak: number | null;
+  readonly provisional: boolean;
   readonly lastPlayed: string | null;
 }
 
@@ -74,6 +80,9 @@ interface PlayerGame {
   readonly winCard: string | null;
   readonly self: PlayerGameSide;
   readonly opponent: PlayerGameSide | null;
+  readonly ratingBefore: number | null;
+  readonly ratingAfter: number | null;
+  readonly ratingDelta: number | null;
 }
 
 
@@ -107,6 +116,28 @@ function formatDuration(seconds: number | null): string {
 /** Fall back to an em dash for missing values. */
 function orDash(value: string | number | null): string {
   return value == null || value === '' ? '—' : String(value);
+}
+
+/**
+ * A rating for the scoreboard column. Provisional ratings carry a `?` — they
+ * rest on too few games to mean much yet. Null means the player's games
+ * predate the ratings and have not been replayed (`bin/ratings rebuild`).
+ */
+function formatRating(row: ScoreboardRow): string {
+  if (row.rating == null) return '<span class="scoreboard-rating-none">—</span>';
+  const provisional = row.provisional
+    ? '<span class="scoreboard-rating-provisional" title="Provisional: fewer than 15 rated games">?</span>'
+    : '';
+  return `${row.rating}${provisional}`;
+}
+
+/** The rating swing one game caused, as `+12` / `−9`, or an em dash. */
+function formatRatingDelta(game: PlayerGame): string {
+  if (game.ratingDelta == null || game.ratingAfter == null) return '—';
+  const sign = game.ratingDelta > 0 ? '+' : game.ratingDelta < 0 ? '−' : '±';
+  const direction = game.ratingDelta > 0 ? 'up' : game.ratingDelta < 0 ? 'down' : 'flat';
+  return `${game.ratingAfter} <span class="scoreboard-rating-delta scoreboard-rating-delta--${direction}">`
+    + `${sign}${Math.abs(game.ratingDelta)}</span>`;
 }
 
 /** How the game was decided, in words. */
@@ -204,6 +235,7 @@ function renderGame(game: PlayerGame): string {
         <dt>Turns</dt><dd>${escapeHtml(orDash(game.turns))}</dd>
         <dt>Duration</dt><dd>${escapeHtml(formatDuration(game.durationSeconds))}</dd>
         <dt>Started</dt><dd>${escapeHtml(formatDateTime(game.startedAt))}</dd>
+        <dt>Rating</dt><dd>${formatRatingDelta(game)}</dd>
         <dt>Game ID</dt><dd class="scoreboard-game-id">${escapeHtml(orDash(game.gameId))}</dd>
       </dl>
       ${renderGameTable(game)}
@@ -272,6 +304,8 @@ export async function openScoreboardPage(): Promise<void> {
       <tr>
         <th class="scoreboard-col-rank">#</th>
         <th>Player</th>
+        <th class="scoreboard-col-num">Rating</th>
+        <th class="scoreboard-col-num">Peak</th>
         <th class="scoreboard-col-num">Games</th>
         <th class="scoreboard-col-num">Wins</th>
         <th class="scoreboard-col-num">Losses</th>
@@ -282,22 +316,32 @@ export async function openScoreboardPage(): Promise<void> {
     <tbody></tbody>
   `;
   const tbody = table.querySelector('tbody')!;
-  r.data.rows.forEach((row, index) => {
-    const tr = document.createElement('tr');
-    const aiBadge = row.human ? '' : ' <span class="scoreboard-ai-badge">AI</span>';
-    tr.className = 'scoreboard-row';
-    tr.innerHTML = `
-      <td class="scoreboard-col-rank">${index + 1}</td>
-      <td><button type="button" class="scoreboard-player-link" data-player="${escapeHtml(row.name)}"
-        title="Show all games for ${escapeHtml(row.name)}">${escapeHtml(row.name)}</button>${aiBadge}</td>
-      <td class="scoreboard-col-num">${row.games}</td>
-      <td class="scoreboard-col-num">${row.wins}</td>
-      <td class="scoreboard-col-num">${row.losses}</td>
-      <td class="scoreboard-col-num">${row.draws}</td>
-      <td>${escapeHtml(formatDate(row.lastPlayed))}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+
+  // Rank numbers count only the rows on show, so hiding the AI anchors
+  // renumbers the human ladder from 1 rather than leaving gaps.
+  const renderRows = (showAi: boolean): void => {
+    const rows = showAi ? r.data.rows : r.data.rows.filter(row => row.human);
+    tbody.innerHTML = '';
+    rows.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      const aiBadge = row.human ? '' : ' <span class="scoreboard-ai-badge">AI</span>';
+      tr.className = 'scoreboard-row';
+      tr.innerHTML = `
+        <td class="scoreboard-col-rank">${index + 1}</td>
+        <td><button type="button" class="scoreboard-player-link" data-player="${escapeHtml(row.name)}"
+          title="Show all games for ${escapeHtml(row.name)}">${escapeHtml(row.name)}</button>${aiBadge}</td>
+        <td class="scoreboard-col-num scoreboard-col-rating">${formatRating(row)}</td>
+        <td class="scoreboard-col-num">${escapeHtml(orDash(row.peak))}</td>
+        <td class="scoreboard-col-num">${row.games}</td>
+        <td class="scoreboard-col-num">${row.wins}</td>
+        <td class="scoreboard-col-num">${row.losses}</td>
+        <td class="scoreboard-col-num">${row.draws}</td>
+        <td>${escapeHtml(formatDate(row.lastPlayed))}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  };
+  renderRows(true);
 
   // Delegated: one listener on the table survives any row re-render, and
   // clicking anywhere in a row (not just the name button) drills in.
@@ -308,6 +352,15 @@ export async function openScoreboardPage(): Promise<void> {
     if (name) void openPlayerGamesPage(name);
   });
 
+  const filter = document.createElement('label');
+  filter.className = 'scoreboard-filter';
+  filter.innerHTML = '<input type="checkbox" class="scoreboard-filter-ai" checked> Show AI players';
+  filter.querySelector<HTMLInputElement>('.scoreboard-filter-ai')
+    ?.addEventListener('change', (event) => {
+      renderRows((event.target as HTMLInputElement).checked);
+    });
+
   listEl.innerHTML = '';
+  listEl.appendChild(filter);
   listEl.appendChild(table);
 }
