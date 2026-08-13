@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1125 | 1124 | 1 | 99.9% |
+| 1139 | 1138 | 1 | 99.9% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 108 | 108 | 100.0% |
+| AS | 109 | 109 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 100 | 100 | 100.0% |
-| LE | 302 | 301 | 99.7% |
-| TD | 91 | 91 | 100.0% |
-| TW | 338 | 338 | 100.0% |
+| DM | 104 | 104 | 100.0% |
+| LE | 303 | 302 | 99.7% |
+| TD | 94 | 94 | 100.0% |
+| TW | 343 | 343 | 100.0% |
 | WH | 89 | 89 | 100.0% |
 
 ## Detailed Test Matrix
@@ -51,6 +51,7 @@
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
 | as-35 | Returned Beyond All Hope | — | 17 | ☑ |
 | as-39 | Summons from Long Sleep | — | 9 | ☑ |
+| as-41 | Turning Hope to Despair | — | 12 | ☑ |
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
@@ -278,6 +279,7 @@
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-76 | Nobody’s Friend | — | 14 | ☑ |
+| dm-78 | Pale Dream-maker | — | 15 | ☑ |
 | dm-80 | Rank upon Rank | — | 11 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
@@ -294,6 +296,8 @@
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
+| dm-115 | Ancient Stair | — | 8 | ☑ |
+| dm-116 | Armory | — | 10 | ☑ |
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 11 | ☑ |
@@ -311,6 +315,7 @@
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
 | dm-143 | The Hunt | — | 14 | ☑ |
+| dm-145 | Into Dark Tunnels | — | 8 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
@@ -445,6 +450,7 @@
 | le-148 | Wake of War | — | 7 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
+| le-151 | Wrath of the West | — | 5 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 11 | ◐ |
 | le-154 | Stinker | — | 17 | ☑ |
@@ -691,6 +697,7 @@
 | td-103 | Burglary  | — | 13 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
 | td-108 | Dragon-lore | — | 15 | ☑ |
+| td-109 | Dwarven Hoard | — | 11 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 21 | ☑ |
@@ -698,6 +705,7 @@
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
+| td-133 | Map to Mithril | — | 14 | ☑ |
 | td-134 | Marvels Told | — | 26 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
@@ -709,6 +717,7 @@
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 5 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
+| td-165 | Waybread | — | 14 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
 | td-170 | Wizard’s Staff | — | 19 | ☑ |
@@ -730,7 +739,7 @@
 | tw-008 | — | — | 11 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
-| tw-12 | Balrog of Moria | — | 10 | ☑ |
+| tw-12 | Balrog of Moria | — | 11 | ☑ |
 | tw-13 | Bane of the Ithil-stone | — | 15 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
@@ -777,6 +786,7 @@
 | tw-076 | Orc-warband | — | 3 | ☑ |
 | tw-77 | Orc-warriors | — | 6 | ☑ |
 | tw-078 | Orc-watch | — | 3 | ☑ |
+| tw-81 | Plague of Wights | — | 7 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
 | tw-084 | — | — | 13 | ☑ |
@@ -893,6 +903,7 @@
 | tw-224 | Elf-stone | — | 6 | ☑ |
 | tw-225 | Elven Cloak | — | 6 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
+| tw-227 | Ent-draughts | — | 10 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
 | tw-232 | Fair Sailing | — | 10 | ☑ |
@@ -922,6 +933,8 @@
 | tw-268 | Lossoth | — | 2 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |
+| tw-271 | Magic Ring of Courage | — | 8 | ☑ |
+| tw-273 | Magic Ring of Nature | — | 9 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
 | tw-276 | Men of Anfalas | — | 2 | ☑ |
 | tw-277 | Men of Anórien | — | 2 | ☑ |
@@ -950,6 +963,7 @@
 | tw-316 | Return of the King | — | 9 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 7 | ☑ |
+| tw-321 | Sacrifice of Form | — | 16 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-326 | Shadowfax | — | 8 | ☑ |

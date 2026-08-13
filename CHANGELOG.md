@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.101.0 — 2026-08-13
+
+Fourteen cards certified, and the character draft stops flipping a coin
+
+### Game Engine
+
+- Balrog of Moria (tw-12) leaves play when its automatic attack is defeated by the company that owns the site. `finalizeCombat` looked for the auto-attack's source card only in the attacking player's `cardsInPlay`, so a permanent-event whose `onDefeat: 'remove-from-play'` fired while its own controller was the defender was never found, and the card sat in play for the rest of the game. Reported via game `msq88z0n-0atxav`, turn 34
+- A company that fails its under-deeps movement roll still gets its hazard phase. The failure branch of `handleUnderDeepsRoll` called `advanceAfterCompanyMH` directly, finalizing the company's M/H phase without ever setting a hazard limit or offering `play-hazards`. CoE 2.IV requires all eight steps regardless of whether the company moved, and 2.IV.i.1 is explicit that a failed roll only means the company does not move — the same shape already handled correctly for illegal-movement negation. Reported via game `mspydlds-or5mv6`, turn 9
+
+### Cards
+
+Fourteen cards certified, several of them on new engine primitives:
+
+- **Turning Hope to Despair** (as-41) — `modify-attack postAttackMindRollSplit` + `split-into-own-company`: a per-character post-attack mind roll that splits each failing character into his own company with a separate movement/hazard phase
+- **Sacrifice of Form** (tw-321) — a from-hand Wizard-only combat permanent-event that discards the sacrificed Wizard and sets his items aside once the attack ends, with the reverse sweep to restore him if he returns to play
+- **Pale Dream-maker** (dm-78) — a corruption check for every card the bearer's controller discards from hand during their own turn, instrumented as a prev/next state diff because hand discards have no single call site
+- **Map to Mithril** (td-133) — `tap-at-site` + `reattach-to-item` + `activeWhileAttachedToItem`: a permanent-event that taps permanently at Moria, then moves onto a chosen weapon at a Dwarf-hold to grant its bonus
+- **Magic Ring of Courage** (tw-271) — `ResolverContext.bearer.naturalSkills`, a printed-skills-only condition context so a card that grants warrior skill can still ask whether the bearer was *already* a warrior. Also restored the missing `magic-ring` keyword, without which the gold-ring play path could never offer it
+- **Wrath of the West** (le-151) — an optional `threshold` on `cancel-chain-entry`
+- **Armory** (dm-116), **Ent-draughts** (tw-227), **Ancient Stair** (dm-115), **Dwarven Hoard** (td-109), **Waybread** (td-165), **Magic Ring of Nature** (tw-273), **Plague of Wights** (tw-81), **Into Dark Tunnels** (dm-145)
+
+### Web Client
+
+- The single-company view is released when the focused company's turn ends. The hazard player can click an opponent company to focus it, but nothing reverted that focus once the company's M/H or Site turn was over — leaving a dead view showing stale buttons for a company that had already been passed. Reported via game `msq1wzcy-gwjpmx`, turn 3
+
+### AI / Simulation
+
+- **The character draft is no longer decided by a coin flip.** At 0–0 the tournament scorer's half-total cap (CoE 10.3 step 4) makes every marshalling-point source worth zero, so `card-price` quoted every draft candidate at 0 and the pick fell through to tie-break order. Against 150 attributed picks from the corpus, humans took a deck's favourite 75.3% of the time and chance was 40.6% — H2 managed 11.3%, *anti*-correlated with the plan of the deck it was playing. With favourites priced, that is 98.7%, and 24.0% of picks now match the human's exact card
+- `corruption` owns the `support-corruption-check` window instead of leaving it to the Heuristics-1 weight soup — the first coverage gap in this line of work rather than a valuation bug. The rules make it exactly computable: supporting moves the 2d6 target down by one, so the gain is the averted failure and the cost is what tapping that character forgoes. Gated at +3 Elo [−30, +36] over 384 paired games
+- **Two metric-chosen valuations reverted.** The five corpus-driven iterations of v0.100.0 were merged before their powered gates finished; the gates then put the combination at −42 Elo [−75, −10]. Gating each change individually cleared the two with a rule behind them (on-guard foreclosure, corruption support) and condemned the two picked because a metric moved — the held-card floor decomposition and the mind-does-not-fit valuation. Those two are undone; the rest stands
+- `sitePhaseEvaluator` scores `play-short-event` by target. A Malady Without Healing (le-159) declares `targetScope: any-player`, so the legal-action generator correctly offers every character on both sides — and with no target-aware score they all shared the flat default weight of 1, making the AI as likely to corrupt its own character as an opponent's. Reported via game `msq1wzcy-gwjpmx`, turn 5
+- `support-corruption-check` is scored in the movement/hazard evaluator. Unscored, every untapped company mate was worth as much as rolling, so the AI tapped three supporters where one already made the check unfailable — leaving two characters tapped through the site phase for no benefit. Reported via game `msq88z0n-0atxav`, turn 1
+
+### Infrastructure
+
+- CI runs on stacked pull requests. `ci.yml`'s `pull_request` trigger filtered on `branches: [main, master]`, so a PR based on another feature branch never ran a single job — and the failure was silent in the worst way: `gh pr view` reports an empty `statusCheckRollup` while `mergeStateStatus` still says `CLEAN`, which reads as *checks pending* rather than *checks will never run*. Two PRs reached master in v0.100.0 having never been tested once
+- The README progress generator's two blind spots are closed, so the metrics `/release` publishes match what the tests and card data actually say
+
 ## 0.100.0 — 2026-08-12
 
 Split companies held to the rules, and the agreement metric refuted
