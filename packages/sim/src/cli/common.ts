@@ -62,24 +62,17 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
   return raw === undefined || raw === true ? undefined : raw;
 }
 
-/**
- * Available agent names for the CLIs.
- *
- * `h2` additionally composes: `h2+<spec>` names the agent it hands the
- * decisions its modules decline to, so `h2+mc` is the module tree with a
- * Monte-Carlo fallback in place of Heuristics 1.
- */
+/** Available agent names for the CLIs. */
 export const AGENT_NAMES = [
-  'random', 'heuristic', 'noisy-heuristic', 'h2', 'h2+<agent>', 'bc', 'search', 'search-h2', 'mc',
+  'random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2', 'mc',
 ] as const;
 
 /**
  * `h2` spec grammar, for the CLIs that print it.
  *
- * `h2[:<modules>][@<temperature>][/<tunable>=<value>…][+<fallback spec>]`
+ * `h2[:<modules>][@<temperature>][/<tunable>=<value>…]`
  */
-export const H2_SPEC_GRAMMAR =
-  'h2[:<modules>][@<temperature>][/<tunable>=<value>...][+<fallback agent>]';
+export const H2_SPEC_GRAMMAR = 'h2[:<modules>][@<temperature>][/<tunable>=<value>...]';
 
 /**
  * Parses an `mc` spec's `key=value/key=value` parameter list. The
