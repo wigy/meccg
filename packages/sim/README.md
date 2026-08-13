@@ -2436,6 +2436,49 @@ why it has not been run broadly, but it is the only measurement that ranks
 decisions by what they are worth rather than by how often they come up. Run it
 before pricing anything, not after.
 
+### Movement, second look: a trade, not a blind spot
+
+If H2 is not blind to what it can play on arrival, the next hypothesis was that
+the human is buying safety. Measured over the same 64 attributed `plan-movement`
+decisions:
+
+| | automatic attacks at the destination | site-path length | site-path danger | hazard draws granted |
+| --- | --- | --- | --- | --- |
+| human | 0.47 | 2.73 | 4.48 | 2.25 |
+| H2 | 0.55 | 2.63 | 4.53 | 2.42 |
+
+**The survivability hypothesis is only weakly supported.** H2's destinations are
+slightly more dangerous on two of four measures, no different on a third, and it
+actually travels *shorter* paths. None of these gaps would explain a 94-Elo
+module choosing differently half the time.
+
+The one clean signal is *which sites*:
+
+| | free-hold | shadow-hold | ruins-and-lairs | border-hold | haven |
+| --- | --- | --- | --- | --- | --- |
+| human | **19** | 12 | 15 | 9 | 8 |
+| H2 | 12 | **19** | 13 | 10 | 8 |
+
+An exact inversion on the two types that differ. Put beside the playability
+result — H2's destinations average 3.41 playable marshalling points against the
+human's 2.59 — the behaviour is coherent and not obviously wrong: **H2 takes the
+richer, more dangerous site and the human takes the safer, poorer one.**
+
+And `travel` is not ignoring the danger half. It runs `defence.harmFrom` against
+the site's real automatic attacks (`automaticAttacksOf`), so this is a *trade*
+between two modelled quantities, not a missing term. Which means the remaining
+lever is the exchange rate between them — and tuning that against an agreement
+metric is precisely the move that cost 41, 42 and 84 Elo on the discard.
+
+What is genuinely unpriced is the *other* danger: the hazards an opponent plays
+against a company in transit. `beliefs` was measured as effectively a constant
+(mean 0.861, span 0.15 over 6.9 observed cards), and `regionCrossingCost` is
+documented in its own tunable as "a stand-in for a hazard model" charging
+distance by length rather than by danger. If the human's free-holds are worth
+more than their playability suggests, that is where the difference would live —
+but it is a modelling question, not a constant, and it should be built before it
+is weighed.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
