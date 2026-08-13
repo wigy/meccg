@@ -20,10 +20,15 @@ import { charactersModule } from './characters.js';
 
 const SCORER = 'tw-scorer';
 const CHEAP = 'tw-cheap';
+/** A faction an influence attempt could bring in — what freed influence is *for*. */
+const FACTION = 'tw-faction';
 
 const POOL = {
   [SCORER]: { name: 'Elrond', marshallingPoints: 3, marshallingCategory: 'character', mind: 8 },
   [CHEAP]: { name: 'A Hobbit', marshallingPoints: 0, marshallingCategory: 'character', mind: 1 },
+  [FACTION]: {
+    name: 'Rangers of the North', marshallingPoints: 3, marshallingCategory: 'faction', influenceNumber: 10,
+  },
 } as unknown as Readonly<Record<string, CardDefinition>>;
 
 /** A play action naming a card in hand. */
@@ -106,6 +111,20 @@ describe('changing controller', () => {
   test('reports the direct influence at stake, since that is what factions spend', () => {
     const evaluation = charactersModule.evaluate(move, contextWith(BALANCED, BALANCED))!;
     expect(JSON.stringify(evaluation.rationale)).toContain('reducer-site.ts');
+  });
+
+  test('and prices it when the hand holds something to spend it on', () => {
+    // The move buys probability on an influence attempt and nothing else: a
+    // follower is held by direct influence equal to its mind, and only a
+    // character with free direct influence may attempt a faction. With a
+    // faction in hand that attempt gets easier, so the move is worth something.
+    const context = contextWith(BALANCED, BALANCED);
+    const hand = context.view.self.hand as unknown as { instanceId: string; definitionId: string }[];
+    hand.push({ instanceId: `card-${FACTION}`, definitionId: FACTION });
+
+    const evaluation = charactersModule.evaluate(move, context)!;
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    expect(evaluation.outcomes[0].label).toContain('Rangers of the North');
   });
 });
 
