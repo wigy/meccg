@@ -268,13 +268,18 @@ export function resolveAgent(spec: string): Agent {
       return createMcAgent({ ...parseMcOptions(param), name: spec });
     }
     case 'bc': {
-      if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json[@temperature]');
-      // Optional `@T` suffix samples the policy at temperature T instead of
-      // playing the argmax (rollout/exploration mode for self-play RL).
+      if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json[@temperature|@class]');
+      // Optional `@` suffix selects how the decision is read out of the
+      // policy: a number samples at that temperature (rollout/exploration
+      // mode for self-play RL), `class` sums probability by action type
+      // before choosing (the read human-cloned weights need — see
+      // `classMassIndex`). Bare, it is the argmax.
       const at = param.lastIndexOf('@');
       if (at > 0) {
-        const temperature = Number(param.slice(at + 1));
-        if (!Number.isFinite(temperature)) throw new Error(`bc expects a numeric temperature after "@", got "${param.slice(at + 1)}"`);
+        const suffix = param.slice(at + 1);
+        if (suffix === 'class') return createBcAgent(param.slice(0, at), { decode: 'class-mass' });
+        const temperature = Number(suffix);
+        if (!Number.isFinite(temperature)) throw new Error(`bc expects a numeric temperature or "class" after "@", got "${suffix}"`);
         return createBcAgent(param.slice(0, at), { temperature });
       }
       return createBcAgent(param);
