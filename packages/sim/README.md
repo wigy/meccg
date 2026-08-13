@@ -2337,6 +2337,58 @@ position is developed and they are waiting for the right moment. H2 passes
 because it has nothing to say. Those are the same move for opposite reasons, and
 copying the frequency copied the reason it did not have.
 
+### The landscape after acting on ties
+
+Every ranking in this document above was measured on an agent that passed
+whenever it could not rank a decision. That agent no longer exists, and the
+ordering changed with it. Re-measured on twelve recorded games:
+
+| the human's action | they chose it | H2 agreed |
+| --- | --- | --- |
+| `pass` | 1437 | 46.7% |
+| `draw-cards` | 414 | 100.0% |
+| `discard-card` | 306 | 7.5% |
+| `resolve-strike` | 161 | 69.6% |
+| `select-company` | 160 | 56.9% |
+| `assign-strike` | 138 | 19.6% |
+| `play-hazard` | 138 | 26.8% |
+| `pass-chain-priority` | 111 | 93.7% |
+| `enter-site` | 106 | 71.7% |
+| `corruption-check` | 68 | 80.9% |
+
+And what H2 does instead, which is where the ordering really moved:
+
+```text
+253  pass → place-on-guard
+213  discard-card → discard-card
+170  pass → play-hazard
+ 64  play-hazard → place-on-guard
+```
+
+`place-on-guard` is now the single largest divergence by a wide margin, and it is
+the *same* divergence this document already recorded once: "`place-on-guard` is
+what the agent does instead of passing 154 times in 8 games". Charging the
+forgone hazard use narrowed it and gated neutral (−14 [−41, +13]). Acting on ties
+widened it again, because a card with any modelled upside is now taken rather
+than declined.
+
+#### The question that has not been asked
+
+Placement is priced by what the card would do *if it is revealed* —
+`single.expectedTsd`, discounted by `onGuardDiscount` and reduced by the play it
+forgoes. What is nowhere in that chain is the probability that anybody ever walks
+into it. A guard card is revealed only when a company enters the site it sits on;
+if the opponent goes somewhere else, the card did nothing and the turn spent
+placing it bought nothing.
+
+`onGuardDiscount` at 0.5 is standing in for that probability without being
+derived from anything — the site the opponent is moving to is *published* when
+they reveal movement, and the agent can see it. So the honest next step is to
+find out whether placement is being priced against a certainty the position
+already contradicts, and that is a measurement, not a constant to tune. Three
+attempts at the discard were lost to tuning a constant against a metric; this one
+should not be.
+
 ### The largest divergence is worth nothing
 
 The obvious next target after acting on ties was `place-on-guard`: 253 decisions

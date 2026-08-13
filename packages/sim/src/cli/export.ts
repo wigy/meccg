@@ -111,6 +111,9 @@ function headerRecord(vocabSize: number, vocabHash: string): Record<string, unkn
     vocabSize,
     vocabHash,
     actionTypeCount: ACTION_TYPES.length,
+    // The names behind the type indices in candidate column 0, so the learning
+    // side can address a type by name rather than by a spec-dependent index.
+    actionTypes: ACTION_TYPES,
     globalWidth: GLOBAL_FEATURE_WIDTH,
     entityWidth: ENTITY_FEATURE_WIDTH,
     actionWidth: ACTION_FEATURE_WIDTH,
