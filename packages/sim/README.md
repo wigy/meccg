@@ -1852,6 +1852,65 @@ kept on the argument that a deck's author declaring which characters the deck is
 built around is information the AI should not be throwing away, and on the
 agreement measurement above — not on strength.
 
+### Which favourite: the draft is a knapsack
+
+The mark got H2 drafting inside the right set and could not order within it. A
+flat bonus ties every favourite, so *which* one got picked was still tie-break
+order, and agreement stalled at 24%.
+
+The rules say what the order is. The starting company's total mind may not exceed
+`GENERAL_INFLUENCE`, and `character-draft` already refuses a pick that would break
+it — so nothing in the AI has to model the cap. What the cap decides is **order**.
+A big character is the one that stops fitting; under the draft's
+`opponent-has-card` rule it is also the one an opponent drafting the same
+character can take off the table entirely. A small character fits whatever budget
+is left in a later round. The expensive picks are the ones with a deadline.
+
+The corpus plays it exactly that way. Over 200 decisions offering more than one
+favourite — so the mark alone could not settle them:
+
+| the human picked the candidate with the… | |
+| --- | --- |
+| highest prowess | 66.0% |
+| highest **mind** | 65.5% |
+| highest MP | 64.5% |
+| highest skills | 51.5% |
+| highest body | 50.0% |
+| a random favourite | 32.8% |
+
+Prowess, MP, body and skills all correlate with the same picks, which is what
+collinear statistics do — big characters are big in every column. What separates
+mind from the rest is the *round* profile of the character taken:
+
+| round | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- |
+| mean mind | 7.69 | 4.61 | 4.02 | 3.94 | 2.86 |
+| mean prowess | 5.86 | 4.10 | 4.28 | 4.39 | 2.14 |
+
+Mind falls monotonically; prowess does not. That is the knapsack signature, and it
+is what marks mind as the driver rather than a passenger.
+
+`draftMindPriorityTsd` therefore scales mind against the budget and is capped
+strictly below `favouriteCharacterTsd`, so it orders candidates *within* the mark
+and never across it — the smallest marked character still outranks the largest
+unmarked one. Exact agreement **24.0% → 54.0%** on the same 150 attributed picks.
+
+384 games each, run at the same time:
+
+| | paired Elo (95% CI) | failures |
+| --- | --- | --- |
+| control (`master`, favourites only) | +64 [+31, +99] | 1 |
+| with mind priority | +81 [+46, +117] | 1 |
+
++17 Elo against a standard error on the difference of about 25 — not significant,
+but the first of these changes to point the right way rather than the wrong one.
+Both arms hit the same pre-existing engine deadlock once.
+
+An ordering term, not a valuation, is the thing to notice. Mind is a *cost*
+everywhere else in the game, and pricing it as a benefit anywhere but the draft
+would be wrong. It is right here only because the budget is a knapsack and the
+draft is where it gets spent.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
