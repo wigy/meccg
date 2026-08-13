@@ -2095,10 +2095,36 @@ is coverage first, price second. #2361 was also rejected on a gate that was 41%
 H1, so its verdict is void either way — but re-testing it was still wasted, for
 this second reason.
 
-What has to be established next is *why* the discard is declined: whether the
-modules score nothing there, or score every candidate identically, or score every
-discard as a pure cost and correctly prefer `pass` over paying it. The third
-would be a real modelling error — at the end-of-turn hand limit the discard is
+**Correction: the discard is not declined.** The paragraph above said it was, on
+a probe that counted two different outcomes as one. Measured properly, over 300
+corpus positions offering a discard:
+
+```text
+H2 passed:                        20
+no `pass` was on offer at all:   173
+H2 acted on a real preference:   107
+
+not fully covered:                24
+best candidate scores <= 0:      292
+```
+
+So the discard is usually **forced** — at the end-of-turn hand limit there is no
+`pass` to take, which is the rule working as written — and coverage is not the
+problem either: only 24 of 300 have an unowned candidate. What is uniform is the
+sign. In 292 of 300 positions *every* option scores at or below zero, because a
+discard is priced as a pure cost and nothing offsets it. H2 therefore never has a
+positive preference here; whether it acts at all depends entirely on whether two
+costs differ.
+
+That is the real question, and it is narrower than the three this section
+originally listed: not *why H2 declines*, but whether the card it throws when it
+must throw one is its own cheapest — and if so, why a better price for that card
+(the `heldWorth` discount) changed the outcome by exactly nothing. Those two
+cannot both be true, and the next measurement has to settle which is wrong before
+anything is built on either.
+
+The earlier three-way question is left below as it was written, because the
+reasoning behind option three still stands even though its premise did not — at the end-of-turn hand limit the discard is
 forced, so pricing it against a `pass` that the rules will not honour compares an
 option against one that is not really available. That is a question with a
 definite answer and it has not been asked yet.
