@@ -1670,6 +1670,54 @@ That is the whole lesson of this section in one table. A rules argument was
 necessary and not sufficient: it predicted which changes would be harmless,
 not which would help. An agreement gain predicted neither.
 
+### Why `move-to-influence` is never chosen, and what that exposed
+
+`move-to-influence` is the action H2 owns and gets most wrong: humans make it
+37 times in eight recorded games and the agent agrees **once**. It plans
+movement instead 25 of those times.
+
+The mechanism is not subtle. `characters` scores it *"as marshalling-point
+neutral, which it is"* — exactly zero — and `pass` is zero by definition, so
+any action worth a thousandth of a win probability beats it. It is the same
+shape as the modelled zeros in `card-price`: a number that is right about the
+quantity it names and wrong about the decision it settles.
+
+The rules say what it is actually worth. Releasing a follower to general
+influence returns its mind to the controller's **direct** influence, and free
+direct influence is exactly what an influence attempt spends. So the value of
+the move is what the influence it frees can then attempt — a commitment's
+number rather than a tactical one, which is what the plan layer is for.
+`factions` owns the check step, so it is the module allowed to move it.
+
+**That change was written, measured, and reverted, because it can never
+fire.** Over 200 recorded positions offering `move-to-influence`:
+
+| | positions |
+|---|---|
+| offering the action | 200 |
+| with any committed plan | 130 |
+| with a committed **faction** plan | **3** |
+| …whose company holds the character being moved | **0** |
+
+#### The portfolio commits at most one goal per company
+
+That is the finding, and it is larger than the action that exposed it.
+`conflicts` refuses to commit one company to two different sites, which is
+physically right — and a faction plan and a resource plan almost always name
+different sites, so they conflict, and the richer resource plan wins. A
+company can therefore never be working toward an item *and* a faction, which
+is not a rule of the game: a company travels, plays what it can at the site it
+reaches, and attempts what is there.
+
+So `factions` proposes constantly and is committed to almost never, which
+makes every consumer of a committed faction plan dead code — including the
+`move-to-influence` valuation above, and any future one that hangs off the
+same step.
+
+This is a modelling restriction rather than a rules constraint, and it is the
+first lead in this section that is a *structural* limit of the plan layer
+rather than a mispriced number.
+
 ### The draft is decided by a coin flip
 
 `draft-pick` is the decision H2 gets wrong most consequentially: 38 in the
