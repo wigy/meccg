@@ -43,6 +43,22 @@ export interface BcWeightsFile {
   readonly actionTypeCount: number;
   readonly globalWidth: number;
   readonly dims: { readonly preset: string; readonly values: readonly number[] };
+  /**
+   * How this file's policy should be read, when the caller does not say.
+   *
+   * The correct readout is a property of the teacher, not of the call site:
+   * soft candidate targets concentrate probability and want the argmax,
+   * one-hot human demonstrations train a deliberately flat distribution
+   * across equivalent candidates and want sampling (see
+   * {@link classMassIndex}). Absent — every file trained before this field —
+   * means argmax, so existing weights keep the behavior they were measured
+   * with.
+   */
+  readonly decode?: {
+    readonly mode: 'argmax' | 'sample' | 'class-mass';
+    /** Sampling temperature; required for `sample`, ignored otherwise. */
+    readonly temperature?: number;
+  };
   readonly training?: Readonly<Record<string, unknown>>;
   readonly weights: Readonly<Record<string, TensorJson>>;
   readonly selfTest: {
@@ -85,6 +101,14 @@ export function loadBcWeights(path: string): BcWeightsFile {
     throw new Error(
       `${path}: value head input width ${valueInputWidth} matches neither the torso width `
       + `(${dState}) nor torso+global (${dState + parsed.globalWidth}) — unsupported architecture`);
+  }
+  const declaredMode = parsed.decode?.mode;
+  if (declaredMode !== undefined && !['argmax', 'sample', 'class-mass'].includes(declaredMode)) {
+    throw new Error(`${path}: unknown decode mode "${declaredMode}" — expected argmax, sample, or class-mass`);
+  }
+  if (declaredMode === 'sample' && parsed.decode?.temperature !== undefined
+    && !(parsed.decode.temperature > 0)) {
+    throw new Error(`${path}: decode temperature must be > 0, got ${parsed.decode.temperature}`);
   }
   for (const [name, tensor] of Object.entries(parsed.weights)) {
     const expected = tensor.shape.reduce((product, dim) => product * dim, 1);
@@ -333,11 +357,21 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
   // across games would let an early game permanently block an action in a
   // later one. `startGame` clears it.
   let triedBySignature = new Map<string, Set<string>>();
-  const temperature = options?.temperature;
+  // An explicit option always wins; otherwise the file's own declaration
+  // decides, so a caller that just names a weights path (the lobby's
+  // `--model` seam, `bc:weights.json`) gets the readout that file was
+  // measured with rather than a default that suits some other teacher.
+  const declared = model.decode;
+  const explicit = options?.temperature !== undefined || options?.decode !== undefined;
+  const temperature = explicit
+    ? options?.temperature
+    : declared?.mode === 'sample' ? (declared.temperature ?? 1) : undefined;
   if (temperature !== undefined && !(temperature > 0)) {
     throw new Error(`bc temperature must be > 0, got ${temperature}`);
   }
-  const decode = options?.decode ?? 'argmax';
+  const decode: BcDecode = explicit
+    ? options?.decode ?? 'argmax'
+    : declared?.mode === 'class-mass' ? 'class-mass' : 'argmax';
   if (decode === 'class-mass' && temperature !== undefined) {
     throw new Error('bc: class-mass decoding and temperature sampling are alternatives, not a pair');
   }

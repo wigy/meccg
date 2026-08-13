@@ -9,6 +9,8 @@
  */
 
 import { describe, test, expect } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { loadBcWeights, runBcSelfTest, bcForward, createBcAgent, classMassIndex } from './agents/bc-agent.js';
 import { playGame } from './runner.js';
@@ -117,6 +119,28 @@ describe('bc agent', () => {
     expect(record()).toEqual(first);
     // The two readouts are alternatives, not a pair.
     expect(() => createBcAgent(FIXTURE, { decode: 'class-mass', temperature: 1 })).toThrow('alternatives');
+  });
+
+  test('a weights file declares how it should be read', () => {
+    // The lobby's `--model` seam names a path and nothing else, so the file
+    // has to carry its own readout or every model gets the same one — and
+    // the right one differs by teacher.
+    const declared = path.join(os.tmpdir(), `bc-declared-${process.pid}.json`);
+    const raw = JSON.parse(fs.readFileSync(FIXTURE, 'utf-8')) as Record<string, unknown>;
+    fs.writeFileSync(declared, JSON.stringify({ ...raw, decode: { mode: 'sample', temperature: 1 } }));
+    try {
+      expect(createBcAgent(FIXTURE).name).toBe('bc');
+      expect(createBcAgent(declared).name).toBe('bc@1');
+      // An explicit option still wins over the file's declaration.
+      expect(createBcAgent(declared, { decode: 'class-mass' }).name).toBe('bc@class');
+
+      fs.writeFileSync(declared, JSON.stringify({ ...raw, decode: { mode: 'sideways' } }));
+      expect(() => createBcAgent(declared)).toThrow('unknown decode mode');
+      fs.writeFileSync(declared, JSON.stringify({ ...raw, decode: { mode: 'sample', temperature: 0 } }));
+      expect(() => createBcAgent(declared)).toThrow('temperature');
+    } finally {
+      fs.rmSync(declared, { force: true });
+    }
   });
 
   test('plays a legal, deterministic game against the heuristic', () => {

@@ -391,6 +391,16 @@ def main():
         help="PPO early-stop: end the update when the mean approximate KL from the "
              "behavior policy exceeds this (0 disables)")
     parser.add_argument(
+        "--decode", choices=["auto", "argmax", "sample", "class-mass"], default="auto",
+        help="how the weights file declares itself to be read (see BcWeightsFile.decode). "
+             "auto derives it from the targets: a teacher that left soft candidate weights "
+             "wants the argmax, one-hot demonstrations want sampling, because many similar "
+             "positions with different chosen candidates train a deliberately flat "
+             "distribution that the argmax discards")
+    parser.add_argument(
+        "--decode-temperature", type=float, default=1.0,
+        help="temperature stamped alongside decode=sample")
+    parser.add_argument(
         "--action-weight", default="",
         help="comma-separated NAME=W overrides scaling the policy loss of decisions "
              "whose CHOSEN action has that type, e.g. 'pass=0.4'. Cloning a corpus "
@@ -446,6 +456,26 @@ def main():
         f"data: {len(examples)} examples / {len(games)} games "
         f"(train {len(train)} [{sum(1 for e in train if contested(e))} contested], holdout {len(held_all)} over {len(holdout_games)} games)"
     )
+
+    # Derive how this file should be read from what taught it. A decision
+    # carrying `weights` came from a teacher that scored every candidate, and
+    # that concentrated target survives the argmax; a bare one-hot is all a
+    # human demonstration leaves, and cloning many of those trains a flat
+    # distribution over equivalent candidates which the argmax throws away.
+    # Measured on the human corpus: argmax 3.5% against the heuristic,
+    # sampling at temperature 1 40.6%, over 320 paired games each.
+    soft = sum(1 for d, *_ in train if d.get("weights"))
+    if args.decode == "auto":
+        decode_mode = "argmax" if soft * 2 >= len(train) else "sample"
+    else:
+        decode_mode = args.decode
+    decode_declaration = {"mode": decode_mode}
+    if decode_mode == "sample":
+        decode_declaration["temperature"] = args.decode_temperature
+    print(f"decode: {decode_mode}"
+          + (f"@{args.decode_temperature}" if decode_mode == "sample" else "")
+          + f" ({soft}/{len(train)} training targets are soft"
+          + (", derived" if args.decode == "auto" else ", forced by --decode") + ")")
 
     action_weights = build_action_weights(train, header, args.action_weight, args.balance_alpha)
     if action_weights:
@@ -653,6 +683,7 @@ def main():
         "actionTypeCount": header["actionTypeCount"],
         "globalWidth": global_width,
         "dims": {"preset": dims_label, "values": list(dims)},
+        "decode": decode_declaration,
         "training": {
             "mode": args.mode,
             "init": args.init,
