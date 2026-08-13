@@ -1959,6 +1959,14 @@ export interface GrantActionTargets {
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
   /**
+   * For scope `'company-characters'`: excludes the bearer from the enumerated
+   * candidates, leaving only the bearer's company-mates. Used by Waybread
+   * (td-165) — "untap bearer and one other character in his company" pairs
+   * this with a `sequence` apply that separately untaps `"bearer"`, so the
+   * target-selection loop must offer only the *other* company members.
+   */
+  readonly excludeBearer?: boolean;
+  /**
    * For scope `'player-companies'`: restrict the enumerated companies to those
    * that have declared movement this organization phase **and** whose declared
    * destination's printed site path contains at least one region of this type.
