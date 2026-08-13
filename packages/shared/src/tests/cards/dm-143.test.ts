@@ -19,9 +19,12 @@
  *   3. named-creature-hunt — the whole mechanic (see engine/hunt.ts)
  *
  * "Revealed to you ... and discarded" is modeled by
- * `GameState.handRevealedInstances`: only a hazard-creature instance recorded
+ * `GameState.revealedInstances`: only a hazard-creature instance recorded
  * there (still sitting in the opponent's play deck or discard pile) is a
- * legal candidate. Playing the card discards it immediately and enqueues a
+ * legal candidate — this is CRF 22's broad reading ("the discarding and
+ * revealing of the card do not have to be in any specific order"), so a
+ * creature merely seen attacking counts, not just one exposed by an explicit
+ * hand/deck-reveal effect. Playing the card discards it immediately and enqueues a
  * `hunt-target-choice` pending resolution; naming a candidate builds a
  * `hunt-attack` combat with `soloDefenderInstanceId` (one-character company)
  * and `spellsIneffective` (no spell may cancel it or boost against it);
@@ -39,7 +42,7 @@ import {
   ARAGORN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, dispatch, executeAction, findInPile, findCharInstanceId, findHandCardId,
-  companyIdAt, expectCharStatus, assertEveryInstanceReachable,
+  companyIdAt, expectCharStatus, assertEveryInstanceReachable, revealOpponentPileInstances,
   makeMHState, playCreatureHazardAndResolve,
   CAVE_DRAKE, ORC_PATROL, GLAMDRING, VANISHMENT,
 } from '../test-helpers.js';
@@ -90,17 +93,6 @@ function huntState(opts: {
       },
     ],
   });
-}
-
-/** Record the given opponent-pile instances as revealed ("a mechanism of the game"). */
-function markRevealed(state: GameState, ids: readonly CardInstanceId[]): GameState {
-  const pool = [...state.players[HAZARD_PLAYER].playDeck, ...state.players[HAZARD_PLAYER].discardPile];
-  const additions: Record<string, CardDefinitionId> = {};
-  for (const id of ids) {
-    const inst = pool.find(c => c.instanceId === id);
-    if (inst) additions[id as string] = inst.definitionId;
-  }
-  return { ...state, handRevealedInstances: { ...state.handRevealedInstances, ...additions } };
 }
 
 /** The play-short-event action for The Hunt (targeting Alatar). */
@@ -208,7 +200,7 @@ describe('The Hunt (dm-143)', () => {
   test('excludes a revealed non-creature card from the candidate list', () => {
     const state0 = huntState({ p2Discard: [GLAMDRING] });
     const glamdringId = findInPile(state0, HAZARD_PLAYER, 'discardPile', GLAMDRING)!.instanceId;
-    const state = markRevealed(state0, [glamdringId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [glamdringId]);
     const afterPlay = playHunt(state);
     expect(viableActions(afterPlay, PLAYER_1, 'choose-hunt-target')).toHaveLength(0);
   });
@@ -216,7 +208,7 @@ describe('The Hunt (dm-143)', () => {
   test('names a revealed hazard creature sitting in the opponent discard pile — attacks in place, no reshuffle', () => {
     const state0 = huntState({ p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const state = markRevealed(state0, [orcId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const alatarId = findCharInstanceId(state, RESOURCE_PLAYER, ALATAR);
     const afterPlay = playHunt(state);
 
@@ -248,7 +240,7 @@ describe('The Hunt (dm-143)', () => {
   test('names a revealed hazard creature sitting in the opponent play deck — reshuffles the deck, attacks in place', () => {
     const state0 = huntState({ p2Deck: [CAVE_DRAKE, GLAMDRING, GLAMDRING] });
     const drakeId = findInPile(state0, HAZARD_PLAYER, 'playDeck', CAVE_DRAKE)!.instanceId;
-    const state = markRevealed(state0, [drakeId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [drakeId]);
     const afterPlay = playHunt(state);
     const deckSizeBefore = afterPlay.players[HAZARD_PLAYER].playDeck.length;
 
@@ -266,12 +258,32 @@ describe('The Hunt (dm-143)', () => {
     assertEveryInstanceReachable(afterChoice);
   });
 
+  test('offers a creature known only from having attacked (revealedInstances), not an explicit hand/deck reveal', () => {
+    // CRF 22 (The Hunt): "the discarding and revealing of the card do not
+    // have to be in any specific order" — a creature that attacked earlier
+    // in the game (publicly seen, then later reshuffled back into the play
+    // deck once discarded) counts as "revealed to you" even though no
+    // explicit reveal effect (Riddling Talk, a peek, ...) ever ran on it.
+    const state0 = huntState({ p2Deck: [CAVE_DRAKE, GLAMDRING, GLAMDRING] });
+    const drakeId = findInPile(state0, HAZARD_PLAYER, 'playDeck', CAVE_DRAKE)!.instanceId;
+    const state = {
+      ...state0,
+      revealedInstances: { ...state0.revealedInstances, [drakeId]: CAVE_DRAKE },
+    };
+    expect(state.handRevealedInstances[drakeId]).toBeUndefined();
+    const afterPlay = playHunt(state);
+
+    const offered = viableActions(afterPlay, PLAYER_1, 'choose-hunt-target');
+    expect(offered).toHaveLength(1);
+    expect((offered[0].action as ChooseHuntTargetAction).creatureInstanceId).toBe(drakeId);
+  });
+
   // ── "As though he were a one-character company" ─────────────────────────
 
   test('the creature attacks Alatar alone even when his company has other characters', () => {
     const state0 = huntState({ extraChar: ARAGORN, p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const state = markRevealed(state0, [orcId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const alatarId = findCharInstanceId(state, RESOURCE_PLAYER, ALATAR);
     const afterPlay = playHunt(state);
     const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
@@ -289,7 +301,7 @@ describe('The Hunt (dm-143)', () => {
   test('cannot play Vanishment (a spell) to cancel the forced attack', () => {
     const state0 = huntState({ hand: [THE_HUNT, VANISHMENT], p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const state = markRevealed(state0, [orcId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
     const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
 
@@ -322,7 +334,7 @@ describe('The Hunt (dm-143)', () => {
   test('an active Wizard\'s Flame prowess-reduction constraint does not apply to the forced attack', () => {
     const state0 = huntState({ p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const revealed = markRevealed(state0, [orcId]);
+    const revealed = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const alatarCompanyId = companyIdAt(revealed, RESOURCE_PLAYER);
     const state = addConstraint(revealed, {
       source: 'flame-instance-1' as never,
@@ -343,7 +355,7 @@ describe('The Hunt (dm-143)', () => {
   test('taps Alatar (was untapped) once the forced attack finalizes', () => {
     const state0 = huntState({ p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const state = markRevealed(state0, [orcId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
     const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
     expectCharStatus(afterChoice, RESOURCE_PLAYER, ALATAR, CardStatus.Untapped);
@@ -356,7 +368,7 @@ describe('The Hunt (dm-143)', () => {
   test('leaves an already-tapped Alatar tapped after the forced attack finalizes', () => {
     const state0 = huntState({ alatarStatus: CardStatus.Tapped, p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const state = markRevealed(state0, [orcId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
     const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
 
@@ -367,7 +379,7 @@ describe('The Hunt (dm-143)', () => {
   test('taps Alatar (was untapped) even when the forced attack is canceled', () => {
     const state0 = huntState({ p2Discard: [ORC_PATROL] });
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
-    const state = markRevealed(state0, [orcId]);
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
     const huntInstanceId = findInPile(afterPlay, RESOURCE_PLAYER, 'discardPile', THE_HUNT)!.instanceId;
     const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });

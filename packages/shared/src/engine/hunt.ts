@@ -61,14 +61,21 @@ export interface HuntCandidate {
 /**
  * Every hazard-creature instance in `opponentId`'s play deck or discard pile
  * whose identity is already known to the opponent's controller (recorded in
- * `GameState.handRevealedInstances`) — the engine's model of "a specific
- * hazard creature card your opponent revealed to you ... and discarded".
+ * `GameState.revealedInstances`) — the engine's model of "a specific hazard
+ * creature card your opponent revealed to you ... and discarded". This is
+ * deliberately the broad reveal ledger, not the narrower
+ * `GameState.handRevealedInstances` (which exists only to drive hand/play-deck
+ * *redaction* in `projection.ts`): CRF 22 rules "the discarding and revealing
+ * of the card do not have to be in any specific order", so a creature that
+ * was simply seen attacking — and is later reshuffled back into the deck or
+ * sits in the discard pile — counts as "revealed to you" just as much as one
+ * exposed by an explicit peek/reveal effect.
  */
 export function findHuntCandidates(state: GameState, opponentId: PlayerId): readonly HuntCandidate[] {
   const opponentIndex = getPlayerIndex(state, opponentId);
   const opponent = state.players[opponentIndex];
   const isKnownHazardCreature = (definitionId: CardDefinitionId, instanceId: CardInstanceId): boolean => {
-    if (state.handRevealedInstances[instanceId] !== definitionId) return false;
+    if (state.revealedInstances[instanceId] !== definitionId) return false;
     const def = defById(state, definitionId);
     return !!def && 'cardType' in def && (def as { cardType: string }).cardType === 'hazard-creature';
   };

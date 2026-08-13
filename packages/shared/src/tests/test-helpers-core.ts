@@ -648,4 +648,28 @@ export function pushCardInPlay(
   return { ...state, players: players as unknown as typeof state.players };
 }
 
+/**
+ * Record the given play-deck/discard-pile instances of `playerIdx` as
+ * publicly known, mirroring what {@link accrueRevealedInstances} does for
+ * cards that transited a public zone (e.g. attacked, then landed back in a
+ * private pile). Grows `GameState.revealedInstances` only — not the narrower
+ * `handRevealedInstances` (that map is reserved for explicit hand/deck-reveal
+ * effects, see `visibility.ts`). Used to set up "the opponent already knows
+ * this card's identity" scenarios (e.g. The Hunt dm-143) without redriving a
+ * full attack.
+ */
+export function revealOpponentPileInstances(
+  state: GameState,
+  playerIdx: 0 | 1,
+  ids: readonly CardInstanceId[],
+): GameState {
+  const pool = [...state.players[playerIdx].playDeck, ...state.players[playerIdx].discardPile];
+  const additions: Record<string, CardDefinitionId> = {};
+  for (const id of ids) {
+    const inst = pool.find(c => c.instanceId === id);
+    if (inst) additions[id as string] = inst.definitionId;
+  }
+  return { ...state, revealedInstances: { ...state.revealedInstances, ...additions } };
+}
+
 // ─── Effect / constraint fixture builders ───────────────────────────────────
