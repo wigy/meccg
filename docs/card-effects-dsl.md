@@ -15329,4 +15329,3 @@ to Mithril if bearer is ever at Moria; this card never untaps. If Map to
 Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and
 place this card with a non-unique weapon in his company. This gives the
 weapon a +3 prowess bonus."
-
