@@ -2103,6 +2103,60 @@ forced, so pricing it against a `pass` that the rules will not honour compares a
 option against one that is not really available. That is a question with a
 definite answer and it has not been asked yet.
 
+### Three attempts at the discard, three times weaker
+
+The total order works exactly as specified. It gives every card in hand a
+distinct price, it throws the rule-capped classes first, and it raised discard
+agreement from 12.7% to 17.0%. Gated against the same tree without it, 384 games
+each, run at the same time:
+
+| | discard agreement | paired Elo (95% CI) | failures |
+| --- | --- | --- | --- |
+| control (`master`) | 12.7% | −241 [−288, −201] | 2 |
+| with the total order | **17.0%** | **−325 [−380, −280]** | 3 |
+
+−84 Elo against a standard error on the difference of about 31. Not marginal.
+
+That is the third attempt at this decision and the third to move agreement up and
+strength down:
+
+| attempt | discard agreement | Elo change |
+| --- | --- | --- |
+| opportunity discount, inside every price | 7.8% → 10.8% | −41 |
+| the same discount, retention only | 7.8% → 10.8% | −42 |
+| total order on the hand | 12.7% → 17.0% | −84 |
+
+Three different mechanisms — a group discount, a targeted group discount, a full
+ordering — measured on two different agents, one of which was 41% Heuristics 1
+and one of which is not. The result does not depend on the implementation or on
+the harness. **On this decision, agreeing with the human makes this agent worse,
+and the more thoroughly it agrees the worse it gets.**
+
+The monotonicity is the part worth taking seriously. A wrong implementation
+produces a wrong number; it does not produce a *dose response*. Moving agreement
++3 points cost 41 Elo and moving it +4.3 points cost 84, which is what a real
+causal link looks like pointing the wrong way.
+
+#### What the corpus cannot tell this agent
+
+The humans in these logs play resource-first decks in which surplus hazards are
+the natural throw. H2 does not play that game. It passes on 44% of decisions, so
+it plays few resources and scores little; hazards are most of what it does. A
+discard rule learned from a player whose resources work, applied to a player
+whose resources do not, throws away the only half that functions.
+
+So this is not "agreement is a bad signal". Agreement found the draft coin flip,
+found this placeholder, and found the 41% deferral — all real, all worth fixing.
+It is narrower and more useful than that: **agreement identifies decisions that
+are not modelled; it does not transfer the answer.** Where the human's answer
+depends on the rest of their strategy, copying it into an agent with a different
+strategy imports the answer without its premises.
+
+The discard is the clearest such decision in the game, because what is safe to
+throw is downstream of everything else a player intends to do. It should be
+left alone until H2 has resources worth keeping — which is the `pass` work list,
+not this one.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
