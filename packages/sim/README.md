@@ -2103,6 +2103,61 @@ forced, so pricing it against a `pass` that the rules will not honour compares a
 option against one that is not really available. That is a question with a
 definite answer and it has not been asked yet.
 
+### The pass work list: a forced decision priced against an option that is not there
+
+With H1 gone, every decision H2 cannot rank becomes a `pass`, and the corpus
+ranks those by what declining costs. Splitting each type by *why* it was
+declined separates two very different problems:
+
+| offered | human took | no owner | owner declined | scored ≤ 0 | scored > 0 | action type |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 43 | **43** | 0 | 0 | **43** | 0 | `corruption-check` |
+| 171 | 41 | 0 | 0 | **171** | 0 | `move-to-influence` |
+| 116 | 59 | 0 | 0 | 71 | 45 | `enter-site` |
+| 114 | 74 | 0 | 28 | 60 | 26 | `assign-strike` |
+| 107 | 74 | 0 | 41 | 20 | 46 | `play-hazard` |
+
+Coverage is not the problem anywhere on this list — `no owner` is zero in every
+row. Two rows are scored non-positive *every single time*, and those are the ones
+where the valuation, not the coverage, is deciding.
+
+#### The corruption check
+
+The clearest case in the corpus: offered 43 times, taken by the human 43 times,
+scored at or below zero by H2 all 43 times, and therefore never taken.
+
+Scored absolutely, that is correct — a corruption check is a risk with no upside,
+so its expectation cannot exceed zero and `pass` sits at exactly zero. As a
+*decision* it is wrong, and the engine says why in its own documentation: a
+pending corruption check **"gates all other organization actions until it is
+resolved"**. The roll is coming whatever the agent does. Declining does not avoid
+it; it freezes the phase in which every resource this player will ever play has
+to be played.
+
+So the outcomes still describe the event, and what they are compared against was
+the error. Shifting the distribution by its own expectation prices what resolving
+costs *relative to the unavoidable baseline* — which is nothing — leaving
+`gatingResolutionTsd` for the phase that declining forfeits. σ is untouched,
+because the risk is real even when the choice about it is not.
+
+| | corruption-check agreement | paired Elo (95% CI) |
+| --- | --- | --- |
+| control (`master`) | 27.9% | −241 [−288, −201] |
+| taking gating resolutions | **82.4%** | −247 [−295, −206] |
+
+Six Elo apart against a standard error on the difference of about 32:
+**strength-neutral**, and the first change since H1 was removed that moves a
+decision type sharply toward human play without paying for it. It is kept on the
+rules argument — passing does not avoid a gated check — with the gate confirming
+it costs nothing, rather than the other way round.
+
+A note on reading these: overall agreement moved 58.7% → 58.1% while this type
+went 27.9% → 82.4%, and unrelated types swung hard (`pass-chain-priority` 42.3% →
+93.7%). That is not measurement noise. The agent is stateful within a game — the
+cycle guard remembers what it has played — so one changed decision moves
+everything downstream of it. **Overall agreement is not a valid read on a
+single-decision change**, and the per-type figure plus the gate are.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
