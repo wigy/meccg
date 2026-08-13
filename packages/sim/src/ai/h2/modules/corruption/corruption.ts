@@ -248,7 +248,7 @@ export const corruptionModule: H2Module = {
     };
     if (typeof fields.need !== 'number' || !fields.characterId) return null;
 
-    const { standing } = context;
+    const { standing, tunables } = context;
     const pSurvive = pAtLeast(fields.need);
 
     // What leaves play if it fails — shared with the support action, so the
@@ -270,8 +270,41 @@ export const corruptionModule: H2Module = {
       });
     }
 
-    const scored = standing.score(outcomes);
+    // **The cost is sunk, and that is the whole correction.**
+    //
+    // Scored absolutely, a corruption check is a risk with no upside, so it
+    // came out at or below zero every time — 43 of 43 offered in the recorded
+    // corpus — and lost to `pass` at zero. But passing does not avoid the
+    // check. A pending corruption check "gates all other organization actions
+    // until it is resolved" (see `transferItemActions`): the roll is coming
+    // whatever the agent does, and declining only freezes the phase around it.
+    //
+    // So the outcomes below describe reality and the wrong comparison was being
+    // made with them. Shifting the distribution by its own expectation prices
+    // the *decision* rather than the event: what resolving costs, relative to
+    // the unavoidable baseline, is nothing. σ is untouched, because the risk is
+    // real even when the choice about it is not.
+    //
+    // What is left is what resolving actually buys — the rest of the
+    // organization phase, which is where every resource this player will ever
+    // play has to be played. The human took the check in all 43 positions.
+    const unavoidable = outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
+    const decided: Outcome[] = outcomes.map(o => ({
+      ...o,
+      dtsd: o.dtsd - unavoidable + tunables.gatingResolutionTsd,
+    }));
+
+    const scored = standing.score(decided);
     const detail: Rationale[] = [
+      leaf('the roll is coming either way', -unavoidable, {
+        unit: 'tsd',
+        note: 'a pending check gates every other organization action, so declining stalls the phase '
+          + 'rather than avoiding the check',
+      }),
+      leaf('unblocking the phase', tunables.gatingResolutionTsd, {
+        unit: 'tsd',
+        tunable: 'gatingResolutionTsd',
+      }),
       leaf('need on 2d6', fields.need, {
         note: `corruption points ${fields.corruptionPoints ?? '?'}, `
           + `modifier ${fields.corruptionModifier ?? 0} — published by the engine`,
@@ -289,7 +322,7 @@ export const corruptionModule: H2Module = {
     return {
       action,
       module: 'corruption',
-      outcomes,
+      outcomes: decided,
       expectedTsd: scored.expectedTsd,
       sigmaTsd: scored.sigmaTsd,
       utility: scored.utility,

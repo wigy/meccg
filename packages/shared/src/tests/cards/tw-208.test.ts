@@ -1,0 +1,372 @@
+/**
+ * @module tw-208.test
+ *
+ * Card test: Dark Quarrels (tw-208)
+ * Type: hero-resource-event (short)
+ * Second printing of Dark Quarrels (see tw-207) — identical text and effects,
+ * different artwork.
+ * Effects:
+ *   1. cancel-attack — cancel one attack by Orcs, Trolls, or Men (no tap cost)
+ *   2. halve-strikes — if Gates of Morning is in play, halve strikes of any attack (rounded up)
+ *
+ * "Cancel one attack by Orcs, Trolls, or Men. Alternatively, if Gates of
+ * Morning is in play, the number of strikes from any attack is reduced to
+ * half of its original number, rounded up."
+ *
+ * Engine Support:
+ * | # | Feature                                        | Status      | Notes                               |
+ * |---|------------------------------------------------|-------------|-------------------------------------|
+ * | 1 | cancel-attack with when condition (race filter) | IMPLEMENTED | combat legal actions + reducer       |
+ * | 2 | Costless cancel-attack (no tap required)        | IMPLEMENTED | scoutInstanceId optional             |
+ * | 3 | halve-strikes during assign-strikes             | IMPLEMENTED | combat legal actions + reducer       |
+ * | 4 | halve-strikes gated by inPlay condition         | IMPLEMENTED | condition-matcher checks inPlay      |
+ * | 5 | Card discarded after use                        | IMPLEMENTED | reducer moves card to discard        |
+ * | 6 | Combat canceled (cancel-attack)                 | IMPLEMENTED | reducer sets combat to null          |
+ * | 7 | Strikes halved rounded up                       | IMPLEMENTED | Math.ceil in reducer                 |
+ *
+ * Playable: YES
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, Phase,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, GIMLI,
+  ORC_PATROL, CAVE_DRAKE, GATES_OF_MORNING,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  viableActions,
+  makeMHState,
+  playCreatureHazardAndResolve,
+  CardStatus,
+  handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
+} from '../test-helpers.js';
+import type { CancelAttackAction } from '../../index.js';
+import { RegionType, SiteType, computeLegalActions } from '../../index.js';
+import type { CardDefinitionId, CardInPlay, CardInstanceId } from '../../index.js';
+
+const DARK_QUARRELS_2 = 'tw-208' as CardDefinitionId;
+
+describe('Dark Quarrels (tw-208)', () => {
+  beforeEach(() => resetMint());
+
+
+  test('cancel-attack available against Orc attack (no tap cost)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    expect(combatState.combat!.phase).toBe('assign-strikes');
+
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBe(1);
+    const cancelAction = cancelActions[0].action as CancelAttackAction;
+    expect(cancelAction.scoutInstanceId).toBeUndefined();
+    expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, RESOURCE_PLAYER));
+  });
+
+  test('executing cancel-attack discards card and cancels combat (no tap)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    const declared = dispatch(combatState, cancelActions[0].action);
+
+    // Declaration initiates a chain — combat still active until chain resolves
+    expect(declared.chain).not.toBeNull();
+    expect(declared.combat).not.toBeNull();
+
+    // Dark Quarrels already in discard at declaration, hand empty
+    expect(declared.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, DARK_QUARRELS_2);
+
+    // Aragorn remains untapped (no tap cost)
+    expectCharStatus(declared, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+
+    // Resolving the chain cancels combat
+    const after = resolveChain(declared);
+    expect(after.combat).toBeNull();
+
+    // Creature in attacker's discard
+    expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);
+  });
+
+  test('cancel-attack NOT available against non-Orc/Troll/Men attack (e.g. dragon)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_DRAKE], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const caveDrakeId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, caveDrakeId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(0);
+  });
+
+  test('halve-strikes available when Gates of Morning is in play', () => {
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_DRAKE], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const caveDrakeId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, caveDrakeId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+
+    // cancel-attack should NOT be available (dragon, not orc/troll/men)
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(0);
+
+    // halve-strikes SHOULD be available (Gates of Morning in play)
+    const halveActions = viableActions(combatState, PLAYER_1, 'halve-strikes');
+    expect(halveActions.length).toBe(1);
+  });
+
+  test('executing halve-strikes halves the strike count (rounded up)', () => {
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    // Orc-patrol has 3 strikes
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat!.strikesTotal).toBe(3);
+
+    // Both cancel-attack AND halve-strikes should be available (orc + GoM in play)
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBe(1);
+
+    const halveActions = viableActions(combatState, PLAYER_1, 'halve-strikes');
+    expect(halveActions.length).toBe(1);
+
+    // Execute halve-strikes
+    const after = dispatch(combatState, halveActions[0].action);
+
+    // Strikes halved: 3 → 2 (ceil(3/2) = 2)
+    expect(after.combat).toBeDefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+
+    // Dark Quarrels in discard
+    expect(after.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, DARK_QUARRELS_2);
+
+    // Combat still active (not canceled, just modified)
+    expect(after.combat!.phase).toBe('assign-strikes');
+  });
+
+  test('halve-strikes NOT available when Gates of Morning is NOT in play', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    // cancel-attack available (orc), but halve-strikes NOT available (no GoM)
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBe(1);
+
+    const halveActions = viableActions(combatState, PLAYER_1, 'halve-strikes');
+    expect(halveActions).toHaveLength(0);
+  });
+
+  test('Dark Quarrels is NOT playable during long-event phase (combat-only)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const shortEventActions = actions.filter(a => a.action.type === 'play-short-event');
+    expect(shortEventActions).toHaveLength(0);
+
+    const notPlayable = actions.filter(a => a.action.type === 'not-playable');
+    expect(notPlayable.length).toBeGreaterThan(0);
+  });
+
+  test('halve-strikes with even number of strikes halves exactly', () => {
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, GIMLI] }], hand: [DARK_QUARRELS_2], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_DRAKE], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    // Cave-drake has 2 strikes (even number)
+    const caveDrakeId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, caveDrakeId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat!.strikesTotal).toBe(2);
+
+    const halveActions = viableActions(combatState, PLAYER_1, 'halve-strikes');
+    expect(halveActions.length).toBe(1);
+
+    const afterHalve = dispatch(combatState, halveActions[0].action);
+
+    // Strikes halved: 2 → 1 (ceil(2/2) = 1)
+    expect(afterHalve.combat!.strikesTotal).toBe(1);
+  });
+});
