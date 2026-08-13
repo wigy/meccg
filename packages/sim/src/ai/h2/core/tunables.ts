@@ -327,6 +327,28 @@ export interface Tunables {
    * Ships at the value it inherited so the split alone changes nothing.
    */
   readonly heldCardFloor: number;
+  /**
+   * The share of a held *hazard's* modelled value that survives the question of
+   * whether it will ever be played.
+   *
+   * A company's movement admits at most `effectiveHazardLimit` hazards, fixed
+   * when the movement is revealed. Nothing caps how many items, factions or
+   * allies a company may play at the site it reached. So a hand of hazards
+   * drains at a rate the rules bound and a hand of resources does not, which
+   * makes a surplus hazard the card least likely ever to be spent.
+   *
+   * A discount on *holding* only. What to do when the chance actually arrives is
+   * `hazards`, with the attack enumeration and a target in front of it.
+   */
+  readonly heldHazardOpportunity: number;
+  /**
+   * The same share for a held *character*: entering play costs free general
+   * influence out of a pool of `GENERAL_INFLUENCE`, so extra characters queue
+   * behind a ceiling that resources do not have. Set above
+   * `heldHazardOpportunity` because the influence pool refills as companies
+   * change while the hazard limit resets to the same small number every turn.
+   */
+  readonly heldCharacterOpportunity: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -347,6 +369,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   revertedMindCost: 0.15,
   partialCoverageMargin: 0.005,
   decisiveMargin: 0,
+  heldHazardOpportunity: 0.4,
+  heldCharacterOpportunity: 0.7,
   resourceDrawValue: 0.35,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,

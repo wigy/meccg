@@ -222,7 +222,11 @@ function buildComputeCardPrices(
    * between a card held and a card offered: held, a creature is worth its
    * contribution to the plan; offered, what it would add to it.
    */
-  const priceDefinition = (
+  /**
+   * What a held card is worth *if it is played*, before asking whether it ever
+   * will be. {@link priceDefinition} applies that second question.
+   */
+  const priceIfPlayed = (
     instanceId: CardInstanceId,
     definitionId: string,
     creatureWorth: () => CardWorth,
@@ -291,42 +295,62 @@ function buildComputeCardPrices(
   };
 
   /**
-   * Every held card is worth at least the floor, and that is a measured
-   * choice rather than an obvious one.
+   * A held card is worth what it does, times the chance it gets to do it.
    *
-   * Applying it only to cards nothing can read is the tidier rule, and it is
-   * what the two new valuations were built to make possible: a capped source
-   * priced at the standing its own hand would create is no longer spuriously
-   * zero, and an event priced by `event-value` is no longer spuriously the
-   * floor. Measured over 2642 attributed human decisions, that tidier rule
-   * **loses**:
+   * Everything above prices a card as though it will be played. That is fair
+   * between two resources, and unfair between a resource and a hazard, because
+   * the rules cap how fast a hand of hazards can be spent and do not cap
+   * resources the same way. A company's movement admits at most
+   * `effectiveHazardLimit` hazards, fixed when the movement is revealed; a
+   * character entering play needs free general influence out of a pool of
+   * `GENERAL_INFLUENCE`. Neither ceiling applies to playing an item, a faction
+   * or an ally at the site a company reached. So a surplus hazard is the card
+   * least likely ever to be spent, a surplus character next, and pricing all
+   * three as if they were equally deployable is what put them in the wrong
+   * order.
    *
-   * ```text
-   *                             overall    pass   discard
-   *   floor on every held card   40.76%   26.6%      6.6%
-   *   floor only where unread    39.48%   22.2%     14.3%
-   * ```
+   * The corpus is emphatic about the consequence. Humans discard hazards (87 of
+   * 172 attributed discards) and spare characters (25); H2 discarded the
+   * resources that carry marshalling points, because a creature's attack and an
+   * item's points both price above the flat floor while the rest of the hand
+   * ties on it — 99.7% of discard decisions had a tie at exactly
+   * `heldCardFloor`, and agreement with the human's card was 7.8%.
    *
-   * It buys back most of the discard precision the blanket floor costs — and
-   * pays more for it than it gains, because `pass` is 1101 of those decisions
-   * and `discard-card` is 196. Five and a half times as many decisions turn on
-   * how reluctant the agent is to spend anything at all as on which card it
-   * throws.
-   *
-   * So the floor stays on everything, and the reason is recorded because the
-   * arithmetic could change: value the remaining zeros properly and the tidier
-   * rule should win. What is left at a modelled zero is a creature the plan
-   * cannot use, a character whose mind does not fit, and an event that declares
-   * no effect.
+   * This is a discount on *holding*, not on playing: it says nothing about
+   * whether to play a hazard when the chance arrives, which `hazards` decides
+   * with the whole attack enumeration and a real target in front of it.
    */
-  const atLeastFloor = (worth: CardWorth): CardWorth =>
-    (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
+  const priceDefinition = (
+    instanceId: CardInstanceId,
+    definitionId: string,
+    creatureWorth: () => CardWorth,
+  ): CardWorth => {
+    const modelled = priceIfPlayed(instanceId, definitionId, creatureWorth);
+    // The floor comes first and the discount second, and the order is the whole
+    // change. Applied the other way round the floor clamps every discounted
+    // card straight back to `heldCardFloor` — which is what it was doing, and
+    // why 99.7% of discard decisions were a tie at exactly 1.0. The floor says
+    // what a card is worth *if played*; this says how likely that is.
+    const priced = modelled.tsd >= floor
+      ? modelled
+      : { ...modelled, tsd: floor, reason: `${modelled.reason}; held at the floor` };
+    const def = printed(cardPool[definitionId], definitionId);
+    if (!def) return priced;
+    const capped = def.cardType.startsWith('hazard')
+      ? { scale: tunables.heldHazardOpportunity, why: 'the hazard limit caps how fast hazards can be spent' }
+      : CHARACTER_TYPES.test(def.cardType)
+        ? { scale: tunables.heldCharacterOpportunity, why: 'general influence caps how many characters reach play' }
+        : null;
+    if (capped === null) return priced;
+    return { ...priced, tsd: priced.tsd * capped.scale, reason: `${priced.reason}; ${capped.why}` };
+  };
+
 
   const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return atLeastFloor(priceDefinition(instanceId, definitionId, () => {
+    return priceDefinition(instanceId, definitionId, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -341,7 +365,7 @@ function buildComputeCardPrices(
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
           : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
-    }));
+    });
   };
 
   return {

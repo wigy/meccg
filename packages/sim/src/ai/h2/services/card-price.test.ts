@@ -70,14 +70,37 @@ describe('the card price', () => {
   });
 
   test('a card whose use cannot be modelled falls back to the flat price, and says so', () => {
+    // The flat price is what it is worth *if played*. A hazard then carries the
+    // opportunity discount on top, because the hazard limit caps how fast a
+    // hand of them can be spent — so the held value is the floor times that
+    // share, and both halves are named in the reason.
     const { view, cardPool, prices: priced } = prices();
     const event = view.self.hand.find(
       c => (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event',
     );
     expect(event).toBeDefined();
     const worth = priced.worth(event!.instanceId)!;
-    expect(worth.tsd).toBeCloseTo(priced.floor, 9);
+    expect(worth.tsd).toBeCloseTo(priced.floor * DEFAULT_TUNABLES.heldHazardOpportunity, 9);
     expect(worth.reason).toContain('flat price');
+    expect(worth.reason).toContain('hazard limit');
+  });
+
+  test('a held hazard is worth less than the same modelled value on a resource', () => {
+    // The point of the discount, stated as the comparison that motivated it:
+    // the corpus has humans discarding hazards and H2 discarding the resources
+    // that score, because both were priced as though equally deployable.
+    const { view, cardPool, prices: priced } = prices();
+    const classOf = (definitionId: string): string =>
+      (cardPool[definitionId] as unknown as { cardType?: string })?.cardType ?? '';
+    const hazards = view.self.hand.filter(c => classOf(c.definitionId).startsWith('hazard'));
+    const resources = view.self.hand.filter(c => !classOf(c.definitionId).startsWith('hazard')
+      && !/-character$/.test(classOf(c.definitionId)));
+    expect(hazards.length).toBeGreaterThan(0);
+    expect(resources.length).toBeGreaterThan(0);
+
+    const cheapestResource = Math.min(...resources.map(c => priced.worth(c.instanceId)!.tsd));
+    expect(cheapestResource).toBeGreaterThanOrEqual(priced.floor);
+    expect(Math.min(...hazards.map(c => priced.worth(c.instanceId)!.tsd))).toBeLessThan(priced.floor);
   });
 
   test('the ranking is by worth, descending', () => {
