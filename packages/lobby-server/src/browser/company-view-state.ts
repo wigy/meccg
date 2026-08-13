@@ -133,6 +133,51 @@ export function shouldFocusOwnCompanyAfterSelectCompany(
 }
 
 /**
+ * Decide whether a focused opponent company should be dropped back to the
+ * all-companies overview because the M/H or Site phase has moved on to a
+ * different company.
+ *
+ * On the opponent's turn we are the hazard player; clicking an opponent
+ * company block (see company-views.ts) focuses it into single-company view
+ * so we can play hazards against it or watch its site resolution — but
+ * nothing was clearing that focus once its company's turn actually ended.
+ * `activeCompanyIndex` (see MovementHazardPhaseState / SitePhaseState) tells
+ * us which company is currently resolving; when it changes while we are
+ * still focused on the company that was *previously* active, that view is
+ * now stale — its buttons no longer correspond to a legal action — so we
+ * fall back to the overview rather than leaving the player stuck looking at
+ * a dead single-company view (see {@link shouldFocusOwnCompanyAfterSelectCompany}
+ * for why we don't instead auto-focus the new active company: that would
+ * hide self.agents for the rest of the opponent's turn).
+ *
+ * This only fires on the transition edge (index actually changed between
+ * renders), not on every render, so manually browsing a non-active opponent
+ * company afterward is not immediately undone.
+ *
+ * @param isFocusedOnOpponentCompany - Whether the currently focused company
+ *   (if any) belongs to the opponent (the side whose companies are advancing).
+ * @param lastActiveCompanyIndex - The opponent-turn M/H or Site
+ *   `activeCompanyIndex` from the previous render (null outside those
+ *   phases or on our own turn).
+ * @param curActiveCompanyIndex - The same value for the current render.
+ * @param activeId - The active player ID for the current render (null if none).
+ * @param selfId - The local player's ID.
+ * @returns True if the focus should be reset to the all-companies overview.
+ */
+export function shouldResetFocusOnOpponentCompanyAdvance(
+  isFocusedOnOpponentCompany: boolean,
+  lastActiveCompanyIndex: number | null,
+  curActiveCompanyIndex: number | null,
+  activeId: string | null,
+  selfId: string,
+): boolean {
+  const opponentTurn = activeId !== null && activeId !== selfId;
+  const advanced = lastActiveCompanyIndex !== null && curActiveCompanyIndex !== null
+    && lastActiveCompanyIndex !== curActiveCompanyIndex;
+  return opponentTurn && advanced && isFocusedOnOpponentCompany;
+}
+
+/**
  * Decide whether the start of a new combat should clear an all-companies
  * override that was auto-forced on for the opponent's turn (by {@link
  * shouldOverrideToAllCompanies}).
@@ -237,6 +282,14 @@ let lastActivePlayer: string | null = null;
 let lastMhSiteStep: string | null = null;
 
 /**
+ * Track the last opponent-turn M/H or Site `activeCompanyIndex` so we can
+ * detect when the opponent's active company changes (see
+ * {@link shouldResetFocusOnOpponentCompanyAdvance}). Null outside those
+ * phases or on our own turn.
+ */
+let lastOpponentActiveCompanyIndex: number | null = null;
+
+/**
  * Track whether combat was active on the last render, so we can detect the
  * start of a new combat (as opposed to a re-render mid-combat).
  */
@@ -296,6 +349,9 @@ export function getLastActivePlayer(): string | null { return lastActivePlayer; 
 /** Get the last M/H or Site step. */
 export function getLastMhSiteStep(): string | null { return lastMhSiteStep; }
 
+/** Get the last opponent-turn M/H or Site active company index. */
+export function getLastOpponentActiveCompanyIndex(): number | null { return lastOpponentActiveCompanyIndex; }
+
 /** Get whether combat was active on the last render. */
 export function getLastCombatActive(): boolean { return lastCombatActive; }
 
@@ -349,6 +405,9 @@ export function setLastActivePlayer(id: string | null): void { lastActivePlayer 
 /** Set the last M/H or Site step. */
 export function setLastMhSiteStep(step: string | null): void { lastMhSiteStep = step; }
 
+/** Set the last opponent-turn M/H or Site active company index. */
+export function setLastOpponentActiveCompanyIndex(index: number | null): void { lastOpponentActiveCompanyIndex = index; }
+
 /** Set whether combat was active on the last render. */
 export function setLastCombatActive(v: boolean): void { lastCombatActive = v; }
 
@@ -381,6 +440,7 @@ export function resetState(): void {
   allCompaniesOverride = false;
   lastActivePlayer = null;
   lastMhSiteStep = null;
+  lastOpponentActiveCompanyIndex = null;
   lastCombatActive = false;
   lastOnAction = null;
   lastView = null;
