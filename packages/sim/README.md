@@ -2033,6 +2033,45 @@ The corpus confirms the separation is clean. `pass` returns to the control's
 24.8% — every decision outside the discard is now byte-identical to control —
 while `discard-card` keeps the whole 10.8%.
 
+And it made no difference at all:
+
+| | discard agreement | paired Elo (95% CI) |
+| --- | --- | --- |
+| control (run three times, identical each time) | 7.8% | +81 [+46, +117] |
+| discount inside every price | 10.8% | +40 [+9, +72] |
+| discount on retention only | 10.8% | +39 [+6, +74] |
+
+Two implementations, one leaky and one surgical, both raising discard agreement
+by three points and both costing about 41 Elo. The placement was not the
+problem. **The discount is.**
+
+#### Why agreeing about the discard makes H2 worse
+
+The mechanism is not mysterious once the two agents are described honestly. H2
+beats the heuristic champion largely by playing hazards — `pass → play-hazard` is
+its single largest divergence from human play, 264 occurrences, and it is winning
+while doing it. The humans in this corpus are playing resource-first decks in
+which surplus hazards are the natural thing to throw.
+
+So "discard hazards like the human does" tells an agent whose edge is hazard
+pressure to throw away its weapon. Both sides are internally consistent; the
+discard rule is not transferable between them, because it is downstream of a
+strategy the two do not share.
+
+That makes this the sharpest counterexample in the document to reading agreement
+as progress. Every other rejected change here was rejected for a *modelling*
+reason — a stale baseline, a number fitted to a metric, a leak into decisions it
+should not have touched. This one is correctly implemented, correctly targeted,
+and measurably closer to human play, and it still loses. Agreement is evidence
+about whether a decision is *modelled*; it is not evidence about whether copying
+it helps a different player.
+
+What survives is the diagnosis, not the fix: the discard is still decided on a
+placeholder, 99.7% of those decisions are still a tie at exactly
+`heldCardFloor`, and the card H2 throws is still chosen by tie-break order. A
+real reservation value would have to be built from what *this* agent's plan needs
+next, not from what the corpus's humans kept.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
