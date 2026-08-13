@@ -2282,6 +2282,61 @@ So the usable rule is narrower than "imitate the human" and narrower than
 its answer is portable.** Where a divergence rests on a rule both players are
 bound by, copy it. Where it rests on a strategy only one of them has, do not.
 
+### Not acting is a move, and a bad one
+
+Removing Heuristics 1 left a question the fallback had been answering: what does
+H2 do on a decision it cannot rank? The first answer was `pass`, on the argument
+that every action costs something the model may not have priced — a card, a tap,
+information — so an action with no modelled benefit has nothing to set against
+it.
+
+That argument treats passing as the neutral option. It is not. A turn spent
+passing plays no resource, attempts no faction and scores nothing, while the
+opponent's turn arrives regardless. `pass` is a move with its own cost, and
+preferring it on every tie had H2 decline **44% of its decisions**.
+
+So a decision H2 cannot rank now goes to one of the tied best, drawn uniformly,
+and `pass` wins a tie only when nothing else is tied with it. Random rather than
+first-in-list, because the failure the clause was originally written for is real:
+a tie at the top is whichever candidate the stable sort put first, not a
+preferred one, and taking it deterministically once had H2 give away two starting
+items it had no reason to move. Choosing uniformly removes the false preference
+without inventing one.
+
+| | overall agreement | `pass` agreement | score | paired Elo (95% CI) |
+| --- | --- | --- | --- | --- |
+| passing on a tie | 58.1% | 73.6% | 17.8% | −265 [−311, −225] |
+| acting on a tie | **49.0%** | **46.7%** | **29.0%** | **−155 [−195, −119]** |
+
+**+110 Elo**, against a standard error on the difference of about 29 — nearly
+four standard errors, and by a wide margin the largest single change measured in
+this document.
+
+#### The cleanest disproof of agreement-as-target
+
+Agreement with human play fell nine points overall and twenty-seven on `pass`,
+and the agent got much stronger. That is the exact opposite direction from the
+discard results, where agreement rose and strength fell three times running, and
+between them the two settle the question:
+
+| | agreement | strength |
+| --- | --- | --- |
+| discard: opportunity discount | ↑ 3 points | −41 Elo |
+| discard: retention-only discount | ↑ 3 points | −42 Elo |
+| discard: total order | ↑ 4.3 points | −84 Elo |
+| **acting on ties** | **↓ 9 points** | **+110 Elo** |
+
+Agreement is not the objective and never was; it is an *instrument*. It found the
+draft coin flip, the placeholder discard price, the 41% deferral to H1 — every
+one a real defect, none of them findable from win rate alone, because a 20% score
+is a single number and the corpus is three thousand labelled decisions.
+
+But the human's *answer* is only portable when it rests on something both players
+share. `pass` is the extreme case: the humans in this corpus pass because their
+position is developed and they are waiting for the right moment. H2 passes
+because it has nothing to say. Those are the same move for opposite reasons, and
+copying the frequency copied the reason it did not have.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right

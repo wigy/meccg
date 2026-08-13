@@ -218,17 +218,32 @@ describe('a tie at the top with an unrelated worse candidate', () => {
     },
   };
 
-  test('passes instead of playing the first tied candidate', () => {
-    // It used to hand this to a fallback. There is no fallback now, and the
-    // answer is the same one for the same reason: a tie at the top is not a
-    // preference, and an action nothing prices as better still costs a card, a
-    // tap, or information.
+  test('acts on a tie instead of passing, because not acting is not neutral', () => {
+    // A turn spent passing plays no resource, attempts no faction and scores
+    // nothing, while the opponent's turn arrives regardless. `pass` is a move
+    // with its own cost, so it does not win a tie merely by being the option
+    // that changes nothing.
     const agent = createHeuristic2Agent({
       available: [tiedTopWorseOutlier], model, temperature: 0.0001,
     });
     const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT, PASS_A]));
-    expect(decision.action).toBe(PASS_A);
+    expect(decision.action).not.toBe(PASS_A);
+    expect(decision.action).not.toBe(SPLIT);
     expect(decision.note).toContain('no opinion');
+  });
+
+  test('and picks uniformly among the tied, not whichever sorted first', () => {
+    // The failure this clause was written for: a tie at the top is whichever
+    // candidate the stable sort put first, not a preferred one, and taking it
+    // deterministically once had H2 give away two starting items it had no
+    // reason to move. Both tied candidates must be reachable.
+    const agent = createHeuristic2Agent({
+      available: [tiedTopWorseOutlier], model, temperature: 0.0001,
+    });
+    const drawn = new Set([0, 0.99].map(r =>
+      agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT], () => r)).action));
+    expect(drawn.size).toBe(2);
+    expect(drawn.has(SPLIT)).toBe(false);
   });
 
   test('takes its own best when there is nothing to pass with', () => {
