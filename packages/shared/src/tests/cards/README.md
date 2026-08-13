@@ -314,7 +314,7 @@
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
-| dm-143 | The Hunt | — | 14 | ☑ |
+| dm-143 | The Hunt | — | 15 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 8 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
@@ -456,7 +456,7 @@
 | le-154 | Stinker | — | 17 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
-| le-158 | The Warg-king | — | 11 | ☑ |
+| le-158 | The Warg-king | — | 12 | ☑ |
 | le-159 | A Malady Without Healing | — | 13 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |

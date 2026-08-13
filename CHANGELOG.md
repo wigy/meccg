@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.103.0 — 2026-08-13
+
+Card fixes and a calmer hazard view
+
+### Game Engine
+
+- The Warg-king (le-158) is now playable at a tapped Ruins & Lairs site.
+- The Hunt (dm-143) offers creatures revealed by attacking, not only those
+  revealed by an explicit reveal effect.
+- Followers can be reassigned directly between direct-influence controllers.
+- The end-of-turn gold-ring auto-test is scoped to the Ringwraith's or
+  Balrog's own company rather than firing across the table.
+
+### Web Client
+
+- The hazard view no longer jumps back to the overview mid-play, and shows
+  the remaining hazard limit.
+- The currently active company is highlighted with a green glow.
+- The dice tray no longer vanishes after toggling the debug view.
+
+### AI
+
+- H2 drafts the expensive characters while the budget is there.
+
 ## 0.102.0 — 2026-08-13
 
 Elo ratings on the Scores page
