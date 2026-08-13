@@ -1981,6 +1981,78 @@ same pass, because `card-price` is the file this project has twice changed on a
 metric and twice reverted (see the reverts above) — the fix has to come from what
 the rules say a card in hand can do, not from what moves agreement.
 
+### Heuristics 1 was 41% of Heuristics 2
+
+H2 handed decisions it could not rank to H1. Measured over the recorded corpus,
+that was not a rare safety net:
+
+```text
+decisions with a real choice: 1564
+  H2 decided it itself:      919 (58.8%)
+  handed to Heuristics 1:    645 (41.2%)
+
+  corruption-check  96.8%      pass           58.7%
+  play-hazard       72.5%      discard-card   55.1%
+  pass-chain-prio   63.0%      assign-strike  51.0%
+```
+
+More than two decisions in five credited to H2 were H1's. Every measurement in
+this document — every agreement figure, every gate — was taken on an agent that
+was 41% another agent, and every module improvement was being measured on the
+fraction of decisions that reached the modules at all. The discard work above
+touched under half the discards it was aimed at.
+
+So the fallback was removed. H2 answers everything itself, and what it says when
+it has no preference is `pass`: every action costs something the model may not
+have priced — a card, a tap, information — and an action with no modelled benefit
+has nothing to set against that.
+
+#### What that revealed
+
+| | overall agreement | `pass` agreement | paired Elo vs H1 | failures |
+| --- | --- | --- | --- | --- |
+| with the H1 fallback | 41.1% | 24.8% | +81 [+46, +117] | 1 |
+| without it | **58.7%** | **73.6%** | **−264 [−315, −221]** | **0** |
+
+Both numbers are large and they point in opposite directions.
+
+**Agreement rose seventeen points**, almost all of it on `pass`. H1's eagerness to
+act was the single biggest source of divergence from human play; H2's own modules
+were closer to human judgement than the agent overruling them two decisions in
+five.
+
+**Strength collapsed to 18%.** H2's modules, standing alone, lose badly to H1.
+The +81 Elo H2 used to carry was mostly H1's, with the modules adding a little on
+top. That is the honest baseline of the modular agent and it had never been
+measured, because the agent had never played a game without help.
+
+The mechanism is not subtle: H2 now passes on 41% of decisions, so it declines to
+play resources, decline to attack, and declines to score. Passing is the right
+answer to a tie and the wrong answer to a decision nobody modelled, and until
+those decisions are owned the two are indistinguishable from inside.
+
+The one unambiguous gain: **zero incomplete games**, where every previous gate in
+this document hit the `movement-hazard` deadlock once. An agent that declines
+instead of acting on a coin flip does not walk into the cycle.
+
+#### The work list, finally ranked by what it costs
+
+The deferral table is the roadmap, because each row is decisions H2 currently
+answers with `pass`:
+
+| action type | deferred | what owning it requires |
+| --- | --- | --- |
+| `pass` | 262/446 | the modules' own opinion about acting at all |
+| `discard-card` | 108/196 | the reservation value §3.5 asked for |
+| `play-hazard` | 37/51 | `hazards` already prices bundles; this is coverage, not valuation |
+| `corruption-check` | 30/31 | nearly untouched |
+| `assign-strike` | 26/51 | fell 44.9% → 12.3% on agreement; no `pass` exists in that window, so H2 takes the first candidate |
+| `select-company` | 26/114 | |
+
+Reading the gate as a verdict on the removal would be a mistake. It is a verdict
+on the modules, taken for the first time without a second agent covering for
+them.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
