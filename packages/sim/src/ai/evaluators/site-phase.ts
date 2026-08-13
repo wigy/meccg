@@ -10,7 +10,7 @@
  * favor situations with a comfortable success probability.
  */
 
-import type { GameAction, Company, PlayerView } from '@meccg/shared';
+import type { GameAction, Company, CardDefinition, PlayerView } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
@@ -25,8 +25,20 @@ import {
   hasUntappedCharacter,
   hasUntapSource,
   handHasNoTapPlayableAt,
+  findCharacterInPlay,
   type AnySiteCard,
 } from './common.js';
+
+/**
+ * Whether a card's effects declare the bespoke `malady-without-healing`
+ * orchestrator (A Malady Without Healing, le-159) — a corruption check on a
+ * targeted character that may name either side (`targetScope: any-player`).
+ */
+function isMaladyWithoutHealing(def: CardDefinition | undefined): boolean {
+  const effects = (def as { effects?: readonly Record<string, unknown>[] } | undefined)?.effects;
+  if (!effects) return false;
+  return effects.some(e => (e.apply as Record<string, unknown> | undefined)?.type === 'malady-without-healing');
+}
 
 /**
  * Whether a site's automatic attacks make tapping the defender the only
@@ -124,6 +136,26 @@ export const sitePhaseEvaluator: ActionEvaluator = {
           score += 5;
         }
         return Math.max(1, score);
+      }
+
+      case 'play-short-event': {
+        // A Malady Without Healing (le-159) may target either side's
+        // characters (`targetScope: any-player`) — the target makes a
+        // corruption check it can be eliminated by, and the caster gets
+        // nothing for killing their own. Left unscored, a self-hurting
+        // target (our own character) got the same flat default weight as
+        // an opponent's, a coin flip that had the AI killing its own
+        // characters with its own corruption event (bug report: game
+        // msq1wzcy-gwjpmx, seq 261 — the caster targeted p2-103, its own
+        // character, instead of an opponent's).
+        if (action.targetCharacterId) {
+          const card = view.self.hand.find(c => c.instanceId === action.cardInstanceId);
+          const def = card && lookupDef(pool, card.definitionId);
+          if (isMaladyWithoutHealing(def) && findCharacterInPlay(view, action.targetCharacterId)?.isSelf) {
+            return 0;
+          }
+        }
+        return null;
       }
 
       case 'play-minor-item': {
