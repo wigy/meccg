@@ -670,6 +670,50 @@ h2 {
   width: 5rem;
 }
 
+.scoreboard-col-rating {
+  font-weight: 700;
+  color: #d8d8e0;
+}
+
+/* An unrated player: games recorded before ratings, awaiting a rebuild. */
+.scoreboard-rating-none {
+  color: #6b7280;
+}
+
+/* Provisional marker — the rating rests on fewer than 15 games. */
+.scoreboard-rating-provisional {
+  color: #a0a8b0;
+  font-weight: 400;
+  cursor: help;
+}
+
+.scoreboard-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.scoreboard-rating-delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.scoreboard-rating-delta--up {
+  color: #6fbf73;
+}
+
+.scoreboard-rating-delta--down {
+  color: #d47c7c;
+}
+
+.scoreboard-rating-delta--flat {
+  color: #a0a8b0;
+}
+
 .scoreboard-ai-badge {
   display: inline-block;
   margin-left: 0.4rem;

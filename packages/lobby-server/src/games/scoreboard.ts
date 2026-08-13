@@ -4,13 +4,16 @@
  * Scoreboard built from the completed-game records the game-server writes
  * to `~/.meccg/games/<gameId>.json` (see `game-record.ts` in
  * `@meccg/game-server`; the directory convention is shared via the
- * `GAME_RECORDS_DIR` env variable, the same way `PLAYERS_DIR` is). With no
- * ratings yet, rows are ordered by games played.
+ * `GAME_RECORDS_DIR` env variable, the same way `PLAYERS_DIR` is). Rows are
+ * ordered by Elo rating, which `ratings.ts` reads from the rating files the
+ * game-server maintains alongside the records.
  */
 
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { loadRatingHistory, loadRatings } from './ratings.js';
+import type { PlayerRatingSummary, StoredRatingHistoryEntry } from './ratings.js';
 
 /**
  * Marshalling points by category, as the game-server records them.
@@ -69,6 +72,15 @@ export interface ScoreboardRow {
   readonly wins: number;
   readonly losses: number;
   readonly draws: number;
+  /**
+   * Elo rating, or null for a player whose games predate the rating files and
+   * have not been replayed yet (`bin/ratings rebuild` fixes that).
+   */
+  readonly rating: number | null;
+  /** Highest rating ever held. Null alongside a null {@link rating}. */
+  readonly peak: number | null;
+  /** True while the rating rests on too few games to be trusted. */
+  readonly provisional: boolean;
   /** `endedAt` of the player's most recent game, ISO timestamp. */
   readonly lastPlayed: string | null;
 }
@@ -79,13 +91,18 @@ function gameRecordsDir(): string {
 }
 
 /**
- * Aggregate records into per-player rows, sorted by games played
- * (descending), ties by name. Records that predate the `human` flag fall
- * back to the lobby's `AI-` naming convention.
+ * Aggregate records into per-player rows, sorted by rating (descending), then
+ * by games played, ties by name. Unrated players sort below every rated one.
+ * Records that predate the `human` flag fall back to the lobby's `AI-` naming
+ * convention.
  */
-export function aggregateScoreboard(records: readonly ScoreboardGameRecord[]): ScoreboardRow[] {
+export function aggregateScoreboard(
+  records: readonly ScoreboardGameRecord[],
+  ratings: ReadonlyMap<string, PlayerRatingSummary> = new Map(),
+): ScoreboardRow[] {
   const byName = new Map<string, {
     name: string; human: boolean; games: number; wins: number; losses: number; draws: number;
+    rating: number | null; peak: number | null; provisional: boolean;
     lastPlayed: string | null;
   }>();
 
@@ -95,7 +112,14 @@ export function aggregateScoreboard(records: readonly ScoreboardGameRecord[]): S
       const key = player.name.toLowerCase();
       let row = byName.get(key);
       if (!row) {
-        row = { name: player.name, human: true, games: 0, wins: 0, losses: 0, draws: 0, lastPlayed: null };
+        const rating = ratings.get(key);
+        row = {
+          name: player.name, human: true, games: 0, wins: 0, losses: 0, draws: 0,
+          rating: rating?.rating ?? null,
+          peak: rating?.peak ?? null,
+          provisional: rating?.provisional ?? true,
+          lastPlayed: null,
+        };
         byName.set(key, row);
       }
       row.human = player.human ?? !/^ai-/i.test(player.name);
@@ -110,7 +134,9 @@ export function aggregateScoreboard(records: readonly ScoreboardGameRecord[]): S
   }
 
   return [...byName.values()].sort((a, b) =>
-    b.games - a.games || a.name.localeCompare(b.name));
+    (b.rating ?? -Infinity) - (a.rating ?? -Infinity)
+    || b.games - a.games
+    || a.name.localeCompare(b.name));
 }
 
 /** One side of a game as shown on the player detail page. */
@@ -144,6 +170,12 @@ export interface PlayerGame {
   readonly winCard: string | null;
   readonly self: PlayerGameSide;
   readonly opponent: PlayerGameSide | null;
+  /** The requested player's rating before this game, null if it was unrated. */
+  readonly ratingBefore: number | null;
+  /** Their rating after it. */
+  readonly ratingAfter: number | null;
+  /** `ratingAfter - ratingBefore`, the swing this game caused. */
+  readonly ratingDelta: number | null;
 }
 
 const ZERO_MP: Required<ScoreboardMp> =
@@ -176,10 +208,14 @@ function toSide(player: ScoreboardRecordPlayer): PlayerGameSide {
  * Every game the named player took part in, most recently finished first.
  * Name matching is case-insensitive, the same way {@link aggregateScoreboard}
  * keys its rows. Games missing `endedAt` sort last.
+ *
+ * `ratingHistory` annotates each game with the rating swing it caused; games
+ * absent from it (finished before ratings existed) report null deltas.
  */
 export function playerGames(
   records: readonly ScoreboardGameRecord[],
   playerName: string,
+  ratingHistory: ReadonlyMap<string, StoredRatingHistoryEntry> = new Map(),
 ): PlayerGame[] {
   const key = playerName.toLowerCase();
   const games: PlayerGame[] = [];
@@ -191,6 +227,8 @@ export function playerGames(
     const result = record.winner == null
       ? 'draw'
       : record.winner.toLowerCase() === key ? 'win' : 'loss';
+
+    const rated = record.gameId ? ratingHistory.get(record.gameId) : undefined;
 
     games.push({
       gameId: record.gameId ?? null,
@@ -204,6 +242,9 @@ export function playerGames(
       winCard: record.winCard ?? null,
       self: toSide(self),
       opponent: opponent ? toSide(opponent) : null,
+      ratingBefore: rated?.before ?? null,
+      ratingAfter: rated?.after ?? null,
+      ratingDelta: rated?.delta ?? null,
     });
   }
 
@@ -235,12 +276,12 @@ function readGameRecords(): ScoreboardGameRecord[] {
   return records;
 }
 
-/** Aggregate every record on disk into scoreboard rows. */
+/** Aggregate every record on disk into scoreboard rows, rated and ranked. */
 export function loadScoreboard(): ScoreboardRow[] {
-  return aggregateScoreboard(readGameRecords());
+  return aggregateScoreboard(readGameRecords(), loadRatings());
 }
 
 /** Every game on disk that the named player took part in, newest first. */
 export function loadPlayerGames(playerName: string): PlayerGame[] {
-  return playerGames(readGameRecords(), playerName);
+  return playerGames(readGameRecords(), playerName, loadRatingHistory(playerName));
 }
