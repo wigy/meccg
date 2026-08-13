@@ -35,7 +35,7 @@ import {
   MORIA,
   CardStatus,
   buildSitePhaseState,
-  addP2CardsInPlay, setupAutoAttackStep,
+  addP1CardsInPlay, addP2CardsInPlay, setupAutoAttackStep,
   viableActions, dispatch,
   findCharInstanceId, findInPile,
   attachItemToChar,
@@ -197,6 +197,57 @@ describe('Balrog of Moria (tw-12)', () => {
     // Not in hazard player's kill pile
     const inHazardKillPile = findInPile(result.state, 1, 'killPile', balrogInPlay.instanceId);
     expect(inHazardKillPile).toBeUndefined();
+  });
+
+  test('bug regression: defeating the Balrog is removed from play even when its owner is the defending player', () => {
+    // Bug report: a player played Balrog of Moria against their opponent
+    // (permanent-event, sits in the player's own cardsInPlay). Later, that
+    // same player's own company visited Moria and defeated the Balrog's 2nd
+    // auto-attack — but the card was never removed from play. Root cause:
+    // finalizeCombat assumed the auto-attack's source card always lives in
+    // `combat.attackingPlayerId`'s cardsInPlay, but a site-bound permanent
+    // event stays in whichever player's cardsInPlay originally played it,
+    // which can be the *defending* player of a later combat at that site.
+    const base = setupAutoAttackStep(
+      attachItemToChar(
+        addP1CardsInPlay(buildSitePhaseState({ site: MORIA, characters: [ARAGORN] }), [balrogInPlay]),
+        0,
+        ARAGORN,
+        SWORD_OF_GONDOLIN,
+      ),
+    );
+    const state = {
+      ...base,
+      phaseState: { ...(base.phaseState), automaticAttacksResolved: 1 },
+    } as GameState;
+
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+
+    let next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(1);
+    // The Balrog card sits in the defending player's own cardsInPlay.
+    expect(next.combat!.defendingPlayerId).toBe(PLAYER_1);
+
+    next = dispatch(next, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+
+    // Prowess 6 + Sword +2 + 12 = 20 > 18 beats the strike outright.
+    const resolveActions = viableActions({ ...next, cheatRollTotal: 12 } as GameState, PLAYER_1, 'resolve-strike');
+    const tapAction = resolveActions.find(a => 'tapToFight' in a.action && (a.action as { tapToFight: boolean }).tapToFight)?.action
+      ?? resolveActions[0].action;
+    const result = reduce({ ...next, cheatRollTotal: 12 } as GameState, tapAction);
+    expect(result.error).toBeUndefined();
+    expect(result.state.combat).toBeNull();
+
+    // Balrog removed from its owner's (PLAYER_1, index 0) cardsInPlay...
+    const stillInPlay = result.state.players[0].cardsInPlay.find(
+      c => c.instanceId === balrogInPlay.instanceId,
+    );
+    expect(stillInPlay).toBeUndefined();
+
+    // ...and moved to the defending player's (also PLAYER_1) kill pile.
+    const inKillPile = findInPile(result.state, 0, 'killPile', balrogInPlay.instanceId);
+    expect(inKillPile).toBeDefined();
   });
 
   test('failing to defeat the Balrog attack leaves it in cardsInPlay', () => {

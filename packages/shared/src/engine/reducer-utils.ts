@@ -4253,6 +4253,84 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
 }
 
 /**
+ * Peel `characterId` off `originCompanyId` into his own new {@link Company}
+ * sharing the same site path (`currentSite` / `destinationSite` /
+ * `movementPath`), flagged {@link Company.forcedSoloHazardLimit} so the
+ * movement/hazard loop forces its own (separate) hazard-limit snapshot to 1.
+ * The generalized, auto-rejoining sibling of Left Behind (td-41)'s
+ * `applyLeftBehindSplit` (`combat-finalize.ts`): unlike that mechanism, no
+ * `leftBehind` flag is set, so once the new company's own separate M/H phase
+ * ends it merges back into another of its owner's companies through the
+ * normal rule 2.IV.6 same-site auto-merge — no explicit "may rejoin" choice.
+ * Used by Turning Hope to Despair (as-41)'s post-attack mind-roll split.
+ *
+ * If the character was alone in his company, there is no other company to
+ * peel him into: his own company is instead flagged
+ * {@link Company.forcedSoloExtraPhasePending} to run one more separate M/H
+ * phase this turn (mirroring `applyLeftBehindSplit`'s lone-character case).
+ *
+ * No-ops (returns `state` unchanged) if the origin company or the character
+ * is no longer found — e.g. the character was eliminated by the same attack.
+ */
+export function splitCharacterOffCompany(
+  state: GameState,
+  playerIndex: number,
+  characterId: CardInstanceId,
+  originCompanyId: CompanyId,
+): GameState {
+  const newPlayers = clonePlayers(state);
+  const player = newPlayers[playerIndex];
+
+  const sourceIndex = player.companies.findIndex(c => c.id === originCompanyId);
+  if (sourceIndex < 0) {
+    logDetail(`splitCharacterOffCompany: origin company ${originCompanyId as string} not found — split skipped`);
+    return state;
+  }
+  const source = player.companies[sourceIndex];
+  if (!source.characters.includes(characterId)) {
+    logDetail(`splitCharacterOffCompany: ${characterId as string} not in origin company — split skipped`);
+    return state;
+  }
+
+  const updatedCompanies = [...player.companies];
+
+  if (source.characters.length <= 1) {
+    logDetail(`splitCharacterOffCompany: ${characterId as string} is alone — his company gets a separate M/H phase (limit 1)`);
+    updatedCompanies[sourceIndex] = {
+      ...source,
+      forcedSoloHazardLimit: true,
+      forcedSoloExtraPhasePending: true,
+    };
+    newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
+    return { ...state, players: newPlayers };
+  }
+
+  updatedCompanies[sourceIndex] = {
+    ...source,
+    characters: source.characters.filter(id => id !== characterId),
+  };
+
+  const newCompany: Company = {
+    id: nextCompanyId(player),
+    characters: [characterId],
+    currentSite: source.currentSite,
+    siteCardOwned: false,
+    destinationSite: source.destinationSite,
+    movementPath: source.movementPath,
+    moved: false,
+    siteOfOrigin: null,
+    onGuardCards: [],
+    hazards: [],
+    forcedSoloHazardLimit: true,
+  };
+  updatedCompanies.push(newCompany);
+  logDetail(`splitCharacterOffCompany: ${characterId as string} splits off into ${newCompany.id as string} (same site path as ${source.id as string})`);
+
+  newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
+  return cleanupEmptyCompanies({ ...state, players: newPlayers });
+}
+
+/**
  * Companies are removed from the array by a plain filter, so any company
  * after a removed one shifts to a lower index. The movement/hazard and site
  * phases track "the company currently being processed" purely by
@@ -4425,6 +4503,68 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
               [charId]: { ...newPlayers[pi].characters[charId], items: remaining },
             },
             discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
+          };
+        }
+      }
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
+ * `postReduce` sweep: taps every untapped item in a character's `items`
+ * whose definition carries a `tap-at-site` effect once the bearer's company
+ * currently sits at one of the named sites. A level-triggered check (not an
+ * arrival-edge trigger) re-run after every action, so it catches arrival,
+ * staying put, and a company that was already at the site when the card was
+ * played — matching "if bearer is ever at <site>" card text. Pairing the
+ * card with `play-flag: "no-auto-untap"` (checked separately by
+ * `handleUntap`, `reducer-untap.ts`) makes the tap permanent.
+ *
+ * Used by Map to Mithril (td-133): "Tap Map to Mithril if bearer is ever at
+ * Moria; this card never untaps."
+ */
+export function sweepTapAtSiteItems(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    for (const company of player.companies) {
+      if (!company.currentSite) continue;
+      const siteDef = defById(state, company.currentSite.definitionId);
+      const siteName = siteDef?.name;
+      if (!siteName) continue;
+
+      for (const charId of company.characters) {
+        const char = player.characters[charId];
+        if (!char) continue;
+
+        const toTap: string[] = [];
+        for (const item of char.items) {
+          if (item.status !== CardStatus.Untapped) continue;
+          const itemDef = defById(state, item.definitionId);
+          const trigger = (getCardEffects(itemDef) as CardEffect[]).find(
+            (e): e is import('../types/effects.js').TapAtSiteEffect =>
+              e.type === 'tap-at-site' && e.siteNames.includes(siteName),
+          );
+          if (trigger) {
+            logDetail(`sweepTapAtSiteItems: tapping "${itemDef?.name}" on ${charId as string} — bearer at ${siteName}`);
+            toTap.push(item.instanceId as string);
+          }
+        }
+
+        if (toTap.length > 0) {
+          changed = true;
+          const tapSet = new Set(toTap);
+          const newItems = char.items.map(i => tapSet.has(i.instanceId as string) ? { ...i, status: CardStatus.Tapped } : i);
+          newPlayers[pi] = {
+            ...newPlayers[pi],
+            characters: {
+              ...newPlayers[pi].characters,
+              [charId]: { ...newPlayers[pi].characters[charId], items: newItems },
+            },
           };
         }
       }

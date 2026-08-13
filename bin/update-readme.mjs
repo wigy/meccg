@@ -58,22 +58,38 @@ function testFiles(dir) {
 
 /**
  * Counts implemented vs pending tests in a test file. `test.todo(` is counted
- * separately from `test(` — the two patterns cannot overlap, so a plain
- * `test(` match is always an implemented test.
+ * separately from `test(`; the two patterns cannot overlap, because `test.todo`
+ * has a `.` where the implemented form has its `(`.
+ *
+ * The leading `(?<![.\w])` is load-bearing: `\b` alone also matches after a
+ * dot, so `/unique/i.test(reason)` — a RegExp method call, not a test — was
+ * counted as an effect and inflated the Effects column on every card whose
+ * assertions use one.
  */
 function counts(file) {
   const src = readFileSync(file, 'utf8');
-  const todo = (src.match(/\btest\.todo\s*\(/g) || []).length;
-  const impl = (src.match(/\btest\s*\(/g) || []).length;
+  const todo = (src.match(/(?<![.\w])test\.todo\s*\(/g) || []).length;
+  const impl = (src.match(/(?<![.\w])test\s*\(/g) || []).length;
   return { impl, todo, total: impl + todo, done: impl > 0 && todo === 0 };
 }
 
 /** ☑ = fully implemented, ☐ = all todo, ◐ = partially implemented. */
 const mark = (c) => (c.done ? '☑' : c.impl === 0 ? '☐' : '◐');
 
-/** Sort key placing cards by set, then numerically; non-numeric ids sort last within their set. */
+/**
+ * The card a test file is about, for pool lookups. Test files may carry a
+ * descriptive suffix (`as-79-the-dark-power.test.ts`), which is not part of the
+ * card id; matching to the end of the string missed those entirely, leaving the
+ * card unnamed in the matrix. Files with no card id at all (parity suites such
+ * as `le-pending-effects-parity`) return unchanged and simply find no card.
+ */
+function cardIdOf(id) {
+  return /^[a-z]+-\d+(?=-|$)/.exec(id)?.[0] ?? id;
+}
+
+/** Sort key placing cards by set, then numerically; ids with no number sort last within their set. */
 function idKey(id) {
-  const numbered = /^([a-z]+)-0*(\d+)$/.exec(id);
+  const numbered = /^([a-z]+)-0*(\d+)(?=-|$)/.exec(id);
   if (numbered) return [SETS.indexOf(numbered[1]), parseInt(numbered[2], 10)];
   const set = /^([a-z]+)-/.exec(id);
   return [set ? SETS.indexOf(set[1]) : SETS.length, Number.MAX_SAFE_INTEGER];
@@ -135,7 +151,7 @@ function updateCardsReadme(pool) {
       categories[category].done++;
       done++;
     }
-    const name = pool[id]?.name ?? carried.get(id)?.name ?? '—';
+    const name = pool[cardIdOf(id)]?.name ?? carried.get(id)?.name ?? '—';
     const type = carried.get(id)?.type ?? '—';
     rows.push(`| ${id} | ${name} | ${type} | ${c.total} | ${mark(c)} |`);
   }

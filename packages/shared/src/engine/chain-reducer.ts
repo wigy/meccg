@@ -3933,10 +3933,37 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // TODO: check validity (CoE rule 681: conditions must still be legal)
 
   let current = state;
+  const resolveEffects: import('../index.js').GameEffect[] = [];
 
   // Apply card effects based on payload type
   if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
-    current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+    // Wrath of the West (le-151): a `cancel-chain-entry` apply carrying a
+    // `threshold` gates the cancel on a 2d6 roll — "Make a roll—if the
+    // result is greater than 6, the event is canceled and discarded" — rather
+    // than negating the target unconditionally (Ire of the East wh-24, Twilight).
+    const rollThreshold = entry.card
+      ? getCardEffects(defById(current, entry.card.definitionId)).find(
+          (e): e is OnEventEffect & { apply: import('../types/effects.js').CancelChainEntryAction } =>
+            e.type === 'on-event' && e.event === 'self-enters-play'
+            && e.apply?.type === 'cancel-chain-entry' && e.apply.select === 'target'
+            && typeof e.apply.threshold === 'number',
+        )?.apply.threshold
+      : undefined;
+    if (rollThreshold != null) {
+      const cardName = defById(current, entry.card!.definitionId)?.name ?? (entry.card!.definitionId as string);
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const { roll, rng, cheatRollTotal } = roll2d6(current);
+      const total = roll.die1 + roll.die2;
+      const success = total >= rollThreshold;
+      current = { ...current, rng, cheatRollTotal };
+      resolveEffects.push(diceRollEffect(current.players[declarerIdx].name, roll, `${cardName}: cancel roll`));
+      logDetail(`${cardName}: ${current.players[declarerIdx].name} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${rollThreshold} — ${success ? 'success, canceling target' : 'failure, target unaffected'}`);
+      if (success) {
+        current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+      }
+    } else {
+      current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+    }
   }
 
   // "Remove this card from the game." — a short-event whose self-enters-play
@@ -4714,7 +4741,6 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // resolves un-negated, fire each matching effect through the shared apply
   // dispatcher. The opponent had a chance to negate this entry during chain
   // declaration.
-  const resolveEffects: import('../index.js').GameEffect[] = [];
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
     {

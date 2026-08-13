@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -255,7 +255,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // the `assign-strikes` cancel window. cancelActions is gated to the
       // pre-resolution window (see inCancelWindow), so it is empty for normal
       // multi-strike attacks that reach choose-strike-order after assignment.
-      return [...cancelActions, ...chooseStrikeOrderActions(state, playerId, combat)];
+      return [...cancelActions, ...chooseStrikeOrderActions(state, playerId, combat), ...sacrificeOfFormActions(state, playerId, combat)];
     case 'resolve-strike': {
       // CvCC resolve-strike: two-step sub-phase — attacker declares -3 first,
       // then defender resolves. No hazard window (rule 8.42: no hazards in CvCC).
@@ -312,6 +312,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         ...cancelActions,
         ...resolveStrikeActions(state, playerId, combat),
         ...fleeFromStrikeActions(state, playerId, combat),
+        ...sacrificeOfFormActions(state, playerId, combat),
         ...hazardPlays,
         ...leftBehindPlays,
         ...attackOptions,
@@ -1258,6 +1259,56 @@ function fleeFromStrikeActions(
     logDetail(`Flee-from-strike available: ${def.name} can cancel strike (prowess ${strikeProwess}) against ${struckName}`);
     actions.push({
       action: { type: 'flee-from-strike', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Sacrifice of Form (tw-321): Wizard-only permanent-event playable from hand
+ * after strikes are assigned against the Wizard's company, before any strike
+ * of the attack has resolved. Not usable in company-vs-company combat.
+ * Cannot be duplicated on a given Wizard — blocked while any in-play card
+ * already names that Wizard's instance ID via
+ * `sacrificeOfFormCharacterInstanceId`.
+ */
+function sacrificeOfFormActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.attackSource.type === 'company-attack') return [];
+  if (combat.strikeAssignments.length === 0 || combat.strikeAssignments.some(a => a.resolved)) return [];
+
+  const defPlayer = playerById(state, playerId);
+  if (!defPlayer) return [];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company) return [];
+
+  const wizardId = company.characters.find(charId => {
+    const char = defPlayer.characters[charId];
+    if (!char) return false;
+    const def = defById(state, char.definitionId);
+    return isCharacterCard(def) && isAvatarCharacter(def) && def.alignment === Alignment.Wizard;
+  });
+  if (!wizardId) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const card of defPlayer.hand) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find((e): e is SacrificeOfFormEffect => e.type === 'sacrifice-of-form');
+    if (!effect) continue;
+    const alreadyBound = defPlayer.cardsInPlay.some(c => c.sacrificeOfFormCharacterInstanceId === wizardId);
+    if (alreadyBound) {
+      logDetail(`${def.name}: cannot be duplicated on a given Wizard — already in play for ${wizardId as string}`);
+      continue;
+    }
+    logDetail(`${def.name}: playable — all strikes of the current attack against ${wizardId as string}'s company would fail`);
+    actions.push({
+      action: { type: 'play-sacrifice-of-form', player: playerId, cardInstanceId: card.instanceId, characterInstanceId: wizardId },
       viable: true,
     });
   }
@@ -2454,6 +2505,14 @@ function cancelAttackActions(
   for (const charId of company.characters) {
     const charData = player.characters[charId];
     if (!charData) continue;
+    // Printed skills only (mirrors the cancel-strike `bearer.skills` convention —
+    // charDef.skills, not getEffectiveSkills — so a ring's own `grant-skill`
+    // effect never retroactively satisfies its own "if the bearer is already a
+    // <skill>" gate). Lets an item's `when` clause gate on the bearer's skills,
+    // e.g. Magic Ring of Nature (tw-273): "If the bearer is already a ranger, he
+    // may tap to cancel an attack against his company."
+    const bearerCharDef = defById(state, charData.definitionId);
+    const bearerSkills = bearerCharDef && isCharacterCard(bearerCharDef) ? bearerCharDef.skills : [];
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
       if (!itemDef) continue;
@@ -2474,9 +2533,13 @@ function cancelAttackActions(
         logDetail(`Cancel-attack ${itemName}: bearer tapped, cannot activate`);
         continue;
       }
-      if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-        logDetail(`Cancel-attack ${itemName}: when condition not met`);
-        continue;
+      if (cancelEffect.when) {
+        const baseCtx = whenContext();
+        const itemCtx = { ...baseCtx, bearer: { ...(baseCtx.bearer as object), skills: bearerSkills } };
+        if (!matchesCondition(cancelEffect.when, itemCtx)) {
+          logDetail(`Cancel-attack ${itemName}: when condition not met`);
+          continue;
+        }
       }
       logDetail(`Cancel-attack available: tap ${tapCost === 'bearer' ? 'bearer via' : ''} ${itemName} (in-play item)`);
       actions.push({

@@ -728,7 +728,10 @@ function buildEffectiveStatsContext(
   // granting Warrior) — not just `charDef.skills` — so that other borne
   // items' `bearer.skills`-conditioned stat modifiers (e.g. Mechanical Bow
   // wh-53's "+2 prowess, Warrior only") see the granted skill too.
-  const charInfo = { ...buildBearerContext(charDef), skills: effectiveSkills };
+  // `naturalSkills` keeps the printed-only set alongside it, for cards that
+  // grant a skill and also condition a bonus on already having it (Magic
+  // Ring of Courage tw-271) — see the field doc on `ResolverContext.bearer`.
+  const charInfo = { ...buildBearerContext(charDef), skills: effectiveSkills, naturalSkills: charDef.skills };
   return {
     reason: 'effective-stats',
     bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints },

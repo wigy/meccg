@@ -567,6 +567,27 @@ export function setAllyStatus(
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
 }
 
+/** Return a new state with the status of an item borne by a character updated. */
+export function setItemStatus(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  itemDefId: CardDefinitionId,
+  status: CardStatus,
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  const char = state.players[playerIdx].characters[charId];
+  const updatedChar = {
+    ...char,
+    items: char.items.map(i => (i.definitionId === itemDefId ? { ...i, status } : i)),
+  };
+  const updatedChars = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedChars };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
 /**
  * Return a new state with a character's status updated. Replaces the
  * multi-line spread boilerplate required to update a deeply nested field.

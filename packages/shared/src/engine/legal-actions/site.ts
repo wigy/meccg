@@ -1666,8 +1666,15 @@ function playResourcesActions(
             ? [...(siteDef.keywords ?? []), 'under-deeps']
             : siteDef.keywords)
           : undefined;
+        // Dwarven Hoard (td-109): "the site is considered to contain a
+        // hoard until the end of the turn" — widen the keyword set so hoard
+        // items' `item-play-site` filter (`site.keywords $includes "hoard"`)
+        // matches even when the site did not print the keyword.
+        const effectiveSiteKeywords = siteState.hoardKeywordGranted && !siteKeywords?.includes('hoard')
+          ? [...(siteKeywords ?? []), 'hoard']
+          : siteKeywords;
         const matchesFilter = itemSiteRestriction.filter
-          ? matchesContext(itemSiteRestriction.filter, { site: { ...siteDef, autoAttackRaces, keywords: siteKeywords } })
+          ? matchesContext(itemSiteRestriction.filter, { site: { ...siteDef, autoAttackRaces, keywords: effectiveSiteKeywords } })
           : false;
         return matchesSiteList || matchesFilter;
       })() : false;
@@ -1691,10 +1698,11 @@ function playResourcesActions(
         && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'allow-items-when-tapped');
 
       // Bounty of the Hoard: event sets hoardBountyAvailable, allowing one minor or major item
-      // at a tapped hoard site.
-      const siteIsHoard = siteDef && 'keywords' in siteDef
+      // at a tapped hoard site. Dwarven Hoard (td-109) widens which sites count as a hoard
+      // site for the rest of the turn via `hoardKeywordGranted`, even without the printed keyword.
+      const siteIsHoard = (siteDef && 'keywords' in siteDef
         ? ((siteDef as { keywords?: readonly string[] }).keywords ?? []).includes('hoard')
-        : false;
+        : false) || siteState.hoardKeywordGranted === true;
       const hoardBountyBonus = siteState.hoardBountyAvailable && siteIsHoard
         && (itemDef.subtype === 'minor' || itemDef.subtype === 'major');
 

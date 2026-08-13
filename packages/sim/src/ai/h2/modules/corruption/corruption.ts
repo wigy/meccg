@@ -46,7 +46,7 @@ import { leaf, node } from '../../core/rationale.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['corruption-check'] as const;
+const OWNED_ACTION_TYPES = ['corruption-check', 'support-corruption-check'] as const;
 
 
 /** The marshalling points a set of possessions would take with them. */
@@ -88,11 +88,156 @@ const ASSUMPTIONS: readonly string[] = [
  * The corruption-check module. No context gate: a `corruption-check` is always
  * a corruption decision.
  */
+/** What failing a check costs: the points that leave, and everything else. */
+interface FailureCost {
+  /** Net TSD of the failure, negative. */
+  readonly dtsd: number;
+  /** Marshalling points at stake, priced in their own sources. */
+  readonly mpLoss: number;
+  /** What `character-value` says the character was worth beyond its points. */
+  readonly lossCost: { readonly tsd: number; readonly reason: string };
+  /** The possessions that leave with it, for the rationale. */
+  readonly described: readonly string[];
+  /** The character's printed name, when it can be resolved. */
+  readonly name: string;
+}
+
+/**
+ * Price a failed corruption check once, for both the check and its support.
+ *
+ * Shared rather than computed twice because the support action is worth
+ * exactly the failure it averts: two models of one number would eventually
+ * disagree about how bad a corruption is, and nothing in the output would say
+ * which was right.
+ */
+function failureCostOf(
+  context: ModuleContext,
+  characterId: CardInstanceId,
+  possessions: readonly CardInstanceId[],
+): FailureCost {
+  const { standing, tunables, cardPool, view } = context;
+  const character = view.self.characters[characterId];
+  const charDef = character ? cardPool[character.definitionId] : undefined;
+  const charFields = charDef as unknown as {
+    name?: string; marshallingPoints?: number; marshallingCategory?: string;
+  } | undefined;
+  const { delta, described } = possessionLoss(context, characterId, possessions);
+  const ownPoints = charFields?.marshallingPoints ?? 0;
+  if (ownPoints > 0) {
+    const source = (charFields?.marshallingCategory ?? 'character') as MpSource;
+    delta[source] = (delta[source] ?? 0) - ownPoints;
+  }
+  const mpLoss = standing.tsdAfter(delta) - standing.tsd;
+  const lossCost = computeCharacterValue(view, cardPool, standing, tunables).lossCost(characterId);
+  return {
+    dtsd: netTsdDelta({ realized: mpLoss, tempo: lossCost.tsd }, tunables),
+    mpLoss,
+    lossCost,
+    described,
+    name: charFields?.name ?? 'the character',
+  };
+}
+
+/**
+ * Score tapping a character to add +1 to somebody else's corruption check.
+ *
+ * The rules make this exactly computable and there is nothing to guess at: an
+ * untapped character "may tap for +1 each before the roll"
+ * (`actions-universal.ts`), so supporting moves the 2d6 target down by one and
+ * the whole value is the failure it averts.
+ *
+ *   gain = [P(pass at need−1) − P(pass at need)] × what failing costs
+ *   cost = what tapping that particular character forgoes
+ *
+ * Every term is already in the project: the engine publishes `need` on the
+ * check itself, `failureCostOf` prices the failure for both actions, and
+ * `character-value.tapCost` prices the tap by what that character was for
+ * rather than by a flat rate.
+ *
+ * It is here because it was **unowned**. Measured against the recorded corpus,
+ * `support-corruption-check` is what the agent does instead of passing 36
+ * times in eight games, all of it in the Free Council — and with no module
+ * claiming the action, every one of those decisions was made by the
+ * Heuristics-1 weight soup this design exists to replace.
+ */
+function evaluateSupport(action: GameAction, context: ModuleContext): Evaluation | null {
+  const fields = action as unknown as {
+    supportingCharacterId?: CardInstanceId;
+    targetCharacterId?: CardInstanceId;
+  };
+  if (!fields.supportingCharacterId) return null;
+
+  // The check being supported is on the table beside it. Matched by the
+  // character it names, or taken as the only one on offer — which is the Free
+  // Council flow, where the action omits the target because the phase state
+  // already holds it.
+  const checks = context.legalActions.filter(a => a.type === 'corruption-check');
+  const check = (fields.targetCharacterId
+    ? checks.find(a => (a as unknown as { characterId?: CardInstanceId }).characterId
+      === fields.targetCharacterId)
+    : checks.length === 1 ? checks[0] : undefined) as unknown as {
+      characterId?: CardInstanceId; need?: number; possessions?: readonly CardInstanceId[];
+    } | undefined;
+  // No check to read means no opinion: declining is what the module does with
+  // a window it cannot price, rather than inventing one.
+  if (!check || typeof check.need !== 'number' || !check.characterId) return null;
+  if (check.need <= 2) return null;
+
+  const { standing, tunables, cardPool, view } = context;
+  const pWithout = pAtLeast(check.need);
+  const pWith = pAtLeast(check.need - 1);
+  const failure = failureCostOf(context, check.characterId, check.possessions ?? []);
+  // The support is worth the mass it moves out of the failing band.
+  const averted = (pWith - pWithout) * -failure.dtsd;
+  const tap = computeCharacterValue(view, cardPool, standing, tunables)
+    .tapCost(fields.supportingCharacterId);
+
+  const dtsd = netTsdDelta({ realized: averted, tempo: tap.tsd }, tunables);
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: `tap for +1 on ${failure.name}'s check — ${((pWith - pWithout) * 100).toFixed(1)}% `
+      + 'less chance of losing them',
+    dtsd,
+  }];
+  const scored = standing.score(outcomes);
+
+  return {
+    action,
+    module: 'corruption',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node('support a corruption check', scored.utility, [
+      node('what the +1 buys', averted, [
+        leaf('need on 2d6', check.need, { note: 'published by the engine on the check itself' }),
+        leaf('P(the check holds)', pWithout, { unit: 'p' }),
+        leaf('P(it holds with the +1)', pWith, { unit: 'p', note: 'CoE: an untapped character may tap for +1' }),
+        leaf('what failing costs', -failure.dtsd, {
+          unit: 'tsd',
+          note: failure.described.length > 0
+            ? `${failure.name} plus ${failure.described.join(', ')}`
+            : `${failure.name} and ${failure.lossCost.reason}`,
+        }),
+      ], { unit: 'tsd' }),
+      leaf('the tap it spends', tap.tsd, { unit: 'tsd', note: tap.reason }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      ...ASSUMPTIONS,
+      'only one supporter is priced at a time; several characters tapping for +1 each are scored '
+      + 'as separate decisions, so the second is valued against a check the first already helped',
+    ],
+  };
+}
+
 export const corruptionModule: H2Module = {
   name: 'corruption',
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    if (action.type === 'support-corruption-check') return evaluateSupport(action, context);
     if (action.type !== 'corruption-check') return null;
     const fields = action as unknown as {
       characterId?: CardInstanceId;
@@ -103,24 +248,13 @@ export const corruptionModule: H2Module = {
     };
     if (typeof fields.need !== 'number' || !fields.characterId) return null;
 
-    const { standing, tunables, cardPool, view } = context;
+    const { standing } = context;
     const pSurvive = pAtLeast(fields.need);
 
-    // What leaves play if it fails: the character's own points, everything the
-    // action says it is carrying, and the influence it was holding.
-    const character = view.self.characters[fields.characterId];
-    const charDef = character ? cardPool[character.definitionId] : undefined;
-    const charFields = charDef as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string } | undefined;
-    const { delta, described } = possessionLoss(context, fields.characterId, fields.possessions ?? []);
-    const ownPoints = charFields?.marshallingPoints ?? 0;
-    if (ownPoints > 0) {
-      const source = (charFields?.marshallingCategory ?? 'character') as MpSource;
-      delta[source] = (delta[source] ?? 0) - ownPoints;
-    }
-
-    const mpLoss = standing.tsdAfter(delta) - standing.tsd;
-    const characterValue = computeCharacterValue(view, cardPool, standing, tunables);
-    const lossCost = characterValue.lossCost(fields.characterId);
+    // What leaves play if it fails — shared with the support action, so the
+    // two cannot disagree about how bad a corruption is.
+    const failure = failureCostOf(context, fields.characterId, fields.possessions ?? []);
+    const { mpLoss, lossCost, described } = failure;
 
     const outcomes: Outcome[] = [];
     if (pSurvive > 0) {
@@ -130,9 +264,9 @@ export const corruptionModule: H2Module = {
       outcomes.push({
         p: 1 - pSurvive,
         label: described.length > 0
-          ? `corrupted — ${charFields?.name ?? 'the character'} and ${described.join(', ')} leave play`
-          : `corrupted — ${charFields?.name ?? 'the character'} leaves play`,
-        dtsd: netTsdDelta({ realized: mpLoss, tempo: lossCost.tsd }, tunables),
+          ? `corrupted — ${failure.name} and ${described.join(', ')} leave play`
+          : `corrupted — ${failure.name} leaves play`,
+        dtsd: failure.dtsd,
       });
     }
 
@@ -146,7 +280,7 @@ export const corruptionModule: H2Module = {
       leaf('marshalling points at stake', mpLoss, {
         unit: 'tsd',
         note: described.length > 0
-          ? `${charFields?.name ?? 'character'} plus ${described.join(', ')}, each priced in its own source`
+          ? `${failure.name} plus ${described.join(', ')}, each priced in its own source`
           : 'the character\'s own points',
       }),
       leaf('what else is lost', lossCost.tsd, { unit: 'tsd', note: lossCost.reason }),
