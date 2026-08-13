@@ -964,10 +964,11 @@ function buildRegionTypeMap(state: GameState): Map<string, string> {
  *
  * Two types of influence reassignment (CoE rules lines 227-228):
  *
- * 1. **To DI (become follower)**: A non-avatar character under GI, who has
- *    no followers themselves, can be moved under the DI of a non-follower
- *    character in the same company. The character's mind must not exceed
- *    the controller's available direct influence.
+ * 1. **To DI (become/reassign follower)**: A non-avatar character with no
+ *    followers of its own can be moved under the DI of a different
+ *    non-follower character in the same company, whether it's currently
+ *    under GI or already a follower of someone else. The character's mind
+ *    must not exceed the controller's available direct influence.
  *
  * 2. **To GI (un-follow)**: A follower can be moved to general influence,
  *    provided the total non-follower mind would not exceed the player's
@@ -986,13 +987,17 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
 
       const isAvatar = charDef.mind === null;
 
-      if (char.controlledBy === 'general' && !isAvatar && char.followers.length === 0) {
+      if (!isAvatar && char.followers.length === 0) {
         // Block DI assignment when an attached hazard forbids it (e.g. Rebel-talk)
         if (hasNoDirectInfluenceRestriction(char.hazards, state.cardPool)) {
           logDetail(`  → blocked: ${charDef.name} has no-direct-influence restriction`);
         } else {
         // Rule 227: Move non-avatar character without followers to DI of a
-        // non-follower character in the same company
+        // non-follower character in the same company. Source can be GI or an
+        // existing DI controller — CoE 2.II.3.2 doesn't require the character
+        // to currently be under general influence, only that it has no
+        // followers of its own, so a follower may be reassigned directly to a
+        // different non-follower controller without first passing through GI.
         // A `control-restriction` may override the influence-to-control cost
         // and limit which controllers may hold this character under DI. Use
         // the character's effective mind (e.g. So You've Come Back le-138's
@@ -1004,6 +1009,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         const controlCost = controlCostOf(state, char, baseMind) ?? baseMind;
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
+          if (ctrlInstId === char.controlledBy) continue;
           const ctrl = player.characters[ctrlInstId];
           if (!ctrl) continue;
           // Controller must be under GI (non-follower)
@@ -1034,7 +1040,9 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
           }
         }
         }
-      } else if (char.controlledBy !== 'general') {
+      }
+
+      if (char.controlledBy !== 'general') {
         // Rule 228: Move a follower to general influence if GI allows. A
         // `control-restriction` may override the influence-to-control cost.
         const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
