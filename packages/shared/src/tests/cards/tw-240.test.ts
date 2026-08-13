@@ -15,7 +15,7 @@
  * | 1 | play-target: company, siteType=haven, 4+   | IMPLEMENTED | filter in organization-events legal actions   |
  * | 2 | company-modifier: prowess +1               | IMPLEMENTED | collectCompanyPermanentEventEffects resolver  |
  * | 3 | company-modifier: corruption check +1      | IMPLEMENTED | synthesised check-modifier in resolver        |
- * | 4 | on-event: company-membership-changes discard | IMPLEMENTED | sweepCompanyMembershipChangedEvents           |
+ * | 4 | on-event: company-membership-changes discard | IMPLEMENTED | sweepCompanyMembershipChangedEvents (discard, split, elimination, Call of Home) |
  *
  * Playable: YES
  */
@@ -29,7 +29,7 @@ import {
   P1_COMPANY,
   baseProwess,
   buildTestState, resetMint,
-  viableActions, dispatch, getCharacter, handCardId,
+  viableActions, dispatch, getCharacter, handCardId, makeMHState,
   companyIdAt, findCharInstanceId,
   playPermanentEventAndResolve, enqueueTransferCorruptionCheck,
   makeBodyCheckCombat, setCharStatus,
@@ -401,5 +401,79 @@ describe('Fellowship (tw-240)', () => {
     // …which must discard Fellowship too, since a character left the company.
     expect(after.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(0);
     expect(after.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
+  });
+
+  // ── Auto-discard when a character returns to hand (Call of Home) ──────────
+
+  test('discarded when a character returns to hand via Call of Home', () => {
+    // Regression test: a bug report (game msrnufah-txonis, stateSeq 57) showed
+    // Fellowship staying in cardsInPlay after Call of Home sent a company
+    // member back to hand — returnCharacterToHand() removed the character from
+    // the company but never swept `company-membership-changes` events, unlike
+    // the parallel discardCharacter() path.
+    const CALL_OF_HOME = 'tw-18' as import('../../index.js').CardDefinitionId;
+    const BEORN = 'tw-131' as import('../../index.js').CardDefinitionId;
+    const BERETAR = 'tw-143' as import('../../index.js').CardDefinitionId;
+
+    const fellowshipInPlay: CardInPlay = {
+      instanceId: 'fellowship-1' as CardInstanceId,
+      definitionId: FELLOWSHIP,
+      status: CardStatus.Untapped,
+      companyId: P1_COMPANY,
+    };
+
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [
+            ARAGORN,
+            GIMLI,
+            { defId: BEORN, items: [] },
+            { defId: BERETAR, followerOf: 2 },
+          ] }],
+          hand: [],
+          siteDeck: [MORIA],
+          cardsInPlay: [fellowshipInPlay],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FARAMIR] }], hand: [CALL_OF_HOME], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    // GI used: Aragorn 9 + Gimli 6 + Beorn(slot) 5 = 20. Unused GI = 0.
+    const beornId = findCharInstanceId(state, RESOURCE_PLAYER, BEORN);
+    const mhState = { ...state, phaseState: makeMHState() };
+    const cohId = handCardId(mhState, HAZARD_PLAYER);
+
+    let s = dispatch(mhState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: cohId,
+      targetCompanyId: P1_COMPANY,
+      targetCharacterId: beornId,
+    });
+
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    expect(s.pendingResolutions).toHaveLength(1);
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
+
+    // Force a low roll (2): 2 + 0 unused GI < 10 → the character returns to hand.
+    s = { ...s, cheatRollTotal: 2 };
+    const rollActions = computeLegalActions(s, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
+    expect(rollActions).toHaveLength(1);
+
+    s = dispatch(s, rollActions[0].action);
+
+    // The character left the company back to hand…
+    expect(s.players[RESOURCE_PLAYER].hand.map(c => c.definitionId)).toContain(BEORN);
+    // …which must discard Fellowship too, since a character left the company.
+    expect(s.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(0);
+    expect(s.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
   });
 });

@@ -2093,6 +2093,10 @@ export function returnCharacterToHand(
   // Remove the target character from characters map
   delete newCharacters[characterId];
 
+  const affectedCompanies = player.companies
+    .filter(c => c.characters.includes(characterId))
+    .map(c => c.id);
+
   // Remove from companies
   const newCompanies = player.companies.map(company => {
     if (!company.characters.includes(characterId)) return company;
@@ -2111,8 +2115,16 @@ export function returnCharacterToHand(
   };
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
 
+  const removedDef = defById(state, charInPlay.definitionId);
+  const removedIsLeader = !!(removedDef && isCharacterCard(removedDef) && (removedDef.keywords ?? []).includes('leader'));
+
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
+  result = sweepCompanyMembershipChangedEvents(result, affectedCompanies);
+  if (removedIsLeader) {
+    logDetail(`return-character-to-hand: removed character is a Leader — sweeping leader-leaves-company events`);
+    result = sweepLeaderLeavesCompanyEvents(result, affectedCompanies);
+  }
 
   // Pilfer Anything Unwatched (as-33): "one item may be transferred to another
   // character in the same company." The character's items were just discarded;
