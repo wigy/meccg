@@ -275,8 +275,11 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 
 /**
  * Generate `haven-return` actions for companies whose `haven-return-option`
- * constraint (placed by Great-road) is still active. Only the resource player
- * may use this option.
+ * constraint (placed by Great-road tw-249, or Ancient Stair dm-115) is still
+ * active. Only the resource player may use this option. When the constraint
+ * carries `requiresMovedToKeyword` (dm-115: "If company moved to an
+ * Under-deeps site…"), the option is only offered if the company's site at
+ * end of turn actually carries that keyword.
  */
 function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.activePlayer !== playerId) return [];
@@ -286,8 +289,18 @@ function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] 
     if (c.kind.type !== 'haven-return-option') continue;
     if (c.target.kind !== 'company') continue;
     const { companyId } = c.target;
-    if (!player.companies.some(co => co.id === companyId)) continue;
-    logDetail(`End-of-Turn: offering haven-return for company ${companyId as string} (origin haven ${c.kind.originHavenDefinitionId as string})`);
+    const company = player.companies.find(co => co.id === companyId);
+    if (!company) continue;
+    if (c.kind.requiresMovedToKeyword) {
+      const currentSiteDef = company.currentSite
+        ? defById(state, company.currentSite.definitionId) as { keywords?: readonly string[] } | undefined
+        : undefined;
+      if (!currentSiteDef?.keywords?.includes(c.kind.requiresMovedToKeyword)) {
+        logDetail(`End-of-Turn: haven-return for company ${companyId as string} withheld — site does not carry required keyword ${c.kind.requiresMovedToKeyword}`);
+        continue;
+      }
+    }
+    logDetail(`End-of-Turn: offering haven-return for company ${companyId as string} (origin site ${c.kind.originHavenDefinitionId as string})`);
     actions.push({ type: 'haven-return', player: playerId, companyId });
   }
   return actions;

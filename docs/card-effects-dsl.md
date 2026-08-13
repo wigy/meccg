@@ -91,6 +91,13 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
 
 Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`, `untap-penalty`.
 
+A `when` condition sees `bearer.skills` — the bearer's *effective* skills,
+printed plus every item/effect grant, including the modifier's own card (see
+`grant-skill` §54). A card that both grants a skill and conditions a bonus on
+already having it must instead read `bearer.naturalSkills` (printed skills
+only) to implement the "already a *X*" convention — see §54's "Same
+convention for `stat-modifier`" note.
+
 During strike resolution the combat context also exposes `combat.strikeMode` —
 the way the character is facing the current strike (`"tap"`, `"untap"`,
 `"dodge"`, `"reroll"`). It lets a prowess modifier apply only "when tapping to
@@ -2826,6 +2833,29 @@ one activation per matching card, each carrying the candidate's
 - `filter` — optional DSL `Condition` matched against each candidate's
   card definition (or, for `"own-hazard-corruption-cards"`, the candidate's
   bearer character's definition); candidates that fail the filter are skipped.
+- `excludeBearer` — for scope `"company-characters"`, drops the bearer from
+  the enumerated candidates, leaving only company-mates. Used when the
+  `apply` already untaps the bearer directly via `target: "bearer"` and the
+  per-target loop should only offer the *other* company member.
+
+Example (Waybread td-165 — discard to untap the bearer, or the bearer **and**
+one other company-mate; the same `discard: "self"` cost across all three
+modes means using any one of them consumes the item, naturally ruling out
+the others — no `oncePerTurn` lock needed):
+
+```json
+{ "type": "grant-action", "action": "untap-bearer",
+  "anyPhase": true, "cost": { "discard": "self" },
+  "when": { "bearer.status": "tapped" },
+  "apply": { "type": "set-character-status", "target": "bearer", "status": "untapped" } }
+{ "type": "grant-action", "action": "untap-bearer-and-company-character",
+  "anyPhase": true, "cost": { "discard": "self" },
+  "targets": { "scope": "company-characters", "excludeBearer": true },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "set-character-status", "target": "bearer", "status": "untapped" },
+    { "type": "set-character-status", "target": "target-character", "status": "untapped" }
+  ] } }
+```
 
 Example (The Arkenstone tw-341 — tap to untap a Dwarf company-mate, who
 then makes a corruption check modified -2; `enqueue-corruption-check`'s
@@ -3551,6 +3581,29 @@ Apply types:
                "removeFromGame": true } }
   ```
 
+  A `threshold` field on the apply gates the cancel behind a 2d6 roll
+  instead of applying it unconditionally: as this card's own chain entry
+  resolves (`resolveEntry`, `chain-reducer.ts`), the engine rolls 2d6
+  (honouring `cheatRollTotal` for deterministic tests) and only negates the
+  target entry when the total is at or above `threshold` — a failed roll
+  still discards this card normally, leaving the target untouched. The roll
+  is surfaced as a `dice-roll` {@link GameEffect}. Used by *Wrath of the
+  West* (le-151): "Playable on a minion resource short-event declared
+  earlier in the same chain of effects. Make a roll—if the result is
+  greater than 6, the event is canceled and discarded" (`threshold: 7` =
+  "greater than 6"). Unlike Ire of the East, le-151 carries no
+  `declaredBy.alignment` restriction (any minion alignment qualifies) and
+  no `removeFromGame` (the target is discarded normally on success).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "filter": { "target.cardType": "minion-resource-event",
+                           "target.eventType": "short" },
+               "threshold": 7 } }
+  ```
+
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
   raises a pending "may join the attacked company" offer for the
   bearer. The defender sees a `haven-join-attack` legal action during
@@ -3644,17 +3697,28 @@ Apply types:
 
 - `set-site-phase-flag` -- under `on-event: self-enters-play`, sets a named
   `SitePhaseState` boolean to `true` (fires only during the site phase). Valid
-  `flag` values: `hoardBountyAvailable`, `thoroughSearchAvailable`, and
-  `firstItemNoTapAvailable`. The last (Come By Night Upon Them le-176) lets the
-  **first item** played at the site this site phase — any subtype — be played
-  without tapping the site; `handleSitePlayResources` (`reducer-site.ts`) treats
-  it like Thorough Search (leaves the site untapped, does not count as the
-  site-tapping resource, consumes the flag), while the item still taps its
-  bearer normally.
+  `flag` values: `hoardBountyAvailable`, `thoroughSearchAvailable`,
+  `firstItemNoTapAvailable`, and `hoardKeywordGranted`. The third (Come By Night
+  Upon Them le-176) lets the **first item** played at the site this site phase
+  — any subtype — be played without tapping the site; `handleSitePlayResources`
+  (`reducer-site.ts`) treats it like Thorough Search (leaves the site untapped,
+  does not count as the site-tapping resource, consumes the flag), while the
+  item still taps its bearer normally. The fourth (Dwarven Hoard td-109) makes
+  the active site-phase company's current site "considered to contain a hoard
+  until the end of the turn" regardless of its printed keywords: while set,
+  `buildActiveCompanyContext` (`legal-actions/organization.ts`) and the item
+  `item-play-site` keyword computation (`legal-actions/site.ts`, both the
+  `itemOwnSiteRestrictionMatches` filter context and the `hoardBountyBonus`
+  `siteIsHoard` check) synthesize a `hoard` keyword onto the site, exactly like
+  the existing Deep Mines `under-deeps` synthesis. Absent (undefined → false);
+  reset when a new company's site phase begins, which is what bounds it to
+  "until the end of the turn" in practice.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "set-site-phase-flag", "flag": "firstItemNoTapAvailable" } }
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "set-site-phase-flag", "flag": "hoardKeywordGranted" } }
   ```
 
 ### Pending resolutions
@@ -10608,6 +10672,16 @@ evaluated against the bearer's *natural* skills (from the character card definit
 not the granted skills. This correctly implements the card text "if the bearer is
 *already* a scout."
 
+**Same convention for `stat-modifier`**: a `stat-modifier`'s `when` is evaluated in
+the effective-stats context, where `bearer.skills` is the *merged* set (printed +
+every granted skill, including the card's own `grant-skill`). A card that grants a
+skill and also conditions a bonus on the bearer already having that skill must
+therefore read `bearer.naturalSkills` (printed skills only) instead of `bearer.skills`
+— otherwise its own grant would make the condition trivially always true. Used by
+Magic Ring of Courage (tw-271): "gives the bearer warrior skill; if already a
+warrior, +2 prowess" —
+`{ "type": "stat-modifier", "stat": "prowess", "value": 2, "when": { "bearer.naturalSkills": { "$includes": "warrior" } } }`.
+
 | Field | Required | Description |
 |-------|----------|-------------|
 | `skill` | yes | The skill name to grant (e.g. `"scout"`, `"sage"`, `"warrior"`). |
@@ -10616,7 +10690,7 @@ not the granted skills. This correctly implements the card text "if the bearer i
 { "type": "grant-skill", "skill": "scout" }
 ```
 
-Used by Magic Ring of Stealth (tw-274).
+Used by Magic Ring of Stealth (tw-274), Magic Ring of Courage (tw-271).
 
 ---
 
@@ -15179,3 +15253,73 @@ Cannot be duplicated on a given character. During the organization phase, a
 sage in target character's company (other than character) may tap to
 attempt to remove this card. Make a roll: if the result is greater than 6,
 discard this card."
+
+### 77. `modify-attack` `postAttackMindRollSplit` + `split-into-own-company` (Turning Hope to Despair)
+
+A hazard **short-event**, played from hand (or revealed on-guard) in the same
+attacker-only pre-assignment `modify-attack` window as Unabated in Malice
+(ba-26, §see `modify-attack fromHand`), that schedules a **per-character**
+post-attack roll instead of (or alongside) any stat modifiers: if the attack
+ends up not fully defeated, every character still in the defending company
+rolls 2d6 plus his mind against a threshold, and each one who rolls below it
+splits off into his own company.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "postAttackMindRollSplit": { "threshold": 11 },
+  "when": { "attack.detainment": false,
+    "enemy.race": { "$in": ["undead", "ringwraith", "maia"] } } }
+```
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `postAttackMindRollSplit.threshold` | yes | The 2d6-plus-mind total each character in the company must reach (`>=`) to stay together (11 for Turning Hope to Despair). |
+
+- **Play** — reuses the existing from-hand `modify-attack` offering and
+  playability machinery verbatim (window, `when` gate, hazard-limit
+  bypass via `play-flag: "no-hazard-limit"`, attacker-only `player` gate).
+  `handleModifyAttack` (`combat-actions.ts`) discards the card as usual, but
+  because `postAttackMindRollSplit` is set, stores
+  `{ threshold }` as `CombatState.mindRollSplitPending` instead of (in this
+  card's case, since no `prowessModifier`/etc. are set) applying any stat
+  change.
+- **Roll** — at combat finalization (`finalizeCombat`, `combat-finalize.ts`),
+  if `!allDefeated` and `mindRollSplitPending` is set, the engine enqueues one
+  generic `dice-check` `PendingResolution` per character still in the
+  defending company: `modifiers: [{ kind: "constant", value: <effective mind> }]`,
+  `threshold`, `comparison: "gte"`, `onFail: { type: "split-into-own-company" }`,
+  `targetCharacterId`/`targetCompanyId` set. The company's controller rolls.
+- **Split** — `split-into-own-company` (a new `TriggeredAction` verb) is
+  dispatched by `applyDiceCheckBranch` (`pending-reducers.ts`) on a failed
+  roll, delegating to `splitCharacterOffCompany` (`reducer-utils.ts`): the
+  generalized, auto-rejoining sibling of Left Behind (td-41)'s
+  `applyLeftBehindSplit` (§64 `left-behind-split`). It peels the character
+  into a new `Company` sharing the same site path (`currentSite` /
+  `destinationSite` / `movementPath`), flagged
+  `Company.forcedSoloHazardLimit` — **not** `leftBehind` — since the card
+  carries no "may rejoin" clause. A lone character instead flags his own
+  company `Company.forcedSoloExtraPhasePending`, mirroring
+  `leftBehindExtraPhasePending`.
+- **Separate M/H phase, limit one** — identical mechanism to `left-behind-split`:
+  the new company is created *unhandled*, so the M/H loop's `select-company`
+  naturally gives it its own phase; `enterSetHazardLimitAndAutoAdvance`
+  (`mh-steps.ts`) forces a `forcedSoloHazardLimit` company's snapshot to 1,
+  **clearing the flag the moment it is consumed** (unlike `leftBehind`, which
+  stays set until the explicit rejoin resolves). `advanceAfterCompanyMH`
+  (`mh-hazard-play.ts`) re-runs a `forcedSoloExtraPhasePending` lone company
+  once, mirroring the `leftBehindExtraPhasePending` branch.
+- **No explicit rejoin** — because the flag is gone after the split company's
+  own phase, `autoMergeNonHavenCompanies` (rule 2.IV.6) treats it like any
+  other company: it silently merges back with its origin the moment both are
+  at the same non-Haven site, with no `left-behind-rejoin`-style pending
+  choice. This is the deliberate behavioral difference from Left Behind,
+  whose printed text explicitly grants a "may rejoin" option that Turning
+  Hope to Despair's text does not.
+
+Used by *Turning Hope to Despair* (as-41): "Playable on a company facing a
+non-detainment attack from: Undead, Nazgûl, or Maia; does not count against
+the hazard limit. If the attack is not defeated, each character in the
+company makes a roll and adds his mind. If the result is less than 11, the
+character splits off from the company and forms his own company with the
+same site path as his original company. The character faces a separate
+movement/hazard phase this turn with a hazard limit of one."

@@ -1959,6 +1959,14 @@ export interface GrantActionTargets {
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
   /**
+   * For scope `'company-characters'`: excludes the bearer from the enumerated
+   * candidates, leaving only the bearer's company-mates. Used by Waybread
+   * (td-165) — "untap bearer and one other character in his company" pairs
+   * this with a `sequence` apply that separately untaps `"bearer"`, so the
+   * target-selection loop must offer only the *other* company members.
+   */
+  readonly excludeBearer?: boolean;
+  /**
    * For scope `'player-companies'`: restrict the enumerated companies to those
    * that have declared movement this organization phase **and** whose declared
    * destination's printed site path contains at least one region of this type.
@@ -2135,6 +2143,7 @@ export type TriggeredActionType =
   | 'transform-site'
   | 'untap-site'
   | 'lock-company-movement'
+  | 'split-into-own-company'
   | 'cancel-current-attack'
   | 'traitor-attack'
   | 'site-entry-attack'
@@ -2583,6 +2592,18 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * somewhere other than a Border-hold. Omit for an unconditional grant.
    */
   readonly requiresDestinationSiteType?: string;
+  /**
+   * For a `haven-return-option` constraint (Ancient Stair dm-115): only offer
+   * the end-of-turn return option when the target company's site at end of
+   * turn carries this keyword — "If company moved to an Under-deeps site, at
+   * the end of the turn the company may replace its site card with the site
+   * card at which it began the turn" → `"under-deeps"`. Checked when the
+   * option is offered (`havenReturnActions`, `legal-actions/end-of-turn.ts`),
+   * not at play time, since the company's final site for the turn is not yet
+   * known when an end-of-org card is played. Omit for an unconditional offer
+   * (Great-road tw-249, always offered regardless of where the company went).
+   */
+  readonly requiresMovedToKeyword?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**
@@ -2652,7 +2673,7 @@ export interface RemoveConstraintAction extends TriggeredActionBase {
 export interface SetSitePhaseFlagAction extends TriggeredActionBase {
   readonly type: 'set-site-phase-flag';
   /** The `SitePhaseState` boolean key to set. */
-  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable';
+  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable' | 'hoardKeywordGranted';
 }
 
 /** `discard-character` — discard the wound/body-check-context character (type-only marker). */
@@ -3036,6 +3057,16 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
    * resolves un-negated — "Remove this card from the game" (wh-24).
    */
   readonly removeFromGame?: boolean;
+  /**
+   * For `select: 'target'`: gate the cancel on a 2d6 roll instead of applying
+   * it unconditionally. When set, `resolveEntry` rolls 2d6 as this card's own
+   * chain entry resolves and only negates the target entry when the total is
+   * ≥ `threshold` (a failed roll still discards this card normally — the
+   * target is untouched). Used by Wrath of the West (le-151): "Make a
+   * roll—if the result is greater than 6, the event is canceled and
+   * discarded" (threshold 7 = "greater than 6").
+   */
+  readonly threshold?: number;
 }
 
 /**
@@ -3146,6 +3177,19 @@ export interface UntapSiteAction extends TriggeredActionBase {
  */
 export interface LockCompanyMovementAction extends TriggeredActionBase {
   readonly type: 'lock-company-movement';
+}
+
+/**
+ * `split-into-own-company` — the `onFail` verb of a per-character mind-roll
+ * `dice-check` (Turning Hope to Despair as-41). Peels `ctx.targetCharacterId`
+ * off `ctx.targetCompanyId` into his own new company sharing the same site
+ * path (or, if he was alone, flags his own company for one extra separate
+ * M/H phase) via the shared `splitCharacterOffCompany` helper
+ * (`reducer-utils.ts`) — the generalized, auto-rejoining sibling of Left
+ * Behind's `applyLeftBehindSplit`. Type-only marker.
+ */
+export interface SplitIntoOwnCompanyAction extends TriggeredActionBase {
+  readonly type: 'split-into-own-company';
 }
 
 /**
@@ -3275,6 +3319,7 @@ export type TriggeredAction =
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
+  | SplitIntoOwnCompanyAction
   | CancelCurrentAttackAction
   | TraitorAttackAction
   | TransferItemFreeAction;
@@ -5694,6 +5739,22 @@ export interface ModifyAttackEffect extends EffectBase {
    * automatically defeated."
    */
   readonly cascadeDefeatOnSuccess?: true;
+  /**
+   * When set (`fromHand` path only), playing the card schedules a post-attack
+   * conditional split instead of (or alongside) any stat modifiers: if the
+   * attack is not fully defeated, every character still in the defending
+   * company at combat finalization rolls 2d6 plus his mind against
+   * `threshold`; each character whose total is strictly below it splits off
+   * into his own company sharing the same site path, facing a separate
+   * movement/hazard phase this turn with a hazard limit of one (see
+   * {@link Company.forcedSoloHazardLimit}). Unlike {@link LeftBehindSplitEffect},
+   * there is no explicit "may rejoin" — the split company merges back through
+   * the normal rule 2.IV.6 same-site auto-merge once its own separate phase
+   * ends. Used by Turning Hope to Despair (as-41): "If the attack is not
+   * defeated, each character in the company makes a roll and adds his mind.
+   * If the result is less than 11, the character splits off..."
+   */
+  readonly postAttackMindRollSplit?: { readonly threshold: number };
 }
 
 /**

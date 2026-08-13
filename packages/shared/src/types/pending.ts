@@ -2211,17 +2211,25 @@ export interface ActiveConstraint {
     | {
         /**
          * Great-road (tw-249): at the end of the turn the company may
-         * return to the haven where it began the turn without triggering
-         * a new M/H phase. The constraint records the origin haven so the
+         * return to the site where it began the turn without triggering
+         * a new M/H phase. The constraint records the origin site so the
          * EOT legal-action layer can offer the option and the reducer can
          * execute the site swap. Scoped to `turn` — swept at turn-end if
-         * the player chooses not to use it.
+         * the player chooses not to use it. Not Haven-exclusive despite the
+         * name: Ancient Stair (dm-115) plays it from an Under-deeps-adjacent
+         * surface site, gated by {@link requiresMovedToKeyword}.
          */
         readonly type: 'haven-return-option';
-        /** Full SiteInPlay snapshot of the haven at time of play. */
+        /** Full SiteInPlay snapshot of the origin site at time of play. */
         readonly originHavenInstanceId: CardInstanceId;
         readonly originHavenDefinitionId: import('./common.js').CardDefinitionId;
         readonly originHavenStatus: import('./common.js').CardStatus;
+        /**
+         * Ancient Stair (dm-115): only offer the return option when the
+         * company's site at end of turn carries this keyword (`"under-deeps"`).
+         * Omitted for an unconditional offer (Great-road tw-249).
+         */
+        readonly requiresMovedToKeyword?: string;
       }
     | {
         /**

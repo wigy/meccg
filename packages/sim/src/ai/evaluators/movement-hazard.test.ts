@@ -363,3 +363,57 @@ describe('movementHazardEvaluator declare-path region danger scoring', () => {
     expect(score).toBe(7);
   });
 });
+
+function corruptionCheckRoll(characterId: string, need: number): GameAction {
+  return {
+    type: 'corruption-check',
+    player: 'p2',
+    characterId,
+    corruptionPoints: 0,
+    corruptionModifier: 0,
+    possessions: [],
+    need,
+    explanation: '',
+  } as unknown as GameAction;
+}
+
+function supportCorruptionCheck(supportingCharacterId: string, targetCharacterId: string): GameAction {
+  return {
+    type: 'support-corruption-check',
+    player: 'p2',
+    supportingCharacterId,
+    targetCharacterId,
+  } as unknown as GameAction;
+}
+
+describe('movementHazardEvaluator support-corruption-check tap-in-support weighting', () => {
+  // Bug report: Marvels Told forced a corruption check on Balin (need > -1
+  // to survive, i.e. `need: 0`) after the AI had already tapped one company
+  // mate in support, dropping the check's need to 2 — a natural roll of 2 is
+  // the lowest possible on 2d6, so the check could no longer fail. The AI
+  // went on to tap two more company mates in support anyway, leaving them
+  // uselessly tapped for the site phase, because every support option scored
+  // the same flat default weight as the roll action itself.
+  test('scores support as zero once the check is already unfailable', () => {
+    const context = {
+      ...makeContext([]),
+      legalActions: [corruptionCheckRoll('balin', 2), supportCorruptionCheck('scout', 'balin')],
+    };
+    const score = movementHazardEvaluator.score(supportCorruptionCheck('scout', 'balin'), context);
+    expect(score).toBe(0);
+  });
+
+  test('scores support above zero while the check can still fail', () => {
+    const context = {
+      ...makeContext([]),
+      legalActions: [corruptionCheckRoll('balin', 3), supportCorruptionCheck('scout', 'balin')],
+    };
+    const score = movementHazardEvaluator.score(supportCorruptionCheck('scout', 'balin'), context);
+    expect(score).toBeGreaterThan(0);
+  });
+
+  test('falls back to a flat weight when the paired roll action is not offered', () => {
+    const context = { ...makeContext([]), legalActions: [supportCorruptionCheck('scout', 'balin')] };
+    expect(movementHazardEvaluator.score(supportCorruptionCheck('scout', 'balin'), context)).toBe(3);
+  });
+});
