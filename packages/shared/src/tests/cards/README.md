@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1139 | 1138 | 1 | 99.9% |
+| 1140 | 1139 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 104 | 104 | 100.0% |
 | LE | 303 | 302 | 99.7% |
 | TD | 94 | 94 | 100.0% |
-| TW | 343 | 343 | 100.0% |
+| TW | 344 | 344 | 100.0% |
 | WH | 89 | 89 | 100.0% |
 
 ## Detailed Test Matrix
@@ -893,6 +893,7 @@
 | tw-205 | Cracks of Doom | — | 9 | ☑ |
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
+| tw-208 | Dark Quarrels | — | 8 | ☑ |
 | tw-209 | Dodge | — | 8 | ☑ |
 | tw-210 | Dreams of Lore | — | 11 | ☑ |
 | tw-211 | Dunlendings | — | 4 | ☑ |
@@ -909,7 +910,7 @@
 | tw-232 | Fair Sailing | — | 10 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 13 | ☑ |
+| tw-240 | Fellowship | — | 14 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |

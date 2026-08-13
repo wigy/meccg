@@ -296,31 +296,43 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         // `corruption-check`, 72.5% of `play-hazard`, 58.7% of `pass`, 55.1% of
         // `discard-card` — so more than two decisions in five credited to H2
         // were H1's, and every module improvement was being measured on the
-        // fraction that reached the modules at all.
+        // fraction that reached the modules at all. A ceiling made of another
+        // agent cannot be raised by working on this one, so it is gone and H2
+        // answers its own decisions, including the ones it cannot rank.
         //
-        // Handing over was defensible while it was the *weaker* agent's
-        // decision only on positions H2 could not rank. It stopped being
-        // defensible once the thing being improved was H2: a ceiling made of
-        // another agent cannot be raised by working on this one.
+        // What it says when it cannot rank them is **one of the tied best, at
+        // random** — never `pass` by preference.
         //
-        // So H2 answers its own decisions now, including the ones it cannot
-        // rank. What it says when it has no preference is `pass` — not as a
-        // tie-break of convenience, but because it is the honest reading of a
-        // tie: every action in this game costs something the model may not have
-        // priced (a card out of hand, a character tapped out of the site phase,
-        // information given away), and an action with no modelled benefit has
-        // nothing to set against that. It is also the failure this exact clause
-        // was written to prevent — H2 once deterministically gave away two
-        // starting items it had no reason to move, because a tie at the top of
-        // the ranking is whichever candidate sorted first, not a preferred one.
-        // Passing on a tie fixes that without borrowing anyone's opinion.
-        const passing = legalActions.find(a => a.type === 'pass');
-        const chosen = passing ?? (evaluations.length > 0 ? best.action : legalActions[0]);
+        // This clause said `pass` first, on the argument that every action
+        // costs something the model may not have priced, so an action with no
+        // modelled benefit has nothing to set against it. That argument is
+        // wrong about this game. Not acting is not the neutral option: a turn
+        // spent passing plays no resource, attempts no faction and scores
+        // nothing, while the opponent's turn arrives regardless. `pass` is a
+        // move with its own cost, and preferring it on every tie made H2
+        // decline 44% of its decisions.
+        //
+        // Random rather than first-in-list, because the failure this clause
+        // was originally written to prevent is real: a tie at the top of the
+        // ranking is whichever candidate sorted first, not a preferred one, and
+        // taking it deterministically once had H2 give away two starting items
+        // it had no reason to move. Choosing uniformly among the tied removes
+        // the false preference without inventing one — and it is honest about
+        // what a tie is, which array order is not.
+        const tied = evaluations.filter(e => e.utility >= best.utility - TIE_EPSILON);
+        // Among equals, act. `pass` only wins a tie when nothing else is tied
+        // with it.
+        const acting = tied.filter(e => e.action.type !== 'pass');
+        const pool = (acting.length > 0 ? acting : tied).map(e => e.action);
+        const fallbackPool = legalActions.filter(a => a.type !== 'pass');
+        const options = pool.length > 0
+          ? pool
+          : (fallbackPool.length > 0 ? fallbackPool : legalActions);
+        const chosen = options[Math.min(options.length - 1, Math.floor(context.random() * options.length))];
         return {
           action: chosen,
-          note: passing
-            ? `no opinion worth acting on — passing (${evaluations.length} candidate(s) scored)`
-            : `no opinion and no pass available — taking ${chosen.type}`,
+          note: `no opinion — one of ${options.length} tied at random: ${chosen.type} `
+            + `(${evaluations.length} candidate(s) scored)`,
         };
       }
 

@@ -2095,13 +2095,83 @@ is coverage first, price second. #2361 was also rejected on a gate that was 41%
 H1, so its verdict is void either way — but re-testing it was still wasted, for
 this second reason.
 
-What has to be established next is *why* the discard is declined: whether the
-modules score nothing there, or score every candidate identically, or score every
-discard as a pure cost and correctly prefer `pass` over paying it. The third
-would be a real modelling error — at the end-of-turn hand limit the discard is
+**Correction: the discard is not declined.** The paragraph above said it was, on
+a probe that counted two different outcomes as one. Measured properly, over 300
+corpus positions offering a discard:
+
+```text
+H2 passed:                        20
+no `pass` was on offer at all:   173
+H2 acted on a real preference:   107
+
+not fully covered:                24
+best candidate scores <= 0:      292
+```
+
+So the discard is usually **forced** — at the end-of-turn hand limit there is no
+`pass` to take, which is the rule working as written — and coverage is not the
+problem either: only 24 of 300 have an unowned candidate. What is uniform is the
+sign. In 292 of 300 positions *every* option scores at or below zero, because a
+discard is priced as a pure cost and nothing offsets it. H2 therefore never has a
+positive preference here; whether it acts at all depends entirely on whether two
+costs differ.
+
+That is the real question, and it is narrower than the three this section
+originally listed: not *why H2 declines*, but whether the card it throws when it
+must throw one is its own cheapest — and if so, why a better price for that card
+(the `heldWorth` discount) changed the outcome by exactly nothing. Those two
+cannot both be true, and the next measurement has to settle which is wrong before
+anything is built on either.
+
+The earlier three-way question is left below as it was written, because the
+reasoning behind option three still stands even though its premise did not — at the end-of-turn hand limit the discard is
 forced, so pricing it against a `pass` that the rules will not honour compares an
 option against one that is not really available. That is a question with a
 definite answer and it has not been asked yet.
+
+### The discard reads the price, and the price names seven cards
+
+The contradiction above is settled, and neither horn was right. Restricted to the
+**forced** discard — no `pass` on offer, every candidate a discard — over 179
+corpus positions:
+
+```text
+H2 threw one of its cheapest-priced cards:  179 (100.0%)
+the human threw one of H2's cheapest:       142 (79.3%)
+decisions with a tie at the cheapest price: 179 (100.0%)
+mean size of that tied set:                 6.93
+```
+
+Every line matters:
+
+- **H2 does read the price.** It throws a cheapest-priced card every single time.
+  The choice is not bypassing the valuation.
+- **The price is not wrong.** The human's card is inside H2's cheapest set four
+  times in five. `card-price` already knows which cards are the cheap ones.
+- **The price does not *choose*.** It names 6.93 cards as equally cheapest, every
+  time, and which of the seven gets thrown is array order.
+
+That arithmetic closes the case: 79.3% ÷ 6.93 ≈ 11.4%, against a measured discard
+agreement of 12.7%. The observed disagreement is exactly what picking uniformly
+inside the tied set predicts. Nothing else needs explaining.
+
+It also explains why the `heldWorth` discount moved nothing. Scaling hazards to
+0.4 and characters to 0.7 does not *order* a hand — it sorts it into three groups,
+and the cheapest group is still several cards. A change that turns a seven-way tie
+into a four-way tie is invisible to a metric that needs one card named.
+
+#### What the fix has to be, stated exactly
+
+Not a better estimate of what a card is worth: that estimate is already good
+enough to bracket the human's choice four times in five. What is missing is a
+**total order** on the hand. The requirement is not "price cards more accurately",
+it is "never return the same number twice", and those are different engineering
+problems — the second is satisfiable by a tie-break the first would call noise.
+
+Measured against the corpus, a purely categorical order — all hazards before all
+characters before all resources, MP descending inside each — reaches 22.1% against
+a 10.8% chance rate. That is the target to beat, and beating it needs a rule that
+separates two hazards, which nothing in `card-price` currently does.
 
 ### Three attempts at the discard, three times weaker
 
@@ -2156,6 +2226,170 @@ The discard is the clearest such decision in the game, because what is safe to
 throw is downstream of everything else a player intends to do. It should be
 left alone until H2 has resources worth keeping — which is the `pass` work list,
 not this one.
+
+### The pass work list: a forced decision priced against an option that is not there
+
+With H1 gone, every decision H2 cannot rank becomes a `pass`, and the corpus
+ranks those by what declining costs. Splitting each type by *why* it was
+declined separates two very different problems:
+
+| offered | human took | no owner | owner declined | scored ≤ 0 | scored > 0 | action type |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 43 | **43** | 0 | 0 | **43** | 0 | `corruption-check` |
+| 171 | 41 | 0 | 0 | **171** | 0 | `move-to-influence` |
+| 116 | 59 | 0 | 0 | 71 | 45 | `enter-site` |
+| 114 | 74 | 0 | 28 | 60 | 26 | `assign-strike` |
+| 107 | 74 | 0 | 41 | 20 | 46 | `play-hazard` |
+
+Coverage is not the problem anywhere on this list — `no owner` is zero in every
+row. Two rows are scored non-positive *every single time*, and those are the ones
+where the valuation, not the coverage, is deciding.
+
+#### The corruption check
+
+The clearest case in the corpus: offered 43 times, taken by the human 43 times,
+scored at or below zero by H2 all 43 times, and therefore never taken.
+
+Scored absolutely, that is correct — a corruption check is a risk with no upside,
+so its expectation cannot exceed zero and `pass` sits at exactly zero. As a
+*decision* it is wrong, and the engine says why in its own documentation: a
+pending corruption check **"gates all other organization actions until it is
+resolved"**. The roll is coming whatever the agent does. Declining does not avoid
+it; it freezes the phase in which every resource this player will ever play has
+to be played.
+
+So the outcomes still describe the event, and what they are compared against was
+the error. Shifting the distribution by its own expectation prices what resolving
+costs *relative to the unavoidable baseline* — which is nothing — leaving
+`gatingResolutionTsd` for the phase that declining forfeits. σ is untouched,
+because the risk is real even when the choice about it is not.
+
+| | corruption-check agreement | paired Elo (95% CI) |
+| --- | --- | --- |
+| control (`master`) | 27.9% | −241 [−288, −201] |
+| taking gating resolutions | **82.4%** | −247 [−295, −206] |
+
+Six Elo apart against a standard error on the difference of about 32:
+**strength-neutral**, and the first change since H1 was removed that moves a
+decision type sharply toward human play without paying for it. It is kept on the
+rules argument — passing does not avoid a gated check — with the gate confirming
+it costs nothing, rather than the other way round.
+
+A note on reading these: overall agreement moved 58.7% → 58.1% while this type
+went 27.9% → 82.4%, and unrelated types swung hard (`pass-chain-priority` 42.3% →
+93.7%). That is not measurement noise. The agent is stateful within a game — the
+cycle guard remembers what it has played — so one changed decision moves
+everything downstream of it. **Overall agreement is not a valid read on a
+single-decision change**, and the per-type figure plus the gate are.
+
+### Priced against an option that does not exist
+
+Two rows of the pass work list turned out to be the same bug, and it is not the
+one the rest of this document has been chasing. Neither valuation was *wrong*.
+Both were compared against an alternative that is not really available.
+
+| | what it scored | why that was wrong | agreement | paired Elo |
+| --- | --- | --- | --- | --- |
+| `corruption-check` | ≤ 0 always — a risk with no upside | a pending check gates every other organization action, so declining stalls the phase rather than avoiding the roll | 27.9% → **82.4%** | −247 [−295, −206] |
+| `move-to-influence` | exactly 0 — "marshalling-point neutral, which it is" | the freed direct influence is what an influence attempt spends, so declining costs the attempt | 0.0% → **13.8%** | −232 [−276, −194] |
+
+Against a control of −241 [−288, −201], measured identically twice: −6 and +9
+Elo, both inside a standard error of about 32. **Strength-neutral, and both move
+their decision sharply toward human play.**
+
+The shared shape is worth naming, because it is a different failure from
+everything above. A module computes what an action is worth *in isolation*,
+correctly, and the agent then compares it against `pass` at zero — as though
+declining were free. Where the rules make declining expensive, that comparison
+is simply the wrong subtraction, and no amount of improving the valuation fixes
+it:
+
+- A corruption check cannot be avoided by passing. The roll is coming; the only
+  question is whether the phase moves while it happens. So the risk is **sunk**,
+  and pricing the decision means shifting the distribution by its own
+  expectation — σ untouched, because the risk is real even when the choice is
+  not.
+- Moving a follower to general influence is marshalling-point neutral and always
+  will be. What it buys is probability on an influence attempt: 2d6 against the
+  faction's printed `influenceNumber`, less the influence the company brings.
+
+Both fixes are also correctly **zero most of the time** — a hand with no faction
+and no ally has nothing to spend influence on, and the human declines three
+offers in four. That is the difference between pricing a decision and inventing
+a reason to act.
+
+#### Why this class pays and the discard class did not
+
+Three attempts to make the discard more human-like each cost 41–84 Elo. These
+two cost nothing and were found the same way, in the same corpus, on the same
+instrument. The distinguishing feature is not the size of the disagreement but
+what the human's choice *depends on*:
+
+- What is safe to discard depends on the rest of the player's strategy, which H2
+  does not share. The answer does not transfer.
+- Whether to resolve a gating check, or whether freed influence buys an attempt,
+  depends only on the **rules** and the position in front of both players. The
+  answer transfers because the premise does.
+
+So the usable rule is narrower than "imitate the human" and narrower than
+"ignore agreement": **agreement locates the decision; the rules decide whether
+its answer is portable.** Where a divergence rests on a rule both players are
+bound by, copy it. Where it rests on a strategy only one of them has, do not.
+
+### Not acting is a move, and a bad one
+
+Removing Heuristics 1 left a question the fallback had been answering: what does
+H2 do on a decision it cannot rank? The first answer was `pass`, on the argument
+that every action costs something the model may not have priced — a card, a tap,
+information — so an action with no modelled benefit has nothing to set against
+it.
+
+That argument treats passing as the neutral option. It is not. A turn spent
+passing plays no resource, attempts no faction and scores nothing, while the
+opponent's turn arrives regardless. `pass` is a move with its own cost, and
+preferring it on every tie had H2 decline **44% of its decisions**.
+
+So a decision H2 cannot rank now goes to one of the tied best, drawn uniformly,
+and `pass` wins a tie only when nothing else is tied with it. Random rather than
+first-in-list, because the failure the clause was originally written for is real:
+a tie at the top is whichever candidate the stable sort put first, not a
+preferred one, and taking it deterministically once had H2 give away two starting
+items it had no reason to move. Choosing uniformly removes the false preference
+without inventing one.
+
+| | overall agreement | `pass` agreement | score | paired Elo (95% CI) |
+| --- | --- | --- | --- | --- |
+| passing on a tie | 58.1% | 73.6% | 17.8% | −265 [−311, −225] |
+| acting on a tie | **49.0%** | **46.7%** | **29.0%** | **−155 [−195, −119]** |
+
+**+110 Elo**, against a standard error on the difference of about 29 — nearly
+four standard errors, and by a wide margin the largest single change measured in
+this document.
+
+#### The cleanest disproof of agreement-as-target
+
+Agreement with human play fell nine points overall and twenty-seven on `pass`,
+and the agent got much stronger. That is the exact opposite direction from the
+discard results, where agreement rose and strength fell three times running, and
+between them the two settle the question:
+
+| | agreement | strength |
+| --- | --- | --- |
+| discard: opportunity discount | ↑ 3 points | −41 Elo |
+| discard: retention-only discount | ↑ 3 points | −42 Elo |
+| discard: total order | ↑ 4.3 points | −84 Elo |
+| **acting on ties** | **↓ 9 points** | **+110 Elo** |
+
+Agreement is not the objective and never was; it is an *instrument*. It found the
+draft coin flip, the placeholder discard price, the 41% deferral to H1 — every
+one a real defect, none of them findable from win rate alone, because a 20% score
+is a single number and the corpus is three thousand labelled decisions.
+
+But the human's *answer* is only portable when it rests on something both players
+share. `pass` is the extreme case: the humans in this corpus pass because their
+position is developed and they are waiting for the right moment. H2 passes
+because it has nothing to say. Those are the same move for opposite reasons, and
+copying the frequency copied the reason it did not have.
 
 ### The other work list: what a divergence costs
 

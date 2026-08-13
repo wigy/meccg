@@ -337,6 +337,20 @@ export interface Tunables {
    * loses it to a seven-way tie.
    */
   readonly heldTieBreakSpan: number;
+  /**
+   * What resolving a *gating* pending resolution is worth, in TSD.
+   *
+   * Some resolutions block everything else until they are answered — a pending
+   * corruption check "gates all other organization actions until it is
+   * resolved". Declining one does not avoid it; it stalls the phase in which
+   * every resource this player will play has to be played.
+   *
+   * So this is not a reward for taking a risk. It is the price of the phase
+   * that declining forfeits, and it exists because the risk itself is sunk:
+   * see `corruption`, which shifts the check's distribution by its own
+   * expectation so the *decision* is priced rather than the event.
+   */
+  readonly gatingResolutionTsd: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -358,6 +372,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   partialCoverageMargin: 0.005,
   decisiveMargin: 0,
   heldTieBreakSpan: 0.05,
+  gatingResolutionTsd: 1,
   resourceDrawValue: 0.35,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,

@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.104.0 — 2026-08-13
+
+The agent stands on its own modules
+
+### Game Engine
+
+- Balrog companies can move to minion sites again. Their location deck mixes
+  their own sites with minion ones, but the movement map only indexed sites of
+  the player's own alignment, so every such move was negated as illegal.
+- Company-bound permanent events (Fellowship and friends) are discarded when
+  the character they belong to returns to hand via Call of Home.
+
+### Web Client
+
+- The End-of-Turn reset-hand button no longer borrows the Movement/Hazard
+  wording, so the two phases' controls read distinctly.
+
+### Cards
+
+- Dark Quarrels (tw-208) certified.
+
+### AI
+
+- Heuristics 1 is gone from the modular agent. H2 now answers every decision
+  with its own modules, and the `h2+<agent>` / `h2><agent>` fallback-compose
+  specs are rejected rather than silently reduced.
+- Corruption checks are taken instead of declined: a pending check gates every
+  other organization action, so passing never avoided the roll — it only
+  stalled the phase. Agreement on that decision moved 27.9% → 82.4% at no
+  measurable strength cost.
+- Freeing direct influence is priced by what it buys on an influence attempt
+  rather than scored at a flat zero.
+
 ## 0.103.0 — 2026-08-13
 
 Card fixes and a calmer hazard view
