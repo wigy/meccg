@@ -18,7 +18,7 @@ import {
 import { connect, disconnect, resetVisualBoard, setLobbyCallbacks } from './game-connection.js';
 import { connectPseudoAi } from './pseudo-ai.js';
 import { resetCompanyViews } from './company-view.js';
-import { clearDice, restoreDice } from './dice.js';
+import { clearDice, restoreDice, dismissDiceOverlays } from './dice.js';
 import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
 import { resetSpectators } from './spectators.js';
 import { renderLog } from './render-log.js';
@@ -130,7 +130,11 @@ function setViewMode(visual: boolean): void {
   if (!visual) {
     const log = document.getElementById('log')!;
     log.scrollTop = log.scrollHeight;
-    clearDice();
+    // Only dismiss any in-flight roll overlay here — the dice trays are
+    // hidden by the `.hidden` class on visual-view already, so there is no
+    // need to wipe the stored roll (clearDice() would, leaving the trays
+    // empty until the next dice roll broadcasts fresh state).
+    dismissDiceOverlays();
   } else {
     restoreDice();
   }

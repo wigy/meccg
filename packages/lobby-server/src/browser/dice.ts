@@ -147,10 +147,7 @@ export function waitForDice(): Promise<void> {
 
 /** Remove all dice overlays, clear stored roll state, and empty dice trays. */
 export function clearDice(): void {
-  for (const key of Object.keys(overlays)) {
-    overlays[key].remove();
-    delete overlays[key];
-  }
+  dismissDiceOverlays();
   for (const key of Object.keys(lastRolls)) {
     delete lastRolls[key];
   }
@@ -159,6 +156,21 @@ export function clearDice(): void {
   for (const id of ['self-dice-tray', 'opponent-dice-tray']) {
     const tray = document.getElementById(id);
     if (tray) tray.innerHTML = '';
+  }
+}
+
+/**
+ * Remove any in-flight dice-roll overlay without discarding the stored
+ * last-roll values or the tray DOM. Use this (not `clearDice()`) for purely
+ * cosmetic view changes — e.g. switching to the debug view, which hides the
+ * dice trays via CSS but must leave `lastRolls` intact so `restoreDice()`
+ * can repopulate the trays correctly when switching back, instead of
+ * leaving them empty until the next roll broadcasts fresh state.
+ */
+export function dismissDiceOverlays(): void {
+  for (const key of Object.keys(overlays)) {
+    overlays[key].remove();
+    delete overlays[key];
   }
 }
 
