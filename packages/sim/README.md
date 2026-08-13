@@ -1981,6 +1981,40 @@ same pass, because `card-price` is the file this project has twice changed on a
 metric and twice reverted (see the reverts above) — the fix has to come from what
 the rules say a card in hand can do, not from what moves agreement.
 
+#### Built, gated, and rejected: the opportunity discount
+
+The fix above was built as `heldHazardOpportunity` / `heldCharacterOpportunity`,
+scaling a held card's modelled value by how rule-capped its deployment channel
+is. It did what it was designed to do and made H2 weaker.
+
+Two things had to change to make it bite at all. The discount alone moved
+agreement by **exactly zero**, because `atLeastFloor` clamped every price back up
+to `heldCardFloor` *after* pricing — the tunable's own doc calls the floor "a
+ceiling on discrimination", and 99.7% of discard decisions tied at exactly 1.0.
+Reordering it — floor first, saying what a card is worth if played; discount
+second, saying how likely that is — made the discount visible.
+
+| | discard agreement | overall | paired Elo (95% CI) |
+| --- | --- | --- | --- |
+| control (parent branch) | 7.8% | 40.8% | +81 [+46, +117] |
+| with the opportunity discount | 10.8% | 41.2% | **+40 [+9, +72]** |
+
+−41 Elo against a standard error on the difference of about 25. Agreement up
+three points, strength down forty — the clearest instance yet of the two
+diverging, and the reason the control arm is run every time.
+
+**The diagnosis is in the doc comment the change shipped with.** It claims to be
+"a discount on *holding*, not on playing" — and the implementation cannot honour
+that, because `worth()` answers both questions. `hazards` and `combat` ask it
+"is this card worth spending?" when the chance to spend it has *already arrived*,
+and at that moment the opportunity question is settled. Cheapening every held
+hazard therefore told H2 to spend hazards more freely, on top of `pass →
+play-hazard` already being its single largest disagreement (264 occurrences).
+
+So the next attempt is not a smaller constant. It is separating retention from
+spending: the discount belongs to the discard question and to nothing else. That
+the two share one number today is the actual finding here.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
