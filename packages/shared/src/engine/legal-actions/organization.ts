@@ -63,6 +63,7 @@ import {
   mergeCompaniesActions,
   companyMovementTaxUnpaid,
   companiesPendingSplitMovementDeclaration,
+  isUnderDeepsSurfaceSite,
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -2180,6 +2181,11 @@ export function endOfOrgEligibility(
             // "on a moving company" (Down Down to Goblin-town le-181): a company
             // that has planned a destination (or special movement) this org phase.
             moving: company.destinationSite !== null || !!company.specialMovement,
+            // Ancient Stair (dm-115): "a company that starts its turn at an
+            // untapped adjacent site of an Under-deeps site" — the surface
+            // entrance named in some Under-deeps site's `adjacentSites` map.
+            atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
+            siteUntapped: company.currentSite?.status === CardStatus.Untapped,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
@@ -2500,7 +2506,15 @@ export function buildActiveCompanyContext(
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const siteName = siteDef?.name;
   const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
-  const siteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  const printedSiteKeywords = siteDef && 'keywords' in siteDef ? (siteDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  // Dwarven Hoard (td-109): "the site is considered to contain a hoard until
+  // the end of the turn" — widen the active site-phase company's site
+  // keywords with `hoard` while the flag is set, regardless of the site's
+  // printed keywords.
+  const hoardKeywordGranted = state.phaseState.phase === Phase.Site && state.phaseState.hoardKeywordGranted === true;
+  const siteKeywords = hoardKeywordGranted && !printedSiteKeywords.includes('hoard')
+    ? [...printedSiteKeywords, 'hoard']
+    : printedSiteKeywords;
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];

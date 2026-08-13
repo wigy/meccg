@@ -443,7 +443,20 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TurningHopetoDespair.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "postAttackMindRollSplit": { "threshold": 11 },
+        "when": {
+          "attack.detainment": false,
+          "enemy.race": { "$in": ["undead", "ringwraith", "maia"] }
+        }
+      },
+      { "type": "play-flag", "flag": "no-hazard-limit" }
+    ],
+    "certified": "2026-08-12",
     "text": "Playable on a company facing a non-detainment attack from: Undead, Nazgûl, or Maia; does not count against the hazard limit. If the attack is not defeated, each character in the company makes a roll and adds his mind. If the result is less than 11, the character splits off from the company and forms his own company with the same site path as his original company. The character faces a separate movement/hazard phase this turn with a hazard limit of one."
   },
   {

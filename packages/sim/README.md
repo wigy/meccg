@@ -1543,6 +1543,55 @@ built part of the design: `resolve-strike` 79.0% against 40.7%,
 human play closely. `play-hazard`, which H2 owns and has never calibrated,
 goes the other way — 32.9% against 46.1%.
 
+### Coverage is no longer the problem
+
+Cross-referencing every action type a human decided in the corpus against the
+`ownedActionTypes` of all fourteen modules and the baseline:
+
+| unowned action type | humans decided it | agreed |
+|---|---|---|
+| `play-permanent-event` | 18 | 33.3% |
+| `tap-item-for-strike` | 7 | 0.0% |
+| `cancel-strike` | 7 | 0.0% |
+| `untap` | 5 | 100.0% |
+| everything else unowned | ≤3 each | — |
+
+**Total disagreements on action types no module owns: 34**, against roughly
+1550 disagreements overall. H2 owns 47 action types and they cover essentially
+every decision a human actually makes. Writing more modules is not what is
+left.
+
+What is left is the rows H2 *does* own and gets wrong:
+
+| owned action type | seen | agreed |
+|---|---|---|
+| **`play-short-event`** | 26 | **0.0%** |
+| **`move-to-influence`** | 37 | **8.1%** |
+| `play-character` | 14 | 14.3% |
+| **`draft-pick`** | 38 | **15.8%** |
+| `exchange-sideboard` | 13 | 0.0% |
+| `split-company` / `move-to-company` | 7 / 7 | 0.0% / 0.0% |
+
+Two of these are worth more attention than their counts suggest.
+
+**`move-to-influence` is a declared gap, not a bug.** `characters` owns it and
+its own docstring says what it does: *"scored as point-neutral with the
+influence change reported… the honest shape until the strategic half can say
+what that influence is for."* It is owned and unpriced, which `coverage`
+counts as covered and the corpus counts as 34 disagreements.
+
+**`draft-pick` compounds.** Thirty-eight decisions is a small count, but they
+are the most consequential in the game — the opening draft fixes the starting
+company, and every later decision is conditioned on it. A mid-game tap costs a
+tap; a draft pick costs the game it sets up. 15.8% agreement on the decisions
+that determine everything downstream is a different kind of number from 15.8%
+on discards.
+
+Read with the gate results above, the state of the project is: **H2 covers the
+game, models it more faithfully than it did, and is still not stronger than
+the crude agent it exists to replace.** Coverage was the thing that could be
+finished by building, and it has been. What remains cannot be.
+
 ### The gate that says not to do any of this
 
 `human-compare` was used over five iterations to drive changes: agreement with
@@ -1586,6 +1635,222 @@ So the tool keeps its value and the method does not:
 
 The one thing in this section that gated cleanly is the cycle guard: **0
 unfinished games in 96, twice**, against 32/96 before it existed.
+
+### What was reverted, and what was kept
+
+The five corpus-driven iterations were merged before the powered gates
+finished. The gates then said the combination costs about 33 Elo, so the parts
+that earned it have been reverted on their own terms rather than by undoing
+the lot.
+
+Gated individually against `heuristic`, 384 games per arm, paired and
+side-swapped, zero unfinished games in every run:
+
+| change | paired Elo | kept? |
+|---|---|---|
+| baseline before any of it | −9 [−42, +24] | — |
+| `place-on-guard` forecloses its alternative | −14 [−41, +13] | **kept** |
+| `corruption` owns `support-corruption-check` | **+3 [−30, +36]** | **kept** |
+| all five iterations together | −42 [−75, −10] | — |
+| held-card floor decomposition | *reverted* | no |
+| character whose mind does not fit, valued | *reverted* | no |
+
+The two reverted changes are the two chosen because a metric moved. The floor
+decomposition was adopted because discard agreement recovered from 6.6% to
+12.2%; the mind valuation because agreement gained two decisions in 2642.
+Neither had a rule behind it, and neither was gated before it landed.
+
+The two kept changes each had a rules argument that stands without reference
+to any agreement number — an unrevealed on-guard card returns at *cleanup*, so
+placement commits it for the turn; and an untapped character "may tap for +1
+each before the roll", so supporting is worth exactly the failure it averts.
+One gates neutral and one gates slightly positive.
+
+That is the whole lesson of this section in one table. A rules argument was
+necessary and not sufficient: it predicted which changes would be harmless,
+not which would help. An agreement gain predicted neither.
+
+### Why `move-to-influence` is never chosen, and what that exposed
+
+`move-to-influence` is the action H2 owns and gets most wrong: humans make it
+37 times in eight recorded games and the agent agrees **once**. It plans
+movement instead 25 of those times.
+
+The mechanism is not subtle. `characters` scores it *"as marshalling-point
+neutral, which it is"* — exactly zero — and `pass` is zero by definition, so
+any action worth a thousandth of a win probability beats it. It is the same
+shape as the modelled zeros in `card-price`: a number that is right about the
+quantity it names and wrong about the decision it settles.
+
+The rules say what it is actually worth. Releasing a follower to general
+influence returns its mind to the controller's **direct** influence, and free
+direct influence is exactly what an influence attempt spends. So the value of
+the move is what the influence it frees can then attempt — a commitment's
+number rather than a tactical one, which is what the plan layer is for.
+`factions` owns the check step, so it is the module allowed to move it.
+
+**That change was written, measured, and reverted, because it can never
+fire.** Over 200 recorded positions offering `move-to-influence`:
+
+| | positions |
+|---|---|
+| offering the action | 200 |
+| with any committed plan | 130 |
+| with a committed **faction** plan | **3** |
+| …whose company holds the character being moved | **0** |
+
+#### The portfolio commits at most one goal per company
+
+That is the finding, and it is larger than the action that exposed it.
+`conflicts` refuses to commit one company to two different sites, which is
+physically right — and a faction plan and a resource plan almost always name
+different sites, so they conflict, and the richer resource plan wins. A
+company can therefore never be working toward an item *and* a faction, which
+is not a rule of the game: a company travels, plays what it can at the site it
+reaches, and attempts what is there.
+
+So `factions` proposes constantly and is committed to almost never, which
+makes every consumer of a committed faction plan dead code — including the
+`move-to-influence` valuation above, and any future one that hangs off the
+same step.
+
+This is a modelling restriction rather than a rules constraint, and it is the
+first lead in this section that is a *structural* limit of the plan layer
+rather than a mispriced number.
+
+### The draft is decided by a coin flip
+
+`draft-pick` is the decision H2 gets wrong most consequentially: 38 in the
+recorded corpus at 15.8% agreement, and unlike a mid-game tap these fix the
+starting company, so every later decision is conditioned on them.
+
+What humans draft against what H2 drafts, over 35 attributed picks:
+
+| mean of the character picked | human | H2 |
+|---|---|---|
+| mind | **4.51** | 3.97 |
+| marshalling points | **1.43** | 1.29 |
+| direct influence | **1.14** | 0.97 |
+| prowess | 3.89 | 4.00 |
+
+```text
+human Elrond      mind 10, 3 MP, 7 prowess, 4 DI   |   h2 Beretar  mind 5, 2 MP, 5 prowess, 1 DI
+human Thorin II   mind  8, 3 MP, 5 prowess, 2 DI   |   h2 Balin    mind 5, 2 MP, 4 prowess, 2 DI
+```
+
+Humans take the big characters. But the reason H2 does not is neither mind nor
+prowess — it is that **it has no opinion at all**:
+
+```text
+draft decisions sampled: 64
+  where EVERY candidate quotes at exactly 0: 64 (100.0%)
+  candidate quotes at 0: 479/479 (100.0%)
+  standing.marginal at draft time: character 0, item 0, faction 0, ally 0, kill 0, misc 0
+```
+
+`fetching` prices a draft pick through `card-price.quote`, which prices a
+character by its marshalling points *in the current standing*. At the draft the
+standing is 0–0, and CoE 10.3 step 4 caps any source at half the total — so
+every source is worth zero, every candidate quotes at zero, and the pick falls
+through to whatever breaks the tie. 8.6% agreement across roughly ten
+candidates is what chance predicts, and chance is what is happening.
+
+`coverage` already names this state — it counts `degenerateStanding` decisions
+where "every marshalling-point source is worth zero" — but counts it as a
+*valuation* problem to note rather than a decision being made at random. On
+the draft it is the whole decision.
+
+#### What the fix is not, and what it has to be
+
+It is not a mind adjustment. Valuing marshalling points better does not help
+either: at the draft, character MP is the *only* source in play, so the
+half-total cap holds it near zero however it is projected — that is the rule
+working correctly, not a modelling error.
+
+What humans are selecting on is not in the model at all. Elrond's 7 prowess
+and 4 direct influence are what let a company survive to a site and attempt
+what is there — and prowess and direct influence appear nowhere in
+`card-price`'s character branch, which reads only `marshallingPoints` and
+`mind`. The project prices both elsewhere: direct influence is what an
+influence attempt spends (`factions`, `budget.bestInfluencerIn`), and prowess
+is what `defence` and `strike/*` resolve combats with.
+
+So this needs a "what is this character worth to have" valuation that the
+project does not have, assembled from services that already exist. That is a
+piece of work rather than a line, and it is the most consequential decision in
+the game — which is the argument for doing it and the reason not to rush a
+half-model into the one decision everything else is conditioned on.
+
+### The deck already knew: favourites
+
+The valuation above is still the right long-term answer, and it was the wrong
+place to start, because the answer was already written down. Deck files carry a
+`favourite` flag on pool entries — `DeckListEntry.favourite`, "whether this is a
+favourite character (starting company pick) in the pool" — and both gate decks
+star four of their twelve pool characters. Nothing outside the lobby's deck
+editor had ever read it.
+
+That flag is not a heuristic about the card; it is the deck author saying which
+characters the deck is *built around*. Whether a character's race matches the
+factions, whether its influence carries the allies, whether its home site is on
+the intended route — none of that is printed on the character, and all of it was
+decided when the deck was built.
+
+Measured on the corpus, replaying every attributed `draft-pick` from a game whose
+human seat played a deck with favourite marks:
+
+| | picks a favourite | picks the human's exact card |
+| --- | --- | --- |
+| Human | 75.3% | — |
+| Chance (favourites' share of the candidates offered) | 40.6% | — |
+| H2 before | 11.3% | 9.3% |
+| H2 after | 98.7% | 24.0% |
+
+150 attributed picks. H2 was not merely indifferent to the deck's plan, it was
+*anti*-correlated with it — a third of the chance rate — which is what a flat
+zero plus a stable tie-break order produces: not a coin flip, a stuck coin.
+
+The change is a definition-ID list carried from the deck file to the draft
+state (`PlayerConfig.favourites` → `DraftPlayerState.favourites`), stripped from
+the opponent's copy in projection because which characters someone intends to
+start with is a statement of their plan, and read in `fetching` as
+`favouriteCharacterTsd` (2 TSD, two cards' worth) added to the quote. It binds
+no rule: every pool card stays legal to draft, and a large enough quote would
+still outweigh the mark if `card-price` ever stops returning zero at 0–0.
+
+Exact-card agreement more than doubled but stopped at 24%, and the ceiling is
+structural: a flat bonus makes every favourite tie, so which favourite gets
+picked is still the tie-break. Humans distinguish *among* their own favourites,
+and doing likewise is what the character valuation above is for. What this
+change buys is that the draft now happens inside the right set.
+
+#### It does not show up on the gate
+
+384 games against the heuristic champion, paired seeds, side-swapped, with a
+control run of the identical gate on `master`:
+
+| | paired Elo (95% CI) | score | failures |
+| --- | --- | --- | --- |
+| `master` (control) | +76 [+45, +108] | 230W-149L-4D (60.6%) | 1 |
+| with favourites | +64 [+31, +99] | 224W-155L-4D (59.0%) | 1 |
+
+−12 Elo against a standard error on the difference of about 24: indistinguishable
+from zero, pointing very slightly the wrong way. The one failure is the same
+pre-existing engine deadlock in both arms ("no player has a viable action" in
+`movement-hazard`), on different seeds — not caused by this change.
+
+**Run the control.** The first reading of this gate compared against a baseline
+of −9 [−42, +24] recorded several merged PRs earlier and concluded the change was
+worth ~73 Elo. It was not: `master` had moved to +76 in the meantime, and the
+whole apparent gain belonged to work already merged. A stale baseline is not a
+baseline. Every gate claim in this document is a difference between two arms, and
+the control arm has to be run at the same time as the challenger, not read off an
+earlier page.
+
+So this is a change that does what it says and that the gate cannot see. It is
+kept on the argument that a deck's author declaring which characters the deck is
+built around is information the AI should not be throwing away, and on the
+agreement measurement above — not on strength.
 
 ### The other work list: what a divergence costs
 

@@ -2609,6 +2609,7 @@ function applyShortEventOnEntersPlay(
             originHavenInstanceId: company.currentSite.instanceId,
             originHavenDefinitionId: company.currentSite.definitionId,
             originHavenStatus: company.currentSite.status,
+            ...(onEvent.apply.requiresMovedToKeyword ? { requiresMovedToKeyword: onEvent.apply.requiresMovedToKeyword } : {}),
           };
           break;
         }

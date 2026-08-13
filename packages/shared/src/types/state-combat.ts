@@ -640,6 +640,14 @@ export interface CombatState {
    */
   readonly postAttackEffects?: readonly PostAttackEffect[];
   /**
+   * Turning Hope to Despair (as-41): set when a hand-played `modify-attack`
+   * carrying `postAttackMindRollSplit` was played against this attack. If the
+   * attack ends up not fully defeated, `finalizeCombat` rolls a per-character
+   * mind check (2d6 + mind vs. `threshold`) for every character still in the
+   * defending company and splits off each one that fails.
+   */
+  readonly mindRollSplitPending?: { readonly threshold: number };
+  /**
    * True when the creature carries `combat-attacker-chooses-defenders`
    * (e.g. Cave-drake). Determines the post-cancel-window transition:
    * attacker-chooses → `'attacker'` assignment; otherwise → `'defender'`

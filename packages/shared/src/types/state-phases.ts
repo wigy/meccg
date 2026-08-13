@@ -956,6 +956,19 @@ export interface SitePhaseState {
    */
   readonly firstItemNoTapAvailable?: boolean;
   /**
+   * Whether a "Dwarven Hoard" (td-109) event has been played this site
+   * phase, making the active company's current site "considered to contain
+   * a hoard" for the rest of the turn — regardless of whether the site
+   * printed the `hoard` keyword. Widens hoard-item playability (`site.keywords
+   * $includes "hoard"` item-play-site filters) and the `hoardBountyAvailable`
+   * tapped-hoard-site bonus at that site. Absent (undefined → treated as
+   * false) until such an event resolves; reset to absent when a new
+   * company's site phase begins (a fresh {@link SitePhaseState} is built) —
+   * which also bounds it to "until the end of the turn" in practice, since a
+   * company's site phase happens once per turn.
+   */
+  readonly hoardKeywordGranted?: boolean;
+  /**
    * Whether the current company's site carries the `first-minor-item-no-tap`
    * site-rule (Framsburg, as-146) and the one free minor item it grants this
    * site phase has not yet been played. Set true at `select-company` when the
