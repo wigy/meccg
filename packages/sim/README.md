@@ -2053,6 +2053,56 @@ Reading the gate as a verdict on the removal would be a mistake. It is a verdict
 on the modules, taken for the first time without a second agent covering for
 them.
 
+### What the modules decline, and what it costs
+
+With H1 gone, "H2 has no opinion" stopped being invisible: it became a `pass`.
+Replaying the corpus against the fallback-free agent, **44.3% of decisions are
+declined** — and this is what was on the table when it walked away:
+
+| offered when H2 declined | the human took it | action type |
+| ---: | ---: | --- |
+| 225 | 3 | `play-short-event` |
+| 203 | **192** | `discard-card` |
+| 123 | 8 | `activate-granted-action` |
+| 119 | 0 | `reshuffle-card-from-hand` |
+| 96 | 8 | `place-on-guard` |
+| 77 | 46 | `assign-strike` |
+| 64 | 44 | `play-hazard` |
+| 60 | 0 | `transfer-item` |
+| 41 | **41** | `corruption-check` |
+
+The right-hand column is the one that matters, and it splits the list cleanly in
+two. Declining `play-short-event`, `reshuffle-card-from-hand` and `transfer-item`
+costs almost nothing: the human declined them too, nearly every time. Declining
+`discard-card` (192 of 203) and `corruption-check` (41 of 41) is wrong nearly
+every time.
+
+So the 44.3% is not one problem. It is a small number of decisions where passing
+is *always* the wrong answer, sitting inside a large number where passing is what
+a good player does anyway — which is also why removing H1 raised `pass` agreement
+to 73.6% while collapsing strength.
+
+#### The discount is now unreachable
+
+Re-running the rejected `heldWorth` discount on the fallback-free agent produces
+**identical numbers** — 58.7% overall, 12.7% on the discard. Not a small effect: no
+effect at all. H2 declines the discard rather than choosing among discards, so a
+better price for the card it throws is never consulted.
+
+That is worth stating as a rule, because it nearly cost a second gate cycle: **a
+valuation cannot be measured on a decision the agent does not reach.** The order
+is coverage first, price second. #2361 was also rejected on a gate that was 41%
+H1, so its verdict is void either way — but re-testing it was still wasted, for
+this second reason.
+
+What has to be established next is *why* the discard is declined: whether the
+modules score nothing there, or score every candidate identically, or score every
+discard as a pure cost and correctly prefer `pass` over paying it. The third
+would be a real modelling error — at the end-of-turn hand limit the discard is
+forced, so pricing it against a `pass` that the rules will not honour compares an
+option against one that is not really available. That is a question with a
+definite answer and it has not been asked yet.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
