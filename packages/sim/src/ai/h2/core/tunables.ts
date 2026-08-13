@@ -327,6 +327,16 @@ export interface Tunables {
    * Ships at the value it inherited so the split alone changes nothing.
    */
   readonly heldCardFloor: number;
+  /**
+   * The width of the tie-break that gives the hand a *total* order, in TSD.
+   *
+   * Deliberately far below any real price difference: this separates cards
+   * `card-price` scored identically and must never reorder cards it scored
+   * apart. See `throwOrder` for the ordering and the measurement behind it —
+   * the price already brackets the human's discard four times in five, and
+   * loses it to a seven-way tie.
+   */
+  readonly heldTieBreakSpan: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -347,6 +357,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   revertedMindCost: 0.15,
   partialCoverageMargin: 0.005,
   decisiveMargin: 0,
+  heldTieBreakSpan: 0.05,
   resourceDrawValue: 0.35,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,

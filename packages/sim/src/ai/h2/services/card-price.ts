@@ -322,11 +322,84 @@ function buildComputeCardPrices(
   const atLeastFloor = (worth: CardWorth): CardWorth =>
     (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
 
+  /**
+   * A total order on the hand, and why one is needed at all.
+   *
+   * Measured on the forced discard — no `pass` on offer, so a card must go —
+   * H2 threw one of its cheapest-priced cards in 179 of 179 corpus positions,
+   * and the human's card was inside that cheapest set in 142 of them. The price
+   * is not wrong. What it does not do is *choose*: it named 6.93 cards as
+   * equally cheapest every single time, and array order picked among them.
+   * 79.3% ÷ 6.93 ≈ 11.4%, against a measured 12.7% agreement — the whole
+   * disagreement is a coin flip inside the tie.
+   *
+   * So the requirement here is not accuracy, it is **discrimination**: never
+   * return the same number twice. That is a different problem, and it is
+   * satisfied by a tie-break an accuracy-driven change would dismiss as noise —
+   * which is why scaling hazards and characters into three groups (the reverted
+   * `heldWorth` discount) moved nothing. Three groups is still a tie.
+   *
+   * The order below is rules-derived where it can be and stable where it cannot:
+   *
+   * 1. **Class.** A hazard's route into play is capped by `effectiveHazardLimit`
+   *    and a character's by free general influence; nothing bounds playing an
+   *    item or faction at the site a company reached. The cards that queue
+   *    behind a rule-capped channel are the ones least likely ever to be spent.
+   * 2. **Surplus.** A card the hand holds two of is the cheapest to lose,
+   *    because the hand still holds it. Uniqueness and the hazard limit both
+   *    mean the second copy was unlikely to be played anyway.
+   * 3. **Size.** Within a class, the bigger card — more points, more mind, more
+   *    prowess — is the one worth keeping.
+   * 4. **Definition ID.** Not meaningful, and that is the point: it makes the
+   *    order *total* and independent of the order candidates happen to arrive
+   *    in. A stable arbitrary tie-break is honest; array order is the same
+   *    arbitrariness pretending to be a decision.
+   *
+   * Spread across `heldTieBreakSpan`, which is far below any real price
+   * difference, so this reorders cards the price could not separate and never
+   * reorders cards it could.
+   */
+  const throwOrder = ((): Map<string, number> => {
+    const copies = new Map<string, number>();
+    for (const card of view.self.hand) {
+      copies.set(card.definitionId as string, (copies.get(card.definitionId as string) ?? 0) + 1);
+    }
+    const key = (definitionId: string): [number, number, number, string] => {
+      const def = printed(cardPool[definitionId], definitionId);
+      const cls = def === null ? 3
+        : def.cardType.startsWith('hazard') ? 0
+          : CHARACTER_TYPES.test(def.cardType) ? 1 : 2;
+      const surplus = -(copies.get(definitionId) ?? 1);
+      const size = def === null ? 0 : def.marshallingPoints + def.mind + def.prowess;
+      return [cls, surplus, size, definitionId];
+    };
+    const ranked = [...view.self.hand].sort((a, b) => {
+      const ka = key(a.definitionId as string);
+      const kb = key(b.definitionId as string);
+      for (let i = 0; i < 3; i++) {
+        if (ka[i] !== kb[i]) return (ka[i] as number) - (kb[i] as number);
+      }
+      return String(ka[3]).localeCompare(String(kb[3]));
+    });
+    // Rank 0 is thrown first, so it carries the largest reduction.
+    const order = new Map<string, number>();
+    ranked.forEach((card, index) => {
+      order.set(card.instanceId as string, ranked.length <= 1 ? 1 : index / (ranked.length - 1));
+    });
+    return order;
+  })();
+
   const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return atLeastFloor(priceDefinition(instanceId, definitionId, () => {
+    const keep = throwOrder.get(instanceId as string) ?? 1;
+    const separated = (worth: CardWorth): CardWorth => ({
+      ...worth,
+      tsd: worth.tsd - tunables.heldTieBreakSpan * (1 - keep),
+      reason: worth.reason,
+    });
+    return separated(atLeastFloor(priceDefinition(instanceId, definitionId, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -341,7 +414,7 @@ function buildComputeCardPrices(
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
           : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
-    }));
+    })));
   };
 
   return {

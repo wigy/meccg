@@ -75,9 +75,37 @@ describe('the card price', () => {
       c => (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event',
     );
     expect(event).toBeDefined();
+    // Within the tie-break of the floor rather than exactly on it: the
+    // separation that gives the hand a total order is deliberately narrower
+    // than any real price difference, so "on the floor" is a band now, not a
+    // point. Two cards that used to sit on it identically must not.
     const worth = priced.worth(event!.instanceId)!;
-    expect(worth.tsd).toBeCloseTo(priced.floor, 9);
+    expect(worth.tsd).toBeLessThanOrEqual(priced.floor);
+    expect(worth.tsd).toBeGreaterThan(priced.floor - DEFAULT_TUNABLES.heldTieBreakSpan - 1e-9);
     expect(worth.reason).toContain('flat price');
+  });
+
+  test('no two cards in hand are worth exactly the same', () => {
+    // The requirement the discard actually has. Measured on the forced discard,
+    // the price named 6.93 cards as equally cheapest every time and array order
+    // picked among them — so accuracy was never the missing piece, a total
+    // order was.
+    const { prices: priced } = prices();
+    const values = priced.ranked().map(w => w.tsd);
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  test('and the cheapest card is the one a rule caps hardest', () => {
+    // Direction, pinned: this shipped inverted once, throwing the card it meant
+    // to keep, and the agreement measurement caught it where the type checker
+    // could not. A hazard queues behind `effectiveHazardLimit`; nothing bounds
+    // playing a resource at the site a company reached.
+    const { view, cardPool, prices: priced } = prices();
+    const classOf = (definitionId: string): string =>
+      (cardPool[definitionId] as unknown as { cardType?: string })?.cardType ?? '';
+    const cheapest = priced.ranked()[priced.ranked().length - 1];
+    const card = view.self.hand.find(c => c.instanceId === cheapest.instanceId)!;
+    expect(classOf(card.definitionId)).toMatch(/^hazard/);
   });
 
   test('the ranking is by worth, descending', () => {

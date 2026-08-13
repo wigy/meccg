@@ -206,9 +206,15 @@ describe('the end-of-turn hand', () => {
       { instanceId: 'c-capped', definitionId: 'capped' },
       { instanceId: 'c-blank', definitionId: 'blank' },
     ];
+    // Equal *worth*, and no longer an equal number: the hand carries a total
+    // order now, so two cards the valuation cannot separate are still separated
+    // by a tie-break narrower than any real difference. What this test pins is
+    // that the valuation itself draws no distinction — the gap between them
+    // must stay inside that tie-break.
     const capped = handModule.evaluate(discardCapped, alone)!;
     const blank = handModule.evaluate(discardBlank, alone)!;
-    expect(capped.expectedTsd).toBe(blank.expectedTsd);
+    expect(Math.abs(capped.expectedTsd - blank.expectedTsd))
+      .toBeLessThanOrEqual(DEFAULT_TUNABLES.heldTieBreakSpan + 1e-9);
   });
 
   test('points that would actually score are worth more than either', () => {
