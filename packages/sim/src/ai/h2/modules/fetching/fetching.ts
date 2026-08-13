@@ -45,6 +45,7 @@
  * priced by what the card is worth on its own terms in this standing.
  */
 
+import { GENERAL_INFLUENCE, printedMind } from '@meccg/shared';
 import type { CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
@@ -193,6 +194,37 @@ function isFavouritePick(action: GameAction, context: ModuleContext): boolean {
 }
 
 /**
+ * How much of the starting company's mind budget a draft candidate spends,
+ * which is the order to take them in.
+ *
+ * The starting company is a knapsack: total mind may not exceed
+ * `GENERAL_INFLUENCE`, and the engine already refuses a pick that would break it
+ * (`character-draft`'s `projectedMind <= mindLimit`), so nothing here has to
+ * model the cap. What the cap decides is *order*. A big character is the one
+ * that stops fitting — and, under `opponent-has-card`, the one an opponent
+ * drafting the same character can take off the table entirely. A small one fits
+ * whatever budget is left in a later round. So the expensive characters are the
+ * ones with a deadline.
+ *
+ * The corpus says humans play it exactly that way. Over 200 decisions where more
+ * than one favourite was on offer, the mean mind of the character taken falls
+ * monotonically by round — 7.69, 4.61, 4.02, 3.94, 2.86 — and the human took the
+ * highest-mind favourite 65.5% of the time against a 32.8% chance rate. Prowess,
+ * body and skills all correlate with the same picks and none of them fall
+ * monotonically, which is what marks mind as the driver rather than a passenger.
+ *
+ * Scaled to at most `draftMindPriorityTsd` so it orders candidates without
+ * reordering them across the favourite mark: the largest possible priority is
+ * strictly less than `favouriteCharacterTsd`, so every marked character still
+ * outranks every unmarked one.
+ */
+function mindPriorityTsd(definitionId: string, context: ModuleContext): number {
+  const card = context.cardPool[definitionId];
+  const mind = card ? printedMind(card) : 0;
+  return context.tunables.draftMindPriorityTsd * (mind / GENERAL_INFLUENCE);
+}
+
+/**
  * The deck-exhaust exchange: one card out of the new play deck, one in.
  *
  * The discard pile *is* the next play deck (`completeDeckExhaust` shuffles it
@@ -268,7 +300,10 @@ export const fetchingModule: H2Module = {
     const { standing, view, cardPool, tunables } = context;
     const quote = computeCardPrices(view, cardPool, standing, tunables).quote(chosen.definitionId);
     const favourite = isFavouritePick(action, context) ? tunables.favouriteCharacterTsd : 0;
-    const total = quote.tsd + favourite;
+    // Only the starting draft is a mind knapsack; every other action here takes
+    // a card into hand or deck, where mind is a cost rather than a deadline.
+    const priority = action.type === 'draft-pick' ? mindPriorityTsd(chosen.definitionId, context) : 0;
+    const total = quote.tsd + favourite + priority;
 
     const outcomes: Outcome[] = [{
       p: 1,
@@ -293,6 +328,13 @@ export const fetchingModule: H2Module = {
         unit: 'tsd',
         tunable: 'favouriteCharacterTsd',
         note: 'marked a favourite by the deck author',
+      }));
+    }
+    if (priority > 0) {
+      detail.push(leaf('takes the mind budget while it is there', priority, {
+        unit: 'tsd',
+        tunable: 'draftMindPriorityTsd',
+        note: `mind ${printedMind(cardPool[chosen.definitionId])} of ${GENERAL_INFLUENCE}`,
       }));
     }
 

@@ -94,6 +94,21 @@ export interface Tunables {
    */
   readonly favouriteCharacterTsd: number;
   /**
+   * Ceiling on the ordering term that prefers expensive characters at the
+   * starting draft, in TSD, reached by a character costing the whole general
+   * influence budget.
+   *
+   * Deliberately below `favouriteCharacterTsd`, so this can only order
+   * candidates *within* the favourite mark and never across it: the smallest
+   * marked character still outranks the largest unmarked one.
+   *
+   * That it should be an ordering term and not a valuation is the point. Mind is
+   * a cost everywhere else in the game; it is only at the draft that spending it
+   * early is right, because the budget is a knapsack and the big characters are
+   * the ones that stop fitting. See `mindPriorityTsd`.
+   */
+  readonly draftMindPriorityTsd: number;
+  /**
    * Ceiling on the number of live states while an attack is resolved strike by
    * strike. Beyond it, states are merged — probability mass is conserved, but
    * the enumeration stops being exhaustive and says so.
@@ -325,6 +340,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   eliminationTempoCost: 3,
   provisionalCardPrice: 1,
   favouriteCharacterTsd: 2,
+  draftMindPriorityTsd: 1,
   attackStateCap: 192,
   regionCrossingCost: 0.4,
   influenceTapCost: 0.6,

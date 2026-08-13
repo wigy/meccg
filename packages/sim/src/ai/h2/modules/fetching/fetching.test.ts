@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { computeLegalActions, loadCardPool, computeTournamentScore } from '@meccg/shared';
+import { computeLegalActions, loadCardPool, computeTournamentScore, printedMind } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import type { ModuleContext } from '../../core/types.js';
@@ -145,16 +145,61 @@ describe('a character the deck asked for', () => {
     expect(detail.map(child => child.tunable)).toContain('favouriteCharacterTsd');
   });
 
-  test('it is the deck talking, not the card: the same character is flat unmarked', () => {
-    // Nothing printed on the character changed between these two evaluations —
-    // only whether the deck that brought it said it wanted it.
+  test('it is the deck talking, not the card: the mark is worth the same to any character', () => {
+    // Nothing printed on the character changes between the two evaluations of
+    // each pick — only whether the deck that brought it said it wanted it. So
+    // the mark must move every character by the same amount, whatever it costs
+    // or scores. If it did not, the mark would be smuggling a valuation.
     const unmarked = draftMarking([]);
-    const favourite = unmarked.definitionOf(unmarked.picks[0]);
-    const marked = draftMarking([favourite]);
-    const pick = unmarked.picks[0];
+    const defs = [...new Set(unmarked.picks.map(unmarked.definitionOf))];
+    const lift = (definitionId: string): number => {
+      const marked = draftMarking([definitionId]);
+      const pick = marked.picks.find(a => marked.definitionOf(a) === definitionId)!;
+      const before = unmarked.picks.find(a => unmarked.definitionOf(a) === definitionId)!;
+      return fetchingModule.evaluate(pick, marked.context)!.expectedTsd
+        - fetchingModule.evaluate(before, unmarked.context)!.expectedTsd;
+    };
+    const lifts = defs.map(lift);
+    expect(Math.min(...lifts)).toBeGreaterThan(0);
+    expect(Math.max(...lifts)).toBeCloseTo(Math.min(...lifts), 10);
+  });
 
-    expect(fetchingModule.evaluate(pick, unmarked.context)!.expectedTsd).toBe(0);
-    expect(fetchingModule.evaluate(pick, marked.context)!.expectedTsd).toBeGreaterThan(0);
+  test('among marked characters, the expensive one goes first', () => {
+    // The starting company is a knapsack against GENERAL_INFLUENCE, so the big
+    // characters are the ones that stop fitting. Humans play it that way: the
+    // mean mind of the character taken falls monotonically by draft round.
+    const unmarked = draftMarking([]);
+    const defs = [...new Set(unmarked.picks.map(unmarked.definitionOf))];
+    const cardPool = loadCardPool();
+    const minds = defs.map(d => printedMind(cardPool[d]));
+    const dearest = defs[minds.indexOf(Math.max(...minds))];
+    const cheapest = defs[minds.indexOf(Math.min(...minds))];
+    expect(printedMind(cardPool[dearest])).toBeGreaterThan(printedMind(cardPool[cheapest]));
+
+    const { picks, context, definitionOf } = draftMarking([dearest, cheapest]);
+    const worth = (definitionId: string): number => fetchingModule.evaluate(
+      picks.find(a => definitionOf(a) === definitionId)!, context,
+    )!.expectedTsd;
+    expect(worth(dearest)).toBeGreaterThan(worth(cheapest));
+  });
+
+  test('but the cheapest marked character still beats the dearest unmarked one', () => {
+    // The ordering term is capped below the mark, so it can never reorder
+    // across it — otherwise a big character the deck does not want would
+    // outrank a small one it does.
+    const unmarked = draftMarking([]);
+    const defs = [...new Set(unmarked.picks.map(unmarked.definitionOf))];
+    const cardPool = loadCardPool();
+    const minds = defs.map(d => printedMind(cardPool[d]));
+    const cheapest = defs[minds.indexOf(Math.min(...minds))];
+
+    const { picks, context, definitionOf } = draftMarking([cheapest]);
+    const scored = picks.map(a => ({
+      marked: definitionOf(a) === cheapest,
+      tsd: fetchingModule.evaluate(a, context)!.expectedTsd,
+    }));
+    expect(Math.min(...scored.filter(s => s.marked).map(s => s.tsd)))
+      .toBeGreaterThan(Math.max(...scored.filter(s => !s.marked).map(s => s.tsd)));
   });
 
   test('a mark on the other seat\'s pool moves nothing here', () => {
@@ -174,17 +219,19 @@ describe('a character the deck asked for', () => {
       phaseState: { ...context.view.phaseState, setupStep: { ...setup, draftState } },
     };
 
-    expect(fetchingModule.evaluate(picks[0], { ...context, view } as ModuleContext)!.expectedTsd).toBe(0);
+    expect(fetchingModule.evaluate(picks[0], { ...context, view } as ModuleContext)!.expectedTsd)
+      .toBe(fetchingModule.evaluate(picks[0], context)!.expectedTsd);
   });
 });
 
-describe('why an unmarked opening draft scores flat', () => {
+describe('why the opening draft cannot be priced in marshalling points', () => {
   test('a score made of one source is worth nothing, and two sources are worth plenty', () => {
     // Not a limitation of this module: the tournament scorer caps every source
     // at half the player's total, so points in a single source cancel
-    // themselves. At the draft nobody has scored anything yet, so *every*
-    // candidate is worth zero and the decision goes to Heuristics 1 — which is
-    // the honest outcome, but it means H2 has no opinion about the opening.
+    // themselves. At the draft nobody has scored anything yet, so every
+    // candidate's *marshalling-point* half is worth exactly zero — which is why
+    // the draft has to be decided by the deck's plan and the mind budget
+    // instead, and why pricing characters better could never have helped.
     const zero: MarshallingPointTotals = {
       character: 0, item: 0, faction: 0, ally: 0, kill: 0, misc: 0,
     };
@@ -193,12 +240,26 @@ describe('why an unmarked opening draft scores flat', () => {
     expect(computeTournamentScore({ ...zero, character: 3, item: 2 }, zero)).toBeGreaterThan(0);
   });
 
-  test('so an unmarked pool covers the draft without discriminating on it', () => {
+  test('so what separates two unmarked candidates is the mind budget, and nothing else', () => {
+    // Equal mind, equal score — however differently the two characters are
+    // printed. The marshalling-point term contributes nothing to either.
     const { context, legalActions } = position(DRAFT);
-    const scores = legalActions
-      .filter(a => a.type === 'draft-pick')
-      .map(a => fetchingModule.evaluate(a, context)!.expectedTsd);
-    expect(Math.max(...scores)).toBe(Math.min(...scores));
+    const cardPool = loadCardPool();
+    const setup = (context.view.phaseState as unknown as {
+      setupStep: { draftState: { pool?: { instanceId: string; definitionId: string }[] }[] };
+    }).setupStep;
+    const pool = setup.draftState.flatMap(d => d.pool ?? []);
+    const byMind = new Map<number, number[]>();
+    for (const action of legalActions.filter(a => a.type === 'draft-pick')) {
+      const id = String((action as unknown as { characterInstanceId: string }).characterInstanceId);
+      const mind = printedMind(cardPool[pool.find(c => c.instanceId === id)!.definitionId]);
+      const scored = fetchingModule.evaluate(action, context)!.expectedTsd;
+      byMind.set(mind, [...(byMind.get(mind) ?? []), scored]);
+    }
+    expect(byMind.size).toBeGreaterThan(1);
+    for (const scores of byMind.values()) {
+      expect(Math.max(...scores)).toBe(Math.min(...scores));
+    }
   });
 });
 
