@@ -66,10 +66,22 @@ export function enterSetHazardLimitAndAutoAdvance(
   // Left Behind (td-41): a company created (or flagged) by Left Behind faces its
   // separate movement/hazard phase with a hazard limit of exactly one.
   const forcedLeftBehind = company.leftBehind === true;
-  const limit = forcedLeftBehind ? 1 : snapshot.limit;
-  const preRevealConstraintIds = forcedLeftBehind ? [] : snapshot.preRevealConstraintIds;
+  // Turning Hope to Despair (as-41): same one-time hazard-limit-1 forcing,
+  // but the flag is consumed (cleared) here since — unlike leftBehind — this
+  // company has no explicit "may rejoin" step to clear it later.
+  const forcedSolo = company.forcedSoloHazardLimit === true;
+  const limit = forcedLeftBehind || forcedSolo ? 1 : snapshot.limit;
+  const preRevealConstraintIds = forcedLeftBehind || forcedSolo ? [] : snapshot.preRevealConstraintIds;
   if (forcedLeftBehind) {
     logDetail(`Movement/Hazard: Left Behind company ${company.id as string} — hazard limit forced to 1`);
+  }
+  let stateForOrderEffects = state;
+  if (forcedSolo) {
+    logDetail(`Movement/Hazard: Turning Hope to Despair company ${company.id as string} — hazard limit forced to 1 (one-time)`);
+    stateForOrderEffects = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) => (idx === mhState.activeCompanyIndex ? { ...c, forcedSoloHazardLimit: false } : c)),
+    }));
   }
   logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → auto-advancing through set-hazard-limit and order-effects`);
   const orderEffectsMhState: MovementHazardPhaseState = {
@@ -78,7 +90,7 @@ export function enterSetHazardLimitAndAutoAdvance(
     hazardLimitAtReveal: limit,
     preRevealHazardLimitConstraintIds: preRevealConstraintIds,
   };
-  return handleOrderEffects(state, orderEffectsMhState);
+  return handleOrderEffects(stateForOrderEffects, orderEffectsMhState);
 }
 
 /**

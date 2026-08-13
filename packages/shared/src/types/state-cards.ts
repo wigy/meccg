@@ -532,6 +532,26 @@ export interface Company {
    */
   readonly leftBehindExtraPhasePending?: boolean | undefined;
   /**
+   * Set on a company created by Turning Hope to Despair (as-41): a character
+   * failed his post-attack mind roll and split off "into his own company"
+   * sharing the same site path as the company he was in. While set, this
+   * company's hazard-limit snapshot is forced to 1 for its own (separate)
+   * movement/hazard phase this turn. Unlike {@link leftBehind}, there is no
+   * explicit "may rejoin" clause on the card — the flag is cleared the moment
+   * it is consumed by `enterSetHazardLimitAndAutoAdvance`, after which the
+   * company merges back into another of its owner's companies through the
+   * normal rule 2.IV.6 same-site auto-merge, with no special-casing.
+   */
+  readonly forcedSoloHazardLimit?: boolean | undefined;
+  /**
+   * Set when Turning Hope to Despair (as-41) targeted a character who was
+   * **alone** in his company at the time of the split: there is no other
+   * company to peel him into, so his own company is flagged to run one more
+   * (separate) movement/hazard phase this turn with a hazard limit of one.
+   * Consumed by `advanceAfterCompanyMH`, mirroring {@link leftBehindExtraPhasePending}.
+   */
+  readonly forcedSoloExtraPhasePending?: boolean | undefined;
+  /**
    * Set when a `grant-extra-mh-phase` resource event (e.g. Forced March le-185,
    * Bridge tw-202, Leg It Double Quick le-202) resolves on this company during
    * its movement/hazard phase. After the company completes its current M/H phase

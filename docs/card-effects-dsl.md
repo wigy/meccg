@@ -15147,3 +15147,73 @@ if the influence check is greater than 11. Standard Modifications: Men with
 home sites in the regions listed above (+3). Tap this faction to allow any
 company with one of the regions listed above in its site path to move up to 1
 additional region."
+
+### 76. `modify-attack` `postAttackMindRollSplit` + `split-into-own-company` (Turning Hope to Despair)
+
+A hazard **short-event**, played from hand (or revealed on-guard) in the same
+attacker-only pre-assignment `modify-attack` window as Unabated in Malice
+(ba-26, §see `modify-attack fromHand`), that schedules a **per-character**
+post-attack roll instead of (or alongside) any stat modifiers: if the attack
+ends up not fully defeated, every character still in the defending company
+rolls 2d6 plus his mind against a threshold, and each one who rolls below it
+splits off into his own company.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "postAttackMindRollSplit": { "threshold": 11 },
+  "when": { "attack.detainment": false,
+    "enemy.race": { "$in": ["undead", "ringwraith", "maia"] } } }
+```
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `postAttackMindRollSplit.threshold` | yes | The 2d6-plus-mind total each character in the company must reach (`>=`) to stay together (11 for Turning Hope to Despair). |
+
+- **Play** — reuses the existing from-hand `modify-attack` offering and
+  playability machinery verbatim (window, `when` gate, hazard-limit
+  bypass via `play-flag: "no-hazard-limit"`, attacker-only `player` gate).
+  `handleModifyAttack` (`combat-actions.ts`) discards the card as usual, but
+  because `postAttackMindRollSplit` is set, stores
+  `{ threshold }` as `CombatState.mindRollSplitPending` instead of (in this
+  card's case, since no `prowessModifier`/etc. are set) applying any stat
+  change.
+- **Roll** — at combat finalization (`finalizeCombat`, `combat-finalize.ts`),
+  if `!allDefeated` and `mindRollSplitPending` is set, the engine enqueues one
+  generic `dice-check` `PendingResolution` per character still in the
+  defending company: `modifiers: [{ kind: "constant", value: <effective mind> }]`,
+  `threshold`, `comparison: "gte"`, `onFail: { type: "split-into-own-company" }`,
+  `targetCharacterId`/`targetCompanyId` set. The company's controller rolls.
+- **Split** — `split-into-own-company` (a new `TriggeredAction` verb) is
+  dispatched by `applyDiceCheckBranch` (`pending-reducers.ts`) on a failed
+  roll, delegating to `splitCharacterOffCompany` (`reducer-utils.ts`): the
+  generalized, auto-rejoining sibling of Left Behind (td-41)'s
+  `applyLeftBehindSplit` (§64 `left-behind-split`). It peels the character
+  into a new `Company` sharing the same site path (`currentSite` /
+  `destinationSite` / `movementPath`), flagged
+  `Company.forcedSoloHazardLimit` — **not** `leftBehind` — since the card
+  carries no "may rejoin" clause. A lone character instead flags his own
+  company `Company.forcedSoloExtraPhasePending`, mirroring
+  `leftBehindExtraPhasePending`.
+- **Separate M/H phase, limit one** — identical mechanism to `left-behind-split`:
+  the new company is created *unhandled*, so the M/H loop's `select-company`
+  naturally gives it its own phase; `enterSetHazardLimitAndAutoAdvance`
+  (`mh-steps.ts`) forces a `forcedSoloHazardLimit` company's snapshot to 1,
+  **clearing the flag the moment it is consumed** (unlike `leftBehind`, which
+  stays set until the explicit rejoin resolves). `advanceAfterCompanyMH`
+  (`mh-hazard-play.ts`) re-runs a `forcedSoloExtraPhasePending` lone company
+  once, mirroring the `leftBehindExtraPhasePending` branch.
+- **No explicit rejoin** — because the flag is gone after the split company's
+  own phase, `autoMergeNonHavenCompanies` (rule 2.IV.6) treats it like any
+  other company: it silently merges back with its origin the moment both are
+  at the same non-Haven site, with no `left-behind-rejoin`-style pending
+  choice. This is the deliberate behavioral difference from Left Behind,
+  whose printed text explicitly grants a "may rejoin" option that Turning
+  Hope to Despair's text does not.
+
+Used by *Turning Hope to Despair* (as-41): "Playable on a company facing a
+non-detainment attack from: Undead, Nazgûl, or Maia; does not count against
+the hazard limit. If the attack is not defeated, each character in the
+company makes a roll and adds his mind. If the result is less than 11, the
+character splits off from the company and forms his own company with the
+same site path as his original company. The character faces a separate
+movement/hazard phase this turn with a hazard limit of one."
