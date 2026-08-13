@@ -33,6 +33,10 @@ const CARN_DUM = 'le-359' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const BARAD_DUR_MINION = 'le-352' as CardDefinitionId;
 
+// Ringwraith avatar (race: ringwraith) — the company must actually contain
+// this to be "a Ringwraith's company" per rule 9.23.
+const ADUNAPHEL = 'le-50' as CardDefinitionId;
+
 // Gold ring item (The Least of Gold Rings — minion-aligned)
 const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;
 
@@ -53,7 +57,7 @@ describe('Rule 9.23 — Gold Ring Auto-Test in Ringwraith/Balrog Company', () =>
           {
             id: PLAYER_1,
             alignment: Alignment.Ringwraith,
-            companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN] }],
+            companies: [{ site: CARN_DUM, characters: [ADUNAPHEL, ORC_CAPTAIN] }],
             hand: [],
             siteDeck: [MINAS_MORGUL],
           },
@@ -162,6 +166,46 @@ describe('Rule 9.23 — Gold Ring Auto-Test in Ringwraith/Balrog Company', () =>
       expect(afterPass.phaseState.phase).toBe(Phase.EndOfTurn);
 
       // Hero player: no auto-test queued
+      const goldRingPending = afterPass.pendingResolutions.find(r => r.kind.type === 'gold-ring-test');
+      expect(goldRingPending).toBeUndefined();
+    }
+
+    // Case 4: Ringwraith player's gold ring in a company WITHOUT a Ringwraith
+    // (e.g. an agents-only company), away from Barad-Dûr → NO auto-test.
+    // "A Ringwraith's company" (rule 9.23 / glossary) means the specific
+    // company containing the Ringwraith avatar, not every company belonging
+    // to a Ringwraith-aligned player.
+    {
+      const base = buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.Site,
+        recompute: true,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN] }],
+            hand: [],
+            siteDeck: [MINAS_MORGUL],
+          },
+          {
+            id: PLAYER_2,
+            alignment: Alignment.Wizard,
+            companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+            hand: [],
+            siteDeck: [LORIEN],
+          },
+        ],
+      });
+
+      const withRing = attachItemToChar(base, RESOURCE_PLAYER, ORC_CAPTAIN, LEAST_OF_GOLD_RINGS);
+
+      const stateInSite = { ...withRing, phaseState: makeSitePhase({ step: 'play-resources', activeCompanyIndex: 0 }) };
+      const afterPass = dispatch(stateInSite, { type: 'pass', player: PLAYER_1 });
+
+      expect(afterPass.phaseState.phase).toBe(Phase.EndOfTurn);
+
+      // No Ringwraith in the Orc Captain's company: no auto-test queued.
       const goldRingPending = afterPass.pendingResolutions.find(r => r.kind.type === 'gold-ring-test');
       expect(goldRingPending).toBeUndefined();
     }

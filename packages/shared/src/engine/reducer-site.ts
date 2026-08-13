@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -4969,9 +4969,13 @@ function fireEndOfTurnSiteWoundRolls(state: GameState): GameState {
  * Fire automatic gold-ring tests at the beginning of the end-of-turn phase
  * for Ringwraith and Balrog players (CoE rule 9.23).
  *
- * Any gold ring borne by a character in a Ringwraith or Balrog company is
- * automatically tested with a -2 roll modifier. For Ringwraith companies at
- * Barad-Dûr the modifier is -3 instead.
+ * Any gold ring borne by a character in a Ringwraith's or Balrog's company —
+ * i.e. a company that actually contains the Ringwraith/Balrog avatar, not
+ * just any company belonging to a Ringwraith/Balrog-aligned player (rule
+ * 6.2.R1/B1) — is automatically tested with a -2 roll modifier. A site may
+ * instead declare a location-based override (e.g. Barad-Dûr's -3, rule
+ * 6.2.R2) via `site-phase-ring-auto-test`, which applies to any company at
+ * that site regardless of whether it contains the avatar.
  */
 function fireEndOfTurnGoldRingTests(state: GameState): GameState {
   const resourcePlayer = playerById(state, state.activePlayer)!;
@@ -4986,6 +4990,7 @@ function fireEndOfTurnGoldRingTests(state: GameState): GameState {
     // site-rule with a `rollModifier` (e.g. Barad-Dûr at -3). Reading the
     // value from card data keeps the site-specific number out of the engine.
     let baseModifier = -2;
+    let siteOverridesCompanyScope = false;
     if (company.currentSite) {
       const siteDefId = resolveInstanceId(newState, company.currentSite.instanceId);
       const siteDef = siteDefId ? defById(newState, siteDefId) : undefined;
@@ -5004,7 +5009,25 @@ function fireEndOfTurnGoldRingTests(state: GameState): GameState {
         logDetail(`end-of-turn: skipping gold-ring auto-test for ${resourcePlayer.alignment} company at ${siteDef && isSiteCard(siteDef) ? siteDef.name : siteDefId as string} (site-rule skipForAlignments)`);
         continue;
       }
-      if (rule) baseModifier = rule.rollModifier;
+      if (rule) {
+        baseModifier = rule.rollModifier;
+        // Rule 6.2.R2: "A Ringwraith player's gold ring items at Barad-Dûr"
+        // is a location-based test — it applies to any company at the site,
+        // unlike the default rule 6.2.R1 which is scoped to "a Ringwraith's
+        // company" (a company containing the avatar).
+        siteOverridesCompanyScope = true;
+      }
+    }
+
+    if (!siteOverridesCompanyScope) {
+      // Rule 9.23 scopes the default auto-test to "a Ringwraith's company" /
+      // "a Balrog's company" — the specific company containing that avatar
+      // character, not every company the Ringwraith/Balrog-aligned player
+      // controls.
+      const hasRequiredAvatar = resourcePlayer.alignment === Alignment.Ringwraith
+        ? companyHasRingwraith(newState, resourcePlayer, company)
+        : companyHasBalrog(newState, resourcePlayer, company);
+      if (!hasRequiredAvatar) continue;
     }
 
     for (const charId of company.characters) {

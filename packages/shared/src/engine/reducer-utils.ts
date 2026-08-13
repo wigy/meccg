@@ -1740,6 +1740,20 @@ export function companyHasRingwraith(state: GameState, owner: PlayerState, compa
 }
 
 /**
+ * True when any character in `company` has the Balrog race — i.e. the
+ * company "contains a Balrog" (the Balrog avatar, `race: balrog`).
+ */
+export function companyHasBalrog(state: GameState, owner: PlayerState, company: Company): boolean {
+  for (const charInstId of company.characters) {
+    const defId = owner.characters[charInstId]?.definitionId ?? resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = defById(state, defId);
+    if (charDef && isCharacterCard(charDef) && charDef.race === Race.Balrog) return true;
+  }
+  return false;
+}
+
+/**
  * The characters in `company` who "use shadow-magic": Ringwraiths by race
  * (CoE rule — a Ringwraith can always use shadow-magic) plus any character
  * whose effective skills include `"shadow-magic"`. Order follows
