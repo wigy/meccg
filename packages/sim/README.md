@@ -1776,6 +1776,34 @@ picked is still the tie-break. Humans distinguish *among* their own favourites,
 and doing likewise is what the character valuation above is for. What this
 change buys is that the draft now happens inside the right set.
 
+#### It does not show up on the gate
+
+384 games against the heuristic champion, paired seeds, side-swapped, with a
+control run of the identical gate on `master`:
+
+| | paired Elo (95% CI) | score | failures |
+| --- | --- | --- | --- |
+| `master` (control) | +76 [+45, +108] | 230W-149L-4D (60.6%) | 1 |
+| with favourites | +64 [+31, +99] | 224W-155L-4D (59.0%) | 1 |
+
+−12 Elo against a standard error on the difference of about 24: indistinguishable
+from zero, pointing very slightly the wrong way. The one failure is the same
+pre-existing engine deadlock in both arms ("no player has a viable action" in
+`movement-hazard`), on different seeds — not caused by this change.
+
+**Run the control.** The first reading of this gate compared against a baseline
+of −9 [−42, +24] recorded several merged PRs earlier and concluded the change was
+worth ~73 Elo. It was not: `master` had moved to +76 in the meantime, and the
+whole apparent gain belonged to work already merged. A stale baseline is not a
+baseline. Every gate claim in this document is a difference between two arms, and
+the control arm has to be run at the same time as the challenger, not read off an
+earlier page.
+
+So this is a change that does what it says and that the gate cannot see. It is
+kept on the argument that a deck's author declaring which characters the deck is
+built around is information the AI should not be throwing away, and on the
+agreement measurement above — not on strength.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
