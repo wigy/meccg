@@ -73,7 +73,6 @@
 
 import type { GameAction } from '@meccg/shared';
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
-import { createHeuristicAgent } from '../../agents/heuristic-agent.js';
 import { forwardActions } from '../regress.js';
 import { createCycleGuard } from '../../cycle-guard.js';
 import { viewSignature } from '../../state-signature.js';
@@ -103,17 +102,6 @@ export interface Heuristic2Options {
   /** Module set override, for tests that register a stub module. */
   readonly available?: readonly H2Module[];
   /**
-   * Defer every decision the fallback says it can search itself.
-   *
-   * Off by default. On, and with a fallback that publishes `canDecide`, the
-   * module tree keeps only the positions the fallback would have delegated —
-   * for `mc` that is combat, mid-chain and pending effects, the windows its
-   * determinizer refuses. It is the automatic form of naming the modules by
-   * hand, and more precise, because whether the rollouts can search a decision
-   * is a property of the position rather than of the action type.
-   */
-  readonly yieldWhenFallbackCanSearch?: boolean;
-  /**
    * Sample the reported distribution instead of playing its argmax.
    *
    * Off by default: sampling a move the agent's own model ranks below another
@@ -122,16 +110,6 @@ export interface Heuristic2Options {
    * data, where the point is coverage of positions rather than winning.
    */
   readonly sample?: boolean;
-  /**
-   * Agent asked for the decisions H2 cannot speak to — an unowned candidate
-   * it dare not rank blind, or a covered ranking that came out flat.
-   *
-   * Defaults to Heuristics 1, which is free and always applicable. Anything
-   * stronger is a straight upgrade on those decisions and costs nothing on
-   * the others, because the fallback is only ever consulted after the module
-   * tree has declined; see the module docstring.
-   */
-  readonly fallback?: Agent;
 }
 
 /**
@@ -157,31 +135,6 @@ function softmax(utilities: readonly number[], temperature: number): number[] {
   return total > 0 ? weights.map(w => w / total) : utilities.map(() => 1 / utilities.length);
 }
 
-/**
- * Action types whose value is a property of the whole board, not of a turn.
- *
- * Company shape is the case: `defence` prices it as a difference of one
- * potential, `Σ harm(company)` over every company, precisely so that a shape
- * change and its undo cannot both score positively. A one-turn rollout cannot
- * see that — `mc` values splitting a company and merging it straight back at
- * exactly the same mean TSD — and taking the argmax of that tie oscillates:
- * `h2>mc` ran split → move → merge → split to the decision limit on two of 98
- * gate games (seeds 15 and 41). The engine's regress flag does not catch it
- * because the planned destination alternates, so every lap is a state it has
- * not seen.
- *
- * So these are never yielded, however well the fallback can search the rest of
- * the position. Keeping the exclusion to the family that demonstrably cycles
- * matters: handing back *every* decision the fallback scored flat also works,
- * and costs the whole gain — at four rollouts `mc` reports equal means far too
- * often for that to be a tie-break rather than a policy change (38.9% against
- * `mc`, where yielding scores 62.2%).
- */
-const NEVER_YIELDED_ACTION_TYPES: readonly string[] = [
-  'split-company',
-  'merge-companies',
-  'move-to-company',
-];
 
 /**
  * The tunables that differ from the shipped set, as a spec-shaped suffix.
@@ -207,8 +160,6 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   const modules = resolveModules(options.modules, options.available ?? ALL_MODULES);
   const model = options.model ?? loadWinProbModel();
   const temperature = options.temperature ?? tunables.softmaxTemperature;
-  const fallback = options.fallback ?? createHeuristicAgent();
-  const yieldToFallback = options.yieldWhenFallbackCanSearch === true;
   const selector = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
   // A tunable override changes how every module scores, so a run that reports
   // plain `h2` for two different constant sets cannot be read afterwards —
@@ -218,10 +169,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   // play — a run that reports `h2` for differently-configured agents cannot be
   // read afterwards. The fallback's connector records whether the agent yields
   // outright (`>`) or only on what its own modules cannot price (`+`).
-  const sampled = options.sample ? `${base}@${temperature}` : base;
-  const label = options.fallback
-    ? `${sampled}${yieldToFallback ? '>' : '+'}${fallback.name}`
-    : sampled;
+  const label = options.sample ? `${base}@${temperature}` : base;
 
   // The long-term commitments in force. Per-agent because a commitment is
   // exactly the state a stateless evaluator cannot hold, and reset per game
@@ -335,27 +283,45 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       const decisive = tunables.decisiveMargin <= 0
         || runnerUp === undefined
         || best.utility - runnerUp.utility > tunables.decisiveMargin;
-      // …and none of that matters on a decision the fallback can search for
-      // itself. Where `mc` can determinize the view its rollouts beat the
-      // modules; where it cannot, the modules are the only opinion there is.
-      // Asking the fallback per decision is what `yieldWhenFallbackCanSearch`
-      // does, and it beats naming the modules by hand because the line is a
-      // property of the *position*, not of the action type — except for the
-      // handful of types whose value is a property of the whole board, which
-      // no one-turn rollout can see. See `NEVER_YIELDED_ACTION_TYPES`.
-      const yielded = yieldToFallback
-        && fallback.canDecide?.(context) === true
-        && !legalActions.some(a => NEVER_YIELDED_ACTION_TYPES.includes(a.type));
-      const speaks = !yielded && evaluations.length > 0
+      // `decisiveMargin` and the tie test no longer decide *who* plays the
+      // move — nobody else is left to play it — only whether H2 acts on a
+      // preference or declines to act at all. See below.
+      const speaks = evaluations.length > 0
         && (complete ? (discriminates || best.utility > TIE_EPSILON) && decisive
           : best.utility > tunables.partialCoverageMargin);
 
       if (!speaks) {
-        // The fallback handles the decision in its own units. It sees the
-        // *forward* candidate list rather than the raw one, so a fallback
-        // cannot pick a move H2 had already ruled out as an undo.
-        const decision = fallback.chooseAction({ ...context, legalActions });
-        return { ...decision, note: `${fallback.name} fallback${decision.note ? `: ${decision.note}` : ''}` };
+        // **This is where Heuristics 1 used to play the move.** It decided
+        // 41.2% of every real choice in the recorded corpus — 96.8% of
+        // `corruption-check`, 72.5% of `play-hazard`, 58.7% of `pass`, 55.1% of
+        // `discard-card` — so more than two decisions in five credited to H2
+        // were H1's, and every module improvement was being measured on the
+        // fraction that reached the modules at all.
+        //
+        // Handing over was defensible while it was the *weaker* agent's
+        // decision only on positions H2 could not rank. It stopped being
+        // defensible once the thing being improved was H2: a ceiling made of
+        // another agent cannot be raised by working on this one.
+        //
+        // So H2 answers its own decisions now, including the ones it cannot
+        // rank. What it says when it has no preference is `pass` — not as a
+        // tie-break of convenience, but because it is the honest reading of a
+        // tie: every action in this game costs something the model may not have
+        // priced (a card out of hand, a character tapped out of the site phase,
+        // information given away), and an action with no modelled benefit has
+        // nothing to set against that. It is also the failure this exact clause
+        // was written to prevent — H2 once deterministically gave away two
+        // starting items it had no reason to move, because a tie at the top of
+        // the ranking is whichever candidate sorted first, not a preferred one.
+        // Passing on a tie fixes that without borrowing anyone's opinion.
+        const passing = legalActions.find(a => a.type === 'pass');
+        const chosen = passing ?? (evaluations.length > 0 ? best.action : legalActions[0]);
+        return {
+          action: chosen,
+          note: passing
+            ? `no opinion worth acting on — passing (${evaluations.length} candidate(s) scored)`
+            : `no opinion and no pass available — taking ${chosen.type}`,
+        };
       }
 
       // On a partial view the candidate list is not the whole decision, so it
