@@ -6901,6 +6901,60 @@ whole company jointly controls has none.
   "requiresTapped": true, "marshallingPoints": 4 }
 ```
 
+### 21z. Item-cache primitives (`item-cache-hand-store`, `item-cache-alt-storage`, `item-cache-play-source`, `item-cache-count-bonus`)
+
+A permanent event that acts as an off-to-the-side cache of a player's own
+minor items, layered on top of the generic `setAside` mechanism
+(`engine/set-aside.ts`, MEAS §1) rather than the marshalling-point pile.
+Used by Armory (dm-116): "Only you and your companies can use Armory. You
+may place any minor items from your hand under Armory during your
+organization phase. A character at a Haven [{H}] can store a minor item
+under Armory instead of to your marshalling point pile. When you otherwise
+would be allowed to play a minor item from your hand at a Border-hold [{B}],
+Free-hold [{F}], or Haven [{H}], you may play an item from under Armory
+instead. If you have at least three minor items under Armory, gain 1
+marshalling point." Four independent effects, each a thin, reusable
+extension of an existing mechanism — no dedicated card-specific code:
+
+- **`item-cache-hand-store`** — a new organization-phase action
+  (`store-item-in-cache`, `legal-actions/organization.ts`
+  `itemCacheHandStoreActions`, `reducer-organization.ts`
+  `handleStoreItemInCache`) moves a hand item of a listed subtype straight
+  into the host's `setAside` pile (`placeCardSetAside(..., noMp: true)`), no
+  site or bearer required — the item was never played.
+- **`item-cache-alt-storage`** — offered alongside the existing `store-item`
+  action wherever an item is already storable at a matching site type
+  (`organization-companies.ts` `storeItemActions`); the emitted action
+  carries an extra `cacheHostInstanceId`, and `handleStoreItem`
+  (`reducer-organization.ts`) branches on its presence to call
+  `placeCardSetAside(..., noMp: true)` instead of pushing to `killPile`. The
+  initial-bearer corruption check and `bearer-cannot-untap` cleanup run
+  unchanged either way.
+- **`item-cache-play-source`** — generalizes the Great Secrets Buried There
+  (dm-63) "play a set-aside item as though in hand" shape
+  (`legal-actions/site.ts`, the hand-card loop in `playResourcesActions`)
+  from a hardcoded Under-deeps keyword check to a declared `siteTypes` list:
+  a player-owned host card's own `setAside` items are merged into the
+  hand-card loop whenever the active company's site's *effective* type
+  (`getEffectiveSiteType`) matches. Every ordinary item-play gate (site
+  resource type, uniqueness, untapped bearer) still applies unchanged, and
+  the existing `fromSetAside` reducer path (`reducer-site.ts`
+  `handleSitePlayHeroResource` / `removeItemFromSetAside`) needed no changes
+  — it was already host-agnostic.
+- **`item-cache-count-bonus`** — a `{ count, mp }` threshold scored in
+  `recompute-derived.ts` by counting the host's own `setAside.length`, the
+  same shape as `leader-control`'s `groupBonus` applied to a card count
+  instead of a faction count. Individual cached items already score no MP
+  (`setAsideNoMp`, set by both storage modes above) — this bonus is the only
+  MP the cache itself contributes.
+
+```json
+{ "type": "item-cache-hand-store", "subtypes": ["minor"] }
+{ "type": "item-cache-alt-storage", "siteTypes": ["haven"], "subtypes": ["minor"] }
+{ "type": "item-cache-play-source", "siteTypes": ["border-hold", "free-hold", "haven"] }
+{ "type": "item-cache-count-bonus", "count": 3, "mp": 1 }
+```
+
 ### 21a. `storage-site-transfer`
 
 Carried by a permanent event whose play *is* the act of storing one

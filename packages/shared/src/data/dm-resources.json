@@ -472,8 +472,28 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Only you and your companies can use Armory. You may place any minor items from your hand under Armory during your organization phase. A character at a Haven [{H}] can store a minor item under Armory instead of to your marshalling point pile. When you otherwise would be allowed to play a minor item from your hand at a Border-hold [{B}], Free-hold [{F}], or Haven [{H}], you may play an item from under Armory instead. If you have at least three minor items under Armory, gain 1 marshalling point."
+    "effects": [
+      {
+        "type": "item-cache-hand-store",
+        "subtypes": ["minor"]
+      },
+      {
+        "type": "item-cache-alt-storage",
+        "siteTypes": ["haven"],
+        "subtypes": ["minor"]
+      },
+      {
+        "type": "item-cache-play-source",
+        "siteTypes": ["border-hold", "free-hold", "haven"]
+      },
+      {
+        "type": "item-cache-count-bonus",
+        "count": 3,
+        "mp": 1
+      }
+    ],
+    "text": "Only you and your companies can use Armory. You may place any minor items from your hand under Armory during your organization phase. A character at a Haven [{H}] can store a minor item under Armory instead of to your marshalling point pile. When you otherwise would be allowed to play a minor item from your hand at a Border-hold [{B}], Free-hold [{F}], or Haven [{H}], you may play an item from under Armory instead. If you have at least three minor items under Armory, gain 1 marshalling point.",
+    "certified": "2026-08-12"
   },
   {
     "cardType": "hero-resource-event",

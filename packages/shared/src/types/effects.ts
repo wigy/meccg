@@ -6025,6 +6025,73 @@ export interface StorableAtEffect extends EffectBase {
 }
 
 /**
+ * Item-cache host, mode "hand store" (Armory dm-116): during the
+ * controller's organization phase, an item of a matching subtype may be
+ * moved directly from the controller's hand into the set-aside pile kept
+ * with this card (`CardInPlay.setAside`, via `placeCardSetAside`), rather
+ * than being played. The stored item earns no marshalling points on its own
+ * (`setAsideNoMp`) — only the cache's own {@link ItemCacheCountBonusEffect},
+ * if present, scores anything for it.
+ */
+export interface ItemCacheHandStoreEffect extends EffectBase {
+  readonly type: 'item-cache-hand-store';
+  /** Item subtypes eligible to be moved from hand into the cache. */
+  readonly subtypes: readonly ('minor' | 'major' | 'greater' | 'gold-ring' | 'special')[];
+}
+
+/**
+ * Item-cache host, mode "alternate storage" (Armory dm-116): "A character at
+ * a Haven can store a minor item under Armory instead of to your marshalling
+ * point pile." Offered as an additional destination alongside the normal
+ * `store-item` action (CoE rule 2.II.4) whenever a matching item is storable
+ * at a site whose type is in `siteTypes`; choosing it moves the item into
+ * this card's set-aside pile instead of the marshalling-point kill pile,
+ * scoring no individual marshalling points (`setAsideNoMp`).
+ */
+export interface ItemCacheAltStorageEffect extends EffectBase {
+  readonly type: 'item-cache-alt-storage';
+  /** Site types where the cache destination is offered (e.g. any Haven). */
+  readonly siteTypes: readonly SiteType[];
+  /** Item subtypes eligible for the cache destination. */
+  readonly subtypes: readonly ('minor' | 'major' | 'greater' | 'gold-ring' | 'special')[];
+}
+
+/**
+ * Item-cache host, mode "play source" (Armory dm-116): "When you otherwise
+ * would be allowed to play a minor item from your hand at a Border-hold,
+ * Free-hold, or Haven, you may play an item from under Armory instead."
+ * Items set aside under this host (via {@link ItemCacheHandStoreEffect} or
+ * {@link ItemCacheAltStorageEffect}) are merged into the normal hand-card
+ * loop when the active company's site's effective type is in `siteTypes`,
+ * exactly like a hand card — every ordinary item-play gate (site resource
+ * type, uniqueness, untapped bearer) still applies. Mirrors the
+ * `play-target: targetsSetAside` shape already used by Great Secrets Buried
+ * There (dm-63), generalized to a declarable site-type list instead of a
+ * hardcoded Under-deeps check.
+ */
+export interface ItemCachePlaySourceEffect extends EffectBase {
+  readonly type: 'item-cache-play-source';
+  /** Site types where cached items are playable as though in hand. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
+ * Item-cache host, count-threshold marshalling-point bonus (Armory dm-116):
+ * "If you have at least three minor items under Armory, gain 1 marshalling
+ * point." Scored once per qualifying host in `recompute-derived.ts` by
+ * counting the host's `CardInPlay.setAside` list — the same shape as
+ * `leader-control`'s `groupBonus`, applied to a card-count instead of a
+ * faction-count.
+ */
+export interface ItemCacheCountBonusEffect extends EffectBase {
+  readonly type: 'item-cache-count-bonus';
+  /** Minimum number of cards set aside under this host to earn the bonus. */
+  readonly count: number;
+  /** Marshalling points awarded (misc category) once the threshold is met. */
+  readonly mp: number;
+}
+
+/**
  * Storage-site transfer (Wizard's Trove wh-85, "Alternatively" mode): playing
  * this permanent event *is* the act of storing one marshalling-point card at a
  * site the storing card could not normally be stored at — "any reference to
@@ -8326,6 +8393,10 @@ export type CardEffect =
   | ItemPlaySiteEffect
   | DiscardSubstituteEffect
   | StorableAtEffect
+  | ItemCacheHandStoreEffect
+  | ItemCacheAltStorageEffect
+  | ItemCachePlaySourceEffect
+  | ItemCacheCountBonusEffect
   | StorageSiteTransferEffect
   | PlayWithStoredCardEffect
   | CallOfHomeCheckEffect
