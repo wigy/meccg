@@ -2129,6 +2129,50 @@ forced, so pricing it against a `pass` that the rules will not honour compares a
 option against one that is not really available. That is a question with a
 definite answer and it has not been asked yet.
 
+### The discard reads the price, and the price names seven cards
+
+The contradiction above is settled, and neither horn was right. Restricted to the
+**forced** discard — no `pass` on offer, every candidate a discard — over 179
+corpus positions:
+
+```text
+H2 threw one of its cheapest-priced cards:  179 (100.0%)
+the human threw one of H2's cheapest:       142 (79.3%)
+decisions with a tie at the cheapest price: 179 (100.0%)
+mean size of that tied set:                 6.93
+```
+
+Every line matters:
+
+- **H2 does read the price.** It throws a cheapest-priced card every single time.
+  The choice is not bypassing the valuation.
+- **The price is not wrong.** The human's card is inside H2's cheapest set four
+  times in five. `card-price` already knows which cards are the cheap ones.
+- **The price does not *choose*.** It names 6.93 cards as equally cheapest, every
+  time, and which of the seven gets thrown is array order.
+
+That arithmetic closes the case: 79.3% ÷ 6.93 ≈ 11.4%, against a measured discard
+agreement of 12.7%. The observed disagreement is exactly what picking uniformly
+inside the tied set predicts. Nothing else needs explaining.
+
+It also explains why the `heldWorth` discount moved nothing. Scaling hazards to
+0.4 and characters to 0.7 does not *order* a hand — it sorts it into three groups,
+and the cheapest group is still several cards. A change that turns a seven-way tie
+into a four-way tie is invisible to a metric that needs one card named.
+
+#### What the fix has to be, stated exactly
+
+Not a better estimate of what a card is worth: that estimate is already good
+enough to bracket the human's choice four times in five. What is missing is a
+**total order** on the hand. The requirement is not "price cards more accurately",
+it is "never return the same number twice", and those are different engineering
+problems — the second is satisfiable by a tie-break the first would call noise.
+
+Measured against the corpus, a purely categorical order — all hazards before all
+characters before all resources, MP descending inside each — reaches 22.1% against
+a 10.8% chance rate. That is the target to beat, and beating it needs a rule that
+separates two hazards, which nothing in `card-price` currently does.
+
 ### The pass work list: a forced decision priced against an option that is not there
 
 With H1 gone, every decision H2 cannot rank becomes a `pass`, and the corpus
