@@ -5600,6 +5600,12 @@ body.all-companies-mode:has(#debug-view.hidden) {
   filter: brightness(0.8) saturate(0.85);
 }
 
+.company-block--active {
+  box-shadow:
+    0 0 10px rgba(var(--color-selected), 0.45),
+    0 0 24px rgba(var(--color-selected), 0.2);
+}
+
 .company-block--clickable {
   cursor: pointer;
 }

@@ -219,7 +219,7 @@ export function renderCompanyBlock(
     }
   }
 
-  block.className = isInactive ? 'company-block company-block--inactive' : 'company-block';
+  block.className = isInactive ? 'company-block company-block--inactive' : 'company-block company-block--active';
   block.dataset.companyId = company.id as string;
 
   // Company name (omitted in single-company view)
