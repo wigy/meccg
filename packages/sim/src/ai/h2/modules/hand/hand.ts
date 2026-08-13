@@ -174,7 +174,7 @@ export const handModule: H2Module = {
       // value, and the creature valuation resolves whole attacks.
       const discarded = discarding
         ? computeCardPrices(view, context.cardPool, standing, tunables)
-          .worth((action as unknown as { cardInstanceId: CardInstanceId }).cardInstanceId)
+          .heldWorth((action as unknown as { cardInstanceId: CardInstanceId }).cardInstanceId)
         : null;
       // What a discard costs is what *that card* was worth, not what a card is
       // worth on average. This is the whole point of the shadow price: the

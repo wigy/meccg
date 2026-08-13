@@ -70,19 +70,21 @@ describe('the card price', () => {
   });
 
   test('a card whose use cannot be modelled falls back to the flat price, and says so', () => {
-    // The flat price is what it is worth *if played*. A hazard then carries the
-    // opportunity discount on top, because the hazard limit caps how fast a
-    // hand of them can be spent — so the held value is the floor times that
-    // share, and both halves are named in the reason.
+    // The flat price is what it is worth *if played* — the question `worth`
+    // answers, and the one asked when the chance to spend has already arrived.
     const { view, cardPool, prices: priced } = prices();
     const event = view.self.hand.find(
       c => (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event',
     );
     expect(event).toBeDefined();
-    const worth = priced.worth(event!.instanceId)!;
-    expect(worth.tsd).toBeCloseTo(priced.floor * DEFAULT_TUNABLES.heldHazardOpportunity, 9);
-    expect(worth.reason).toContain('flat price');
-    expect(worth.reason).toContain('hazard limit');
+    expect(priced.worth(event!.instanceId)!.tsd).toBeCloseTo(priced.floor, 9);
+    expect(priced.worth(event!.instanceId)!.reason).toContain('flat price');
+    // Keeping it is the other question: the hazard limit caps how fast a hand of
+    // hazards can be spent, so what throwing it away costs is less than what
+    // spending it costs. Merging the two is what cost 41 Elo.
+    const held = priced.heldWorth(event!.instanceId)!;
+    expect(held.tsd).toBeCloseTo(priced.floor * DEFAULT_TUNABLES.heldHazardOpportunity, 9);
+    expect(held.reason).toContain('hazard limit');
   });
 
   test('a held hazard is worth less than the same modelled value on a resource', () => {
@@ -98,9 +100,14 @@ describe('the card price', () => {
     expect(hazards.length).toBeGreaterThan(0);
     expect(resources.length).toBeGreaterThan(0);
 
-    const cheapestResource = Math.min(...resources.map(c => priced.worth(c.instanceId)!.tsd));
+    const cheapestResource = Math.min(...resources.map(c => priced.heldWorth(c.instanceId)!.tsd));
     expect(cheapestResource).toBeGreaterThanOrEqual(priced.floor);
-    expect(Math.min(...hazards.map(c => priced.worth(c.instanceId)!.tsd))).toBeLessThan(priced.floor);
+    expect(Math.min(...hazards.map(c => priced.heldWorth(c.instanceId)!.tsd))).toBeLessThan(priced.floor);
+
+    // …and the spending price is untouched, which is the separation itself.
+    for (const card of [...hazards, ...resources]) {
+      expect(priced.worth(card.instanceId)!.tsd).toBeGreaterThanOrEqual(priced.floor);
+    }
   });
 
   test('the ranking is by worth, descending', () => {

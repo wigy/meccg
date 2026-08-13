@@ -2015,6 +2015,24 @@ So the next attempt is not a smaller constant. It is separating retention from
 spending: the discount belongs to the discard question and to nothing else. That
 the two share one number today is the actual finding here.
 
+#### Retention and spending, separated
+
+`CardPrices` now answers both questions rather than one:
+
+- **`worth`** — what spending the card costs, asked when the chance to use it has
+  already arrived. Floored, never discounted; the deployability question is
+  already settled by the time anyone asks.
+- **`heldWorth`** — what throwing it away costs. `worth`, then the opportunity
+  discount. Read by `hand`'s discard and by nothing else.
+
+`quote` is untouched, which was the leak: it is documented never to floor,
+because acquisition is a third question again, and the first attempt had put the
+floor and the discount inside the price every consumer reads.
+
+The corpus confirms the separation is clean. `pass` returns to the control's
+24.8% — every decision outside the discard is now byte-identical to control —
+while `discard-card` keeps the whole 10.8%.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right

@@ -71,8 +71,29 @@ export interface CardWorth {
 
 /** The shadow price of every card in hand. */
 export interface CardPrices {
-  /** What one card is worth, or null when it is not in hand. */
+  /**
+   * What one card is worth to *spend*, or null when it is not in hand.
+   *
+   * The question a consumer asks when the chance to use the card has arrived:
+   * whether cancelling this attack, or paying for this bundle, is worth the card
+   * it costs. Floored, never discounted for deployability — by the time this is
+   * asked, the card is deployable.
+   */
   worth(instanceId: CardInstanceId): CardWorth | null;
+  /**
+   * What one card is worth to *keep* — what throwing it away costs.
+   *
+   * {@link worth}, discounted by how rule-capped the card's route into play is:
+   * a company's movement admits at most `effectiveHazardLimit` hazards and a
+   * character needs free general influence, while nothing bounds playing an item
+   * or faction at the site a company reached. So a surplus hazard is the card
+   * least likely ever to be spent.
+   *
+   * Separate from {@link worth} because merging the two costs 41 Elo, measured.
+   * Retention and spending are different questions and one number cannot answer
+   * both — see the sim README.
+   */
+  heldWorth(instanceId: CardInstanceId): CardWorth | null;
   /**
    * What a card would be worth if it arrived — priced from its definition.
    *
@@ -324,25 +345,32 @@ function buildComputeCardPrices(
     instanceId: CardInstanceId,
     definitionId: string,
     creatureWorth: () => CardWorth,
-  ): CardWorth => {
-    const modelled = priceIfPlayed(instanceId, definitionId, creatureWorth);
-    // The floor comes first and the discount second, and the order is the whole
-    // change. Applied the other way round the floor clamps every discounted
-    // card straight back to `heldCardFloor` — which is what it was doing, and
-    // why 99.7% of discard decisions were a tie at exactly 1.0. The floor says
-    // what a card is worth *if played*; this says how likely that is.
-    const priced = modelled.tsd >= floor
-      ? modelled
-      : { ...modelled, tsd: floor, reason: `${modelled.reason}; held at the floor` };
+  ): CardWorth => priceIfPlayed(instanceId, definitionId, creatureWorth);
+
+  /** Every held card is worth at least the floor. */
+  const atLeastFloor = (worth: CardWorth): CardWorth =>
+    (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
+
+  /**
+   * The discount from "what this card does" to "what losing it costs me".
+   *
+   * Applied *here* and nowhere else, which is the whole point. The first attempt
+   * put it inside the price every consumer reads and lost 41 Elo (see the sim
+   * README): `quote` is documented never to floor because acquisition is a
+   * different question from retention, and the same is true of the opportunity
+   * discount. Asking "is this card worth spending?" at the moment the chance to
+   * spend it has arrived already answers the question this discount asks.
+   */
+  const opportunityDiscount = (worth: CardWorth, definitionId: string): CardWorth => {
     const def = printed(cardPool[definitionId], definitionId);
-    if (!def) return priced;
+    if (!def) return worth;
     const capped = def.cardType.startsWith('hazard')
       ? { scale: tunables.heldHazardOpportunity, why: 'the hazard limit caps how fast hazards can be spent' }
       : CHARACTER_TYPES.test(def.cardType)
         ? { scale: tunables.heldCharacterOpportunity, why: 'general influence caps how many characters reach play' }
         : null;
-    if (capped === null) return priced;
-    return { ...priced, tsd: priced.tsd * capped.scale, reason: `${priced.reason}; ${capped.why}` };
+    if (capped === null) return worth;
+    return { ...worth, tsd: worth.tsd * capped.scale, reason: `${worth.reason}; ${capped.why}` };
   };
 
 
@@ -350,7 +378,7 @@ function buildComputeCardPrices(
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return priceDefinition(instanceId, definitionId, () => {
+    return atLeastFloor(priceDefinition(instanceId, definitionId, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -365,12 +393,18 @@ function buildComputeCardPrices(
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
           : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
-    });
+    }));
   };
 
   return {
     floor,
     worth: worthOf,
+
+    heldWorth(instanceId: CardInstanceId): CardWorth | null {
+      const card = view.self.hand.find(c => c.instanceId === instanceId);
+      const priced = worthOf(instanceId);
+      return card && priced ? opportunityDiscount(priced, card.definitionId as string) : priced;
+    },
 
     quote(definitionId: string): CardWorth {
       // Cached by definition, because one decision can ask for the same quote
