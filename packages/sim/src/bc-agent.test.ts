@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { loadBcWeights, runBcSelfTest, bcForward, createBcAgent, classMassIndex } from './agents/bc-agent.js';
+import { createAgentFromWeights } from './agents/from-weights.js';
 import { playGame } from './runner.js';
 import { loadDeck } from './decks.js';
 import { createHeuristicAgent } from './agents/heuristic-agent.js';
@@ -140,6 +141,27 @@ describe('bc agent', () => {
       expect(() => createBcAgent(declared)).toThrow('temperature');
     } finally {
       fs.rmSync(declared, { force: true });
+    }
+  });
+
+  test('a weights file can delegate its widest decisions', () => {
+    // The lobby seam takes a bare file name, so a hybrid has to be
+    // expressible as a file or it cannot be offered as a model at all.
+    const routed = path.join(os.tmpdir(), `bc-routed-${process.pid}.json`);
+    const raw = JSON.parse(fs.readFileSync(FIXTURE, 'utf-8')) as Record<string, unknown>;
+    fs.writeFileSync(routed, JSON.stringify({
+      ...raw, route: { types: ['plan-movement', 'discard-card'], to: 'heuristic' },
+    }));
+    try {
+      expect(createAgentFromWeights(FIXTURE).name).toBe('bc');
+      expect(createAgentFromWeights(routed).name).toBe('bc+heuristic');
+
+      fs.writeFileSync(routed, JSON.stringify({ ...raw, route: { types: ['pass'], to: 'mc' } }));
+      expect(() => createAgentFromWeights(routed)).toThrow('not a known delegate');
+      fs.writeFileSync(routed, JSON.stringify({ ...raw, route: { types: [], to: 'heuristic' } }));
+      expect(() => createAgentFromWeights(routed)).toThrow('non-empty');
+    } finally {
+      fs.rmSync(routed, { force: true });
     }
   });
 

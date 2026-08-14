@@ -24,7 +24,7 @@ import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted, createBcAgent, resolveAgent } from '@meccg/sim';
+import { loadAiStrategy, sampleWeighted, createAgentFromWeights, resolveAgent } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
@@ -51,7 +51,8 @@ if (clientArgs.agentSpec) {
   modelAgent = resolveAgent(clientArgs.agentSpec);
   console.log(`AI using agent: ${clientArgs.agentSpec}`);
 } else if (clientArgs.modelPath) {
-  modelAgent = createBcAgent(clientArgs.modelPath);
+  // The file decides how it is read and which decisions it delegates.
+  modelAgent = createAgentFromWeights(clientArgs.modelPath);
   console.log(`AI using trained model: ${clientArgs.modelPath}`);
 }
 const strategy = loadAiStrategy('heuristic');

@@ -59,6 +59,18 @@ export interface BcWeightsFile {
     /** Sampling temperature; required for `sample`, ignored otherwise. */
     readonly temperature?: number;
   };
+  /**
+   * Action types this policy should not answer itself, and who should.
+   *
+   * A cloned policy's competence tracks branching factor, so the widest
+   * choices are the ones worth delegating; see `agents/from-weights`, which
+   * is what reads this. Absent means the policy answers everything.
+   */
+  readonly route?: {
+    readonly types: readonly string[];
+    /** Delegate name, resolved against `from-weights`' local table. */
+    readonly to: string;
+  };
   readonly training?: Readonly<Record<string, unknown>>;
   readonly weights: Readonly<Record<string, TensorJson>>;
   readonly selfTest: {
