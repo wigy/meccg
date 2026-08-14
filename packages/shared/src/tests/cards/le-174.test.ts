@@ -45,6 +45,7 @@ import {
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import { Phase, Alignment } from '../../index.js';
+import type { SitePhaseState } from '../../types/state-phases.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
@@ -66,6 +67,30 @@ const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const ETTENMOORS = 'le-373' as CardDefinitionId;
 /** Hoarmurath the Ringwraith — a second ringwraith for player 2 (le-53) */
 const HOARMURATH = 'le-53' as CardDefinitionId;
+
+/**
+ * Site-phase state fixture (play-resources step) — used to reproduce a bug
+ * report where the site-phase play path (site.ts) offered this card without
+ * checking its `site-type` and `same-site-has-character-race` play-conditions,
+ * which the organization-phase path (organization-events.ts) does check.
+ */
+const PLAY_RESOURCES_STATE: SitePhaseState = {
+  phase: Phase.Site,
+  step: 'play-resources',
+  activeCompanyIndex: 0,
+  handledCompanyIds: [],
+  siteEntered: true,
+  resourcePlayed: false,
+  minorItemAvailable: false,
+  hoardBountyAvailable: false,
+  thoroughSearchAvailable: false,
+  declaredAgentAttack: null,
+  automaticAttacksResolved: 0,
+  awaitingOnGuardReveal: false,
+  pendingResourceAction: null,
+  opponentInteractionThisTurn: null,
+  pendingOpponentInfluence: null,
+};
 
 // ── Builder ──────────────────────────────────────────────────────────────────
 
@@ -208,6 +233,78 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
         },
       ],
     });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
+  // ── Bug report: site-phase play path must enforce the same conditions ────
+  // (msryut3m-se89es, seq 333) — a Ringwraith deck with no Ringwraith in play
+  // was offered this card during the site phase on a Border-hold, which is
+  // neither a haven nor has a Ringwraith present. The site-phase play-resources
+  // handler (site.ts) reimplements character-target permanent-event handling
+  // and was missing the `site-type` and `same-site-has-character-race`
+  // play-condition checks that organization-events.ts applies.
+
+  test('NOT playable during the site phase if the (active) company is not at a Darkhaven', () => {
+    // The active company (index 0, matching `activeCompanyIndex` below) is the
+    // one the site-phase play-resources step evaluates.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: ETTENMOORS, characters: [THE_MOUTH] },
+            { site: DOL_GULDUR, characters: [ADUNAPHEL] },
+          ],
+          hand: [BY_THE_RINGWRAITHS_WORD],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const state = { ...base, phaseState: PLAY_RESOURCES_STATE };
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
+  test('NOT playable during the site phase if the controller\'s Ringwraith is not at the same Darkhaven as the target', () => {
+    // Site-type condition is satisfied (Dol Guldur is a haven); only the
+    // Ringwraith-presence condition should reject this — no Ringwraith
+    // character exists anywhere in player 1's game.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [THE_MOUTH, CIRYAHER] }],
+          hand: [BY_THE_RINGWRAITHS_WORD],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const state = { ...base, phaseState: PLAY_RESOURCES_STATE };
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBe(0);
   });
