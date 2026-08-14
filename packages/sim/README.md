@@ -2854,6 +2854,59 @@ It is still far short of H1's 3.7 recoveries and 13.1% wounded, so the same
 thread has more in it: nothing yet prices *when* to go home, only what a haven
 is worth once movement is being planned to one.
 
+### When to go home: not a *when* problem
+
+The obvious reading of the healing result was that H2 lacks a rule for when to
+turn back. It does not need one. A haven is among the candidates on **99.3% of
+all movement decisions**, and on **100%** of the moves made with a wounded
+character aboard. It was simply declining them:
+
+| offered a haven with a wounded character aboard | h2 | heuristic |
+| --- | --- | --- |
+| went home | **10.5%** | 54.3% |
+
+Availability was never the constraint, so nothing needed to decide *when*. What
+needed fixing was what a haven is worth once it is already on the list.
+
+#### A certainty should not carry the uncertainty discount
+
+The haven credit was counted as `potential`, which `netTsdDelta` halves by
+`potentialDiscount`. That discount exists for a stated reason — "a card in hand
+is a card that might never be playable" — and it charges for the chance a
+modelled gain never arrives. A haven has no such contingency: the company
+arrives and the wounds are gone. Halving a certainty made the one reason to go
+home worth less than a speculative play at a scoring site.
+
+Counted as realized instead:
+
+| | before | after | heuristic |
+| --- | --- | --- | --- |
+| went home when wounded | 10.5% | **18.2%** | 57.8% |
+| recoveries per game | 1.2 | **1.8** | 3.5 |
+| characters wounded | 28.0% | **26.6%** | 12.9% |
+| paired Elo (95% CI) | −101 [−138, −66] | **−103 [−141, −68]** | |
+
+**Strength-neutral** — two Elo apart on a standard error of about 27 — while
+every behavioural metric moved toward the reference agent. Kept anyway, on the
+grounds that applying an uncertainty discount to a guaranteed outcome is a
+modelling error whether or not this gate can see it, and that anything built on
+top of the haven price would inherit the error. It is recorded as neutral rather
+than as a gain.
+
+One incidental result worth noting: this was the **first gate all session with
+zero incomplete games**. Every earlier run hit the `movement-hazard` deadlock at
+least once.
+
+#### What the gap still is
+
+18.2% against 57.8% is a third of the way. Behaviour moved and strength did not,
+which is the same pattern the discard work showed — and the honest reading is
+that the remaining difference is not another mispriced term in `travel`. H1 goes
+home because its evaluator is written to; H2 goes home when the arithmetic
+happens to favour it. Closing that needs the thing the plan layer was built for
+and has never delivered: a company that has *decided* to go home and stays
+decided until it arrives.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right

@@ -310,6 +310,16 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // meanwhile, and usually costs the company a trip to a haven". Healing undoes
   // exactly that, so it is worth exactly that, and no new constant is invented
   // to say so.
+  //
+  // Counted as **realized**, not potential, and that is the whole of what was
+  // wrong with the first version. `potentialDiscount` exists because "a card in
+  // hand is a card that might never be playable" — it charges for the chance
+  // that a modelled gain never happens. A haven has no such contingency: the
+  // company arrives and the wounds are gone. Halving a certainty made the one
+  // reason to go home worth less than a speculative play at a scoring site, and
+  // it showed: offered a haven on 100% of the moves it made with a wounded
+  // character aboard, H2 went there 10.5% of the time against Heuristics 1's
+  // 54.3%.
   const woundedHere = site.siteType === 'haven'
     ? (context.view.self.companies.find(c => (c.id as string) === companyId)?.characters ?? [])
       .map(id => context.view.self.characters[id])
@@ -319,7 +329,7 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const healing = woundedHere * tunables.woundTempoCost;
 
   const dtsd = netTsdDelta(
-    { realized, potential: potential + draws + healing, tempo: tempo + revisit },
+    { realized: realized + healing, potential: potential + draws, tempo: tempo + revisit },
     tunables,
   );
   const label = playableNow.length > 0
