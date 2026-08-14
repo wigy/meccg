@@ -4182,9 +4182,21 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
     companies.push({ ...c, characters, siteCardOwned, onGuardCards, hazards });
   }
 
+  // Rule 2.IV.6 merges change every folded company's roster, so any
+  // Fellowship (tw-240)-style permanent event bound to a merging company
+  // must be swept, exactly like the explicit merge-companies action does.
+  const affectedCompanyIds: CompanyId[] = [];
+  for (const [targetIdx, sources] of mergeMap) {
+    affectedCompanyIds.push(player.companies[targetIdx].id);
+    for (const srcIdx of sources) affectedCompanyIds.push(player.companies[srcIdx].id);
+  }
+
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
   newPlayers[playerIndex] = { ...player, companies };
-  return sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers }));
+  return sweepCompanyMembershipChangedEvents(
+    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers })),
+    affectedCompanyIds,
+  );
 }
 
 /**

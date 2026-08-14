@@ -34,6 +34,7 @@ import {
   playPermanentEventAndResolve, enqueueTransferCorruptionCheck,
   makeBodyCheckCombat, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER,
+  autoMergeNonHavenCompanies,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CorruptionCheckAction } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -326,6 +327,65 @@ describe('Fellowship (tw-240)', () => {
     // Fellowship discarded because the target company gained a member
     expect(after.players[0].cardsInPlay).toHaveLength(0);
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
+  });
+
+  test('discarded when companies auto-join at the same non-haven site (rule 2.IV.6)', () => {
+    // Regression test: a bug report (game mssscni5-8zx0b6, stateSeq 1536) showed
+    // two Fellowship cards staying in cardsInPlay after a company auto-joined
+    // another of the same player's companies at Beorn's House (a non-haven
+    // free-hold) at the end of the movement/hazard phases — autoMergeNonHavenCompanies
+    // folded the characters together but never swept `company-membership-changes`
+    // events, unlike the explicit merge-companies action.
+    const built = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN, LEGOLAS, GIMLI, BILBO] },
+            { site: MORIA, characters: [FARAMIR] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const targetCompanyId = companyIdAt(built, RESOURCE_PLAYER, 0);
+    const fellowshipInPlay: CardInPlay = {
+      instanceId: 'fellowship-1' as CardInstanceId,
+      definitionId: FELLOWSHIP,
+      status: CardStatus.Untapped,
+      companyId: targetCompanyId,
+    };
+
+    // In real play the two companies would share one Moria instance after
+    // movement. Mirror that by reusing company 0's currentSite for company 1.
+    const sharedMoria = built.players[0].companies[0].currentSite!;
+    const state = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          companies: built.players[0].companies.map((c, i) =>
+            i === 1 ? { ...c, currentSite: sharedMoria, siteCardOwned: false } : c,
+          ),
+          cardsInPlay: [fellowshipInPlay],
+        },
+        built.players[1],
+      ] as typeof built.players,
+    };
+
+    const merged = autoMergeNonHavenCompanies(state, 0);
+
+    // Companies auto-joined into one…
+    expect(merged.players[0].companies).toHaveLength(1);
+    expect(merged.players[0].companies[0].characters).toHaveLength(5);
+    // …which must discard Fellowship too, since a character joined the company.
+    expect(merged.players[0].cardsInPlay).toHaveLength(0);
+    expect(merged.players[0].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
   });
 
   // ── Auto-discard when a company is split ──────────────────────────────────
