@@ -793,6 +793,10 @@
     ],
     "effects": [
       {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      },
+      {
         "type": "on-event",
         "event": "company-arrives-at-site",
         "apply": {

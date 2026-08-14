@@ -3,10 +3,10 @@
  *
  * Card test: Treebeard (tw-353)
  * Type: hero-resource-ally
- * Effects: 1 (on-event company-arrives-at-site → discard-self when site region
- *             is NOT in Fangorn, Rohan, Gap of Isen, Wold & Foothills,
- *             Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales,
- *             or Redhorn Gate)
+ * Effects: 2 (play-flag no-attack-site-keyed; on-event company-arrives-at-site
+ *             → discard-self when site region is NOT in Fangorn, Rohan, Gap of
+ *             Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands,
+ *             Anduin Vales, or Redhorn Gate)
  *
  * "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks
  *  or hazards keyed to his site. Discard Treebeard if his company moves to a
@@ -14,26 +14,29 @@
  *  Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
  *
  * Engine Support:
- * | # | Feature                                     | Status          | Notes                                         |
- * |---|---------------------------------------------|-----------------|-----------------------------------------------|
- * | 1 | Discard on move to disallowed region         | IMPLEMENTED     | on-event discard-self in fireAllyArrivalEffects |
- * | 2 | Stays when moving to allowed region          | IMPLEMENTED     | when condition filters by site.region          |
- * | 3 | Immunity to automatic-attacks/site hazards   | NOT IMPLEMENTED | auto-attacks not in engine yet                 |
+ * | # | Feature                                     | Status      | Notes                                            |
+ * |---|---------------------------------------------|-------------|---------------------------------------------------|
+ * | 1 | Discard on move to disallowed region         | IMPLEMENTED | on-event discard-self in fireAllyArrivalEffects   |
+ * | 2 | Stays when moving to allowed region          | IMPLEMENTED | when condition filters by site.region             |
+ * | 3 | Immunity to automatic-attacks/site hazards   | IMPLEMENTED | play-flag: no-attack-site-keyed (as on Quickbeam) |
  *
- * Playable: PARTIALLY (auto-attack immunity is a no-op until auto-attacks are implemented)
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import type { CardInstanceId } from '../../index.js';
+import type { CardInstanceId, AssignStrikeAction } from '../../index.js';
 import {
   buildTestState, resetMint, Phase, CardStatus,
   attachAllyToChar,
+  findCharInstanceId,
+  makeCancelWindowCombat,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   TREEBEARD,
   LORIEN, MINAS_TIRITH, MOUNT_DOOM, EDORAS, WELLINGHALL, MORIA,
   makeMHState, dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Treebeard (tw-353)', () => {
@@ -242,5 +245,33 @@ describe('Treebeard (tw-353)', () => {
       c => c.instanceId === treebeardInstId,
     );
     expect(inDiscard).toBe(true);
+  });
+
+  // ─── Immunity to automatic-attacks ────────────────────────────────────────
+
+  test('Treebeard is NOT offered as a defender strike target against an automatic-attack', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: WELLINGHALL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MOUNT_DOOM] },
+      ],
+    });
+    const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
+    const withCombat = makeCancelWindowCombat(withTreebeard, {
+      attackSourceType: 'automatic-attack',
+      strikesTotal: 2,
+    });
+
+    const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
+    const treebeardInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
+    expect(treebeardInstanceId).toBeDefined();
+
+    const assignActions = computeLegalActions(withCombat, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'assign-strike')
+      .map(ea => ea.action as AssignStrikeAction);
+
+    expect(assignActions.some(a => a.characterId === treebeardInstanceId)).toBe(false);
   });
 });
