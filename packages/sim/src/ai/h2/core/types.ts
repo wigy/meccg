@@ -164,6 +164,21 @@ export interface ModuleContext {
   readonly tunables: Tunables;
   /** Scoring standing: TSD now, per-source marginal MP value, risk posture. */
   readonly standing: Standing;
+  /**
+   * Where each company has already been sent, by company id, as site
+   * *definition* ids in the order chosen.
+   *
+   * Not in the game state, and it cannot be: nothing in the rules records a
+   * company's history, and the site card returns to the site deck rather than
+   * to a discard pile — a destination already worked is offered again exactly
+   * like one never seen. The agent has to remember, the same way `cycle-guard`
+   * remembers positions the engine cannot mark.
+   *
+   * Empty when the agent has not been driving, which is the honest reading in
+   * corpus replay: it records the agent's *own* choices, so a route it did not
+   * walk leaves no trace here.
+   */
+  readonly visited?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
