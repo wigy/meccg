@@ -3407,9 +3407,37 @@
       {
         "type": "play-flag",
         "flag": "bearer-cannot-untap-until-stored"
+      },
+      {
+        "type": "grant-action",
+        "action": "reforging-retrieve-item",
+        "fromStored": true,
+        "cost": {
+          "tap": "sage-at-haven",
+          "discard": "self"
+        },
+        "apply": {
+          "type": "place-item-on-character",
+          "fetchFrom": ["discard-pile"],
+          "filter": {
+            "$and": [
+              {
+                "subtype": { "$in": ["minor", "major"] }
+              },
+              {
+                "$or": [
+                  { "keywords": { "$includes": "weapon" } },
+                  { "keywords": { "$includes": "armor" } },
+                  { "keywords": { "$includes": "shield" } }
+                ]
+              }
+            ]
+          }
+        }
       }
     ],
-    "text": "Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage may not untap until Reforging is stored at a Haven [{H}].During your organization phase, you may tap a sage at a Haven and discard a stored Reforging to retrieve any minor or major weapon, armor, or shield (even a hoard item) from your discard pile. The item must be placed under the control of a character in the sage’s company."
+    "text": "Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage may not untap until Reforging is stored at a Haven [{H}].During your organization phase, you may tap a sage at a Haven and discard a stored Reforging to retrieve any minor or major weapon, armor, or shield (even a hoard item) from your discard pile. The item must be placed under the control of a character in the sage’s company.",
+    "certified": "2026-08-14"
   },
   {
     "cardType": "hero-resource-event",
