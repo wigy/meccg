@@ -2610,6 +2610,54 @@ intentions is present and inert. Whether movement is where it should finally pay
 is the open question, and answering it needs an instrument that scores a *route*
 against the route the human took — which does not exist yet.
 
+### `route-compare`: the company has somewhere to be
+
+Three per-decision measurements failed to explain the movement gap, which is the
+signature of measuring the wrong object. `route-compare` measures the sequence
+instead: it reconstructs, per company, the ordered destinations the human chose,
+and asks the agent at each step where *it* would go.
+
+It is **teacher-forced by construction**, and that bounds every number it
+prints. An agent's own route cannot be rolled forward — at its first
+disagreement the position leaves the corpus and the opponent's replies are no
+longer recorded — so the company follows the human's route and the agent's
+sequence is its *first steps from the human's positions*, not a route it walked.
+The instrument says so in its own output.
+
+First run, twelve games, 64 attributed movement decisions:
+
+```text
+                                        human      agent
+  consecutive moves in one region        0.0%      23.4%
+  destinations already visited           1.6%      18.8%
+  destinations that are havens          12.5%      12.5%
+  distinct sites per company             3.71       3.06
+  moves per company                      3.76       3.76
+```
+
+Two of those are not close.
+
+**The human never moves to the same region twice running.** Zero of forty-seven
+transitions. H2 does it on nearly a quarter of its moves.
+
+**The human almost never returns to a site.** One destination in sixty-four had
+been visited before by that company, against H2's twelve — and it shows in the
+totals: the human's company touches 3.71 distinct sites in 3.76 moves, so its
+route is a *tour*, while H2's touches 3.06 in the same 3.76, so its route
+doubles back.
+
+The rules say why that matters. A site's resources are played when the company
+is there; going back to a site already worked yields nothing it has not already
+yielded, and the turn spent travelling is a turn not spent opening a new one. A
+company that revisits is a company scoring nothing while the opponent's clock
+runs.
+
+That is a defect no per-decision instrument could see, because *every individual
+revisit is a defensible destination* — it is a site with playable cards and
+survivable danger, which is exactly what the earlier three measurements
+confirmed H2 optimises well. It is only wrong in the context of where the
+company has already been, and until now nothing was looking at that.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
