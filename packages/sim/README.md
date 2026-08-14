@@ -2745,6 +2745,71 @@ spans turns, is invisible to the state, and H2 had no representation of it at
 all. A sequence resolved inside one window, where both sides already behave the
 same way, has nothing for a sequence instrument to find.
 
+### Why H2 scores two points: it is wounded, not slow
+
+`scoring-loop` and `hand-flow` were built before H1 was removed from the agent
+and had not been re-run since. Together they locate the scoring failure exactly,
+and it is not where any per-decision instrument was looking.
+
+The funnel, eight games:
+
+```text
+                        offered   taken   take-rate      heuristic offered
+  plan-movement             322     157     48.8%              284
+  enter-site                168      94     56.0%              202
+  play-hero-resource         23      23    100.0%               39
+  influence-attempt          20      17     85.0%                8
+```
+
+**H2 takes every scoring play it is offered.** All 23 of them. The valuation is
+not the problem; it is offered 23 where Heuristics 1 gets 39, so the break is
+entirely upstream.
+
+`hand-flow` says it is not card flow either:
+
+| | h2 | heuristic |
+| --- | --- | --- |
+| arrivals with nothing playable | 23.8% | 49.5% |
+| mean playable cards at arrival | **1.14** | 0.70 |
+| mean untapped in the arriving company | **1.04** | 2.33 |
+| arrivals with nobody to tap | **44.0%** | 20.8% |
+
+H2 arrives holding *better* cards than H1 and arrives empty-handed half as
+often. Then 44% of the time it has nobody able to act. An item needs an untapped
+character to carry it — `site.ts` publishes exactly that reason, *"no untapped
+character in company"* — so the play is never offered.
+
+#### The obvious fix was wrong, and the metric said so
+
+`tapTempoCost` charges a flat fee for tapping and already prices the influence
+attempt a tap forfeits, so the natural move was to price the *site play* it
+forfeits too: a company with `p` playable cards and `u` untapped characters
+plays `min(p, u)` of them, so tapping costs the marginal card whenever
+`u <= p`. That was built.
+
+It made the target metric **worse** — arrivals with nobody to tap went 44.0% to
+50.6% — which is the signal to diagnose rather than gate. Splitting the company
+by status over four games, every decision:
+
+| | company size | untapped | tapped | wounded |
+| --- | --- | --- | --- | --- |
+| h2 | 2.66 | 1.17 (44.1%) | 0.57 (21.3%) | **0.92 (34.6%)** |
+| heuristic | 2.20 | 1.41 (64.0%) | 0.56 (25.5%) | **0.23 (10.5%)** |
+
+**H2 taps less than H1** — 21.3% against 25.5% — and its companies are *larger*.
+The entire difference is wounds: **34.6% against 10.5%, more than three times as
+many.** A wounded character cannot carry an item, attempt influence or play a
+resource, so the company arrives at the right site, holding the right cards,
+with a third of its strength unable to act.
+
+So the scoring failure is downstream of **losing fights**, and tap pricing could
+never have fixed it. That also explains why `hand-flow` looked like a tap
+problem: wounded and tapped are both "not untapped", and only splitting them
+apart distinguishes a choice the agent makes from damage it takes.
+
+The lever is combat and what walks into it — worth 47 Elo by ablation, with
+`defence` and the `health` module already present — not the tempo constants.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
