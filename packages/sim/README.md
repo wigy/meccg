@@ -2706,6 +2706,45 @@ against the wrong alternative. **A new instrument found a defect four
 measurements on the old one could not**, which is the argument for building
 instruments before pricing anything.
 
+### Where the sequence lens does not apply
+
+`route-compare` paid because a route is a genuinely multi-turn object that
+nothing in H2 modelled. The obvious move is to point the same lens at every
+other sequence in the game. Two were checked and neither is a defect.
+
+**Company shape.** Splitting and merging companies is the clearest structural
+decision a player makes across a game, and the corpus offered it constantly:
+
+| offered | human took | H2 took | action |
+| ---: | ---: | ---: | --- |
+| 236 | 0 | 1 | `split-company` |
+| 42 | 1 | 9 | `merge-companies` |
+| 0 | 0 | 0 | `move-character-between-companies` |
+
+H2 splits once in 236 offers where the human never splits at all — `defence`
+already prices a split as the loss it usually is, and that is working. The merge
+gap (9 against 1 in 42) is real but small, and 42 decisions across twelve games
+is not where a 134-Elo deficit lives.
+
+**Strike concentration.** Within an attack, whether to pile strikes onto one
+character or spread them across the company is exactly the shape of decision
+that looks defensible per-strike and matters in aggregate. Over 62 attributed
+`assign-strike` decisions, 18 of them with somebody already carrying a strike:
+
+```text
+piled another strike onto a character already carrying one
+  human 13 (72.2%)    h2 13 (72.2%)
+```
+
+**Identical.** The two sides agree on the defender only 33.9% of the time, and
+agree exactly on the pattern. So the combat disagreement is about *which*
+character, decision by decision — not about the shape of the attack.
+
+That is worth recording as a boundary on the method. The route worked because it
+spans turns, is invisible to the state, and H2 had no representation of it at
+all. A sequence resolved inside one window, where both sides already behave the
+same way, has nothing for a sequence instrument to find.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
