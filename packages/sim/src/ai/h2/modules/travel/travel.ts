@@ -437,17 +437,24 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
   const site = exposure.siteExposure(siteDefinitionId);
   if (!site) return null;
 
-  // What entering unlocks: the cards that become playable, capped by taps.
-  const playable = playableAt(context, siteDefinitionId);
-  const taps = budget.untappedIn(company.id).length;
-  const playableNow = playable.slice(0, Math.max(0, taps));
-  const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
-
   // What entering costs: the site's own attacks, priced against this roster.
   const defence = computeDefence(view, cardPool, standing, tunables);
   const roster = rosterOf(company, view.self.characters, cardPool);
   const automatic = automaticAttacksOf(cardPool, siteDefinitionId);
   const attackHarm = defence.harmFrom(roster, automatic);
+
+  // What entering unlocks: the cards that become playable, capped by taps.
+  // Automatic attacks resolve before any resource can be played (CoE
+  // 341-343), and facing one taps the defender (the model's own assumption
+  // throughout `defence` — `needAgainst` never applies the stay-untapped
+  // penalty). A character spent parrying is not still free to tap for a
+  // resource play the same phase, so the strikes are deducted from the
+  // taps on offer before pricing what they unlock.
+  const strikesToFace = automatic.reduce((sum, a) => sum + a.strikes, 0);
+  const taps = Math.max(0, budget.untappedIn(company.id).length - strikesToFace);
+  const playable = playableAt(context, siteDefinitionId);
+  const playableNow = playable.slice(0, taps);
+  const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
 
   // And the on-guard cards, which are face down: only the chance each is a
   // creature can be priced, not which creature it is.
