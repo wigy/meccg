@@ -401,4 +401,20 @@ describe('The Hunt (dm-143)', () => {
     expectCharStatus(afterCancel, RESOURCE_PLAYER, ALATAR, CardStatus.Tapped);
     assertEveryInstanceReachable(afterCancel);
   });
+
+  // ── Kill marshalling points on defeat (CoE rule 964) ─────────────────────
+
+  test('awards kill marshalling points: defeating the named creature moves it to the defender\'s kill pile', () => {
+    const state0 = huntState({ p2Discard: [ORC_PATROL] });
+    const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
+    const afterPlay = playHunt(state);
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+
+    const working = resolveSoloAttackAgainstAlatar(afterChoice);
+    expect(working.combat).toBeNull();
+    expect(findInPile(working, HAZARD_PLAYER, 'discardPile', orcId)).toBeUndefined();
+    expect(findInPile(working, RESOURCE_PLAYER, 'killPile', orcId)).toBeDefined();
+    assertEveryInstanceReachable(working);
+  });
 });
