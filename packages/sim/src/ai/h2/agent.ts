@@ -184,11 +184,25 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
   // `cycle-guard`.
   const cycleGuard = createCycleGuard();
 
+  /**
+   * Which sites each company has already been sent to, this game.
+   *
+   * `route-compare` measured H2 returning to a site it had already worked on 12
+   * of 64 recorded movement decisions, against the human's 1 — and the human
+   * never moves to the same region twice running, where H2 does on 23.4% of
+   * moves. Every one of those revisits is a defensible *destination* (playable
+   * cards, survivable danger, all of which H2 optimises well), and wrong only
+   * given where the company has already been. Nothing in the state records
+   * that, so the agent does.
+   */
+  const visited = new Map<string, string[]>();
+
   return {
     name: label,
 
     startGame(): void {
       portfolio.reset();
+      visited.clear();
       // Signatures are coarse on purpose, so one game's history must never
       // narrow another's candidates.
       cycleGuard.reset();
@@ -206,9 +220,29 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       const legalActions = cycleGuard.allow(signature, forwardActions(context.legalActions));
       const decision = decide(context, legalActions);
       cycleGuard.taken(signature, decision.action);
+      rememberDestination(context, decision.action);
       return decision;
     },
   };
+
+  /**
+   * Record where a company was just sent, so the next decision can see it.
+   *
+   * Keyed by *definition*, because two instances of one site are the same
+   * place, and recorded only for movement the agent itself chose — a route it
+   * did not walk is not a route it should charge itself for.
+   */
+  function rememberDestination(context: AgentContext, action: GameAction): void {
+    if (action.type !== 'plan-movement') return;
+    const record = action as unknown as { companyId?: string; destinationSite?: string };
+    if (!record.companyId || !record.destinationSite) return;
+    const site = context.view.self.siteDeck?.find(
+      c => (c.instanceId as string) === record.destinationSite,
+    );
+    if (!site) return;
+    const seen = visited.get(record.companyId) ?? [];
+    visited.set(record.companyId, [...seen, site.definitionId as string]);
+  }
 
   /** The ranking itself, on whatever candidate list survived the filters. */
   function decide(context: AgentContext, legalActions: readonly GameAction[]): AgentDecision {
@@ -218,6 +252,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         legalActions,
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
+        visited: Object.fromEntries(visited),
       };
       // Commit once per turn, then price every candidate against what is
       // committed. Re-selecting per decision would let the portfolio churn

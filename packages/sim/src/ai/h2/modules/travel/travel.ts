@@ -270,7 +270,29 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // draw cannot see the main reason to go anywhere.
   const draws = site.resourceDraws * tunables.resourceDrawValue;
 
-  const dtsd = netTsdDelta({ realized, potential: potential + draws, tempo }, tunables);
+  // A site this company has already worked is a site whose *new* options are
+  // the ones the hand has drawn since — and `route-compare` says human players
+  // treat that as close to disqualifying. Over 64 recorded movement decisions
+  // the human returned to a site once and H2 twelve times, and the human never
+  // moved to the same region twice running where H2 did on 23.4% of moves.
+  //
+  // Charged rather than forbidden, because a return is sometimes right: a
+  // haven is revisited on purpose, and a site can hold a card the hand did not
+  // have the first time. What it should not be is *free*, which is what it was
+  // — the destination score is computed from the current hand and the printed
+  // site, neither of which changes when the company has been there before.
+  //
+  // The company's history is not in the game state and cannot be: the site card
+  // returns to the site deck rather than to a discard pile, so a worked site is
+  // offered again exactly like one never seen. The agent remembers instead —
+  // see `ModuleContext.visited`.
+  const companyId = (destination.action as unknown as { companyId?: string }).companyId ?? '';
+  const arriving = destinationOf(context.view, destination.action)?.definitionId;
+  const beenHere = arriving !== undefined
+    && (context.visited?.[companyId] ?? []).includes(arriving);
+  const revisit = beenHere ? tunables.revisitedSiteCost : 0;
+
+  const dtsd = netTsdDelta({ realized, potential: potential + draws, tempo: tempo + revisit }, tunables);
   const label = playableNow.length > 0
     ? `arrive at ${site.name} and play ${playableNow.map(c => c.name).join(', ')}`
     : `arrive at ${site.name} with nothing to play`;
@@ -288,6 +310,13 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         + `${beliefs.observed} cards seen)`,
     }),
     leaf('taps available', destination.tapsAvailable),
+    ...(revisit > 0
+      ? [leaf('been here before', revisit, {
+        unit: 'tsd',
+        tunable: 'revisitedSiteCost',
+        note: 'this company has already worked this site; only what the hand has drawn since is new',
+      })]
+      : []),
     leaf('resource draws', draws, {
       unit: 'tsd',
       tunable: 'resourceDrawValue',
