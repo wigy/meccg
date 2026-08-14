@@ -37,6 +37,7 @@ import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames, buildFactionPlayableRegions } from './recompute-derived.js';
 import { hazardLongEventsRetained } from './retain-hazard-long-events.js';
 import { cvccSides } from './cvcc-sides.js';
+import { findHuntCandidates } from './hunt.js';
 
 
 /**
@@ -1578,13 +1579,14 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   }
 
   // named-creature-hunt (The Hunt dm-143): the controller names a hazard
-  // creature the opponent has already revealed (recorded in
-  // GameState.handRevealedInstances) that still sits in their play deck or
-  // discard pile; it immediately attacks the bearer as a one-character
-  // company. The event card discards immediately; the interactive naming
-  // step is a `hunt-target-choice` pending resolution — `huntTargetChoiceActions`
-  // offers one action per live candidate, or a mandatory `pass` when none
-  // exists ("Unless eliminated or prevented from being in play").
+  // creature the opponent has already revealed (recorded in the broad
+  // GameState.revealedInstances ledger — see `hunt.ts`'s `findHuntCandidates`)
+  // that still sits in their play deck or discard pile; it immediately
+  // attacks the bearer as a one-character company. The event card discards
+  // immediately; the interactive naming step is a `hunt-target-choice`
+  // pending resolution — `huntTargetChoiceActions` offers one action per live
+  // candidate, or a mandatory `pass` when none exists ("Unless eliminated or
+  // prevented from being in play").
   const huntEffect = def.effects?.find(
     (e): e is import('../types/effects.js').NamedCreatureHuntEffect => e.type === 'named-creature-hunt',
   );
@@ -1602,6 +1604,15 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     const opponentIndex = 1 - playerIndex;
     const opponentId = working.players[opponentIndex].id;
     logDetail(`${def.name}: ${action.player as string} names a hazard creature revealed and held by ${opponentId as string}`);
+    // The candidate list is drawn from `revealedInstances` (broad — a creature
+    // merely seen attacking counts, per CRF 22), but the client only redacts
+    // the opponent's play-deck/discard-pile view against the narrower
+    // `handRevealedInstances`. Without this, the naming player would be asked
+    // to choose among candidates whose identity their own client shows as
+    // "a card" — sweep them into `handRevealedInstances` too so the choice
+    // screen can actually display which creature is which.
+    const candidates = findHuntCandidates(working, opponentId);
+    working = revealInstances(working, candidates);
     working = enqueueResolution(working, {
       source: handCard.instanceId,
       actor: action.player,
