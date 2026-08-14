@@ -3776,9 +3776,9 @@ export interface CombatTapToCancelStrikeEffect extends EffectBase {
 
 /**
  * Marks the attack as detainment (see CoE §3.II). A detainment attack
- * taps characters instead of wounding them, suppresses the character
- * body-check, and zeros kill-MP for the defeated creature. Presence of
- * this effect is the entire payload — no fields.
+ * taps characters instead of wounding them and suppresses the character
+ * body-check. Presence of this effect is the entire payload beyond
+ * {@link awardsKillMp} below.
  *
  * Most detainment status is computed at combat-initiation time from the
  * defending player's alignment and the attack's keying (rules 3.II.2 /
@@ -3787,6 +3787,19 @@ export interface CombatTapToCancelStrikeEffect extends EffectBase {
  */
 export interface CombatDetainmentEffect extends EffectBase {
   readonly type: 'combat-detainment';
+  /**
+   * When `true`, a defeated creature attack still awards its printed
+   * kill-MP instead of being zeroed by rule 3.II.3. Used by creatures
+   * whose own printed text produces the "tap instead of wound, no body
+   * check" outcome without the card actually carrying the "detainment"
+   * keyword (per the glossary, "detainment" is a keyword that must
+   * appear on the card) — e.g. Neeker-breekers (tw-493), whose text reads
+   * "...is only tapped instead—no body checks are made" without ever
+   * using the word "detainment". Omit (or set `false`) for attacks that
+   * are detainment per the keyword/§3.II rules, where 3.II.3 applies
+   * normally.
+   */
+  readonly awardsKillMp?: boolean;
 }
 
 /**

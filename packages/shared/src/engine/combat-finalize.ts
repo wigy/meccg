@@ -348,12 +348,23 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
       };
       logDetail(`Played-auto-attack creature discarded (no kill-MP awarded — treated as site's automatic-attack)`);
-    } else if (allDefeated && creatureCard && combat.detainment && !playerHasKillMpExemption(state, state.players[defIdx])) {
+    } else if (
+      allDefeated && creatureCard && combat.detainment
+      && !playerHasKillMpExemption(state, state.players[defIdx])
+      && !getCardEffects(resolveDef(state, creatureInstanceId)).some(
+        e => e.type === 'combat-detainment' && e.awardsKillMp === true,
+      )
+    ) {
       // CoE rule 3.II.3 — defeated detainment creature is discarded instead
       // of going to the attacked player's MP pile (0 kill-MP awarded).
-      // Exception: a player with a `fw-kill-mp-full` carrier (Alatar wh-1)
+      // Exception 1: a player with a `fw-kill-mp-full` carrier (Alatar wh-1)
       // gains full kill MP "even with *" (detainment), so his defeated
       // detainment creatures are routed to the kill pile like normal kills.
+      // Exception 2: the creature's own `combat-detainment` effect declares
+      // `awardsKillMp: true` — its tap-instead-of-wound behavior comes from
+      // its own printed text rather than the "detainment" keyword (e.g.
+      // Neeker-breekers, tw-493), so §3.II.3 never applied to it in the
+      // first place.
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
