@@ -22,7 +22,8 @@ import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { StrikeOutcome } from '../../services/strike/strike-model.js';
 import { hazardsModule } from './hazards.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
-import { planBundles } from './bundle.js';
+import { selfFacedRaceBoostOf } from '../../services/attack-modifiers.js';
+import { bestBundleStartingWith, planBundles } from './bundle.js';
 import type { Candidate } from './bundle.js';
 
 const SCENARIO = 'movement/hazard-bundle-choice';
@@ -155,6 +156,64 @@ describe('bundles', () => {
     const search = planBundles([free], roster, cardPool, price, standing, DEFAULT_TUNABLES, 1);
     const giftSearch = planBundles([gift], roster, cardPool, price, standing, DEFAULT_TUNABLES, 1);
     expect(giftSearch.bundles[0].expectedTsd).toBeLessThan(search.bundles[0].expectedTsd);
+  });
+
+  test('a creature\'s own conditional bonus is credited only when it lands behind the attack it needs', () => {
+    // Bug report: Orc-lieutenant (tw-073, "+4 prowess if played on a company
+    // that has already faced an Orc attack this turn") was led with instead
+    // of the plain Orc creature (Hobgoblins, le-77) already in hand, so its
+    // bonus never had a prior Orc attack to key on. `creatureProfile` used to
+    // read only the printed prowess, blind to a self-effect that depends on
+    // where the card lands in the bundle the beam search is building.
+    const { view, cardPool, standing } = position();
+    const beliefs = computeBeliefs(view, cardPool);
+    const company = view.opponent.companies[0];
+    const context = denialContext(view, company, beliefs, standing, DEFAULT_TUNABLES);
+    const price = denialPricer(cardPool, standing, DEFAULT_TUNABLES, context);
+    const roster = targetRoster(view);
+    const tunables = { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 };
+
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    const lieutenantDef = cardPool[definitionOf('Orc-lieutenant')];
+    const lieutenant: Candidate = {
+      instanceId: 'lieutenant',
+      name: 'Orc-lieutenant',
+      killMp: 1,
+      race: 'orc',
+      selfFacedRaceBoost: selfFacedRaceBoostOf(lieutenantDef),
+      profile: {
+        strikeProwess: 7, strikes: 1, creatureBody: null, detainment: false, bodyCheckModifier: 0,
+        name: 'Orc-lieutenant',
+      },
+    };
+    const hobgoblins: Candidate = {
+      instanceId: 'hobgoblins',
+      name: 'Hobgoblins',
+      killMp: 1,
+      race: 'orc',
+      selfFacedRaceBoost: null,
+      profile: {
+        strikeProwess: 10, strikes: 2, creatureBody: null, detainment: false, bodyCheckModifier: 0,
+        name: 'Hobgoblins',
+      },
+    };
+
+    const search = planBundles([lieutenant, hobgoblins], roster, cardPool, price, standing, tunables, 2);
+
+    // Led with, no Orc attack has resolved yet: printed prowess only.
+    const ledByLieutenant = bestBundleStartingWith(search, 'lieutenant')!;
+    expect(ledByLieutenant.cards[0].profile.strikeProwess).toBe(7);
+
+    // Played second, behind Hobgoblins' Orc attack: the +4 applies.
+    const ledByHobgoblins = bestBundleStartingWith(search, 'hobgoblins')!;
+    expect(ledByHobgoblins.cards[1].instanceId).toBe('lieutenant');
+    expect(ledByHobgoblins.cards[1].profile.strikeProwess).toBe(11);
+
+    // So the bundle that plays Hobgoblins first is worth strictly more than
+    // the one that leads with Orc-lieutenant instead — the ordering a
+    // beam search blind to the self-effect could not tell apart.
+    expect(ledByHobgoblins.expectedTsd).toBeGreaterThan(ledByLieutenant.expectedTsd);
   });
 });
 

@@ -225,3 +225,69 @@ export function boostForRace(
   const byRace = race ? boost.get(race) ?? { prowess: 0, strikes: 0 } : { prowess: 0, strikes: 0 };
   return { prowess: all.prowess + byRace.prowess, strikes: all.strikes + byRace.strikes };
 }
+
+/**
+ * A creature's own prowess/strikes bonus, conditioned on the defending company
+ * having already faced a given race this M/H sub-phase (Orc-lieutenant tw-073:
+ * "+4 prowess if played on a company that has already faced an Orc attack this
+ * turn"; Orc-warband tw-076 declares the same shape).
+ *
+ * This is a *self* effect — no `target`, unlike `attackBoostOf`'s `all-attacks`
+ * — so it only ever changes the creature's own attack, and only when it is the
+ * second (or later) Orc-race attack the company faces. A bundle player who
+ * ignores it always leads with the highest-prowess creature and never notices
+ * that playing the weaker one first would have made the strong one stronger.
+ */
+export interface SelfFacedRaceBoost {
+  /** The race that must already be in `company.facedRaces` for the bonus to apply. */
+  readonly race: string;
+  readonly prowess: number;
+  readonly strikes: number;
+}
+
+/**
+ * Reads a creature definition's own `company.facedRaces` self-conditional
+ * stat-modifier, or null when it declares none. A `when` clause this cannot
+ * read (anything but a single `company.facedRaces: { $includes: <race> }`
+ * key) is dropped, same policy as `conditionOf`.
+ */
+export function selfFacedRaceBoostOf(def: CardDefinition | undefined): SelfFacedRaceBoost | null {
+  const effects = (def as unknown as { effects?: readonly StatModifier[] } | undefined)?.effects ?? [];
+  for (const effect of effects) {
+    if (effect.type !== 'stat-modifier' || effect.target) continue;
+    if (effect.stat !== 'prowess' && effect.stat !== 'strikes') continue;
+    const when = effect.when;
+    const keys = when ? Object.keys(when) : [];
+    if (keys.length !== 1 || keys[0] !== 'company.facedRaces') continue;
+    const clause = when![keys[0]] as { $includes?: unknown } | undefined;
+    const race = clause?.$includes;
+    if (typeof race !== 'string') continue;
+    return {
+      race,
+      prowess: effect.stat === 'prowess' ? (effect.value ?? 0) : 0,
+      strikes: effect.stat === 'strikes' ? (effect.value ?? 0) : 0,
+    };
+  }
+  return null;
+}
+
+/**
+ * Creature races a `hazardsEncountered` history has already resolved into an
+ * attack, mirroring the engine's own `deriveFacedRaces` (`reducer-utils.ts`)
+ * for the card pool this module already carries.
+ */
+export function facedRacesFromHistory(
+  hazardNames: readonly string[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): ReadonlySet<string> {
+  const races = new Set<string>();
+  for (const name of hazardNames) {
+    for (const def of Object.values(cardPool)) {
+      const raw = def as unknown as { cardType?: string; name?: string; race?: string };
+      if (raw.cardType !== 'hazard-creature' || raw.name !== name) continue;
+      if (raw.race) races.add(raw.race);
+      break;
+    }
+  }
+  return races;
+}
