@@ -462,7 +462,7 @@ describe('The Hunt (dm-143)', () => {
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
     const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
 
     const working = resolveSoloAttackAgainstAlatar(afterChoice);
     expect(working.combat).toBeNull();
