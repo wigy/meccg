@@ -1,0 +1,40 @@
+digraph layers {
+  rankdir=TB;
+  graph [fontname="Helvetica", fontsize=11, ranksep=0.55, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled", penwidth=1.0];
+  edge  [fontname="Helvetica", fontsize=9, color="#555555", penwidth=1.4, arrowsize=0.8];
+
+  modules [fillcolor="#e9f3ea", color="#5a8f5f", label=<
+    <table border="0" cellborder="0" cellspacing="1">
+    <tr><td align="left"><b>modules</b> &nbsp; own action types, score candidates</td></tr>
+    <tr><td align="left"><font point-size="9" color="#3d6b41">may not import each other</font></td></tr>
+    <tr><td align="left"> </td></tr>
+    <tr><td align="left"><font point-size="9.5">travel &nbsp; combat &nbsp; hazards &nbsp; characters &nbsp; corruption</font></td></tr>
+    <tr><td align="left"><font point-size="9.5">endgame &nbsp; events &nbsp; factions &nbsp; fetching &nbsp; grants</font></td></tr>
+    <tr><td align="left"><font point-size="9.5">hand &nbsp; health &nbsp; kill &nbsp; resources</font></td></tr>
+    </table>>];
+
+  services [fillcolor="#e8eef7", color="#5b7fb5", label=<
+    <table border="0" cellborder="0" cellspacing="1">
+    <tr><td align="left"><b>services</b> &nbsp; valuations more than one module needs</td></tr>
+    <tr><td align="left"><font point-size="9" color="#3f5c86">may not import modules</font></td></tr>
+    <tr><td align="left"> </td></tr>
+    <tr><td align="left"><font point-size="9.5">standing &nbsp; budget &nbsp; defence &nbsp; card-price &nbsp; hazard-plan</font></td></tr>
+    <tr><td align="left"><font point-size="9.5">character-value &nbsp; beliefs &nbsp; exposure &nbsp; reach &nbsp; denial</font></td></tr>
+    <tr><td align="left"><font point-size="9.5">event-value &nbsp; attack-value &nbsp; attack-modifiers</font></td></tr>
+    <tr><td align="left"><font point-size="9.5">portfolio &nbsp; plan-value &nbsp; strike/{prowess, sequence, model}</font></td></tr>
+    </table>>];
+
+  core [fillcolor="#f2eaf7", color="#8e6bab", label=<
+    <table border="0" cellborder="0" cellspacing="1">
+    <tr><td align="left"><b>core</b> &nbsp; units, model, constants</td></tr>
+    <tr><td align="left"><font point-size="9" color="#6b4d85">may not import services (registry excepted)</font></td></tr>
+    <tr><td align="left"> </td></tr>
+    <tr><td align="left"><font point-size="9.5">tsd &nbsp; winprob &nbsp; risk &nbsp; tunables &nbsp; rationale</font></td></tr>
+    <tr><td align="left"><font point-size="9.5">dice &nbsp; plan &nbsp; baseline &nbsp; registry &nbsp; types</font></td></tr>
+    </table>>];
+
+  modules  -> services [label="  ask for a valuation"];
+  services -> core     [label="  reduce to TSD, then to win probability"];
+  modules  -> core     [label="  name a tunable in the rationale  "];
+}

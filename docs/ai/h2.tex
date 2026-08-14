@@ -1,0 +1,196 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=22mm]{geometry}
+\usepackage{graphicx}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=black]{hyperref}
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.15}
+
+\title{\vspace{-14mm}\textbf{Heuristics 2}\\[2mm]\large How the modular MECCG agent decides}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-14mm}
+
+\section*{What the design is for}
+
+Heuristics 1 scored moves with hand-tuned weights applied at the point of use.
+The weights were not comparable across evaluators, so no number could be
+checked against another and no explanation could be trusted. H2 exists to fix
+one thing: \textbf{every quantity is in the same unit, and every hand-chosen
+number has a name.}
+
+That unit is \emph{tournament score differential} (TSD) --- the official scoring
+gap --- converted into a win probability by a fitted model. A module says how
+much a play changes TSD; the win-probability model says what that is worth in
+this position. Anything not derived from card data, the player view or a
+probability table must be a named field in \texttt{core/tunables.ts} and must
+appear in the rationale tree of any decision that used it.
+
+\section*{One decision, end to end}
+
+\begin{center}
+\includegraphics[width=\textwidth]{pipeline.pdf}
+\end{center}
+
+Three filters run before any module sees a candidate. \texttt{forwardActions}
+drops what the engine has \emph{proved} undoes this phase's progress;
+\texttt{cycleGuard} drops what has \emph{demonstrably} led back to this position,
+which the engine cannot see because every lap mints fresh instance IDs; the plan
+layer then re-ranks what survives.
+
+Ownership is per decision, not per action. A module declares the action types it
+owns and a context gate (\texttt{claims}); \texttt{pass} is owned by several
+modules because it means something different in each place. A module that
+declines any candidate on a decision withdraws from the whole decision, because
+a partially scored list cannot be ranked honestly.
+
+\textbf{There is no fallback.} H2 used to hand decisions it could not rank to
+Heuristics 1, which was measured deciding 41.2\% of every real choice --- so
+more than two decisions in five credited to H2 were H1's, and every module
+improvement was measured on the fraction that reached the modules at all. A
+ceiling made of another agent cannot be raised by working on this one, so it was
+removed. When the ranking does not discriminate, H2 now plays one of the tied
+best uniformly at random. \texttt{pass} wins a tie only when nothing else is
+tied with it: a turn spent passing plays no resource, attempts no faction and
+scores nothing, while the opponent's turn arrives regardless.
+
+\clearpage
+\section*{The three layers}
+
+\begin{center}
+\includegraphics[width=0.97\textwidth]{layers.pdf}
+\end{center}
+
+The layering is enforced by a test, not by convention:
+
+\begin{itemize}\itemsep2pt
+\item \textbf{modules} own action types and score candidates. They may
+      \emph{not} import each other --- two modules that need the same
+      valuation must share a service, so the number cannot drift apart.
+\item \textbf{services} hold valuations more than one module needs. They may
+      not import modules.
+\item \textbf{core} holds units, the win-probability model, the constants and
+      the rationale tree. It may not import services.
+\end{itemize}
+
+Which service each module actually reaches for --- the detail the arrows above
+summarise:
+
+\begin{center}\small
+\begin{tabular}{ll}
+\toprule
+module & services it uses \\
+\midrule
+\texttt{travel} & beliefs, budget, defence, exposure, reach, strike/prowess \\
+\texttt{combat} & character-value, standing, strike/\{prowess, sequence, model\} \\
+\texttt{hazards} & attack-modifiers, beliefs, denial, exposure, hazard-plan, strike/* \\
+\texttt{characters} & budget, character-value, defence, strike/prowess \\
+\texttt{resources} & budget, character-value, defence, reach, strike/prowess \\
+\texttt{factions} & budget, defence, reach, strike/prowess \\
+\texttt{hand} & card-price, character-value, hazard-plan \\
+\texttt{grants} & character-value, strike/prowess \\
+\texttt{corruption} & character-value \\
+\texttt{fetching} & card-price \\
+\texttt{events} & event-value \\
+\texttt{kill} & attack-value \\
+\texttt{endgame}, \texttt{health} & --- (score from the view alone) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Services depend on each other too, and that is where the sharing shows:
+\texttt{card-price} is built from \texttt{budget}, \texttt{event-value},
+\texttt{hazard-plan} and \texttt{standing}; \texttt{hazard-plan} from
+\texttt{beliefs}, \texttt{denial}, \texttt{exposure} and the strike
+enumeration; \texttt{defence} from \texttt{attack-modifiers},
+\texttt{standing} and the same enumeration. Every one of those bottoms out in
+\texttt{standing}, which is the only thing that converts marshalling points
+into TSD.
+
+\section*{What each part is worth}
+
+Not every module is worth the same, and the difference is measured rather than
+estimated. Flattening a group's opinion --- the candidates stay,
+every one scores alike, so the tie rule picks among them uniformly --- and
+re-running a 384-game gate gives what \emph{knowing which one to take} is worth:
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+opinion flattened & paired Elo (95\% CI) & cost \\
+\midrule
+--- (unmodified) & $-134$ [$-173$, $-97$] & --- \\
+\texttt{play-hazard}, \texttt{place-on-guard} & $-166$ [$-208$, $-128$] & $-11$ \\
+\texttt{assign-strike}, \texttt{resolve-strike}, \texttt{choose-strike-order} & $-202$ [$-247$, $-163$] & $-47$ \\
+\texttt{plan-movement}, \texttt{enter-site}, \texttt{select-company} & $-249$ [$-299$, $-207$] & $-94$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The hazard machinery is the most elaborate thing in H2 and it is inert.}
+A bundle beam search resolves whole attacks state by state, \texttt{hazard-plan}
+assigns every hazard in hand to a company, and creature prices are derived from
+that plan --- replacing all of it with a coin flip costs 11 Elo, inside noise.
+Movement carries 94 and had received almost no attention, because H2 already
+agreed with human play about it often enough that it never rose up a
+divergence-ranked list.
+
+\section*{Where it stands, and what that means}
+
+Against Heuristics 1 over 384 paired, side-swapped games: \textbf{31.6\%}, paired
+Elo $-134$ [$-173$, $-97$]. Against human players the recorded corpus is
+\textbf{107--0}, at a median 42 marshalling points to the AI's 2.
+
+That second number is the one that matters, and it is not a margin. A side
+losing 42--2 is not making slightly worse choices; it is never completing a
+scoring sequence. The whole of H2's measurable opinion is worth about 140 Elo,
+so an agent with no opinions at all would sit near $-300$ --- which bounds what
+refining these modules can achieve, and says the remaining gap is in what H2
+does not model at all rather than in what it models imperfectly.
+
+\section*{How to look at it}
+
+Every claim above came out of one of these, and none of them is a simulation of
+taste --- each answers a different question, and mixing them up is how this
+project has gone wrong before.
+
+\begin{center}\small
+\begin{tabular}{ll}
+\toprule
+instrument & the question it answers \\
+\midrule
+\texttt{explain} & why did H2 play \emph{that}, as a rationale tree with every tunable named \\
+\texttt{coverage} & which action types have an owner at all \\
+\texttt{human-compare} & does H2 choose what the human chose, per decision \\
+\texttt{route-compare} & does the \emph{sequence} look like the human's \\
+\texttt{scoring-loop}, \texttt{hand-flow} & where do marshalling points fail to arrive \\
+\texttt{gate} & is this version stronger, over paired side-swapped seeds \\
+\texttt{sweep} & what does this tunable do to the result \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Two cautions that were learned expensively.
+
+\textbf{Agreement locates, it does not decide.} Corpus agreement found a draft
+decided by coin flip, a placeholder price deciding the discard, and the 41\%
+deferral to H1 --- all real defects, none visible from a win rate. But three
+changes that \emph{raised} agreement cost 41, 42 and 84 Elo, while acting
+on ties \emph{lowered} agreement nine points and gained 110. The human's answer
+transfers only when it rests on something both players share: a rule binds both,
+a strategy does not.
+
+\textbf{Every corpus measurement is off-policy.} It replays positions a human
+reached. H2 never plays those games --- in its own it reaches different, worse
+positions, and its failures live there. That is why the two changes that paid
+were defects visible \emph{regardless} of position: a decision made at random,
+and an object never modelled at all.
+
+\end{document}
