@@ -44,9 +44,9 @@ import {
   viableActions, dispatch, executeAction, findInPile, findCharInstanceId, findHandCardId,
   companyIdAt, expectCharStatus, assertEveryInstanceReachable, revealOpponentPileInstances,
   makeMHState, playCreatureHazardAndResolve,
-  CAVE_DRAKE, ORC_PATROL, GLAMDRING, VANISHMENT,
+  CAVE_DRAKE, ORC_PATROL, GLAMDRING, VANISHMENT, pool,
 } from '../test-helpers.js';
-import { CardStatus, RegionType, SiteType } from '../../index.js';
+import { CardStatus, RegionType, SiteType, describeAction } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
 import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction, ChooseHuntTargetAction } from '../../index.js';
 
@@ -216,7 +216,7 @@ describe('The Hunt (dm-143)', () => {
     expect(offered).toHaveLength(1);
     expect((offered[0].action as ChooseHuntTargetAction).creatureInstanceId).toBe(orcId);
 
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
     expect(afterChoice.combat).not.toBeNull();
     const combat = afterChoice.combat!;
     expect(combat.attackSource.type).toBe('hunt-attack');
@@ -244,7 +244,7 @@ describe('The Hunt (dm-143)', () => {
     const afterPlay = playHunt(state);
     const deckSizeBefore = afterPlay.players[HAZARD_PLAYER].playDeck.length;
 
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: drakeId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: drakeId, definitionId: CAVE_DRAKE });
     expect(afterChoice.combat).not.toBeNull();
     if (afterChoice.combat!.attackSource.type === 'hunt-attack') {
       expect(afterChoice.combat!.attackSource.creatureInstanceId).toBe(drakeId);
@@ -278,6 +278,35 @@ describe('The Hunt (dm-143)', () => {
     expect((offered[0].action as ChooseHuntTargetAction).creatureInstanceId).toBe(drakeId);
   });
 
+  test('names the creature in its description even though the acting player\'s own view redacts the instance', () => {
+    // Bug report: a candidate known only via the broad `revealedInstances`
+    // ledger (see the test above) is still fully redacted in the acting
+    // player's own PlayerView of the opponent's deck/discard pile — that
+    // pile is unredacted from the narrower `handRevealedInstances` only.
+    // With no card-name label on the offered action, every "choose-hunt-target"
+    // button rendered client-side described an indistinguishable "a card",
+    // leaving the human unable to make an informed choice ("hangs"). The
+    // action must carry its own `definitionId` so the choice stays legible
+    // without depending on the (redacted) instance lookup at all.
+    const state0 = huntState({ p2Deck: [CAVE_DRAKE, GLAMDRING, GLAMDRING] });
+    const drakeId = findInPile(state0, HAZARD_PLAYER, 'playDeck', CAVE_DRAKE)!.instanceId;
+    const state = {
+      ...state0,
+      revealedInstances: { ...state0.revealedInstances, [drakeId]: CAVE_DRAKE },
+    };
+    const afterPlay = playHunt(state);
+
+    const offered = viableActions(afterPlay, PLAYER_1, 'choose-hunt-target');
+    expect(offered).toHaveLength(1);
+    const action = offered[0].action as ChooseHuntTargetAction;
+    expect(action.definitionId).toBe(CAVE_DRAKE);
+
+    // No instanceLookup passed — exactly what a client sees once the
+    // opponent's deck/discard pile is redacted to UNKNOWN_CARD.
+    const desc = describeAction(action, pool);
+    expect(desc).toContain('Cave-drake');
+  });
+
   // ── "As though he were a one-character company" ─────────────────────────
 
   test('the creature attacks Alatar alone even when his company has other characters', () => {
@@ -286,7 +315,7 @@ describe('The Hunt (dm-143)', () => {
     const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const alatarId = findCharInstanceId(state, RESOURCE_PLAYER, ALATAR);
     const afterPlay = playHunt(state);
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
 
     expect(afterChoice.combat!.soloDefenderInstanceId).toBe(alatarId);
     const strikeTargets = new Set(
@@ -303,7 +332,7 @@ describe('The Hunt (dm-143)', () => {
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
     const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
 
     expect(viableActions(afterChoice, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
@@ -344,7 +373,7 @@ describe('The Hunt (dm-143)', () => {
       kind: { type: 'creature-attack-boost', strikes: 0, prowess: -2 },
     });
     const afterPlay = playHunt(state);
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
 
     // Orc-patrol's printed prowess is 6; the -2 spell boost must not apply.
     expect(afterChoice.combat!.strikeProwess).toBe(6);
@@ -357,7 +386,7 @@ describe('The Hunt (dm-143)', () => {
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
     const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
     expectCharStatus(afterChoice, RESOURCE_PLAYER, ALATAR, CardStatus.Untapped);
 
     const working = resolveSoloAttackAgainstAlatar(afterChoice);
@@ -370,7 +399,7 @@ describe('The Hunt (dm-143)', () => {
     const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
     const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
 
     const working = resolveSoloAttackAgainstAlatar(afterChoice);
     expectCharStatus(working, RESOURCE_PLAYER, ALATAR, CardStatus.Tapped);
@@ -382,7 +411,7 @@ describe('The Hunt (dm-143)', () => {
     const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
     const afterPlay = playHunt(state);
     const huntInstanceId = findInPile(afterPlay, RESOURCE_PLAYER, 'discardPile', THE_HUNT)!.instanceId;
-    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId });
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
     expect(afterChoice.combat).not.toBeNull();
 
     // Grant a free (non-spell) cancellation and consume it — the spell ban
