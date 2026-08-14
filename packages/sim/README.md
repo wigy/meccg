@@ -2810,6 +2810,50 @@ apart distinguishes a choice the agent makes from damage it takes.
 The lever is combat and what walks into it — worth 47 Elo by ablation, with
 `defence` and the `health` module already present — not the tempo constants.
 
+### Going home: the fix for the wounds
+
+The wound finding above has a fix, and it is not about combat at all. Over six
+games H2 takes *fewer* wounds than Heuristics 1 --- 4.3 a game against 5.7 ---
+and recovers from almost none of them:
+
+| per game | h2 | heuristic |
+| --- | --- | --- |
+| wounds taken | 4.3 | 5.7 |
+| **recoveries** | **0.3** | **3.5** |
+| decisions with a company at a haven | 24.1% | 46.4% |
+
+Wounds accumulate because the company never goes home. Healing happens at a
+haven and nowhere else a company can reach on its own, and H2 is at one half as
+often as H1.
+
+Two changes, both in `travel`, and the first is a correction to this document's
+own earlier work:
+
+**Havens are exempt from `revisitedSiteCost`.** That charge was added to stop a
+company doubling back over sites it had already worked. Its own note said "a
+haven is revisited on purpose" --- and then charged it anyway. The one site a
+company is *meant* to return to was being priced like a mistake.
+
+**A haven destination is credited with the wounds it heals**, at
+`woundTempoCost` --- the same number the modules already charge for *inflicting*
+a wound: "out of action until healed, fights at −2 meanwhile, and usually costs
+the company a trip to a haven". Healing undoes exactly that, so it is worth
+exactly that, and no new constant is invented to say so.
+
+| | recoveries | wounded | time home | paired Elo (95% CI) | score |
+| --- | --- | --- | --- | --- | --- |
+| control (`master`) | 0.3 | 34.6% | 24.1% | −134 [−173, −97] | 31.6% |
+| going home to heal | **1.2** | **28.0%** | **27.0%** | **−101 [−138, −66]** | **35.8%** |
+
+**+33 Elo** against a standard error on the difference of about 27. Every
+proximate metric moved with it, which is what distinguishes this from the tap
+attempt that preceded it --- that one moved its target metric the wrong way and
+was reverted before it reached a gate.
+
+It is still far short of H1's 3.7 recoveries and 13.1% wounded, so the same
+thread has more in it: nothing yet prices *when* to go home, only what a haven
+is worth once movement is being planned to one.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
