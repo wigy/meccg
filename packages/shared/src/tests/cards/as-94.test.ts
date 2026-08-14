@@ -417,6 +417,70 @@ describe('Orders from Lugbúrz (as-94)', () => {
     expect((placeActions[0].action as { cardDefId: CardDefinitionId }).cardDefId).toBe(ORDERS_FROM_LUGBURZ);
   });
 
+  test('place-starting-company-event stays offered after the player runs out of drafted minor items to assign', () => {
+    // Regression: P1 drafts exactly one minor item (OLD_TREASURE). Assigning
+    // it exhausts unassignedItems, but the two-item budget (MAX_STARTING_ITEMS)
+    // is not yet spent, and ORDERS_FROM_LUGBURZ ("in lieu of a minor item") is
+    // still sitting in the play deck — the item-draft step must not silently
+    // finish for this player and take that placement away (bug report:
+    // "Orders from Lugburz" discarded from the opening pool with no chance
+    // to play it after the last character card).
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.Ringwraith,
+          draftPool: [PERCHEN, OLD_TREASURE],
+          playDeck: [ORDERS_FROM_LUGBURZ],
+          siteDeck: [MINAS_MORGUL, DOL_GULDUR, VARIAG_CAMP],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Ringwraith,
+          draftPool: [ASTERNAK],
+          playDeck: [],
+          siteDeck: [DOL_GULDUR, MINAS_MORGUL, VARIAG_CAMP],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, PERCHEN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ASTERNAK) },
+      { type: 'draft-stop', player: PLAYER_1 },
+    ]);
+
+    expect(state.phaseState.phase).toBe('setup');
+    if (state.phaseState.phase !== 'setup') return;
+    expect(state.phaseState.setupStep.step).toBe(SetupStep.ItemDraft);
+
+    const perchenId = findCharInstanceId(state, RESOURCE_PLAYER, PERCHEN);
+    state = dispatch(state, {
+      type: 'assign-starting-item',
+      player: PLAYER_1,
+      itemDefId: OLD_TREASURE,
+      characterInstanceId: perchenId,
+    });
+
+    expect(state.phaseState.phase).toBe('setup');
+    if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== SetupStep.ItemDraft) {
+      throw new Error('Expected to remain in item-draft after assigning the only drafted minor item');
+    }
+    expect(state.phaseState.setupStep.itemDraftState[RESOURCE_PLAYER].done).toBe(false);
+
+    const placeActions = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'place-starting-company-event',
+    );
+    expect(placeActions.length).toBeGreaterThanOrEqual(1);
+    expect((placeActions[0].action as { cardDefId: CardDefinitionId }).cardDefId).toBe(ORDERS_FROM_LUGBURZ);
+  });
+
   test('placed Orders from Lugbúrz is in cardsInPlay bound to the company after setup', () => {
     const config: GameConfig = {
       players: [
