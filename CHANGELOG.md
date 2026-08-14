@@ -35,6 +35,7 @@ The Hunt names its quarry
 - Movement probes: no single destination attribute explains the movement gap —
   movement is a trade, and H2 already out-optimises the human on destination
   playability.
+- How Heuristics 2 decides is written up with diagrams under `docs/ai/`.
 
 ## 0.104.0 — 2026-08-13
 
