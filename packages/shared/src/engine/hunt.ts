@@ -28,6 +28,11 @@
  * - "As though he were a one-character company" is `CombatState.
  *   soloDefenderInstanceId` — no other member of the bearer's actual company
  *   may be assigned a strike.
+ * - A defeated attack still awards kill marshalling points (CoE rule 964):
+ *   `combat-finalize.ts` moves the creature out of whichever pile it was
+ *   attacked from and into the defending player's kill pile, same as any
+ *   other creature attack (barring detainment, CoE 3.II.3). An undefeated
+ *   attack leaves it exactly where it already was.
  * - "Cannot use or benefit from spells against the attack" is `CombatState.
  *   spellsIneffective`, enforced centrally in `legal-actions/combat.ts`
  *   (`cancelAttackActions`) and `effects/resolver.ts`

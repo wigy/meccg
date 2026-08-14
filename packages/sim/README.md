@@ -2337,6 +2337,523 @@ position is developed and they are waiting for the right moment. H2 passes
 because it has nothing to say. Those are the same move for opposite reasons, and
 copying the frequency copied the reason it did not have.
 
+### The landscape after acting on ties
+
+Every ranking in this document above was measured on an agent that passed
+whenever it could not rank a decision. That agent no longer exists, and the
+ordering changed with it. Re-measured on twelve recorded games:
+
+| the human's action | they chose it | H2 agreed |
+| --- | --- | --- |
+| `pass` | 1437 | 46.7% |
+| `draw-cards` | 414 | 100.0% |
+| `discard-card` | 306 | 7.5% |
+| `resolve-strike` | 161 | 69.6% |
+| `select-company` | 160 | 56.9% |
+| `assign-strike` | 138 | 19.6% |
+| `play-hazard` | 138 | 26.8% |
+| `pass-chain-priority` | 111 | 93.7% |
+| `enter-site` | 106 | 71.7% |
+| `corruption-check` | 68 | 80.9% |
+
+And what H2 does instead, which is where the ordering really moved:
+
+```text
+253  pass → place-on-guard
+213  discard-card → discard-card
+170  pass → play-hazard
+ 64  play-hazard → place-on-guard
+```
+
+`place-on-guard` is now the single largest divergence by a wide margin, and it is
+the *same* divergence this document already recorded once: "`place-on-guard` is
+what the agent does instead of passing 154 times in 8 games". Charging the
+forgone hazard use narrowed it and gated neutral (−14 [−41, +13]). Acting on ties
+widened it again, because a card with any modelled upside is now taken rather
+than declined.
+
+#### The question that has not been asked
+
+Placement is priced by what the card would do *if it is revealed* —
+`single.expectedTsd`, discounted by `onGuardDiscount` and reduced by the play it
+forgoes. What is nowhere in that chain is the probability that anybody ever walks
+into it. A guard card is revealed only when a company enters the site it sits on;
+if the opponent goes somewhere else, the card did nothing and the turn spent
+placing it bought nothing.
+
+`onGuardDiscount` at 0.5 is standing in for that probability without being
+derived from anything — the site the opponent is moving to is *published* when
+they reveal movement, and the agent can see it. So the honest next step is to
+find out whether placement is being priced against a certainty the position
+already contradicts, and that is a measurement, not a constant to tune. Three
+attempts at the discard were lost to tuning a constant against a metric; this one
+should not be.
+
+### The largest divergence is worth nothing
+
+The obvious next target after acting on ties was `place-on-guard`: 253 decisions
+where the human passed and H2 placed a card, plus 64 where they played a hazard
+instead — the largest single divergence in the corpus by a wide margin, and the
+second time this document has named it as such.
+
+Before pricing anything, two checks. The first killed the hypothesis this
+section was going to be about: placement happens in the hazard window against
+the **active company**, which has already revealed where it is going, so arrival
+is not uncertain and a probability-of-arrival discount would push H2 to place
+*more*, not less.
+
+The second was an ablation. `place-on-guard` is priced as a **free option** — the
+card returns at cleanup if revealing it would be bad, so the downside is floored
+at zero and only the forgone hazard play is charged. Within that model, taking it
+whenever there is any upside is correct, which is exactly what H2 does. So: price
+placement below every alternative, never place at all, and gate it.
+
+| | paired Elo (95% CI) | score |
+| --- | --- | --- |
+| placing on guard (`master`) | −155 [−195, −119] | 29.0% |
+| never placing on guard | −148 [−188, −112] | 29.8% |
+
+Seven Elo apart against a standard error of about 28. **Placing 253 times and
+placing never are the same strength.** The tactic is inert: H2's placements buy
+nothing, and removing them costs nothing.
+
+#### Frequency of divergence is not importance
+
+This is the correction the work list needed. `compare` ranks action types by how
+often H2 disagrees with the human, and that ordering has been steering this
+project — it is how `place-on-guard` reached the top twice, and it is why the
+forgone-hazard charge was written for it at all (which also gated neutral, and
+now looks like a fix to something that did not matter either way).
+
+A divergence count answers "where does H2 behave differently". It cannot answer
+"where does behaving differently cost anything", and those come apart badly: the
+largest divergence in the corpus is worth zero Elo, while acting on ties — which
+*reduced* agreement by nine points — was worth +110.
+
+The instrument that does answer it is the one used here: **ablate the agent's
+opinion on one decision type and gate.** It costs a full gate per type, which is
+why it has not been run broadly, but it is the only measurement that ranks
+decisions by what they are worth rather than by how often they come up. Run it
+before pricing anything, not after.
+
+### What each opinion is actually worth
+
+`place-on-guard` showed that the largest divergence in the corpus is worth zero
+Elo, which made the frequency ranking unusable for deciding what to work on. So
+the ablation was run properly: flatten H2's opinion on a group of action types —
+the candidates stay, every one scores alike, and the tie rule picks among them
+uniformly — and gate. The difference against master is what *knowing which one to
+take* is worth.
+
+Flattening rather than removing is what makes it a measure of the opinion. A
+removed type leaves its candidates uncovered and never chosen, which measures the
+action instead.
+
+| flattened | paired Elo (95% CI) | score | cost of losing the opinion |
+| --- | --- | --- | --- |
+| — (`master`) | −155 [−195, −119] | 29.0% | — |
+| `play-hazard`, `place-on-guard` | −166 [−208, −128] | 27.9% | **−11** |
+| `assign-strike`, `resolve-strike`, `choose-strike-order` | −202 [−247, −163] | 24.0% | **−47** |
+| `plan-movement`, `enter-site`, `select-company`, `declare-path` | −249 [−299, −207] | 19.5% | **−94** |
+
+Standard error on each difference is about 30.
+
+#### The ordering is the opposite of the one this project has been using
+
+| | divergence rank | worth |
+| --- | --- | --- |
+| hazards | **1st** — 253 + 64, the largest in the corpus | ~0 Elo |
+| combat | mid | 47 Elo |
+| movement | low | **94 Elo** |
+
+**The hazard machinery is the most elaborate thing in H2 and it is inert.** The
+bundle beam search resolves whole attacks state by state, `hazard-plan` assigns
+every hazard in hand to a company, `card-price` prices creatures through that
+plan — and replacing all of it with a coin flip costs 11 Elo, inside noise. Every
+hazard-side change in this document was tuning something that does not move the
+result: the on-guard forgone charge (neutral), the held-hazard discount (−41,
+−42), the total order that mostly reordered hazards (−84).
+
+**Movement is where the strength is**, and it has had almost no attention here,
+precisely because H2 already agrees with humans about it reasonably often
+(`enter-site` 71.7%, `declare-path` 79.4%) and so it never rose up a
+divergence-ranked list.
+
+#### What to do with this
+
+Work on movement and combat; stop working on hazards until something explains why
+the machinery cannot pay. The three-way split also bounds the whole project: H2 is
+−155 against Heuristics 1, and its entire measurable opinion is worth about 140
+Elo, so an agent with no opinions at all would sit near −300. The remaining gap to
+a *winning* agent is not in refining these three; it is in whatever H2 does not
+model at all.
+
+### Movement: H2 is greedier than the human, not blinder
+
+The ablation put movement at 94 Elo — the one place H2's opinion demonstrably
+carries the agent — and `plan-movement` is its weakest type. Restricted to
+decisions where the human actually planned movement and had more than one
+destination, H2 picks the same site 30 times in 64 (46.9%).
+
+The obvious hypothesis was that `travel` cannot see what a destination is *for*:
+`regionCrossingCost` is documented in its own tunable as "a stand-in for a hazard
+model", and a big enough distance penalty would swamp the playability term. The
+measurement says the opposite:
+
+| | mean cards in hand playable at the destination | mean MP playable there | destination plays strictly more |
+| --- | --- | --- | --- |
+| human | 1.06 | 2.59 | 6 |
+| **H2** | **1.36** | **3.41** | **18** |
+
+H2's destinations are *better* on immediate playability, three times as often as
+the human's. It is not failing to see what it can play on arrival — it is
+optimising that harder than the human does, and still losing.
+
+So the gap is whatever the human is buying instead. Candidates, none of them
+measured yet: arriving somewhere survivable rather than somewhere lucrative; a
+site that sets up the *next* two turns rather than this one; keeping a company
+within reach of a haven. Each is a real MECCG consideration and none of them is
+"how many cards does this site let me play now", which is the only thing the
+destination score currently maximises.
+
+That is worth recording as a *negative*: the fix everyone would reach for first —
+weight playability higher, or cut the distance penalty that hides it — moves
+`travel` further in the direction it is already overshooting.
+
+### Movement, second look: a trade, not a blind spot
+
+If H2 is not blind to what it can play on arrival, the next hypothesis was that
+the human is buying safety. Measured over the same 64 attributed `plan-movement`
+decisions:
+
+| | automatic attacks at the destination | site-path length | site-path danger | hazard draws granted |
+| --- | --- | --- | --- | --- |
+| human | 0.47 | 2.73 | 4.48 | 2.25 |
+| H2 | 0.55 | 2.63 | 4.53 | 2.42 |
+
+**The survivability hypothesis is only weakly supported.** H2's destinations are
+slightly more dangerous on two of four measures, no different on a third, and it
+actually travels *shorter* paths. None of these gaps would explain a 94-Elo
+module choosing differently half the time.
+
+The one clean signal is *which sites*:
+
+| | free-hold | shadow-hold | ruins-and-lairs | border-hold | haven |
+| --- | --- | --- | --- | --- | --- |
+| human | **19** | 12 | 15 | 9 | 8 |
+| H2 | 12 | **19** | 13 | 10 | 8 |
+
+An exact inversion on the two types that differ. Put beside the playability
+result — H2's destinations average 3.41 playable marshalling points against the
+human's 2.59 — the behaviour is coherent and not obviously wrong: **H2 takes the
+richer, more dangerous site and the human takes the safer, poorer one.**
+
+And `travel` is not ignoring the danger half. It runs `defence.harmFrom` against
+the site's real automatic attacks (`automaticAttacksOf`), so this is a *trade*
+between two modelled quantities, not a missing term. Which means the remaining
+lever is the exchange rate between them — and tuning that against an agreement
+metric is precisely the move that cost 41, 42 and 84 Elo on the discard.
+
+What is genuinely unpriced is the *other* danger: the hazards an opponent plays
+against a company in transit. `beliefs` was measured as effectively a constant
+(mean 0.861, span 0.15 over 6.9 observed cards), and `regionCrossingCost` is
+documented in its own tunable as "a stand-in for a hazard model" charging
+distance by length rather than by danger. If the human's free-holds are worth
+more than their playability suggests, that is where the difference would live —
+but it is a modelling question, not a constant, and it should be built before it
+is weighed.
+
+### Movement, third look: the destination does not explain it
+
+The last hypothesis standing was that a destination's danger is not "more
+hazards" but *which* hazards — the rules let an opponent play only creatures
+keyed to a region type in the site path, or to the destination's site type, and
+`keyedTo: { regionTypes, siteTypes }` is exact card data. So the danger of a
+journey is computable from the card pool without any constant at all.
+
+Computed over the same 64 decisions:
+
+| | creatures the rules admit | worst prowess × strikes | mean threat |
+| --- | --- | --- | --- |
+| human | 72.5 | 35.2 | 16.3 |
+| H2 | 73.2 | 35.2 | 16.4 |
+
+**Flat.** Identical on the measure that was supposed to separate them, because
+most creatures are keyed to wilderness and nearly every site path crosses one.
+The rules-derived threat of a destination barely varies across the destinations
+actually on offer.
+
+#### Three hypotheses, three negatives
+
+| hypothesis | prediction | measured |
+| --- | --- | --- |
+| `travel` cannot see what a destination is for | H2's sites play less | H2's play **more** (3.41 MP vs 2.59) |
+| the human buys survivability | H2's sites are more dangerous | marginally, and H2 travels *shorter* paths |
+| danger is *which* creatures the path admits | H2's sites admit worse | **identical** (35.2 vs 35.2) |
+
+Taken together these say something more useful than any of them separately:
+**the disagreement is not explained by any attribute of the destination.** Three
+independent readings of "what is this site worth" all fail to separate a choice
+the two sides make differently half the time.
+
+What is left is what a single-decision instrument cannot see. `plan-movement` is
+scored as one decision, but a company's route is a *sequence* — this site, then
+the site it makes reachable, then the haven it can retreat to — and the human is
+choosing a path where H2 is choosing a step. Every measurement in this document
+compares one decision against one decision, which is exactly the shape that
+cannot detect a difference in plan.
+
+That is a tooling gap before it is a modelling gap. The plan layer exists
+(`services/portfolio`, `services/plan-value`) and was measured earlier as
+committing at most one goal per company, so the machinery for multi-step
+intentions is present and inert. Whether movement is where it should finally pay
+is the open question, and answering it needs an instrument that scores a *route*
+against the route the human took — which does not exist yet.
+
+### `route-compare`: the company has somewhere to be
+
+Three per-decision measurements failed to explain the movement gap, which is the
+signature of measuring the wrong object. `route-compare` measures the sequence
+instead: it reconstructs, per company, the ordered destinations the human chose,
+and asks the agent at each step where *it* would go.
+
+It is **teacher-forced by construction**, and that bounds every number it
+prints. An agent's own route cannot be rolled forward — at its first
+disagreement the position leaves the corpus and the opponent's replies are no
+longer recorded — so the company follows the human's route and the agent's
+sequence is its *first steps from the human's positions*, not a route it walked.
+The instrument says so in its own output.
+
+First run, twelve games, 64 attributed movement decisions:
+
+```text
+                                        human      agent
+  consecutive moves in one region        0.0%      23.4%
+  destinations already visited           1.6%      18.8%
+  destinations that are havens          12.5%      12.5%
+  distinct sites per company             3.71       3.06
+  moves per company                      3.76       3.76
+```
+
+Two of those are not close.
+
+**The human never moves to the same region twice running.** Zero of forty-seven
+transitions. H2 does it on nearly a quarter of its moves.
+
+**The human almost never returns to a site.** One destination in sixty-four had
+been visited before by that company, against H2's twelve — and it shows in the
+totals: the human's company touches 3.71 distinct sites in 3.76 moves, so its
+route is a *tour*, while H2's touches 3.06 in the same 3.76, so its route
+doubles back.
+
+The rules say why that matters. A site's resources are played when the company
+is there; going back to a site already worked yields nothing it has not already
+yielded, and the turn spent travelling is a turn not spent opening a new one. A
+company that revisits is a company scoring nothing while the opponent's clock
+runs.
+
+That is a defect no per-decision instrument could see, because *every individual
+revisit is a defensible destination* — it is a site with playable cards and
+survivable danger, which is exactly what the earlier three measurements
+confirmed H2 optimises well. It is only wrong in the context of where the
+company has already been, and until now nothing was looking at that.
+
+### Charging the company for doubling back
+
+The revisit `route-compare` found is charged rather than forbidden: a return is
+sometimes right — a haven is revisited on purpose, and a site can hold a card
+the hand did not have the first time. What it should not be is *free*, which is
+what it was. The destination score reads the current hand and the printed site,
+and neither of those changes when the company has already been there, so only
+what the hand has drawn since is actually new.
+
+A correction to how this was first written up: the claim that a worked site
+"yields nothing it has not already yielded" does not survive contact with the
+state. **No offered destination is ever in the site discard pile** — 0 of 1375 —
+because the site card returns to the site deck, and a worked site is offered
+again exactly like one never seen. What is true, and checked: neither gate deck
+holds a duplicate site (15 distinct, one copy each), so the repeated definitions
+`route-compare` counted are genuine returns rather than second copies. The
+finding stands; the reason for it is narrower than first stated.
+
+Because the game state records no company history and cannot, the agent
+remembers — the same pattern `cycle-guard` uses for positions the engine cannot
+mark — and `ModuleContext.visited` carries it to the modules. It records only
+movement the agent itself chose, so in corpus replay a route it did not walk
+leaves no trace.
+
+| | before | after | human |
+| --- | --- | --- | --- |
+| consecutive moves in one region | 23.4% | **13.0%** | 0.0% |
+| destinations already visited | 18.8% | **11.1%** | 1.6% |
+| distinct sites per company | 3.06 | **3.29** | 3.65 |
+
+| | score | paired Elo (95% CI) |
+| --- | --- | --- |
+| control (`master`) | 29.0% | −155 [−195, −119] |
+| charging the revisit | **31.6%** | **−134 [−173, −97]** |
+
+**+21 Elo** against a standard error on the difference of about 29 — inside
+noise, and pointing the right way. Kept on that basis plus the shape change,
+which is large and one-directional, rather than on a significance claim the
+interval does not support.
+
+Worth setting against the discard work, which raised agreement three times and
+lost 41, 42 and 84 Elo. The difference is not that this change is more
+human-like — it is that `route-compare` measured an object H2 was not modelling
+at all, where the discard measured one it was modelling correctly and pricing
+against the wrong alternative. **A new instrument found a defect four
+measurements on the old one could not**, which is the argument for building
+instruments before pricing anything.
+
+### Where the sequence lens does not apply
+
+`route-compare` paid because a route is a genuinely multi-turn object that
+nothing in H2 modelled. The obvious move is to point the same lens at every
+other sequence in the game. Two were checked and neither is a defect.
+
+**Company shape.** Splitting and merging companies is the clearest structural
+decision a player makes across a game, and the corpus offered it constantly:
+
+| offered | human took | H2 took | action |
+| ---: | ---: | ---: | --- |
+| 236 | 0 | 1 | `split-company` |
+| 42 | 1 | 9 | `merge-companies` |
+| 0 | 0 | 0 | `move-character-between-companies` |
+
+H2 splits once in 236 offers where the human never splits at all — `defence`
+already prices a split as the loss it usually is, and that is working. The merge
+gap (9 against 1 in 42) is real but small, and 42 decisions across twelve games
+is not where a 134-Elo deficit lives.
+
+**Strike concentration.** Within an attack, whether to pile strikes onto one
+character or spread them across the company is exactly the shape of decision
+that looks defensible per-strike and matters in aggregate. Over 62 attributed
+`assign-strike` decisions, 18 of them with somebody already carrying a strike:
+
+```text
+piled another strike onto a character already carrying one
+  human 13 (72.2%)    h2 13 (72.2%)
+```
+
+**Identical.** The two sides agree on the defender only 33.9% of the time, and
+agree exactly on the pattern. So the combat disagreement is about *which*
+character, decision by decision — not about the shape of the attack.
+
+That is worth recording as a boundary on the method. The route worked because it
+spans turns, is invisible to the state, and H2 had no representation of it at
+all. A sequence resolved inside one window, where both sides already behave the
+same way, has nothing for a sequence instrument to find.
+
+### Why H2 scores two points: it is wounded, not slow
+
+`scoring-loop` and `hand-flow` were built before H1 was removed from the agent
+and had not been re-run since. Together they locate the scoring failure exactly,
+and it is not where any per-decision instrument was looking.
+
+The funnel, eight games:
+
+```text
+                        offered   taken   take-rate      heuristic offered
+  plan-movement             322     157     48.8%              284
+  enter-site                168      94     56.0%              202
+  play-hero-resource         23      23    100.0%               39
+  influence-attempt          20      17     85.0%                8
+```
+
+**H2 takes every scoring play it is offered.** All 23 of them. The valuation is
+not the problem; it is offered 23 where Heuristics 1 gets 39, so the break is
+entirely upstream.
+
+`hand-flow` says it is not card flow either:
+
+| | h2 | heuristic |
+| --- | --- | --- |
+| arrivals with nothing playable | 23.8% | 49.5% |
+| mean playable cards at arrival | **1.14** | 0.70 |
+| mean untapped in the arriving company | **1.04** | 2.33 |
+| arrivals with nobody to tap | **44.0%** | 20.8% |
+
+H2 arrives holding *better* cards than H1 and arrives empty-handed half as
+often. Then 44% of the time it has nobody able to act. An item needs an untapped
+character to carry it — `site.ts` publishes exactly that reason, *"no untapped
+character in company"* — so the play is never offered.
+
+#### The obvious fix was wrong, and the metric said so
+
+`tapTempoCost` charges a flat fee for tapping and already prices the influence
+attempt a tap forfeits, so the natural move was to price the *site play* it
+forfeits too: a company with `p` playable cards and `u` untapped characters
+plays `min(p, u)` of them, so tapping costs the marginal card whenever
+`u <= p`. That was built.
+
+It made the target metric **worse** — arrivals with nobody to tap went 44.0% to
+50.6% — which is the signal to diagnose rather than gate. Splitting the company
+by status over four games, every decision:
+
+| | company size | untapped | tapped | wounded |
+| --- | --- | --- | --- | --- |
+| h2 | 2.66 | 1.17 (44.1%) | 0.57 (21.3%) | **0.92 (34.6%)** |
+| heuristic | 2.20 | 1.41 (64.0%) | 0.56 (25.5%) | **0.23 (10.5%)** |
+
+**H2 taps less than H1** — 21.3% against 25.5% — and its companies are *larger*.
+The entire difference is wounds: **34.6% against 10.5%, more than three times as
+many.** A wounded character cannot carry an item, attempt influence or play a
+resource, so the company arrives at the right site, holding the right cards,
+with a third of its strength unable to act.
+
+So the scoring failure is downstream of **losing fights**, and tap pricing could
+never have fixed it. That also explains why `hand-flow` looked like a tap
+problem: wounded and tapped are both "not untapped", and only splitting them
+apart distinguishes a choice the agent makes from damage it takes.
+
+The lever is combat and what walks into it — worth 47 Elo by ablation, with
+`defence` and the `health` module already present — not the tempo constants.
+
+### Going home: the fix for the wounds
+
+The wound finding above has a fix, and it is not about combat at all. Over six
+games H2 takes *fewer* wounds than Heuristics 1 --- 4.3 a game against 5.7 ---
+and recovers from almost none of them:
+
+| per game | h2 | heuristic |
+| --- | --- | --- |
+| wounds taken | 4.3 | 5.7 |
+| **recoveries** | **0.3** | **3.5** |
+| decisions with a company at a haven | 24.1% | 46.4% |
+
+Wounds accumulate because the company never goes home. Healing happens at a
+haven and nowhere else a company can reach on its own, and H2 is at one half as
+often as H1.
+
+Two changes, both in `travel`, and the first is a correction to this document's
+own earlier work:
+
+**Havens are exempt from `revisitedSiteCost`.** That charge was added to stop a
+company doubling back over sites it had already worked. Its own note said "a
+haven is revisited on purpose" --- and then charged it anyway. The one site a
+company is *meant* to return to was being priced like a mistake.
+
+**A haven destination is credited with the wounds it heals**, at
+`woundTempoCost` --- the same number the modules already charge for *inflicting*
+a wound: "out of action until healed, fights at −2 meanwhile, and usually costs
+the company a trip to a haven". Healing undoes exactly that, so it is worth
+exactly that, and no new constant is invented to say so.
+
+| | recoveries | wounded | time home | paired Elo (95% CI) | score |
+| --- | --- | --- | --- | --- | --- |
+| control (`master`) | 0.3 | 34.6% | 24.1% | −134 [−173, −97] | 31.6% |
+| going home to heal | **1.2** | **28.0%** | **27.0%** | **−101 [−138, −66]** | **35.8%** |
+
+**+33 Elo** against a standard error on the difference of about 27. Every
+proximate metric moved with it, which is what distinguishes this from the tap
+attempt that preceded it --- that one moved its target metric the wrong way and
+was reverted before it reached a gate.
+
+It is still far short of H1's 3.7 recoveries and 13.1% wounded, so the same
+thread has more in it: nothing yet prices *when* to go home, only what a haven
+is worth once movement is being planned to one.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right

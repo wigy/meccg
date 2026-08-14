@@ -1,0 +1,108 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=22mm]{geometry}
+\usepackage{graphicx}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.15}
+
+\title{\vspace{-14mm}\textbf{The other three agents}\\[2mm]\large Heuristics 1, Monte-Carlo, and Real-AI}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-12mm}
+
+Companion to \texttt{h2-architecture.pdf}. Four agents can play this engine and
+they disagree about what a decision \emph{is}: a weighted preference, an
+estimate from simulated futures, a learned distribution, or a modelled change in
+score. Each is drawn below as one decision, end to end.
+
+\section*{Heuristics 1 --- \texttt{heuristic}}
+
+\begin{center}\includegraphics[width=\textwidth]{h1.pdf}\end{center}
+
+A phase table picks one evaluator per decision; the evaluator returns a numeric
+weight per action; weights are normalised into a distribution and sampled.
+Actions an evaluator declines fall to \texttt{defaultWeight}, scaled by the dice
+odds when the action carries a target number.
+
+Its weakness is the reason H2 exists: the weights are hand-tuned at the point of
+use, so a number from the combat evaluator and a number from the site-phase
+evaluator are not in the same unit and cannot be compared, checked, or
+explained. It is nonetheless the strongest agent here --- H2 still loses to it.
+
+\section*{Monte-Carlo --- \texttt{mc}}
+
+\begin{center}\includegraphics[width=\textwidth]{mc.pdf}\end{center}
+
+No tree, no network, no deck knowledge. It widens its own view into a playable
+state, plays every candidate forward through the \emph{real engine} under a
+random policy for a few turns, and keeps whichever candidate's playouts end with
+the best average tournament-score differential.
+
+Two departures from textbook rollouts, both about spending a small budget well:
+\textbf{round-robin allocation} gives every candidate the same sample count, and
+\textbf{common random numbers} compare all candidates against one determinized
+world and one playout seed per round, so paired sampling removes between-candidate
+noise that is far larger than the differences being measured.
+
+The catch is stated in its own module: views the determinizer cannot handle ---
+mid-chain, in combat, with pending effects --- are delegated to a fallback agent.
+Those are a large share of all decisions, so \emph{the fallback materially shapes
+how this agent plays}, which is the same trap H2 was in until the H1 fallback was
+removed from it.
+
+\section*{Real-AI --- \texttt{bc}}
+
+\begin{center}\includegraphics[width=\textwidth]{bc.pdf}\end{center}
+
+\textbf{This is a trained network, not a language model.} An action-conditioned
+policy/value net is trained by \texttt{train/train\_bc.py} on recorded play; the
+trainer exports weights as JSON, and the agent mirrors the forward pass in pure
+TypeScript --- embeddings, a mean-pooled entity-set encoder, a state torso, a
+per-candidate scorer with masked softmax, a tanh value head --- so no runtime or
+native dependency is needed for a net this small.
+
+Two details are worth knowing because they are where this design goes wrong
+quietly:
+
+\begin{itemize}\itemsep2pt
+\item every weights file carries a \texttt{selfTest} block of real inputs and the
+      trainer's outputs, replayed at load, and a card-vocabulary hash. The agent
+      \emph{refuses to play} if either fails, so featurizer or weight drift
+      cannot masquerade as a weak policy.
+\item how the decision is read out of the distribution is a separate choice from
+      the distribution. Argmax suits weights cloned from another agent's soft
+      targets; weights cloned from human one-hots need class-mass or temperature
+      sampling and \emph{score in single digits under argmax}.
+\end{itemize}
+
+\section*{What separates them}
+
+\begin{center}\small
+\begin{tabular}{lllll}
+\toprule
+ & \textbf{H1} & \textbf{MC} & \textbf{Real-AI} & \textbf{H2} \\
+\midrule
+a decision is & a weight & a simulated future & a learned distribution & a change in score \\
+knowledge from & hand tuning & the engine & recorded play & rules + card data \\
+unit & unitless & TSD & probability & TSD $\rightarrow$ win prob. \\
+explains itself & no & by playout & no & rationale tree \\
+needs a fallback & no & yes, often & no & no, since removed \\
+cost per decision & negligible & rollouts & one forward pass & module evaluations \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Only two of the four can say why they did something. MC can show the playouts
+that produced an average; H2 can print the rationale tree with every tunable
+named. H1 and Real-AI both emit a number with no account of it --- which is
+tolerable in a net, and was the specific defect H2 was built to remove from the
+hand-written one.
+
+\end{document}

@@ -35,6 +35,7 @@
  * the output would say which was wrong.
  */
 
+import { CardStatus } from '@meccg/shared';
 import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
@@ -270,7 +271,57 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // draw cannot see the main reason to go anywhere.
   const draws = site.resourceDraws * tunables.resourceDrawValue;
 
-  const dtsd = netTsdDelta({ realized, potential: potential + draws, tempo }, tunables);
+  // A site this company has already worked is a site whose *new* options are
+  // the ones the hand has drawn since — and `route-compare` says human players
+  // treat that as close to disqualifying. Over 64 recorded movement decisions
+  // the human returned to a site once and H2 twelve times, and the human never
+  // moved to the same region twice running where H2 did on 23.4% of moves.
+  //
+  // Charged rather than forbidden, because a return is sometimes right: a
+  // haven is revisited on purpose, and a site can hold a card the hand did not
+  // have the first time. What it should not be is *free*, which is what it was
+  // — the destination score is computed from the current hand and the printed
+  // site, neither of which changes when the company has been there before.
+  //
+  // The company's history is not in the game state and cannot be: the site card
+  // returns to the site deck rather than to a discard pile, so a worked site is
+  // offered again exactly like one never seen. The agent remembers instead —
+  // see `ModuleContext.visited`.
+  const companyId = (destination.action as unknown as { companyId?: string }).companyId ?? '';
+  const arriving = destinationOf(context.view, destination.action)?.definitionId;
+  // A haven is the one site a company is *meant* to come back to, and charging
+  // the return was a mistake this module made against itself: healing happens
+  // at havens, and nowhere else a company can reach on its own.
+  const beenHere = arriving !== undefined
+    && site.siteType !== 'haven'
+    && (context.visited?.[companyId] ?? []).includes(arriving);
+  const revisit = beenHere ? tunables.revisitedSiteCost : 0;
+
+  // What going home is *for*. A wounded character cannot carry an item, attempt
+  // influence or play a resource, so the company arrives able to do less every
+  // turn it stays out. Measured over six games, H2 takes fewer wounds than
+  // Heuristics 1 (4.3 against 5.7 a game) and recovers from almost none of them
+  // — 0.3 recoveries a game against 3.5 — because it is at a haven on 24.1% of
+  // its decisions against H1's 46.4%. The damage was never the problem; not
+  // going home was.
+  //
+  // Priced at `woundTempoCost`, which is the same number the modules already
+  // charge for *inflicting* a wound: "out of action until healed, fights at −2
+  // meanwhile, and usually costs the company a trip to a haven". Healing undoes
+  // exactly that, so it is worth exactly that, and no new constant is invented
+  // to say so.
+  const woundedHere = site.siteType === 'haven'
+    ? (context.view.self.companies.find(c => (c.id as string) === companyId)?.characters ?? [])
+      .map(id => context.view.self.characters[id])
+      .filter(ch => ch !== undefined
+        && ch.status !== CardStatus.Untapped && ch.status !== CardStatus.Tapped).length
+    : 0;
+  const healing = woundedHere * tunables.woundTempoCost;
+
+  const dtsd = netTsdDelta(
+    { realized, potential: potential + draws + healing, tempo: tempo + revisit },
+    tunables,
+  );
   const label = playableNow.length > 0
     ? `arrive at ${site.name} and play ${playableNow.map(c => c.name).join(', ')}`
     : `arrive at ${site.name} with nothing to play`;
@@ -288,6 +339,21 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         + `${beliefs.observed} cards seen)`,
     }),
     leaf('taps available', destination.tapsAvailable),
+    ...(healing > 0
+      ? [leaf('wounded characters this haven heals', healing, {
+        unit: 'tsd',
+        tunable: 'woundTempoCost',
+        note: `${woundedHere} wounded — each is a character that cannot carry, influence or play `
+          + 'until the company goes home',
+      })]
+      : []),
+    ...(revisit > 0
+      ? [leaf('been here before', revisit, {
+        unit: 'tsd',
+        tunable: 'revisitedSiteCost',
+        note: 'this company has already worked this site; only what the hand has drawn since is new',
+      })]
+      : []),
     leaf('resource draws', draws, {
       unit: 'tsd',
       tunable: 'resourceDrawValue',

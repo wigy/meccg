@@ -71,6 +71,45 @@ describe('where a company should go', () => {
   });
 });
 
+describe('going back where the company has already been', () => {
+  test('costs something, where it used to be free', () => {
+    // The destination score reads the current hand and the printed site, and
+    // neither changes when the company has been there before — so a revisit
+    // scored exactly like a first visit. `route-compare` measured H2 returning
+    // to a worked site 12 times in 64 recorded decisions against the human's 1.
+    const { context, actions } = position();
+    const plan = actions.find(a => a.type === 'plan-movement')!;
+    const companyId = String((plan as unknown as { companyId?: string }).companyId);
+    const site = context.view.self.siteDeck.find(
+      c => (c.instanceId as string) === String((plan as unknown as { destinationSite?: string }).destinationSite),
+    )!;
+
+    const fresh = travelModule.evaluate(plan, context)!.expectedTsd;
+    const returning = travelModule.evaluate(plan, {
+      ...context,
+      visited: { [companyId]: [site.definitionId as string] },
+    })!.expectedTsd;
+    expect(returning).toBeLessThan(fresh);
+  });
+
+  test('and only for the company that went there', () => {
+    // History is per company: one company having worked a site says nothing
+    // about what it is worth to another.
+    const { context, actions } = position();
+    const plan = actions.find(a => a.type === 'plan-movement')!;
+    const site = context.view.self.siteDeck.find(
+      c => (c.instanceId as string) === String((plan as unknown as { destinationSite?: string }).destinationSite),
+    )!;
+
+    const fresh = travelModule.evaluate(plan, context)!.expectedTsd;
+    const elsewhere = travelModule.evaluate(plan, {
+      ...context,
+      visited: { 'some-other-company': [site.definitionId as string] },
+    })!.expectedTsd;
+    expect(elsewhere).toBe(fresh);
+  });
+});
+
 describe('cancelling a move', () => {
   test('costs exactly what travelling there was worth', () => {
     // The property that keeps the two answers one model. If cancelling had its
