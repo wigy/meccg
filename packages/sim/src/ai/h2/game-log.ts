@@ -15,7 +15,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { GameState, PlayerId } from '@meccg/shared';
+import type { GameAction, GameState, PlayerId } from '@meccg/shared';
 
 /** One record of a game log. Fields beyond these exist but are not needed here. */
 export interface GameLogRecord {
@@ -23,6 +23,16 @@ export interface GameLogRecord {
   readonly event: string;
   /** Engine state sequence number this record describes. */
   readonly stateSeq: number;
+  /**
+   * The action that produced this record's state, absent on the opening
+   * record of a game (which no action produced).
+   *
+   * A record therefore names the move *into* its position, not out of it: the
+   * choice made at record N is `records[N + 1].action`. Older logs predate
+   * this field and leave it undefined, which is why `export-human` keeps a
+   * replay-based fallback for recovering the move.
+   */
+  readonly action?: GameAction;
   /** Turn number at that point. */
   readonly turn: number;
   /** Phase at that point. */

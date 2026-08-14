@@ -33,6 +33,7 @@ Usage:
 """
 
 import argparse
+import collections
 import json
 import re
 import math
@@ -217,6 +218,60 @@ def load_dataset(specs, limit, stride=1):
     return header, examples
 
 
+def chosen_type_index(decision):
+    """The ACTION_TYPES index of the action this decision took.
+
+    Column 0 of a candidate vector is the type index the featurizer stamped
+    (`actionTypeIndex`, 1-based with 0 reserved for unknown), so the type is
+    recoverable from the record without re-reading the game.
+    """
+    return int(decision["candidates"][decision["chosen"]][0])
+
+
+def build_action_weights(examples, header, overrides, alpha):
+    """Per-action-type policy-loss multipliers, or None when unweighted.
+
+    Two independent effects, composed multiplicatively: `alpha` flattens the
+    type distribution by inverse frequency, and `overrides` names specific
+    types. Weighting is by the type the teacher CHOSE, which is what shapes
+    how often the student reaches for each kind of move.
+    """
+    if not overrides and alpha <= 0:
+        return None
+    names = header.get("actionTypes")
+    counts = collections.Counter(chosen_type_index(d) for d, *_ in examples)
+    weights = {}
+    if alpha > 0:
+        ordered = sorted(counts.values())
+        median = ordered[len(ordered) // 2]
+        for index, count in counts.items():
+            weights[index] = min(8.0, max(0.125, (median / count) ** alpha))
+    if overrides:
+        if not names:
+            raise SystemExit(
+                "--action-weight names a type, but this data's header has no actionTypes "
+                "list; re-export with a build that writes it")
+        by_name = {name: i + 1 for i, name in enumerate(names)}
+        for pair in overrides.split(","):
+            if not pair.strip():
+                continue
+            name, _, raw = pair.partition("=")
+            name = name.strip()
+            if name not in by_name:
+                raise SystemExit(f"--action-weight: unknown action type '{name}'")
+            weights[by_name[name]] = weights.get(by_name[name], 1.0) * float(raw)
+    return weights
+
+
+def batch_weights(batch, action_weights):
+    """Per-example policy-loss weights for one batch, or None when unweighted."""
+    if action_weights is None:
+        return None
+    return torch.tensor([
+        action_weights.get(chosen_type_index(item[0]), 1.0) for item in batch
+    ])
+
+
 def contested(example):
     """True when at least two candidates are viable (policy signal exists)."""
     return sum(example[0]["mask"]) >= 2
@@ -336,6 +391,29 @@ def main():
         help="PPO early-stop: end the update when the mean approximate KL from the "
              "behavior policy exceeds this (0 disables)")
     parser.add_argument(
+        "--decode", choices=["auto", "argmax", "sample", "class-mass"], default="auto",
+        help="how the weights file declares itself to be read (see BcWeightsFile.decode). "
+             "auto derives it from the targets: a teacher that left soft candidate weights "
+             "wants the argmax, one-hot demonstrations want sampling, because many similar "
+             "positions with different chosen candidates train a deliberately flat "
+             "distribution that the argmax discards")
+    parser.add_argument(
+        "--decode-temperature", type=float, default=1.0,
+        help="temperature stamped alongside decode=sample")
+    parser.add_argument(
+        "--action-weight", default="",
+        help="comma-separated NAME=W overrides scaling the policy loss of decisions "
+             "whose CHOSEN action has that type, e.g. 'pass=0.4'. Cloning a corpus "
+             "reproduces its action mix including the parts that are an artifact of "
+             "how the teacher was winning, not of how to win")
+    parser.add_argument(
+        "--balance-alpha", type=float, default=0.0,
+        help="inverse-frequency weighting exponent over chosen action types: "
+             "w = (median_freq / freq)^alpha, clipped to [1/8, 8]. 0 disables. "
+             "Counters collapse onto the easy majority types — measured on the human "
+             "corpus, an unweighted clone predicted plan-movement (mean 64 candidates) "
+             "on 0.1% of decisions against the human's 3.3%")
+    parser.add_argument(
         "--contested-only", action="store_true",
         help="train only on decisions with >=2 viable candidates (the pre-2026-07-26 "
              "behavior; starves the value head of forced-decision outcome signal)")
@@ -378,6 +456,35 @@ def main():
         f"data: {len(examples)} examples / {len(games)} games "
         f"(train {len(train)} [{sum(1 for e in train if contested(e))} contested], holdout {len(held_all)} over {len(holdout_games)} games)"
     )
+
+    # Derive how this file should be read from what taught it. A decision
+    # carrying `weights` came from a teacher that scored every candidate, and
+    # that concentrated target survives the argmax; a bare one-hot is all a
+    # human demonstration leaves, and cloning many of those trains a flat
+    # distribution over equivalent candidates which the argmax throws away.
+    # Measured on the human corpus: argmax 3.5% against the heuristic,
+    # sampling at temperature 1 40.6%, over 320 paired games each.
+    soft = sum(1 for d, *_ in train if d.get("weights"))
+    if args.decode == "auto":
+        decode_mode = "argmax" if soft * 2 >= len(train) else "sample"
+    else:
+        decode_mode = args.decode
+    decode_declaration = {"mode": decode_mode}
+    if decode_mode == "sample":
+        decode_declaration["temperature"] = args.decode_temperature
+    print(f"decode: {decode_mode}"
+          + (f"@{args.decode_temperature}" if decode_mode == "sample" else "")
+          + f" ({soft}/{len(train)} training targets are soft"
+          + (", derived" if args.decode == "auto" else ", forced by --decode") + ")")
+
+    action_weights = build_action_weights(train, header, args.action_weight, args.balance_alpha)
+    if action_weights:
+        names = header.get("actionTypes") or []
+        counts = collections.Counter(chosen_type_index(d) for d, *_ in train)
+        shown = sorted(action_weights.items(), key=lambda kv: -counts[kv[0]])[:8]
+        described = ", ".join(
+            f"{names[i - 1] if 0 < i <= len(names) else i}x{w:.2f}" for i, w in shown)
+        print(f"action weighting ({len(action_weights)} types): {described}")
 
     if args.init:
         with open(args.init, "r", encoding="utf-8") as handle:
@@ -519,7 +626,14 @@ def main():
                 with torch.no_grad():
                     kl_sum += float(((ratio - 1) - torch.log(ratio.clamp(min=1e-8))).mean())
             else:
-                policy_loss = -(target * log_probs).sum(dim=1).mean()
+                per_example = -(target * log_probs).sum(dim=1)
+                weights = batch_weights(batch, action_weights)
+                if weights is None:
+                    policy_loss = per_example.mean()
+                else:
+                    # Weighted mean, not weighted sum: the loss stays on the
+                    # same scale as an unweighted run, so --lr carries over.
+                    policy_loss = (per_example * weights).sum() / weights.sum().clamp(min=1e-8)
                 loss = policy_loss + args.value_weight * value_loss
             optimizer.zero_grad()
             loss.backward()
@@ -569,9 +683,12 @@ def main():
         "actionTypeCount": header["actionTypeCount"],
         "globalWidth": global_width,
         "dims": {"preset": dims_label, "values": list(dims)},
+        "decode": decode_declaration,
         "training": {
             "mode": args.mode,
             "init": args.init,
+            "actionWeight": args.action_weight or None,
+            "balanceAlpha": args.balance_alpha or None,
             "earlyStop": stop_early,
             "data": args.data,
             "examples": len(examples),

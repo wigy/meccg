@@ -12,6 +12,12 @@
  * {@link runBcSelfTest} replays to prove the two runtimes agree; the agent
  * refuses to play when the self-test or the card-vocabulary hash fails,
  * so silent featurizer/weight drift cannot masquerade as a weak policy.
+ *
+ * How the decision is *read* out of that distribution is a separate choice
+ * from the distribution itself, and the right one depends on the teacher —
+ * see {@link classMassIndex}. Argmax suits weights cloned from an agent's
+ * soft targets; weights cloned from human one-hots need `class-mass` or
+ * temperature sampling, and score in single digits under argmax.
  */
 
 import * as fs from 'fs';
@@ -37,6 +43,22 @@ export interface BcWeightsFile {
   readonly actionTypeCount: number;
   readonly globalWidth: number;
   readonly dims: { readonly preset: string; readonly values: readonly number[] };
+  /**
+   * How this file's policy should be read, when the caller does not say.
+   *
+   * The correct readout is a property of the teacher, not of the call site:
+   * soft candidate targets concentrate probability and want the argmax,
+   * one-hot human demonstrations train a deliberately flat distribution
+   * across equivalent candidates and want sampling (see
+   * {@link classMassIndex}). Absent — every file trained before this field —
+   * means argmax, so existing weights keep the behavior they were measured
+   * with.
+   */
+  readonly decode?: {
+    readonly mode: 'argmax' | 'sample' | 'class-mass';
+    /** Sampling temperature; required for `sample`, ignored otherwise. */
+    readonly temperature?: number;
+  };
   readonly training?: Readonly<Record<string, unknown>>;
   readonly weights: Readonly<Record<string, TensorJson>>;
   readonly selfTest: {
@@ -79,6 +101,14 @@ export function loadBcWeights(path: string): BcWeightsFile {
     throw new Error(
       `${path}: value head input width ${valueInputWidth} matches neither the torso width `
       + `(${dState}) nor torso+global (${dState + parsed.globalWidth}) — unsupported architecture`);
+  }
+  const declaredMode = parsed.decode?.mode;
+  if (declaredMode !== undefined && !['argmax', 'sample', 'class-mass'].includes(declaredMode)) {
+    throw new Error(`${path}: unknown decode mode "${declaredMode}" — expected argmax, sample, or class-mass`);
+  }
+  if (declaredMode === 'sample' && parsed.decode?.temperature !== undefined
+    && !(parsed.decode.temperature > 0)) {
+    throw new Error(`${path}: decode temperature must be > 0, got ${parsed.decode.temperature}`);
   }
   for (const [name, tensor] of Object.entries(parsed.weights)) {
     const expected = tensor.shape.reduce((product, dim) => product * dim, 1);
@@ -228,6 +258,9 @@ export function runBcSelfTest(model: BcWeightsFile): number {
 /** Tolerance for the runtime-parity self-test (float32 vs float64 rounding). */
 const SELF_TEST_TOLERANCE = 2e-4;
 
+/** How a decision is read out of the policy distribution. */
+export type BcDecode = 'argmax' | 'class-mass';
+
 /** Options for {@link createBcAgent}. */
 export interface BcAgentOptions {
   /**
@@ -238,6 +271,63 @@ export interface BcAgentOptions {
    * seeded stream, so rollouts stay reproducible.
    */
   readonly temperature?: number;
+  /**
+   * `class-mass` picks the action *type* holding the most probability and
+   * then the best candidate of that type, instead of the single highest
+   * candidate. See {@link classMassIndex} for why that is not the same
+   * decision. Mutually exclusive with `temperature`.
+   */
+  readonly decode?: BcDecode;
+}
+
+/**
+ * The best candidate of the action type that holds the most probability.
+ *
+ * Argmax asks which single candidate scores highest, which quietly assumes
+ * every option is one candidate. It is not: `plan-movement` offers a mean of
+ * 20 candidates and up to 286, while `pass` is always exactly one. A policy
+ * that puts 41% on movement spread over twenty plans and 15% on passing has
+ * said move, and argmax reads it as pass — measured on human-trained weights,
+ * argmax played movement at 1.6% of the decisions where the human moved, and
+ * scored 3.5% against the heuristic where sampling the same weights scored
+ * 43%. Summing by type first asks the question the candidate list is actually
+ * posing, and then breaks the tie inside the winning type.
+ *
+ * This matters for weights cloned from humans specifically. A human
+ * demonstration is a one-hot over the candidate they took, so many similar
+ * positions with different chosen plans train a deliberately flat
+ * distribution across those plans; a self-play teacher's soft targets
+ * concentrate instead, which is why argmax reads those weights correctly.
+ *
+ * Returns -1 when no candidate is allowed.
+ */
+export function classMassIndex(
+  probs: readonly number[],
+  types: readonly string[],
+  allowed: (index: number) => boolean,
+): number {
+  const massByType = new Map<string, number>();
+  for (let i = 0; i < probs.length; i++) {
+    if (allowed(i)) massByType.set(types[i], (massByType.get(types[i]) ?? 0) + probs[i]);
+  }
+  let bestType: string | undefined;
+  let bestMass = -1;
+  // Insertion order is candidate order, so a tie resolves to the type that
+  // appears first in the engine's list — deterministic, like the argmax path.
+  for (const [type, mass] of massByType) {
+    if (mass > bestMass) {
+      bestMass = mass;
+      bestType = type;
+    }
+  }
+  if (bestType === undefined) return -1;
+  let bestIndex = -1;
+  for (let i = 0; i < probs.length; i++) {
+    if (allowed(i) && types[i] === bestType && (bestIndex === -1 || probs[i] > probs[bestIndex])) {
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
 }
 
 /**
@@ -267,15 +357,29 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
   // across games would let an early game permanently block an action in a
   // later one. `startGame` clears it.
   let triedBySignature = new Map<string, Set<string>>();
-  const temperature = options?.temperature;
+  // An explicit option always wins; otherwise the file's own declaration
+  // decides, so a caller that just names a weights path (the lobby's
+  // `--model` seam, `bc:weights.json`) gets the readout that file was
+  // measured with rather than a default that suits some other teacher.
+  const declared = model.decode;
+  const explicit = options?.temperature !== undefined || options?.decode !== undefined;
+  const temperature = explicit
+    ? options?.temperature
+    : declared?.mode === 'sample' ? (declared.temperature ?? 1) : undefined;
   if (temperature !== undefined && !(temperature > 0)) {
     throw new Error(`bc temperature must be > 0, got ${temperature}`);
+  }
+  const decode: BcDecode = explicit
+    ? options?.decode ?? 'argmax'
+    : declared?.mode === 'class-mass' ? 'class-mass' : 'argmax';
+  if (decode === 'class-mass' && temperature !== undefined) {
+    throw new Error('bc: class-mass decoding and temperature sampling are alternatives, not a pair');
   }
   let vocab: CardVocab | null = null;
   let cachedPool: Readonly<Record<string, CardDefinition>> | null = null;
 
   return {
-    name: temperature === undefined ? 'bc' : `bc@${temperature}`,
+    name: decode === 'class-mass' ? 'bc@class' : temperature === undefined ? 'bc' : `bc@${temperature}`,
     startGame(): void {
       triedBySignature = new Map<string, Set<string>>();
     },
@@ -300,7 +404,15 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
         context.view.legalActions[index].viable && !(tried?.has(actionKey(index)) ?? false);
 
       let bestIndex = -1;
-      if (temperature === undefined) {
+      if (decode === 'class-mass') {
+        const types = context.view.legalActions.map(evaluated => evaluated.action.type);
+        bestIndex = classMassIndex(output.probs, types, allowed);
+        // Every candidate already tried from here: fall back to the unguarded
+        // read rather than failing, exactly as the argmax path does.
+        if (bestIndex === -1) {
+          bestIndex = classMassIndex(output.probs, types, i => context.view.legalActions[i].viable);
+        }
+      } else if (temperature === undefined) {
         output.probs.forEach((prob, i) => {
           if (allowed(i) && (bestIndex === -1 || prob > output.probs[bestIndex])) bestIndex = i;
         });

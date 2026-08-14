@@ -338,6 +338,22 @@ export interface Tunables {
    */
   readonly heldTieBreakSpan: number;
   /**
+   * What it costs, in TSD, to send a company back to a site it has already
+   * worked.
+   *
+   * Not a rule — a return is legal and sometimes right, since a haven is
+   * revisited on purpose and a site can hold a card the hand did not have the
+   * first time. What it should not be is *free*, which is what it was: the
+   * destination score reads the current hand and the printed site, and neither
+   * changes when the company has been there before.
+   *
+   * `route-compare` is the measurement behind it. Over 64 recorded movement
+   * decisions the human returned to a site once and H2 twelve times, and the
+   * human never moved to the same region twice running where H2 did on 23.4%
+   * of moves.
+   */
+  readonly revisitedSiteCost: number;
+  /**
    * What resolving a *gating* pending resolution is worth, in TSD.
    *
    * Some resolutions block everything else until they are answered — a pending
@@ -373,6 +389,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   decisiveMargin: 0,
   heldTieBreakSpan: 0.05,
   gatingResolutionTsd: 1,
+  revisitedSiteCost: 1.5,
   resourceDrawValue: 0.35,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,
