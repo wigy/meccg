@@ -307,6 +307,30 @@ describe('The Hunt (dm-143)', () => {
     expect(desc).toContain('Cave-drake');
   });
 
+  test('sweeps every offered candidate into handRevealedInstances so the naming player\'s client can show its identity', () => {
+    // Regression for bug 3b44552654241d9c (game msrxe5s2-rwhk9n, seq 1402):
+    // `findHuntCandidates` deliberately reads the broad `revealedInstances`
+    // ledger (CRF 22 — a creature merely seen attacking counts), but
+    // `projection.ts` only redacts the opponent's play-deck/discard-pile view
+    // against the narrower `handRevealedInstances`. Without sweeping the
+    // offered candidates into that narrower map too, the naming player would
+    // be forced to choose blind among candidates their own client shows only
+    // as "a card" — playing The Hunt must reveal them so the choice is
+    // actually meaningful.
+    const state0 = huntState({ p2Deck: [CAVE_DRAKE], p2Discard: [ORC_PATROL] });
+    const drakeId = findInPile(state0, HAZARD_PLAYER, 'playDeck', CAVE_DRAKE)!.instanceId;
+    const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
+    const state = revealOpponentPileInstances(state0, HAZARD_PLAYER, [drakeId, orcId]);
+    expect(state.handRevealedInstances[drakeId]).toBeUndefined();
+    expect(state.handRevealedInstances[orcId]).toBeUndefined();
+
+    const afterPlay = playHunt(state);
+
+    expect(viableActions(afterPlay, PLAYER_1, 'choose-hunt-target')).toHaveLength(2);
+    expect(afterPlay.handRevealedInstances[drakeId]).toBe(CAVE_DRAKE);
+    expect(afterPlay.handRevealedInstances[orcId]).toBe(ORC_PATROL);
+  });
+
   // ── "As though he were a one-character company" ─────────────────────────
 
   test('the creature attacks Alatar alone even when his company has other characters', () => {

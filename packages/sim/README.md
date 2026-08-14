@@ -2658,6 +2658,54 @@ survivable danger, which is exactly what the earlier three measurements
 confirmed H2 optimises well. It is only wrong in the context of where the
 company has already been, and until now nothing was looking at that.
 
+### Charging the company for doubling back
+
+The revisit `route-compare` found is charged rather than forbidden: a return is
+sometimes right — a haven is revisited on purpose, and a site can hold a card
+the hand did not have the first time. What it should not be is *free*, which is
+what it was. The destination score reads the current hand and the printed site,
+and neither of those changes when the company has already been there, so only
+what the hand has drawn since is actually new.
+
+A correction to how this was first written up: the claim that a worked site
+"yields nothing it has not already yielded" does not survive contact with the
+state. **No offered destination is ever in the site discard pile** — 0 of 1375 —
+because the site card returns to the site deck, and a worked site is offered
+again exactly like one never seen. What is true, and checked: neither gate deck
+holds a duplicate site (15 distinct, one copy each), so the repeated definitions
+`route-compare` counted are genuine returns rather than second copies. The
+finding stands; the reason for it is narrower than first stated.
+
+Because the game state records no company history and cannot, the agent
+remembers — the same pattern `cycle-guard` uses for positions the engine cannot
+mark — and `ModuleContext.visited` carries it to the modules. It records only
+movement the agent itself chose, so in corpus replay a route it did not walk
+leaves no trace.
+
+| | before | after | human |
+| --- | --- | --- | --- |
+| consecutive moves in one region | 23.4% | **13.0%** | 0.0% |
+| destinations already visited | 18.8% | **11.1%** | 1.6% |
+| distinct sites per company | 3.06 | **3.29** | 3.65 |
+
+| | score | paired Elo (95% CI) |
+| --- | --- | --- |
+| control (`master`) | 29.0% | −155 [−195, −119] |
+| charging the revisit | **31.6%** | **−134 [−173, −97]** |
+
+**+21 Elo** against a standard error on the difference of about 29 — inside
+noise, and pointing the right way. Kept on that basis plus the shape change,
+which is large and one-directional, rather than on a significance claim the
+interval does not support.
+
+Worth setting against the discard work, which raised agreement three times and
+lost 41, 42 and 84 Elo. The difference is not that this change is more
+human-like — it is that `route-compare` measured an object H2 was not modelling
+at all, where the discard measured one it was modelling correctly and pricing
+against the wrong alternative. **A new instrument found a defect four
+measurements on the old one could not**, which is the argument for building
+instruments before pricing anything.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
