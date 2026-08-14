@@ -1,25 +1,23 @@
 /**
  * @module forge-master-granted-action-menu.test
  *
- * Regression test for bug report 94ff7f6a05d6c32f (game msnfzusi-73w1gh, seq
- * 279): "Using The Forge-Master's effect during the organization phase
- * causes the game to produce a number of 'Forge-Place-Item' buttons ...
- * there is no way to tell what item will be placed when you click a
- * 'Forge-Place-Item' button. Nor is there a choice of which character in
- * the company to give the item to."
+ * Regression tests for two bug reports about The Forge-master's (wh-117)
+ * `forge-place-item` grant-action menu, which the organization-phase
+ * legal-action computer emits as one `activate-granted-action` per (item,
+ * recipient) candidate pair:
  *
- * Root cause: the organization-phase legal-action computer already emits one
- * `activate-granted-action` per (item, recipient) candidate pair for The
- * Forge-master's (wh-117) `place-item-on-character` grant — the choice was
- * always there. But `buildGrantedActionMenuItems` (company-modals.ts) only
- * disambiguated same-`actionId` entries by the *acting* character's name,
- * which is identical across every Forge-master entry (the bearer who taps).
- * With no other disambiguation, every menu button rendered the same bare
- * `forge-place-item` label.
- *
- * Fix: when entries share an `actionId` and carry `targetCardId` /
- * `recipientCharacterId`, label each with the fetched item's name and the
- * recipient's name instead of the (identical) acting character's name.
+ * - 94ff7f6a05d6c32f (game msnfzusi-73w1gh, seq 279): every entry rendered
+ *   the same bare `forge-place-item` label — `buildGrantedActionMenuItems`
+ *   only disambiguated same-`actionId` entries by the *acting* character's
+ *   name, which is identical across every Forge-master entry (the bearer
+ *   who taps). Fixed by labeling each entry with the fetched item's name
+ *   and the recipient's name instead.
+ * - db6910ae7bc65e25 (game mst6nid7-0t6edg, seq 865): even with distinct
+ *   labels, flattening the full (item × recipient) cross product produced
+ *   far more buttons than fit on screen, with no way to scroll (7 items ×
+ *   4 recipients = 28 buttons). Fixed by narrowing entries that vary over
+ *   *both* dimensions into a two-step picker: one top-level entry per item,
+ *   each with a `children` submenu of that item's recipients.
  */
 
 import './test-dom-bootstrap.js'; // must precede the company-modals import (load-time window access)
@@ -72,28 +70,69 @@ const actions: ActivateGrantedAction[] = [
 ];
 
 describe('Forge-master grant-action menu labels (bug 94ff7f6a05d6c32f)', () => {
-  test('every (item, recipient) entry gets a distinct, informative label', () => {
+  test('one top-level entry per item, each naming the item and opening a recipient submenu', () => {
     const items = buildGrantedActionMenuItems(actions, () => {}, resolveName);
+
+    // Two items × two recipients collapses to two top-level (item) entries,
+    // not four flat (item, recipient) entries.
+    expect(items).toHaveLength(2);
     const labels = items.map(i => i.label);
+    expect(labels.some(l => l.includes('Dagger of Westernesse'))).toBe(true);
+    expect(labels.some(l => l.includes('Horn of Anor'))).toBe(true);
 
-    // Distinct: no two of the four combinations render the same button text.
-    expect(new Set(labels).size).toBe(4);
-
-    // Each label names both the fetched item and the recipient — not just the
-    // (identical) acting character.
-    expect(labels[0]).toContain('Dagger of Westernesse');
-    expect(labels[0]).toContain('Lugdush');
-    expect(labels[1]).toContain('Dagger of Westernesse');
-    expect(labels[1]).toContain('Alatar');
-    expect(labels[2]).toContain('Horn of Anor');
-    expect(labels[2]).toContain('Lugdush');
-    expect(labels[3]).toContain('Horn of Anor');
-    expect(labels[3]).toContain('Alatar');
+    for (const item of items) {
+      expect(item.children).toHaveLength(2);
+      const childLabels = item.children?.map(c => c.label) ?? [];
+      expect(childLabels).toContain('to Lugdush');
+      expect(childLabels).toContain('to Alatar');
+    }
   });
 
-  test('without a resolveName lookup, entries fall back to the bare actionId (no crash)', () => {
+  test('picking item then recipient dispatches the matching (item, recipient) action', () => {
+    const dispatched: ActivateGrantedAction[] = [];
+    const items = buildGrantedActionMenuItems(actions, a => dispatched.push(a as ActivateGrantedAction), resolveName);
+
+    const daggerEntry = items.find(i => i.label.includes('Dagger of Westernesse'));
+    const toAlatar = daggerEntry?.children?.find(c => c.label === 'to Alatar');
+    toAlatar?.onClick?.();
+
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].targetCardId).toBe(DAGGER);
+    expect(dispatched[0].recipientCharacterId).toBe(RECIPIENT_B);
+  });
+
+  test('without a resolveName lookup, entries fall back to the bare actionId, flat (no crash)', () => {
     const items = buildGrantedActionMenuItems(actions, () => {});
     expect(items).toHaveLength(4);
-    for (const item of items) expect(item.label).toBe('forge-place-item');
+    for (const item of items) {
+      expect(item.label).toBe('forge-place-item');
+      expect(item.children).toBeUndefined();
+    }
+  });
+});
+
+describe('Forge-master grant-action menu button count (bug db6910ae7bc65e25)', () => {
+  test('a large item x recipient cross product narrows to one button per item, not the full cross product', () => {
+    const items_ = [DAGGER, HORN, 'p1-7' as CardInstanceId, 'p1-8' as CardInstanceId, 'p1-9' as CardInstanceId, 'p1-10' as CardInstanceId, 'p1-11' as CardInstanceId];
+    const recipients = [RECIPIENT_A, RECIPIENT_B, 'p1-12' as CardInstanceId, 'p1-13' as CardInstanceId];
+    const defByInstance: Record<string, CardDefinitionId> = { ...DEF_BY_INSTANCE };
+    for (const id of items_) defByInstance[id as string] ??= 'tw-206' as CardDefinitionId;
+    for (const id of recipients) defByInstance[id as string] ??= 'wh-6' as CardDefinitionId;
+    const resolve = (id: CardInstanceId): string | undefined => {
+      const defId = defByInstance[id as string];
+      return defId ? pool[defId as string]?.name : undefined;
+    };
+
+    const many: ActivateGrantedAction[] = [];
+    for (const itemId of items_) {
+      for (const recipientId of recipients) many.push(forgeAction(itemId, recipientId));
+    }
+    expect(many).toHaveLength(28); // matches the reported 7 items x 4 recipients
+
+    const menuItems = buildGrantedActionMenuItems(many, () => {}, resolve);
+
+    // One top-level button per distinct item, not one per (item, recipient) pair.
+    expect(menuItems).toHaveLength(items_.length);
+    for (const item of menuItems) expect(item.children).toHaveLength(recipients.length);
   });
 });

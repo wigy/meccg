@@ -10,8 +10,15 @@
 /** One selectable entry in a tooltip menu. */
 export interface TooltipMenuItem {
   label: string;
-  /** Invoked after the menu has been dismissed. */
-  onClick: () => void;
+  /** Invoked after the menu has been dismissed. Omit when `children` is set. */
+  onClick?: () => void;
+  /**
+   * A nested menu shown (at the same anchor) instead of firing `onClick`.
+   * Lets a two-dimensional choice — e.g. The Forge-master: pick an item,
+   * then pick its recipient — be presented as two sequential single-choice
+   * menus instead of flattening the full cross product into one menu.
+   */
+  children?: readonly TooltipMenuItem[];
 }
 
 /**
@@ -66,8 +73,12 @@ export function showTooltipMenu(
   options?.decorate?.(tooltip);
   for (const item of items) {
     tooltip.appendChild(tooltipButton(item.label, () => {
+      if (item.children && item.children.length > 0) {
+        showTooltipMenu(anchor, item.children, options);
+        return;
+      }
       dismissTooltip();
-      item.onClick();
+      item.onClick?.();
     }));
   }
 
@@ -151,7 +162,7 @@ export function showCursorTooltipMenu(event: MouseEvent, items: readonly Tooltip
   for (const item of items) {
     tooltip.appendChild(tooltipButton(item.label, () => {
       backdrop.remove();
-      item.onClick();
+      item.onClick?.();
     }));
   }
 
