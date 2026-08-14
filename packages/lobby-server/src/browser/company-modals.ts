@@ -23,10 +23,11 @@ import type {
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
+  RestoreCharacterByEffectAction,
   OpponentInfluenceAttemptAction,
   ActivateGrantedAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, viableActions } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
 import {
   getCachedInstanceLookup,
   getLastView,
@@ -436,6 +437,7 @@ export function showCharacterActionTooltip(
     sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
+    restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     companyId?: CompanyId;
   },
@@ -526,6 +528,13 @@ export function showCharacterActionTooltip(
   const ccSupportAction = options.supportCorruptionCheckActions?.get(charInstId as string);
   if (ccSupportAction) {
     items.push({ label: 'Tap for CC Support (+1)', onClick: () => onAction(ccSupportAction) });
+  }
+
+  const restoreAction = options.restoreCharacterActions?.get(charInstId as string);
+  if (restoreAction) {
+    const charStatus = lastView?.self.characters[charInstId]?.status;
+    const label = charStatus === CardStatus.Inverted ? 'Heal (Hall of Fire)' : 'Untap (Hall of Fire)';
+    items.push({ label, onClick: () => onAction(restoreAction) });
   }
 
   const grantedActionsForChar = options.grantedActions?.get(charInstId as string) ?? [];
