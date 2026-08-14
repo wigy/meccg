@@ -27,7 +27,7 @@
 
 import type { CardDefinition } from './types/cards.js';
 import type { CardEffect, Condition } from './types/effects.js';
-import { Alignment } from './types/common.js';
+import { Alignment, Race } from './types/common.js';
 import { matchesContext } from './effects/condition-matcher.js';
 
 /** One in-play global item-stat modifier (from an `in-play-item-modifier` effect). */
@@ -127,13 +127,44 @@ export function itemModifierDeltas(
 }
 
 /**
+ * The corruption-point bonus a bearer-conditional `stat-modifier` effect on
+ * the item's own `effects` array contributes — e.g. Durin's Axe (tw-212)
+ * "if held by a Dwarf ... 3 corruption points" declares a printed 2 plus a
+ * `{ stat: "corruption-points", value: 1, when: { "bearer.race": "dwarf" } }`
+ * effect. This mirrors the bespoke `mp-modifier` scan in
+ * `recompute-derived.ts` (both intentionally bypass the full effects
+ * resolver, which is unavailable to clients that have no `GameState`): only
+ * literal numeric values under a `when` clause are honoured, since every
+ * card currently declaring one uses a plain number. Unconditional or
+ * company-scoped corruption `stat-modifier` effects (e.g. The One Ring) are
+ * not this function's concern and are skipped.
+ */
+function bearerConditionalItemCorruptionPoints(
+  itemDef: CardDefinition,
+  bearerRace: Race | undefined,
+): number {
+  if (bearerRace === undefined) return 0;
+  const ctx = { bearer: { race: bearerRace } };
+  let bonus = 0;
+  for (const effect of effectsOf(itemDef)) {
+    if (effect.type !== 'stat-modifier' || effect.stat !== 'corruption-points') continue;
+    if (typeof effect.value !== 'number' || !effect.when) continue;
+    if (!matchesContext(effect.when, ctx)) continue;
+    bonus += effect.value;
+  }
+  return bonus;
+}
+
+/**
  * The corruption points an item in play actually contributes to its bearer:
  * the printed value plus every matching `in-play-item-modifier` delta from the
- * given in-play card definitions, the sum then scaled by every matching
- * multiplier. This is the number the clients must show on an item's CP badge —
- * showing the printed value instead makes the badges disagree with the
- * corruption check the engine computes (e.g. *Glamdring* reads 1 CP but costs 2
- * while *Scorba at Home* is in play).
+ * given in-play card definitions (scaled by every matching multiplier), plus
+ * any bearer-conditional corruption bonus declared on the item itself (see
+ * {@link bearerConditionalItemCorruptionPoints}). This is the number the
+ * clients must show on an item's CP badge — showing the printed value instead
+ * makes the badges disagree with the corruption check the engine computes
+ * (e.g. *Glamdring* reads 1 CP but costs 2 while *Scorba at Home* is in play;
+ * *Durin's Axe* reads 2 CP but costs 3 on a Dwarf bearer).
  *
  * Bearer-specific exclusions (the Balrog avatar's borne items contribute no
  * corruption) are not applied here; they belong to the bearer's total, not to
@@ -144,13 +175,20 @@ export function itemModifierDeltas(
  * `bearerFilter` (Bane of the Ithil-stone tw-13 doubles Palantír corruption,
  * but "has no effect on a minion player") are honoured. Omitting it skips
  * every bearer-filtered modifier.
+ *
+ * `bearerRace` is the race of the character bearing this item; pass it
+ * wherever it is known so that bearer-conditional corruption bonuses declared
+ * on the item itself (Durin's Axe et al.) are honoured. Omitting it skips
+ * every such bonus.
  */
 export function effectiveItemCorruptionPoints(
   itemDef: CardDefinition,
   inPlayDefs: readonly (CardDefinition | null | undefined)[],
   bearerAlignment?: Alignment,
+  bearerRace?: Race,
 ): number {
   const printed = (itemDef as { corruptionPoints?: number }).corruptionPoints ?? 0;
   const deltas = itemModifierDeltas(itemDef, collectItemModifiersFromDefs(inPlayDefs), bearerAlignment);
-  return (printed + deltas.cp) * deltas.cpMultiplier;
+  const conditional = bearerConditionalItemCorruptionPoints(itemDef, bearerRace);
+  return (printed + deltas.cp) * deltas.cpMultiplier + conditional;
 }
