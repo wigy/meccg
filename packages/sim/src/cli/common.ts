@@ -10,6 +10,7 @@ import { createRandomAgent } from '../agents/random-agent.js';
 import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { createBcAgent } from '../agents/bc-agent.js';
+import { createRouteAgent } from '../agents/route-agent.js';
 import { createSearchAgent } from '../agents/search-agent.js';
 import { createHeuristic2Agent } from '../ai/h2/agent.js';
 import { DEFAULT_TUNABLES, withTunable } from '../ai/h2/core/tunables.js';
@@ -64,7 +65,7 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
 
 /** Available agent names for the CLIs. */
 export const AGENT_NAMES = [
-  'random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2', 'mc',
+  'random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2', 'mc', 'route',
 ] as const;
 
 /**
@@ -274,6 +275,21 @@ export function resolveAgent(spec: string): Agent {
         return createBcAgent(param.slice(0, at), { temperature });
       }
       return createBcAgent(param);
+    }
+    case 'route': {
+      // `route:<types>|<primary>|<secondary>` — types joined by `+`. The
+      // separator is `|` because both other candidates are spoken for: `,`
+      // splits agent lists and `/` appears in every weights path.
+      if (param === undefined) {
+        throw new Error('route expects route:<type+type>|<primary spec>|<secondary spec>');
+      }
+      const parts = param.split('|');
+      if (parts.length !== 3 || parts.some(part => part.length === 0)) {
+        throw new Error(`route expects three "|"-separated parts, got "${param}"`);
+      }
+      const types = new Set(parts[0].split('+').map(type => type.trim()).filter(type => type.length > 0));
+      if (types.size === 0) throw new Error('route expects at least one action type before the first "|"');
+      return createRouteAgent(types, resolveAgent(parts[1]), resolveAgent(parts[2]), spec);
     }
     default: throw new Error(`Unknown agent "${spec}" — available: ${AGENT_NAMES.join(', ')}`);
   }
