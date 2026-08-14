@@ -314,7 +314,7 @@
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
-| dm-143 | The Hunt | — | 15 | ☑ |
+| dm-143 | The Hunt | — | 18 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 8 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
@@ -466,7 +466,7 @@
 | le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 14 | ☑ |
-| le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
+| le-174 | By the Ringwraith’s Word | — | 19 | ☑ |
 | le-175 | Catch an Elusive Scent | — | 15 | ☑ |
 | le-176 | Come By Night Upon Them | — | 10 | ☑ |
 | le-177 | Crack in the Wall | — | 7 | ☑ |
@@ -497,7 +497,7 @@
 | le-228 | Skies of Fire | — | 9 | ☑ |
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
-| le-235 | Sudden Call | — | 9 | ☑ |
+| le-235 | Sudden Call | — | 10 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 12 | ☑ |
@@ -1069,7 +1069,7 @@
 | tw-437 | Wellinghall | — | 4 | ☑ |
 | tw-438 | Woodmen-town | — | 2 | ☑ |
 | tw-439 | Wose Passage-hold | — | 3 | ☑ |
-| tw-493 | Neeker-breekers | — | 15 | ☑ |
+| tw-493 | Neeker-breekers | — | 16 | ☑ |
 | tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | tw-497 | A Pack at the Door | — | 11 | ☑ |

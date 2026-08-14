@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.105.0 — 2026-08-14
+
+The Hunt names its quarry
+
+### Game Engine
+
+- The Hunt (dm-143) is playable end to end. The named creature's identity now
+  travels on the choice itself, so a candidate known only from having been
+  seen attacking is no longer offered as an indistinguishable "a card"; every
+  offered candidate is revealed to the naming player; and defeating the hunted
+  creature awards its kill marshalling points.
+- Neeker-breekers (tw-493) award kill marshalling points when defeated,
+  despite the creature's tap-instead-of-wound effect.
+- Sudden Call (le-235) is no longer playable during the site phase without
+  meeting its endgame conditions.
+- Character-targeting permanent events played in the site phase are held to
+  the same site-type and Ringwraith-presence conditions as elsewhere.
+
+### Web Client
+
+- An item's corruption-point badge accounts for a bonus that is conditional on
+  its bearer, instead of showing the unconditional value.
+
+### AI
+
+- H2 acts on ties, choosing uniformly among the tied candidates rather than
+  taking the first — worth 110 Elo.
+- A behaviour-cloning policy trained on recorded human games, read by
+  action-type mass rather than by the loudest single candidate, with the
+  weights file declaring how its policy should be interpreted.
+- A company is charged for travelling back where it has already been, after
+  route comparison showed H2 doubling back on its own path.
+- Movement probes: no single destination attribute explains the movement gap —
+  movement is a trade, and H2 already out-optimises the human on destination
+  playability.
+
 ## 0.104.0 — 2026-08-13
 
 The agent stands on its own modules
