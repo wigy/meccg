@@ -5303,8 +5303,16 @@ strings to chase through the engine.
   clause, evaluated against `{ defender: { alignment, covert } }` at
   combat-initiation time; use it to express card text like "detainment
   against hero companies" or "detainment against covert and hero
-  companies". (implemented in `engine/detainment.ts`,
-  `reducer-combat.ts`)
+  companies". Also accepts an optional `awardsKillMp: true` for a
+  creature whose own printed text produces the tap-instead-of-wound
+  outcome without the card ever using the "detainment" keyword (per the
+  glossary, "detainment" is a keyword that must appear on the card) — the
+  strike still resolves as detainment, but rule 3.II.3 does not apply, so
+  a defeated creature still routes to the attacked player's kill pile and
+  awards its printed kill-MP (e.g. Neeker-breekers, tw-493: "...is only
+  tapped instead—no body checks are made" never says "detainment").
+  (implemented in `engine/detainment.ts`, `reducer-combat.ts`,
+  `combat-finalize.ts`)
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
@@ -5319,6 +5327,7 @@ strings to chase through the engine.
 { "type": "combat-body-per-defender-skill", "skill": "ranger", "value": -2 }
 { "type": "combat-tap-low-mind" }
 { "type": "combat-detainment" }
+{ "type": "combat-detainment", "awardsKillMp": true }
 {
   "type": "combat-detainment",
   "when": {

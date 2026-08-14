@@ -9,7 +9,7 @@
  * acknowledgement, and the not-playable placeholder.
  */
 
-import type { PlayerId, CardInstanceId, CompanyId } from './common.js';
+import type { PlayerId, CardInstanceId, CardDefinitionId, CompanyId } from './common.js';
 
 /**
  * Tap a character to support another character's corruption check.
@@ -559,6 +559,15 @@ export interface ChooseHuntTargetAction {
   readonly player: PlayerId;
   /** The named creature instance, found in the opponent's deck or discard. */
   readonly creatureInstanceId: CardInstanceId;
+  /**
+   * The named creature's definition, carried on the action itself so the
+   * choice can be labeled without resolving `creatureInstanceId` through the
+   * acting player's (redacted) view of the opponent's deck/discard pile — per
+   * CRF 22 the candidate only needs to have been revealed at some point (see
+   * `GameState.revealedInstances`, broader than what the pile projection
+   * currently exposes), so the instance itself may show as unknown there.
+   */
+  readonly definitionId: CardDefinitionId;
 }
 
 /**

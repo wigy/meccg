@@ -32,7 +32,7 @@ import type {
   EvaluatedAction,
   CardEffect,
 } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup, effectiveItemCorruptionPoints, isItemCard } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup, effectiveItemCorruptionPoints, isItemCard, isCharacterCard } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
 import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { withIsolatedSuffix } from './combat-isolated-suffix.js';
@@ -106,10 +106,12 @@ export function renderCombatView(
   const inPlayDefs = inPlayCardDefs(view, cardPool);
   for (const player of [view.self, view.opponent]) {
     for (const char of Object.values(player.characters)) {
+      const charDef = cardPool[char.definitionId as string];
+      const bearerRace = isCharacterCard(charDef) ? charDef.race : undefined;
       for (const item of char.items) {
         const def = cardPool[item.definitionId as string];
         if (def && isItemCard(def)) {
-          const cp = effectiveItemCorruptionPoints(def, inPlayDefs, player.alignment);
+          const cp = effectiveItemCorruptionPoints(def, inPlayDefs, player.alignment, bearerRace);
           if (cp > 0) cachedItemCp.set(item.instanceId as string, cp);
         }
       }

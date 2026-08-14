@@ -3528,7 +3528,10 @@ export function huntTargetChoiceActions(
   }
   return candidates.map(c => {
     logDetail(`hunt-target-choice: offering ${cardName(state, c.definitionId, '?')} (${c.source} — ${opponentId as string})`);
-    return { action: { type: 'choose-hunt-target' as const, player: actor, creatureInstanceId: c.instanceId }, viable: true };
+    return {
+      action: { type: 'choose-hunt-target' as const, player: actor, creatureInstanceId: c.instanceId, definitionId: c.definitionId },
+      viable: true,
+    };
   });
 }
 

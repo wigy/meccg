@@ -1460,6 +1460,46 @@ function playResourcesActions(
           (e) => e.type === 'play-condition' && (e).requires === 'discard-named-card',
         ) ?? false;
         if (charPlayTarget) {
+          // play-condition: site-type — the company's current site must be one of
+          // the required types (e.g. By the Ringwraith's Word le-174 requires a
+          // haven). Enforced here for the site-phase play path, mirroring
+          // organization-events.ts; previously only checked for item-targeting
+          // permanent events (above), so a character-targeting event with this
+          // condition was offered at any site.
+          const siteTypeCond = findPlayConditionEffect(eventDef, 'site-type');
+          if (siteTypeCond) {
+            const companySiteType = siteDef && isSiteCard(siteDef) && siteDefId
+              ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
+              : undefined;
+            if (!companySiteType || !siteTypeCond.siteTypes?.includes(companySiteType)) {
+              logDetail(`Permanent event ${eventDef.name}: company not at required site type [${siteTypeCond.siteTypes?.join(', ') ?? '?'}] (actual: ${companySiteType ?? 'none'})`);
+              actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: not at a ${siteTypeCond.siteTypes?.join('/') ?? 'valid'} site`));
+              continue;
+            }
+          }
+          // play-condition: same-site-has-character-race — a company at the same
+          // site must have a character of the given race (e.g. le-174 requires a
+          // Ringwraith at the same Darkhaven). Enforced here for the site-phase
+          // play path, mirroring organization-events.ts; previously unchecked
+          // here, so the event was offered even with no such character in play.
+          const sameSiteRaceCond = findPlayConditionEffect(eventDef, 'same-site-has-character-race');
+          if (sameSiteRaceCond?.race) {
+            const requiredRace = sameSiteRaceCond.race;
+            const racePresent = player.companies.some(otherCompany => {
+              if (!siteDefId || otherCompany.currentSite?.definitionId !== siteDefId) return false;
+              return otherCompany.characters.some(cId => {
+                const otherCh = player.characters[cId];
+                if (!otherCh) return false;
+                const otherDef = defById(state, otherCh.definitionId);
+                return otherDef && 'race' in otherDef && (otherDef as { race?: Race }).race === requiredRace;
+              });
+            });
+            if (!racePresent) {
+              logDetail(`Permanent event ${eventDef.name}: no ${requiredRace} at ${siteName} — same-site-has-character-race not satisfied`);
+              actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: requires a ${requiredRace} at ${siteName}`));
+              continue;
+            }
+          }
           // duplication-limit: scope "character" — the card may not be attached
           // to a character that already bears a copy (e.g. Swordmaster tw-498's
           // "Cannot be duplicated on a given character"). Enforced here for the

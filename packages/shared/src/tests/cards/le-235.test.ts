@@ -38,6 +38,7 @@ import { Alignment, computeLegalActions } from '../../index.js';
 import type {
   CardDefinitionId, EndOfTurnPhaseState, PlayShortEventAction, PlayHazardAction,
 } from '../../index.js';
+import type { SitePhaseState } from '../../types/state-phases.js';
 
 const SUDDEN_CALL = 'le-235' as CardDefinitionId;
 const LAGDUF = 'le-18' as CardDefinitionId;
@@ -107,6 +108,60 @@ describe('Sudden Call (le-235)', () => {
         },
       ],
     });
+    const plays = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(plays.length).toBe(0);
+  });
+
+  // Regression: a Minion caller met the 25+ MP threshold but had never
+  // exhausted their play deck (`deckExhaustionCount: 0`). During the site
+  // phase's `play-resources` step, legal actions are computed by
+  // `playResourceShortEventActions` (organization.ts) rather than
+  // `heroResourceShortEventActions` (long-event.ts) — that sibling function
+  // was missing the `canCallEndgameNow` gate entirely, so Sudden Call was
+  // offered (and could be played) even though CoE rule 10.2.2 requires
+  // exhausting the play deck at least once (or twice without the MP
+  // threshold). The bug ended the game after the opponent's very next turn.
+  test('resource-side: caller meets MP threshold but never exhausted play deck — not playable during site phase', () => {
+    const siteState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [LAGDUF] }],
+          hand: [SUDDEN_CALL],
+          siteDeck: [MINAS_MORGUL],
+          marshallingPoints: { character: 28 },
+          deckExhaustionCount: 0,
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA_HERO],
+        },
+      ],
+    });
+    const state = { ...base, phaseState: siteState };
     const plays = viableActions(state, PLAYER_1, 'play-short-event');
     expect(plays.length).toBe(0);
   });

@@ -682,7 +682,10 @@ export function describeAction(
     case 'great-hunt-attack-with-creature':
       return `${playerName(action.player)} has discarded creature ${instName(action.creatureInstanceId)} attack Alatar's company (The Great Hunt)`;
     case 'choose-hunt-target':
-      return `${playerName(action.player)} names ${instName(action.creatureInstanceId)} to attack (The Hunt)`;
+      // `defName`, not `instName`: the named creature sits in the opponent's
+      // deck/discard, which the acting player's own view may still redact —
+      // the action itself carries the definition so the choice stays legible.
+      return `${playerName(action.player)} names ${defName(action.definitionId)} to attack (The Hunt)`;
     case 'gangways-extra-move':
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'extra-mh-move':

@@ -170,10 +170,12 @@ export type AttackSource =
    * `GameState.handRevealedInstances`, sitting in the opponent's play deck or
    * discard pile) immediately attacks the bearer of The Hunt as though he were
    * a one-character company (`CombatState.soloDefenderInstanceId`). The
-   * creature card is never moved out of its pile — attacked in place, exactly
-   * like a `great-hunt-attack` — so finalization does not discard or award it.
-   * `bearerInstanceId` is tapped (if untapped) once the attack concludes,
-   * whether finalized or canceled.
+   * creature card is never moved out of its pile before the attack — it sits
+   * in place, exactly like a `great-hunt-attack` — but a defeated attack
+   * still moves it into the defending player's kill pile for marshalling
+   * points (CoE rule 964), same as any other creature attack; see
+   * `combat-finalize.ts`. `bearerInstanceId` is tapped (if untapped) once the
+   * attack concludes, whether finalized or canceled.
    */
   | {
       readonly type: 'hunt-attack';

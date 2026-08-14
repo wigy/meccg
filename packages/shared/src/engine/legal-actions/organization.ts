@@ -28,7 +28,7 @@ import type {
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
-import { requirePhaseState, companyContainsBalrogAvatar } from '../../state-utils.js';
+import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect } from '../../types/effects.js';
@@ -3202,6 +3202,35 @@ export function playResourceShortEventActions(
     });
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+      continue;
+    }
+
+    // Resource-side `call-council` (e.g. Sudden Call, le-235): the caller
+    // must meet endgame conditions (CoE rule 10.2) and must not have already
+    // called. Mirrors the equivalent gate in `heroResourceShortEventActions`
+    // (long-event.ts) — this function is the organization/site-phase sibling
+    // of that one and must apply the same restriction, or a Ringwraith/Balrog
+    // player could end the game via Sudden Call without having exhausted
+    // their play deck or met the marshalling-point threshold.
+    const resourceCallCouncil = def.effects?.find(
+      (e): e is import('../../index.js').CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'opponent',
+    );
+    if (resourceCallCouncil) {
+      if (!canCallEndgameNow(player)) {
+        logDetail(`${def.name}: caller has not met end-of-game conditions`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: end-of-game conditions not met`));
+        continue;
+      }
+      if (player.freeCouncilCalled || state.lastTurnFor !== null) {
+        logDetail(`${def.name}: endgame already called`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: endgame already called`));
+        continue;
+      }
+      logDetail(`Resource short-event "${def.name}" playable — caller meets end-of-game conditions`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
       continue;
     }
 

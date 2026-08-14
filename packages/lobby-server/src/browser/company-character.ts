@@ -137,7 +137,8 @@ export function renderCharacterColumn(
         attEl.addEventListener('click', itemOrHazardClick.handler);
       }
       // Wrap item in a container for CP badge positioning
-      const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, inPlayDefs, bearerAlignment) : 0;
+      const bearerRace = isCharacterCard(def) ? def.race : undefined;
+      const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, inPlayDefs, bearerAlignment, bearerRace) : 0;
       if (attCp > 0) {
         const itemWrap = document.createElement('div');
         itemWrap.className = 'item-card-wrap';
@@ -247,7 +248,8 @@ export function renderCharacterColumn(
               fAttEl.addEventListener('click', fItemOrHazardClick.handler);
             }
             // Wrap item in a container for CP badge positioning
-            const fAttCp = isItemCard(fAttDef) ? effectiveItemCorruptionPoints(fAttDef, inPlayDefs, bearerAlignment) : 0;
+            const fBearerRace = isCharacterCard(fDef) ? fDef.race : undefined;
+            const fAttCp = isItemCard(fAttDef) ? effectiveItemCorruptionPoints(fAttDef, inPlayDefs, bearerAlignment, fBearerRace) : 0;
             if (fAttCp > 0) {
               const fItemWrap = document.createElement('div');
               fItemWrap.className = 'item-card-wrap';
