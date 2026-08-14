@@ -1,0 +1,15 @@
+digraph mc {
+  rankdir=LR;
+  graph [fontname="Helvetica", nodesep=0.3, ranksep=0.45, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.14,0.09"];
+  edge  [fontname="Helvetica", fontsize=9.5, color="#666666", arrowsize=0.8, penwidth=1.1];
+  v  [label="PlayerView\l+ legal actions\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  det[label="determinize\lhidden cards stay hidden\l", fillcolor="#fdf3e3", color="#c9a227"];
+  fb [label="fallback agent\lmid-chain, in combat,\lpending effects\l", fillcolor="#f6f6f6", color="#bbbbbb", fontcolor="#777777"];
+  ro [label="round-robin over candidates\lone world + one seed per round,\lshared by every candidate\l", fillcolor="#eef7ef", color="#5a8f5f"];
+  pl [label="play forward through\lthe real engine\lunder a random policy\l", fillcolor="#eef7ef", color="#5a8f5f"];
+  sc [label="mean tournament-score\ldifferential per candidate\l", fillcolor="#fdf3e3", color="#c9a227"];
+  a  [label="take the best\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  v -> det -> ro -> pl -> sc -> a;
+  det -> fb [style=dashed, label=" cannot determinize"];
+}

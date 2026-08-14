@@ -1,0 +1,15 @@
+digraph h1 {
+  rankdir=LR;
+  graph [fontname="Helvetica", nodesep=0.3, ranksep=0.45, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.14,0.09"];
+  edge  [fontname="Helvetica", fontsize=9.5, color="#666666", arrowsize=0.8, penwidth=1.1];
+  v [label="PlayerView\l+ legal actions\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  t [label="phase table\lpick the evaluator for\lthis phase\l", fillcolor="#fdf3e3", color="#c9a227"];
+  e [label="evaluator scores\leach action\lsetup / organization / movement-hazard\lsite-phase / combat / end-of-turn\l", fillcolor="#fbe9e7", color="#c0705a"];
+  d [label="declined?\ldefaultWeight,\lscaled by dice odds\l", fillcolor="#f4f4f4"];
+  n [label="normalise weights\linto a distribution\l", fillcolor="#fdf3e3", color="#c9a227"];
+  s [label="sample\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  v -> t -> e -> n -> s;
+  e -> d [style=dashed, label=" no score"];
+  d -> n [style=dashed];
+}

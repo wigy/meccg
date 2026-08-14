@@ -1,0 +1,16 @@
+digraph bc {
+  rankdir=LR;
+  graph [fontname="Helvetica", nodesep=0.3, ranksep=0.45, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.14,0.09"];
+  edge  [fontname="Helvetica", fontsize=9.5, color="#666666", arrowsize=0.8, penwidth=1.1];
+  w  [label="weights.json\lexported by train_bc.py\l", fillcolor="#f2eaf7", color="#8e6bab"];
+  st [label="selfTest + vocab hash\lrefuse to play if they fail\l", fillcolor="#fbe9e7", color="#c0705a"];
+  v  [label="PlayerView\l+ legal actions\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  f  [label="featurize\lstate + one vector per candidate\lover a fixed card vocabulary\l", fillcolor="#fdf3e3", color="#c9a227"];
+  net[label="forward pass\lembeddings, mean-pooled entity encoder,\lstate torso, per-candidate scorer\l", fillcolor="#eef2f9", color="#5b7fb5"];
+  sm [label="masked softmax\l+ tanh value head\l", fillcolor="#eef2f9", color="#5b7fb5"];
+  rd [label="readout\largmax | class-mass | temperature\l", fillcolor="#fdf3e3", color="#c9a227"];
+  a  [label="take the action\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  w -> st -> net [style=dashed];
+  v -> f -> net -> sm -> rd -> a;
+}
