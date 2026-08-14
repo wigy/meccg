@@ -912,7 +912,8 @@
         "flag": "combat-defender-prowess-from-mind"
       },
       {
-        "type": "combat-detainment"
+        "type": "combat-detainment",
+        "awardsKillMp": true
       }
     ],
     "certified": "2026-05-11"

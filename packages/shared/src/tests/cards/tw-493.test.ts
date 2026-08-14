@@ -17,7 +17,7 @@
  * |---|----------------------------------------------|--------|----------------------------------------------|
  * | 1 | combat-one-strike-per-character excludeAvatars | OK    | strikes = non-avatar company members          |
  * | 2 | combat-defender-prowess-from-mind            | OK     | defender uses mind attribute as prowess       |
- * | 3 | combat-detainment                            | OK     | wounded → tapped, no body checks             |
+ * | 3 | combat-detainment awardsKillMp               | OK     | wounded → tapped, no body checks; kill MP still awarded (no "detainment" keyword on card) |
  *
  * keyedTo:
  * | # | Entry                                       | Notes                                         |
@@ -36,6 +36,7 @@ import {
   buildTestState, resetMint,
   makeMHState, makeWildernessMHState, makeShadowMHState,
   playCreatureHazardAndResolve,
+  makeDetainmentStrikeState,
   handCardId, companyIdAt, findCharInstanceId, viableActions,
   executeAction,
   RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -320,6 +321,27 @@ describe('Neeker-breekers (tw-493)', () => {
 
     // Combat should finalize without a body-check phase (null body creature + detainment)
     expect(s2.combat).toBeNull();
+  });
+
+  test('bug report: kill MP is still awarded when a defeated Neeker-breekers is discarded', () => {
+    // Neeker-breekers' "tap instead of wound, no body checks" text never uses
+    // the word "detainment", and CRF 22 adds no such errata — per the
+    // glossary, "detainment" is a keyword that must appear on the card, so
+    // rule 3.II.3 (zero kill-MP for a defeated detainment creature) does not
+    // apply here even though the strike resolves exactly like a detainment
+    // strike. Reported: the engine was discarding the defeated creature and
+    // withholding its printed 1 kill MP.
+    const { state, creatureInstanceId } = makeDetainmentStrikeState({
+      detainment: true,
+      strikeProwess: 7,
+      creatureInPlay: NEEKER_BREEKERS,
+    });
+
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 12, false);
+
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(1);
   });
 
   // ─── Keying ──────────────────────────────────────────────────────────────
