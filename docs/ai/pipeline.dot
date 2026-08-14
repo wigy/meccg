@@ -1,0 +1,22 @@
+digraph pipeline {
+  rankdir=LR;
+  graph [fontname="Helvetica", nodesep=0.28, ranksep=0.40, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.14,0.09"];
+  edge  [fontname="Helvetica", fontsize=9.5, color="#666666", arrowsize=0.8, penwidth=1.1];
+
+  view   [label="PlayerView\l+ legal actions\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  fwd    [label="forwardActions\l", fillcolor="#fdf3e3", color="#c9a227"];
+  guard  [label="cycleGuard\l", fillcolor="#fdf3e3", color="#c9a227"];
+  eval   [label="evaluateDecision\lone owning module\lper candidate\l", fillcolor="#e9f3ea", color="#5a8f5f"];
+  plans  [label="portfolio.commit\l+ rankWithPlans\l", fillcolor="#f2eaf7", color="#8e6bab"];
+  speaks [label="ranking\ndiscriminates?", shape=diamond, fillcolor="#fdf3e3", color="#c9a227", fontsize=10, margin="0.02,0.02"];
+  act    [label="play the best\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  tie    [label="play one of the tied best,\luniformly at random\l", fillcolor="#e8eef7", color="#5b7fb5"];
+
+  view -> fwd -> guard -> eval -> plans -> speaks;
+  speaks -> act [label=" yes"];
+  speaks -> tie [label=" no"];
+
+  subgraph cluster_f { label="filters — what the engine and history rule out"; fontname="Helvetica"; fontsize=9.5; fontcolor="#8a6d1f"; color="#e0cfa0"; style=rounded; fwd; guard; }
+  subgraph cluster_r { label="ranking"; fontname="Helvetica"; fontsize=9.5; fontcolor="#3d6b41"; color="#bcd6bf"; style=rounded; eval; plans; }
+}
