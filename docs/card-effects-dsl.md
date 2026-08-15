@@ -447,6 +447,21 @@ untapped protected Wizardhavens each of your site phases."
   "oncePerSitePhase": true }
 ```
 
+A third, simpler player-scoped variant keys on the acting company's size
+instead of a Wizardhaven: `maxCompanySize` grants `allowTappedSite` to any
+company whose `companyEffectiveSize` (CoE 3.24 half-Hobbit/Orc-scout rounding)
+is at most the given value, at **any** site. Unlike the other two variants it
+never relaxes *which* allies are playable (no `filter`-driven bypass of
+`playableAt`) — it only lifts the untapped-site requirement. Found via
+`findCompanySizeAllyPlayGrant` (`reducer-utils.ts`) and applied in
+`legal-actions/site.ts` alongside the other `allyAllowsTappedSite` sources.
+Used by Friend of Secret Things (wh-109): "Your companies with a company size
+of 2 or less may play allies at tapped sites."
+
+```json
+{ "type": "grant-ally-play", "maxCompanySize": 2, "allowTappedSite": true }
+```
+
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
 influencing character's company — e.g. The Warg-king's "+2 to any

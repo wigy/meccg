@@ -2684,9 +2684,15 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "grant-ally-play",
+        "maxCompanySize": 2,
+        "allowTappedSite": true
       }
     ],
-    "text": "Unique.Radagast specific. Your companies with a company size of 2 or less may play allies at tapped sites."
+    "text": "Unique.Radagast specific. Your companies with a company size of 2 or less may play allies at tapped sites.",
+    "certified": "2026-08-15"
   },
   {
     "cardType": "minion-resource-event",
