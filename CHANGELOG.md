@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.108.0 — 2026-08-15
+
+Five fixes and a reverted regression
+
+### Game Engine
+
+- Ringwraith and Balrog avatars are no longer offered corruption checks
+  in the Free Council phase. Per CoE 7.4 / 10.44 a player checks each of
+  their *non-Ringwraith, non-Balrog* characters; `freeCouncilActions()`
+  now skips characters of race Ringwraith and the Balrog avatar, so a
+  company holding one resolves only its checkable members.
+- Marvels Told can now target Nazgûl played as permanent-events. Cards
+  entering play through a `creature-alt-event` permanent-event mode
+  (Uvatha the Horseman, Adúnaphel, …) sit in `cardsInPlay` as
+  `hazard-creature`, so the discard-in-play filter's `hazard-event` check
+  never saw them, contrary to rule 2.IV.vii.5 and CRF 22.
+  `collectDiscardInPlayTargets` now matches such cards against an
+  effective definition with `cardType: 'hazard-event'` and
+  `eventType: 'permanent'`.
+
+### Web Client
+
+- Starting-company-event cards are playable during the item draft again.
+  Orders from Lugbúrz (as-94) and its siblings are offered as a legal
+  `place-starting-company-event` action throughout the draft, but the
+  hand arc was populated only from unassigned draft items — these cards
+  live in the play deck/sideboard, so they never appeared, and had no
+  click handler even if they had. The arc now includes them and clicking
+  dispatches the action, or opens a target menu for recruitment vehicles
+  like Thrall of the Voice that offer one action per character.
+- Exiting a replay clears the text-log panel. `#game-log-panel` is a
+  `position: fixed` sibling of `#game`, so hiding `#game` left playback
+  toasts floating over the page; `exitReplay()` now clears the per-game
+  message log the way `disconnect()` already did.
+
+### AI / Simulation
+
+- Reverted the enter-site defender-tap deduction (#2397). The bug it
+  fixed is real — a site's automatic attacks resolve as part of entering,
+  so a lone defender cannot both parry and tap to play — but the change
+  shipped ungated and cost about 87 Elo (35.8% → 25.3% win rate,
+  intervals not overlapping), the largest single regression measured on
+  this line. The deduction prices out every strike of every automatic
+  attack regardless of threat, and H2's site-entry rate fell 56% → 45.7%.
+  The sim README records the review lesson: correctness review is not a
+  substitute for a gate, including for changes arriving from outside.
+
 ## 0.107.0 — 2026-08-15
 
 Every finished game, played back

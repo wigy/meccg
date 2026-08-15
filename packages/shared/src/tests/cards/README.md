@@ -92,7 +92,7 @@
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
-| as-126 | Helm of Fear | — | 16 | ☑ |
+| as-126 | Helm of Fear | — | 15 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 12 | ☑ |
 | as-131 | Secret Book | — | 12 | ☑ |
@@ -142,7 +142,7 @@
 | ba-7 | Hill-troll | — | 3 | ☑ |
 | ba-8 | Mountain-maggot | — | 3 | ☑ |
 | ba-9 | Umagaur | — | 8 | ☑ |
-| ba-10 | Beorning Skin-changers | — | 9 | ☑ |
+| ba-10 | Beorning Skin-changers | — | 8 | ☑ |
 | ba-11 | Carrion Feeders | — | 8 | ☑ |
 | ba-12 | Olog Warlords | — | 5 | ☑ |
 | ba-13 | Shelob’s Brood | — | 7 | ☑ |
@@ -247,7 +247,7 @@
 | dm-25 | Taladhan | — | 11 | ☑ |
 | dm-26 | Woffung | — | 3 | ☑ |
 | dm-27 | Wormtongue | — | 4 | ☑ |
-| dm-28 | Lobelia Sackville-Baggins | — | 6 | ☑ |
+| dm-28 | Lobelia Sackville-Baggins | — | 5 | ☑ |
 | dm-29 | My Precious | — | 5 | ☑ |
 | dm-30 | The Gem-deeps | — | 15 | ☑ |
 | dm-31 | Haudh-in-Gwanûr | — | 8 | ☑ |
@@ -341,11 +341,11 @@
 | le-5 | Carambor | — | 7 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
-| le-8 | Dorelas | — | 3 | ☑ |
-| le-9 | Dunlending Spy | — | 3 | ☑ |
+| le-8 | Dorelas | — | 2 | ☑ |
+| le-9 | Dunlending Spy | — | 2 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
-| le-12 | Grishnákh | — | 4 | ☑ |
+| le-12 | Grishnákh | — | 3 | ☑ |
 | le-13 | Gulla | — | 3 | ☑ |
 | le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
@@ -707,7 +707,7 @@
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
-| td-134 | Marvels Told | — | 26 | ☑ |
+| td-134 | Marvels Told | — | 27 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
@@ -1078,7 +1078,7 @@
 | tw-498 | Swordmaster | — | 17 | ☑ |
 | tw-499 | Dwarven Axe | — | 7 | ☑ |
 | wh-1 | Alatar | — | 12 | ☑ |
-| wh-2 | Doeth (Durthak) | — | 6 | ☑ |
+| wh-2 | Doeth (Durthak) | — | 5 | ☑ |
 | wh-3 | Euog (Ulzog) | — | 12 | ☑ |
 | wh-4 | Gandalf | — | 13 | ☑ |
 | wh-5 | Ill-favoured Fellow | — | 7 | ☑ |
