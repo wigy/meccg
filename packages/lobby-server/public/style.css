@@ -863,9 +863,14 @@ h2 {
   cursor: pointer;
 }
 
-.scoreboard-replay-link:hover {
+.scoreboard-replay-link:hover:not(:disabled) {
   background: rgba(196, 163, 90, 0.25);
   color: #e2c98a;
+}
+
+.scoreboard-replay-link:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .scoreboard-detail-table {

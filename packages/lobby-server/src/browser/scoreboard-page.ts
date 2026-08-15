@@ -280,12 +280,18 @@ export async function openPlayerGamesPage(playerName: string): Promise<void> {
 
   // Delegated so one listener covers every game card. The replay opens seated
   // with the player whose list this is, and Exit returns to this same page —
-  // its markup is left intact behind the game screen.
+  // its markup is left intact behind the game screen. Loading the game bundle
+  // takes a moment with no visual feedback of its own, so the button is
+  // disabled for the duration (re-enabled only if starting the replay fails —
+  // on success the scoreboard page is hidden behind the game screen anyway).
   listEl.addEventListener('click', (event) => {
-    const gameId = (event.target as HTMLElement | null)
-      ?.closest<HTMLElement>('[data-replay-game]')?.dataset.replayGame;
-    if (!gameId) return;
-    void loadGameBundle().then(() => window.__meccg?.startReplay?.(gameId, r.data.name));
+    const btn = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-replay-game]');
+    const gameId = btn?.dataset.replayGame;
+    if (!btn || !gameId || btn.disabled) return;
+    btn.disabled = true;
+    void loadGameBundle()
+      .then(() => window.__meccg?.startReplay?.(gameId, r.data.name))
+      .finally(() => { btn.disabled = false; });
   });
 }
 
