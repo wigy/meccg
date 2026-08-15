@@ -20,7 +20,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -726,18 +726,27 @@ function handleItemDraft(
 
   // Remove item from unassigned list
   const newUnassigned = itemDraft.unassignedItems.filter(c => c.instanceId !== itemInstanceId);
-  const newItemDraft: ItemDraftPlayerState = {
-    unassignedItems: newUnassigned,
-    done: newUnassigned.length === 0,
-  };
-
-  const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
-  newItemDraftState[playerIndex] = newItemDraft;
 
   const stateWithChar = updatePlayer(state, playerIndex, p => updateCharacter(p, charKey, c => ({
     ...c,
     items: [...c.items, { instanceId: itemInstanceId, definitionId: itemCard.definitionId, status: CardStatus.Untapped }],
   })));
+
+  // Running out of drafted minor items to assign does not end the player's
+  // item draft if they still hold a card that "may be played with a starting
+  // company in lieu of a minor item" (Orders from Lugbúrz as-94, Open to the
+  // Summons wh-46…) and have not yet spent their two-item budget on it — that
+  // placement is a still-legal alternative to a minor item, not a leftover
+  // pass-time option, so ending the draft here would silently take it away.
+  const budgetRemaining = countStartingMinorItems(stateWithChar, stateWithChar.players[playerIndex]) < MAX_STARTING_ITEMS;
+  const canStillPlaceStartingCompanyEvent = budgetRemaining && hasStartingCompanyPlacementInDeck(state, player);
+  const newItemDraft: ItemDraftPlayerState = {
+    unassignedItems: newUnassigned,
+    done: newUnassigned.length === 0 && !canStillPlaceStartingCompanyEvent,
+  };
+
+  const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
+  newItemDraftState[playerIndex] = newItemDraft;
 
   // If both players are done, transition to character deck draft (or Untap)
   if (newItemDraftState[0].done && newItemDraftState[1].done) {
