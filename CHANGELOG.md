@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.109.0 — 2026-08-15
+
+Movement risk gets a price tag
+
+### AI / Simulation
+
+- Travel now prices a destination's printed automatic attacks. H2 planned
+  a company's movement by what a candidate destination's resources were
+  worth minus the regions crossed, but never by what walking through the
+  door would cost — even though `evaluateEnterSite` already prices exactly
+  that once the company arrives, which is one decision too late: the
+  regions are already crossed by then. `destinationValue` now charges the
+  same automatic-attack harm (`automaticAttacksOf` against the roster via
+  `computeDefence`) as part of the travel cost. Fixing this exposed a
+  related bug — the arriving site's definition ID was re-derived from the
+  action's own shape, which `cancel-movement` does not carry, so
+  cancelling priced no automatic-attack risk while planning the same move
+  did, breaking cancel's "exact inverse of travelling" invariant. Both now
+  take an explicit `arrivingDefinitionId` set by every caller.
+- Item transfers and storage are priced for corruption risk. The health
+  module scored `transfer-item` and `store-item` at exactly 0 TSD whenever
+  no marshalling points changed hands, tying them with `pass` — and the
+  tie-break excludes `pass` whenever anything ties with it, so a
+  "free" transfer always won. Per CoE 2.II.4.1 / 2.II.5 giving up an item
+  unconditionally enqueues a corruption check on the bearer, a real risk
+  of losing the character; the AI was shuffling items through
+  intermediaries via needless checks instead of transferring once.
+
+### Card Data
+
+- I'll Report You (le-196) is restricted to the organization phase. The
+  card text reads "Playable on a leader during the organization phase,"
+  but the data was missing the play-condition phase gate that enforces it
+  (compare le-210 No More Nonsense, identically restricted and correctly
+  encoded), so rule 2.1.1's default "any phase" allowance for
+  permanent-event resources let it be offered in the movement/hazard and
+  site phases too.
+
+### Web Client
+
+- The hazard hand renderer no longer drops play-creature-from-discard
+  actions. Exhalation of Decay (dm-55) and similar discard-pile revival
+  cards produce a `play-creature-from-discard` legal action, distinct from
+  `play-hazard`; the renderer only looked for the latter, so such cards
+  fell through to the bare on-guard fallback and offered only "Place
+  on-guard" even when the engine had computed a keyed play against the
+  opponent's site path.
+- The scoreboard's Replay button is disabled while the game bundle loads.
+  Clicking it lazily fetches the bundle before the loading cover appears,
+  so until the fetch resolved nothing indicated the click had registered.
+  The button re-enables only if starting the replay fails.
+
+### Documentation
+
+- Recorded why the `evaluateEnterSite` tap double-count stays unfixed. It
+  prices the cards entering unlocks on the pre-combat tap count, though
+  automatic attacks resolve as part of entering (CoE 2.V.ii). It has been
+  fixed correctly twice and both fixes were large regressions — −87 and
+  −100 Elo. Two independent correct fixes costing ~90 Elo each is a
+  measurement, not two mistakes; the likely cause is that displaced plays
+  are deferred rather than lost. Nobody should attempt a third fix without
+  measuring that assumption first.
+
 ## 0.108.0 — 2026-08-15
 
 Five fixes and a reverted regression

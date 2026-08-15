@@ -482,7 +482,7 @@
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
-| le-196 | I’ll Report You | — | 15 | ☑ |
+| le-196 | I’ll Report You | — | 18 | ☑ |
 | le-203-the-lidless-eye | The Lidless Eye | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 12 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
