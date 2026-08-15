@@ -8773,10 +8773,23 @@ export interface GrantAllyPlayEffect extends EffectBase {
    */
   readonly atProtectedWizardhavens?: boolean;
   /**
+   * When set, the grant is **player-scoped and company-size-keyed** rather
+   * than tied to a bearer character or a Wizardhaven: the engine finds the
+   * granting permanent-event in the player's `cardsInPlay` and extends
+   * {@link allowTappedSite} to any company whose {@link companyEffectiveSize}
+   * is at most this value, at **any** site (unlike
+   * {@link atProtectedWizardhavens}, no site restriction applies). Unlike
+   * `filter`, this does not relax *which* allies are playable — only the
+   * printed untapped-site requirement. Used by Friend of Secret Things
+   * (wh-109): "Your companies with a company size of 2 or less may play
+   * allies at tapped sites."
+   */
+  readonly maxCompanySize?: number;
+  /**
    * When `true`, the target site may be **tapped or untapped** — the grant
-   * lifts the normal untapped-site requirement for ally play. Only meaningful
-   * with {@link atProtectedWizardhavens} (wh-62: "tapped or untapped protected
-   * Wizardhavens").
+   * lifts the normal untapped-site requirement for ally play. Meaningful with
+   * {@link atProtectedWizardhavens} (wh-62: "tapped or untapped protected
+   * Wizardhavens") or {@link maxCompanySize} (wh-109).
    */
   readonly allowTappedSite?: boolean;
   /**

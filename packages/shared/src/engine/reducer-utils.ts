@@ -5815,6 +5815,31 @@ export function findWizardhavenAllyPlayGrant(
 }
 
 /**
+ * Finds a `grant-ally-play` permission with `maxCompanySize` among the
+ * player's in-play permanent-events. Returns the effect and the granting
+ * card's instance id, or `undefined` when the player has no such grant. Backs
+ * Friend of Secret Things (wh-109): "Your companies with a company size of 2
+ * or less may play allies at tapped sites." Reuses the
+ * {@link WizardhavenAllyPlayGrant} shape (effect + granting source id) since
+ * both grants are free-standing permanent-events in `cardsInPlay`.
+ */
+export function findCompanySizeAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+): WizardhavenAllyPlayGrant | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const eff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
+        e.type === 'grant-ally-play' && e.maxCompanySize !== undefined,
+    );
+    if (eff) return { effect: eff, sourceId: card.instanceId };
+  }
+  return undefined;
+}
+
+/**
  * True when a turn-scoped `granted-action-used` lock is active for the given
  * source card instance and action id — i.e. a once-per-turn / once-per-phase
  * ability has already been used this turn. The lock is added by the reducer on
