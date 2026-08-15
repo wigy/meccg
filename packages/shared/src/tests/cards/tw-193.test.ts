@@ -16,6 +16,9 @@
  *    company's `specialMovement` is `"paths-of-the-dead"` (set only while the
  *    company used the special movement granted by Paths of the Dead tw-302
  *    this turn; cleared at end of turn).
+ * 3. `noOpponentInfluence: true` — once in play, the faction can never be
+ *    targeted by an opponent's re-influence attempt (CoE rule 8.3's faction
+ *    re-influence clause).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -24,6 +27,7 @@ import {
   ARAGORN, LEGOLAS, LORIEN,
   buildSitePhaseState, buildTestState, resetMint, dispatch, makeMHState,
   findCharInstanceId, findHandCardId, RESOURCE_PLAYER, HAZARD_PLAYER,
+  addCardInPlay,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, Alignment, CardStatus } from '../../index.js';
 import { MovementType } from '../../types/common.js';
@@ -148,5 +152,26 @@ describe('Army of the Dead (tw-193)', () => {
       .filter(a => a.factionInstanceId === cardInstance);
 
     expect(influenceActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('may not be influenced by an opponent once in play', () => {
+    // PLAYER_1's company (with an untapped character) is at Vale of Erech —
+    // the site where Army of the Dead is playable, so re-influence would
+    // normally be offered there. PLAYER_2 owns the in-play faction.
+    const base = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: VALE_OF_ERECH,
+    });
+    // opponentInfluenceActions guards on turnNumber > 2 ("not first turn").
+    const state = { ...addCardInPlay(base, HAZARD_PLAYER, ARMY_OF_THE_DEAD), turnNumber: 3 };
+
+    const factionInPlay = state.players[HAZARD_PLAYER].cardsInPlay.find(c => c.definitionId === ARMY_OF_THE_DEAD)!;
+
+    const opponentInfluenceActions = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'opponent-influence-attempt')
+      .map(a => a.action as { targetKind?: string; targetInstanceId?: string })
+      .filter(a => a.targetKind === 'faction' && a.targetInstanceId === factionInPlay.instanceId);
+
+    expect(opponentInfluenceActions).toHaveLength(0);
   });
 });

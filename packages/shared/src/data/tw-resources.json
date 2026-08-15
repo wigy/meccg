@@ -2260,6 +2260,7 @@
       }
     ],
     "requiredInfluencerName": "Aragorn II",
+    "noOpponentInfluence": true,
     "effects": [
       {
         "type": "play-condition",
@@ -2269,7 +2270,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Vale of Erech. May only be played by Aragorn II on the same turn that he plays Paths of the Dead. May not be influenced by an opponent."
+    "text": "Unique. Playable at Vale of Erech. May only be played by Aragorn II on the same turn that he plays Paths of the Dead. May not be influenced by an opponent.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hero-resource-event",

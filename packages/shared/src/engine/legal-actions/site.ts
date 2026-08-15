@@ -3253,6 +3253,13 @@ function opponentInfluenceActions(
     const factionDef = defById(state, factionInPlay.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) continue;
 
+    // "May not be influenced by an opponent" (Army of the Dead tw-193):
+    // suppress the re-influence clause entirely for this faction.
+    if (factionDef.noOpponentInfluence) {
+      logDetail(`Opponent influence: ${factionDef.name} may not be influenced by an opponent — skip`);
+      continue;
+    }
+
     // Normally re-influence requires the active company to be at a site where
     // the faction is playable. Prophet of Doom's override influencer may reach
     // any of the opponent's in-play factions regardless of the current site.
