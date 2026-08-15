@@ -84,7 +84,8 @@ import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
 import {
-  ALL_RACES, attackBoostOf, boostFor, boostInPlay, mergeBoosts, nameOfDefinition, sameBoost,
+  ALL_RACES, attackBoostOf, boostFor, boostInPlay, facedRacesFromHistory, mergeBoosts, nameOfDefinition,
+  sameBoost, selfFacedRaceBoostOf,
 } from '../../services/attack-modifiers.js';
 import type { AttackBoost } from '../../services/attack-modifiers.js';
 
@@ -133,11 +134,27 @@ function activeCompany(view: PlayerView): OpponentCompanyView | null {
   return view.opponent.companies[index] ?? view.opponent.companies[0] ?? null;
 }
 
+/**
+ * Names of creature-sourced attacks already resolved this M/H sub-phase, the
+ * same public history `deriveFacedRaces` (`reducer-utils.ts`) reads on the
+ * engine side — public because both seats need to know which creatures key
+ * off it (Wolf-riders td-86's `followsAttackRaces`).
+ */
+function hazardsEncounteredThisSubPhase(view: PlayerView): readonly string[] {
+  return (view.phaseState as unknown as { hazardsEncountered?: readonly string[] }).hazardsEncountered ?? [];
+}
+
 /** The creature card behind a `play-hazard`, or null when it is not a creature. */
 function creatureProfile(
   cardPool: Readonly<Record<string, CardDefinition>>,
   definitionId: string,
-): { profile: Omit<AttackProfile, 'killTsd' | 'killLabel'>; killMp: number; name: string } | null {
+): {
+    profile: Omit<AttackProfile, 'killTsd' | 'killLabel'>;
+    killMp: number;
+    name: string;
+    race?: string;
+    selfFacedRaceBoost: ReturnType<typeof selfFacedRaceBoostOf>;
+  } | null {
   const def = cardPool[definitionId] as unknown as {
     cardType?: string;
     name?: string;
@@ -145,11 +162,14 @@ function creatureProfile(
     prowess?: number;
     body?: number | null;
     killMarshallingPoints?: number;
+    race?: string;
   } | undefined;
   if (!def || def.cardType !== 'hazard-creature') return null;
   return {
     name: def.name ?? definitionId,
     killMp: def.killMarshallingPoints ?? 0,
+    race: def.race,
+    selfFacedRaceBoost: selfFacedRaceBoostOf(cardPool[definitionId]),
     profile: {
       strikeProwess: def.prowess ?? 0,
       strikes: def.strikes ?? 1,
@@ -190,6 +210,8 @@ function candidatesFor(
       instanceId: play.cardInstanceId,
       name: creature.name,
       killMp: creature.killMp,
+      race: creature.race,
+      selfFacedRaceBoost: creature.selfFacedRaceBoost,
       profile: {
         ...creature.profile,
         strikeProwess: creature.profile.strikeProwess + added.prowess,
@@ -241,7 +263,8 @@ function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: A
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
   const slots = Math.max(0, (limit ?? 0) - played);
-  const search = planBundles(candidates, roster, cardPool, price, standing, tunables, slots);
+  const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);
+  const search = planBundles(candidates, roster, cardPool, price, standing, tunables, slots, initialFacedRaces);
 
   const detail: Rationale[] = [
     leaf('company', company.characters.length, {
@@ -837,13 +860,16 @@ function placeOnly(context: ModuleContext, plan: Plan, instanceId: string): Bund
     instanceId,
     name: creature.name,
     killMp: creature.killMp,
+    race: creature.race,
+    selfFacedRaceBoost: creature.selfFacedRaceBoost,
     profile: {
       ...creature.profile,
       killTsd: killTsdOf(creature.killMp),
       killLabel: `${creature.name} beaten — ${creature.killMp} kill MP to the defender`,
     },
   };
-  const search = planBundles([candidate], plan.roster, cardPool, price, standing, tunables, 1);
+  const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);
+  const search = planBundles([candidate], plan.roster, cardPool, price, standing, tunables, 1, initialFacedRaces);
   return search.bundles[0] ?? null;
 }
 
