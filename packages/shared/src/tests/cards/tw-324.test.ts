@@ -56,10 +56,10 @@ import { RegionType, SiteType, CardStatus } from '../../index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
 
 const SECRET_ENTRANCE = 'tw-324' as CardDefinitionId;
-// A hero Ruins & Lairs sitting in a Wilderness region (Cardolan), so
-// Cave-drake's regionTypes {w}{w} AND siteTypes {R} keying can both match a
-// two-wilderness path — mirrors the le-177 Ettenmoors precedent.
-const BARROW_DOWNS = 'tw-375' as CardDefinitionId;
+// Destination site name below ("Barrow-downs", tw-375) is a hero Ruins &
+// Lairs sitting in a Wilderness region (Cardolan), so Cave-drake's
+// regionTypes {w}{w} AND siteTypes {R} keying can both match a two-wilderness
+// path — mirrors the le-177 Ettenmoors precedent.
 // Huorn (tw-45): keyed only to a single Wilderness, no site keying at all —
 // the region-keyed control used by the dm-98 "cancels Secret Entrance" test.
 const HUORN = 'tw-45' as CardDefinitionId;
