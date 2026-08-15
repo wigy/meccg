@@ -3528,6 +3528,11 @@
             },
             {
               "target.status": "untapped"
+            },
+            {
+              "company.destinationSiteRegionType": {
+                "$ne": "dark"
+              }
             }
           ]
         },
@@ -3541,13 +3546,14 @@
         "event": "self-enters-play",
         "apply": {
           "type": "add-constraint",
-          "constraint": "no-creature-hazards-on-company",
+          "constraint": "no-creatures-keyed-to-site",
           "scope": "turn"
         },
         "target": "target-company"
       }
     ],
-    "text": "Sage only. Playable only at the end of the organization phase; may not be played on a company moving to a site in a Dark-domain [{d}]. Tap a sage in the company, and no hazard creatures keyed to the site may be played on the company."
+    "text": "Sage only. Playable only at the end of the organization phase; may not be played on a company moving to a site in a Dark-domain [{d}]. Tap a sage in the company, and no hazard creatures keyed to the site may be played on the company.",
+    "certified": "2026-08-15"
   },
   {
     "cardType": "hero-resource-event",
