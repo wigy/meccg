@@ -26,3 +26,21 @@ This invokes esbuild to bundle `src/browser/` into `public/`.
 
 - The lobby spawns a `@meccg/game-server` child process for each matched game.
 - Child processes are managed by the lobby and cleaned up when games end.
+
+## Replay
+
+- The Scores page links each completed game to a replay, which plays the game
+  back on the ordinary game board.
+- Source data is the game server's per-game JSONL state log
+  (`~/.meccg/logs/games/<gameId>.jsonl`, overridable with `GAME_LOG_DIR`). Every
+  line is a *full* state snapshot, so playback re-projects recorded states and
+  never re-runs the reducer.
+- `src/games/replay.ts` indexes a log by byte offset once per game and reads one
+  line per frame request — logs reach tens of megabytes and must never be held
+  in memory as parsed state.
+- Old recordings predate later engine state fields; `STATE_DEFAULTS` /
+  `PLAYER_DEFAULTS` supply the values those games implicitly had. A recording
+  that still fails to project is reported as unreplayable rather than crashing.
+- The browser side (`src/browser/replay.ts`) feeds each frame to
+  `renderStateMessage` — the same function the live WebSocket handler calls — so
+  the replay board is the live board, driven from disk instead of a socket.

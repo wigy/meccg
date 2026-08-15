@@ -16,6 +16,7 @@ import {
   VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
 } from './app-state.js';
 import { connect, disconnect, resetVisualBoard, setLobbyCallbacks } from './game-connection.js';
+import { startReplay } from './replay.js';
 import { connectPseudoAi } from './pseudo-ai.js';
 import { resetCompanyViews } from './company-view.js';
 import { clearDice, restoreDice, dismissDiceOverlays } from './dice.js';
@@ -69,6 +70,7 @@ ns.resetCompanyViews = resetCompanyViews;
 ns.connectPseudoAi = connectPseudoAi;
 ns.clearDice = clearDice;
 ns.restoreDice = restoreDice;
+ns.startReplay = startReplay;
 
 // ---- DOM event handler setup ----
 // Called at module load time (after DOMContentLoaded has already fired).
