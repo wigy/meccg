@@ -23,7 +23,12 @@
  * strategic view is absent, so only cards already in hand count toward a
  * destination's worth. Hazards en route *are* priced now, though only as the
  * likelihood that the opponent holds a creature at all — `beliefs` estimates
- * kinds, not cards.
+ * kinds, not cards. A destination's own printed automatic attacks are priced
+ * too, against the roster that would face them, the same way
+ * `evaluateEnterSite` already prices entering — a "realized" item behind a
+ * shadow-hold's strikes was never free to reach, and a company already
+ * carrying wounded characters prices worse against those strikes than a
+ * fresh one, through `character-value`.
  *
  * Four action types, one model. `plan-movement` asks what a destination is
  * worth; `cancel-movement` is that same number with the sign flipped, because
@@ -70,6 +75,15 @@ interface PlayableCard {
 interface Destination {
   readonly action: GameAction;
   readonly site: SiteExposure;
+  /**
+   * Definition ID of the site itself. Set explicitly by every caller rather
+   * than re-derived from `action` inside `destinationValue` — `cancel-movement`
+   * carries a `companyId`, not a `destinationSite`, and re-deriving it from the
+   * action shape silently returned nothing for that action type, which made
+   * cancelling disagree with the travel it was supposed to be the exact
+   * inverse of.
+   */
+  readonly arrivingDefinitionId: string;
   readonly playable: readonly PlayableCard[];
   /** Untapped characters available to tap for those plays. */
   readonly tapsAvailable: number;
@@ -216,6 +230,8 @@ const ASSUMPTIONS: readonly string[] = [
   'only cards already in hand count toward a destination\'s worth; the acquisition modules\' '
   + 'strategic view (which sources are worth chasing at all) does not exist yet',
   'a resource play is assumed to need one tap, and no card is assumed to be playable twice',
+  'a destination\'s automatic attacks are priced as printed; a card that suppresses them — a '
+  + 'defeated Dragon at its lair, a site effect — is not modelled',
 ];
 
 /** What travelling to a destination is worth, and the reasoning behind it. */
@@ -288,12 +304,11 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // offered again exactly like one never seen. The agent remembers instead —
   // see `ModuleContext.visited`.
   const companyId = (destination.action as unknown as { companyId?: string }).companyId ?? '';
-  const arriving = destinationOf(context.view, destination.action)?.definitionId;
+  const arriving = destination.arrivingDefinitionId;
   // A haven is the one site a company is *meant* to come back to, and charging
   // the return was a mistake this module made against itself: healing happens
   // at havens, and nowhere else a company can reach on its own.
-  const beenHere = arriving !== undefined
-    && site.siteType !== 'haven'
+  const beenHere = site.siteType !== 'haven'
     && (context.visited?.[companyId] ?? []).includes(arriving);
   const revisit = beenHere ? tunables.revisitedSiteCost : 0;
 
@@ -320,16 +335,35 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // it showed: offered a haven on 100% of the moves it made with a wounded
   // character aboard, H2 went there 10.5% of the time against Heuristics 1's
   // 54.3%.
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
   const woundedHere = site.siteType === 'haven'
-    ? (context.view.self.companies.find(c => (c.id as string) === companyId)?.characters ?? [])
+    ? (company?.characters ?? [])
       .map(id => context.view.self.characters[id])
       .filter(ch => ch !== undefined
         && ch.status !== CardStatus.Untapped && ch.status !== CardStatus.Tapped).length
     : 0;
   const healing = woundedHere * tunables.woundTempoCost;
 
+  // What arriving is printed to cost. `evaluateEnterSite` already prices a
+  // site's automatic attacks against the roster that would face them — the
+  // real thing, not a guess, since the site card is public once it is a
+  // candidate destination at all. Pricing it only there let a destination's
+  // "realized" item value stand as if entering were free: the trip crosses
+  // the regions, the hand plays the card, and the strikes that gate both
+  // never show up in what the *destination* was worth, only in the separate
+  // decision of whether to walk through the door once the trip is already
+  // spent. A company that would take real harm from those strikes — most of
+  // all one already carrying wounded characters, who price *worse* against
+  // them through `character-value` — is the company least able to afford a
+  // destination that dangles a card behind them.
+  const automatic = automaticAttacksOf(context.cardPool, arriving);
+  const attackHarm = company !== undefined && automatic.length > 0
+    ? computeDefence(context.view, context.cardPool, context.standing, tunables)
+      .harmFrom(rosterOf(company, context.view.self.characters, context.cardPool), automatic)
+    : 0;
+
   const dtsd = netTsdDelta(
-    { realized: realized + healing, potential: potential + draws, tempo: tempo + revisit },
+    { realized: realized + healing, potential: potential + draws, tempo: tempo + revisit + attackHarm },
     tunables,
   );
   const label = playableNow.length > 0
@@ -362,6 +396,12 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         unit: 'tsd',
         tunable: 'revisitedSiteCost',
         note: 'this company has already worked this site; only what the hand has drawn since is new',
+      })]
+      : []),
+    ...(attackHarm > 0
+      ? [leaf('automatic attacks on arrival', attackHarm, {
+        unit: 'tsd',
+        note: automatic.map(a => `${a.strikes} strike(s) at prowess ${a.strikeProwess}`).join('; '),
       })]
       : []),
     leaf('resource draws', draws, {
@@ -549,6 +589,7 @@ function evaluateCancelMovement(context: ModuleContext, action: GameAction): Eva
   const value = destinationValue(context, {
     action,
     site,
+    arrivingDefinitionId: planned.definitionId,
     playable: playableAt(context, planned.definitionId),
     tapsAvailable: budget.untappedIn(company.id).length,
   });
@@ -780,6 +821,7 @@ export const travelModule: H2Module = {
     return evaluateDestination(context, {
       action,
       site,
+      arrivingDefinitionId: destination.definitionId,
       playable: playableAt(context, destination.definitionId),
       tapsAvailable: taps,
     });
