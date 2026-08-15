@@ -59,6 +59,16 @@ export interface CharacterValue {
    * caller reading one cannot accidentally spend the other with the wrong sign.
    */
   corruptionRelief(instanceId: CardInstanceId, removed: number): CharacterPrice;
+  /**
+   * What forcing a corruption check on this character *right now*, at its
+   * current corruption total, costs — the odds of failing it as it stands,
+   * times what failing costs. Unlike {@link corruptionRisk}, this is not a
+   * delta: transferring or storing an item (CoE 2.II.4.1, 2.II.5) enqueues a
+   * check on the bearer whether or not the action changed how many
+   * corruption points they carry, so the whole failing band is chargeable,
+   * not just a widening of it.
+   */
+  checkRisk(instanceId: CardInstanceId): CharacterPrice;
 }
 
 /** The company a character belongs to, if any. */
@@ -140,6 +150,12 @@ function buildComputeCharacterValue(
     };
   };
 
+  // A positive magnitude, like every other price this service returns: the
+  // marshalling points that would leave play plus what losing the character
+  // costs beyond them.
+  const onFailureOf = (instanceId: CardInstanceId): number =>
+    (standing.tsd - standing.tsdAfter(lossDelta(instanceId))) + lossCostOf(instanceId).tsd;
+
   return {
     corruptionRisk(instanceId: CardInstanceId, added: number): CharacterPrice {
       const character = view.self.characters[instanceId];
@@ -150,11 +166,7 @@ function buildComputeCharacterValue(
       const before = character.effectiveStats.corruptionPoints;
       const deltaFail = pAtMost(before + added) - pAtMost(before);
       if (deltaFail <= 0) return { tsd: 0, reason: 'the failing band is already as wide as it gets' };
-      // A positive magnitude, like every other price this service returns:
-      // the marshalling points that would leave play plus what losing the
-      // character costs beyond them.
-      const onFailure = (standing.tsd - standing.tsdAfter(lossDelta(instanceId)))
-        + lossCostOf(instanceId).tsd;
+      const onFailure = onFailureOf(instanceId);
       return {
         tsd: deltaFail * onFailure,
         reason: `corruption ${before} → ${before + added} widens the failing band by `
@@ -169,12 +181,25 @@ function buildComputeCharacterValue(
       const after = Math.max(0, before - removed);
       const deltaFail = pAtMost(before) - pAtMost(after);
       if (deltaFail <= 0) return { tsd: 0, reason: 'he was not going to fail a check on this' };
-      const onFailure = (standing.tsd - standing.tsdAfter(lossDelta(instanceId)))
-        + lossCostOf(instanceId).tsd;
+      const onFailure = onFailureOf(instanceId);
       return {
         tsd: deltaFail * onFailure,
         reason: `corruption ${before} → ${after} narrows the failing band by `
           + `${(deltaFail * 100).toFixed(1)}%, against ${onFailure.toFixed(1)} tsd lost if it fails`,
+      };
+    },
+
+    checkRisk(instanceId: CardInstanceId): CharacterPrice {
+      const character = view.self.characters[instanceId];
+      if (!character) return { tsd: 0, reason: 'character not in play' };
+      const corruption = character.effectiveStats.corruptionPoints;
+      const pFail = pAtMost(corruption);
+      if (pFail <= 0) return { tsd: 0, reason: 'corruption is low enough that the check cannot fail' };
+      const onFailure = onFailureOf(instanceId);
+      return {
+        tsd: pFail * onFailure,
+        reason: `a check at corruption ${corruption} fails ${(pFail * 100).toFixed(1)}% of the time, `
+          + `against ${onFailure.toFixed(1)} tsd lost if it fails`,
       };
     },
 
