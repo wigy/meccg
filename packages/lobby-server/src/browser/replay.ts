@@ -20,7 +20,7 @@ import { describeAction } from '@meccg/shared';
 import { apiGet } from './api.js';
 import { appState, cardPool } from './app-state.js';
 import { renderStateMessage, setLoadingCover, setReplayExit } from './game-connection.js';
-import { renderLog, showNotification } from './render.js';
+import { renderLog, showNotification, clearGameMessageLog } from './render.js';
 import { escapeHtml } from './html-utils.js';
 import {
   disabledActions, frameLabel, playFrom, targetFrame, type TransportAction,
@@ -413,6 +413,10 @@ export function exitReplay(): void {
   document.getElementById('log')!.innerHTML = '';
   document.getElementById('state')!.textContent = '';
   document.getElementById('draft')!.textContent = '';
+  // The text-log panel (#game-log-panel) is a fixed overlay outside #game, so
+  // hiding #game below does not hide it — its toasts from the replay's
+  // playback would otherwise keep floating on screen after leaving.
+  clearGameMessageLog();
   // Re-arm the cover so the next game (or replay) never flashes this board.
   setLoadingCover(true);
   document.getElementById('game')!.classList.add('hidden');
