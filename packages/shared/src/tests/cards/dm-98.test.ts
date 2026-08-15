@@ -31,9 +31,10 @@
  * cancellation is the generic `cancel-card-effects` primitive: while The Way is
  * Shut is in play, any active constraint whose source card is named "Secret
  * Passage" or "Secret Entrance" is suppressed — Secret Entrance's
- * `no-creature-hazards-on-company` and Secret Passage's
+ * `no-creatures-keyed-to-site` and Secret Passage's
  * `only-creatures-keyed-to-site` restrictions are lifted, while an unrelated
- * card sharing a constraint kind (Stealth) is untouched.
+ * card sharing a constraint kind (Stealth's `no-creature-hazards-on-company`)
+ * is untouched.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -215,7 +216,7 @@ describe('The Way is Shut (dm-98)', () => {
 
   // ─── Rule 2: cancels the effects of Secret Passage and Secret Entrance ────
 
-  test('cancels Secret Entrance: its no-creature-hazards restriction is lifted while in play', () => {
+  test('cancels Secret Entrance: its no-creatures-keyed-to-site restriction is lifted while in play', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -226,6 +227,9 @@ describe('The Way is Shut (dm-98)', () => {
       ],
     });
     const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    // Only 1 Wilderness in path — Cave-drake's regionTypes entry needs 2, so
+    // its only keying match here is site-type (ruins-and-lairs), the exact
+    // case Secret Entrance's restriction (and its cancellation) targets.
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Wilderness],
@@ -240,7 +244,7 @@ describe('The Way is Shut (dm-98)', () => {
       sourceDefinitionId: SECRET_ENTRANCE,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
-      kind: { type: 'no-creature-hazards-on-company' },
+      kind: { type: 'no-creatures-keyed-to-site' },
     });
     const blocked = viableActions(constrained, PLAYER_2, 'play-hazard')
       .map(ea => ea.action as PlayHazardAction)

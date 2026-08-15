@@ -2527,6 +2527,7 @@ export function buildPlayOptionContext(
   let companySiteName: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
+  let companyDestinationSiteRegionType: string | null = null;
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -2565,6 +2566,17 @@ export function buildPlayOptionContext(
       const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
       if (siteDef) companySiteName = siteDef.name;
+    }
+    // The region type containing the company's *declared* destination site
+    // (Organization phase `plan-movement`, or a still-set destination during
+    // M/H) — distinct from `destinationRegionTypes` below, which is the path
+    // of regions *traversed* to reach it. Lets end-of-organization-phase cards
+    // gate on the destination's own region (e.g. Secret Entrance tw-324: "may
+    // not be played on a company moving to a site in a Dark-domain").
+    if (charCompany?.destinationSite) {
+      const destSiteDef = defById(state, charCompany.destinationSite.definitionId);
+      const regionType = siteRegionTypeOf(state, destSiteDef);
+      if (regionType) companyDestinationSiteRegionType = regionType;
     }
     if (charCompany) {
       containsDiplomat = charCompany.characters.some(memberId => {
@@ -2636,6 +2648,7 @@ export function buildPlayOptionContext(
       moving: companyMoving,
       destinationSiteType,
       destinationRegionTypes,
+      destinationSiteRegionType: companyDestinationSiteRegionType,
     },
     pending: {
       corruptionCheckTargetsMe,
