@@ -990,6 +990,34 @@ export function isNazgulPermanentEvent(def: CardDefinition | null | undefined): 
 }
 
 /**
+ * For a `hazard-creature` definition sitting in a player's `cardsInPlay` (only
+ * reachable there by having been played in `creature-alt-event` mode
+ * `permanent-event` — see {@link isNazgulPermanentEvent}), returns an
+ * "effective" definition with `cardType: 'hazard-event'` and
+ * `eventType: 'permanent'` for filter matching — otherwise returns `def`
+ * unchanged.
+ *
+ * Used by discard-in-play effects like Marvels Told (td-134: "discard a
+ * hazard non-environment permanent-event or long-event") whose filter checks
+ * `cardType: 'hazard-event'`. Rule 2.IV.vii.5 and CRF 22 both call these
+ * dual creature/event cards "Nazgûl permanent-events" once played that way —
+ * functionally permanent-events for as long as they remain in play — but the
+ * underlying card data still carries `cardType: 'hazard-creature'`, which
+ * would otherwise make them invisible to any filter that keys off
+ * `cardType`. Not restricted to the Nine: any `hazard-creature` printed with
+ * a `creature-alt-event` permanent-event mode qualifies (e.g. Lady of the
+ * Golden Wood as-13).
+ */
+export function effectiveInPlayDef(def: CardDefinition): CardDefinition {
+  if (def.cardType !== 'hazard-creature') return def;
+  const isAltPermanentEvent = getCardEffects(def).some(
+    e => e.type === 'creature-alt-event' && e.mode === 'permanent-event',
+  );
+  if (!isAltPermanentEvent) return def;
+  return { ...def, cardType: 'hazard-event', eventType: 'permanent' } as unknown as CardDefinition;
+}
+
+/**
  * True when the given character bears an attached card (stored in its `items` —
  * where a resource permanent-event played "on a character" is kept) whose
  * effects include one of the given `effectType`. Used to detect the continuous

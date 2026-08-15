@@ -25,15 +25,18 @@ import {
   MARVELS_TOLD, FOOLISH_WORDS, LURE_OF_THE_SENSES, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   attachHazardToChar, attachAllyToChar, findAllyInstanceId,
+  addCardInPlay,
   buildTestState, resetMint, mint,
   viableActions, viableFor, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState, resolveChain,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
+
+const ADUNAPHEL = 'tw-2' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -667,6 +670,35 @@ describe('Marvels Told (td-134)', () => {
     expect(aragornAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
     expect(aragornAfter.hazards).toHaveLength(1);
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(firstTargetId);
+  });
+
+  test('targets a Nazgûl dual creature/permanent-event card in play (bug 0e940d7eb424d074)', () => {
+    // Reported in bug 0e940d7eb424d074 (game msu73dln-w3c6sn, seq 851):
+    // Ûvatha the Horseman (tw-107) and Adûnaphel (tw-2) were in play as
+    // permanent-events (creature-alt-event mode) alongside two plain hazard
+    // permanent-events, but Marvels Told only offered the plain ones as
+    // discard targets. Rule 2.IV.vii.5 and CRF 22 both call these dual
+    // creature/event cards "Nazgûl permanent-events" once played that way —
+    // they are functionally permanent-events for as long as they remain in
+    // play, even though the underlying definition's cardType is still
+    // hazard-creature.
+    const withAdunaphel = addCardInPlay(
+      buildTestState({
+        phase: Phase.LongEvent,
+        activePlayer: PLAYER_1,
+        players: [
+          { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        ],
+      }),
+      1,
+      ADUNAPHEL,
+    );
+
+    const playActions = viableActions(withAdunaphel, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
+    expect(action.discardTargetInstanceId).toBe(withAdunaphel.players[1].cardsInPlay[0].instanceId);
   });
 
   test('a sage ally (Treebeard) can tap to play it (rule 2.V.2.2, bug ed155762ed62402e)', () => {

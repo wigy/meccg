@@ -39,7 +39,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -2426,6 +2426,12 @@ export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | 
  * (`character.hazards`, e.g. Foolish Words, Lure of the Senses). Without
  * the character-hazard pass, cards like Marvels Told would fail to
  * offer any attached hazard permanent-events as discard targets.
+ *
+ * Nazgûl-style dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel
+ * tw-2, …) sitting in `cardsInPlay` are matched via their
+ * {@link effectiveInPlayDef} — see that function for why the raw
+ * `hazard-creature` definition would otherwise be invisible to a
+ * `cardType: 'hazard-event'` filter.
  */
 export function collectDiscardInPlayTargets(
   state: GameState,
@@ -2435,7 +2441,7 @@ export function collectDiscardInPlayTargets(
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
       const cDef = defById(state, c.definitionId);
-      if (cDef && matchesDefinition(cDef, filter)) {
+      if (cDef && matchesDefinition(effectiveInPlayDef(cDef), filter)) {
         targets.push(c.instanceId);
       }
     }
