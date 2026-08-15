@@ -20,6 +20,7 @@
  * | 3 | -2 direct influence (minimum 0) on bearer          | IMPLEMENTED |
  * | 4 | +1 prowess to all characters in bearer's company   | IMPLEMENTED |
  * | 5 | Return-to-hand grant-action during org phase       | IMPLEMENTED |
+ * | 6 | Organization-phase-only play window                | IMPLEMENTED |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -36,7 +37,7 @@ import {
   baseProwess,
   grantedActionsFor,
 } from '../test-helpers.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, GameState, SitePhaseState } from '../../index.js';
 import { Phase } from '../../index.js';
 
 // ── Local card-ID constants ───────────────────────────────────────────────────
@@ -270,5 +271,78 @@ describe("I'll Report You (le-196)", () => {
     expect(getCharacter(after, RESOURCE_PLAYER, LIEUTENANT_DOL_GULDUR).items).toHaveLength(0);
     expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(1);
     expect(after.players[RESOURCE_PLAYER].hand[0].definitionId).toBe(ILL_REPORT_YOU);
+  });
+
+  // ── Rule 6: organization phase only ───────────────────────────────────────
+
+  test('NOT offered during the movement/hazard phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: CIRITH_GORGOR, characters: [LIEUTENANT_DOL_GULDUR] }],
+          hand: [ILL_REPORT_YOU],
+          siteDeck: [CIRITH_GORGOR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: ETTENMOORS, characters: [THE_MOUTH] }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  test('NOT offered during the site phase', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: CIRITH_GORGOR, characters: [LIEUTENANT_DOL_GULDUR] }],
+          hand: [ILL_REPORT_YOU],
+          siteDeck: [CIRITH_GORGOR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: ETTENMOORS, characters: [THE_MOUTH] }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const state: GameState = { ...base, phaseState: sitePhaseState };
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  test('offered during the organization phase', () => {
+    const state = orgState({});
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBeGreaterThan(0);
   });
 });

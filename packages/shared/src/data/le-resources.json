@@ -1745,6 +1745,11 @@
     "certified": "2026-06-04",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
