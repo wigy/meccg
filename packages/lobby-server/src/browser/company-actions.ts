@@ -25,6 +25,7 @@ import type {
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
+  RestoreCharacterByEffectAction,
   ActivateGrantedAction,
   SelectCardBearerAction,
   RevealAgentAction,
@@ -181,6 +182,21 @@ export function getSupportCorruptionCheckActions(view: PlayerView): Map<string, 
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'support-corruption-check') continue;
     result.set(action.supportingCharacterId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable restore-character-by-effect actions, keyed by the
+ * character instance ID (Hall of Fire, dm-134). Each restorable character
+ * has at most one such action while the `haven-restore-character` pending
+ * resolution is active.
+ */
+export function getRestoreCharacterActions(view: PlayerView): Map<string, RestoreCharacterByEffectAction> {
+  const result = new Map<string, RestoreCharacterByEffectAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'restore-character-by-effect') continue;
+    result.set(action.characterInstanceId as string, action);
   }
   return result;
 }

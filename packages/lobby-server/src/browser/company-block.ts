@@ -28,6 +28,7 @@ import type {
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
+  RestoreCharacterByEffectAction,
   ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
   InfluenceAttemptAction,
@@ -175,6 +176,8 @@ export function renderCompanyBlock(
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     /** Map from character instance ID to support-corruption-check action. */
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
+    /** Map from character instance ID to restore-character-by-effect action (Hall of Fire). */
+    restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
     /** Map from source card instance ID to activate-granted-action actions. */
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     /** Map from character instance ID to select-card-bearer action. */
@@ -854,6 +857,7 @@ export function renderCompanyBlock(
     const hasSideboard = sideboardIntents && sideboardIntents.length > 0;
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
+    const restoreAction = options?.restoreCharacterActions?.get(charInstId as string);
     const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
     // Grant-actions declared directly on the character card itself (e.g.
     // Gandalf's test-gold-ring, tw-156) are keyed by the character's own
@@ -869,7 +873,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence, bearerAction, hasGrantedActions].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasOppInfluence, bearerAction, hasGrantedActions].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -975,6 +979,17 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           options!.onAction!(ccSupportAction);
+        },
+      };
+    }
+
+    // Single type: restore-character-by-effect (Hall of Fire) — tap to untap/heal
+    if (restoreAction) {
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          options!.onAction!(restoreAction);
         },
       };
     }
