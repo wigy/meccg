@@ -2957,6 +2957,49 @@ The bug is real and should be fixed again, more narrowly — deducting a tap onl
 where the attack actually threatens the defenders, rather than wherever a site
 prints one — and gated before it lands.
 
+### The enter-site error is load-bearing
+
+`evaluateEnterSite` prices the cards entering unlocks using the company's
+*pre-combat* tap count. That is provably wrong: a site's automatic attacks
+resolve as part of entering (CoE 2.V.ii), the resource player may only act
+"after that company has successfully entered its site" (2.V.ii.1), and a
+character that parries is not still free to tap for a play. One tap is credited
+twice.
+
+It has now been fixed twice, correctly, and both fixes are large regressions:
+
+| | score | paired Elo (95% CI) | against its own control |
+| --- | --- | --- | --- |
+| deduct the strikes from taps (#2397) | 25.3% | −188 [−230, −151] | **−87** |
+| the same, plus splitting the attack's harm into what entering *now* costs over entering later | 22.9% | −211 [−252, −174] | **−100** |
+
+The second attempt was built specifically to repair the first. `travel` scores
+`pass` at exactly zero, so a more expensive `enter-site` falls below it and a
+company that never enters never scores — so the harm was re-priced as mostly
+deferred rather than avoided, on the ground that the attack is faced whenever
+the company enters. That reasoning still looks right and it made things worse.
+
+**Two independent correct fixes, each costing about 90 Elo, is not two mistakes.
+It is a measurement.** The error is compensating for something else.
+
+#### The likely reason, untested
+
+The plays displaced by the attack are not *lost*, they are **deferred**. The
+company stays at the site; next turn its characters untap and the cards in hand
+are still playable there. Pricing them as forfeited charges the full value of a
+play that is merely postponed — the same "deferred, not avoided" error both
+fixes corrected on the *harm* side while introducing it on the *play* side.
+
+If that is right, the third attempt is to deduct the taps and count the
+displaced cards as `potential` rather than dropping them, which is the treatment
+`travel` already gives cards that fit the site but not this turn's taps. That
+has not been built or gated, and after two failures it should not be built
+without measuring the deferral assumption first.
+
+Until then the double-count stays, and it stays *documented*: the model is wrong
+here in a known way, it is worth about 90 Elo to leave it wrong, and nobody
+should "fix" it a third time without reading this.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
