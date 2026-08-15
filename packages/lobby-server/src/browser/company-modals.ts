@@ -732,40 +732,78 @@ export function buildGrantedActionMenuItems(
   // Detect when multiple entries share the same actionId so we know whether
   // appending disambiguating names is necessary.
   const actionIdCounts = new Map<string, number>();
+  const byActionId = new Map<string, ActivateGrantedAction[]>();
   for (const a of actions) {
     actionIdCounts.set(a.actionId, (actionIdCounts.get(a.actionId) ?? 0) + 1);
+    const group = byActionId.get(a.actionId);
+    if (group) group.push(a);
+    else byActionId.set(a.actionId, [a]);
   }
 
-  return actions.map((action): TooltipMenuItem => {
-    // METD §7 / rule 10.08: corruption removal has two variants for the
-    // same actionId — tap-and-roll (standard) vs no-tap-at-minus-3.
-    // Distinguish them by the action's `noTap` flag; otherwise fall back
-    // to the action-id label.
-    const baseLabel = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
-    let label = action.noTap === true
-      ? `${baseLabel} (no tap, -3)`
-      : action.actionId === 'remove-self-on-roll'
-        ? `${baseLabel} (tap)`
-        : baseLabel;
-    if (resolveName && (actionIdCounts.get(action.actionId) ?? 0) > 1) {
-      if (action.targetCardId || action.recipientCharacterId) {
-        // Same acting character, one entry per (item, recipient) pair — e.g.
-        // The Forge-master (wh-117) offering every qualifying fetched item ×
-        // every eligible recipient at its site. Name both so the player can
-        // tell the entries apart before committing.
-        const itemName = action.targetCardId ? resolveName(action.targetCardId) : undefined;
-        const recipientName = action.recipientCharacterId ? resolveName(action.recipientCharacterId) : undefined;
-        const parts = [itemName, recipientName ? `to ${recipientName}` : undefined].filter((p): p is string => !!p);
-        if (parts.length > 0) label += ` — ${parts.join(' ')}`;
-      } else if (action.characterId) {
-        // Different acting characters offering the same ability — append the
-        // acting character's name so the player knows which one taps.
-        const charName = resolveName(action.characterId);
-        if (charName) label += ` — ${charName}`;
+  const items: TooltipMenuItem[] = [];
+  for (const [actionId, group] of byActionId) {
+    // A group that varies over both `targetCardId` and `recipientCharacterId`
+    // is a two-dimensional cross product — one entry per (item, recipient)
+    // pair, e.g. The Forge-master (wh-117) offering every qualifying fetched
+    // item × every eligible recipient at its site. Flattened, this can
+    // easily exceed what fits on screen with no way to scroll (bug report
+    // db6910ae7bc65e25: 7 items × 4 recipients = 28 buttons). Narrow it into
+    // a two-step picker instead: one top-level entry per item, opening a
+    // submenu of that item's recipients.
+    const distinctItems = new Set(group.map(a => a.targetCardId).filter((id): id is CardInstanceId => id !== undefined));
+    const distinctRecipients = new Set(group.map(a => a.recipientCharacterId).filter((id): id is CardInstanceId => id !== undefined));
+    if (resolveName && distinctItems.size > 1 && distinctRecipients.size > 1) {
+      const baseLabel = GRANTED_ACTION_LABELS[actionId] ?? actionId;
+      const byItem = new Map<string, ActivateGrantedAction[]>();
+      for (const a of group) {
+        const key = a.targetCardId as string;
+        const itemGroup = byItem.get(key);
+        if (itemGroup) itemGroup.push(a);
+        else byItem.set(key, [a]);
       }
+      for (const [itemId, itemGroup] of byItem) {
+        const itemName = resolveName(itemId as CardInstanceId) ?? itemId;
+        items.push({
+          label: `${baseLabel} — ${itemName}`,
+          children: itemGroup.map((a): TooltipMenuItem => {
+            const recipientName = a.recipientCharacterId ? resolveName(a.recipientCharacterId) : undefined;
+            return { label: recipientName ? `to ${recipientName}` : baseLabel, onClick: () => onAction(a) };
+          }),
+        });
+      }
+      continue;
     }
-    return { label, onClick: () => onAction(action) };
-  });
+
+    for (const action of group) {
+      // METD §7 / rule 10.08: corruption removal has two variants for the
+      // same actionId — tap-and-roll (standard) vs no-tap-at-minus-3.
+      // Distinguish them by the action's `noTap` flag; otherwise fall back
+      // to the action-id label.
+      const baseLabel = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
+      let label = action.noTap === true
+        ? `${baseLabel} (no tap, -3)`
+        : action.actionId === 'remove-self-on-roll'
+          ? `${baseLabel} (tap)`
+          : baseLabel;
+      if (resolveName && (actionIdCounts.get(action.actionId) ?? 0) > 1) {
+        if (action.targetCardId || action.recipientCharacterId) {
+          // Same acting character, single-dimension ambiguity (only items or
+          // only recipients vary) — name whichever varies.
+          const itemName = action.targetCardId ? resolveName(action.targetCardId) : undefined;
+          const recipientName = action.recipientCharacterId ? resolveName(action.recipientCharacterId) : undefined;
+          const parts = [itemName, recipientName ? `to ${recipientName}` : undefined].filter((p): p is string => !!p);
+          if (parts.length > 0) label += ` — ${parts.join(' ')}`;
+        } else if (action.characterId) {
+          // Different acting characters offering the same ability — append the
+          // acting character's name so the player knows which one taps.
+          const charName = resolveName(action.characterId);
+          if (charName) label += ` — ${charName}`;
+        }
+      }
+      items.push({ label, onClick: () => onAction(action) });
+    }
+  }
+  return items;
 }
 
 /**
