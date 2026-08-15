@@ -3067,6 +3067,57 @@ permanent-event legal-action generator via `wizardSpecificName`: a
 `<wizard>-specific` card is playable only while that player's revealed avatar is
 the named wizard.
 
+**`fromStored: true` — a grant-action sourced from a stored card, not a bearer.**
+A card stored in the controller's marshalling-point pile (`killPile`, a
+`storedAtSite` entry) has left both `cardsInPlay` and any character's
+attachment lists — the `grant-action` counterpart to a `stat-modifier`'s
+`activeWhileStored` (§ above). Marking a `grant-action` effect `fromStored`
+routes it to a dedicated scanner, `storedCardGrantActions`
+(`legal-actions/organization.ts`), which reads `killPile` entries' own
+definitions directly; the ordinary attached-card scans (`extractGrantActions`)
+explicitly skip `fromStored` effects, so the ability never fires while the
+card is merely in play (before storage) and is never offered twice.
+
+Because a stored card has no bearer, its cost cannot use a bearer-relative
+`tap` variant. `cost.tap: "sage-at-haven"` instead enumerates every one of
+the acting player's own untapped sage characters currently at a Haven [{H}],
+independent of company; the chosen sage becomes the activation's
+`characterId` and — for a `place-item-on-character` apply — also supplies the
+company whose members are offered as recipients (scoped to just that one
+company, unlike the attached-card form's site-wide search, since there is no
+bearer/site to search from). `cost.discard: "self"` discards the stored card
+itself, paid by a `killPile` fallback in `applyDiscardSelf`
+(`cost-evaluator.ts`): when the source instance isn't found on the paying
+actor's `items`/`allies`/`hazards`, it is looked up in the player's `killPile`
+instead and removed from there into the discard pile.
+
+```json
+{ "type": "grant-action", "action": "reforging-retrieve-item",
+  "fromStored": true,
+  "cost": { "tap": "sage-at-haven", "discard": "self" },
+  "apply": {
+    "type": "place-item-on-character",
+    "fetchFrom": ["discard-pile"],
+    "filter": { "$and": [
+      { "subtype": { "$in": ["minor", "major"] } },
+      { "$or": [
+        { "keywords": { "$includes": "weapon" } },
+        { "keywords": { "$includes": "armor" } },
+        { "keywords": { "$includes": "shield" } }
+      ] }
+    ] }
+  } }
+```
+
+Used by Reforging (tw-314): "During your organization phase, you may tap a
+sage at a Haven [{H}] and discard a stored Reforging to retrieve any minor or
+major weapon, armor, or shield (even a hoard item) from your discard pile.
+The item must be placed under the control of a character in the sage's
+company." A hoard item still qualifies since the filter carries no `hoard`
+exclusion, and this path bypasses the ordinary site-based `item-play-site`
+gate entirely (there is no site check here), which is exactly what "even a
+hoard item" needs — the item is placed directly, not played at a hoard site.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.

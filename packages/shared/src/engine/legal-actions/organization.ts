@@ -29,7 +29,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
 import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow } from '../../state-utils.js';
-import { CardStatus, cardStatusToName, Race } from '../../types/common.js';
+import { CardStatus, cardStatusToName, Race, Skill } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -784,6 +784,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Panoply of Wings wh-37) and unattached permanent-event resources (e.g.
   // Earth-eater wh-67)
   actions.push(...bareCardGrantActions(state, playerId));
+
+  // Grant-actions on the player's stored (marshalling-point pile) cards —
+  // no bearer to attach to, so scanned separately (Reforging tw-314)
+  actions.push(...storedCardGrantActions(state, playerId));
 
   // The Lidless Eye (le-203) / Sauron (ba-43): once-per-org-phase dual-mode
   // ability (sideboard-fetch or peek-opponent-hand)
@@ -1713,6 +1717,94 @@ export function bareCardGrantActions(state: GameState, playerId: PlayerId): Eval
 }
 
 /**
+ * Grant-action effects sourced from a **stored** card — one that has left
+ * `cardsInPlay` for the controller's marshalling-point pile (`killPile`, a
+ * `storedAtSite` entry) — rather than one still attached to a bearer. A
+ * stored card has no bearer, so it cannot be reached by the item/ally/hazard
+ * attachment scans above; `getCardEffects(def)` on each `killPile` entry's
+ * definition finds its `grant-action` effects directly instead.
+ *
+ * Only `cost.tap: "sage-at-haven"` is supported: every one of the player's
+ * own untapped sage characters currently at a Haven [{H}] is a candidate
+ * actor, independent of company (there is no bearer to anchor one). The
+ * chosen sage's own company then supplies the recipients for a
+ * `place-item-on-character` apply — mirroring the `(item, recipient)`
+ * pairing the attached-item scan already does for The Forge-master
+ * wh-117, but scoped to just the acting sage's own company rather than
+ * every company at a site, since there is no bearer/site to search
+ * site-wide from. `cost.discard: "self"` is paid by the `applyDiscardSelf`
+ * `killPile` fallback in `cost-evaluator.ts`.
+ *
+ * Used by Reforging (tw-314): "During your organization phase, you may tap
+ * a sage at a Haven [{H}] and discard a stored Reforging to retrieve any
+ * minor or major weapon, armor, or shield (even a hoard item) from your
+ * discard pile. The item must be placed under the control of a character in
+ * the sage's company."
+ */
+export function storedCardGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+
+  for (const stored of player.killPile) {
+    if (!stored.storedAtSite) continue;
+    const def = defById(state, stored.definitionId);
+    if (!def) continue;
+
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action' || !effect.fromStored) continue;
+      if (effect.cost.tap !== 'sage-at-haven') continue;
+      if (effect.apply?.type !== 'place-item-on-character') continue;
+
+      for (const [charId, char] of characterEntries(player)) {
+        if (char.status !== CardStatus.Untapped) continue;
+        const charDef = defById(state, char.definitionId);
+        if (!charDef || !isCharacterCard(charDef) || !charDef.skills.includes(Skill.Sage)) continue;
+
+        const company = findCharacterCompany(player.companies, charId);
+        const siteDef = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+        if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== 'haven') continue;
+
+        const zones = effect.apply.fetchFrom ?? ['discard-pile'];
+        const itemFilter = effect.apply.filter;
+        const zoneItemIds: CardInstanceId[] = [];
+        for (const zone of zones) {
+          const pile = zone === 'discard-pile' ? player.discardPile
+            : zone === 'sideboard' ? player.sideboard
+              : zone === 'hand' ? player.hand
+                : [];
+          for (const c of pile) {
+            const cdef = defById(state, c.definitionId);
+            if (!cdef || !isItemCard(cdef)) continue;
+            if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
+            zoneItemIds.push(c.instanceId);
+          }
+        }
+        if (zoneItemIds.length === 0) {
+          logDetail(`Stored grant-action ${effect.action} on ${def.name}: no qualifying item to retrieve (via ${charDef.name})`);
+          continue;
+        }
+
+        const recipients = company!.characters;
+        for (const itemInstId of zoneItemIds) {
+          for (const recipientId of recipients) {
+            actions.push(grantedActionFor(
+              playerId,
+              charId,
+              stored,
+              effect,
+              { targetCardId: itemInstId, recipientCharacterId: recipientId },
+            ));
+          }
+        }
+        logDetail(`Stored grant-action ${effect.action} on ${def.name}: offered ${zoneItemIds.length} item(s) × ${recipients.length} recipient(s) via ${charDef.name} at a Haven`);
+      }
+    }
+  }
+  return actions;
+}
+
+/**
  * The Lidless Eye (le-203) / Sauron (ba-43): "Once during each of your
  * organization phases, you may: bring a resource or character from your
  * sideboard into your play deck and shuffle **or** choose and discard a card
@@ -2135,8 +2227,11 @@ function extractGrantActions(state: GameState, definitionId: import('../../index
       // emitted only by the dedicated M/H `emitAllyCancelChainActions` emitter —
       // a chain cancellation is meaningless outside an active chain, so keep it
       // out of the generic per-phase (including organization) scan.
+      // `fromStored` abilities (Reforging tw-314) are granted only while the
+      // source card sits in the marshalling-point pile, never while attached
+      // to a bearer — emitted only by `storedCardGrantActions` below.
       e.type === 'grant-action' && e.corruptionCheckWindow !== true && e.endOfTurnOnly !== true
-        && e.apply?.type !== 'cancel-chain-entry',
+        && e.apply?.type !== 'cancel-chain-entry' && e.fromStored !== true,
   );
 }
 
