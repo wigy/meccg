@@ -2907,6 +2907,56 @@ happens to favour it. Closing that needs the thing the plan layer was built for
 and has never delivered: a company that has *decided* to go home and stays
 decided until it arrives.
 
+### A correct fix that cost 87 Elo
+
+`enter-site` genuinely double-counted a tap. A site's automatic attacks resolve
+as part of entering (CoE 2.V.ii), and the resource player "can only take actions
+during a company's site phase after that company has successfully entered its
+site" (2.V.ii.1) — so a lone defender cannot both parry the attack and tap to
+play a card. The module priced it as though it could, which made a near-certain
+loss of the character look like a profit. The fix deducted the attack's strikes
+from the taps available before pricing what entering unlocks, and came with a
+regression scenario captured from the reported game.
+
+It was reviewed against the rules, the citation was checked and found *stronger*
+than the one given, the regression test was confirmed to fail without the fix,
+and the unit tests passed. **It was not gated.**
+
+| tree | score | paired Elo (95% CI) |
+| --- | --- | --- |
+| before the fix | 35.8% | −101 [−138, −66] |
+| after the fix | 25.3% | **−188 [−230, −151]** |
+
+Confirmed as the only change in the range, and the intervals do not overlap:
+**about 87 Elo**, some 3.2 standard errors. Re-measured a second way — holding a
+later change fixed and reverting only this one — it is 59 Elo. Either way it is
+the largest single regression measured in this project.
+
+The likely mechanism is over-correction rather than error. It deducts *every*
+strike of *every* automatic attack from the taps before pricing, so a site with
+two strikes and three untapped characters loses two potential plays even when
+the attack is trivial and would be parried without tapping. Entering sites is
+the only way H2 scores at all, and its entry rate fell from 56% to 45.7% — which
+read at review time as "now matches Heuristics 1", and therefore as a good sign.
+
+#### The lesson is about review, not about the fix
+
+Correctness and strength are different questions, and this document has said so
+for every change made *to* it — three discard changes that were correct by
+inspection and cost 41, 42 and 84 Elo; a total order that was exactly what the
+measurement asked for and cost 84. The same standard was not applied to a change
+arriving from outside, which was reviewed for correctness alone and endorsed on
+that basis.
+
+**A gate is not a formality for other people's changes.** Nothing about the
+reasoning in that PR was wrong; the deduction is what the rules imply. It is
+still worth 87 Elo to not do it, and no amount of reading the diff would have
+revealed that.
+
+The bug is real and should be fixed again, more narrowly — deducting a tap only
+where the attack actually threatens the defenders, rather than wherever a site
+prints one — and gated before it lands.
+
 ### The other work list: what a divergence costs
 
 `coverage` ranks action types by how often they come up. That is the right
