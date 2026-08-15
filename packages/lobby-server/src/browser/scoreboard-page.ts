@@ -17,6 +17,8 @@
 import { type ScreenId } from './app-state.js';
 import { apiGet } from './api.js';
 import { escapeHtml } from './html-utils.js';
+import { loadGameBundle } from './lazy-load.js';
+import { gameIdCell } from './scoreboard-game-id-cell.js';
 import { MP_SOURCES } from '@meccg/shared';
 
 // Forward-declared showScreen, set by the lobby module at startup to
@@ -236,7 +238,7 @@ function renderGame(game: PlayerGame): string {
         <dt>Duration</dt><dd>${escapeHtml(formatDuration(game.durationSeconds))}</dd>
         <dt>Started</dt><dd>${escapeHtml(formatDateTime(game.startedAt))}</dd>
         <dt>Rating</dt><dd>${formatRatingDelta(game)}</dd>
-        <dt>Game ID</dt><dd class="scoreboard-game-id">${escapeHtml(orDash(game.gameId))}</dd>
+        <dt>Game ID</dt>${gameIdCell(game.gameId)}
       </dl>
       ${renderGameTable(game)}
     </article>
@@ -274,6 +276,16 @@ export async function openPlayerGamesPage(playerName: string): Promise<void> {
   `;
   listEl.querySelector('.scoreboard-back')?.addEventListener('click', () => {
     void openScoreboardPage();
+  });
+
+  // Delegated so one listener covers every game card. The replay opens seated
+  // with the player whose list this is, and Exit returns to this same page —
+  // its markup is left intact behind the game screen.
+  listEl.addEventListener('click', (event) => {
+    const gameId = (event.target as HTMLElement | null)
+      ?.closest<HTMLElement>('[data-replay-game]')?.dataset.replayGame;
+    if (!gameId) return;
+    void loadGameBundle().then(() => window.__meccg?.startReplay?.(gameId, r.data.name));
   });
 }
 

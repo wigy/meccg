@@ -128,6 +128,14 @@ function createDefaultAppState() {
    */
   spectating: false,
 
+  /**
+   * Whether the board is showing a recorded replay rather than a live game.
+   * Replays render through the ordinary board pipeline but have no socket
+   * behind them, so anything that would talk to the server (auto-pass, the
+   * disconnect button, rejoin) must stand down while this is set.
+   */
+  replaying: false,
+
   /** Whether the current game is a pseudo-AI game (human controls both sides). */
   isPseudoAi: false,
   /** Second WebSocket for pseudo-AI: connects as the AI player. */
@@ -217,6 +225,12 @@ export type MeccgSharedState = {
    * regardless of the viewer's saved dev-mode setting.
    */
   refreshDevMode: (() => void) | undefined;
+  /**
+   * Open the replay viewer for a finished game, seated with the named player
+   * when that name is one of the two seats. Rejects when the game has no
+   * recording on the server.
+   */
+  startReplay: ((gameId: string, seatName: string | null) => Promise<void>) | undefined;
 
   // ---- Registered by the deck-editor bundle ----
   /** Load and render the deck list. */
@@ -259,6 +273,7 @@ const _shared: MeccgSharedState = window.__meccg ?? {
   restoreDice: undefined,
   clearGameBoard: undefined,
   refreshDevMode: undefined,
+  startReplay: undefined,
   loadDecks: undefined,
   openDeckEditor: undefined,
 };
