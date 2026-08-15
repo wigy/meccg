@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.107.0 — 2026-08-15
+
+Every finished game, played back
+
+### Web Client
+
+- The Scores page now links each completed game to a replay that plays it
+  back on the ordinary game board. Every recorded line is a full state
+  snapshot, so playback re-projects recorded states rather than re-running
+  the reducer; a 62MB / 2302-frame log indexes in ~200ms and serves a frame
+  in ~2ms, with no parsed state held in memory.
+- Replay transport bar: step/jump/play, scrubber, speed, a seat switch that
+  flips the board, and Exit. Arrows step, space plays, Escape leaves. The
+  viewer borrows spectator mode to suppress the play affordances.
+- Replay frames drive the identical render pipeline as live play — board,
+  companies, chain, dice, phase meter, toasts — via the extracted
+  `renderStateMessage`.
+- Recordings older than several engine state fields no longer crash the
+  projection on undefined piles. State and player defaults supply the values
+  those games implicitly had, taking the local corpus from 152/295 to
+  290/295 replayable; what still cannot project is reported as unreplayable
+  rather than throwing.
+
+### Game Engine
+
+- New `company.destinationSiteRegionType` play-target filter context field,
+  resolved from a company's declared destination site during the
+  organization phase — unlike the M/H-only destination path array, it is
+  available as soon as plan-movement sets a destination.
+- New company-size-keyed grant-ally-play variant: a player-scoped,
+  free-standing permanent-event grant (`maxCompanySize` + `allowTappedSite`)
+  that lifts the untapped-site requirement for ally plays by any company
+  whose effective size (CoE 3.24) is at most the given value.
+
+### Card Data
+
+- **tw-324 Secret Entrance** — certified. Now installs the narrower
+  `no-creatures-keyed-to-site` constraint instead of Stealth's broad
+  `no-creature-hazards-on-company`, matching the printed text, and
+  implements the previously-missing "may not be played on a company moving
+  to a site in a Dark-domain" restriction.
+- **wh-109 Friend of Secret Things** — certified, adding the company-size
+  tapped-site ally grant alongside its stage-points effect.
+- **dm-22 Pôn-ora-Pôn** — certified, adding the +3 direct influence against
+  Wose factions.
+
+### Documentation
+
+- The new grant-ally-play variant and destination-site region-type context
+  field are recorded in the card-effects DSL and certification-support docs.
+
 ## 0.106.0 — 2026-08-15
 
 The company goes home to heal

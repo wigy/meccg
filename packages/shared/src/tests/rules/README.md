@@ -17,14 +17,14 @@
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
-| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 25 | 73.5% |
+| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 26 | 76.5% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
-| 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 2 | 100.0% |
+| 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 3 | 3 | 100.0% |
 | 08 | [Combat](08-combat/) | 42 | 33 | 78.6% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 29 | 93.5% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 32 | 60.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
-| — | The Balrog (MEBA) | 1 | 1 | 100.0% |
+| — | The Balrog (MEBA) | 2 | 2 | 100.0% |
 | — | The White Hand (MEWH) | 14 | 14 | 100.0% |
 
 ## Detailed Test Matrix
@@ -40,6 +40,7 @@
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
 | — | Engine | [Race Vocabulary](00-engine/race-vocabulary.test.ts) | ☑ |
 | — | Engine | [Site Dissolved Company Exit](00-engine/site-dissolved-company-exit.test.ts) | ☑ |
+| — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☑ |
 | 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☑ |
 | 1.03 | Deck Construction & Setup | [Deck Composition](01-deck-construction/rule-1.03-deck-composition.test.ts) | ☑ |
@@ -221,6 +222,7 @@
 | 6.21 | Site Phase | [Fw Resource Alignment Match](06-site-phase/rule-6.21-fw-resource-alignment-match.test.ts) | ◐ |
 | 7.01 | End-of-Turn Phase | [Eot Steps](07-end-of-turn-phase/rule-7.01-eot-steps.test.ts) | ☑ |
 | 7.02 | End-of-Turn Phase | [Eot Site Replacement](07-end-of-turn-phase/rule-7.02-eot-site-replacement.test.ts) | ☑ |
+| 7.03 | End-of-Turn Phase | [Eot Passive Condition Order](07-end-of-turn-phase/rule-7.03-eot-passive-condition-order.test.ts) | ☑ |
 | 8.01 | Combat | [Combat Initiation](08-combat/rule-8.01-combat-initiation.test.ts) | ☑ |
 | 8.02 | Combat | [Combat Step1 Pre Assignment](08-combat/rule-8.02-combat-step1-pre-assignment.test.ts) | ◐ |
 | 8.03 | Combat | [Faced Attack](08-combat/rule-8.03-faced-attack.test.ts) | ☑ |
@@ -347,12 +349,12 @@
 | 10.51 | Corruption, Influence, Actions/Timing & Ending the Game | [Mp General Rules](10-corruption-influence-endgame/rule-10.51-mp-general-rules.test.ts) | ☑ |
 | 10.52 | Corruption, Influence, Actions/Timing & Ending the Game | [Alignment Item Mp](10-corruption-influence-endgame/rule-10.52-alignment-item-mp.test.ts) | ☑ |
 | METD | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption No Tap](10-corruption-influence-endgame/rule-metd-corruption-no-tap.test.ts) | ☑ |
-| — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Creature As Auto Attack](rule-meas-creature-as-auto-attack.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Hoard Item](rule-meas-hoard-item.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Off To The Side](rule-meas-off-to-the-side.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Region Movement Limit](rule-meas-region-movement-limit.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Under Deeps Site](rule-meas-under-deeps-site.test.ts) | ☑ |
+| MEBA | The Balrog (MEBA) | [Balrog Region Movement](rule-meba-balrog-region-movement.test.ts) | ☑ |
 | MEBA | The Balrog (MEBA) | [Balrog](rule-meba-balrog.test.ts) | ☑ |
 | MEWH | The White Hand (MEWH) | [Anti Fw Sideboard](rule-mewh-anti-fw-sideboard.test.ts) | ☑ |
 | MEWH | The White Hand (MEWH) | [Corruption](rule-mewh-corruption.test.ts) | ☑ |

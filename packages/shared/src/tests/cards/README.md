@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1140 | 1139 | 1 | 99.9% |
+| 1143 | 1142 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -14,11 +14,11 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 109 | 109 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 104 | 104 | 100.0% |
+| DM | 105 | 105 | 100.0% |
 | LE | 303 | 302 | 99.7% |
 | TD | 94 | 94 | 100.0% |
-| TW | 344 | 344 | 100.0% |
-| WH | 89 | 89 | 100.0% |
+| TW | 345 | 345 | 100.0% |
+| WH | 90 | 90 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -92,7 +92,7 @@
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
-| as-126 | Helm of Fear | — | 15 | ☑ |
+| as-126 | Helm of Fear | — | 16 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 12 | ☑ |
 | as-131 | Secret Book | — | 12 | ☑ |
@@ -142,7 +142,7 @@
 | ba-7 | Hill-troll | — | 3 | ☑ |
 | ba-8 | Mountain-maggot | — | 3 | ☑ |
 | ba-9 | Umagaur | — | 8 | ☑ |
-| ba-10 | Beorning Skin-changers | — | 8 | ☑ |
+| ba-10 | Beorning Skin-changers | — | 9 | ☑ |
 | ba-11 | Carrion Feeders | — | 8 | ☑ |
 | ba-12 | Olog Warlords | — | 5 | ☑ |
 | ba-13 | Shelob’s Brood | — | 7 | ☑ |
@@ -241,12 +241,13 @@
 | dm-15 | The Grimburgoth | — | 5 | ☑ |
 | dm-16 | Herion | — | 4 | ☑ |
 | dm-17 | Ivic | — | 4 | ☑ |
+| dm-22 | Pôn-ora-Pôn | — | 3 | ☑ |
 | dm-23 | Râisha | — | 4 | ☑ |
 | dm-24 | Súrion | — | 3 | ☑ |
 | dm-25 | Taladhan | — | 11 | ☑ |
 | dm-26 | Woffung | — | 3 | ☑ |
 | dm-27 | Wormtongue | — | 4 | ☑ |
-| dm-28 | Lobelia Sackville-Baggins | — | 5 | ☑ |
+| dm-28 | Lobelia Sackville-Baggins | — | 6 | ☑ |
 | dm-29 | My Precious | — | 5 | ☑ |
 | dm-30 | The Gem-deeps | — | 15 | ☑ |
 | dm-31 | Haudh-in-Gwanûr | — | 8 | ☑ |
@@ -340,11 +341,11 @@
 | le-5 | Carambor | — | 7 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
-| le-8 | Dorelas | — | 2 | ☑ |
-| le-9 | Dunlending Spy | — | 2 | ☑ |
+| le-8 | Dorelas | — | 3 | ☑ |
+| le-9 | Dunlending Spy | — | 3 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
-| le-12 | Grishnákh | — | 3 | ☑ |
+| le-12 | Grishnákh | — | 4 | ☑ |
 | le-13 | Gulla | — | 3 | ☑ |
 | le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
@@ -967,6 +968,7 @@
 | tw-321 | Sacrifice of Form | — | 16 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
+| tw-324 | Secret Entrance | — | 8 | ☑ |
 | tw-326 | Shadowfax | — | 8 | ☑ |
 | tw-327 | Shield of Iron-bound Ash | — | 7 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
@@ -1076,7 +1078,7 @@
 | tw-498 | Swordmaster | — | 17 | ☑ |
 | tw-499 | Dwarven Axe | — | 7 | ☑ |
 | wh-1 | Alatar | — | 12 | ☑ |
-| wh-2 | Doeth (Durthak) | — | 5 | ☑ |
+| wh-2 | Doeth (Durthak) | — | 6 | ☑ |
 | wh-3 | Euog (Ulzog) | — | 12 | ☑ |
 | wh-4 | Gandalf | — | 13 | ☑ |
 | wh-5 | Ill-favoured Fellow | — | 7 | ☑ |
@@ -1156,6 +1158,7 @@
 | wh-106 | Prophet of Doom | — | 15 | ☑ |
 | wh-107 | Stave of Pallando | — | 9 | ☑ |
 | wh-108 | Truths of Doom | — | 9 | ☑ |
+| wh-109 | Friend of Secret Things | — | 11 | ☑ |
 | wh-110 | Girdle of Radagast | — | 19 | ☑ |
 | wh-111 | Glove of Radagast | — | 11 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
