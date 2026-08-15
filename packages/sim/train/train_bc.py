@@ -465,17 +465,33 @@ def main():
     # Measured on the human corpus: argmax 3.5% against the heuristic,
     # sampling at temperature 1 40.6%, over 320 paired games each.
     soft = sum(1 for d, *_ in train if d.get("weights"))
-    if args.decode == "auto":
-        decode_mode = "argmax" if soft * 2 >= len(train) else "sample"
+    inherited = None
+    if args.init:
+        with open(args.init, "r", encoding="utf-8") as handle:
+            inherited = json.load(handle).get("decode")
+    if args.decode != "auto":
+        decode_declaration = {"mode": args.decode}
+        if args.decode == "sample":
+            decode_declaration["temperature"] = args.decode_temperature
+        why = "forced by --decode"
+    elif inherited:
+        # A fine-tune continues its parent's policy family, so it is read the
+        # same way. Deriving from targets instead would mis-stamp every RL
+        # candidate: self-play rollouts always carry the behavior policy's own
+        # soft weights, which says nothing about how a human-cloned lineage
+        # should be decoded, and the loop gates candidates by a bare path.
+        decode_declaration = dict(inherited)
+        why = f"inherited from {args.init}"
     else:
-        decode_mode = args.decode
-    decode_declaration = {"mode": decode_mode}
-    if decode_mode == "sample":
-        decode_declaration["temperature"] = args.decode_temperature
+        mode = "argmax" if soft * 2 >= len(train) else "sample"
+        decode_declaration = {"mode": mode}
+        if mode == "sample":
+            decode_declaration["temperature"] = args.decode_temperature
+        why = "derived"
+    decode_mode = decode_declaration["mode"]
     print(f"decode: {decode_mode}"
-          + (f"@{args.decode_temperature}" if decode_mode == "sample" else "")
-          + f" ({soft}/{len(train)} training targets are soft"
-          + (", derived" if args.decode == "auto" else ", forced by --decode") + ")")
+          + (f"@{decode_declaration.get('temperature', 1)}" if decode_mode == "sample" else "")
+          + f" ({soft}/{len(train)} training targets are soft, {why})")
 
     action_weights = build_action_weights(train, header, args.action_weight, args.balance_alpha)
     if action_weights:
