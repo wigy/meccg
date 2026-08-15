@@ -224,6 +224,22 @@ function findHazardActions(
 }
 
 /**
+ * Find all play-creature-from-discard actions for a given card instance
+ * (e.g. Exhalation of Decay dm-55). Keyed like a hazard-creature play — may
+ * have multiple entries with different keying methods against the same
+ * discard-pile creature.
+ */
+function findCreatureFromDiscardActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-creature-from-discard' && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
  * Find the play-agent-hazard action for a given agent card instance.
  * Each agent card has at most one such action.
  */
@@ -519,6 +535,20 @@ function showHazardKeyingMenu(
       label: `Keyed by ${action.keyedBy.method}: ${action.keyedBy.value}`,
       onClick: () => onAction(action),
     });
+  }
+
+  // Creature-from-discard plays (Exhalation of Decay dm-55): name the
+  // discard-pile creature being brought into play, since the card in hand
+  // (the event) is not itself the creature.
+  for (const action of actions) {
+    if (action.type !== 'play-creature-from-discard') continue;
+    const creatureDefId = cachedInstanceLookup(action.creatureInstanceId);
+    const creatureDef = creatureDefId && cardPool ? cardPool[creatureDefId as string] : undefined;
+    const creatureName = creatureDef ? creatureDef.name : action.creatureInstanceId as string;
+    const label = action.keyedBy
+      ? `Bring back ${creatureName} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`
+      : `Bring back ${creatureName}`;
+    items.push({ label, onClick: () => onAction(action) });
   }
 
   // Non-keyed hazard events (single play action without keying)
@@ -1107,10 +1137,11 @@ export function renderHand(
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
     const hazardActions = findHazardActions(cardInstanceId, viable);
+    const creatureFromDiscardActions = findCreatureFromDiscardActions(cardInstanceId, viable);
     const onGuardAction = cardInstanceId
       ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const isHazard = hazardActions.length > 0;
+    const isHazard = hazardActions.length > 0 || creatureFromDiscardActions.length > 0;
     const agentHazardAction = findAgentHazardAction(cardInstanceId, viable);
     const isAgentHazard = agentHazardAction !== null;
     const allyActions = findAllyPlayActions(cardInstanceId, viable, cardPool);
@@ -1344,12 +1375,13 @@ export function renderHand(
       } else {
         // No character targets, or no on-guard: use original menu/direct play
         img.className = 'hand-card hand-card-playable';
+        const playActions = [...hazardActions, ...creatureFromDiscardActions];
         if (onAction) {
-          if (hazardActions.length === 1 && !onGuardAction) {
-            img.addEventListener('click', () => onAction(hazardActions[0]));
+          if (playActions.length === 1 && !onGuardAction) {
+            img.addEventListener('click', () => onAction(playActions[0]));
           } else {
             img.addEventListener('click', (e) => {
-              showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction, cardPool);
+              showHazardKeyingMenu(e, playActions, onAction, onGuardAction, cardPool);
             });
           }
         }
