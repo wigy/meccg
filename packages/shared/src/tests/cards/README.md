@@ -78,7 +78,7 @@
 | as-85-the-great-eye | The Great Eye | — | 13 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
-| as-94 | Orders from Lugbúrz | — | 13 | ☑ |
+| as-94 | Orders from Lugbúrz | — | 14 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-106 | The Under-roads | — | 7 | ☑ |
@@ -721,7 +721,7 @@
 | td-166 | When I Know Anything | — | 13 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
 | td-170 | Wizard’s Staff | — | 19 | ☑ |
-| td-172 | Wormsbane | — | 7 | ☑ |
+| td-172 | Wormsbane | — | 8 | ☑ |
 | td-173 | Buhr Widu | — | 7 | ☑ |
 | td-174 | Dale | — | 6 | ☑ |
 | td-175 | Framsburg | — | 18 | ☑ |
@@ -910,7 +910,7 @@
 | tw-232 | Fair Sailing | — | 10 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 14 | ☑ |
+| tw-240 | Fellowship | — | 15 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
@@ -959,7 +959,7 @@
 | tw-311 | Rangers of the North | — | 2 | ☑ |
 | tw-312 | Red Arrow | — | 7 | ☑ |
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
-| tw-314 | Reforging | — | 10 | ☑ |
+| tw-314 | Reforging | — | 17 | ☑ |
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |
 | tw-316 | Return of the King | — | 9 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
@@ -988,7 +988,7 @@
 | tw-350 | Tom Bombadil | — | 7 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |
 | tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
-| tw-353 | Treebeard | — | 4 | ☑ |
+| tw-353 | Treebeard | — | 5 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-357 | Variags of Khand | — | 5 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
@@ -1162,7 +1162,7 @@
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
-| wh-120 | Saruman’s Machinery | — | 23 | ☑ |
+| wh-120 | Saruman’s Machinery | — | 24 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
 
 ---

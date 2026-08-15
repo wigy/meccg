@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.106.0 — 2026-08-15
+
+The company goes home to heal
+
+### Game Engine
+
+- Fellowship (tw-240) is discarded when companies auto-merge at a non-haven
+  site, as rule 2.IV.6 requires — the auto-merge path never swept the
+  membership-changed events the explicit merge action does.
+- The item-draft step no longer ends the moment the last unassigned item is
+  taken while a starting-company-event card (e.g. Orders from Lugbúrz, as-94)
+  could still be played in lieu of a minor item; the player must pass
+  explicitly.
+- Reforging (tw-314) is certified: its stored ability — discard the stored
+  card to retrieve an item — is implemented through three new primitives, a
+  `grant-action.fromStored` flag for abilities granted from the marshalling-
+  point pile, a `sage-at-haven` tap cost, and a kill-pile fallback for
+  `discard: "self"`.
+- Treebeard (tw-353) may not be attacked by automatic-attacks or hazards keyed
+  to his site, matching Quickbeam's wording; he was missing the play-flag and
+  could be assigned as a strike target.
+- Vile Fumes (wh-54) carries the "technology" keyword its printed card text
+  designates, so Saruman's Machinery recognises it as a Technology item.
+- Wormsbane (td-172) has the 2 corruption points the card database lists,
+  restoring both the badge and the bearer's corruption-check total.
+
+### Web Client
+
+- Hall of Fire's (dm-134) untap/heal resolution is clickable on the board; the
+  engine had always offered it, but the browser had no getter or click handler
+  for the action.
+- The Forge-master's (wh-117) menu is a two-step picker — item first, then
+  recipient — instead of the full item × recipient cross product, which could
+  overflow the screen with 28 unscrollable buttons.
+
+### AI
+
+- H2 sends a wounded company home: a haven is priced for the wounds it heals,
+  worth +33 Elo, with recoveries up from 0.3 to 1.2 a game and characters
+  wounded down from 34.6% to 28.0%.
+- Healing is scored as certain rather than potential — a modelling correction
+  that moved every proximate metric (going home when wounded 10.5% → 18.2%)
+  while measuring strength-neutral, and is recorded as such.
+- H2 no longer double-counts a defender's tap when entering a site: automatic
+  attacks resolve before any resource can be played, so their strikes are
+  deducted from the taps available to price what entering unlocks.
+- The hazard bundle planner accounts for a creature's own play-order-dependent
+  bonus (e.g. Orc-lieutenant's +4 prowess after a prior Orc attack), applying
+  it only at the sequence position where the condition holds.
+- The behaviour-cloning policy can delegate the decisions it cannot learn:
+  `BcWeightsFile.route` names action types handed to another agent, taking the
+  uploaded hybrid from −83 to +23 Elo against the heuristic.
+- Heuristics 1, Monte-Carlo and Real-AI are documented alongside H2 under
+  `docs/ai/`, each drawn as one decision end to end.
+
 ## 0.105.0 — 2026-08-14
 
 The Hunt names its quarry
