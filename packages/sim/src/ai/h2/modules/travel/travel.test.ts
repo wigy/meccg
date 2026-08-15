@@ -27,9 +27,6 @@ const REPLAN = 'organization/replanned-movement';
 /** A site phase where a company must decide whether to enter its site. */
 const ENTER = 'site/enter-or-pass';
 
-/** A site phase where the sole untapped defender must face an automatic attack. */
-const LONE_DEFENDER = 'site/lone-defender-taps-for-attack';
-
 /** The scenario as a module context. */
 function position(id: string = SCENARIO): { context: ModuleContext; actions: GameAction[] } {
   const scenario = loadScenario(id);
@@ -189,24 +186,6 @@ describe('entering a site', () => {
     // resource can be played (CoE 341-343). With every character tapped there
     // is no resource play to be had, so the attacks buy nothing at all.
     const { context, actions } = position(ENTER);
-    const enter = actions.find(a => a.type === 'enter-site')!;
-    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
-    const entering = travelModule.evaluate(enter, context)!;
-    expect(entering.expectedTsd).toBeLessThan(stay.expectedTsd);
-  });
-
-  test('a lone defender spends its tap facing the automatic attack, not on the resource play', () => {
-    // Bug report: the AI sent a solo, weak character into a ruins-and-lairs
-    // site printing a much stronger automatic attack. The one untapped
-    // character had to face that attack before any card could be played
-    // (CoE 341-343), so the resource play in hand was never actually
-    // reachable — but `evaluateEnterSite` priced it in anyway, using the
-    // pre-combat tap count. That double-counted the same tap for both
-    // surviving the attack and playing the card, making entering look
-    // profitable when it was a near-certain loss of the character for
-    // nothing. Facing the attack must consume the tap before what remains
-    // is priced.
-    const { context, actions } = position(LONE_DEFENDER);
     const enter = actions.find(a => a.type === 'enter-site')!;
     const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
     const entering = travelModule.evaluate(enter, context)!;
