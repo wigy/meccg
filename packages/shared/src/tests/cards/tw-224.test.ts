@@ -21,8 +21,10 @@ import {
   WOOD_ELVES,
   buildSitePhaseState, buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions, RESOURCE_PLAYER,
+  attachItemToChar, charIdAt,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
+import { recomputeDerived } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, InfluenceAttemptAction } from '../../index.js';
 
 const ELF_STONE = 'tw-224' as CardDefinitionId;
@@ -177,5 +179,24 @@ describe('Elf-stone (tw-224)', () => {
         && a.action.attachToCharacterId === aragornId,
     );
     expect(onAragorn).toBeDefined();
+  });
+
+  // ─── Printed corruption points (1, per the card database) ────────────────
+
+  test('bearer gains 1 corruption point from carrying Elf-stone', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    expect(base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(0);
+
+    const withItem = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, ELF_STONE));
+    expect(withItem.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(1);
   });
 });
