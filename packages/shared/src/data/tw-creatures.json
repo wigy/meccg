@@ -1839,8 +1839,14 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed."
+    "effects": [
+      {
+        "type": "combat-strike-effect",
+        "strikeEffect": "discard-item"
+      }
+    ],
+    "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hazard-creature",

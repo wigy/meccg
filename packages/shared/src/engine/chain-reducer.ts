@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
@@ -3561,6 +3561,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has tap-low-mind — facing characters with mind ≤ strike prowess tap after their strike');
   }
 
+  // combat-strike-effect (Thief tw-102): a successful strike discards a
+  // company item instead of wounding the defending character.
+  const strikeEffect = creatureDef.effects?.find(
+    (e): e is CombatStrikeEffectEffect => e.type === 'combat-strike-effect',
+  )?.strikeEffect;
+  if (strikeEffect) {
+    logDetail(`Creature has combat-strike-effect: ${strikeEffect} — successful strikes replaced accordingly`);
+  }
+
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
   const cancelByTapEffect = creatureDef.effects?.find(
     e => e.type === 'combat-cancel-attack-by-tap',
@@ -3777,6 +3786,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     eachCharacterFacesOneStrike: oneStrikePerCharacter ? true : undefined,
     defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     tapLowMindAfterStrike: tapLowMindAfterStrike ? true : undefined,
+    strikeEffect: strikeEffect ?? undefined,
     bodyCheckModifier: attackBodyCheckModifier !== 0 ? attackBodyCheckModifier : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   });
