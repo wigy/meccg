@@ -16,6 +16,10 @@
  *    company's `specialMovement` is `"paths-of-the-dead"` (set only while the
  *    company used the special movement granted by Paths of the Dead tw-302
  *    this turn; cleared at end of turn).
+ * 3. `noOpponentInfluence: true` — once in play, the faction can never be
+ *    targeted by an opponent's re-influence attempt, whether via the CoE
+ *    rule 8.3 site-phase re-influence clause or a rule-10.14 agent
+ *    influence attempt.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -24,15 +28,20 @@ import {
   ARAGORN, LEGOLAS, LORIEN,
   buildSitePhaseState, buildTestState, resetMint, dispatch, makeMHState,
   findCharInstanceId, findHandCardId, RESOURCE_PLAYER, HAZARD_PLAYER,
+  addCardInPlay, viableActions,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, Alignment, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, Alignment, CardStatus, ZERO_EFFECTIVE_STATS } from '../../index.js';
 import { MovementType } from '../../types/common.js';
-import type { InfluenceAttemptAction, CardDefinitionId, SitePhaseState } from '../../index.js';
+import type { InfluenceAttemptAction, CardDefinitionId, CardInstanceId, CompanyId, SitePhaseState } from '../../index.js';
 
 const ARMY_OF_THE_DEAD = 'tw-193' as CardDefinitionId;
 const FORLONG = 'tw-151' as CardDefinitionId;
 const VALE_OF_ERECH = 'tw-434' as CardDefinitionId;
 const DUNHARROW = 'tw-389' as CardDefinitionId;
+/** Men of Lamedon (tw-279) — also playable at Vale of Erech, no `noOpponentInfluence`; positive control. */
+const MEN_OF_LAMEDON = 'tw-279' as CardDefinitionId;
+/** Golodhros (dm-14) — minion agent carrying the rule-10.14 agent-tap-influence effect. */
+const GOLODHROS = 'dm-14' as CardDefinitionId;
 
 describe('Army of the Dead (tw-193)', () => {
   beforeEach(() => resetMint());
@@ -148,5 +157,91 @@ describe('Army of the Dead (tw-193)', () => {
       .filter(a => a.factionInstanceId === cardInstance);
 
     expect(influenceActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('may not be influenced by an opponent once in play, unlike a faction without the flag', () => {
+    // PLAYER_1's company (with an untapped character) is at Vale of Erech —
+    // the site where Army of the Dead is playable, so re-influence would
+    // normally be offered there. PLAYER_2 owns the in-play faction(s).
+    const base = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: VALE_OF_ERECH,
+    });
+    // opponentInfluenceActions guards on turnNumber > 2 ("not first turn").
+    const state = { ...base, turnNumber: 3 };
+
+    // Positive control: Men of Lamedon (tw-279), also playable at Vale of
+    // Erech and carrying no `noOpponentInfluence`, IS offered as a
+    // re-influence target — proving the scenario would otherwise generate
+    // the action, so the negative result below is meaningful.
+    const withControl = addCardInPlay(state, HAZARD_PLAYER, MEN_OF_LAMEDON);
+    const controlActions = viableActions(withControl, PLAYER_1, 'opponent-influence-attempt')
+      .filter(a => (a.action as { targetKind?: string }).targetKind === 'faction');
+    expect(controlActions.length).toBeGreaterThan(0);
+
+    const withArmyOfTheDead = addCardInPlay(state, HAZARD_PLAYER, ARMY_OF_THE_DEAD);
+    const armyActions = viableActions(withArmyOfTheDead, PLAYER_1, 'opponent-influence-attempt')
+      .filter(a => (a.action as { targetKind?: string }).targetKind === 'faction');
+    expect(armyActions).toHaveLength(0);
+  });
+
+  test('not offered as a rule-10.14 agent-influence-attempt target, unlike a faction without the flag', () => {
+    // Golodhros (dm-14): carries the rule-10.14 agent-tap-influence effect
+    // (targetKinds include "faction"). Positioned at Vale of Erech, where
+    // both Army of the Dead and Men of Lamedon are playable.
+    const golodhrosChar = {
+      instanceId: 'test-193-gol' as CardInstanceId,
+      definitionId: GOLODHROS,
+      status: CardStatus.Untapped,
+      items: [], allies: [], hazards: [], followers: [],
+      controlledBy: 'general' as const,
+      effectiveStats: ZERO_EFFECTIVE_STATS,
+    };
+    const valeOfErechInPlay = {
+      instanceId: 'test-193-voe' as CardInstanceId,
+      definitionId: VALE_OF_ERECH,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = {
+      ...base,
+      players: [
+        base.players[0],
+        {
+          ...base.players[1],
+          agents: [{
+            id: 'agent-0-0' as CompanyId,
+            character: golodhrosChar,
+            revealed: false,
+            siteStack: [valeOfErechInPlay],
+            remainingActions: 1,
+            inPlayAtTurnStart: true,
+            attackedThisSitePhase: false,
+            discardAtEndOfTurn: false,
+          }],
+        },
+      ] as typeof base.players,
+      phaseState: makeMHState({}),
+    };
+
+    // Positive control: Men of Lamedon, no `noOpponentInfluence`, IS offered.
+    const withControl = addCardInPlay(state, RESOURCE_PLAYER, MEN_OF_LAMEDON);
+    const controlActions = viableActions(withControl, PLAYER_2, 'agent-influence-attempt')
+      .filter(a => (a.action as { targetKind?: string }).targetKind === 'faction');
+    expect(controlActions.length).toBeGreaterThan(0);
+
+    // Army of the Dead is never offered.
+    const withArmyOfTheDead = addCardInPlay(state, RESOURCE_PLAYER, ARMY_OF_THE_DEAD);
+    const agentInfluenceActions = viableActions(withArmyOfTheDead, PLAYER_2, 'agent-influence-attempt')
+      .filter(a => (a.action as { targetKind?: string }).targetKind === 'faction');
+    expect(agentInfluenceActions).toHaveLength(0);
   });
 });
