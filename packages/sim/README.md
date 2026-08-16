@@ -1901,7 +1901,6 @@ change buys is that the draft now happens inside the right set.
 > left standing because the *reasoning* for keeping it was sound and the gate
 > that contradicted it was not.
 
-
 384 games against the heuristic champion, paired seeds, side-swapped, with a
 control run of the identical gate on `master`:
 
@@ -1934,7 +1933,6 @@ agreement measurement above — not on strength.
 > **about nothing** (+3, well inside noise) — not the +17 reported below. The
 > corpus evidence for the knapsack ordering is unaffected; what it buys in
 > strength is not what was claimed.
-
 
 The mark got H2 drafting inside the right set and could not order within it. A
 flat bonus ties every favourite, so *which* one got picked was still tie-break
