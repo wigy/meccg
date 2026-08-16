@@ -27,7 +27,7 @@ import { appendItemCards } from './render-utils.js';
 const pool = loadCardPool();
 
 const DAGGER_OF_WESTERNESSE = 'tw-206' as CardDefinitionId; // starting item, printed 1 CP
-const ELF_STONE = 'tw-224' as CardDefinitionId; // starting item, printed 0 CP
+const STAR_GLASS = 'tw-330' as CardDefinitionId; // starting item, printed 0 CP
 
 const CHAR_INST = 'p1-98' as CardInstanceId;
 const ITEM_INST = 'p1-102' as CardInstanceId;
@@ -90,7 +90,7 @@ describe('setup-phase item rendering includes CP badges', () => {
   test('a starting item with zero corruption points shows no CP badge', () => {
     const char = {
       instanceId: CHAR_INST,
-      items: [{ instanceId: ITEM_INST, definitionId: ELF_STONE, status: CardStatus.Untapped }],
+      items: [{ instanceId: ITEM_INST, definitionId: STAR_GLASS, status: CardStatus.Untapped }],
     } as unknown as CharacterInPlay;
 
     const container = new StubEl('div');
