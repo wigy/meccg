@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.110.0 — 2026-08-16
+
+Seven certifications and two corruption miscounts
+
+### Cards
+
+- **Thief (tw-102)** certified. Adds a `combat-strike-effect` DSL effect
+  (`strikeEffect: "discard-item"`) for hazard creatures whose successful
+  strike replaces the wound with a company item discard, generalizing the
+  existing agent-attack precedent (Taladhan dm-25, An Article Missing
+  dm-43) to plain creature combat in `initiateCreatureCombat`, reusing the
+  shared discard-item resolution path.
+- **Army of the Dead (tw-193)** certified. "May not be influenced by an
+  opponent" had no engine backing. Adds `FactionCardBase.noOpponentInfluence`
+  (a structural field, sibling to `requiredInfluencerName`) and gates all
+  three routes by which an opponent could re-influence an in-play faction:
+  the CoE 8.3 site-phase loop (`opponentInfluenceActions`), the rule-10.14
+  agent-tap-influence branch (`agentInfluenceActions`), and Twisted Tales
+  (dm-96)'s bespoke target enumeration.
+- **Clear Skies (tw-203)** certified by composing two shipped primitives —
+  a `play-condition requires: card-in-play` gate on Gates of Morning (the
+  Fog tw-241 shape) and `stat-modifier target: all-characters` for +2
+  prowess to every character in play (the Sun Shone Fiercely ba-25 shape).
+  No engine work needed.
+- **Greed (tw-42)**, **Weariness of the Heart (tw-111)**, **Ghouls
+  (tw-38)** and **Barrow-wight (tw-14)** certified as reprints of already
+  certified cards (le-113, le-149, le-73 and tw-015 respectively), each
+  with its own card test rather than a shared one. All four were pure
+  reuse of existing generic mechanics — the item-play-corruption-check
+  engine path, the CoE 7.2.1 per-character corruption lock, structural
+  race/strike-count fields, and the le-353 Barrow-downs
+  `character-wounded-by-self` force-check.
+
+### Card Data
+
+- **Elf-stone (tw-224)** was missing 1 corruption point — `corruptionPoints`
+  was 0 where the authoritative database lists 1, so characters carrying it
+  had their effective corruption under-counted.
+- **Magic Ring of Stealth (tw-274)** showed 0 corruption points instead of
+  the printed 2 (matching its siblings tw-271 and tw-273). The bearer's
+  effective stat was computed correctly from the field, so the wrong value
+  was used silently.
+
+### Documentation
+
+- The deferral hypothesis behind a proposed third fix for the enter-site
+  double-count is refuted. Measured over eight games, 87.0% of H2's
+  resource plays happen on the turn the company entered, and Heuristics 1's
+  figure is 100.0% — it never once played at a site on a later turn. A
+  company plays where it arrives, on arrival, or not at all, so displaced
+  plays are lost rather than deferred and pricing them as forfeited was
+  right. Why two correct fixes each cost about 90 Elo remains unexplained.
+
 ## 0.109.0 — 2026-08-15
 
 Movement risk gets a price tag
