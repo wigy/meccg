@@ -5379,6 +5379,18 @@ strings to chase through the engine.
   tapped instead—no body checks are made" never says "detainment").
   (implemented in `engine/detainment.ts`, `reducer-combat.ts`,
   `combat-finalize.ts`)
+- `combat-strike-effect` — self-bound creature version of the agent-attack
+  `strikeEffect: "discard-item"` precedent (§40.1 `agent-attack-modifier`).
+  A successful strike does not wound the defending character; instead the
+  defending **company** must discard one item (defender's choice) via the
+  `discard-item-from-company` combat phase. Only field beyond `type` is
+  `strikeEffect: "discard-item"` (currently the only value). Threaded onto
+  `CombatState.strikeEffect` at combat initiation (`initiateCreatureCombat`,
+  `chain-reducer.ts`) and resolved by the same generic path in
+  `combat-strike.ts` shared with agent attacks — detainment strikes never
+  trigger it. Card text is "For each successful strike, an item held by
+  the defending company must be discarded (defender's choice); the
+  defending character is not harmed" (e.g. Thief, tw-102).
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
@@ -5394,6 +5406,7 @@ strings to chase through the engine.
 { "type": "combat-tap-low-mind" }
 { "type": "combat-detainment" }
 { "type": "combat-detainment", "awardsKillMp": true }
+{ "type": "combat-strike-effect", "strikeEffect": "discard-item" }
 {
   "type": "combat-detainment",
   "when": {

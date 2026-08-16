@@ -3855,6 +3855,24 @@ export interface CombatTapLowMindEffect extends EffectBase {
 }
 
 /**
+ * A successful strike of this attack does not wound the defending character;
+ * instead the defending company must discard one item (defender's choice).
+ * Self-bound to the creature — threaded onto `CombatState.strikeEffect` at
+ * combat initiation and resolved by the generic `strikeEffect === 'discard-item'`
+ * path in `combat-strike.ts` shared with the agent-attack precedent (Taladhan
+ * dm-25, An Article Missing dm-43): the strike still "hits" (cancelable,
+ * countable) but its result is replaced with a company item discard via the
+ * `discard-item-from-company` combat phase; detainment attacks never trigger
+ * it. Card text is "For each successful strike, an item held by the
+ * defending company must be discarded (defender's choice); the defending
+ * character is not harmed" (e.g. Thief tw-102).
+ */
+export interface CombatStrikeEffectEffect extends EffectBase {
+  readonly type: 'combat-strike-effect';
+  readonly strikeEffect: 'discard-item';
+}
+
+/**
  * Closed set of presence-only flags that toggle uniform play-time
  * behaviors in the engine. Each flag is a single keyword, matched
  * exactly — no card-specific dispatch, just "does the card declare
@@ -8424,6 +8442,7 @@ export type CardEffect =
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatTapLowMindEffect
+  | CombatStrikeEffectEffect
   | CombatOneStrikePerCharacterEffect
   | CombatBodyCheckModifierEffect
   | CombatBodyPerDefenderSkillEffect
