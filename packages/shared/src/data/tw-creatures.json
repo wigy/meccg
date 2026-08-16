@@ -1255,7 +1255,8 @@
       }
     ],
     "effects": [],
-    "text": "Undead. Five strikes."
+    "text": "Undead. Five strikes.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hazard-creature",
