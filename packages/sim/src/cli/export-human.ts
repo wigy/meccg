@@ -104,6 +104,8 @@ Options:
   --unfinished <mode>  neutral (default) exports undecided games with a null
                        winner (z = 0); skip drops them
   --contested-only     omit decisions with fewer than two viable candidates
+  --hazard-memory      append an entity row per distinct opponent hazard seen
+                       so far this game (experimental; changes entity count)
   --jobs <n>           fan out over n child processes, sharded by file
   --help               this message
 `;
@@ -166,6 +168,21 @@ const outFile = stringFlag(args, 'out') ?? 'human-training.jsonl';
 const gameLimit = numberFlag(args, 'games', Number.POSITIVE_INFINITY);
 const maxDecisions = numberFlag(args, 'max-decisions', Number.POSITIVE_INFINITY);
 const contestedOnly = args.flags['contested-only'] === true;
+/**
+ * Append one entity row per distinct opponent hazard seen so far this game.
+ *
+ * The feature spec is a pure function of the current view, so a hazard the
+ * opponent spent on turn 3 is gone from the model's input by turn 8 — while a
+ * human is still counting it against what can be left in that deck. Movement
+ * is where that costs most: choosing a plan is a risk assessment over what
+ * the opponent can still play, and `plan-movement` is the type the clone is
+ * worst at (3.3% on the human's actual move). Rows rather than scalars so the
+ * memory reuses the card embeddings the net already has.
+ *
+ * Experimental: this widens `entities` beyond what the committed featurizer
+ * produces, so data exported with it trains only against itself.
+ */
+const hazardMemory = args.flags['hazard-memory'] === true;
 const noHeader = args.flags['no-header'] === true;
 const jobs = numberFlag(args, 'jobs', Number(process.env.SIM_JOBS ?? 1) || 1);
 const shardSpec = stringFlag(args, 'shard');
@@ -344,6 +361,22 @@ function chosenIndex(
   return undefined;
 }
 
+/** Entity zone id for a remembered opponent hazard (past ENTITY_ZONES' 12). */
+const ZONE_OPP_HAZARD_SEEN = 13;
+
+/** Instance -> definition map from a log's `-cards.json` sidecar, if present. */
+function loadCardSidecar(file: string): Map<string, string> {
+  const sidecar = file.replace(/\.jsonl$/, '-cards.json');
+  if (!fs.existsSync(sidecar)) return new Map();
+  const parsed = JSON.parse(fs.readFileSync(sidecar, 'utf-8')) as { instances?: Record<string, string> };
+  return new Map(Object.entries(parsed.instances ?? {}));
+}
+
+/** Does this action put an opponent hazard on the table? */
+function isHazardPlay(action: GameAction): boolean {
+  return action.type === 'play-hazard' || action.type === 'play-agent-hazard';
+}
+
 /**
  * Export one game's human decisions, appending to the open descriptor `out`.
  *
@@ -377,11 +410,22 @@ function exportGame(
   if (!finished && unfinishedMode === 'skip') return 0;
 
   const lines: string[] = [];
+  const cardOf = hazardMemory ? loadCardSidecar(file) : new Map<string, string>();
+  /** Distinct opponent hazard definitions seen so far, in first-seen order. */
+  const hazardsSeen: string[] = [];
   let seq = 0;
   for (let i = 0; i < records.length - 1 && seq < maxDecisions; i++) {
     const moved = records[i + 1].action;
     if (moved === undefined) continue;
     const seat = teachers.get(moved.player);
+    // Remember the opponent's hazards as they are played, before the decision
+    // that follows them. A teacher seat's own hazards are not news to it.
+    if (hazardMemory && seat === undefined && isHazardPlay(moved)) {
+      for (const value of Object.values(moved as unknown as Record<string, unknown>)) {
+        const definition = typeof value === 'string' ? cardOf.get(value) : undefined;
+        if (definition !== undefined && !hazardsSeen.includes(definition)) hazardsSeen.push(definition);
+      }
+    }
     if (seat === undefined) {
       if (!teachers.has(moved.player)) tally.bot++;
       continue;
@@ -423,7 +467,15 @@ function exportGame(
       player: seat.index,
       phase: view.phaseState.phase,
       global: features.global,
-      entities: features.entities,
+      entities: hazardMemory
+        ? [...features.entities, ...hazardsSeen.map(definition => {
+          const row = new Array<number>(ENTITY_FEATURE_WIDTH).fill(0);
+          row[0] = ZONE_OPP_HAZARD_SEEN;
+          row[1] = 1;                      // owner: opponent
+          row[2] = vocab.indexOf(definition);
+          return row;
+        })]
+        : features.entities,
       candidates: actions.candidates,
       mask: actions.mask,
       chosen: found.index,
@@ -480,6 +532,7 @@ function headerRecord(files: readonly { gameId: string }[]): Record<string, unkn
     bots: [...botSeats],
     unfinished: unfinishedMode,
     contestedOnly,
+    hazardMemory,
     createdAt: new Date().toISOString(),
   };
 }
