@@ -2260,6 +2260,7 @@
       }
     ],
     "requiredInfluencerName": "Aragorn II",
+    "noOpponentInfluence": true,
     "effects": [
       {
         "type": "play-condition",
@@ -2269,7 +2270,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Vale of Erech. May only be played by Aragorn II on the same turn that he plays Paths of the Dead. May not be influenced by an opponent."
+    "text": "Unique. Playable at Vale of Erech. May only be played by Aragorn II on the same turn that he plays Paths of the Dead. May not be influenced by an opponent.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hero-resource-event",
@@ -2349,8 +2351,21 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. Playable only if Gates of Morning is in play. The prowess of each character is modified by +2."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Gates of Morning"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-characters"
+      }
+    ],
+    "text": "Environment. Playable only if Gates of Morning is in play. The prowess of each character is modified by +2.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hero-resource-event",

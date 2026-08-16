@@ -172,6 +172,14 @@ interface FactionCardBase extends ResourceCardBase {
    * the Dead tw-193: "May only be played by Aragorn II").
    */
   readonly requiredInfluencerName?: string;
+  /**
+   * If set, an opponent may never target this faction with a re-influence
+   * attempt once it is in play (CoE rule 8.3's faction re-influence clause is
+   * suppressed entirely for this card). Rare: used by factions whose printed
+   * text says so explicitly (e.g. Army of the Dead tw-193: "May not be
+   * influenced by an opponent").
+   */
+  readonly noOpponentInfluence?: boolean;
 }
 
 /**
