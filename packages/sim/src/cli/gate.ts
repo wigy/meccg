@@ -18,7 +18,7 @@
  * Usage:
  *   npm run gate -w @meccg/sim -- --challenger <agent> [--champion heuristic]
  *     [--pairs N] [--rounds N] [--seed S] [--min-elo E] [--decks d1,d2]
- *     [--max-decisions N] [--jobs N]
+ *     [--max-decisions N] [--jobs N] [--allow-dirty]
  */
 
 import * as fs from 'fs';
@@ -27,6 +27,7 @@ import * as path from 'path';
 import { runMatch, estimatePairedEloDiff, MIN_PAIRS_FOR_INTERVAL } from '../tournament.js';
 import type { TournamentPlayFn } from '../tournament.js';
 import { parseCliArgs, numberFlag, stringFlag, resolveAgent, resolveDecks } from './common.js';
+import { verifyTree, describeTree } from './tree-check.js';
 import { sliceGames, runChildren } from './jobs.js';
 
 const args = parseCliArgs(process.argv.slice(2));
@@ -46,8 +47,14 @@ const maxDecisions = numberFlag(args, 'max-decisions', 25000);
 const jobs = numberFlag(args, 'jobs', Number(process.env.SIM_JOBS ?? 1) || 1);
 const decks = resolveDecks(args);
 
+// Which tree is this measuring? A gate result is quoted long after the run, so
+// it has to name the revision it belongs to — and it has to refuse when the code
+// being run is not the code in this directory. See `cli/tree-check`.
+const tree = verifyTree({ moduleDir: __dirname, allowDirty: args.flags['allow-dirty'] === true });
+
 const totalGames = rounds * pairsPerRound * 2;
 console.log(`Gate: challenger ${challengerSpec} vs champion ${championSpec}`);
+console.log(`  ${describeTree(tree)}`);
 console.log(`  ${totalGames} games (${rounds} round(s) × ${pairsPerRound} paired seeds, side-swapped${jobs > 1 ? `, ${jobs} jobs` : ''}); decks ${decks[0].id}/${decks[1].id}; seeds from ${baseSeed}`);
 console.log(`  criterion: Elo-diff 95% lower bound ≥ ${minElo}, and all games complete`);
 
