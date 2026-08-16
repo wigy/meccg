@@ -42,6 +42,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions, SiteType } from '../../index.js';
 import type { CancelStrikeAction } from '../../index.js';
+import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const MAGIC_RING_OF_STEALTH = 'tw-274' as CardDefinitionId;
 const PRECIOUS_GOLD_RING = 'tw-306' as CardDefinitionId;
@@ -210,6 +211,32 @@ describe('Magic Ring of Stealth (tw-274)', () => {
       .filter(ea => ea.viable && ea.action.type === 'cancel-strike');
 
     expect(cancelActions).toHaveLength(0);
+  });
+
+  // ── Corruption points: printed 2 CP, not 0 ───────────────────────────────
+
+  test('bearer suffers 2 corruption points from the ring (printed CP, not 0)', () => {
+    // Bug report: a bearer holding the ring showed 0 CP instead of the
+    // printed 2. The card data had corruptionPoints: 0 instead of 2.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: LEGOLAS, items: [MAGIC_RING_OF_STEALTH] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withDerived = recomputeDerived(base);
+    const legolasId = findCharInstanceId(withDerived, RESOURCE_PLAYER, LEGOLAS);
+    const char = withDerived.players[RESOURCE_PLAYER].characters[legolasId];
+
+    expect(char.effectiveStats.corruptionPoints).toBe(2);
   });
 
   // ── Rule 5: Gold-ring test eligibility ──────────────────────────────────

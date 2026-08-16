@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
-import type { FreeCouncilPhaseState, CardDefinitionId } from '../../../index.js';
+import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableFor,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -23,6 +23,13 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH,
   findCharInstanceId, attachHazardToChar,
 } from '../../test-helpers.js';
+
+// Minion character sharing a company with the Ringwraith avatar.
+const GORBAG = 'le-11' as CardDefinitionId;
+const ADUNAPHEL = 'le-50' as CardDefinitionId; // Ringwraith avatar (race: ringwraith)
+const THE_BALROG = 'ba-3' as CardDefinitionId; // Balrog avatar (race: balrog, mind: null)
+const CARN_DUM = 'le-359' as CardDefinitionId;
+const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 
 describe('Rule 10.44 — Step 1: Corruption Checks', () => {
   beforeEach(() => resetMint());
@@ -171,5 +178,70 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
 
     const copies = after.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === hazardId);
     expect(copies).toHaveLength(1);
+  });
+
+  test('Ringwraith and Balrog avatars are skipped — only their non-Ringwraith, non-Balrog company mate is checked', () => {
+    // Regression: at game end, a Ringwraith (or Balrog) avatar was offered a
+    // corruption-check action alongside its company mate, even though CoE
+    // 7.4 / 10.44 say Ringwraiths and Balrogs are immune to corruption and
+    // never make one.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: CARN_DUM, characters: [GORBAG, ADUNAPHEL] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const gorbagId = findCharInstanceId(base, RESOURCE_PLAYER, GORBAG);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const state = { ...base, phaseState: fcState };
+
+    const checks = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check') as { action: CorruptionCheckAction }[];
+
+    expect(checks).toHaveLength(1);
+    expect(checks[0].action.characterId).toBe(gorbagId);
+
+    // Once Gorbag is checked, only the Ringwraith remains — pass, not a check.
+    const afterGorbagChecked = { ...state, phaseState: { ...fcState, checkedCharacters: [gorbagId] } };
+    const remaining = viableFor(afterGorbagChecked, PLAYER_1).map(a => a.action.type);
+    expect(remaining).not.toContain('corruption-check');
+    expect(remaining).toContain('pass');
+  });
+
+  test('Balrog avatar alone is skipped — pass is offered immediately', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: CARN_DUM, characters: [THE_BALROG] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const state = { ...base, phaseState: fcState };
+
+    const actions = viableFor(state, PLAYER_1).map(a => a.action.type);
+    expect(actions).not.toContain('corruption-check');
+    expect(actions).toContain('pass');
   });
 });

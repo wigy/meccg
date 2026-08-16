@@ -18,10 +18,20 @@
  * card had an empty `effects` array. This test covers the play-time half of
  * the card: the sage/site play conditions, the tap costs, and the
  * bearer-cannot-untap-until-stored lock (mirrors Rescue Prisoners tw-315 and
- * Swordmaster tw-498, which use the same DSL primitives). The organization-phase
- * "discard a stored Reforging to retrieve an item" clause is a separate,
- * larger mechanic (a stored-pile-sourced granted ability) not exercised by the
- * reported game and left for a follow-up certification pass.
+ * Swordmaster tw-498, which use the same DSL primitives).
+ *
+ * The organization-phase "discard a stored Reforging to retrieve an item"
+ * clause is a `grant-action` with `fromStored: true` — the ability is
+ * granted while the card sits *stored* in the marshalling-point pile
+ * (`killPile`), not while attached to a bearer. Its cost is
+ * `{ tap: "sage-at-haven", discard: "self" }`: any of the player's own
+ * untapped sage characters at a Haven [{H}] may pay the tap (independent of
+ * company — there is no bearer to anchor one), and the stored card itself is
+ * discarded straight out of `killPile`. The apply is `place-item-on-character`
+ * (shared with The Forge-master wh-117), scoped by the stored-card scanner
+ * (`storedCardGrantActions`) to the tapped sage's own company, fetching a
+ * minor/major weapon/armor/shield (hoard items qualify too — the filter has
+ * no `hoard`-excluding clause) from the discard pile.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -31,18 +41,22 @@ import {
   resetMint,
   buildSitePhaseState,
   buildTestState, makePlayDeck,
-  findCharInstanceId,
+  findCharInstanceId, findInPile,
   viableActions, dispatch, resolveChain,
   GALADRIEL, ARAGORN, RIVENDELL, LORIEN, LEGOLAS,
   mint, addToPile,
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js';
+import type { CardDefinitionId, PlayPermanentEventAction, GameAction } from '../../index.js';
 
 const REFORGING = 'tw-314' as CardDefinitionId;
 const AMON_HEN = 'tw-371' as CardDefinitionId; // ruins-and-lairs, Information playable
 const TOLFALAS = 'tw-433' as CardDefinitionId; // ruins-and-lairs, NO Information
+
+const DAGGER_OF_WESTERNESSE = 'tw-206' as CardDefinitionId; // minor weapon
+const VALIANT_SWORD = 'td-161' as CardDefinitionId;         // major weapon, hoard item
+const ATHELAS = 'tw-195' as CardDefinitionId;                // minor, not weapon/armor/shield
 
 describe('Reforging (tw-314)', () => {
   beforeEach(() => resetMint());
@@ -211,5 +225,155 @@ describe('Reforging (tw-314)', () => {
     );
     const state = recomputeDerived(stored);
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+  });
+
+  // ── Organization-phase retrieval: tap a sage at a Haven, discard a stored
+  //    Reforging, retrieve a qualifying item onto a character in the sage's
+  //    company ──
+
+  function retrievalState(opts: { discardPile?: CardDefinitionId[]; site?: CardDefinitionId }) {
+    const site = opts.site ?? RIVENDELL;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site, characters: [GALADRIEL, ARAGORN] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+          discardPile: opts.discardPile ?? [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+    const stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: REFORGING, storedAtSite: site },
+    );
+    return recomputeDerived(stored);
+  }
+
+  test('offers tap-sage-at-haven + discard-stored-Reforging, targeting a qualifying item onto any character in the sage\'s company', () => {
+    const state = retrievalState({ discardPile: [DAGGER_OF_WESTERNESSE] });
+    const galadrielId = findCharInstanceId(state, RESOURCE_PLAYER, GALADRIEL);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const daggerId = findInPile(state, RESOURCE_PLAYER, 'discardPile', DAGGER_OF_WESTERNESSE)!.instanceId;
+
+    const matches = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; characterId?: unknown; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .filter(a => a.actionId === 'reforging-retrieve-item' && a.targetCardId === daggerId);
+
+    // Both company members are offered as recipients.
+    const recipientIds = new Set(matches.map(a => a.recipientCharacterId));
+    expect(recipientIds.has(galadrielId)).toBe(true);
+    expect(recipientIds.has(aragornId)).toBe(true);
+    // Only the sage (Galadriel) may pay the tap cost — Aragorn has no sage skill.
+    expect(matches.every(a => a.characterId === galadrielId)).toBe(true);
+  });
+
+  test('activating retrieves the item onto the chosen character, discards stored Reforging, and taps the sage', () => {
+    const state = retrievalState({ discardPile: [DAGGER_OF_WESTERNESSE] });
+    const galadrielId = findCharInstanceId(state, RESOURCE_PLAYER, GALADRIEL);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const daggerId = findInPile(state, RESOURCE_PLAYER, 'discardPile', DAGGER_OF_WESTERNESSE)!.instanceId;
+
+    const act = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .find(a => a.actionId === 'reforging-retrieve-item' && a.targetCardId === daggerId && a.recipientCharacterId === aragornId);
+    expect(act).toBeDefined();
+
+    const after = dispatch(state, act as GameAction);
+
+    // The dagger is now on Aragorn, untapped, and gone from the discard pile.
+    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId];
+    const placed = aragorn.items.find(i => i.definitionId === DAGGER_OF_WESTERNESSE);
+    expect(placed).toBeDefined();
+    expect(placed!.status).toBe(CardStatus.Untapped);
+    expect(findInPile(after, RESOURCE_PLAYER, 'discardPile', DAGGER_OF_WESTERNESSE)).toBeUndefined();
+
+    // The stored Reforging is discarded out of the marshalling-point pile.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === REFORGING)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === REFORGING)).toBe(true);
+
+    // The sage (Galadriel) tapped to pay the cost, even though the item went to Aragorn.
+    expect(after.players[RESOURCE_PLAYER].characters[galadrielId].status).toBe(CardStatus.Tapped);
+  });
+
+  test('a hoard item still qualifies for retrieval', () => {
+    const state = retrievalState({ discardPile: [VALIANT_SWORD] });
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'reforging-retrieve-item');
+    expect(offered).toBe(true);
+  });
+
+  test('a non-weapon/armor/shield minor item does NOT qualify', () => {
+    const state = retrievalState({ discardPile: [ATHELAS] });
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'reforging-retrieve-item');
+    expect(offered).toBe(false);
+  });
+
+  test('NOT offered when the sage is not at a Haven', () => {
+    const state = retrievalState({ discardPile: [DAGGER_OF_WESTERNESSE], site: AMON_HEN });
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'reforging-retrieve-item');
+    expect(offered).toBe(false);
+  });
+
+  test('NOT offered when the sage is already tapped', () => {
+    const site = RIVENDELL;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site, characters: [{ defId: GALADRIEL, status: CardStatus.Tapped }, ARAGORN] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+          discardPile: [DAGGER_OF_WESTERNESSE],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+    const state = recomputeDerived(addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: REFORGING, storedAtSite: site },
+    ));
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'reforging-retrieve-item');
+    expect(offered).toBe(false);
+  });
+
+  test('NOT offered when there is no stored Reforging (only one attached to a bearer)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: GALADRIEL, items: [REFORGING] }, ARAGORN] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+          discardPile: [DAGGER_OF_WESTERNESSE],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'reforging-retrieve-item');
+    expect(offered).toBe(false);
   });
 });

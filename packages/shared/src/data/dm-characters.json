@@ -676,8 +676,19 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. +3 direct influence against Wose Factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "wose"
+        }
+      }
+    ],
+    "text": "Unique. Agent. +3 direct influence against Wose Factions.",
+    "certified": "2026-08-15"
   },
   {
     "cardType": "minion-character",

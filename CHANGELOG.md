@@ -1,5 +1,274 @@
 # Changelog
 
+## 0.110.0 — 2026-08-16
+
+Seven certifications and two corruption miscounts
+
+### Cards
+
+- **Thief (tw-102)** certified. Adds a `combat-strike-effect` DSL effect
+  (`strikeEffect: "discard-item"`) for hazard creatures whose successful
+  strike replaces the wound with a company item discard, generalizing the
+  existing agent-attack precedent (Taladhan dm-25, An Article Missing
+  dm-43) to plain creature combat in `initiateCreatureCombat`, reusing the
+  shared discard-item resolution path.
+- **Army of the Dead (tw-193)** certified. "May not be influenced by an
+  opponent" had no engine backing. Adds `FactionCardBase.noOpponentInfluence`
+  (a structural field, sibling to `requiredInfluencerName`) and gates all
+  three routes by which an opponent could re-influence an in-play faction:
+  the CoE 8.3 site-phase loop (`opponentInfluenceActions`), the rule-10.14
+  agent-tap-influence branch (`agentInfluenceActions`), and Twisted Tales
+  (dm-96)'s bespoke target enumeration.
+- **Clear Skies (tw-203)** certified by composing two shipped primitives —
+  a `play-condition requires: card-in-play` gate on Gates of Morning (the
+  Fog tw-241 shape) and `stat-modifier target: all-characters` for +2
+  prowess to every character in play (the Sun Shone Fiercely ba-25 shape).
+  No engine work needed.
+- **Greed (tw-42)**, **Weariness of the Heart (tw-111)**, **Ghouls
+  (tw-38)** and **Barrow-wight (tw-14)** certified as reprints of already
+  certified cards (le-113, le-149, le-73 and tw-015 respectively), each
+  with its own card test rather than a shared one. All four were pure
+  reuse of existing generic mechanics — the item-play-corruption-check
+  engine path, the CoE 7.2.1 per-character corruption lock, structural
+  race/strike-count fields, and the le-353 Barrow-downs
+  `character-wounded-by-self` force-check.
+
+### Card Data
+
+- **Elf-stone (tw-224)** was missing 1 corruption point — `corruptionPoints`
+  was 0 where the authoritative database lists 1, so characters carrying it
+  had their effective corruption under-counted.
+- **Magic Ring of Stealth (tw-274)** showed 0 corruption points instead of
+  the printed 2 (matching its siblings tw-271 and tw-273). The bearer's
+  effective stat was computed correctly from the field, so the wrong value
+  was used silently.
+
+### Documentation
+
+- The deferral hypothesis behind a proposed third fix for the enter-site
+  double-count is refuted. Measured over eight games, 87.0% of H2's
+  resource plays happen on the turn the company entered, and Heuristics 1's
+  figure is 100.0% — it never once played at a site on a later turn. A
+  company plays where it arrives, on arrival, or not at all, so displaced
+  plays are lost rather than deferred and pricing them as forfeited was
+  right. Why two correct fixes each cost about 90 Elo remains unexplained.
+
+## 0.109.0 — 2026-08-15
+
+Movement risk gets a price tag
+
+### AI / Simulation
+
+- Travel now prices a destination's printed automatic attacks. H2 planned
+  a company's movement by what a candidate destination's resources were
+  worth minus the regions crossed, but never by what walking through the
+  door would cost — even though `evaluateEnterSite` already prices exactly
+  that once the company arrives, which is one decision too late: the
+  regions are already crossed by then. `destinationValue` now charges the
+  same automatic-attack harm (`automaticAttacksOf` against the roster via
+  `computeDefence`) as part of the travel cost. Fixing this exposed a
+  related bug — the arriving site's definition ID was re-derived from the
+  action's own shape, which `cancel-movement` does not carry, so
+  cancelling priced no automatic-attack risk while planning the same move
+  did, breaking cancel's "exact inverse of travelling" invariant. Both now
+  take an explicit `arrivingDefinitionId` set by every caller.
+- Item transfers and storage are priced for corruption risk. The health
+  module scored `transfer-item` and `store-item` at exactly 0 TSD whenever
+  no marshalling points changed hands, tying them with `pass` — and the
+  tie-break excludes `pass` whenever anything ties with it, so a
+  "free" transfer always won. Per CoE 2.II.4.1 / 2.II.5 giving up an item
+  unconditionally enqueues a corruption check on the bearer, a real risk
+  of losing the character; the AI was shuffling items through
+  intermediaries via needless checks instead of transferring once.
+
+### Card Data
+
+- I'll Report You (le-196) is restricted to the organization phase. The
+  card text reads "Playable on a leader during the organization phase,"
+  but the data was missing the play-condition phase gate that enforces it
+  (compare le-210 No More Nonsense, identically restricted and correctly
+  encoded), so rule 2.1.1's default "any phase" allowance for
+  permanent-event resources let it be offered in the movement/hazard and
+  site phases too.
+
+### Web Client
+
+- The hazard hand renderer no longer drops play-creature-from-discard
+  actions. Exhalation of Decay (dm-55) and similar discard-pile revival
+  cards produce a `play-creature-from-discard` legal action, distinct from
+  `play-hazard`; the renderer only looked for the latter, so such cards
+  fell through to the bare on-guard fallback and offered only "Place
+  on-guard" even when the engine had computed a keyed play against the
+  opponent's site path.
+- The scoreboard's Replay button is disabled while the game bundle loads.
+  Clicking it lazily fetches the bundle before the loading cover appears,
+  so until the fetch resolved nothing indicated the click had registered.
+  The button re-enables only if starting the replay fails.
+
+### Documentation
+
+- Recorded why the `evaluateEnterSite` tap double-count stays unfixed. It
+  prices the cards entering unlocks on the pre-combat tap count, though
+  automatic attacks resolve as part of entering (CoE 2.V.ii). It has been
+  fixed correctly twice and both fixes were large regressions — −87 and
+  −100 Elo. Two independent correct fixes costing ~90 Elo each is a
+  measurement, not two mistakes; the likely cause is that displaced plays
+  are deferred rather than lost. Nobody should attempt a third fix without
+  measuring that assumption first.
+
+## 0.108.0 — 2026-08-15
+
+Five fixes and a reverted regression
+
+### Game Engine
+
+- Ringwraith and Balrog avatars are no longer offered corruption checks
+  in the Free Council phase. Per CoE 7.4 / 10.44 a player checks each of
+  their *non-Ringwraith, non-Balrog* characters; `freeCouncilActions()`
+  now skips characters of race Ringwraith and the Balrog avatar, so a
+  company holding one resolves only its checkable members.
+- Marvels Told can now target Nazgûl played as permanent-events. Cards
+  entering play through a `creature-alt-event` permanent-event mode
+  (Uvatha the Horseman, Adúnaphel, …) sit in `cardsInPlay` as
+  `hazard-creature`, so the discard-in-play filter's `hazard-event` check
+  never saw them, contrary to rule 2.IV.vii.5 and CRF 22.
+  `collectDiscardInPlayTargets` now matches such cards against an
+  effective definition with `cardType: 'hazard-event'` and
+  `eventType: 'permanent'`.
+
+### Web Client
+
+- Starting-company-event cards are playable during the item draft again.
+  Orders from Lugbúrz (as-94) and its siblings are offered as a legal
+  `place-starting-company-event` action throughout the draft, but the
+  hand arc was populated only from unassigned draft items — these cards
+  live in the play deck/sideboard, so they never appeared, and had no
+  click handler even if they had. The arc now includes them and clicking
+  dispatches the action, or opens a target menu for recruitment vehicles
+  like Thrall of the Voice that offer one action per character.
+- Exiting a replay clears the text-log panel. `#game-log-panel` is a
+  `position: fixed` sibling of `#game`, so hiding `#game` left playback
+  toasts floating over the page; `exitReplay()` now clears the per-game
+  message log the way `disconnect()` already did.
+
+### AI / Simulation
+
+- Reverted the enter-site defender-tap deduction (#2397). The bug it
+  fixed is real — a site's automatic attacks resolve as part of entering,
+  so a lone defender cannot both parry and tap to play — but the change
+  shipped ungated and cost about 87 Elo (35.8% → 25.3% win rate,
+  intervals not overlapping), the largest single regression measured on
+  this line. The deduction prices out every strike of every automatic
+  attack regardless of threat, and H2's site-entry rate fell 56% → 45.7%.
+  The sim README records the review lesson: correctness review is not a
+  substitute for a gate, including for changes arriving from outside.
+
+## 0.107.0 — 2026-08-15
+
+Every finished game, played back
+
+### Web Client
+
+- The Scores page now links each completed game to a replay that plays it
+  back on the ordinary game board. Every recorded line is a full state
+  snapshot, so playback re-projects recorded states rather than re-running
+  the reducer; a 62MB / 2302-frame log indexes in ~200ms and serves a frame
+  in ~2ms, with no parsed state held in memory.
+- Replay transport bar: step/jump/play, scrubber, speed, a seat switch that
+  flips the board, and Exit. Arrows step, space plays, Escape leaves. The
+  viewer borrows spectator mode to suppress the play affordances.
+- Replay frames drive the identical render pipeline as live play — board,
+  companies, chain, dice, phase meter, toasts — via the extracted
+  `renderStateMessage`.
+- Recordings older than several engine state fields no longer crash the
+  projection on undefined piles. State and player defaults supply the values
+  those games implicitly had, taking the local corpus from 152/295 to
+  290/295 replayable; what still cannot project is reported as unreplayable
+  rather than throwing.
+
+### Game Engine
+
+- New `company.destinationSiteRegionType` play-target filter context field,
+  resolved from a company's declared destination site during the
+  organization phase — unlike the M/H-only destination path array, it is
+  available as soon as plan-movement sets a destination.
+- New company-size-keyed grant-ally-play variant: a player-scoped,
+  free-standing permanent-event grant (`maxCompanySize` + `allowTappedSite`)
+  that lifts the untapped-site requirement for ally plays by any company
+  whose effective size (CoE 3.24) is at most the given value.
+
+### Card Data
+
+- **tw-324 Secret Entrance** — certified. Now installs the narrower
+  `no-creatures-keyed-to-site` constraint instead of Stealth's broad
+  `no-creature-hazards-on-company`, matching the printed text, and
+  implements the previously-missing "may not be played on a company moving
+  to a site in a Dark-domain" restriction.
+- **wh-109 Friend of Secret Things** — certified, adding the company-size
+  tapped-site ally grant alongside its stage-points effect.
+- **dm-22 Pôn-ora-Pôn** — certified, adding the +3 direct influence against
+  Wose factions.
+
+### Documentation
+
+- The new grant-ally-play variant and destination-site region-type context
+  field are recorded in the card-effects DSL and certification-support docs.
+
+## 0.106.0 — 2026-08-15
+
+The company goes home to heal
+
+### Game Engine
+
+- Fellowship (tw-240) is discarded when companies auto-merge at a non-haven
+  site, as rule 2.IV.6 requires — the auto-merge path never swept the
+  membership-changed events the explicit merge action does.
+- The item-draft step no longer ends the moment the last unassigned item is
+  taken while a starting-company-event card (e.g. Orders from Lugbúrz, as-94)
+  could still be played in lieu of a minor item; the player must pass
+  explicitly.
+- Reforging (tw-314) is certified: its stored ability — discard the stored
+  card to retrieve an item — is implemented through three new primitives, a
+  `grant-action.fromStored` flag for abilities granted from the marshalling-
+  point pile, a `sage-at-haven` tap cost, and a kill-pile fallback for
+  `discard: "self"`.
+- Treebeard (tw-353) may not be attacked by automatic-attacks or hazards keyed
+  to his site, matching Quickbeam's wording; he was missing the play-flag and
+  could be assigned as a strike target.
+- Vile Fumes (wh-54) carries the "technology" keyword its printed card text
+  designates, so Saruman's Machinery recognises it as a Technology item.
+- Wormsbane (td-172) has the 2 corruption points the card database lists,
+  restoring both the badge and the bearer's corruption-check total.
+
+### Web Client
+
+- Hall of Fire's (dm-134) untap/heal resolution is clickable on the board; the
+  engine had always offered it, but the browser had no getter or click handler
+  for the action.
+- The Forge-master's (wh-117) menu is a two-step picker — item first, then
+  recipient — instead of the full item × recipient cross product, which could
+  overflow the screen with 28 unscrollable buttons.
+
+### AI
+
+- H2 sends a wounded company home: a haven is priced for the wounds it heals,
+  worth +33 Elo, with recoveries up from 0.3 to 1.2 a game and characters
+  wounded down from 34.6% to 28.0%.
+- Healing is scored as certain rather than potential — a modelling correction
+  that moved every proximate metric (going home when wounded 10.5% → 18.2%)
+  while measuring strength-neutral, and is recorded as such.
+- H2 no longer double-counts a defender's tap when entering a site: automatic
+  attacks resolve before any resource can be played, so their strikes are
+  deducted from the taps available to price what entering unlocks.
+- The hazard bundle planner accounts for a creature's own play-order-dependent
+  bonus (e.g. Orc-lieutenant's +4 prowess after a prior Orc attack), applying
+  it only at the sequence position where the condition holds.
+- The behaviour-cloning policy can delegate the decisions it cannot learn:
+  `BcWeightsFile.route` names action types handed to another agent, taking the
+  uploaded hybrid from −83 to +23 Elo against the heuristic.
+- Heuristics 1, Monte-Carlo and Real-AI are documented alongside H2 under
+  `docs/ai/`, each drawn as one decision end to end.
+
 ## 0.105.0 — 2026-08-14
 
 The Hunt names its quarry

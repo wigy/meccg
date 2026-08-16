@@ -990,6 +990,34 @@ export function isNazgulPermanentEvent(def: CardDefinition | null | undefined): 
 }
 
 /**
+ * For a `hazard-creature` definition sitting in a player's `cardsInPlay` (only
+ * reachable there by having been played in `creature-alt-event` mode
+ * `permanent-event` — see {@link isNazgulPermanentEvent}), returns an
+ * "effective" definition with `cardType: 'hazard-event'` and
+ * `eventType: 'permanent'` for filter matching — otherwise returns `def`
+ * unchanged.
+ *
+ * Used by discard-in-play effects like Marvels Told (td-134: "discard a
+ * hazard non-environment permanent-event or long-event") whose filter checks
+ * `cardType: 'hazard-event'`. Rule 2.IV.vii.5 and CRF 22 both call these
+ * dual creature/event cards "Nazgûl permanent-events" once played that way —
+ * functionally permanent-events for as long as they remain in play — but the
+ * underlying card data still carries `cardType: 'hazard-creature'`, which
+ * would otherwise make them invisible to any filter that keys off
+ * `cardType`. Not restricted to the Nine: any `hazard-creature` printed with
+ * a `creature-alt-event` permanent-event mode qualifies (e.g. Lady of the
+ * Golden Wood as-13).
+ */
+export function effectiveInPlayDef(def: CardDefinition): CardDefinition {
+  if (def.cardType !== 'hazard-creature') return def;
+  const isAltPermanentEvent = getCardEffects(def).some(
+    e => e.type === 'creature-alt-event' && e.mode === 'permanent-event',
+  );
+  if (!isAltPermanentEvent) return def;
+  return { ...def, cardType: 'hazard-event', eventType: 'permanent' } as unknown as CardDefinition;
+}
+
+/**
  * True when the given character bears an attached card (stored in its `items` —
  * where a resource permanent-event played "on a character" is kept) whose
  * effects include one of the given `effectType`. Used to detect the continuous
@@ -4182,9 +4210,21 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
     companies.push({ ...c, characters, siteCardOwned, onGuardCards, hazards });
   }
 
+  // Rule 2.IV.6 merges change every folded company's roster, so any
+  // Fellowship (tw-240)-style permanent event bound to a merging company
+  // must be swept, exactly like the explicit merge-companies action does.
+  const affectedCompanyIds: CompanyId[] = [];
+  for (const [targetIdx, sources] of mergeMap) {
+    affectedCompanyIds.push(player.companies[targetIdx].id);
+    for (const srcIdx of sources) affectedCompanyIds.push(player.companies[srcIdx].id);
+  }
+
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
   newPlayers[playerIndex] = { ...player, companies };
-  return sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers }));
+  return sweepCompanyMembershipChangedEvents(
+    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers })),
+    affectedCompanyIds,
+  );
 }
 
 /**
@@ -5796,6 +5836,31 @@ export function findWizardhavenAllyPlayGrant(
     const eff = getCardEffects(def).find(
       (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
         e.type === 'grant-ally-play' && e.atProtectedWizardhavens === true,
+    );
+    if (eff) return { effect: eff, sourceId: card.instanceId };
+  }
+  return undefined;
+}
+
+/**
+ * Finds a `grant-ally-play` permission with `maxCompanySize` among the
+ * player's in-play permanent-events. Returns the effect and the granting
+ * card's instance id, or `undefined` when the player has no such grant. Backs
+ * Friend of Secret Things (wh-109): "Your companies with a company size of 2
+ * or less may play allies at tapped sites." Reuses the
+ * {@link WizardhavenAllyPlayGrant} shape (effect + granting source id) since
+ * both grants are free-standing permanent-events in `cardsInPlay`.
+ */
+export function findCompanySizeAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+): WizardhavenAllyPlayGrant | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const eff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
+        e.type === 'grant-ally-play' && e.maxCompanySize !== undefined,
     );
     if (eff) return { effect: eff, sourceId: card.instanceId };
   }

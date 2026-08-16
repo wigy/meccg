@@ -33,6 +33,43 @@ reducer, see below), `bc` and `search` (learned policies).
 
 ## Heuristics 2
 
+> ### ⚠ The Elo figures below are unreliable
+>
+> Every gate result in this document was produced by a harness that could
+> silently measure **the wrong tree**. Controls were run either in a `git
+> worktree`, or after a `git checkout` inside a compound command; when the git
+> step failed — and it did, because a worktree already held `master` — the gate
+> ran anyway and reported a clean-looking number for a tree it had not been
+> given. Failures produced plausible results instead of errors.
+>
+> It surfaced when two runs of supposedly different trees agreed to the digit.
+> Re-measuring with the tree verified immediately **before and after** each run,
+> which is the only thing done differently, gives:
+>
+> | tree | seed block | score | paired Elo (95% CI) |
+> | --- | --- | --- | --- |
+> | `master` @ v0.109.0 | 1 | 56.6% | **+46 [+14, +80]** |
+> | `master` @ v0.109.0 | 500 | 53.8% | **+26 [−5, +58]** |
+>
+> **H2 beats Heuristics 1 on both blocks**, and appears to have been doing so
+> for some time. Figures in this document reporting H2 at −96, −101, −111,
+> −134, −155, −188, −211 or −265 are wrong, and every conclusion resting on a
+> *difference* between two such figures is unsupported — including the 87 Elo
+> attributed to #2397, the 90 Elo attributed to each enter-site fix, and the
+> +157 briefly attributed to charging a carried wound, which turned out to be
+> `master`'s own number measured twice.
+>
+> What survives is everything measured **without** a gate: agreement rates
+> against the recorded corpus, the funnel counts from `scoring-loop`, the
+> arrival statistics from `hand-flow`, the route shapes from `route-compare`,
+> and the wounded/tapped/untapped splits. Those were computed in-process from a
+> single tree and are unaffected.
+>
+> Nothing below has been re-measured. The correction is a session's work:
+> re-gate each merged change against a verified `master`, on both seed blocks,
+> verifying the tree between runs — then rewrite the sections from the results
+> rather than patching the numbers in place.
+
 `src/ai/h2/` implements the modular, probabilistic, explainable AI of
 `specs/2026-07-27-heuristics-2-ai.md`. Where Heuristics 1 returns unitless
 per-phase weights, an H2 module answers every candidate action with an
@@ -2284,6 +2321,9 @@ bound by, copy it. Where it rests on a strategy only one of them has, do not.
 
 ### Not acting is a move, and a bad one
 
+**The +110 is unreliable — see the correction at the top of this section.** The
+agreement figures stand.
+
 Removing Heuristics 1 left a question the fallback had been answering: what does
 H2 do on a decision it cannot rank? The first answer was `pass`, on the argument
 that every action costs something the model may not have priced — a card, a tap,
@@ -2437,6 +2477,11 @@ decisions by what they are worth rather than by how often they come up. Run it
 before pricing anything, not after.
 
 ### What each opinion is actually worth
+
+**Unreliable — see the correction at the top of this section.** The ablation
+ranking is a set of differences between gate runs, so the ordering it reports
+(hazards ~0, combat 47, movement 94) is unsupported. The *method* — flatten one
+group's opinion and re-measure — remains the right instrument, run properly.
 
 `place-on-guard` showed that the largest divergence in the corpus is worth zero
 Elo, which made the frequency ranking unusable for deciding what to work on. So
@@ -2812,6 +2857,10 @@ The lever is combat and what walks into it — worth 47 Elo by ablation, with
 
 ### Going home: the fix for the wounds
 
+**The +33 is unreliable — see the correction at the top of this section.** The
+behavioural figures (recoveries, wounded share, time at a haven) are from
+self-play instrumentation and stand.
+
 The wound finding above has a fix, and it is not about combat at all. Over six
 games H2 takes *fewer* wounds than Heuristics 1 --- 4.3 a game against 5.7 ---
 and recovers from almost none of them:
@@ -2853,6 +2902,178 @@ was reverted before it reached a gate.
 It is still far short of H1's 3.7 recoveries and 13.1% wounded, so the same
 thread has more in it: nothing yet prices *when* to go home, only what a haven
 is worth once movement is being planned to one.
+
+### When to go home: not a *when* problem
+
+The obvious reading of the healing result was that H2 lacks a rule for when to
+turn back. It does not need one. A haven is among the candidates on **99.3% of
+all movement decisions**, and on **100%** of the moves made with a wounded
+character aboard. It was simply declining them:
+
+| offered a haven with a wounded character aboard | h2 | heuristic |
+| --- | --- | --- |
+| went home | **10.5%** | 54.3% |
+
+Availability was never the constraint, so nothing needed to decide *when*. What
+needed fixing was what a haven is worth once it is already on the list.
+
+#### A certainty should not carry the uncertainty discount
+
+The haven credit was counted as `potential`, which `netTsdDelta` halves by
+`potentialDiscount`. That discount exists for a stated reason — "a card in hand
+is a card that might never be playable" — and it charges for the chance a
+modelled gain never arrives. A haven has no such contingency: the company
+arrives and the wounds are gone. Halving a certainty made the one reason to go
+home worth less than a speculative play at a scoring site.
+
+Counted as realized instead:
+
+| | before | after | heuristic |
+| --- | --- | --- | --- |
+| went home when wounded | 10.5% | **18.2%** | 57.8% |
+| recoveries per game | 1.2 | **1.8** | 3.5 |
+| characters wounded | 28.0% | **26.6%** | 12.9% |
+| paired Elo (95% CI) | −101 [−138, −66] | **−103 [−141, −68]** | |
+
+**Strength-neutral** — two Elo apart on a standard error of about 27 — while
+every behavioural metric moved toward the reference agent. Kept anyway, on the
+grounds that applying an uncertainty discount to a guaranteed outcome is a
+modelling error whether or not this gate can see it, and that anything built on
+top of the haven price would inherit the error. It is recorded as neutral rather
+than as a gain.
+
+One incidental result worth noting: this was the **first gate all session with
+zero incomplete games**. Every earlier run hit the `movement-hazard` deadlock at
+least once.
+
+#### What the gap still is
+
+18.2% against 57.8% is a third of the way. Behaviour moved and strength did not,
+which is the same pattern the discard work showed — and the honest reading is
+that the remaining difference is not another mispriced term in `travel`. H1 goes
+home because its evaluator is written to; H2 goes home when the arithmetic
+happens to favour it. Closing that needs the thing the plan layer was built for
+and has never delivered: a company that has *decided* to go home and stays
+decided until it arrives.
+
+### A correct fix that cost 87 Elo
+
+**Unreliable — see the correction at the top of this section.** The 87 figure is a
+difference between two gate runs from the broken harness, and `master`'s own
+verified number is nothing like the control used here. Whether #2397 cost
+anything is unknown; the reasoning below stands only as reasoning.
+
+`enter-site` genuinely double-counted a tap. A site's automatic attacks resolve
+as part of entering (CoE 2.V.ii), and the resource player "can only take actions
+during a company's site phase after that company has successfully entered its
+site" (2.V.ii.1) — so a lone defender cannot both parry the attack and tap to
+play a card. The module priced it as though it could, which made a near-certain
+loss of the character look like a profit. The fix deducted the attack's strikes
+from the taps available before pricing what entering unlocks, and came with a
+regression scenario captured from the reported game.
+
+It was reviewed against the rules, the citation was checked and found *stronger*
+than the one given, the regression test was confirmed to fail without the fix,
+and the unit tests passed. **It was not gated.**
+
+| tree | score | paired Elo (95% CI) |
+| --- | --- | --- |
+| before the fix | 35.8% | −101 [−138, −66] |
+| after the fix | 25.3% | **−188 [−230, −151]** |
+
+Confirmed as the only change in the range, and the intervals do not overlap:
+**about 87 Elo**, some 3.2 standard errors. Re-measured a second way — holding a
+later change fixed and reverting only this one — it is 59 Elo. Either way it is
+the largest single regression measured in this project.
+
+The likely mechanism is over-correction rather than error. It deducts *every*
+strike of *every* automatic attack from the taps before pricing, so a site with
+two strikes and three untapped characters loses two potential plays even when
+the attack is trivial and would be parried without tapping. Entering sites is
+the only way H2 scores at all, and its entry rate fell from 56% to 45.7% — which
+read at review time as "now matches Heuristics 1", and therefore as a good sign.
+
+#### The lesson is about review, not about the fix
+
+Correctness and strength are different questions, and this document has said so
+for every change made *to* it — three discard changes that were correct by
+inspection and cost 41, 42 and 84 Elo; a total order that was exactly what the
+measurement asked for and cost 84. The same standard was not applied to a change
+arriving from outside, which was reviewed for correctness alone and endorsed on
+that basis.
+
+**A gate is not a formality for other people's changes.** Nothing about the
+reasoning in that PR was wrong; the deduction is what the rules imply. It is
+still worth 87 Elo to not do it, and no amount of reading the diff would have
+revealed that.
+
+The bug is real and should be fixed again, more narrowly — deducting a tap only
+where the attack actually threatens the defenders, rather than wherever a site
+prints one — and gated before it lands.
+
+### The enter-site error is load-bearing
+
+**Unreliable — see the correction at the top of this section.** Both 90-Elo
+figures are differences between runs from the broken harness. The claim that the
+error is load-bearing is *unsupported*; it may simply be a bug. The deferral
+measurement below is unaffected, because it used no gate.
+
+`evaluateEnterSite` prices the cards entering unlocks using the company's
+*pre-combat* tap count. That is provably wrong: a site's automatic attacks
+resolve as part of entering (CoE 2.V.ii), the resource player may only act
+"after that company has successfully entered its site" (2.V.ii.1), and a
+character that parries is not still free to tap for a play. One tap is credited
+twice.
+
+It has now been fixed twice, correctly, and both fixes are large regressions:
+
+| | score | paired Elo (95% CI) | against its own control |
+| --- | --- | --- | --- |
+| deduct the strikes from taps (#2397) | 25.3% | −188 [−230, −151] | **−87** |
+| the same, plus splitting the attack's harm into what entering *now* costs over entering later | 22.9% | −211 [−252, −174] | **−100** |
+
+The second attempt was built specifically to repair the first. `travel` scores
+`pass` at exactly zero, so a more expensive `enter-site` falls below it and a
+company that never enters never scores — so the harm was re-priced as mostly
+deferred rather than avoided, on the ground that the attack is faced whenever
+the company enters. That reasoning still looks right and it made things worse.
+
+**Two independent correct fixes, each costing about 90 Elo, is not two mistakes.
+It is a measurement.** The error is compensating for something else.
+
+#### The likely reason, untested
+
+The plays displaced by the attack are not *lost*, they are **deferred**. The
+company stays at the site; next turn its characters untap and the cards in hand
+are still playable there. Pricing them as forfeited charges the full value of a
+play that is merely postponed — the same "deferred, not avoided" error both
+fixes corrected on the *harm* side while introducing it on the *play* side.
+
+If that is right, the third attempt would be to deduct the taps and count the
+displaced cards as `potential` rather than dropping them, which is the treatment
+`travel` already gives cards that fit the site but not this turn's taps.
+
+**Measured, and it is wrong.** Over eight games, resource plays by when they
+happen relative to the company's arrival:
+
+```text
+                                      h2     heuristic
+  … on the turn the company entered  87.0%     100.0%
+  … on a LATER turn at that site     13.0%       0.0%
+```
+
+A company plays at a site on the turn it enters or not at all — Heuristics 1
+never once played on a later turn, and H2 barely does. The displaced plays are
+**lost, not deferred**, so pricing them as forfeited was right and the third
+attempt is dead before it was built. Why two correct fixes each cost about 90
+Elo therefore remains unexplained, and it is not this.
+
+The prerequisite measurement cost one probe instead of a gate cycle and a third
+regression, which is the whole argument for writing it down as a prerequisite.
+
+Until then the double-count stays, and it stays *documented*: the model is wrong
+here in a known way, it is worth about 90 Elo to leave it wrong, and nobody
+should "fix" it a third time without reading this.
 
 ### The other work list: what a divergence costs
 

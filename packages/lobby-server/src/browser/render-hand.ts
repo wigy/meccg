@@ -224,6 +224,22 @@ function findHazardActions(
 }
 
 /**
+ * Find all play-creature-from-discard actions for a given card instance
+ * (e.g. Exhalation of Decay dm-55). Keyed like a hazard-creature play — may
+ * have multiple entries with different keying methods against the same
+ * discard-pile creature.
+ */
+function findCreatureFromDiscardActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-creature-from-discard' && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
  * Find the play-agent-hazard action for a given agent card instance.
  * Each agent card has at most one such action.
  */
@@ -243,6 +259,23 @@ function findAgentHazardAction(
  */
 function isItemDraftCard(defId: CardDefinitionId, legalActions: readonly GameAction[]): boolean {
   return legalActions.some(a => a.type === 'assign-starting-item' && a.itemDefId === defId);
+}
+
+/**
+ * Find all place-starting-company-event actions for a given card definition
+ * (Orders from Lugbúrz as-94, Open to the Summons wh-46, and similar
+ * "played with a starting company in lieu of a minor item" cards). Ordinary
+ * starting events resolve to exactly one action (the sole starting company);
+ * recruitment vehicles (Thrall of the Voice wh-82) offer one per eligible
+ * character target.
+ */
+function findStartingCompanyEventActions(
+  defId: CardDefinitionId,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  return legalActions.filter(
+    a => a.type === 'place-starting-company-event' && a.cardDefId === defId,
+  );
 }
 
 /**
@@ -504,6 +537,20 @@ function showHazardKeyingMenu(
     });
   }
 
+  // Creature-from-discard plays (Exhalation of Decay dm-55): name the
+  // discard-pile creature being brought into play, since the card in hand
+  // (the event) is not itself the creature.
+  for (const action of actions) {
+    if (action.type !== 'play-creature-from-discard') continue;
+    const creatureDefId = cachedInstanceLookup(action.creatureInstanceId);
+    const creatureDef = creatureDefId && cardPool ? cardPool[creatureDefId as string] : undefined;
+    const creatureName = creatureDef ? creatureDef.name : action.creatureInstanceId as string;
+    const label = action.keyedBy
+      ? `Bring back ${creatureName} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`
+      : `Bring back ${creatureName}`;
+    items.push({ label, onClick: () => onAction(action) });
+  }
+
   // Non-keyed hazard events (single play action without keying)
   for (const action of actions) {
     if (action.type !== 'play-hazard' || action.keyedBy) continue;
@@ -632,6 +679,21 @@ function getHandCards(view: PlayerView): HandCard[] {
     // Unassigned items: only show this player's own items
     for (const card of step.itemDraftState[view.selfIndex].unassignedItems) {
       cards.push({ defId: card.definitionId, instanceId: card.instanceId });
+    }
+
+    // Starting-company-event cards (e.g. Orders from Lugbúrz as-94) are
+    // offered via place-starting-company-event actions but live in the play
+    // deck/sideboard, not itemDraftState.unassignedItems, so they were never
+    // added to the hand arc at all -- the player had a legal action but no
+    // card to click (bug 1b4955192d29fc33). Add them explicitly.
+    const shownDefIds = new Set(cards.map(c => c.defId as string));
+    for (const eventAction of viableActions(view.legalActions)) {
+      if (eventAction.type !== 'place-starting-company-event') continue;
+      if (shownDefIds.has(eventAction.cardDefId as string)) continue;
+      shownDefIds.add(eventAction.cardDefId as string);
+      const deckCard = [...view.self.playDeck, ...view.self.sideboard]
+        .find(c => c.definitionId === eventAction.cardDefId);
+      cards.push({ defId: eventAction.cardDefId, instanceId: deckCard?.instanceId ?? null });
     }
 
     return cards;
@@ -1075,10 +1137,11 @@ export function renderHand(
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
     const hazardActions = findHazardActions(cardInstanceId, viable);
+    const creatureFromDiscardActions = findCreatureFromDiscardActions(cardInstanceId, viable);
     const onGuardAction = cardInstanceId
       ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const isHazard = hazardActions.length > 0;
+    const isHazard = hazardActions.length > 0 || creatureFromDiscardActions.length > 0;
     const agentHazardAction = findAgentHazardAction(cardInstanceId, viable);
     const isAgentHazard = agentHazardAction !== null;
     const allyActions = findAllyPlayActions(cardInstanceId, viable, cardPool);
@@ -1100,7 +1163,9 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !discardAction && !onGuardAction
+    const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
+    const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !discardAction && !onGuardAction && !isStartingCompanyEvent
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1310,12 +1375,13 @@ export function renderHand(
       } else {
         // No character targets, or no on-guard: use original menu/direct play
         img.className = 'hand-card hand-card-playable';
+        const playActions = [...hazardActions, ...creatureFromDiscardActions];
         if (onAction) {
-          if (hazardActions.length === 1 && !onGuardAction) {
-            img.addEventListener('click', () => onAction(hazardActions[0]));
+          if (playActions.length === 1 && !onGuardAction) {
+            img.addEventListener('click', () => onAction(playActions[0]));
           } else {
             img.addEventListener('click', (e) => {
-              showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction, cardPool);
+              showHazardKeyingMenu(e, playActions, onAction, onGuardAction, cardPool);
             });
           }
         }
@@ -1476,6 +1542,28 @@ export function renderHand(
           img.addEventListener('click', (e) => {
             const items: TooltipMenuItem[] = strikeEventPlayChoices(strikeEventActions)
               .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
+            showCursorTooltipMenu(e, items);
+          });
+        }
+      }
+    } else if (isStartingCompanyEvent) {
+      // Starting-company events (Orders from Lugbúrz as-94, Open to the
+      // Summons wh-46): usually a single action bound to the sole starting
+      // company, dispatched directly. Recruitment vehicles (Thrall of the
+      // Voice wh-82) offer one action per eligible character target instead,
+      // so disambiguate with the same cursor menu used for strike events.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (startingCompanyEventActions.length === 1) {
+          img.addEventListener('click', () => onAction(startingCompanyEventActions[0]));
+        } else {
+          img.addEventListener('click', (e) => {
+            const items: TooltipMenuItem[] = startingCompanyEventActions.map(a => {
+              const targetCharId = a.type === 'place-starting-company-event' ? a.targetCharacterInstanceId : undefined;
+              const targetDefId = targetCharId ? cachedInstanceLookup(targetCharId) : undefined;
+              const targetName = targetDefId ? cardPool[targetDefId as string]?.name : undefined;
+              return { label: targetName ?? def.name, onClick: () => onAction(a) };
+            });
             showCursorTooltipMenu(e, items);
           });
         }

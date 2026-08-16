@@ -32,6 +32,7 @@ import type { Standing } from '../../services/standing.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile, SequencePricer } from '../../services/strike/sequence.js';
 import { resolveAttacks } from '../../services/strike/sequence.js';
+import type { SelfFacedRaceBoost } from '../../services/attack-modifiers.js';
 
 /** One hazard card that could be played, with the attack it would make. */
 export interface Candidate {
@@ -43,6 +44,20 @@ export interface Candidate {
   readonly profile: AttackProfile;
   /** Kill marshalling points the defender collects for beating it. */
   readonly killMp: number;
+  /**
+   * The creature's own printed race, used to track which races the company
+   * has faced as the bundle is walked in order — a card behind this one in
+   * the sequence may key its own `selfFacedRaceBoost` on it.
+   */
+  readonly race?: string;
+  /**
+   * A conditional prowess/strikes bonus this creature's own text grants once
+   * the company has already faced `selfFacedRaceBoost.race` (Orc-lieutenant
+   * tw-073). Applied by `scoreBundle` only at the sequence position where the
+   * condition would actually hold — never baked into `profile` up front,
+   * because whether it holds depends on where this card lands in the bundle.
+   */
+  readonly selfFacedRaceBoost?: SelfFacedRaceBoost | null;
 }
 
 /** A planned sequence of hazards against one company, with what it is worth. */
@@ -69,6 +84,38 @@ export interface BundleSearch {
   readonly truncated: boolean;
 }
 
+/**
+ * Apply each card's own `selfFacedRaceBoost`, in sequence order, starting
+ * from the races the company already faced before this bundle began.
+ *
+ * A card's bonus is folded into its `profile` only when the condition would
+ * actually hold at its position in the sequence; its own race (if any) is
+ * then added to the running set for the cards behind it — which is what lets
+ * a weaker creature played first make a stronger one behind it stronger
+ * still, exactly the effect a fixed-at-construction profile cannot see.
+ */
+function withFacedRaceBoosts(
+  cards: readonly Candidate[],
+  initialFacedRaces: ReadonlySet<string>,
+): readonly Candidate[] {
+  const faced = new Set(initialFacedRaces);
+  return cards.map(card => {
+    const boost = card.selfFacedRaceBoost;
+    const boosted = boost && faced.has(boost.race)
+      ? {
+        ...card,
+        profile: {
+          ...card.profile,
+          strikeProwess: card.profile.strikeProwess + boost.prowess,
+          strikes: card.profile.strikes + boost.strikes,
+        },
+      }
+      : card;
+    if (card.race) faced.add(card.race);
+    return boosted;
+  });
+}
+
 /** Score one ordered sequence of candidates against the roster. */
 function scoreBundle(
   cards: readonly Candidate[],
@@ -77,11 +124,13 @@ function scoreBundle(
   price: SequencePricer,
   standing: Standing,
   tunables: Tunables,
+  initialFacedRaces: ReadonlySet<string>,
 ): Bundle {
+  const sequenced = withFacedRaceBoosts(cards, initialFacedRaces);
   const result = resolveAttacks(
     roster,
     cardPool,
-    cards.map(c => c.profile),
+    sequenced.map(c => c.profile),
     price,
     { maxStates: tunables.attackStateCap },
   );
@@ -90,7 +139,7 @@ function scoreBundle(
   const outcomes: Outcome[] = result.outcomes.map(o => ({ ...o, dtsd: o.dtsd - cardPrice }));
   const scored = standing.score(outcomes);
   return {
-    cards,
+    cards: sequenced,
     outcomes,
     expectedTsd: scored.expectedTsd,
     utility: scored.utility,
@@ -115,6 +164,7 @@ export function planBundles(
   standing: Standing,
   tunables: Tunables,
   slots: number,
+  initialFacedRaces: ReadonlySet<string> = new Set(),
 ): BundleSearch {
   const maxLength = Math.max(0, Math.min(slots, tunables.hazardMaxBundle, candidates.length));
   if (maxLength === 0 || candidates.length === 0) {
@@ -127,12 +177,18 @@ export function planBundles(
 
   for (let length = 1; length <= maxLength; length++) {
     const grown: Bundle[] = [];
-    const prefixes: (readonly Candidate[])[] = length === 1 ? [[]] : beam.map(b => b.cards);
+    // Prefixes carry cards as originally offered, not the previous round's
+    // faced-race-boosted profile — scoreBundle recomputes the boost fresh
+    // from initialFacedRaces each time, so growing from a boosted prefix
+    // would double the bonus onto whichever card already earned it.
+    const prefixes: (readonly Candidate[])[] = length === 1
+      ? [[]]
+      : beam.map(b => b.cards.map(c => candidates.find(o => o.instanceId === c.instanceId) ?? c));
     for (const prefix of prefixes) {
       const used = new Set(prefix.map(c => c.instanceId));
       for (const candidate of candidates) {
         if (used.has(candidate.instanceId)) continue;
-        grown.push(scoreBundle([...prefix, candidate], roster, cardPool, price, standing, tunables));
+        grown.push(scoreBundle([...prefix, candidate], roster, cardPool, price, standing, tunables, initialFacedRaces));
       }
     }
     if (grown.length === 0) break;

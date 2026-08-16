@@ -999,8 +999,20 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hazard-creature",
@@ -1243,7 +1255,8 @@
       }
     ],
     "effects": [],
-    "text": "Undead. Five strikes."
+    "text": "Undead. Five strikes.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hazard-creature",
@@ -1826,8 +1839,14 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed."
+    "effects": [
+      {
+        "type": "combat-strike-effect",
+        "strikeEffect": "discard-item"
+      }
+    ],
+    "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed.",
+    "certified": "2026-08-16"
   },
   {
     "cardType": "hazard-creature",

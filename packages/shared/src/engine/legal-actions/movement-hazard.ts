@@ -1235,6 +1235,10 @@ function agentInfluenceActions(
           const factionDef = defById(state, factionInPlay.definitionId);
           if (!factionDef || !isFactionCard(factionDef)) continue;
           if (!factionDef.playableAt.some(entry => 'site' in entry && agentSiteDef.name === entry.site)) continue;
+          // "May not be influenced by an opponent" (Army of the Dead tw-193):
+          // rule-10.14 agent influence is a second route to the same CoE 8.3
+          // re-influence outcome, so it must honor the same suppression.
+          if (factionDef.noOpponentInfluence) continue;
 
           const influencerDI = agentDef.directInfluence ?? 0;
           const targetValue = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
@@ -2807,6 +2811,9 @@ function playHazardsActions(
               const factionDef = defById(state, cip.definitionId);
               if (!factionDef || !isFactionCard(factionDef)) continue;
               if (!(factionDef.playableAt ?? []).some(e => 'site' in e && e.site === agentSiteName)) continue;
+              // "May not be influenced by an opponent" (Army of the Dead
+              // tw-193) applies to this agent-tap-faction-influence route too.
+              if (factionDef.noOpponentInfluence) continue;
               logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" (at ${agentSiteName}) may influence faction "${factionDef.name}"`);
               actions.push({
                 action: {

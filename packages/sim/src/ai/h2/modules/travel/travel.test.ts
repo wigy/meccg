@@ -27,6 +27,13 @@ const REPLAN = 'organization/replanned-movement';
 /** A site phase where a company must decide whether to enter its site. */
 const ENTER = 'site/enter-or-pass';
 
+/**
+ * A wounded company at Moria choosing between Lórien (a haven one region
+ * away) and Dead Marshes (a shadow-hold four regions away whose printed
+ * automatic attack forces a corruption check on every character it wounds).
+ */
+const WOUNDED_VS_HAVEN = 'travel/wounded-company-shadow-hold-vs-haven';
+
 /** The scenario as a module context. */
 function position(id: string = SCENARIO): { context: ModuleContext; actions: GameAction[] } {
   const scenario = loadScenario(id);
@@ -190,5 +197,51 @@ describe('entering a site', () => {
     const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
     const entering = travelModule.evaluate(enter, context)!;
     expect(entering.expectedTsd).toBeLessThan(stay.expectedTsd);
+  });
+});
+
+describe('a destination\'s own automatic attacks', () => {
+  /** The plan-movement action for a company, targeting a site by its printed name. */
+  function planTo(context: ModuleContext, actions: GameAction[], siteName: string): GameAction {
+    const found = actions.find(a => {
+      if (a.type !== 'plan-movement') return false;
+      const destinationSite = (a as unknown as { destinationSite?: string }).destinationSite;
+      const site = context.view.self.siteDeck.find(c => (c.instanceId as string) === destinationSite);
+      const name = site && (context.cardPool[site.definitionId] as unknown as { name?: string }).name;
+      return name === siteName;
+    });
+    if (!found) throw new Error(`no plan-movement offered to ${siteName}`);
+    return found;
+  }
+
+  test('lower a destination\'s score by what they would cost this company, not only a company that already entered', () => {
+    // Dead Marshes prints "2 strikes with 8 prowess" — real harm to a company
+    // already carrying wounded characters (each defends at −2 prowess for it),
+    // and known the moment the site is a candidate destination, not only once
+    // the company has already crossed three regions to reach it. Before this,
+    // `destinationValue` counted what a site's printed resources were worth
+    // without ever charging what its own printed attacks would cost to reach
+    // them — the same harm `evaluateEnterSite` already prices, just one
+    // decision too late to matter to the trip itself.
+    const { context, actions } = position(WOUNDED_VS_HAVEN);
+    const plan = planTo(context, actions, 'Dead Marshes');
+    const destinationSite = (plan as unknown as { destinationSite: string }).destinationSite;
+    const site = context.view.self.siteDeck.find(c => (c.instanceId as string) === destinationSite)!;
+
+    const withAttack = travelModule.evaluate(plan, context)!;
+    const disarmedPool = {
+      ...context.cardPool,
+      [site.definitionId]: { ...context.cardPool[site.definitionId], automaticAttacks: [] },
+    };
+    const withoutAttack = travelModule.evaluate(plan, { ...context, cardPool: disarmedPool })!;
+
+    expect(withAttack.expectedTsd).toBeLessThan(withoutAttack.expectedTsd);
+  });
+
+  test('show up in the destination\'s rationale, not only in enter-site\'s', () => {
+    const { context, actions } = position(WOUNDED_VS_HAVEN);
+    const toShadowHold = travelModule.evaluate(planTo(context, actions, 'Dead Marshes'), context)!;
+    const text = JSON.stringify(toShadowHold.rationale);
+    expect(text).toContain('automatic attacks');
   });
 });

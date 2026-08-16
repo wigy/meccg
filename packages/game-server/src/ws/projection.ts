@@ -360,7 +360,18 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
   };
 }
 
-export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerView {
+/**
+ * Shared body of {@link projectPlayerView} and {@link projectReplayView}: the
+ * full seat projection with its per-card redactions, parameterised only by the
+ * legal-action list to attach. Splitting it out lets the replay viewer reuse
+ * the exact redaction rules a live player saw without paying for a legal-action
+ * computation it would never offer.
+ */
+function buildPlayerView(
+  state: GameState,
+  playerId: PlayerId,
+  legalActions: PlayerView['legalActions'],
+): PlayerView {
   const selfIndex = getPlayerIndex(state, playerId);
   const opponentIndex = 1 - selfIndex;
 
@@ -417,7 +428,6 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
   }
 
-  const legalActions = stampActionIds(computeLegalActions(state, playerId));
   const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);
 
   return {
@@ -437,4 +447,20 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     activeConstraints: state.activeConstraints,
     cheated: state.cheated,
   };
+}
+
+export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerView {
+  return buildPlayerView(state, playerId, stampActionIds(computeLegalActions(state, playerId)));
+}
+
+/**
+ * Projects a recorded state for the replay viewer, from `playerId`'s seat.
+ *
+ * Identical redaction to {@link projectPlayerView} — a replay shows what that
+ * seat could actually see at the time, not the omniscient state — but with an
+ * empty legal-action list: a replay is read-only, so recomputing the actions
+ * would only cost time and risk surfacing clickable buttons that cannot act.
+ */
+export function projectReplayView(state: GameState, playerId: PlayerId): PlayerView {
+  return buildPlayerView(state, playerId, []);
 }

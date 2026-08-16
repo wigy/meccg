@@ -44,6 +44,7 @@ import {
   getSideboardIntentActions,
   getCorruptionCheckActions,
   getSupportCorruptionCheckActions,
+  getRestoreCharacterActions,
   getGrantedActions,
   getPlayCharacterActions,
   getSelectCardBearerActions,
@@ -153,9 +154,10 @@ export function renderSingleView(
   const sideboardIntentActs = owner === 'self' ? getSideboardIntentActions(view) : undefined;
   const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
   const ccSupportActs = owner === 'self' ? getSupportCorruptionCheckActions(view) : undefined;
+  const restoreActs = owner === 'self' ? getRestoreCharacterActions(view) : undefined;
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
   // Minimap radar — always shown.
   const radarSelfIndex = owner === 'self'
@@ -241,6 +243,7 @@ export function renderAllCompaniesView(
   const sideboardIntentActs = getSideboardIntentActions(view);
   const ccActions = getCorruptionCheckActions(view);
   const ccSupportActs = getSupportCorruptionCheckActions(view);
+  const restoreActs = getRestoreCharacterActions(view);
   const grantedActs = getGrantedActions(view);
   const bearerActs = getSelectCardBearerActions(view);
 
@@ -272,7 +275,7 @@ export function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, renderedSiteInstances });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, renderedSiteInstances });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies

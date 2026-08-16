@@ -65,11 +65,15 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
   const checked = new Set(fcState.checkedCharacters);
   const actions: GameAction[] = [];
 
-  // Corruption check for each unchecked character in play
+  // Corruption check for each unchecked character in play. Ringwraiths and
+  // the Balrog are immune to corruption (CoE 7.4 / 10.44: "each player makes
+  // a corruption check for each of their non-Ringwraith, non-Balrog
+  // characters") and never make one, at game end or otherwise.
   for (const charId of characterIds(player)) {
     if (checked.has(charId)) continue;
     const charInPlay = player.characters[charId];
     const charDef = defById(state, charInPlay.definitionId);
+    if (isCharacterCard(charDef) && (charDef.race === Race.Ringwraith || isBalrogAvatarDef(charDef))) continue;
     const cp = charInPlay.effectiveStats.corruptionPoints;
     const company = findCharacterCompany(player.companies, charId);
     const companyCharCount = company ? company.characters.length : 1;

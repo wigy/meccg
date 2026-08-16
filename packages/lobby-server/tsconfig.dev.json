@@ -4,7 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@meccg/shared": ["../shared/src/index.ts"],
-      "@meccg/shared/*": ["../shared/src/*"]
+      "@meccg/shared/*": ["../shared/src/*"],
+      "@meccg/game-server": ["../game-server/src/index.ts"]
     }
   }
 }

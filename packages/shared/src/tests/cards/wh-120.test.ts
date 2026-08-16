@@ -82,6 +82,7 @@ const ASTERNAK = 'le-1' as CardDefinitionId;            // Man — keeps the com
 const BLASTING_FIRE = 'wh-51' as CardDefinitionId;      // minion item, keyword "technology"
 const BLACK_MAIL_COAT = 'le-301' as CardDefinitionId;   // minion major item, NOT Technology
 const MECHANICAL_BOW = 'wh-53' as CardDefinitionId;     // minion major item, keywords ["weapon", "technology"]
+const VILE_FUMES = 'wh-54' as CardDefinitionId;         // minion special item, keyword "technology"
 
 const STAGE_2 = 'test-stage-res-2-wh120' as CardDefinitionId;
 
@@ -337,6 +338,16 @@ describe("Saruman's Machinery (wh-120)", () => {
   test('Mechanical Bow (wh-53) is recognized as a Technology item and becomes playable at Isengard once the unlock is active', () => {
     const state = machineryState({ site: ISENGARD_WH, hand: [MECHANICAL_BOW], techUnlock: true });
     expect(canPlay(state, PLAYER_1, instanceOf(state, MECHANICAL_BOW))).toBe(true);
+  });
+
+  // Regression test: Vile Fumes' data entry was missing the "technology"
+  // keyword entirely (unlike its siblings Blasting Fire wh-51 / Liquid Fire
+  // wh-52), so the unlock never recognized it as a Technology item — reported
+  // as unplayable at Isengard despite an untapped character and an active
+  // Saruman's Machinery unlock.
+  test('Vile Fumes (wh-54) is recognized as a Technology item and becomes playable at Isengard once the unlock is active', () => {
+    const state = machineryState({ site: ISENGARD_WH, hand: [VILE_FUMES], techUnlock: true });
+    expect(canPlay(state, PLAYER_1, instanceOf(state, VILE_FUMES))).toBe(true);
   });
 
   test('the unlock is scoped to its own site — a Technology item stays blocked at a different site', () => {

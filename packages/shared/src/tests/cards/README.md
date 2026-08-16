@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1140 | 1139 | 1 | 99.9% |
+| 1149 | 1148 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -14,11 +14,11 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 109 | 109 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 104 | 104 | 100.0% |
+| DM | 105 | 105 | 100.0% |
 | LE | 303 | 302 | 99.7% |
 | TD | 94 | 94 | 100.0% |
-| TW | 344 | 344 | 100.0% |
-| WH | 89 | 89 | 100.0% |
+| TW | 351 | 351 | 100.0% |
+| WH | 90 | 90 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -78,7 +78,7 @@
 | as-85-the-great-eye | The Great Eye | — | 13 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
-| as-94 | Orders from Lugbúrz | — | 13 | ☑ |
+| as-94 | Orders from Lugbúrz | — | 14 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-106 | The Under-roads | — | 7 | ☑ |
@@ -241,6 +241,7 @@
 | dm-15 | The Grimburgoth | — | 5 | ☑ |
 | dm-16 | Herion | — | 4 | ☑ |
 | dm-17 | Ivic | — | 4 | ☑ |
+| dm-22 | Pôn-ora-Pôn | — | 3 | ☑ |
 | dm-23 | Râisha | — | 4 | ☑ |
 | dm-24 | Súrion | — | 3 | ☑ |
 | dm-25 | Taladhan | — | 11 | ☑ |
@@ -481,7 +482,7 @@
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
-| le-196 | I’ll Report You | — | 15 | ☑ |
+| le-196 | I’ll Report You | — | 18 | ☑ |
 | le-203-the-lidless-eye | The Lidless Eye | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 12 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
@@ -706,7 +707,7 @@
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
-| td-134 | Marvels Told | — | 26 | ☑ |
+| td-134 | Marvels Told | — | 27 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
@@ -721,7 +722,7 @@
 | td-166 | When I Know Anything | — | 13 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
 | td-170 | Wizard’s Staff | — | 19 | ☑ |
-| td-172 | Wormsbane | — | 7 | ☑ |
+| td-172 | Wormsbane | — | 8 | ☑ |
 | td-173 | Buhr Widu | — | 7 | ☑ |
 | td-174 | Dale | — | 6 | ☑ |
 | td-175 | Framsburg | — | 18 | ☑ |
@@ -741,6 +742,7 @@
 | tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-12 | Balrog of Moria | — | 11 | ☑ |
 | tw-13 | Bane of the Ithil-stone | — | 15 | ☑ |
+| tw-14 | Barrow-wight | — | 6 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
 | tw-17 | Brigands | — | 7 | ☑ |
@@ -759,7 +761,9 @@
 | tw-34 | Fell Turtle | — | 5 | ☑ |
 | tw-36 | Foul Fumes | — | 9 | ☑ |
 | tw-37 | Ghosts | — | 6 | ☑ |
+| tw-38 | Ghouls | — | 9 | ☑ |
 | tw-40 | Giant Spiders | — | 8 | ☑ |
+| tw-42 | Greed | — | 11 | ☑ |
 | tw-43 | Half-trolls of Far Harad | — | 4 | ☑ |
 | tw-44 | Hoarmûrath of Dír | — | 11 | ☑ |
 | tw-46 | Indûr Dawndeath | — | 15 | ☑ |
@@ -801,6 +805,7 @@
 | tw-96 | The Nazgûl are Abroad | — | 17 | ☑ |
 | tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
 | tw-100 | The Will of Sauron | — | 14 | ☑ |
+| tw-102 | Thief | — | 10 | ☑ |
 | tw-103 | “Tom” (Tûma) | — | 7 | ☑ |
 | tw-104 | Tookish Blood | — | 6 | ☑ |
 | tw-105 | Traitor | — | 11 | ☑ |
@@ -809,6 +814,7 @@
 | tw-108 | Wake of War | — | 6 | ☑ |
 | tw-109 | Wargs | — | 5 | ☑ |
 | tw-110 | Watcher in the Water | — | 9 | ☑ |
+| tw-111 | Weariness of the Heart | — | 4 | ☑ |
 | tw-112 | “William” (Wûluag) | — | 8 | ☑ |
 | tw-113 | Witch-king of Angmar | — | 16 | ☑ |
 | tw-114 | Wolves | — | 3 | ☑ |
@@ -882,13 +888,14 @@
 | tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 10 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
-| tw-193 | Army of the Dead | — | 3 | ☑ |
+| tw-193 | Army of the Dead | — | 5 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-198 | Bill the Pony | — | 11 | ☑ |
 | tw-199 | Block | — | 7 | ☑ |
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
+| tw-203 | Clear Skies | — | 5 | ☑ |
 | tw-204 | Concealment | — | 11 | ☑ |
 | tw-205 | Cracks of Doom | — | 9 | ☑ |
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
@@ -901,7 +908,7 @@
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
 | tw-223 | Elf-song | — | 6 | ☑ |
-| tw-224 | Elf-stone | — | 6 | ☑ |
+| tw-224 | Elf-stone | — | 7 | ☑ |
 | tw-225 | Elven Cloak | — | 6 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-227 | Ent-draughts | — | 10 | ☑ |
@@ -910,7 +917,7 @@
 | tw-232 | Fair Sailing | — | 10 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 14 | ☑ |
+| tw-240 | Fellowship | — | 15 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
@@ -936,7 +943,7 @@
 | tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-271 | Magic Ring of Courage | — | 8 | ☑ |
 | tw-273 | Magic Ring of Nature | — | 9 | ☑ |
-| tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
+| tw-274 | Magic Ring of Stealth | — | 8 | ☑ |
 | tw-276 | Men of Anfalas | — | 2 | ☑ |
 | tw-277 | Men of Anórien | — | 2 | ☑ |
 | tw-278 | Men of Dorwinion | — | 2 | ☑ |
@@ -959,7 +966,7 @@
 | tw-311 | Rangers of the North | — | 2 | ☑ |
 | tw-312 | Red Arrow | — | 7 | ☑ |
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
-| tw-314 | Reforging | — | 10 | ☑ |
+| tw-314 | Reforging | — | 17 | ☑ |
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |
 | tw-316 | Return of the King | — | 9 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
@@ -967,6 +974,7 @@
 | tw-321 | Sacrifice of Form | — | 16 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
+| tw-324 | Secret Entrance | — | 8 | ☑ |
 | tw-326 | Shadowfax | — | 8 | ☑ |
 | tw-327 | Shield of Iron-bound Ash | — | 7 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
@@ -988,7 +996,7 @@
 | tw-350 | Tom Bombadil | — | 7 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |
 | tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
-| tw-353 | Treebeard | — | 4 | ☑ |
+| tw-353 | Treebeard | — | 5 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-357 | Variags of Khand | — | 5 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
@@ -1156,13 +1164,14 @@
 | wh-106 | Prophet of Doom | — | 15 | ☑ |
 | wh-107 | Stave of Pallando | — | 9 | ☑ |
 | wh-108 | Truths of Doom | — | 9 | ☑ |
+| wh-109 | Friend of Secret Things | — | 11 | ☑ |
 | wh-110 | Girdle of Radagast | — | 19 | ☑ |
 | wh-111 | Glove of Radagast | — | 11 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
-| wh-120 | Saruman’s Machinery | — | 23 | ☑ |
+| wh-120 | Saruman’s Machinery | — | 24 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
 
 ---

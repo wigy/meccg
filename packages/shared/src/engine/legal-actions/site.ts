@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, findCompanySizeAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -2033,13 +2033,25 @@ function playResourcesActions(
         && siteIsProtectedWizardhaven
         && (!wizGrant.effect.filter || matchesCondition(wizGrant.effect.filter, { target: allyDef as unknown as Record<string, unknown> }));
 
+      // Friend of Secret Things (wh-109): a player-scoped `grant-ally-play` with
+      // `maxCompanySize` lifts the untapped-site requirement for ally plays by
+      // any company whose effective size is at most that value — at any site
+      // (no Wizardhaven restriction, and no relaxation of which allies are
+      // playable there).
+      const companySizeGrant = findCompanySizeAllyPlayGrant(state, player);
+      const grantedByCompanySize = companySizeGrant !== undefined
+        && companySizeGrant.effect.allowTappedSite === true
+        && companyEffectiveSize(state, company) <= companySizeGrant.effect.maxCompanySize!
+        && (!companySizeGrant.effect.filter || matchesCondition(companySizeGrant.effect.filter, { target: allyDef as unknown as Record<string, unknown> }));
+
       // The tapped-site block: an ally normally requires an untapped site. It is
       // lifted by the ally's own `playable-at-tapped-site` flag / play-target
-      // `requireTapped: false`, or by the wh-62 Wizardhaven grant's
-      // `allowTappedSite`.
+      // `requireTapped: false`, the wh-62 Wizardhaven grant's `allowTappedSite`,
+      // or the wh-109 company-size grant.
       const allyAllowsTappedSite = hasPlayFlag(allyDef, 'playable-at-tapped-site')
         || sitePlayTarget?.requireTapped === false
-        || (grantedByWizardhaven && wizGrant.effect.allowTappedSite === true);
+        || (grantedByWizardhaven && wizGrant.effect.allowTappedSite === true)
+        || grantedByCompanySize;
       if (siteIsTapped && !allyAllowsTappedSite) {
         logDetail(`Ally ${allyDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: site is already tapped`));
@@ -3240,6 +3252,13 @@ function opponentInfluenceActions(
   for (const factionInPlay of opponent.cardsInPlay) {
     const factionDef = defById(state, factionInPlay.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) continue;
+
+    // "May not be influenced by an opponent" (Army of the Dead tw-193):
+    // suppress the re-influence clause entirely for this faction.
+    if (factionDef.noOpponentInfluence) {
+      logDetail(`Opponent influence: ${factionDef.name} may not be influenced by an opponent — skip`);
+      continue;
+    }
 
     // Normally re-influence requires the active company to be at a site where
     // the faction is playable. Prophet of Doom's override influencer may reach

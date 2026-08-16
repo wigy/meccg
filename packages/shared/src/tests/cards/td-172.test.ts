@@ -25,8 +25,9 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState,
   findCharInstanceId, companyIdAt, executeAction, attachItemToChar,
-  RESOURCE_PLAYER,
+  RESOURCE_PLAYER, recomputeDerived,
 } from '../test-helpers.js';
+import { getCharacter } from '../test-helpers-assertions.js';
 import { Phase, Race } from '../../index.js';
 import type { CombatState, CardDefinitionId } from '../../index.js';
 
@@ -299,5 +300,13 @@ describe('Wormsbane (td-172)', () => {
     // Roll 10 > 9 (no reduction, full body 9) — body check completes.
     const afterDefeated = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 10);
     expect(afterDefeated.combat).toBeNull();
+  });
+
+  test('printed corruption points (2) count toward the bearer\'s corruption total', () => {
+    // Bug report ba17ec30666749a5: the browser's CP badge only renders when
+    // an item's corruption points are > 0, so a stale 0 in card data hid
+    // Wormsbane's corruption entirely. Printed CP is 2 (data/cards.json TD-172).
+    const state = recomputeDerived(buildWormsbaneState());
+    expect(getCharacter(state, RESOURCE_PLAYER, LEGOLAS).effectiveStats.corruptionPoints).toBe(2);
   });
 });

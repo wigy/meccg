@@ -7,7 +7,7 @@
  * dies and the lobby relaunches it.
  */
 
-import type { CardDefinitionId, CardInstanceId, ClientMessage, GameAction, ServerMessage } from '@meccg/shared';
+import type { CardDefinitionId, CardInstanceId, ClientMessage, GameAction, ServerMessage, StateMessage } from '@meccg/shared';
 import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, buildJoinFromDeck,
@@ -44,7 +44,7 @@ export function setLobbyCallbacks(
  * connect() until the first complete state has been rendered, so the player
  * never sees intermediate renders (debug view, a previous game's board).
  */
-function setLoadingCover(visible: boolean, text = 'Loading...'): void {
+export function setLoadingCover(visible: boolean, text = 'Loading...'): void {
   document.getElementById('game-loading')?.classList.toggle('hidden', !visible);
   const textEl = document.getElementById('game-loading-text');
   if (textEl) textEl.textContent = text;
@@ -53,6 +53,18 @@ function setLoadingCover(visible: boolean, text = 'Loading...'): void {
   // stale instructions float above the loading screen. They re-render from
   // the first state broadcast after the cover drops.
   if (visible) clearTutorialPanel();
+}
+
+/**
+ * Teardown for the replay viewer, registered by the replay module. A replay
+ * has no socket, so the toolbar's disconnect button must unwind the replay
+ * instead of the (absent) connection.
+ */
+let replayExitFn: (() => void) | null = null;
+
+/** Register the replay teardown. Called once when the replay module loads. */
+export function setReplayExit(fn: () => void): void {
+  replayExitFn = fn;
 }
 
 /** Guard flag: true while waiting for the server to respond after sending an action. */
@@ -85,6 +97,10 @@ export function sendAction(action: GameAction): void {
 
 /** Disconnect from the game server and return to the lobby or connect form. */
 export function disconnect(): void {
+  if (appState.replaying && replayExitFn) {
+    replayExitFn();
+    return;
+  }
   appState.autoReconnect = false;
   clearPlayerName();
   if (appState.ws) {
@@ -346,6 +362,196 @@ function describeOpponentAction(
   return describeAction(action, pool, lookup, companyNames, playerNames);
 }
 
+/**
+ * Render a full state message onto the board: toasts and log lines for the
+ * action that produced it, then every board renderer, then the follow-up
+ * selection modes the new legal actions call for.
+ *
+ * Split out of the WebSocket handler so the replay viewer can drive the same
+ * pipeline from recorded frames — a replay is exactly a sequence of state
+ * messages that arrive from disk instead of from a socket.
+ */
+export async function renderStateMessage(msg: StateMessage): Promise<void> {
+  // Wait for any dice animation to finish before rendering the new
+  // state, so the outcome isn't spoiled while dice are still rolling.
+  await waitForDice();
+  clearAwaitingResponse();
+  appState.currentStateSeq = msg.view.stateSeq;
+  appState.currentTurnNumber = msg.view.turnNumber;
+  appState.currentPhase = msg.view.phaseState.phase;
+  { const statusEl = document.getElementById('toolbar-status');
+    if (statusEl) {
+      statusEl.textContent = buildToolbarStatusText(
+        appState.currentGameId, appState.currentTurnNumber, msg.view.phaseState.phase,
+      );
+    }
+  }
+  appState.currentTutorialStep = msg.view.tutorial
+    ? `step ${msg.view.tutorial.stepIndex + 1}/${msg.view.tutorial.stepCount} (${msg.view.tutorial.stepId})`
+    : null;
+  // Body marker for tutorial games (mirrors the 'spectating' class):
+  // e.g. keyboard-shortcut hint overlays are suppressed in the tutorial.
+  document.body.classList.toggle('in-tutorial', msg.view.tutorial !== undefined);
+  // Sticky: an undo can briefly broadcast a pre-cheat state, but a
+  // game once marked cheated never becomes clean again.
+  if (msg.view.cheated) appState.gameCheated = true;
+  // Update heading to show game ID + seq
+  const h = document.getElementById('state-heading');
+  if (h && appState.currentGameId) {
+    h.childNodes[0].textContent = `Game State \u2014 ${appState.currentGameId} seq ${appState.currentStateSeq}`;
+  }
+  // Capture previous lookup so opponent toast uses pre-action visibility
+  const prevInstanceLookup = appState.lastInstanceLookup;
+  const prevCompanyNames = appState.lastCompanyNames;
+  appState.lastInstanceLookup = buildInstanceLookup(msg.view);
+  appState.lastCompanyNames = {
+    ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
+    ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
+  };
+  appState.lastPlayerNames = {
+    [msg.view.self.id as string]: msg.view.self.name,
+    [msg.view.opponent.id as string]: msg.view.opponent.name,
+  };
+  // Merge in action-referenced card defs from the server. A played
+  // card's identity is public via the action itself even when the
+  // card now sits in a redacted pile (e.g. short event sent to the
+  // opponent's face-down discard), so the prev/next view lookups
+  // alone would render "a card" in the toast.
+  const actionLookup = (id: CardInstanceId): CardDefinitionId | undefined =>
+    msg.lastActionCardDefs?.[id] ?? prevInstanceLookup(id);
+  renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
+  // Announce what a player just did *before* replaying the effects that
+  // action produced — a roll result must never precede the line telling
+  // about the roll.
+  if (msg.lastAction) {
+    const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames, appState.lastPlayerNames);
+    const isSelf = msg.lastAction.player === msg.view.self.id;
+    // Log opponent actions so the text log captures what the other player did
+    if (!isSelf) renderLog(`<< ${desc}`, cardPool);
+    if (msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
+      if (isSelf) {
+        showNotification(desc, { cardPool, self: msg.view.self.name });
+      } else {
+        showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
+      }
+    }
+    // A dedicated entry when a player picks a creature race (e.g. Two or
+    // Three Tribes Present), so the opponent can see the choice clearly.
+    if (msg.lastAction.type === 'play-hazard' && msg.lastAction.chosenCreatureRace) {
+      showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`,
+        isSelf ? { self: msg.view.self.name } : { opponent: msg.view.opponent.name });
+    }
+  }
+  // Now the deferred dice rolls and text notifications of that action.
+  flushEffectLog();
+  // Log roll outcomes (dice result + strike/body-check result) for both players
+  if (msg.lastAction) {
+    const instanceToName = (id: import('@meccg/shared').CardInstanceId): string => {
+      const defId = appState.lastInstanceLookup(id);
+      const def = defId ? cardPool[defId as string] : undefined;
+      return (def as { name?: string } | undefined)?.name ?? (id as string);
+    };
+    const rollLines = describeRollOutcome(msg.lastAction, msg.view, appState.prevSelfDice, appState.prevOpponentDice, appState.prevResolvedCount, appState.prevCombatAttackingPlayerId, instanceToName);
+    for (const { line, isSelf } of rollLines) {
+      renderLog(`${isSelf ? '>>' : '<<'} ${line}`, cardPool);
+      showNotification(line);
+    }
+  }
+  appState.prevSelfDice = msg.view.self.lastDiceRoll;
+  appState.prevOpponentDice = msg.view.opponent.lastDiceRoll;
+  appState.prevResolvedCount = msg.view.combat?.strikeAssignments.filter(sa => sa.resolved).length ?? 0;
+  // Keep the last CvCC attacker ID so the final-strike roll log can show
+  // both rolls even after view.combat becomes null (combat ended).
+  if (msg.view.combat?.isCvCC) {
+    appState.prevCombatAttackingPlayerId = msg.view.combat.attackingPlayerId;
+  }
+  // Snapshot card positions before clearing DOM for FLIP animation
+  snapshotPositions();
+  // The tutorial panel renders FIRST: it depends only on the view, and
+  // rendering it before the board keeps the instructions current even
+  // if a later renderer throws mid-pass (its bubbles position in a rAF
+  // after the pass, so anchor elements are final by then).
+  renderTutorialPanel(msg.view, cardPool);
+  renderState(msg.view, cardPool);
+  renderDraft(msg.view, cardPool);
+  renderMHInfo(msg.view, cardPool, appState.lastCompanyNames);
+  renderSiteInfo(msg.view, cardPool, appState.lastCompanyNames);
+  renderFreeCouncilInfo(msg.view, cardPool);
+  renderActions(msg.view.legalActions, cardPool, sendAction, appState.lastInstanceLookup, appState.lastCompanyNames, appState.lastPlayerNames);
+  renderHand(msg.view, cardPool, sendAction);
+  renderOpponentHand(msg.view, cardPool);
+  renderPlayerNames(msg.view, cardPool);
+  renderPhaseMeter(msg.view, appState.lastCompanyNames);
+  renderDrafted(msg.view, cardPool, sendAction);
+  renderPassButton(msg.view, sendAction);
+  renderDeckPiles(msg.view, cardPool);
+  renderCompanyViews(msg.view, cardPool, sendAction);
+  renderGameOverView(msg.view, cardPool);
+  renderChainPanel(msg.view, cardPool, sendAction);
+  // Animate cards from old positions to new positions
+  animateFromSnapshot();
+  // The full state is now rendered — reveal the board.
+  setLoadingCover(false);
+  // Show turn notification when entering Untap phase
+  if (msg.view.phaseState.phase === 'untap' && appState.lastPhase !== 'untap') {
+    const isMine = msg.view.activePlayer === msg.view.self.id;
+    showNotification(
+      isMine ? 'Your turn' : `${msg.view.opponent.name}'s turn`,
+      isMine ? undefined : { opponent: '' },
+    );
+  }
+  appState.lastPhase = msg.view.phaseState.phase;
+  // Prepare/clear site selection or fetch-from-pile based on legal actions
+  const HIDDEN_HAVEN_PAIR_HINT = 'Click a Ruins & Lairs in your site deck to pair with Hidden Haven';
+  const hiddenHavenPairing = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'select-stage-resource-site');
+  // The Hidden Haven pairing hint must not outlive the pairing state (e.g.
+  // once paired or after the draft ends) — clear it when no longer offered.
+  if (!hiddenHavenPairing && getTargetingInstruction() === HIDDEN_HAVEN_PAIR_HINT) {
+    setTargetingInstruction(null);
+  }
+  const ARRANGE_DECK_TOP_HINT = 'Click your play deck\'s set-aside cards in the order you want them drawn — your first pick becomes the very top card';
+  const arrangingDeckTop = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'arrange-deck-top-card');
+  // Same lifecycle as the Hidden Haven hint above — clear it once the
+  // arrange-deck-top resolution finishes.
+  if (!arrangingDeckTop && getTargetingInstruction() === ARRANGE_DECK_TOP_HINT) {
+    setTargetingInstruction(null);
+  }
+  if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
+    prepareSiteSelection(msg.view, cardPool, sendAction);
+  } else if (hiddenHavenPairing) {
+    // Character-draft: a Fallen-wizard who drafted Hidden Haven (wh-75)
+    // must pair it with a Ruins & Lairs site from their own site deck.
+    // Reuses the same site-deck picker as starting-site-selection.
+    prepareSiteSelection(msg.view, cardPool, sendAction);
+    setTargetingInstruction(HIDDEN_HAVEN_PAIR_HINT);
+  } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
+    prepareFetchFromPile(msg.view, cardPool, sendAction);
+  } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'remove-revealed-card')) {
+    prepareRevealRemoveFromDiscard(msg.view, cardPool, sendAction);
+  } else if (arrangingDeckTop) {
+    prepareArrangeDeckTop(msg.view, cardPool, sendAction);
+    setTargetingInstruction(ARRANGE_DECK_TOP_HINT);
+  } else {
+    clearSelectionState();
+  }
+  // Auto-pass: if exactly one viable action, send it after a delay.
+  // Roll actions are excluded — the player must press Roll themselves
+  // so the dice-roll moment is a deliberate choice.
+  if (appState.autoPassTimer) { clearTimeout(appState.autoPassTimer); appState.autoPassTimer = null; }
+  // A replay has no socket to act on, and its own transport drives the
+  // frames — an auto-pass timer here would only fight the playback clock.
+  if (!appState.replaying && localStorage.getItem(AUTO_PASS_KEY) === 'true') {
+    const viable = msg.view.legalActions.filter(a => a.viable);
+    const isRoll = (t: string) => t === 'roll-initiative' || t.endsWith('-roll');
+    if (viable.length === 1 && !isRoll(viable[0].action.type)) {
+      appState.autoPassTimer = setTimeout(() => {
+        appState.autoPassTimer = null;
+        sendAction(viable[0].action);
+      }, 1500);
+    }
+  }
+}
+
 /** Connect to the game server via WebSocket. */
 export function connect(name: string): void {
   // Cover the game area until the first full state renders. In the
@@ -445,185 +651,9 @@ export function connect(name: string): void {
         setLoadingCover(true, 'Waiting for opponent to connect...');
         break;
 
-      case 'state': {
-        // Wait for any dice animation to finish before rendering the new
-        // state, so the outcome isn't spoiled while dice are still rolling.
-        await waitForDice();
-        clearAwaitingResponse();
-        appState.currentStateSeq = msg.view.stateSeq;
-        appState.currentTurnNumber = msg.view.turnNumber;
-        appState.currentPhase = msg.view.phaseState.phase;
-        { const statusEl = document.getElementById('toolbar-status');
-          if (statusEl) {
-            statusEl.textContent = buildToolbarStatusText(
-              appState.currentGameId, appState.currentTurnNumber, msg.view.phaseState.phase,
-            );
-          }
-        }
-        appState.currentTutorialStep = msg.view.tutorial
-          ? `step ${msg.view.tutorial.stepIndex + 1}/${msg.view.tutorial.stepCount} (${msg.view.tutorial.stepId})`
-          : null;
-        // Body marker for tutorial games (mirrors the 'spectating' class):
-        // e.g. keyboard-shortcut hint overlays are suppressed in the tutorial.
-        document.body.classList.toggle('in-tutorial', msg.view.tutorial !== undefined);
-        // Sticky: an undo can briefly broadcast a pre-cheat state, but a
-        // game once marked cheated never becomes clean again.
-        if (msg.view.cheated) appState.gameCheated = true;
-        // Update heading to show game ID + seq
-        const h = document.getElementById('state-heading');
-        if (h && appState.currentGameId) {
-          h.childNodes[0].textContent = `Game State \u2014 ${appState.currentGameId} seq ${appState.currentStateSeq}`;
-        }
-        // Capture previous lookup so opponent toast uses pre-action visibility
-        const prevInstanceLookup = appState.lastInstanceLookup;
-        const prevCompanyNames = appState.lastCompanyNames;
-        appState.lastInstanceLookup = buildInstanceLookup(msg.view);
-        appState.lastCompanyNames = {
-          ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
-          ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
-        };
-        appState.lastPlayerNames = {
-          [msg.view.self.id as string]: msg.view.self.name,
-          [msg.view.opponent.id as string]: msg.view.opponent.name,
-        };
-        // Merge in action-referenced card defs from the server. A played
-        // card's identity is public via the action itself even when the
-        // card now sits in a redacted pile (e.g. short event sent to the
-        // opponent's face-down discard), so the prev/next view lookups
-        // alone would render "a card" in the toast.
-        const actionLookup = (id: CardInstanceId): CardDefinitionId | undefined =>
-          msg.lastActionCardDefs?.[id] ?? prevInstanceLookup(id);
-        renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
-        // Announce what a player just did *before* replaying the effects that
-        // action produced — a roll result must never precede the line telling
-        // about the roll.
-        if (msg.lastAction) {
-          const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames, appState.lastPlayerNames);
-          const isSelf = msg.lastAction.player === msg.view.self.id;
-          // Log opponent actions so the text log captures what the other player did
-          if (!isSelf) renderLog(`<< ${desc}`, cardPool);
-          if (msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
-            if (isSelf) {
-              showNotification(desc, { cardPool, self: msg.view.self.name });
-            } else {
-              showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
-            }
-          }
-          // A dedicated entry when a player picks a creature race (e.g. Two or
-          // Three Tribes Present), so the opponent can see the choice clearly.
-          if (msg.lastAction.type === 'play-hazard' && msg.lastAction.chosenCreatureRace) {
-            showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`,
-              isSelf ? { self: msg.view.self.name } : { opponent: msg.view.opponent.name });
-          }
-        }
-        // Now the deferred dice rolls and text notifications of that action.
-        flushEffectLog();
-        // Log roll outcomes (dice result + strike/body-check result) for both players
-        if (msg.lastAction) {
-          const instanceToName = (id: import('@meccg/shared').CardInstanceId): string => {
-            const defId = appState.lastInstanceLookup(id);
-            const def = defId ? cardPool[defId as string] : undefined;
-            return (def as { name?: string } | undefined)?.name ?? (id as string);
-          };
-          const rollLines = describeRollOutcome(msg.lastAction, msg.view, appState.prevSelfDice, appState.prevOpponentDice, appState.prevResolvedCount, appState.prevCombatAttackingPlayerId, instanceToName);
-          for (const { line, isSelf } of rollLines) {
-            renderLog(`${isSelf ? '>>' : '<<'} ${line}`, cardPool);
-            showNotification(line);
-          }
-        }
-        appState.prevSelfDice = msg.view.self.lastDiceRoll;
-        appState.prevOpponentDice = msg.view.opponent.lastDiceRoll;
-        appState.prevResolvedCount = msg.view.combat?.strikeAssignments.filter(sa => sa.resolved).length ?? 0;
-        // Keep the last CvCC attacker ID so the final-strike roll log can show
-        // both rolls even after view.combat becomes null (combat ended).
-        if (msg.view.combat?.isCvCC) {
-          appState.prevCombatAttackingPlayerId = msg.view.combat.attackingPlayerId;
-        }
-        // Snapshot card positions before clearing DOM for FLIP animation
-        snapshotPositions();
-        // The tutorial panel renders FIRST: it depends only on the view, and
-        // rendering it before the board keeps the instructions current even
-        // if a later renderer throws mid-pass (its bubbles position in a rAF
-        // after the pass, so anchor elements are final by then).
-        renderTutorialPanel(msg.view, cardPool);
-        renderState(msg.view, cardPool);
-        renderDraft(msg.view, cardPool);
-        renderMHInfo(msg.view, cardPool, appState.lastCompanyNames);
-        renderSiteInfo(msg.view, cardPool, appState.lastCompanyNames);
-        renderFreeCouncilInfo(msg.view, cardPool);
-        renderActions(msg.view.legalActions, cardPool, sendAction, appState.lastInstanceLookup, appState.lastCompanyNames, appState.lastPlayerNames);
-        renderHand(msg.view, cardPool, sendAction);
-        renderOpponentHand(msg.view, cardPool);
-        renderPlayerNames(msg.view, cardPool);
-        renderPhaseMeter(msg.view, appState.lastCompanyNames);
-        renderDrafted(msg.view, cardPool, sendAction);
-        renderPassButton(msg.view, sendAction);
-        renderDeckPiles(msg.view, cardPool);
-        renderCompanyViews(msg.view, cardPool, sendAction);
-        renderGameOverView(msg.view, cardPool);
-        renderChainPanel(msg.view, cardPool, sendAction);
-        // Animate cards from old positions to new positions
-        animateFromSnapshot();
-        // The full state is now rendered — reveal the board.
-        setLoadingCover(false);
-        // Show turn notification when entering Untap phase
-        if (msg.view.phaseState.phase === 'untap' && appState.lastPhase !== 'untap') {
-          const isMine = msg.view.activePlayer === msg.view.self.id;
-          showNotification(
-            isMine ? 'Your turn' : `${msg.view.opponent.name}'s turn`,
-            isMine ? undefined : { opponent: '' },
-          );
-        }
-        appState.lastPhase = msg.view.phaseState.phase;
-        // Prepare/clear site selection or fetch-from-pile based on legal actions
-        const HIDDEN_HAVEN_PAIR_HINT = 'Click a Ruins & Lairs in your site deck to pair with Hidden Haven';
-        const hiddenHavenPairing = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'select-stage-resource-site');
-        // The Hidden Haven pairing hint must not outlive the pairing state (e.g.
-        // once paired or after the draft ends) — clear it when no longer offered.
-        if (!hiddenHavenPairing && getTargetingInstruction() === HIDDEN_HAVEN_PAIR_HINT) {
-          setTargetingInstruction(null);
-        }
-        const ARRANGE_DECK_TOP_HINT = 'Click your play deck\'s set-aside cards in the order you want them drawn — your first pick becomes the very top card';
-        const arrangingDeckTop = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'arrange-deck-top-card');
-        // Same lifecycle as the Hidden Haven hint above — clear it once the
-        // arrange-deck-top resolution finishes.
-        if (!arrangingDeckTop && getTargetingInstruction() === ARRANGE_DECK_TOP_HINT) {
-          setTargetingInstruction(null);
-        }
-        if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
-          prepareSiteSelection(msg.view, cardPool, sendAction);
-        } else if (hiddenHavenPairing) {
-          // Character-draft: a Fallen-wizard who drafted Hidden Haven (wh-75)
-          // must pair it with a Ruins & Lairs site from their own site deck.
-          // Reuses the same site-deck picker as starting-site-selection.
-          prepareSiteSelection(msg.view, cardPool, sendAction);
-          setTargetingInstruction(HIDDEN_HAVEN_PAIR_HINT);
-        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
-          prepareFetchFromPile(msg.view, cardPool, sendAction);
-        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'remove-revealed-card')) {
-          prepareRevealRemoveFromDiscard(msg.view, cardPool, sendAction);
-        } else if (arrangingDeckTop) {
-          prepareArrangeDeckTop(msg.view, cardPool, sendAction);
-          setTargetingInstruction(ARRANGE_DECK_TOP_HINT);
-        } else {
-          clearSelectionState();
-        }
-        // Auto-pass: if exactly one viable action, send it after a delay.
-        // Roll actions are excluded — the player must press Roll themselves
-        // so the dice-roll moment is a deliberate choice.
-        if (appState.autoPassTimer) { clearTimeout(appState.autoPassTimer); appState.autoPassTimer = null; }
-        if (localStorage.getItem(AUTO_PASS_KEY) === 'true') {
-          const viable = msg.view.legalActions.filter(a => a.viable);
-          const isRoll = (t: string) => t === 'roll-initiative' || t.endsWith('-roll');
-          if (viable.length === 1 && !isRoll(viable[0].action.type)) {
-            appState.autoPassTimer = setTimeout(() => {
-              appState.autoPassTimer = null;
-              sendAction(viable[0].action);
-            }, 1500);
-          }
-        }
+      case 'state':
+        await renderStateMessage(msg);
         break;
-      }
 
       case 'draft-reveal': {
         const p1 = msg.player1Pick ? (cardPool[msg.player1Pick as string]?.name ?? msg.player1Pick) : 'stopped';

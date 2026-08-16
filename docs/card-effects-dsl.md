@@ -447,6 +447,21 @@ untapped protected Wizardhavens each of your site phases."
   "oncePerSitePhase": true }
 ```
 
+A third, simpler player-scoped variant keys on the acting company's size
+instead of a Wizardhaven: `maxCompanySize` grants `allowTappedSite` to any
+company whose `companyEffectiveSize` (CoE 3.24 half-Hobbit/Orc-scout rounding)
+is at most the given value, at **any** site. Unlike the other two variants it
+never relaxes *which* allies are playable (no `filter`-driven bypass of
+`playableAt`) — it only lifts the untapped-site requirement. Found via
+`findCompanySizeAllyPlayGrant` (`reducer-utils.ts`) and applied in
+`legal-actions/site.ts` alongside the other `allyAllowsTappedSite` sources.
+Used by Friend of Secret Things (wh-109): "Your companies with a company size
+of 2 or less may play allies at tapped sites."
+
+```json
+{ "type": "grant-ally-play", "maxCompanySize": 2, "allowTappedSite": true }
+```
+
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
 influencing character's company — e.g. The Warg-king's "+2 to any
@@ -3067,6 +3082,57 @@ permanent-event legal-action generator via `wizardSpecificName`: a
 `<wizard>-specific` card is playable only while that player's revealed avatar is
 the named wizard.
 
+**`fromStored: true` — a grant-action sourced from a stored card, not a bearer.**
+A card stored in the controller's marshalling-point pile (`killPile`, a
+`storedAtSite` entry) has left both `cardsInPlay` and any character's
+attachment lists — the `grant-action` counterpart to a `stat-modifier`'s
+`activeWhileStored` (§ above). Marking a `grant-action` effect `fromStored`
+routes it to a dedicated scanner, `storedCardGrantActions`
+(`legal-actions/organization.ts`), which reads `killPile` entries' own
+definitions directly; the ordinary attached-card scans (`extractGrantActions`)
+explicitly skip `fromStored` effects, so the ability never fires while the
+card is merely in play (before storage) and is never offered twice.
+
+Because a stored card has no bearer, its cost cannot use a bearer-relative
+`tap` variant. `cost.tap: "sage-at-haven"` instead enumerates every one of
+the acting player's own untapped sage characters currently at a Haven [{H}],
+independent of company; the chosen sage becomes the activation's
+`characterId` and — for a `place-item-on-character` apply — also supplies the
+company whose members are offered as recipients (scoped to just that one
+company, unlike the attached-card form's site-wide search, since there is no
+bearer/site to search from). `cost.discard: "self"` discards the stored card
+itself, paid by a `killPile` fallback in `applyDiscardSelf`
+(`cost-evaluator.ts`): when the source instance isn't found on the paying
+actor's `items`/`allies`/`hazards`, it is looked up in the player's `killPile`
+instead and removed from there into the discard pile.
+
+```json
+{ "type": "grant-action", "action": "reforging-retrieve-item",
+  "fromStored": true,
+  "cost": { "tap": "sage-at-haven", "discard": "self" },
+  "apply": {
+    "type": "place-item-on-character",
+    "fetchFrom": ["discard-pile"],
+    "filter": { "$and": [
+      { "subtype": { "$in": ["minor", "major"] } },
+      { "$or": [
+        { "keywords": { "$includes": "weapon" } },
+        { "keywords": { "$includes": "armor" } },
+        { "keywords": { "$includes": "shield" } }
+      ] }
+    ] }
+  } }
+```
+
+Used by Reforging (tw-314): "During your organization phase, you may tap a
+sage at a Haven [{H}] and discard a stored Reforging to retrieve any minor or
+major weapon, armor, or shield (even a hoard item) from your discard pile.
+The item must be placed under the control of a character in the sage's
+company." A hoard item still qualifies since the filter carries no `hoard`
+exclusion, and this path bypasses the ordinary site-based `item-play-site`
+gate entirely (there is no site check here), which is exactly what "even a
+hoard item" needs — the item is placed directly, not played at a hoard site.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.
@@ -3203,7 +3269,7 @@ Apply types:
 - `discard-character` -- discard the affected character to the defending player's discard pile (not the out-of-play pile). The character is removed from their company; all their items and allies are also discarded immediately. No item-salvage phase is offered. Condition context exposes `{ target: { race } }` (evaluated per character). Supported under two events:
   - `on-event: character-body-check-equals-body` — fires when the body check result **exactly equals** the character's body. Implemented in `reducer-combat.ts` `handleBodyCheckRoll()`. Used by *Giant Spiders* (tw-40).
   - `on-event: character-wounded-by-self` — fires after combat finalization for each wounded character. The condition is evaluated per wounded character; any that pass are discarded. Implemented in `reducer-combat.ts` `discardWoundedCharacters()`. Used by *Abductor* (tw-1).
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost` (when added from a **resource short-event's** `on-event: self-enters-play` — Come By Night Upon Them le-176 — it resolves the active site-phase company itself, bakes a `doublesWithDoorsOfNight` doubling at play time, and is stored as a **persistent** `auto-attack.prowess` `attribute-modifier` that weakens *every* automatic-attack the company faces at the site, not just the first), `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase; an optional `purpose: "healing"` makes the override **healing-only** — `getEffectiveSiteType` ignores it so hazard keying / movement / bring-into-play / playability keep the printed type, while the untap-phase healing sweep still treats the site as a Haven, as used by *Houses of Healing* td-125; an optional `purpose: "healing-and-hazards"` makes the override apply everywhere *except* character recruiting — `getEffectiveSiteType` callers that decide whether a character may be played/recruited pass `excludeCharacterPlayOverrides` to skip it, while hazard keying, movement, bring-into-play, item/faction/ally playability, and healing all still see the Haven, as used by *The White Tree* tw-348 ("Minas Tirith becomes a Haven for the purposes of healing and playing hazards" — not for playing characters); an optional `allVersions: true` scopes the override by the site's printed **name** instead of its definition id, so every printing of the location — hero / minion / Fallen-wizard / Balrog, distinct definitions sharing one name — is retyped, as used by *Nature's Revenge* wh-27 "All versions of the site become Ruins & Lairs"), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `company-cannot-move` constraint (scope `"turn"`, target a company) locks that company stationary for the rest of the turn: the org-phase `plan-movement` emitter (`planMovementActions`) skips it and the reducer (`handlePlanMovement`) rejects any movement declaration for it. Used by *Hide in Dark Places* (le-192), which adds it alongside `no-creature-hazards-on-company` (two `on-event: self-enters-play` → `add-constraint` effects) so the protected company cannot carry its hazard-creature immunity onto a moving company. Installing the constraint also **strips a destination the company already declared** (`clearPlannedMovement`, `reducer-utils.ts`, returning the site card to the location deck) — end-of-org cards are played alongside the rest of the organization phase, so a company may already be moving when the card resolves. That matters for *Hiding* (tw-256), the hero counterpart, which carries no "not moving" precondition and instead grounds its target outright ("Scout’s company may not move to another site this turn"); for le-192 the strip is a no-op because its `play-target` filter already requires `company.moving: false`. The `no-creatures-keyed-to-site` constraint (scope `"turn"`, target a company) is the inverse of `only-creatures-keyed-to-site`: hazard-creature plays keyed *to the target company's new site* (the play action's `keyedBy.method` is `site-type`, `site-name`, `site-keyword`, or `adjacent-to-site-keyword`) are dropped, while region-keyed plays of the same creature survive as their own actions. An optional `unlessSiteRegionType` field (e.g. `"free"`) voids the restriction entirely when the destination site's containing region has that type, resolved via `siteRegionTypeOf`. Used by *Crack in the Wall* (le-177): "Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company's new site." The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The `check-modifier` constraint kind may also be added via a grant-action `add-constraint` apply (carrying `check` and a numeric `value`): a one-shot bonus/penalty consumed the first time the targeted character makes a matching check — e.g. *When You Know More* (dm-163) adds a `+2` `influence` modifier. Such a grant-action targets the chosen character with `target: "action-target-character"`, which resolves to `{ kind: "character", characterId: <action.targetCardId> }` (the candidate the legal-action generator put on the activation). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives. The `target: "bearer"` selector resolves to the *activating* character himself (`{ kind: "character", characterId: <action.characterId> }`) — used by the `can-use-palantir` constraint kind: Palantír of Elostirion (le-332) grants a `{ tap: "bearer" }` ability to a sage bearer whose apply is `{ "type": "add-constraint", "constraint": "can-use-palantir", "scope": "turn", "target": "bearer" }`, which makes `bearer.canUsePalantir` true for the rest of the turn — but **only** for the Palantír that placed it, since `buildGrantActionContext` matches the constraint's `source` against the card whose ability is being gated ("the bearer is able to use *this* Palantír this turn if he taps"). The `mirror-automatic-attacks` constraint kind (scope `"turn"`, added via a `company-arrives-at-site` on-event) replaces a site's entire automatic-attack list, for one company's one visit only, with the automatic-attacks printed on the **corresponding site card of the other alignment** (same printed name, hero-site ↔ minion-site — every hero Border-hold/Free-hold and every minion Shadow-hold/Dark-hold has exactly one such sibling), each boosted by the apply's `value` (added to prowess). `constraint-kind.ts` resolves the destination site (M/H phase only, mirroring `site-type-override`'s resolution), looks up the same-named opposite-alignment definition in `state.cardPool`, and bakes in the applicable detainment mode: visiting a **hero** site bakes `detainmentAgainstPlayer` set to the hero-aligned player's id ("detainment against hero companies" — reusing the same field *Long Grievous Siege* ba-40 uses for its "detainment against your companies" `faction-siege` attacks); visiting a **minion** site bakes `detainmentAgainstOvert: true` on the {@link AutomaticAttack}, a new field consulted alongside `forceDetainment`/`detainmentAgainstPlayer` at every site auto-attack combat-initiation site in `reducer-site.ts` — the attack is detainment specifically when the defending company is racially overt (Orc/Troll/Balrog avatar), normal otherwise ("detainment against overt companies"). Consumed in `manifestations.ts` `getActiveAutoAttacks`, matched by `siteInstanceId` (not definition id, so only the targeted company's own site copy is affected — other companies' copies of the same site are untouched). Used by *Whole Villages Roused* (wh-31).
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost` (when added from a **resource short-event's** `on-event: self-enters-play` — Come By Night Upon Them le-176 — it resolves the active site-phase company itself, bakes a `doublesWithDoorsOfNight` doubling at play time, and is stored as a **persistent** `auto-attack.prowess` `attribute-modifier` that weakens *every* automatic-attack the company faces at the site, not just the first), `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase; an optional `purpose: "healing"` makes the override **healing-only** — `getEffectiveSiteType` ignores it so hazard keying / movement / bring-into-play / playability keep the printed type, while the untap-phase healing sweep still treats the site as a Haven, as used by *Houses of Healing* td-125; an optional `purpose: "healing-and-hazards"` makes the override apply everywhere *except* character recruiting — `getEffectiveSiteType` callers that decide whether a character may be played/recruited pass `excludeCharacterPlayOverrides` to skip it, while hazard keying, movement, bring-into-play, item/faction/ally playability, and healing all still see the Haven, as used by *The White Tree* tw-348 ("Minas Tirith becomes a Haven for the purposes of healing and playing hazards" — not for playing characters); an optional `allVersions: true` scopes the override by the site's printed **name** instead of its definition id, so every printing of the location — hero / minion / Fallen-wizard / Balrog, distinct definitions sharing one name — is retyped, as used by *Nature's Revenge* wh-27 "All versions of the site become Ruins & Lairs"), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `company-cannot-move` constraint (scope `"turn"`, target a company) locks that company stationary for the rest of the turn: the org-phase `plan-movement` emitter (`planMovementActions`) skips it and the reducer (`handlePlanMovement`) rejects any movement declaration for it. Used by *Hide in Dark Places* (le-192), which adds it alongside `no-creature-hazards-on-company` (two `on-event: self-enters-play` → `add-constraint` effects) so the protected company cannot carry its hazard-creature immunity onto a moving company. Installing the constraint also **strips a destination the company already declared** (`clearPlannedMovement`, `reducer-utils.ts`, returning the site card to the location deck) — end-of-org cards are played alongside the rest of the organization phase, so a company may already be moving when the card resolves. That matters for *Hiding* (tw-256), the hero counterpart, which carries no "not moving" precondition and instead grounds its target outright ("Scout’s company may not move to another site this turn"); for le-192 the strip is a no-op because its `play-target` filter already requires `company.moving: false`. The `no-creatures-keyed-to-site` constraint (scope `"turn"`, target a company) is the inverse of `only-creatures-keyed-to-site`: hazard-creature plays keyed *to the target company's new site* (the play action's `keyedBy.method` is `site-type`, `site-name`, `site-keyword`, or `adjacent-to-site-keyword`) are dropped, while region-keyed plays of the same creature survive as their own actions. An optional `unlessSiteRegionType` field (e.g. `"free"`) voids the restriction entirely when the destination site's containing region has that type, resolved via `siteRegionTypeOf`. Used by *Crack in the Wall* (le-177): "Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company's new site." Also used (with no `unlessSiteRegionType`) by *Secret Entrance* (tw-324): "no hazard creatures keyed to the site may be played on the company" — unlike Stealth/Sneakin's `no-creature-hazards-on-company`, region-keyed creature plays against the protected company remain legal, only the site-keyed variants are dropped. The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The `check-modifier` constraint kind may also be added via a grant-action `add-constraint` apply (carrying `check` and a numeric `value`): a one-shot bonus/penalty consumed the first time the targeted character makes a matching check — e.g. *When You Know More* (dm-163) adds a `+2` `influence` modifier. Such a grant-action targets the chosen character with `target: "action-target-character"`, which resolves to `{ kind: "character", characterId: <action.targetCardId> }` (the candidate the legal-action generator put on the activation). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives. The `target: "bearer"` selector resolves to the *activating* character himself (`{ kind: "character", characterId: <action.characterId> }`) — used by the `can-use-palantir` constraint kind: Palantír of Elostirion (le-332) grants a `{ tap: "bearer" }` ability to a sage bearer whose apply is `{ "type": "add-constraint", "constraint": "can-use-palantir", "scope": "turn", "target": "bearer" }`, which makes `bearer.canUsePalantir` true for the rest of the turn — but **only** for the Palantír that placed it, since `buildGrantActionContext` matches the constraint's `source` against the card whose ability is being gated ("the bearer is able to use *this* Palantír this turn if he taps"). The `mirror-automatic-attacks` constraint kind (scope `"turn"`, added via a `company-arrives-at-site` on-event) replaces a site's entire automatic-attack list, for one company's one visit only, with the automatic-attacks printed on the **corresponding site card of the other alignment** (same printed name, hero-site ↔ minion-site — every hero Border-hold/Free-hold and every minion Shadow-hold/Dark-hold has exactly one such sibling), each boosted by the apply's `value` (added to prowess). `constraint-kind.ts` resolves the destination site (M/H phase only, mirroring `site-type-override`'s resolution), looks up the same-named opposite-alignment definition in `state.cardPool`, and bakes in the applicable detainment mode: visiting a **hero** site bakes `detainmentAgainstPlayer` set to the hero-aligned player's id ("detainment against hero companies" — reusing the same field *Long Grievous Siege* ba-40 uses for its "detainment against your companies" `faction-siege` attacks); visiting a **minion** site bakes `detainmentAgainstOvert: true` on the {@link AutomaticAttack}, a new field consulted alongside `forceDetainment`/`detainmentAgainstPlayer` at every site auto-attack combat-initiation site in `reducer-site.ts` — the attack is detainment specifically when the defending company is racially overt (Orc/Troll/Balrog avatar), normal otherwise ("detainment against overt companies"). Consumed in `manifestations.ts` `getActiveAutoAttacks`, matched by `siteInstanceId` (not definition id, so only the targeted company's own site copy is affected — other companies' copies of the same site are untouched). Used by *Whole Villages Roused* (wh-31).
 - self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. This is the generic `move` primitive in its "discard the bearer" shape — it replaced the former dedicated `discard-self` verb (the legacy→`move` mapping is in the migration table below). Event sweepers detect it via the shared `isSelfDiscardMove` predicate (`reducer-utils.ts`); the slot-specific removal stays inline per sweeper because the move locator does not scan every attachment slot (e.g. allies). Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised), and with `untap-phase-end` + `when: { "bearer.atHaven": true }` to discard at the Untap→Organization transition when at a haven (e.g. Well-preserved). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`, `reducer-utils.ts` `sweepAutoDiscardHazards()`, and `reducer-untap.ts` `advanceToOrganization()`.
 - `discard-named-card-from-company` -- find an item attached to any
   character in any company at the bearer's current site (matched by
@@ -5313,6 +5379,18 @@ strings to chase through the engine.
   tapped instead—no body checks are made" never says "detainment").
   (implemented in `engine/detainment.ts`, `reducer-combat.ts`,
   `combat-finalize.ts`)
+- `combat-strike-effect` — self-bound creature version of the agent-attack
+  `strikeEffect: "discard-item"` precedent (§40.1 `agent-attack-modifier`).
+  A successful strike does not wound the defending character; instead the
+  defending **company** must discard one item (defender's choice) via the
+  `discard-item-from-company` combat phase. Only field beyond `type` is
+  `strikeEffect: "discard-item"` (currently the only value). Threaded onto
+  `CombatState.strikeEffect` at combat initiation (`initiateCreatureCombat`,
+  `chain-reducer.ts`) and resolved by the same generic path in
+  `combat-strike.ts` shared with agent attacks — detainment strikes never
+  trigger it. Card text is "For each successful strike, an item held by
+  the defending company must be discarded (defender's choice); the
+  defending character is not harmed" (e.g. Thief, tw-102).
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
@@ -5328,6 +5406,7 @@ strings to chase through the engine.
 { "type": "combat-tap-low-mind" }
 { "type": "combat-detainment" }
 { "type": "combat-detainment", "awardsKillMp": true }
+{ "type": "combat-strike-effect", "strikeEffect": "discard-item" }
 {
   "type": "combat-detainment",
   "when": {
@@ -6094,6 +6173,17 @@ destination (`destinationSite` set by `plan-movement`, clearable by
 phase) and *Deeper Shadow* (le-179, `true`, M/H phase), and inverted by *Hide
 in Dark Places* (le-192, `false`, organization phase — "a scout whose company
 is not moving").
+
+`company.destinationSiteRegionType` is the {@link RegionType} of the region
+containing the candidate's company's **declared destination site**
+(`charCompany.destinationSite`, resolved via `siteRegionTypeOf`), or `null`
+when the company has no declared destination. Unlike `destinationRegionTypes`
+(the M/H-only array of regions *traversed* along the resolved path), this
+field is available in the **organization** phase — as soon as `plan-movement`
+sets a destination — because it is derived from the destination site's own
+printed `region`, not from a resolved travel path. Used by *Secret Entrance*
+(tw-324): "may not be played on a company moving to a site in a Dark-domain
+[{d}]" — `filter: { "company.destinationSiteRegionType": { "$ne": "dark" } }`.
 
 For **hazard** character-targeting plays during the movement/hazard phase
 (`movement-hazard.ts`), the filter context additionally exposes
@@ -9223,7 +9313,7 @@ Fields:
 
 Used by *The Way is Shut* (dm-98): "cancels the effects of Secret Passage and
 Secret Entrance" — while it is in play, Secret Entrance's
-`no-creature-hazards-on-company` and Secret Passage's
+`no-creatures-keyed-to-site` and Secret Passage's
 `only-creatures-keyed-to-site` restrictions on a company are lifted.
 
 ```json

@@ -106,6 +106,34 @@ describe('transferring', () => {
     const evaluation = healthModule.evaluate(act('transfer-item', PLAIN), contextWith(BALANCED, BALANCED))!;
     expect(evaluation.assumptions.some(a => a.includes('are not invented here'))).toBe(true);
   });
+
+  test('a bearer with no corruption points still transfers at zero — the check cannot fail', () => {
+    const context = contextWith(BALANCED, BALANCED);
+    const action = {
+      type: 'transfer-item', itemInstanceId: `item-${PLAIN}`, fromCharacterId: 'hero-1', toCharacterId: 'hero-2',
+    } as unknown as GameAction;
+    const evaluation = healthModule.evaluate(action, context)!;
+    expect(evaluation.expectedTsd).toBe(0);
+  });
+
+  test('a bearer who would risk failing the enqueued check makes the transfer costly, not neutral', () => {
+    // CoE 2.II.5: transferring enqueues a corruption check on the giving
+    // bearer unconditionally. A bearer already carrying corruption points can
+    // fail that check and be discarded (CoE 7.1) — a real cost the AI must
+    // not treat as free, or it shuffles items around for no reason (game
+    // msuhv0u9-w8joja, turn 2: five corruption checks moving two items that
+    // could have been transferred directly).
+    const context = contextWith(BALANCED, BALANCED);
+    const characters = context.view.self.characters as unknown as
+      Record<string, { effectiveStats: { corruptionPoints: number } }>;
+    characters['hero-1'].effectiveStats.corruptionPoints = 5;
+    const action = {
+      type: 'transfer-item', itemInstanceId: `item-${PLAIN}`, fromCharacterId: 'hero-1', toCharacterId: 'hero-2',
+    } as unknown as GameAction;
+    const evaluation = healthModule.evaluate(action, context)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('corruption check risked');
+  });
 });
 
 describe('what it declines', () => {

@@ -18,6 +18,8 @@
  * - GET /api/changelog — the repository CHANGELOG.md as markdown (any session)
  * - GET /api/scoreboard — per-player completed-game tallies, most games first
  * - GET /api/scoreboard/players/:name — every completed game for one player, newest first
+ * - GET /api/replay/:gameId — the replay timeline (seats + one entry per recorded transition)
+ * - GET /api/replay/:gameId/frames/:index?seat=ID — one recorded state, projected for that seat
  * - GET /api/admin/users — all accounts with name, display name, email, credits (admin session)
  * - GET /api/admin/users/:name — one account's full data, credit history, games (admin session)
  * - POST /api/admin/users/:name/credits/top-up — add 1.5× consumption-since-last-addition, rounded
@@ -57,6 +59,7 @@ import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
+import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
 import { sendMail, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -67,7 +70,6 @@ import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/
 
 const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '.meccg', 'image-cache');
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
-const GAME_LOG_DIR = path.join(os.homedir(), '.meccg', 'logs', 'games');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
 const CHANGELOG_PATH = path.join(__dirname, '../../../../CHANGELOG.md');
 
@@ -474,6 +476,42 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         return;
       }
       sendJson(res, 200, { name, games: loadPlayerGames(name) });
+    });
+    return;
+  }
+
+  // ---- Replay of a finished game ----
+
+  const replayFrameMatch = urlPath.match(/^\/api\/replay\/([^/]+)\/frames\/(\d+)$/);
+  if (replayFrameMatch && method === 'GET') {
+    await authedRoute(req, res, 'replay-frame', 'Failed to load replay frame', () => {
+      const gameId = decodeURIComponent(replayFrameMatch[1]);
+      const frameIndex = parseInt(replayFrameMatch[2], 10);
+      const seat = url.searchParams.get('seat');
+      if (!seat) {
+        sendJson(res, 400, { error: 'A seat is required' });
+        return;
+      }
+      const view = loadReplayFrame(gameId, frameIndex, seat);
+      if (!view) {
+        sendJson(res, 404, { error: 'No such replay frame' });
+        return;
+      }
+      sendJson(res, 200, { view });
+    });
+    return;
+  }
+
+  const replayMatch = urlPath.match(/^\/api\/replay\/([^/]+)$/);
+  if (replayMatch && method === 'GET') {
+    await authedRoute(req, res, 'replay', 'Failed to load replay', () => {
+      const gameId = decodeURIComponent(replayMatch[1]);
+      const index = loadReplayIndex(gameId);
+      if (!index) {
+        sendJson(res, 404, { error: 'No replayable recording exists for this game' });
+        return;
+      }
+      sendJson(res, 200, index);
     });
     return;
   }
@@ -1159,9 +1197,10 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     if (gameLogMatch && method === 'GET') {
       const [, gameId, kind] = gameLogMatch;
       const fileName = kind === 'log' ? `${gameId}.jsonl` : `${gameId}-cards.json`;
-      const filePath = path.join(GAME_LOG_DIR, fileName);
+      const logDir = gameLogDir();
+      const filePath = path.join(logDir, fileName);
       // Defence in depth against path-traversal — the regex already forbids `.` and `/`.
-      if (!filePath.startsWith(GAME_LOG_DIR + path.sep)) {
+      if (!filePath.startsWith(logDir + path.sep)) {
         sendJson(res, 400, { error: 'Invalid game ID' });
         return;
       }

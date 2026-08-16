@@ -1904,6 +1904,24 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly corruptionCheckWindow?: boolean;
   /**
+   * When true, this ability is granted while its source card sits **stored**
+   * in the controller's marshalling-point pile (`killPile`, a `storedAtSite`
+   * entry) rather than while attached to a bearer in `cardsInPlay` — the
+   * `grant-action` counterpart to a `stat-modifier`'s {@link
+   * EffectBase.activeWhileStored}. A stored card has no bearer, so the
+   * ability is scanned by a dedicated stored-card scanner
+   * (`storedCardGrantActions`, `legal-actions/organization.ts`) instead of
+   * the generic attached-card scan, and `cost.discard: "self"` discards the
+   * stored card straight out of `killPile` (the `applyDiscardSelf` fallback
+   * in `cost-evaluator.ts`) rather than detaching it from a bearer. Typically
+   * paired with `cost.tap: "sage-at-haven"`, since the activating character
+   * cannot be inferred from a bearer that no longer exists. Used by
+   * Reforging (tw-314): "During your organization phase, you may tap a sage
+   * at a Haven [{H}] and discard a stored Reforging to retrieve any minor or
+   * major weapon, armor, or shield … from your discard pile."
+   */
+  readonly fromStored?: boolean;
+  /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
    * TriggeredAction apply dispatch shared with `on-event` and
@@ -2020,10 +2038,17 @@ export interface ActionCost {
    * as-142 special rule — the action carries sage as `characterId` and scout as
    * `secondCharacterId`); "self-and-bearer" taps BOTH the source item AND its
    * bearer character (used by Torque of Hues — requires both item and bearer
-   * to be untapped).
+   * to be untapped); "sage-at-haven" taps any one of the acting player's own
+   * untapped sage characters currently at a Haven [{H}], independent of any
+   * bearer or company — used by a `fromStored` grant-action (see
+   * {@link GrantActionEffect.fromStored}), where the source card has no
+   * bearer to begin with (it sits in the marshalling-point pile). The chosen
+   * sage becomes the action's `characterId`, and (for a `place-item-on-character`
+   * apply with `recipientScope: "bearer-company"`) also supplies the company
+   * whose members are offered as recipients. Used by Reforging (tw-314).
    */
   readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-in-company-excluding-bearer'
-    | 'sage-and-scout-in-company' | 'self-and-bearer';
+    | 'sage-and-scout-in-company' | 'self-and-bearer' | 'sage-at-haven';
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use. "named-card"
@@ -2816,7 +2841,18 @@ export interface PlaceItemOnCharacterAction extends TriggeredActionBase {
   readonly type: 'place-item-on-character';
   /** Piles the item may be fetched from (default discard-pile/sideboard/hand). */
   readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[];
-  /** Restricts which items qualify. */
+  /**
+   * Restricts which items qualify. Recipients (who the item may be placed
+   * with) are scoped by *how* the grant-action is sourced, not by a data
+   * field: an attached-card `place-item-on-character` (The Forge-master
+   * wh-117) offers every character in any of the controller's companies at
+   * the acting character's site (`grantedActionActivations`'s item scan);
+   * a `fromStored` `place-item-on-character` (Reforging tw-314) instead
+   * offers only the acting (tapped) character's own company members
+   * (`storedCardGrantActions`) — there is no bearer/site to anchor a
+   * site-wide search since the source card sits in the marshalling-point
+   * pile, and the card text itself says "a character in the sage's company".
+   */
   readonly filter?: Condition;
 }
 
@@ -3816,6 +3852,24 @@ export interface CombatDetainmentEffect extends EffectBase {
  */
 export interface CombatTapLowMindEffect extends EffectBase {
   readonly type: 'combat-tap-low-mind';
+}
+
+/**
+ * A successful strike of this attack does not wound the defending character;
+ * instead the defending company must discard one item (defender's choice).
+ * Self-bound to the creature — threaded onto `CombatState.strikeEffect` at
+ * combat initiation and resolved by the generic `strikeEffect === 'discard-item'`
+ * path in `combat-strike.ts` shared with the agent-attack precedent (Taladhan
+ * dm-25, An Article Missing dm-43): the strike still "hits" (cancelable,
+ * countable) but its result is replaced with a company item discard via the
+ * `discard-item-from-company` combat phase; detainment attacks never trigger
+ * it. Card text is "For each successful strike, an item held by the
+ * defending company must be discarded (defender's choice); the defending
+ * character is not harmed" (e.g. Thief tw-102).
+ */
+export interface CombatStrikeEffectEffect extends EffectBase {
+  readonly type: 'combat-strike-effect';
+  readonly strikeEffect: 'discard-item';
 }
 
 /**
@@ -8388,6 +8442,7 @@ export type CardEffect =
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatTapLowMindEffect
+  | CombatStrikeEffectEffect
   | CombatOneStrikePerCharacterEffect
   | CombatBodyCheckModifierEffect
   | CombatBodyPerDefenderSkillEffect
@@ -8737,10 +8792,23 @@ export interface GrantAllyPlayEffect extends EffectBase {
    */
   readonly atProtectedWizardhavens?: boolean;
   /**
+   * When set, the grant is **player-scoped and company-size-keyed** rather
+   * than tied to a bearer character or a Wizardhaven: the engine finds the
+   * granting permanent-event in the player's `cardsInPlay` and extends
+   * {@link allowTappedSite} to any company whose {@link companyEffectiveSize}
+   * is at most this value, at **any** site (unlike
+   * {@link atProtectedWizardhavens}, no site restriction applies). Unlike
+   * `filter`, this does not relax *which* allies are playable — only the
+   * printed untapped-site requirement. Used by Friend of Secret Things
+   * (wh-109): "Your companies with a company size of 2 or less may play
+   * allies at tapped sites."
+   */
+  readonly maxCompanySize?: number;
+  /**
    * When `true`, the target site may be **tapped or untapped** — the grant
-   * lifts the normal untapped-site requirement for ally play. Only meaningful
-   * with {@link atProtectedWizardhavens} (wh-62: "tapped or untapped protected
-   * Wizardhavens").
+   * lifts the normal untapped-site requirement for ally play. Meaningful with
+   * {@link atProtectedWizardhavens} (wh-62: "tapped or untapped protected
+   * Wizardhavens") or {@link maxCompanySize} (wh-109).
    */
   readonly allowTappedSite?: boolean;
   /**

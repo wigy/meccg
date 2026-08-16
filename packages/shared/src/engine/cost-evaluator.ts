@@ -292,6 +292,20 @@ function applyDiscardSelf(
   }
 
   if (!updatedActor) {
+    // A stored card (marshalling-point pile, `killPile`) has no bearer to
+    // detach it from — a `fromStored` grant-action (Reforging tw-314) taps a
+    // separately-chosen actor (e.g. a sage at a Haven) while discarding the
+    // stored source itself. Fall back to removing it from `killPile`.
+    const player = state.players[playerIndex];
+    if (player?.killPile.some(c => c.instanceId === sourceCardId && c.storedAtSite)) {
+      const newState = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        killPile: removeById(p.killPile, sourceCardId),
+        discardPile: [...p.discardPile, discardedCard],
+      }));
+      logDetail(`Cost (${label}): discarded stored card ${sourceCardId as string} from the marshalling-point pile`);
+      return { state: newState };
+    }
     return { error: `applyCost: source ${sourceCardId as string} not found on actor ${actorId as string}` };
   }
 

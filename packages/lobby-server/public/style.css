@@ -850,6 +850,29 @@ h2 {
   color: #8890a0;
 }
 
+.scoreboard-replay-link {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  border-radius: 3px;
+  background: rgba(196, 163, 90, 0.1);
+  color: #c4a35a;
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.scoreboard-replay-link:hover:not(:disabled) {
+  background: rgba(196, 163, 90, 0.25);
+  color: #e2c98a;
+}
+
+.scoreboard-replay-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .scoreboard-detail-table {
   width: 100%;
   border-collapse: collapse;
@@ -7504,3 +7527,135 @@ body.all-companies-mode:has(#debug-view.hidden) {
   z-index: 1;
 }
 
+
+/* ---- Replay transport ----
+ *
+ * The replay viewer draws on the ordinary game board, so its controls live in
+ * a bar pinned across the bottom. Above every board layer (the scrubber must
+ * stay grabbable over companies, dice and modals alike) but below the action
+ * menus, which a replay never opens anyway. */
+
+#replay-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-action-backdrop);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(10, 10, 20, 0.92);
+  border-top: 1px solid rgba(196, 163, 90, 0.35);
+  font-size: 0.78rem;
+  color: #d8d8e0;
+}
+
+/* The transport owns the bottom strip, so the (face-down, uninteractive)
+   hand arc tucks out of its way for as long as the replay is on screen. */
+body.replaying #hand-arc,
+body.replaying #hand-arc:hover,
+body.replaying #hand-arc.kbd-peek {
+  bottom: -18vh;
+}
+
+.replay-transport {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.replay-btn {
+  min-width: 2rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid rgba(196, 163, 90, 0.4);
+  border-radius: 3px;
+  background: rgba(196, 163, 90, 0.1);
+  color: #c4a35a;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.replay-btn:hover:not(:disabled) {
+  background: rgba(196, 163, 90, 0.28);
+  color: #e2c98a;
+}
+
+.replay-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Step-forward reuses the play glyph; mirroring the step-back button would
+   point it the wrong way, so only the bar between them is added. */
+.replay-btn[data-act='next']::after {
+  content: '\007C';
+  margin-left: 0.1rem;
+}
+
+.replay-scrubber {
+  flex: 1;
+  min-width: 8rem;
+  accent-color: #c4a35a;
+  cursor: pointer;
+}
+
+.replay-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  /* The move description varies wildly in length; clamp the whole readout so
+     a long one cannot push the seat and speed pickers off the bar. */
+  max-width: 46%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.replay-position {
+  color: #8890a0;
+  font-variant-numeric: tabular-nums;
+}
+
+.replay-where {
+  color: #c4a35a;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+}
+
+.replay-move {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #d8d8e0;
+}
+
+.replay-select {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #8890a0;
+  white-space: nowrap;
+}
+
+.replay-select select {
+  padding: 0.1rem 0.25rem;
+  border: 1px solid #445;
+  border-radius: 3px;
+  background: #14141f;
+  color: #d8d8e0;
+  font-size: 0.75rem;
+}
+
+.replay-exit {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgba(211, 47, 47, 0.6);
+  border-radius: 3px;
+  background: rgba(211, 47, 47, 0.15);
+  color: #e07a7a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.replay-exit:hover {
+  background: rgba(211, 47, 47, 0.3);
+  color: #ffb0b0;
+}

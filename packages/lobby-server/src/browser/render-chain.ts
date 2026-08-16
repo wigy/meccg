@@ -10,6 +10,7 @@ import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, Game
 import { cardImageProxyPath, viableActions } from '@meccg/shared';
 import { getCachedInstanceLookup } from './render-text-format.js';
 import { buildGrantedActionMenuItems } from './company-modals.js';
+import { showTooltipMenu } from './tooltip-menu.js';
 
 /**
  * Render the chain of effects panel in the visual view.
@@ -128,7 +129,13 @@ export function renderChainPanel(
         const responseBtn = document.createElement('button');
         responseBtn.className = 'chain-response-btn';
         responseBtn.textContent = item.label;
-        responseBtn.onclick = item.onClick;
+        responseBtn.onclick = () => {
+          if (item.children && item.children.length > 0) {
+            showTooltipMenu(responseBtn, item.children);
+            return;
+          }
+          item.onClick?.();
+        };
         panel.appendChild(responseBtn);
       }
     }
