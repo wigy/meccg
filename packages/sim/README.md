@@ -2990,11 +2990,27 @@ are still playable there. Pricing them as forfeited charges the full value of a
 play that is merely postponed — the same "deferred, not avoided" error both
 fixes corrected on the *harm* side while introducing it on the *play* side.
 
-If that is right, the third attempt is to deduct the taps and count the
+If that is right, the third attempt would be to deduct the taps and count the
 displaced cards as `potential` rather than dropping them, which is the treatment
-`travel` already gives cards that fit the site but not this turn's taps. That
-has not been built or gated, and after two failures it should not be built
-without measuring the deferral assumption first.
+`travel` already gives cards that fit the site but not this turn's taps.
+
+**Measured, and it is wrong.** Over eight games, resource plays by when they
+happen relative to the company's arrival:
+
+```text
+                                      h2     heuristic
+  … on the turn the company entered  87.0%     100.0%
+  … on a LATER turn at that site     13.0%       0.0%
+```
+
+A company plays at a site on the turn it enters or not at all — Heuristics 1
+never once played on a later turn, and H2 barely does. The displaced plays are
+**lost, not deferred**, so pricing them as forfeited was right and the third
+attempt is dead before it was built. Why two correct fixes each cost about 90
+Elo therefore remains unexplained, and it is not this.
+
+The prerequisite measurement cost one probe instead of a gate cycle and a third
+regression, which is the whole argument for writing it down as a prerequisite.
 
 Until then the double-count stays, and it stays *documented*: the model is wrong
 here in a known way, it is worth about 90 Elo to leave it wrong, and nobody
