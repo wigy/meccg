@@ -9,27 +9,32 @@
  * another, every one of those quotations is unsound, and nothing about the
  * output says so.
  *
- * That happened. Controls were run in a `git worktree`, or after a `git
- * checkout` inside a compound shell command; when the git step failed — because
- * a worktree already held the branch being checked out — the gate ran anyway
- * and printed a clean-looking result for a tree it had never been given. A full
- * day of comparisons was invalidated, and the tell was two runs of supposedly
- * different trees agreeing to the digit. Careful shell discipline is not a fix:
- * the failure mode produces a plausible number rather than an error, so it
- * survives exactly the review that plausible numbers survive.
+ * That happened, and the observed cause is mundane. A control was launched as
+ * `git checkout master && npm run gate`; the checkout **failed**, because a
+ * worktree already held `master`, and the gate ran anyway — on the branch the
+ * repository was still sitting on. It printed a clean-looking result under the
+ * label "control". A day of comparisons was invalidated, and the tell was two
+ * runs of supposedly different trees agreeing to the digit.
  *
- * So the harness checks itself, and the two checks answer different questions:
+ * The fix is therefore mostly **provenance**: a result that names the branch and
+ * SHA it measured cannot be silently mislabelled, because the label is derived
+ * rather than assumed. Careful shell discipline is not a substitute — the
+ * failure produces a plausible number rather than an error, so it survives
+ * exactly the review that plausible numbers survive.
  *
- * - **Is the code I am running the code in this directory?** Comparing the git
- *   toplevel of *this module's own file* against the toplevel of the process's
- *   working directory catches the worktree case precisely — a symlinked
- *   `node_modules` can resolve a workspace package to a different checkout, and
- *   then `cd`-ing into a worktree changes the label without changing the code.
+ * Two refusals back it up:
+ *
+ * - **Is the code being run the code in this directory?** Comparing the git
+ *   toplevel of the caller's own module against the toplevel of the working
+ *   directory. A `git worktree` with a symlinked `node_modules` was *suspected*
+ *   of resolving workspace packages to the other checkout; testing showed it
+ *   does not — the worktree ran its own code. The check stays because it is
+ *   cheap and the property is worth asserting, not because it is known to fire.
  * - **Is this revision reproducible?** A dirty tree cannot be quoted, because
  *   the number belongs to no commit anybody can return to.
  *
- * Both are refusals rather than warnings. A warning on stderr is what the
- * original failure would have printed, and it would have scrolled past.
+ * Refusals rather than warnings: a warning is what the original failure would
+ * have printed, and it would have scrolled past.
  */
 
 import { execFileSync } from 'node:child_process';
