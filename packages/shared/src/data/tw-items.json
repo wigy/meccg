@@ -778,7 +778,7 @@
     "subtype": "special",
     "marshallingPoints": 3,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
