@@ -65,10 +65,41 @@ reducer, see below), `bc` and `search` (learned policies).
 > and the wounded/tapped/untapped splits. Those were computed in-process from a
 > single tree and are unaffected.
 >
-> Nothing below has been re-measured. The correction is a session's work:
-> re-gate each merged change against a verified `master`, on both seed blocks,
-> verifying the tree between runs — then rewrite the sections from the results
-> rather than patching the numbers in place.
+> #### Re-measured: what four of the merged changes are actually worth
+>
+> Each isolated by zeroing its own constant through the agent spec
+> (`h2:all/<tunable>=0`), so nothing is checked out or rebuilt and every run
+> prints the tree it read. Seed block 1, against the `master` baseline of
+> **+46 [+14, +80]**; standard error on each difference is about 23.
+>
+> | ablation | score | paired Elo | the change is worth | originally claimed |
+> | --- | --- | --- | --- | --- |
+> | `favouriteCharacterTsd=0` | 49.1% | −5 [−37, +26] | **≈ +51** | "strength-neutral", −12 |
+> | `draftMindPriorityTsd=0` | 56.9% | +49 [+16, +84] | ≈ 0 | +17 |
+> | `gatingResolutionTsd=0` | 53.5% | +26 [−8, +60] | ≈ +20 | "strength-neutral", −6 |
+> | `revisitedSiteCost=0` | 53.7% | +26 [−7, +60] | ≈ +20 | +21 ✓ |
+>
+> **Drafting the characters the deck asked for is the largest verified
+> contribution in the agent** — about 51 Elo, some 2.2 standard errors — and it
+> was written up as making no difference to strength. Drafting the expensive
+> characters first, which was written up as the gain, is worth nothing. The two
+> conclusions were exactly inverted.
+>
+> The corruption check and the revisit charge both sit near +20, under one
+> standard error: suggestive, not established. The revisit charge's original
+> +21 is the one figure from the broken harness that survived contact with a
+> verified one, which is a reminder that those numbers were unreliable rather
+> than uniformly wrong.
+>
+> Four changes remain unmeasured because no single constant isolates them — the
+> H1 removal, acting on ties, and `move-to-influence` are structural, and the
+> haven-healing credit shares `woundTempoCost` with the wound-carried charge, so
+> zeroing it would confound two things. Those need reverts on branches, which is
+> where the labelling discipline matters most.
+>
+> Sections below still carry their original figures. They are marked, not
+> rewritten: inventing corrected numbers without measurements would repeat the
+> original error more quietly.
 
 `src/ai/h2/` implements the modular, probabilistic, explainable AI of
 `specs/2026-07-27-heuristics-2-ai.md`. Where Heuristics 1 returns unitless
@@ -1863,6 +1894,14 @@ change buys is that the draft now happens inside the right set.
 
 #### It does not show up on the gate
 
+> **Corrected.** Re-measured against a verified `master` by zeroing
+> `favouriteCharacterTsd`, the favourites draft is worth **about +51 Elo** — the
+> largest verified contribution in the agent. The paragraphs below, concluding
+> that it was strength-neutral and kept only on principle, are wrong. They are
+> left standing because the *reasoning* for keeping it was sound and the gate
+> that contradicted it was not.
+
+
 384 games against the heuristic champion, paired seeds, side-swapped, with a
 control run of the identical gate on `master`:
 
@@ -1890,6 +1929,12 @@ built around is information the AI should not be throwing away, and on the
 agreement measurement above — not on strength.
 
 ### Which favourite: the draft is a knapsack
+
+> **Corrected.** Re-measured by zeroing `draftMindPriorityTsd`, this is worth
+> **about nothing** (+3, well inside noise) — not the +17 reported below. The
+> corpus evidence for the knapsack ordering is unaffected; what it buys in
+> strength is not what was claimed.
+
 
 The mark got H2 drafting inside the right set and could not order within it. A
 flat bonus ties every favourite, so *which* one got picked was still tie-break
