@@ -5733,6 +5733,36 @@ body.all-companies-mode:has(#debug-view.hidden) {
     0 0 24px rgba(var(--color-selected), 0.2);
 }
 
+/* Single-company view marks the active company with the "Active" badge on the
+   site card instead — the full-block glow is too heavy at that scale. */
+.company-single .company-block--active {
+  box-shadow: none;
+}
+
+.active-badge-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.company-active-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  /* Above on-guard cards, which stack at --z-attachment + 1 over the site. */
+  z-index: calc(var(--z-attachment) + 2);
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgba(var(--color-selected), 0.7);
+  border-radius: 3px;
+  background: rgba(20, 40, 22, 0.85);
+  color: rgb(var(--color-selected));
+  font-family: 'Cinzel', serif;
+  font-size: calc(0.7rem * var(--company-scale, 1));
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
 .company-block--clickable {
   cursor: pointer;
 }

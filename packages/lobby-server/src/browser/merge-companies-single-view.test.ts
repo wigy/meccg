@@ -64,8 +64,17 @@ class StubEl {
     add: (...cs: string[]) => { for (const c of cs) this.classList.classes.add(c); },
     contains: (c: string) => this.classList.classes.has(c),
   };
+  parent: StubEl | null = null;
   constructor(tagName: string) { this.tagName = tagName; }
-  appendChild(child: StubEl): StubEl { this.children.push(child); return child; }
+  appendChild(child: StubEl): StubEl { this.children.push(child); child.parent = this; return child; }
+  /** Swap this element for `next` in its parent, as the DOM method does. */
+  replaceWith(next: StubEl): void {
+    const parent = this.parent;
+    if (!parent) return;
+    parent.children[parent.children.indexOf(this)] = next;
+    next.parent = parent;
+    this.parent = null;
+  }
   addEventListener(type: string, handler: (e: unknown) => void): void {
     (this.listeners[type] ??= []).push(handler);
   }
@@ -79,6 +88,16 @@ class StubEl {
   set innerHTML(v: string) { if (v === '') this.children = []; }
   get innerHTML(): string { return ''; }
   all(): StubEl[] { return [this, ...this.children.flatMap(c => c.all())]; }
+  /** Match a `.a.b:not(.c)` style selector — enough for the site-badge anchoring. */
+  querySelectorAll(selector: string): StubEl[] {
+    const excluded = /:not\(\.([\w-]+)\)/.exec(selector)?.[1];
+    const required = selector.replace(/:not\([^)]*\)/g, '').split('.').filter(Boolean);
+    return this.all().slice(1).filter(el => {
+      const own = el.className.split(/\s+/).filter(Boolean);
+      return required.every(c => own.includes(c)) && (excluded === undefined || !own.includes(excluded));
+    });
+  }
+  querySelector(selector: string): StubEl | null { return this.querySelectorAll(selector)[0] ?? null; }
 }
 
 let bodyStub: StubEl;
