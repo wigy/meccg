@@ -31,6 +31,14 @@ import { buildToolbarStatusText } from './render-toolbar-status.js';
 let showScreenFn: ((id: ScreenId) => void) | null = null;
 let connectLobbyWsFn: (() => void) | null = null;
 
+/**
+ * How long user-initiated actions are ignored after an auto-pass send (see
+ * `appState.autoPassInputLockUntil`). Comfortably longer than a round-trip
+ * plus render, so a stray click landing on the next-phase button reads as
+ * ignored rather than as an accidental extra pass.
+ */
+const AUTO_PASS_INPUT_LOCK_MS = 1200;
+
 /** Register lobby-side callbacks to break the circular dependency. */
 export function setLobbyCallbacks(
   showScreen: (id: ScreenId) => void,
@@ -93,6 +101,7 @@ setAskAiSender((requestId: string, agent: string, mode: 'now' | 'last-move') => 
 export function sendAction(action: GameAction): void {
   if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
   if (awaitingResponse) return; // Prevent double-sends before next state
+  if (Date.now() < appState.autoPassInputLockUntil) return; // See autoPassInputLockUntil doc.
   awaitingResponse = true;
 
   // Snapshot log entry count before adding action log line
@@ -566,6 +575,13 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
       appState.autoPassTimer = setTimeout(() => {
         appState.autoPassTimer = null;
         sendAction(viable[0].action);
+        // A click already in flight toward the button auto-pass just
+        // pressed on the player's behalf would otherwise land on the
+        // freshly re-rendered next-phase button in the same screen
+        // position once the response arrives, silently skipping a phase.
+        // Hold off accepting further input for a beat so the player has
+        // time to see the board change before it reacts to their click.
+        appState.autoPassInputLockUntil = Date.now() + AUTO_PASS_INPUT_LOCK_MS;
       }, 1500);
     }
   }
