@@ -1,6 +1,8 @@
 # Spec: Ask AI — an Observer that Explains What the Selected Agent Would Do
 
-*Status: design, 2026-08-17. Nothing here is implemented.*
+*Status: design, 2026-08-17. Nothing here is implemented. The three policy
+questions the first draft left open — cheat marking, default agent, spectator
+access — are decided; see "Resolved decisions" at the end.*
 
 ## Overview
 
@@ -24,8 +26,8 @@ what a *chosen* agent would do at a recorded position. This feature is the
 second one, live, for the position on screen, for the seat you are sitting in.
 
 Non-goals: the observer never plays, never submits actions, and never changes
-game state. It is not a hint system for rated play (see §8) and not an LLM —
-"AI" here means one of the sim package's agents.
+game state — asking is a read, and it does not taint the game (*Rated results*).
+Nor is this an LLM: "AI" here means one of the sim package's agents.
 
 ## What the codebase already gives us
 
@@ -90,7 +92,7 @@ socket, which is also where the analogous `spectators` presence already lives.
 **One observer per game, replacing on re-attach.** The icon names one agent, so
 a second attached observer would make "Ask AI" ambiguous. A new observer join
 replaces the old connection the same way a reconnecting player does. Serving
-several agents from one observer is a follow-up (§10).
+several agents from one observer is a follow-up.
 
 **The observer survives the game it was watching.** When the game ends it goes
 back to waiting for the next launched game and re-attaches. That is what
@@ -209,7 +211,7 @@ New state: `private observer: { ws: WebSocket; agent: string } | null`, and
 `private pendingAsk: Map<string, { ws: WebSocket; timer: NodeJS.Timeout; forPlayer: PlayerId }>`.
 
 **Attach (`handleJoin` with `msg.observer`).** Token verification is unchanged
-(`sub === name`, unexpired — the lobby mints one, §7). Then:
+(`sub === name`, unexpired — the lobby mints one, *Lobby endpoint*). Then:
 
 - If the name matches a designated player name, reject with an error rather
   than seating it. An observer must never occupy a seat.
@@ -232,24 +234,25 @@ for it with `status: 'unavailable'`, `broadcastObserver()`.
 **`ask-ai` from a client.**
 
 1. No observer attached → `{ status: 'unavailable', message: 'No observer is attached.' }`.
-2. Resolve `forPlayer`: the asking connection's own `playerId`. A spectator
-   connection resolves to the current active player, but only when the server
-   runs `--dev`; otherwise `{ status: 'error' }`. A seated player may never ask
-   about the opponent's seat — the explanation is derived from that seat's
-   private view, so answering would leak the opponent's hand.
+2. Resolve `forPlayer`: the asking connection's own `playerId`, or — for a
+   spectator connection — the current active player. A seated player may never
+   ask about the opponent's seat: the explanation is derived from that seat's
+   private view, so answering would hand them the opponent's hand.
 3. No active player (simultaneous phase with nothing to decide, game over) →
    `{ status: 'error', message: 'Nothing to decide in this position.' }`.
 4. One in-flight request per connection; a second gets
    `{ status: 'error', message: 'Still thinking about the previous question.' }`.
-5. `markCheated('ask-ai')` and broadcast the flag (§8).
-6. Forward `ai-question` with the authoritative `state.stateSeq`, `forPlayer`,
+5. Forward `ai-question` with the authoritative `state.stateSeq`, `forPlayer`,
    turn/phase/step. Arm a 90-second timer: `mc:ms=2000` plus view projection is
    seconds, and a cold `bc` weights load on first use is more.
-7. On `ai-answer` / `ai-error`, deliver to the *asking connection only* — never
+6. On `ai-answer` / `ai-error`, deliver to the *asking connection only* — never
    `broadcastToAll`. Unknown `requestId` (timed out, asker gone) is dropped
    with a `serverLog` line.
-8. `ai-answer` / `ai-error` from a connection that is not the observer is an
+7. `ai-answer` / `ai-error` from a connection that is not the observer is an
    error, like `action` from a spectator.
+
+Nothing in this path touches game state, and no request marks the game cheated
+(see *Rated results* below).
 
 ## The observer process
 
@@ -257,7 +260,7 @@ New file `packages/text-client/src/observer-client.ts`, wrapped by
 `bin/observe`. It sits in `text-client` because that is where headless
 WebSocket game clients already live (`ai-client.ts`, `pseudo-ai-client.ts`) and
 because it reuses `client-common.ts`; the *explanation* itself belongs to
-`@meccg/sim` (§6), which `text-client` already depends on.
+`@meccg/sim` (*The explanation*), which `text-client` already depends on.
 
 ```text
 Usage: bin/observe [--agent <spec>] [--new] [--lobby <url>] [--once]
@@ -277,7 +280,8 @@ Startup and lifecycle:
 1. `resolveAgent(spec)` immediately, before anything else — a typo in a spec or
    a missing weights file must fail at launch, not at the first question. This
    also pays the `bc` load cost up front.
-2. `GET <lobby>/api/system/observer-target` with the master key (§7), polling
+2. `GET <lobby>/api/system/observer-target` with the master key (*Lobby
+   endpoint*), polling
    every second until a target exists. With `--new`, pass
    `?since=<startup ISO timestamp>` so an already-running game is skipped.
 3. Connect to `ws://localhost:<port>`, `join` with
@@ -293,9 +297,9 @@ Startup and lifecycle:
    (the broadcast can beat the log write), retry every 50 ms for up to 2 s;
    then fall back to the newest record and say so in the output header. If the
    log is unreadable, answer `ai-error`.
-6. Call `explainDecision` (§6), send `ai-answer` with the rendered lines and
-   elapsed time, and print the same lines to stdout — so the terminal running
-   `bin/observe` is also a transcript of everything that was asked.
+6. Call `explainDecision` (*The explanation*), send `ai-answer` with the
+   rendered lines and elapsed time, and print the same lines to stdout — so the
+   terminal running `bin/observe` is also a transcript of everything asked.
 7. Serialize the work: one question at a time, queue the rest. A `mc` search
    pegs a core (or a worker pool); overlapping searches would make both slow
    and the answers late.
@@ -309,7 +313,7 @@ units), it answers every decision itself, and it is fast enough to feel
 interactive. `mc` is available by spec and is worth asking for a movement or
 hazard decision, but it declines to search in combat, mid-chain, or with
 effects pending, where it silently delegates to Heuristics 1 — the explanation
-must say so, which is why `canDecide` is part of the header (§6).
+must say so, which is why `canDecide` is part of the explanation header.
 
 ## The explanation (`@meccg/sim`)
 
@@ -442,15 +446,16 @@ the existing icons, `stroke="#888"`).
 - `setObserver({ attached, agent })` — called from `game-connection.ts`'s
   message switch on `observer`, stores it and re-renders. `resetObserver()` is
   called from `clearGameBoard()` alongside `resetSpectators()`.
-- Visibility (pure function `askAiButtonState`, unit-tested): shown when an
-  observer is attached **and** the client is a seated player; a spectator sees
-  it only when server dev mode is on, matching how the debug view and dev menu
-  are already withheld from spectators. Title: `Ask AI (h2)` — the agent spec
+- Visibility (pure function `askAiButtonState`, unit-tested): shown whenever an
+  observer is attached — to seated players and spectators alike, in dev mode or
+  not. Unlike the debug view and the dev menu, this control is not inert for a
+  spectator: watching an AI game and asking what a different agent would have
+  done is one of the feature's main uses. Title: `Ask AI (h2)` — the agent spec
   is the point, since the answer differs per agent.
-- Click → `confirmCheat()` on first use (§8) → send
-  `{ type: 'ask-ai', requestId }` (a counter plus the connection's own name is
-  enough) → open the panel showing `Asking h2 …` with the existing spinner
-  treatment, and disable the button while in flight.
+- Click → send `{ type: 'ask-ai', requestId }` (a counter plus the connection's
+  own name is enough) → open the panel showing `Asking h2 …` with the existing
+  spinner treatment, and disable the button while in flight. No confirmation
+  dialog: asking costs nothing and changes nothing.
 - `ai-explanation` → render. The panel is a modal built from the same markup
   and CSS classes as `#bug-report-modal`: backdrop, dialog, heading, a
   scrollable monospace body (`white-space: pre-wrap`), a **Copy** button, and
@@ -460,20 +465,29 @@ the existing icons, `stroke="#888"`).
   *"No observer is attached — start one with `bin/observe --agent h2`"*, and
   `timeout` says which agent was asked and for how long it ran.
 
-## Cheat marking
+## Rated results
 
-Asking hands a human player an agent's ranked reading of their own position.
-That is a strategic advantage no ordinary player has, so a game in which it was
-used must not feed the scoreboard or player histories. The precedent is already
-in the codebase: every dev command calls `markCheated`, and `game-entry.ts`'s
-`confirmCheat()` asks once per game before the first one.
+**Asking does not mark the game cheated.** `ask-ai` deliberately does not go
+down the dev-command path: no `markCheated`, no confirmation dialog, no effect
+on the scoreboard or on player histories. A game in which Ask AI was used is a
+normal, recorded game.
 
-`ask-ai` therefore follows the dev-tool path exactly — server-side
-`markCheated('ask-ai')` plus a broadcast so every client sees the flag flip,
-and a browser-side one-time confirmation naming what it costs. Tutorial games
-are exempt from the stamp for the same reason `save`/`load` are: they cannot
-alter a recorded outcome. Listed in §11 as the one policy choice worth
-revisiting.
+That is a choice, not an oversight, so the reasoning belongs here. The dev
+commands stamp the game because they *change* it — `undo`, `load`, `reseed` and
+`summon-card` rewrite state, and a result reached that way is not a result. Ask
+AI reads. The observer only exists when someone with the local master key
+launched it on the server's own host, its presence is broadcast to everyone in
+the game (the icon appears for both sides), and the honesty model for that is
+social rather than mechanical — the same model that already covers a player
+running `bin/watch-game --ai` in another window.
+
+The consequence to accept knowingly: a spectator who asks receives reasoning
+derived from the *acting player's* view, which is more than the redacted
+spectator view shows. During a spectated human-versus-human game that is a
+side channel, and Ask AI is available to spectators by design (see *Resolved
+decisions*). If that ever becomes a problem in practice, the narrowing is one
+condition — restrict spectator asks to games where both seats are AI — not a
+redesign.
 
 ## File plan
 
@@ -496,7 +510,7 @@ revisiting.
 
 | File | Change |
 |---|---|
-| `packages/shared/src/types/protocol.ts` | the messages in §4 |
+| `packages/shared/src/types/protocol.ts` | the messages in *Protocol changes* |
 | `packages/game-server/src/ws/game-session.ts` | observer set, presence broadcast, ask/answer relay, exclusion from state broadcasts / spectator badge / keep-alive |
 | `packages/sim/src/cli/explain.ts` | calls `explainDecision` instead of assembling the H2 pipeline itself |
 | `packages/sim/src/index.ts` | export `explainDecision` and its types |
@@ -540,13 +554,13 @@ ones run during development.
 - `ask-ai` with no observer → `unavailable`.
 - `ask-ai` from p1 forwards `ai-question` with the current `stateSeq` and
   `forPlayer: 'p1'`; the `ai-answer` reaches only p1's socket.
-- A spectator's `ask-ai` is rejected when not in dev mode.
+- A spectator's `ask-ai` resolves `forPlayer` to the current active player, in
+  dev mode and out of it.
 - Two `ask-ai` messages from one connection: the second is refused.
 - Timeout fires `status: 'timeout'`, and a late `ai-answer` for that id is
   dropped rather than delivered.
 - `ai-answer` from a non-observer connection is an error.
-- `ask-ai` marks the game cheated and broadcasts the flag; a tutorial game does
-  not get stamped.
+- `ask-ai` leaves `state.cheated` alone — asking never taints a game.
 
 **`text-client/observer-log-tail.test.ts`** — appended records become
 retrievable; a requested `stateSeq` that has not landed resolves once written;
@@ -557,7 +571,8 @@ line is skipped, not fatal.
 404 with no games; the newest of several games; `since` filtering.
 
 **`lobby-server/browser/ask-ai.test.ts`** — the button-state matrix (attached ×
-seated/spectating × dev) and panel formatting for each `status`.
+seated/spectating, with the spectator case visible) and panel formatting for
+each `status`.
 
 **Manual acceptance** (the feature is a UI loop, so this is the real check):
 start the lobby with `npm run dev -w @meccg/lobby-server`, start a game against
@@ -578,10 +593,10 @@ presence / relay, the lobby endpoint, `observer-client.ts`, `bin/observe`.
 Testable without any browser work through `--once`, which prints an explanation
 of the newest position and exits.
 
-**Phase 3 — the game screen.** Icon, panel, confirmation, wiring. The
-user-visible feature lands here.
+**Phase 3 — the game screen.** Icon, panel, wiring. The user-visible feature
+lands here.
 
-**Phase 4 — follow-ups, separate specs.** See §10.
+**Phase 4 — follow-ups, separate specs.** See *Follow-ups* below.
 
 ## Follow-ups (not in this spec)
 
@@ -599,17 +614,22 @@ user-visible feature lands here.
 - **Streaming progress** for slow agents (`mc` rollout counts) instead of a
   spinner.
 
-## Open questions
+## Resolved decisions
 
-1. **Cheat marking (§8) is the one policy call.** The spec stamps the game,
-   which is right for a rated ladder and mildly annoying for the developer
-   who is testing something. The alternative is to stamp only when the asker
-   is a *seated player in a rated game* and never for tutorials, self-play, or
-   spectators. Decide before Phase 3, since it is a one-line difference.
-2. **Default agent** — `h2` is proposed for explanation quality. If `mc` is
-   what you actually want to interrogate day to day, the default should be
-   `mc:ms=2000/turns=2` and the header should lead with the `canDecide`
-   delegation note.
-3. **Spectator access in dev mode.** Proposed as allowed, because a spectator
-   in dev mode can already open the debug view and see everything. If that
-   parity is not wanted, drop it and make Ask AI strictly seated-players-only.
+Settled 2026-08-17; the sections above are written to match, so these are the
+record of *why*, not choices still to make.
+
+1. **No cheat marking.** Asking never stamps the game. Ask AI reads and the dev
+   commands write, and only writing invalidates a result — see *Rated results*
+   for the full reasoning and for the one narrowing available if the spectator
+   side channel ever matters in practice.
+2. **Default agent is `h2`.** It has the written explanation pipeline (module
+   contributions in win-probability units), answers every decision itself, and
+   is fast enough to feel interactive. `mc` stays one flag away
+   (`--agent 'mc:ms=2000/turns=2'`) for the decisions worth a real search, and
+   the header's `canDecide` line says when `mc` has quietly delegated to
+   Heuristics 1.
+3. **Spectators may ask.** Availability is decided by "is an observer
+   attached", nothing else — no dev-mode gate, no seated-players-only rule.
+   Watching an AI game and asking what another agent would have played is a
+   main use of the feature, not an edge case.
