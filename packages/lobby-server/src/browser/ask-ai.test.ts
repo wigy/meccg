@@ -9,7 +9,9 @@
 
 import { describe, test, expect } from 'vitest';
 import type { AiExplanationMessage, PlayerId } from '@meccg/shared';
-import { askAiButtonState, askAiMenuEntries, askAiPendingText, formatAskAiPanel } from './ask-ai.js';
+import {
+  askAiButtonState, askAiFollowUps, askAiMenuEntries, askAiPendingText, formatAskAiPanel,
+} from './ask-ai.js';
 
 describe('askAiButtonState', () => {
   test('is hidden with no observer attached', () => {
@@ -61,6 +63,42 @@ describe('askAiMenuEntries', () => {
 
   test('is empty when nothing is offered', () => {
     expect(askAiMenuEntries({ attached: false, agents: [] })).toEqual([]);
+  });
+});
+
+describe('askAiFollowUps', () => {
+  test('leaves the last move as the only follow-up for a single agent', () => {
+    // The button asks about the position outright — it must not prompt for a
+    // choice whose first row is the thing everybody wants. So the panel is
+    // where the second question lives, and with one agent attached there is
+    // exactly one of them.
+    expect(askAiFollowUps({ attached: true, agents: ['h2'] }, 'h2', 'now')).toEqual([
+      { label: 'My last move', agent: 'h2', mode: 'last-move' },
+    ]);
+  });
+
+  test('and offers the position back once the last move is what was asked', () => {
+    expect(askAiFollowUps({ attached: true, agents: ['h2'] }, 'h2', 'last-move')).toEqual([
+      { label: 'This position', agent: 'h2', mode: 'now' },
+    ]);
+  });
+
+  test('keeps the agent in the label when more than one is attached', () => {
+    const entries = askAiFollowUps({ attached: true, agents: ['h2', 'mc:ms=2000'] }, 'h2', 'now');
+    expect(entries.map(e => e.label)).toEqual([
+      'My last move — h2', 'This position — mc:ms=2000', 'My last move — mc:ms=2000',
+    ]);
+  });
+
+  test('excludes only the exact question being shown, not the agent', () => {
+    // Asking h2 about the position must still leave h2's last move on offer:
+    // they are different questions about the same agent.
+    const entries = askAiFollowUps({ attached: true, agents: ['h2', 'mc'] }, 'mc', 'last-move');
+    expect(entries.map(e => `${e.agent}/${e.mode}`)).toEqual(['h2/now', 'h2/last-move', 'mc/now']);
+  });
+
+  test('is empty when no observer is attached, because there is nothing to ask', () => {
+    expect(askAiFollowUps({ attached: false, agents: [] }, 'h2', 'now')).toEqual([]);
   });
 });
 

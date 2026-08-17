@@ -11,7 +11,12 @@
  * watcher badge has its own message.
  *
  * Asking is a read: it changes nothing, costs nothing, and does not mark the
- * game cheated, so unlike the dev tools it needs no confirmation.
+ * game cheated, so unlike the dev tools it needs no confirmation — and for the
+ * same reason the button does not ask *which* question either. It asks about the
+ * position on screen with the first agent the observer offers, and the panel
+ * carries the rest (another agent, or the seat's own last move) as follow-ups
+ * beside the answer. It used to open a menu whose first row was "This position",
+ * which put a prompt in front of the one question that never needed one.
  */
 
 import type { AiExplanationMessage } from '@meccg/shared';
@@ -69,18 +74,48 @@ export interface AskAiMenuEntry {
 }
 
 /**
- * The menu the button opens: every offered agent, asked either about the
- * position or about the seat's own last move.
+ * Every question that can be asked: each offered agent, about the position or
+ * about the seat's own last move.
  *
- * Both questions are offered for each agent rather than a single "ask" plus a
- * mode toggle, because they are different questions and the second one — "would
- * it have played what I just played?" — is the one nobody thinks to look for.
+ * Both questions exist for each agent rather than a single "ask" plus a mode
+ * toggle, because they are different questions and the second one — "would it
+ * have played what I just played?" — is the one nobody thinks to look for.
+ *
+ * This is no longer what the *button* offers. The button used to open this as a
+ * menu, so the common question — this position, the only agent attached — cost
+ * two clicks and a read of a two-row list whose rows differed by three words.
+ * The button now asks it outright and this list becomes the panel's follow-ups
+ * (see {@link askAiFollowUps}), which is where a second question belongs: after
+ * the first answer, not in front of it.
  */
 export function askAiMenuEntries(state: ObserverState): AskAiMenuEntry[] {
   return state.agents.flatMap(agent => [
     { label: `This position — ${agent}`, agent, mode: 'now' as AskAiMode },
     { label: `My last move — ${agent}`, agent, mode: 'last-move' as AskAiMode },
   ]);
+}
+
+/**
+ * The questions the panel offers alongside an answer: every one except the one
+ * just answered.
+ *
+ * Asking is a read, so re-asking costs nothing and needs no confirmation — and
+ * the answer on screen is the context that makes "would it have played my last
+ * move?" worth asking at all. Labels drop the agent suffix when only one agent
+ * is attached, exactly as the menu did, because naming it in every row of a
+ * one-agent list says nothing.
+ */
+export function askAiFollowUps(
+  state: ObserverState,
+  asked: string,
+  mode: AskAiMode,
+): AskAiMenuEntry[] {
+  const single = state.agents.length <= 1;
+  return askAiMenuEntries(state)
+    .filter(entry => !(entry.agent === asked && entry.mode === mode))
+    .map(entry => (single
+      ? { ...entry, label: entry.label.replace(` — ${entry.agent}`, '') }
+      : entry));
 }
 
 /** Heading and body for the panel, given whatever the server said. */
@@ -178,54 +213,30 @@ export function closeAskAiPanel(): void {
   document.getElementById('ask-ai-modal')?.classList.add('hidden');
 }
 
-/** Close the agent menu if it is open. */
-function closeMenu(): void {
-  document.getElementById('ask-ai-menu')?.classList.add('hidden');
-}
-
-/**
- * Open the menu of questions, or ask straight away when there is only one.
- *
- * A single-agent observer still gets a menu, because the second row — the last
- * move — is a question the button alone could not offer.
- */
-function openMenu(): void {
-  const menu = document.getElementById('ask-ai-menu');
-  if (!menu) return;
-  menu.innerHTML = '';
-  const entries = askAiMenuEntries(observer);
-  if (entries.length === 0) return;
-
-  let lastAgent = '';
-  for (const entry of entries) {
-    if (entry.agent !== lastAgent && observer.agents.length > 1) {
-      const label = document.createElement('div');
-      label.className = 'ask-ai-menu-label';
-      label.textContent = entry.agent;
-      menu.appendChild(label);
-      lastAgent = entry.agent;
-    }
+/** Render the panel's follow-up questions for the question just asked. */
+function renderFollowUps(asked: string, mode: AskAiMode): void {
+  const host = document.getElementById('ask-ai-followups');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const entry of askAiFollowUps(observer, asked, mode)) {
     const btn = document.createElement('button');
-    btn.textContent = observer.agents.length > 1
-      ? entry.label.replace(` — ${entry.agent}`, '')
-      : entry.label;
-    btn.addEventListener('click', () => {
-      closeMenu();
-      askAi(entry.agent, entry.mode);
-    });
-    menu.appendChild(btn);
+    btn.textContent = entry.label;
+    btn.disabled = inFlight !== null;
+    btn.addEventListener('click', () => askAi(entry.agent, entry.mode));
+    host.appendChild(btn);
   }
-  menu.classList.remove('hidden');
 }
 
 /** Record the observer presence the server pushed, and refresh the button. */
 export function setObserver(state: ObserverState): void {
   observer = state;
   if (!state.attached) {
-    closeMenu();
     // Any question in flight is already being failed by the server; drop the
-    // local lock so the button is not left disabled forever.
+    // local lock so the button is not left disabled forever. The panel's
+    // follow-ups go with it: there is nothing left to ask.
     inFlight = null;
+    const host = document.getElementById('ask-ai-followups');
+    if (host) host.innerHTML = '';
   }
   render();
 }
@@ -242,19 +253,25 @@ export function setAskAiSender(send: (requestId: string, agent: string, mode: As
   sendAsk = send;
 }
 
+/** The question the panel is showing, so its follow-ups can exclude it. */
+let showing: { readonly agent: string; readonly mode: AskAiMode } | null = null;
+
 /**
  * Ask one agent about the position, or about the seat's own last move.
  *
- * Defaults to the observer's first agent, which is what the keyboard shortcut
- * uses: the common question should not need a menu.
+ * Defaults to the observer's first agent and to the position on screen, which
+ * is what both the toolbar button and the keyboard shortcut use: the question
+ * everybody asks takes one click and answers no prompt.
  */
 export function askAi(agent?: string, mode: AskAiMode = 'now'): void {
   if (!observer.attached || inFlight || !sendAsk) return;
   const asked = agent ?? observer.agents[0];
   if (!asked) return;
   inFlight = `ask-${++requestCounter}`;
+  showing = { agent: asked, mode };
   render();
   showPanel(askAiPendingText(asked, mode));
+  renderFollowUps(asked, mode);
   sendAsk(inFlight, asked, mode);
 }
 
@@ -266,6 +283,10 @@ export function handleAiExplanation(msg: AiExplanationMessage): void {
   inFlight = null;
   render();
   showPanel(formatAskAiPanel(msg));
+  // Re-rendered rather than merely re-enabled: the answer is the point at which
+  // the other questions become worth offering, and they are only clickable once
+  // nothing is in flight.
+  if (showing) renderFollowUps(showing.agent, showing.mode);
 }
 
 /** Whether the panel is currently on screen. */
@@ -273,20 +294,15 @@ function panelOpen(): boolean {
   return document.getElementById('ask-ai-modal')?.classList.contains('hidden') === false;
 }
 
-/** Wire the button, the menu, the close affordances, and the copy action. */
+/** Wire the button, the close affordances, and the copy action. */
 export function installAskAi(): void {
+  // One click, one answer: the button asks about the position on screen with
+  // the first agent the observer offers. It used to open a two-row menu whose
+  // first row was this, which made the question everybody asks the one that
+  // cost the most clicks. The other questions live in the panel now.
   button()?.addEventListener('click', (e) => {
     e.stopPropagation();
-    const menu = document.getElementById('ask-ai-menu');
-    if (menu && !menu.classList.contains('hidden')) closeMenu();
-    else openMenu();
-  });
-  // A click anywhere else dismisses the menu, like the dev menu's popup.
-  document.addEventListener('click', (e) => {
-    const target = e.target as Node | null;
-    const menu = document.getElementById('ask-ai-menu');
-    if (!menu || menu.classList.contains('hidden') || !target) return;
-    if (!menu.contains(target)) closeMenu();
+    askAi();
   });
   document.getElementById('ask-ai-close')?.addEventListener('click', () => closeAskAiPanel());
   document.getElementById('ask-ai-backdrop')?.addEventListener('click', () => closeAskAiPanel());
@@ -294,11 +310,9 @@ export function installAskAi(): void {
   // shared shortcut table because it must only fire while the panel is open —
   // the game's own Escape behaviour has to keep working underneath it.
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (!panelOpen() && document.getElementById('ask-ai-menu')?.classList.contains('hidden') !== false) return;
+    if (e.key !== 'Escape' || !panelOpen()) return;
     e.preventDefault();
     e.stopPropagation();
-    closeMenu();
     closeAskAiPanel();
   }, true);
   document.getElementById('ask-ai-copy')?.addEventListener('click', () => {

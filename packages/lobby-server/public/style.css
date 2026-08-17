@@ -3557,27 +3557,16 @@ h2 {
 #view-toggle-btn.mode-debug .view-icon-visual { display: none; }
 #view-toggle-btn.mode-debug .view-icon-debug { display: inline; }
 
-/* Dev menu popup: a floating panel anchored under the toolbar icons. */
-/* Ask AI menu: which agent to ask, and about what. Same popup treatment as the
-   dev menu — it hangs under the toolbar from the same flex column. */
-#ask-ai-menu {
-  align-self: flex-end;
+/* Ask AI follow-ups: the other questions, offered inside the answer panel.
+   The toolbar button asks about the position outright, so these sit in the
+   panel's action row and push the Copy/Close pair to the right. */
+#ask-ai-followups {
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.5rem;
-  background: #1e1e36;
-  border: 1px solid #444;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  min-width: 14rem;
+  gap: 0.4rem;
+  margin-right: auto;
 }
 
-#ask-ai-menu.hidden {
-  display: none;
-}
-
-#ask-ai-menu button {
+#ask-ai-followups button {
   padding: 0.3rem 0.75rem;
   font-size: 0.8rem;
   background: transparent;
@@ -3585,25 +3574,21 @@ h2 {
   border: 1px solid #444;
   border-radius: 4px;
   cursor: pointer;
-  text-align: left;
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 
-#ask-ai-menu button:hover {
+#ask-ai-followups button:hover:not(:disabled) {
   color: #c4a35a;
   border-color: #c4a35a;
   background: rgba(196, 163, 90, 0.08);
 }
 
-/* Group label above each agent's two questions. */
-#ask-ai-menu .ask-ai-menu-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #8a8a99;
-  padding: 0.2rem 0.1rem 0;
+#ask-ai-followups button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
+/* Dev menu popup: a floating panel anchored under the toolbar icons. */
 #dev-menu-popup {
   align-self: flex-end;
   display: flex;
