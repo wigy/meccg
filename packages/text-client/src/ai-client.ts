@@ -24,7 +24,7 @@ import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted, createAgentFromWeights, resolveAgent } from '@meccg/sim';
+import { loadAiStrategy, sampleWeighted, createAgentFromWeights, resolveAgent, makeActionDescriber, renderCandidateRanking } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
@@ -96,15 +96,6 @@ function decisionDelayMs(action: GameAction, view: import('@meccg/shared').Playe
 /** Maximum number of weighted candidates to print per decision. */
 const LOG_TOP_N = 6;
 
-/** Render a single weighted action as a one-line summary for the log. */
-function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
-  const lookup = buildInstanceLookup(view);
-  const companies = buildCompanyNames(view.self.companies, view.self.characters, cardPool);
-  const players = { [view.self.id as string]: view.self.name, [view.opponent.id as string]: view.opponent.name };
-  const desc = stripCardMarkers(describeAction(weighted.action, cardPool, lookup, companies, players));
-  return `${desc}  [w=${weighted.weight}]`;
-}
-
 /**
  * Print the ranked candidates the decision was made from, marking the pick.
  *
@@ -113,28 +104,27 @@ function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
  * playing against it, and the candidate ranking is exactly what makes a
  * surprising move explicable. Agents that report no candidates (a forced
  * action, or a fallback that does not weigh) print only the header.
+ *
+ * The listing itself comes from `@meccg/sim`'s shared renderer, which the Ask
+ * AI panel also uses (`specs/2026-08-17-ask-ai-observer.md`) — a ranking read
+ * in the lobby log and one read in the browser are then the same listing.
  */
 function logCandidates(
   view: PlayerView,
   header: string,
   candidates: readonly WeightedAction[],
   picked: GameAction,
+  weightUnit?: 'tsd',
 ): void {
   console.log(`AI [${view.phaseState.phase}] ${header}`);
-  const ranked = [...candidates].sort((a, b) => b.weight - a.weight);
-  const top = ranked.slice(0, LOG_TOP_N);
-  // The pick is not always the highest-weighted candidate — the heuristic
-  // samples from its distribution — so it can fall outside the top N and
-  // leave a listing with no → at all. Append it rather than drop it: a log
-  // that shows the ranking but not the choice answers the wrong question.
-  const pickedRank = ranked.findIndex(c => c.action === picked);
-  if (pickedRank >= LOG_TOP_N) top.push(ranked[pickedRank]);
-  for (const candidate of top) {
-    console.log(`  ${candidate.action === picked ? '→' : ' '} ${describeWeighted(candidate, view)}`);
-  }
-  const hidden = candidates.length - top.length;
-  if (hidden > 0) {
-    console.log(`    … and ${hidden} more`);
+  for (const line of renderCandidateRanking({
+    describe: makeActionDescriber(view, cardPool),
+    candidates,
+    picked,
+    maxRows: LOG_TOP_N,
+    weightUnit,
+  })) {
+    console.log(line);
   }
 }
 
@@ -158,7 +148,7 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
     const header = decision.note
       ? `${decision.note} — of ${actions.length} actions:`
       : `agent pick of ${actions.length} actions:`;
-    logCandidates(view, header, decision.considered ?? [], decision.action);
+    logCandidates(view, header, decision.considered ?? [], decision.action, decision.weightUnit);
     return decision.action;
   }
   const context: AiContext = { view, cardPool, legalActions: actions };

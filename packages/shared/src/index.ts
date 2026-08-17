@@ -11,7 +11,7 @@ export type { Rule, RuleSet, EvaluatedAction } from './rules/index.js';
 export { CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES, CHARACTER_DECK_DRAFT_RULES, SITE_SELECTION_RULES, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, createMovementRules, BASE_MAX_REGION_DISTANCE, AGENT_MAX_REGION_DISTANCE } from './rules/index.js';
 export { getAlignmentRules, crossAlignmentInfluencePenalty, extraGeneralInfluence } from './alignment-rules.js';
 export type { AlignmentRules } from './alignment-rules.js';
-export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown, stayUntappedPenalty, MP_SOURCES } from './state-utils.js';
+export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown, stayUntappedPenalty, sumMarshallingPoints, MP_SOURCES } from './state-utils.js';
 export { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
 export { cardsAttachedToCompany, isAttachedToPresentCompany } from './company-attachments.js';
 export { effectiveItemCorruptionPoints, collectItemModifiersFromDefs, itemModifierDeltas } from './item-corruption.js';
