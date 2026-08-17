@@ -3056,10 +3056,13 @@ prints one — and gated before it lands.
 
 ### The enter-site error is load-bearing
 
-**Unreliable — see the correction at the top of this section.** Both 90-Elo
-figures are differences between runs from the broken harness. The claim that the
-error is load-bearing is *unsupported*; it may simply be a bug. The deferral
-measurement below is unaffected, because it used no gate.
+**Re-measured, and the conclusion holds.** Re-applied onto a verified `master`
+and gated with the tree stamped on the run: **45.8%, −29 [−63, +4]** against
+`master`'s **+46 [+14, +80]** — the fix costs **about 75 Elo**, some 3.3 standard
+errors. The 87 and 100 figures below came from the broken harness and should not
+be quoted, but the finding they supported is correct: the double-count is
+load-bearing, removing it makes the agent substantially worse, and the revert was
+right.
 
 `evaluateEnterSite` prices the cards entering unlocks using the company's
 *pre-combat* tap count. That is provably wrong: a site's automatic attacks
@@ -3117,6 +3120,36 @@ regression, which is the whole argument for writing it down as a prerequisite.
 Until then the double-count stays, and it stays *documented*: the model is wrong
 here in a known way, it is worth about 90 Elo to leave it wrong, and nobody
 should "fix" it a third time without reading this.
+
+### Carrying the wound: measured, and not worth it
+
+Heuristics 1 charges a wounded company for going anywhere but home — it floors a
+healing destination and *halves* every non-healing one — and H2 had only the
+credit half. Adding the matching charge at the same `woundTempoCost`, so a wound
+healed is worth what a wound carried costs, moved the behaviour: characters
+wounded fell 26.6% → 20.9%, below H1's own figure in the same games.
+
+It is worth **−18 Elo**: 54.0%, +28 [−4, +60] against `master`'s +46 [+14, +80],
+on a verified tree. Neutral to slightly negative, and not merged.
+
+A figure of +157 was briefly claimed for this change. That was `master`'s own
+number, measured twice by a harness that could not tell which tree it had read.
+
+#### The cherry-pick that dropped a term
+
+Re-applying it onto current `master` produced a change that did *nothing* — the
+gate returned byte-identical results, 214W-163L-7D either way. The cherry-pick
+had applied the computation and dropped its use: `master` had independently
+changed the same line to add `attackHarm`, git merged both edits without a
+conflict, and `persists` survived as a value displayed in the rationale but
+absent from the arithmetic. Build, lint and fifteen tests passed, because a value
+referenced anywhere is not an unused variable.
+
+What caught it was the measurement coming back *exactly* unchanged on a run
+stamped with the correct tree. Before the harness named its own tree, that
+signature was indistinguishable from the mislabelling that invalidated a day of
+comparisons, and the first instinct would have been to suspect the harness rather
+than the code.
 
 ### The other work list: what a divergence costs
 
