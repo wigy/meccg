@@ -33,14 +33,15 @@ function position() {
 }
 
 describe('what each hazard is for', () => {
-  test('every creature in hand gets an answer, and nothing else does', () => {
+  test('every creature in hand gets an answer, and an unreadable event does not', () => {
     const { view, cardPool, plan } = position();
     const creatures = view.self.hand.filter(card =>
       (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-creature');
     expect(creatures.length).toBeGreaterThan(0);
-    expect(plan.assignments).toHaveLength(creatures.length);
     for (const card of creatures) expect(plan.worth(card.instanceId)).not.toBeNull();
 
+    // An event whose value is not a declared attack modifier — Doors of Night is
+    // worth what *other* cards make of it — has no place in an attack plan.
     const event = view.self.hand.find(card =>
       (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
     if (event) expect(plan.worth(event.instanceId)).toBeNull();
@@ -74,6 +75,66 @@ describe('what each hazard is for', () => {
     // achieves together; assigning greedily and taking each card's *marginal*
     // contribution is what avoids it.
     const { plan } = position();
+    const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
+    expect(summed).toBeCloseTo(plan.totalHarm, 6);
+  });
+});
+
+describe('a support event in hand', () => {
+  /**
+   * The plan with a readable boost in hand: "all Spider and Animal attacks
+   * receive +2 prowess", beside creatures it reaches.
+   *
+   * Swapping definitions under the hand's own instances is the trick the module
+   * tests use — the position keeps its shape and only the cards change.
+   */
+  function withSupport() {
+    const scenario = loadScenario(SCENARIO);
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    const hand = view.self.hand as unknown as { definitionId: string }[];
+    const creatures = hand.filter(card =>
+      (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-creature');
+    expect(creatures.length).toBeGreaterThan(0);
+    // Make the creatures Spiders, so the boost reaches them, and put the boost
+    // where a non-creature card was.
+    for (const creature of creatures) creature.definitionId = definitionOf('Lesser Spiders');
+    const slot = hand.find(card =>
+      (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType !== 'hazard-creature')!;
+    slot.definitionId = definitionOf('Full of Froth and Rage');
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    return {
+      support: slot as unknown as { instanceId: string },
+      plan: computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES),
+    };
+  }
+
+  test('is priced, so nothing discards the card the module would play first', () => {
+    const { support, plan } = withSupport();
+    // Before the plan could read a race list, this card was not in the plan at
+    // all — and `card-price`, which asks the plan what a card is worth to keep,
+    // was free to throw away the boost the `hazards` module plays first.
+    expect(plan.worth(support.instanceId as never)).not.toBeNull();
+    expect(plan.worth(support.instanceId as never)!.support).toBe(true);
+  });
+
+  test('is never planned behind an attack it would boost', () => {
+    const { plan } = withSupport();
+    for (const assignment of plan.assignments) {
+      if (!assignment.support || assignment.targetCompanyId === null) continue;
+      // A modifier reaches the table before the attacks it improves, or it
+      // improves nothing. This is the whole of the reported bug.
+      expect(assignment.order).toBe(1);
+      const behind = plan.assignments.filter(other =>
+        !other.support && other.targetCompanyId === assignment.targetCompanyId);
+      for (const attack of behind) expect(attack.order).toBeGreaterThan(1);
+    }
+  });
+
+  test('the marginals still sum to the total with a support in the plan', () => {
+    const { plan } = withSupport();
     const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
     expect(summed).toBeCloseTo(plan.totalHarm, 6);
   });

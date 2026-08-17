@@ -241,7 +241,18 @@ interface Plan {
  * more card were played — so an event that makes the other hazards better is
  * priced by the difference between the two.
  */
-function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: AttackBoost | null): Plan {
+function planFor(
+  context: ModuleContext,
+  company: OpponentCompanyView,
+  boost?: AttackBoost | null,
+  /**
+   * Slots already spoken for beyond what the phase state records — one, when the
+   * caller is pricing the *play* of a support event, because playing it spends a
+   * slot of the same hazard limit the attacks behind it need (the engine counts
+   * every hazard played against a company, events included).
+   */
+  reserved = 0,
+): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
@@ -262,7 +273,7 @@ function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: A
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
-  const slots = Math.max(0, (limit ?? 0) - played);
+  const slots = Math.max(0, (limit ?? 0) - played - reserved);
   const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);
   const search = planBundles(candidates, roster, cardPool, price, standing, tunables, slots, initialFacedRaces);
 
@@ -555,7 +566,11 @@ function boostGain(
   if (sameBoost(current, hypothetical)) return null;
 
   const before = buildPlan(context.view, context, company).search.bundles[0]?.expectedTsd ?? 0;
-  const after = planFor(context, company, hypothetical).search.bundles[0]?.expectedTsd ?? 0;
+  // The counterfactual arm reserves the slot this card would spend. Without
+  // that it priced the boosted bundle as if the event were free, which is worst
+  // exactly where it matters most: with one slot left, "play the boost" was
+  // credited with the attack the boost would have had no room for.
+  const after = planFor(context, company, hypothetical, 1).search.bundles[0]?.expectedTsd ?? 0;
   const describe = (boost: AttackBoost | null): string => [...(boost?.entries() ?? [])]
     .map(([race, added]) => `${race === ALL_RACES ? 'every' : race} attack `
       + `${added.prowess >= 0 ? '+' : ''}${added.prowess} prowess, `

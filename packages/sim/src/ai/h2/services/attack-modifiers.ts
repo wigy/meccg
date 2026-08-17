@@ -73,7 +73,27 @@ export function nameOfDefinition(def: CardDefinition | undefined, definitionId: 
 }
 
 /**
- * Read a modifier's `when` clause: which race it applies to, and whether it
+ * The races an `enemy.race` clause names, or null when it is not one this can
+ * read.
+ *
+ * Two shapes appear in the card data: a bare race (`"orc"`, Minions Stir) and a
+ * list (`{ $in: ["spider", "animal"] }`, Full of Froth and Rage). The list shape
+ * used to fall through the string check and take the *whole modifier* with it,
+ * so a card whose only text is "all Spider and Animal attacks receive +2
+ * prowess" declared nothing the AI could see: it never played it, never planned
+ * around it, and priced it at nothing to keep.
+ */
+function racesOf(value: unknown): readonly string[] | null {
+  if (typeof value === 'string') return [value];
+  const list = (value as { $in?: unknown } | null)?.$in;
+  if (Array.isArray(list) && list.length > 0 && list.every(race => typeof race === 'string')) {
+    return list as readonly string[];
+  }
+  return null;
+}
+
+/**
+ * Read a modifier's `when` clause: which races it applies to, and whether it
  * applies at all.
  *
  * Returns null for a clause this cannot read, which makes the caller drop the
@@ -85,24 +105,30 @@ export function conditionOf(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   hypothetical?: string,
-): { race: string; applies: boolean } | null {
-  if (!when) return { race: ALL_RACES, applies: true };
+): { races: readonly string[]; applies: boolean } | null {
+  if (!when) return { races: [ALL_RACES], applies: true };
   const clauses = Array.isArray(when.$and) ? (when.$and as Readonly<Record<string, unknown>>[]) : [when];
-  let race = ALL_RACES;
+  let races: readonly string[] = [ALL_RACES];
   let applies = true;
   for (const clause of clauses) {
     const keys = Object.keys(clause);
     if (keys.length !== 1) return null;
     const [key] = keys;
     const value = clause[key];
-    if (typeof value !== 'string') return null;
-    if (key === 'enemy.race') race = value;
-    else if (key === 'inPlay') applies &&= inPlayNamed(view, cardPool, value, hypothetical);
-    // A condition this does not know how to check: drop the modifier rather
-    // than assume it holds.
-    else return null;
+    if (key === 'enemy.race') {
+      const named = racesOf(value);
+      if (!named) return null;
+      races = named;
+    } else if (key === 'inPlay') {
+      if (typeof value !== 'string') return null;
+      applies &&= inPlayNamed(view, cardPool, value, hypothetical);
+    } else {
+      // A condition this does not know how to check: drop the modifier rather
+      // than assume it holds.
+      return null;
+    }
   }
-  return { race, applies };
+  return { races, applies };
 }
 
 /**
@@ -118,7 +144,7 @@ export function attackBoostOf(
   hypothetical?: string,
 ): AttackBoost | null {
   const effects = (def as unknown as { effects?: readonly StatModifier[] } | undefined)?.effects ?? [];
-  const entries: { key: string; race: string; stat: string; value: number; overrides?: string }[] = [];
+  const entries: { key: string; races: readonly string[]; stat: string; value: number; overrides?: string }[] = [];
   effects.forEach((effect, index) => {
     if (effect.type !== 'stat-modifier' || effect.target !== 'all-attacks') return;
     if (effect.stat !== 'prowess' && effect.stat !== 'strikes') return;
@@ -126,7 +152,7 @@ export function attackBoostOf(
     if (!condition || !condition.applies) return;
     entries.push({
       key: effect.id ?? `#${index}`,
-      race: condition.race,
+      races: condition.races,
       stat: effect.stat,
       value: effect.value ?? 0,
       overrides: effect.overrides,
@@ -138,10 +164,14 @@ export function attackBoostOf(
   const boost = new Map<string, { prowess: number; strikes: number }>();
   for (const entry of entries) {
     if (replaced.has(entry.key)) continue;
-    const current = boost.get(entry.race) ?? { prowess: 0, strikes: 0 };
-    boost.set(entry.race, entry.stat === 'prowess'
-      ? { ...current, prowess: current.prowess + entry.value }
-      : { ...current, strikes: current.strikes + entry.value });
+    // One effect may name several races; each gets its own entry, because a
+    // boost is looked up by the race printed on the attacking creature.
+    for (const race of entry.races) {
+      const current = boost.get(race) ?? { prowess: 0, strikes: 0 };
+      boost.set(race, entry.stat === 'prowess'
+        ? { ...current, prowess: current.prowess + entry.value }
+        : { ...current, strikes: current.strikes + entry.value });
+    }
   }
   return boost.size > 0 ? boost : null;
 }
