@@ -10,6 +10,14 @@
  * step whose beats are active. The headless integration test executes every
  * beat against the real engine, so an engine change that invalidates the
  * curriculum fails CI instead of confusing new players.
+ *
+ * **Chapter one is what ships.** {@link TUTORIAL_STEPS} / {@link TUTORIAL_BEATS}
+ * hold the player's own first turn — draft through End Turn — and the
+ * tutorial ends there with {@link TUTORIAL_COMPLETION}. The rest of the
+ * curriculum (the Mentor's turns and rounds 2–3) lives in
+ * {@link LATER_CHAPTER_STEPS} / {@link LATER_CHAPTER_BEATS}: written, engine-
+ * verified by the integration tests as a continuation of chapter one, but
+ * not played by the tutorial until it is split into chapters of its own.
  */
 
 import {
@@ -38,8 +46,9 @@ function b(stepId: string, actor: TutorialActor, match: ActionMatcher, cheatRoll
 }
 
 /**
- * Presentation text per curriculum step. Order follows the spec's
- * curriculum tables (steps are grouped: several beats share one step).
+ * Presentation text per step of chapter one — the player's own first turn,
+ * from the character draft to End Turn. Order follows the spec's curriculum
+ * tables (steps are grouped: several beats share one step).
  */
 export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
   // ---- Part 1 — Setup ----
@@ -180,7 +189,41 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
     ],
     pointers: [{ anchor: 'marshalling-points', label: 'Your marshalling points', side: 'right' }] },
   { id: 'eot-1', title: 'End of turn', body: 'You may discard a card you don’t need — let go of the spare Sword of Gondolin, its twin is already in Glorfindel’s hands: click the sword in your hand and choose Discard. Then press [[Draw]] to refill your hand to 8.' },
-  { id: 'eot-1-end', title: 'Turn over', body: 'All done — now click [[End Turn]]. The Mentor takes over from here.' },
+  { id: 'eot-1-end', title: 'Turn over', body: 'All done — now click [[End Turn]]. That is a full turn played, and the end of chapter one.' },
+];
+
+/**
+ * The chapter-one closing card: shown centered on the board once the last
+ * beat of {@link TUTORIAL_BEATS} has been performed, with the tutorial's
+ * only way out beside it. Not a {@link TutorialStepInfo} — no beat leads to
+ * it; the script is over when it appears.
+ */
+export const TUTORIAL_COMPLETION: {
+  readonly title: string;
+  readonly body: string;
+  readonly learned: readonly string[];
+  readonly footer: string;
+} = {
+  title: 'Chapter one complete',
+  body: 'That was a full turn of MECCG, from the character draft to End Turn. Along the way you learned:',
+  learned: [
+    'Drafting a company against your 20 general influence, and arming it with starting items.',
+    'Bringing a character into play at a Haven, and moving another under a leader’s direct influence.',
+    'Declaring a journey region by region, and reading the destination’s hazard limit and draw numbers.',
+    'Playing a long-event, and how a chain of effects resolves last-declared first.',
+    'Entering a ruin: its automatic-attack, assigning a strike, the body check and the corruption check that follow.',
+    'Claiming the site’s treasure for your first marshalling points, then refilling your hand to eight.',
+  ],
+  footer: 'Chapter two — the Mentor’s turn, where the hazards are yours to play — is still to come.',
+};
+
+/**
+ * The curriculum beyond chapter one: the Mentor's first turn and rounds 2–3.
+ * Kept as a continuation of {@link TUTORIAL_STEPS} — the integration tests
+ * replay it right after chapter one so it stays engine-verified — but the
+ * tutorial does not play it yet.
+ */
+export const LATER_CHAPTER_STEPS: readonly TutorialStepInfo[] = [
   { id: 'mentor-untap-1', title: 'Roles swap', body: 'On your opponent’s turn you are the hazard player: now it is your job to make the Mentor’s journey dangerous. Watch the Mentor untap, then click [[End Untap]].' },
   { id: 'mentor-org-1', title: 'The Mentor moves out', body: 'Watch: the Mentor’s dwarves head for Moria. You have no actions in your opponent’s organization phase.' },
   { id: 'mentor-mh-1', title: 'The dwarves march', body: 'The Mentor reveals its site path to you. Both players draw cards based on the destination’s draw numbers — press [[Draw]], then pass.' },
@@ -237,8 +280,9 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
 ];
 
 /**
- * The prescribed action sequence. Beats sharing a `stepId` are performed
- * while that step's instruction is on screen; order is strict.
+ * Chapter one's prescribed action sequence. Beats sharing a `stepId` are
+ * performed while that step's instruction is on screen; order is strict.
+ * The last beat is the player's End Turn — the tutorial ends there.
  */
 export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   // ---- Part 1 — Setup ----
@@ -299,7 +343,14 @@ export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   b('eot-1', 'human', { type: 'draw-cards' }),
   b('eot-1', 'mentor', { type: 'pass' }),
   b('eot-1-end', 'human', { type: 'pass' }),
+];
 
+/**
+ * The beats of {@link LATER_CHAPTER_STEPS}, continuing from the state
+ * {@link TUTORIAL_BEATS} leaves behind. Replayed by the tutorial tests
+ * immediately after chapter one, never by the tutorial itself.
+ */
+export const LATER_CHAPTER_BEATS: readonly TutorialBeat[] = [
   // ---- Part 2 — Round 1: the Mentor's turn ----
   b('mentor-untap-1', 'mentor', { type: 'untap' }),
   b('mentor-untap-1', 'human', { type: 'pass' }),
@@ -470,6 +521,6 @@ export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   b('tutorial-complete', 'mentor', { type: 'pass' }),
 ];
 
-/** Map from stepId to its presentation info. */
+/** Map from stepId to its presentation info, across every chapter. */
 export const TUTORIAL_STEP_BY_ID: ReadonlyMap<string, TutorialStepInfo> =
-  new Map(TUTORIAL_STEPS.map(step => [step.id, step]));
+  new Map([...TUTORIAL_STEPS, ...LATER_CHAPTER_STEPS].map(step => [step.id, step]));

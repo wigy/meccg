@@ -11,6 +11,10 @@
  * the left below the opponent deck box by CSS), deliberately outside
  * `#visual-board` so its size never reflows the company layout.
  *
+ * When the chapter's last beat has been played the docked panel is replaced
+ * by a centered completion card — the recap plus the "Exit Tutorial" button,
+ * which is the only control left once the script gates every action off.
+ *
  * Besides the instruction, a step may carry glossary entries (rendered under
  * the instruction body) and UI pointers — callout bubbles attached to the
  * on-screen element a concept lives at (the GI counter, the phase meter, …).
@@ -52,6 +56,20 @@ const ANCHOR_ELEMENT_IDS: Record<TutorialAnchorId, string> = {
 let repositionListenersRegistered = false;
 
 /**
+ * Callback behind the completion card's "Exit Tutorial" button. Registered
+ * by game-connection.ts (its `disconnect()`) at module load — a forward
+ * reference like `setReplayExit`, so this module never imports
+ * game-connection.js and creates a cycle (game-connection.ts already imports
+ * {@link renderTutorialPanel}).
+ */
+let exitTutorialFn: (() => void) | null = null;
+
+/** Register the handler for the completion card's exit button. */
+export function setExitTutorial(fn: () => void): void {
+  exitTutorialFn = fn;
+}
+
+/**
  * Render (or remove) the tutorial panel for the current view. Shows the
  * active step's title and instruction, glossary entries for concepts the
  * step introduces, and overall progress (steps narrate the Mentor's turns
@@ -62,17 +80,29 @@ let repositionListenersRegistered = false;
  */
 export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   document.getElementById('tutorial-panel')?.remove();
+  document.getElementById('tutorial-complete')?.remove();
   const progress = view.tutorial;
   if (!progress) {
     renderBubbles([]);
+    document.getElementById('tutorial-dim')?.remove();
     return;
   }
   // Only render inside a game screen (the board is the marker element).
   if (!document.getElementById('visual-board')) return;
 
+  // The chapter is over: the docked instruction panel gives way to a card in
+  // the middle of the board recapping the chapter. Every human action is
+  // gated off from here on (see gateHumanActions), so its button is the
+  // player's only way out.
+  if (progress.done) {
+    renderBubbles([]);
+    renderCompletionCard(progress);
+    return;
+  }
+
   const panel = document.createElement('div');
   panel.id = 'tutorial-panel';
-  panel.className = progress.done ? 'tutorial-panel tutorial-panel--done' : 'tutorial-panel';
+  panel.className = 'tutorial-panel';
 
   const header = document.createElement('div');
   header.className = 'tutorial-panel-header';
@@ -84,9 +114,7 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
 
   const step = document.createElement('span');
   step.className = 'tutorial-panel-progress';
-  step.textContent = progress.done
-    ? 'Complete!'
-    : `Step ${progress.stepIndex + 1} of ${progress.stepCount}`;
+  step.textContent = `Step ${progress.stepIndex + 1} of ${progress.stepCount}`;
   header.appendChild(step);
 
   panel.appendChild(header);
@@ -181,7 +209,61 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
 
   document.body.appendChild(panel);
 
-  renderBubbles(progress.done ? [] : progress.pointers ?? []);
+  renderBubbles(progress.pointers ?? []);
+}
+
+/**
+ * Draw the end-of-chapter card over a dimmed board: what the chapter taught,
+ * one line per lesson, and the single button that leaves the tutorial. Uses
+ * the continue gate's `#tutorial-dim` backdrop, so the board behind it stays
+ * visible but plainly out of play.
+ */
+function renderCompletionCard(progress: NonNullable<PlayerView['tutorial']>): void {
+  document.getElementById('tutorial-dim')?.remove();
+  const dim = document.createElement('div');
+  dim.id = 'tutorial-dim';
+  document.body.appendChild(dim);
+
+  const card = document.createElement('div');
+  card.id = 'tutorial-complete';
+  card.className = 'tutorial-complete';
+
+  const heading = document.createElement('div');
+  heading.className = 'tutorial-complete-title';
+  heading.textContent = progress.title;
+  card.appendChild(heading);
+
+  const text = document.createElement('div');
+  text.className = 'tutorial-complete-body';
+  renderBodyText(text, progress.body);
+  card.appendChild(text);
+
+  if (progress.learned?.length) {
+    const list = document.createElement('ul');
+    list.className = 'tutorial-complete-learned';
+    for (const lesson of progress.learned) {
+      const item = document.createElement('li');
+      renderBodyText(item, lesson);
+      list.appendChild(item);
+    }
+    card.appendChild(list);
+  }
+
+  if (progress.footer) {
+    const footer = document.createElement('div');
+    footer.className = 'tutorial-panel-footer';
+    footer.textContent = progress.footer;
+    card.appendChild(footer);
+  }
+
+  const exit = document.createElement('button');
+  exit.type = 'button';
+  exit.className = 'tutorial-exit-btn';
+  exit.textContent = 'Exit Tutorial';
+  exit.addEventListener('click', () => exitTutorialFn?.());
+  card.appendChild(exit);
+
+  document.body.appendChild(card);
 }
 
 /** Region types the `{{...}}` icon token accepts. */
@@ -225,6 +307,7 @@ export function clearTutorialPanel(): void {
   document.getElementById('tutorial-panel')?.remove();
   document.getElementById('tutorial-bubbles')?.remove();
   document.getElementById('tutorial-dim')?.remove();
+  document.getElementById('tutorial-complete')?.remove();
 }
 
 /**

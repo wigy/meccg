@@ -397,8 +397,13 @@ export interface TutorialProgress {
   readonly stepCount: number;
   /** True when the current beat is the human's to perform (vs. watch-only). */
   readonly yourTurn: boolean;
-  /** True once every beat has been performed — the tutorial is complete. */
+  /** True once every beat has been performed — the chapter is complete. */
   readonly done: boolean;
+  /**
+   * One line per lesson the finished chapter taught, listed on the
+   * completion card. Present only when {@link done}.
+   */
+  readonly learned?: readonly string[];
   /** Game-term explanations rendered under the step's instruction. */
   readonly concepts?: readonly TutorialConcept[];
   /** Callout bubbles pointing at UI elements related to the step. */

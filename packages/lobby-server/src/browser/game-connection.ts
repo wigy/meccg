@@ -17,7 +17,7 @@ import { clearGameSession, clearPlayerName, saveGameSession } from './session.js
 import { connectPseudoAi } from './pseudo-ai.js';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
-import { clearTutorialPanel, renderTutorialPanel } from './tutorial-panel.js';
+import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tutorial-panel.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
@@ -155,6 +155,11 @@ export function disconnect(): void {
     (document.getElementById('name-input') as HTMLInputElement).value = '';
   }
 }
+
+// The tutorial's completion card owns the only way out of a finished
+// chapter; leaving is an ordinary disconnect. Registered here (rather than
+// imported there) because this module already imports the panel.
+setExitTutorial(disconnect);
 
 /**
  * Clear the visual board and restore its skeleton child elements
