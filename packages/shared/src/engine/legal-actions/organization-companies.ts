@@ -661,6 +661,22 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       }
     }
 
+    // Rule 3.26 (glossary "leader": "cannot be in a company with another
+    // leader unless at a haven") applies to moving companies too, not just to
+    // organizing them: a company already holding more than one Leader may
+    // only declare movement to a haven — it cannot travel to (or through
+    // declaring movement toward) a non-haven site while it's over the limit.
+    if (wouldViolateLeaderRestriction(state, company.characters, company.id)) {
+      const beforeLeaderFilter = candidateSites.length;
+      for (let i = candidateSites.length - 1; i >= 0; i--) {
+        const destSiteDef = candidateSites[i];
+        if (!isHavenForPlayer(destSiteDef, player.alignment, { state, siteDefinitionId: destSiteDef.id, playerId: player.id })) {
+          candidateSites.splice(i, 1);
+        }
+      }
+      logDetail(`Company ${company.id as string}: has more than one leader — restricted to haven destinations (${beforeLeaderFilter} → ${candidateSites.length})`);
+    }
+
     // Rule 2.II.7.1: no two companies sharing an origin may declare movement
     // to the same new site during one organization phase. Drop any candidate
     // whose definition is already another sibling-at-same-origin's
