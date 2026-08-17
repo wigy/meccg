@@ -1674,9 +1674,10 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
       || view.phaseState.setupStep.step === 'deck-shuffle')) {
     return { cards: [], hidden: true };
   }
-  // Outside draft, show card backs for each card in opponent's hand
-  const count = view.opponent.hand.length;
-  return { cards: new Array<CardDefinitionId>(count).fill('unknown-card' as CardDefinitionId), hidden: true };
+  // Outside draft, show card backs for each card in opponent's hand, except
+  // any instance an effect has revealed (e.g. Palantír of Amon Sûl's peek),
+  // which the server already resolves to its real definitionId in the view.
+  return { cards: view.opponent.hand.map(c => c.definitionId), hidden: false };
 }
 
 /** Render the opponent's hand (or draft pool) as an arc at the top of the visual view. */
