@@ -954,6 +954,20 @@ export function isSelfDiscardMove(
 }
 
 /**
+ * True when a triggered-action `apply` is a "store this card too" move — the
+ * `move` shape `{ select: 'self', to: 'kill-pile' }`. Mirrors
+ * {@link isSelfDiscardMove}; used by `host-item-stored` handlers (e.g. Align
+ * Palantír tw-190, "If the Palantír is stored, this card is stored too") to
+ * detect a companion item that must follow its host into the marshalling
+ * point pile.
+ */
+export function isSelfStoreMove(
+  apply: { readonly type?: string; readonly select?: string; readonly to?: string } | undefined,
+): boolean {
+  return apply?.type === 'move' && apply.select === 'self' && apply.to === 'kill-pile';
+}
+
+/**
  * Returns the effects array from a card definition, or an empty array if the
  * card has no effects or the definition is absent.
  *
