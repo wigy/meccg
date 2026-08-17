@@ -83,6 +83,20 @@ export interface JoinMessage {
   readonly ai?: boolean;
   /** Optional JWT token for authenticated game server connections (lobby mode). */
   readonly token?: string;
+  /**
+   * Attach as an *observer* rather than as a player or a spectator
+   * (`specs/2026-08-17-ask-ai-observer.md`): a headless process that answers
+   * {@link AskAiMessage} with an explanation of what `agent` would do in the
+   * current position.
+   *
+   * An observer never acts, is never seated, receives no state broadcasts, and
+   * never keeps a session alive. Only one is attached at a time — a second
+   * replaces the first, because the Ask AI control names one agent.
+   */
+  readonly observer?: {
+    /** Sim registry spec of the explaining agent, e.g. `h2` or `mc:ms=2000`. */
+    readonly agent: string;
+  };
 }
 
 /**
@@ -183,7 +197,51 @@ export interface TutorialContinueMessage {
   readonly type: 'tutorial-continue';
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | SwapHandMessage | TutorialContinueMessage;
+/**
+ * Ask the attached observer what its agent would do in the current position
+ * (`specs/2026-08-17-ask-ai-observer.md`).
+ *
+ * Answered with an {@link AiExplanationMessage} addressed to the asker alone:
+ * the explanation is derived from one seat's private view, so it is never
+ * broadcast. Reading only — it changes no state and does not taint the game.
+ */
+export interface AskAiMessage {
+  /** Message type discriminant. */
+  readonly type: 'ask-ai';
+  /** Client-generated id, echoed back on the answer so a late reply can be matched. */
+  readonly requestId: string;
+}
+
+/**
+ * Observer → server: the finished explanation for one {@link AiQuestionMessage}.
+ *
+ * Accepted only from the attached observer connection; from anyone else it is
+ * an error, the same way an action from a spectator is.
+ */
+export interface AiAnswerMessage {
+  /** Message type discriminant. */
+  readonly type: 'ai-answer';
+  /** The id from the question being answered. */
+  readonly requestId: string;
+  /** The rendered explanation, one element per line. */
+  readonly lines: readonly string[];
+  /** Agent spec that produced it, as the observer was launched with. */
+  readonly agent: string;
+  /** Wall-clock milliseconds the agent spent thinking. */
+  readonly elapsedMs: number;
+}
+
+/** Observer → server: this question cannot be answered. */
+export interface AiErrorMessage {
+  /** Message type discriminant. */
+  readonly type: 'ai-error';
+  /** The id from the question that failed. */
+  readonly requestId: string;
+  /** What went wrong, shown to the asker verbatim. */
+  readonly message: string;
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | SwapHandMessage | TutorialContinueMessage | AskAiMessage | AiAnswerMessage | AiErrorMessage;
 
 // ---- Server → Client ----
 
@@ -401,4 +459,68 @@ export interface SpectatorsMessage {
   readonly names: readonly string[];
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage | LogMessage | SpectatorsMessage;
+/**
+ * Sent by the server whenever an observer attaches or detaches, and to each
+ * client as it is seated (`specs/2026-08-17-ask-ai-observer.md`).
+ *
+ * Separate from {@link SpectatorsMessage} for the same reason that one is
+ * separate from the state broadcast — an observer arriving changes no game
+ * state — and separate from the watcher list because an observer is a tool, not
+ * a person watching. This is what makes the Ask AI control appear.
+ */
+export interface ObserverMessage {
+  /** Message type discriminant. */
+  readonly type: 'observer';
+  /** Whether an observer is currently attached. */
+  readonly attached: boolean;
+  /** Its agent spec, or null when nothing is attached. */
+  readonly agent: string | null;
+}
+
+/**
+ * Server → observer: explain this position.
+ *
+ * Carries the authoritative `stateSeq` rather than letting the observer guess
+ * from its own log tail, so the answer is about the position the asker is
+ * looking at.
+ */
+export interface AiQuestionMessage {
+  /** Message type discriminant. */
+  readonly type: 'ai-question';
+  /** Id to echo back on the answer. */
+  readonly requestId: string;
+  /** Engine state sequence number to explain — addresses the game-log record. */
+  readonly stateSeq: number;
+  /** Whose decision to explain. */
+  readonly forPlayer: PlayerId;
+  /** Turn number, for the observer's own logging. */
+  readonly turn: number;
+  /** Phase name, likewise. */
+  readonly phase: string;
+  /** Setup step, when in setup. */
+  readonly step?: string;
+}
+
+/** Server → asker: the explanation, or why there is none. */
+export interface AiExplanationMessage {
+  /** Message type discriminant. */
+  readonly type: 'ai-explanation';
+  /** The id of the {@link AskAiMessage} being answered. */
+  readonly requestId: string;
+  /** How it went: `unavailable` means no observer is attached. */
+  readonly status: 'ok' | 'unavailable' | 'error' | 'timeout';
+  /** Agent spec that answered, or null when nothing did. */
+  readonly agent: string | null;
+  /** Seat the explanation is about. */
+  readonly forPlayer?: PlayerId;
+  /** Position explained. */
+  readonly stateSeq?: number;
+  /** The explanation, one element per line. Present when `status` is `ok`. */
+  readonly lines?: readonly string[];
+  /** Wall-clock milliseconds the agent spent thinking. */
+  readonly elapsedMs?: number;
+  /** Why there is no explanation. Present when `status` is not `ok`. */
+  readonly message?: string;
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage | LogMessage | SpectatorsMessage | ObserverMessage | AiQuestionMessage | AiExplanationMessage;

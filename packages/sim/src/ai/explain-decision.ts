@@ -56,6 +56,7 @@ import type { CardPrices } from './h2/services/card-price.js';
 import { computeHazardPlan } from './h2/services/hazard-plan.js';
 import type { HazardPlan } from './h2/services/hazard-plan.js';
 import { renderExplanation } from './h2/explain.js';
+import { withStandardCardPool } from './h2/scenario-store.js';
 import { agentSpecParam, isH2Spec, parseH2Spec } from './h2/spec.js';
 
 /** How many candidates are expanded in full when the caller does not say. */
@@ -382,8 +383,13 @@ function decisionShape(legalActions: readonly GameAction[]): string[] {
  * the state again — see the module comment.
  */
 export function explainDecision(input: DecisionExplanationInput): DecisionExplanation {
-  const { agent, agentSpec, state, playerId, cardPool } = input;
+  const { agent, agentSpec, playerId, cardPool } = input;
   const topN = input.topN ?? DEFAULT_TOP_N;
+  // A game-log record carries the position but not the card pool — the server
+  // writes the definitions once per game rather than on every state — and
+  // projection cannot resolve a single card without one. Rehydrating here means
+  // a caller holding a log record does not have to know that.
+  const state = withStandardCardPool(input.state);
   const view = projectPlayerView(state, playerId);
   const { legalActions, evaluated, viableCount } = decisionCandidates(view);
   const describe = makeActionDescriber(view, cardPool);
