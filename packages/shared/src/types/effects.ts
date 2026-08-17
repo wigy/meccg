@@ -5916,6 +5916,25 @@ export interface ModifyAttackEffect extends EffectBase {
    * If the result is less than 11, the character splits off..."
    */
   readonly postAttackMindRollSplit?: { readonly threshold: number };
+  /**
+   * When true (`fromHand` path, attacker-played only), playing the card
+   * additionally schedules a post-attack dynamic corruption attachment:
+   * {@link CombatState.pendingCorruptionAttach} is set, and at combat
+   * finalization the card (already discarded, like any other from-hand
+   * `modify-attack`) is spliced out of its owner's discard pile and attached
+   * as a corruption card to the first character wounded by the attack who
+   * has not already had a corruption card played on him this turn (CoE
+   * 7.2.1). If no eligible character was wounded, the card simply remains
+   * discarded. The corruption-point value itself comes from the card's own
+   * `stat-modifier` effect (evaluated once attached, exactly like any other
+   * attached corruption card) — this flag only controls *whether* and
+   * *where* the card attaches. Used by Icy Touch (td-33): "The next
+   * character wounded by the attack (on whom a corruption card has not
+   * already been played this turn) receives 2 corruption points (place this
+   * card with the character). Discard Icy Touch if it is not played with a
+   * character."
+   */
+  readonly attachCorruptionOnWound?: true;
 }
 
 /**

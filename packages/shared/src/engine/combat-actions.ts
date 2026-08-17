@@ -1976,6 +1976,15 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         ...(effect.postAttackMindRollSplit
           ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }
           : {}),
+        ...(effect.attachCorruptionOnWound
+          ? {
+              pendingCorruptionAttach: {
+                sourceCardInstanceId: handCard.instanceId,
+                sourceCardDefinitionId: handCard.definitionId,
+                ownerPlayerIndex: playerIndex,
+              },
+            }
+          : {}),
       },
     };
 
