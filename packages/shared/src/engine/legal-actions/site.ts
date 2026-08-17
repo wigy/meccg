@@ -874,6 +874,25 @@ function inPlayCompanyTapGrantActions(
 }
 
 /**
+ * Renders a faction's `playableAt` entries as a short, player-facing phrase
+ * naming where it can be played (e.g. "Beorn's House", or "Cirith Gorgor or
+ * Barad-dûr" for a faction playable at several named sites). Used to explain
+ * where a player must send an untapped character to attempt a CoE 8.3
+ * re-influence of an opponent's in-play copy of a unique faction. Returns an
+ * empty string for factions with no named `playableAt` entry (e.g. "Roused"
+ * manifestation factions that are never played from hand).
+ */
+function describeFactionHomeSites(playableAt: FactionCard['playableAt']): string {
+  const phrases = playableAt.map(entry => {
+    if ('site' in entry) return entry.site;
+    if ('region' in entry) return `a site in ${entry.region}`;
+    if ('siteType' in entry) return `any ${entry.siteType} site`;
+    return 'a qualifying site';
+  });
+  return phrases.join(' or ');
+}
+
+/**
  * Generate play-resources actions for the current company (CoE lines 362–374).
  *
  * After entering a site, the resource player may play resources. Each hand
@@ -2286,10 +2305,19 @@ function playResourcesActions(
       // Check uniqueness — only one copy of a *unique* faction can be in play.
       // Non-unique factions (e.g. Snaga-hai, le-286) may have multiple copies
       // in play, so the duplicate check only applies when the faction is unique.
+      // Since the card is still in this player's hand, the in-play copy must
+      // belong to the opponent — the only remaining path to contest it is a
+      // CoE 8.3 re-influence attempt at the faction's home site, so the reason
+      // names that site to make the option discoverable (a past report showed
+      // a player stuck with only pass/continue and no clue where to look).
       const alreadyInPlay = factionDef.unique && countCopiesInPlay(state, factionDef.name) > 0;
       if (alreadyInPlay) {
-        logDetail(`Faction ${factionDef.name}: unique and already in play`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name} is unique and already in play`));
+        const homeSites = describeFactionHomeSites(factionDef.playableAt);
+        const reason = homeSites
+          ? `${factionDef.name} is unique and already in play — visit ${homeSites} with an untapped character to attempt to re-influence the opponent's copy.`
+          : `${factionDef.name} is unique and already in play`;
+        logDetail(`Faction ${factionDef.name}: unique and already in play (hint: ${reason})`);
+        actions.push(notPlayable(playerId, cardInstanceId, reason));
         continue;
       }
 

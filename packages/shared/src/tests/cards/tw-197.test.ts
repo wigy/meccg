@@ -12,17 +12,31 @@
  *
  * Effects tested:
  * 1. check-modifier: +1 to influence check when the influencing character is a Man
+ *
+ * Also covers CoE 8.3 re-influence discoverability (bug report: a player
+ * whose own Beornings was stuck in hand behind the opponent's unique copy
+ * got only pass/continue, with no indication that Beorn's House was the
+ * place to attempt re-influencing the opponent's copy):
+ * 2. from-hand not-playable reason names Beorn's House when the opponent's
+ *    copy is already in play
+ * 3. opponent-influence-attempt against the opponent's in-play copy is
+ *    offered once the resource player's company reaches Beorn's House
+ * 4. the once-per-turn opponentInteractionThisTurn slot and the turn <= 2
+ *    guard still suppress the re-influence attempt (regression coverage for
+ *    the gating itself, not just the new text)
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1,
-  THEODEN, LEGOLAS,
-  buildSitePhaseState, resetMint,
+  PLAYER_1, PLAYER_2,
+  THEODEN, LEGOLAS, LORIEN,
+  buildSitePhaseState, buildTestState, resetMint, makeSitePhase,
   findCharInstanceId, RESOURCE_PLAYER,
+  nonViableOfType, firstOpponentInfluenceAttempt,
+  Phase, CardStatus,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { InfluenceAttemptAction, CardDefinitionId } from '../../index.js';
+import type { InfluenceAttemptAction, NotPlayableAction, CardDefinitionId, CardInPlay, CardInstanceId } from '../../index.js';
 
 const BEORNINGS = 'tw-197' as CardDefinitionId;
 const BEORNS_HOUSE = 'tw-376' as CardDefinitionId;
@@ -115,5 +129,101 @@ describe('Beornings (tw-197)', () => {
 
     // Man has +1 advantage: elfNeed > manNeed
     expect(manNeed).toBeLessThan(elfNeed);
+  });
+
+  test('own Beornings in hand names Beorn’s House when the opponent’s copy is already in play', () => {
+    // Uniqueness is checked across both players — the opponent already
+    // controls the only copy of Beornings, so the resource player's copy is
+    // stuck in hand. The only remaining path is a CoE 8.3 re-influence
+    // attempt at Beorn's House; the tooltip should name that site.
+    const opponentBeornings: CardInPlay = {
+      instanceId: 'beornings-1' as CardInstanceId,
+      definitionId: BEORNINGS,
+      status: CardStatus.Untapped,
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BEORNS_HOUSE, characters: [THEODEN] }], hand: [BEORNINGS], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [BEORNS_HOUSE], cardsInPlay: [opponentBeornings] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+
+    const handInstanceId = state.players[0].hand[0].instanceId;
+    const actions = computeLegalActions(state, PLAYER_1);
+    const blocked = nonViableOfType(actions, 'not-playable')
+      .find(ea => (ea.action as NotPlayableAction).cardInstanceId === handInstanceId);
+
+    expect(blocked).toBeDefined();
+    expect(blocked!.reason).toContain('unique and already in play');
+    expect(blocked!.reason).toContain('Beorn’s House');
+  });
+
+  test('opponent-influence-attempt targets the in-play Beornings once the company reaches Beorn’s House', () => {
+    const opponentBeornings: CardInPlay = {
+      instanceId: 'beornings-1' as CardInstanceId,
+      definitionId: BEORNINGS,
+      status: CardStatus.Untapped,
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BEORNS_HOUSE, characters: [THEODEN] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [BEORNS_HOUSE], cardsInPlay: [opponentBeornings] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase(), turnNumber: 3 };
+
+    const attempt = firstOpponentInfluenceAttempt(state, opponentBeornings.instanceId, PLAYER_1);
+    expect(attempt).toBeDefined();
+    expect(attempt!.targetKind).toBe('faction');
+    expect(attempt!.targetPlayer).toBe(PLAYER_2);
+  });
+
+  test('opponent-influence-attempt is absent once opponentInteractionThisTurn is already spent', () => {
+    const opponentBeornings: CardInPlay = {
+      instanceId: 'beornings-1' as CardInstanceId,
+      definitionId: BEORNINGS,
+      status: CardStatus.Untapped,
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BEORNS_HOUSE, characters: [THEODEN] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [BEORNS_HOUSE], cardsInPlay: [opponentBeornings] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase({ opponentInteractionThisTurn: 'influence' }), turnNumber: 3 };
+
+    const attempt = firstOpponentInfluenceAttempt(state, opponentBeornings.instanceId, PLAYER_1);
+    expect(attempt).toBeUndefined();
+  });
+
+  test('opponent-influence-attempt is absent on turn <= 2', () => {
+    const opponentBeornings: CardInPlay = {
+      instanceId: 'beornings-1' as CardInstanceId,
+      definitionId: BEORNINGS,
+      status: CardStatus.Untapped,
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BEORNS_HOUSE, characters: [THEODEN] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [BEORNS_HOUSE], cardsInPlay: [opponentBeornings] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase(), turnNumber: 2 };
+
+    const attempt = firstOpponentInfluenceAttempt(state, opponentBeornings.instanceId, PLAYER_1);
+    expect(attempt).toBeUndefined();
   });
 });
