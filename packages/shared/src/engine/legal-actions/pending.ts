@@ -363,7 +363,7 @@ export function opponentInfluenceDefendActions(
   const influencerName = influencerDef && isCharacterCard(influencerDef) ? influencerDef.name : '?';
 
   const targetDef = resolveDef(state, attempt.targetInstanceId);
-  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef))
+  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef) || isFactionCard(targetDef) || isItemCard(targetDef))
     ? targetDef.name : '?';
 
   const parts: string[] = [
