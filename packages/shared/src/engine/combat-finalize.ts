@@ -499,7 +499,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     if (stillDiscarded) {
       const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
       const mhState = state.phaseState.phase === Phase.MovementHazard
-        ? state.phaseState as MovementHazardPhaseState
+        ? state.phaseState
         : undefined;
       let targetCharId: CardInstanceId | undefined;
       for (const charId of woundedCharIds) {
@@ -515,7 +515,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           ...p,
           discardPile: p.discardPile.filter(c => c.instanceId !== pending.sourceCardInstanceId),
         }));
-        stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => updateCharacter(p, targetCharId as CardInstanceId, c => ({
+        stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => updateCharacter(p, targetCharId, c => ({
           ...c,
           hazards: [...c.hazards, { instanceId: pending.sourceCardInstanceId, definitionId: pending.sourceCardDefinitionId, status: CardStatus.Untapped }],
         })));

@@ -103,7 +103,7 @@ function resolveBodyCheckIfPending(s: GameState, roll: number): GameState {
   const cheated = { ...s, cheatRollTotal: roll };
   const action = viableActions(cheated, PLAYER_1, 'body-check-roll')[0]?.action
     ?? viableActions(cheated, PLAYER_2, 'body-check-roll')[0]?.action;
-  return dispatch(cheated, action!);
+  return dispatch(cheated, action);
 }
 
 describe('Icy Touch (td-33)', () => {
