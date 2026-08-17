@@ -3236,9 +3236,25 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
  * is still `Phase.MovementHazard`, regardless of which company is currently
  * being resolved. A company that stayed put (`moved === false`) never left
  * its site and remains "at" it throughout.
+ *
+ * The `moved` flag alone misses the mirror-image case: a company that is
+ * *departing* its origin site is also "en route" for the rest of its own
+ * M/H sub-phase, from the moment its new site is revealed (`siteRevealed`,
+ * true only for moving companies — see mh-steps.ts) until `moved` flips at
+ * step 8 — even though `currentSite` still reads as the (stale) origin the
+ * whole time. Concrete violation this closes: a company sitting at Minas
+ * Tirith declared movement to Gobel Mírlond; mid-sub-phase (site already
+ * revealed, `moved` still false because step 8 hadn't run), Choice of
+ * Lúthien (dm-120, "Playable on Arwen in Minas Tirith") was still offered
+ * even though the company had already left Minas Tirith behind for the
+ * rest of this movement/hazard phase.
  */
-export function isCompanyAtSite(state: GameState, company: Company): boolean {
-  return !(state.phaseState.phase === Phase.MovementHazard && company.moved);
+export function isCompanyAtSite(state: GameState, player: PlayerState, company: Company): boolean {
+  if (state.phaseState.phase !== Phase.MovementHazard) return true;
+  if (company.moved) return false;
+  const mhState = state.phaseState;
+  const isActiveMovingCompany = mhState.siteRevealed && player.companies[mhState.activeCompanyIndex]?.id === company.id;
+  return !isActiveMovingCompany;
 }
 
 /**
@@ -3281,7 +3297,7 @@ export function matchesCompanyContextCondition(
   condition: Condition,
   playedUniqueHeroFactionAtFreeHold: boolean,
 ): boolean {
-  const atSite = isCompanyAtSite(state, company);
+  const atSite = isCompanyAtSite(state, player, company);
   const rawSiteDefId = company.currentSite?.definitionId;
   const siteDefId = atSite ? rawSiteDefId : undefined;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
