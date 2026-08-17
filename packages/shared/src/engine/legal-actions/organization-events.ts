@@ -553,7 +553,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         let anyPlayable = false;
         for (const company of player.companies) {
           if (!company.currentSite) continue;
-          if (!isCompanyAtSite(state, company)) {
+          if (!isCompanyAtSite(state, player, company)) {
             logDetail(`Permanent event ${def.name}: company ${company.id as string} moved this turn and is not yet "at" its site (rule 2.IV.5)`);
             continue;
           }

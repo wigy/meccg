@@ -127,6 +127,44 @@ describe('Choice of Lúthien (dm-120)', () => {
     expect(actions.length).toBe(0);
   });
 
+  // Bug report: a company sitting at Minas Tirith declared movement to a
+  // different site (Rivendell here). Mid-sub-phase — its new site already
+  // revealed, but its own movement/hazard sub-phase not yet complete, so
+  // `moved` was still false and `currentSite` still read as Minas Tirith —
+  // Choice of Lúthien was offered anyway. CoE rule 2.IV.5 / CRF-22
+  // Annotation 25: a company is "en route" (not "at" any site) from the
+  // moment its new site card is revealed, so it had already left Minas
+  // Tirith behind for the rest of this movement/hazard phase.
+  test('NOT offered mid-movement/hazard-phase once the company at Minas Tirith has revealed a new site (still departing, before "moved" flips)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARWEN] }], hand: [CHOICE_OF_LUTHIEN], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const destCard = base.players[0].siteDeck[0];
+    const state: GameState = {
+      ...base,
+      players: [
+        {
+          ...base.players[0],
+          companies: [{
+            ...base.players[0].companies[0],
+            moved: false,
+            destinationSite: { instanceId: destCard.instanceId, definitionId: destCard.definitionId, status: CardStatus.Untapped },
+          }],
+        },
+        base.players[1],
+      ] as typeof base.players,
+      phaseState: makeMHState({ activeCompanyIndex: 0, siteRevealed: true }),
+    };
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
   // ─── Stat bonus: +2 direct influence, +2 mind ──────────────────────────────
 
   test('while attached, raises Arwen\'s direct influence and mind by 2 each', () => {
