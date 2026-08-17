@@ -50,6 +50,7 @@ import type { StrikeTarget } from './strike/prowess.js';
 import type { AttackProfile, SequencePricer } from './strike/sequence.js';
 import { resolveAttacks } from './strike/sequence.js';
 import { attackBoostOf, boostForRace, boostInPlay, mergeBoosts } from './attack-modifiers.js';
+import { attackIsDetainment } from '../../detainment.js';
 import type { AttackBoost } from './attack-modifiers.js';
 
 /** What one hazard in hand is for. */
@@ -115,9 +116,16 @@ export interface HazardPlan {
 interface Hazard {
   readonly instanceId: CardInstanceId;
   readonly name: string;
+  /** The card it is, which is what detainment is predicted from. */
+  readonly definitionId: string;
   /** Printed race, which is what a boost is looked up by. */
   readonly race: string | null;
-  /** The attack as printed; boosts are applied by {@link profileOf}. */
+  /**
+   * The attack as printed, assuming a normal attack; boosts are applied by
+   * {@link profileOf}, which is also where detainment is folded in — the same
+   * creature is a detainment attack against one company and a normal attack
+   * against another, so it cannot be settled here.
+   */
   readonly base: AttackProfile;
   readonly killMp: number;
 }
@@ -132,14 +140,29 @@ interface Support {
   readonly boost: AttackBoost;
 }
 
-/** The attack a creature makes with `boost` in play. */
-function profileOf(hazard: Hazard, boost: AttackBoost | null): AttackProfile {
+/**
+ * The attack a creature makes against one company, with `boost` in play.
+ *
+ * `detainment` is the target's answer rather than the card's (CoE §3.II turns on
+ * who is defending and how the creature is keyed): it taps instead of wounding,
+ * and puts no kill marshalling points on offer at all (§3.II.3), which is what
+ * makes such a creature the cheap opener of a sequence rather than a gamble.
+ */
+function profileOf(hazard: Hazard, boost: AttackBoost | null, detainment: boolean): AttackProfile {
   const added = boostForRace(boost, hazard.race);
-  if (added.prowess === 0 && added.strikes === 0) return hazard.base;
+  const base: AttackProfile = detainment
+    ? {
+      ...hazard.base,
+      detainment: true,
+      killTsd: 0,
+      killLabel: `${hazard.name} beaten — a detainment attack, so no kill MP to the defender`,
+    }
+    : hazard.base;
+  if (added.prowess === 0 && added.strikes === 0) return base;
   return {
-    ...hazard.base,
-    strikeProwess: hazard.base.strikeProwess + added.prowess,
-    strikes: hazard.base.strikes + added.strikes,
+    ...base,
+    strikeProwess: base.strikeProwess + added.prowess,
+    strikes: base.strikes + added.strikes,
   };
 }
 
@@ -149,6 +172,8 @@ interface Target {
   readonly label: string;
   readonly roster: readonly StrikeTarget[];
   readonly price: SequencePricer;
+  /** Whether a given creature attacks this company as a detainment attack. */
+  readonly detainment: (definitionId: string) => boolean;
   /** Hazards the plan has already aimed here, in order. */
   readonly assigned: Hazard[];
   /** Support events the plan would play here, ahead of the attacks. */
@@ -176,6 +201,7 @@ function hazardOf(
   return {
     instanceId,
     name,
+    definitionId,
     killMp,
     race: def.race ?? null,
     base: {
@@ -232,7 +258,9 @@ function harmOf(
 ): number {
   if (sequence.length === 0) return 0;
   const result = resolveAttacks(
-    target.roster, cardPool, sequence.map(h => profileOf(h, boost)), target.price,
+    target.roster, cardPool,
+    sequence.map(h => profileOf(h, boost, target.detainment(h.definitionId))),
+    target.price,
     { maxStates: tunables.attackStateCap },
   );
   const expected = result.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
@@ -297,6 +325,15 @@ function buildHazardPlan(
   const exposure = computeExposure(view, cardPool);
 
   /**
+   * Detainment predictions, keyed by company and card.
+   *
+   * The answer depends only on the pair, and the allocation asks for it once per
+   * (card, company) per round — so it is cached across both the full-limit run
+   * and the halved one rather than re-deriving the rule each time.
+   */
+  const detainmentCache = new Map<string, boolean>();
+
+  /**
    * The companies the plan may spend against, with `slots` set by `limitOf`.
    *
    * A factory rather than a value because a `Target` carries the allocation's
@@ -320,6 +357,21 @@ function buildHazardPlan(
         label: `${company.characters.length}-character company`,
         roster: rosterOf(company, view.opponent.characters, cardPool),
         price: denialPricer(cardPool, standing, tunables, denial),
+        detainment: (definitionId: string): boolean => {
+          const key = `${company.id as string}|${definitionId}`;
+          const cached = detainmentCache.get(key);
+          if (cached !== undefined) return cached;
+          // No keying is declared here — this service prices a hand rather than
+          // resolving a play — so the prediction falls back to the union of the
+          // creature's keying, the engine's own fallback when no match was
+          // declared. A creature keyed to a Dark-hold *among other things* is
+          // therefore called detainment slightly too often against a minion
+          // company; the `hazards` module, which does have the declared keying,
+          // is the one that decides the move.
+          const value = attackIsDetainment(view, cardPool, company, definitionId);
+          detainmentCache.set(key, value);
+          return value;
+        },
         assigned: [],
         supports: [],
         slots: limitOf(base),

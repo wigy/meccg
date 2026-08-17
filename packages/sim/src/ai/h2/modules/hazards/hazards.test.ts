@@ -217,6 +217,75 @@ describe('bundles', () => {
   });
 });
 
+describe('detainment attacks (CoE §3.II)', () => {
+  /** The scenario roster, denial pricer and a free-card tunable set. */
+  function bench() {
+    const { view, cardPool, standing } = position();
+    const company = view.opponent.companies[0];
+    const beliefs = computeBeliefs(view, cardPool);
+    const context = denialContext(view, company, beliefs, standing, DEFAULT_TUNABLES);
+    return {
+      cardPool,
+      standing,
+      price: denialPricer(cardPool, standing, DEFAULT_TUNABLES, context),
+      roster: targetRoster(view),
+      tunables: { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 },
+    };
+  }
+
+  /** Two attacks alike in everything but the rule: one taps, one wounds and can be beaten for points. */
+  function pair(standing: ReturnType<typeof position>['standing']) {
+    const stats = { strikeProwess: 9, strikes: 2, creatureBody: 6, bodyCheckModifier: 0 };
+    const detaining: Candidate = {
+      instanceId: 'detaining',
+      name: 'detainment creature',
+      killMp: 0,
+      profile: { ...stats, detainment: true, killTsd: 0, name: 'detainment creature' },
+    };
+    const hitter: Candidate = {
+      instanceId: 'hitter',
+      name: 'hard hitter',
+      killMp: 3,
+      profile: {
+        ...stats,
+        detainment: false,
+        killTsd: standing.tsdAfter({}, { kill: 3 }) - standing.tsd,
+        name: 'hard hitter',
+      },
+    };
+    return { detaining, hitter };
+  }
+
+  test('the detainment attack opens, so the creature that can be beaten meets a tapped company', () => {
+    // The reported instinct, and the model agrees with it: lead with the attack
+    // that cannot hand over kill MP, and the one that can arrives against
+    // defenders already tapped — likelier to get through, likelier to survive.
+    const { cardPool, standing, price, roster, tunables } = bench();
+    const { detaining, hitter } = pair(standing);
+
+    const search = planBundles([detaining, hitter], roster, cardPool, price, standing, tunables, 2);
+    const detainingFirst = bestBundleStartingWith(search, 'detaining')!;
+    const hitterFirst = bestBundleStartingWith(search, 'hitter')!;
+
+    expect(detainingFirst.cards.map(c => c.instanceId)).toEqual(['detaining', 'hitter']);
+    expect(detainingFirst.expectedTsd).toBeGreaterThan(hitterFirst.expectedTsd);
+    expect(search.bundles[0].cards[0].instanceId).toBe('detaining');
+  });
+
+  test('a detainment attack is worth playing where the same attack as a normal one is a gift', () => {
+    // Same strikes, same prowess, same body: the whole difference is that
+    // beating a detainment creature earns the defender nothing (§3.II.3).
+    const { cardPool, standing, price, roster, tunables } = bench();
+    const { detaining, hitter } = pair(standing);
+
+    const alone = (candidate: Candidate) =>
+      planBundles([candidate], roster, cardPool, price, standing, tunables, 1).bundles[0].expectedTsd;
+
+    expect(alone(detaining)).toBeGreaterThan(0);
+    expect(alone(hitter)).toBeLessThan(0);
+  });
+});
+
 describe('the module at a real decision', () => {
   test('it claims the play-hazards window and prices every creature offered', () => {
     const { view, cardPool, standing } = position();
