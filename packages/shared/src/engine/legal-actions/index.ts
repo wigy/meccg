@@ -34,6 +34,7 @@ import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
 import { applyCardPlayProhibitions, applyPendingPlayFilter } from '../card-play-prohibition.js';
+import { bannedVsBalrogHandCards } from '../balrog-banned-swap.js';
 import { applyLocationMagicRestriction } from '../location-magic-restriction.js';
 import { applyConstraints } from './pending.js';
 import { resolutionLegalActions } from '../pending-handlers.js';
@@ -163,6 +164,34 @@ function reshuffleFromHandActions(state: GameState, playerId: PlayerId): Evaluat
       action: { type: 'reshuffle-card-from-hand', player: playerId, cardInstanceId: handCard.instanceId },
       viable: true,
     });
+  }
+  return results;
+}
+
+/**
+ * Cross-phase `swap-banned-vs-balrog` actions (CoE 1.8.2 / rule 1.36) — one
+ * per (banned hand card, sideboard card) pair while the opponent is a Balrog
+ * player. Same offering window as {@link reshuffleFromHandActions}: any
+ * strategy step where the player already has another viable action.
+ */
+function bannedVsBalrogSwapActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const banned = bannedVsBalrogHandCards(state, playerId);
+  if (banned.length === 0) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const results: EvaluatedAction[] = [];
+  for (const handCard of banned) {
+    for (const sideboardCard of player.sideboard) {
+      results.push({
+        action: {
+          type: 'swap-banned-vs-balrog',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          sideboardCardInstanceId: sideboardCard.instanceId,
+        },
+        viable: true,
+      });
+    }
   }
   return results;
 }
@@ -439,6 +468,7 @@ function computePhaseLegalActions(state: GameState, playerId: PlayerId): Evaluat
   const hasOtherViable = evaluated.some(e => e.viable);
   if (hasOtherViable) {
     evaluated = [...evaluated, ...reshuffleFromHandActions(state, playerId)];
+    evaluated = [...evaluated, ...bannedVsBalrogSwapActions(state, playerId)];
   }
 
   // Catch-all: mark remaining hand cards that have no evaluated action as

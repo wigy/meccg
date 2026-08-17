@@ -109,6 +109,7 @@ import { handleMovementHazard, autoAdvanceMHOrderEffects } from './reducer-movem
 import { triggerAhuntOnLongEventPlay } from './mh-steps.js';
 import { handleSite } from './reducer-site.js';
 import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
+import { applyBannedVsBalrogSwap } from './balrog-banned-swap.js';
 import { handleFreeCouncil } from './reducer-free-council.js';
 import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
 
@@ -281,6 +282,16 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       return { state, error: `Card ${action.cardInstanceId as string} not found in ${action.player as string}'s hand` };
     }
     const recomputed = postReduce(newState, state);
+    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+  }
+
+  // Cross-phase `swap-banned-vs-balrog` (CoE 1.8.2 / rule 1.36): the rule
+  // grants the trade "at any time", so like the reshuffle above it is
+  // dispatched ahead of the phase handlers.
+  if (action.type === 'swap-banned-vs-balrog') {
+    const swapResult = applyBannedVsBalrogSwap(state, action.player, action.cardInstanceId, action.sideboardCardInstanceId);
+    if (swapResult.error) return swapResult;
+    const recomputed = postReduce(swapResult.state, state);
     return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
   }
 
