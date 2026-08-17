@@ -115,6 +115,25 @@ function forwardChildLines(
   });
 }
 
+/**
+ * Stop a spawned AI client and everything `npx` started underneath it.
+ *
+ * The client runs four processes deep (`npm exec` → `sh -c` → `tsx` → the
+ * client's own node), and none of those forward a signal, so `aiChild.kill()`
+ * reaps the wrapper and leaves the client running against a server that no
+ * longer exists. Clients are spawned `detached` so each leads its own process
+ * group; signalling the negative pid reaches the whole group.
+ */
+function killAiClient(aiChild: ChildProcess): void {
+  if (aiChild.exitCode !== null || aiChild.signalCode !== null || !aiChild.pid) return;
+  try {
+    process.kill(-aiChild.pid, 'SIGTERM');
+  } catch {
+    // No such group (already exited, or it never formed) — try the child itself.
+    if (!aiChild.killed) aiChild.kill();
+  }
+}
+
 export async function launchGame(player1: string, player2: string, options?: LaunchOptions): Promise<LaunchResult> {
   // Skip ports that are still in use (e.g. orphaned game servers from a previous lobby instance)
   while (!await isPortFree(nextPort)) {
@@ -192,11 +211,14 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
+      // Own process group, so the game's end can actually stop the client —
+      // see killAiClient for why the child alone is not enough.
+      detached: true,
     });
     forwardChildLines(aiChild.stdout, 'ai-stdout', port);
     forwardChildLines(aiChild.stderr, 'ai-stderr', port);
     child.on('exit', () => {
-      if (!aiChild.killed) aiChild.kill();
+      killAiClient(aiChild);
     });
 
     // Wire up IPC relay for pseudo-AI games

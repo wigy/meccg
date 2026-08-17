@@ -140,11 +140,42 @@ export function logCommonServerMessage(logPrefix: string, msg: ServerMessage): b
   }
 }
 
+/** Delay before the first reconnect attempt; doubles per consecutive failure. */
+const RECONNECT_BASE_MS = 1000;
+
+/** Ceiling on the backoff delay, so a long server outage still gets polled. */
+const RECONNECT_MAX_MS = 30_000;
+
+/**
+ * Consecutive failed attempts before the client gives up and exits. With the
+ * backoff above that is about five minutes — long enough to ride out a game
+ * server restart, short enough that a client orphaned by a finished game does
+ * not linger.
+ */
+const RECONNECT_MAX_ATTEMPTS = 15;
+
+/** Consecutive failed connection attempts; reset whenever a socket opens. */
+let reconnectAttempts = 0;
+
+/** Reset the reconnect backoff. Exported for tests. */
+export function resetReconnectAttempts(): void {
+  reconnectAttempts = 0;
+}
+
 /**
  * Install the shared close/error handlers for a spawned client's socket:
- * reconnect 2s after a close, and retry 1s after a connection error.
- * `onClose` runs before the reconnect is scheduled (e.g. to clear a shared
- * socket reference).
+ * reconnect after a close or a connection error, backing off exponentially
+ * and giving up once the server has been unreachable for
+ * {@link RECONNECT_MAX_ATTEMPTS} attempts. `onClose` runs before the
+ * reconnect is scheduled (e.g. to clear a shared socket reference).
+ *
+ * At most one reconnect is ever scheduled per socket. `ws` emits `error` and
+ * *then* `close` for a refused connection, so a handler pair that schedules
+ * from both turns every failed attempt into two new sockets. That doubling
+ * compounds: when a finished game left an AI client without a server to talk
+ * to, retries went from 33 to ~49,000 per ten seconds inside two minutes and
+ * the client died on a 4 GB V8 heap, taking the lobby log (512 MB of retry
+ * lines in a day) with it.
  */
 export function installReconnect(
   ws: WebSocket,
@@ -152,17 +183,36 @@ export function installReconnect(
   reconnect: () => void,
   onClose?: () => void,
 ): void {
+  let scheduled = false;
+
+  /** Schedule the single reconnect this socket is allowed to trigger. */
+  const scheduleReconnect = (): void => {
+    if (scheduled) return;
+    scheduled = true;
+    reconnectAttempts++;
+    if (reconnectAttempts > RECONNECT_MAX_ATTEMPTS) {
+      console.error(`${logPrefix}: server unreachable after ${RECONNECT_MAX_ATTEMPTS} attempts, giving up`);
+      process.exit(0);
+    }
+    const delayMs = Math.min(RECONNECT_BASE_MS * 2 ** (reconnectAttempts - 1), RECONNECT_MAX_MS);
+    console.log(`${logPrefix} disconnected, reconnecting in ${delayMs}ms (attempt ${reconnectAttempts}/${RECONNECT_MAX_ATTEMPTS})...`);
+    setTimeout(reconnect, delayMs);
+  };
+
+  // A socket that reaches open proves the server is back: start the next
+  // outage from a short delay rather than wherever this one left off.
+  ws.on('open', resetReconnectAttempts);
+
   ws.on('close', () => {
     onClose?.();
-    console.log(`${logPrefix} disconnected, reconnecting in 2s...`);
-    setTimeout(reconnect, 2000);
+    scheduleReconnect();
   });
 
   ws.on('error', (err) => {
     console.error(`${logPrefix} connection error:`, err.message);
-    setTimeout(() => {
-      console.log(`${logPrefix} retrying connection...`);
-      reconnect();
-    }, 1000);
+    // `close` normally follows and schedules the retry; this call is the
+    // backstop for an error that never closes, and the guard above keeps the
+    // two from becoming two sockets.
+    scheduleReconnect();
   });
 }
