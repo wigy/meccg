@@ -65,3 +65,30 @@ export function sampleWeighted(weighted: WeightedAction[], random: () => number 
   }
   return weighted[weighted.length - 1].action;
 }
+
+/**
+ * Relative tolerance for "the same weight". Evaluators reach the same score by
+ * different arithmetic paths, so exact equality would break a tie that only
+ * floating-point rounding created and hand the decision to whichever candidate
+ * the legal-action list happened to list first.
+ */
+const TIE_TOLERANCE = 1e-9;
+
+/**
+ * Pick the highest-weighted action, breaking ties uniformly at random.
+ *
+ * The greedy counterpart to {@link sampleWeighted}: it takes the strategy's
+ * opinion at face value instead of treating the weights as a distribution. A
+ * weight is a preference ordering, not a probability — a candidate scored twice
+ * as good is not one the strategy wants played two-thirds of the time — so the
+ * only randomness left is between candidates the strategy could not separate.
+ *
+ * @param random - Source of uniform values in [0, 1), used only for tie-breaks.
+ */
+export function pickBest(weighted: WeightedAction[], random: () => number = Math.random): GameAction {
+  let best = -Infinity;
+  for (const w of weighted) if (w.weight > best) best = w.weight;
+  const threshold = best - Math.abs(best) * TIE_TOLERANCE;
+  const top = weighted.filter(w => w.weight >= threshold);
+  return top[Math.floor(random() * top.length)].action;
+}

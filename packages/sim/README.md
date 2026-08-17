@@ -31,6 +31,45 @@ Available agents: `random` (uniform over viable actions), `heuristic` (the
 (Heuristics 2, see below), `mc` (flat Monte-Carlo rollouts over the real
 reducer, see below), `bc` and `search` (learned policies).
 
+## Heuristics 1 reads its weights as a ranking
+
+`heuristic` plays the highest-weighted action and breaks ties uniformly at
+random. It used to *sample* from the weights, and that cost it about 47 Elo.
+
+The evaluators were written to rank candidates, not to describe a policy, so
+reading their output as a distribution meant playing a move scored half as good
+about a third of the time. That is not a rare event on the margins: over six
+games and 10341 decisions, half of which offer a single candidate, sampling
+chose from outside its own top-weighted set on **26.4%** of the 5085 contested
+decisions, at a mean weight of 0.858× the best available.
+
+Ten paired gates of 400 games each — `heuristic:greedy` against `heuristic`, one
+tree, agents selected by spec so no checkout could confuse the arms:
+
+| seed block | score | paired Elo (95% CI) |
+| --- | --- | --- |
+| 1 | 59.5% | +67 [+36, +99] |
+| 500 | 54.4% | +30 [−1, +62] |
+| 1000 | 51.9% | +14 [−18, +46] |
+| 1500 | 55.0% | +35 [+4, +66] |
+| 2000 | 54.3% | +30 [−2, +61] |
+| 2500 | 56.9% | +49 [+17, +82] |
+| 3000 | 60.0% | +70 [+39, +103] |
+| 3500 | 59.0% | +63 [+32, +95] |
+| 4000 | 62.2% | +86 [+55, +119] |
+| 4500 | 54.9% | +34 [+3, +66] |
+| **pooled, 3997 games** | **56.8%** | **+47 [+37, +58]** |
+
+All ten blocks favour the argmax; the per-block spread is ±23 Elo, which is why
+five of them fail a `--min-elo 0` gate on their own. A single 400-game block
+carries a ±30 interval — wide enough to straddle zero on an effect this size,
+and the reason the first two runs looked like they disagreed.
+
+Sampling is still reachable as `heuristic:sample`, and the training-data
+exporters (`export-training`, `fit-winprob`) ask for it by name: an argmax
+teacher walks one trajectory per seed, and what those consumers want is
+coverage either side of it. `heuristic:greedy` is accepted as a no-op alias.
+
 ## Heuristics 2
 
 > ### ⚠ The Elo figures below are unreliable
