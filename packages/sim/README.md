@@ -130,11 +130,44 @@ coverage either side of it. `heuristic:greedy` is accepted as a no-op alias.
 > verified one, which is a reminder that those numbers were unreliable rather
 > than uniformly wrong.
 >
-> Four changes remain unmeasured because no single constant isolates them — the
-> H1 removal, acting on ties, and `move-to-influence` are structural, and the
-> haven-healing credit shares `woundTempoCost` with the wound-carried charge, so
-> zeroing it would confound two things. Those need reverts on branches, which is
-> where the labelling discipline matters most.
+> #### The full ledger
+>
+> Every merged change, isolated either by zeroing its constant or by a surgical
+> ablation on its own branch, gated at seed block 1 against `master`'s
+> **+46 [+14, +80]**, each run stamped with the tree it read. Standard error on
+> each difference is about 23–25.
+>
+> | change | ablated score | ablated Elo | **worth** | originally claimed |
+> | --- | --- | --- | --- | --- |
+> | acting on ties | 24.1% | −198 [−240, −161] | **+244** | +110 |
+> | favourites draft | 49.1% | −5 [−37, +26] | **+51** | neutral (−12) ✗ |
+> | haven healing | 49.9% | −1 [−32, +30] | **+47** | +33 |
+> | `move-to-influence` | 52.9% | +20 [−11, +51] | +26 | +9 |
+> | corruption check | 53.5% | +26 [−8, +60] | +20 | neutral (−6) ✗ |
+> | revisit charge | 53.7% | +26 [−7, +60] | +20 | +21 ✓ |
+> | mind-priority draft | 56.9% | +49 [+16, +84] | 0 | +17 ✗ |
+> | carried wound *(unmerged)* | 54.0% | +28 [−4, +60] | −18 | +157 ✗ |
+> | #2397 tap deduction *(reverted)* | 45.8% | −29 [−63, +4] | −75 | −87 ✓ |
+>
+> **Acting on a tie rather than passing is worth about 244 Elo** — ten standard
+> errors, and four times what was claimed for it. Nothing else in the agent is
+> close. An agent holding none of these would sit near −360, which is roughly
+> where a policy with no opinion at all belongs.
+>
+> Five of the nine claims were directionally right; three inverted, and one
+> (the revisit charge, +21 against a verified +20) was exact. The broken harness
+> produced numbers that were *unreliable*, not uniformly wrong — which is why
+> every one had to be re-measured rather than negated.
+>
+> **The H1 removal is the one change not measured here, and it cannot be
+> ablated honestly.** Reverting it means restoring `Heuristic2Options.fallback`,
+> the `!speaks → fallback.chooseAction` path and the CLI's `h2+mc` parsing — but
+> acting on ties subsequently *rewrote* that same block, so this would be
+> reconstructing deleted code by hand and measuring the reconstruction. The
+> sound alternative is to gate the commit immediately before it, a tree that
+> really existed; that answers "was the agent better before the fallback was
+> removed" rather than "what is the removal worth today", and should be labelled
+> as such.
 >
 > Sections below still carry their original figures. They are marked, not
 > rewritten: inventing corrected numbers without measurements would repeat the
