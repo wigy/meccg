@@ -147,6 +147,14 @@ function createDefaultAppState() {
 
   /** Timer handle for auto-pass feature. */
   autoPassTimer: null as ReturnType<typeof setTimeout> | null,
+  /**
+   * Timestamp (`Date.now()`-comparable) until which user-initiated actions
+   * are ignored, following an auto-pass send. Closes the race where a click
+   * already in flight toward the pre-auto-pass button lands on the freshly
+   * re-rendered next-phase button in the same screen position, silently
+   * skipping a phase the player never meant to act on.
+   */
+  autoPassInputLockUntil: 0,
   /** Stack of log entry counts, pushed before each action for undo support. */
   logCountStack: [] as number[],
 
