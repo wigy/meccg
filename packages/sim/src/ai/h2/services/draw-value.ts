@@ -39,9 +39,43 @@
  * approximation `travel` and `exposure` already make — and infers the movement
  * type from the company rather than being told it. Both are stated as
  * assumptions by the modules that spend the number.
+ *
+ * ## The two draws, and why company order is not a free choice
+ *
+ * A movement/hazard phase draws in *two* places, and only one of them belongs
+ * to a company:
+ *
+ * - **Site draws** (`mh-steps.ts` `transitionToDrawCards`) — the moving
+ *   company's own, `resourceDraws` off the site card plus every modifier, taken
+ *   one at a time and never capped by hand size. A company that is **not
+ *   moving** takes this branch not at all: `transitionToDrawCards` skips
+ *   straight to `play-hazards`, so a stationary company draws **nothing**.
+ * - **The step-8b top-up** (`mh-hazard-play.ts` `endCompanyMH`) — after *every*
+ *   company, moving or not, both players draw back up to hand size and then
+ *   discard down to it.
+ *
+ * Two consequences the modules that spend these numbers have to know. First,
+ * the hand is exactly at hand size after every company, so movement/hazard
+ * draws are never card advantage: they are **selection depth**, cards seen and
+ * then discarded from. Second, and less obvious, the *order* companies are
+ * resolved in changes how many cards are seen at all. Entering the phase with a
+ * hand deficit `d` and companies drawing `N_1 … N_k`, the first company's own
+ * draws eat into the free top-up and the rest arrive against a full hand:
+ *
+ * ```
+ * cards seen = ΣNᵢ + max(0, d − N_first)
+ * ```
+ *
+ * `ΣNᵢ` does not depend on the order, so only the *first* pick matters, and the
+ * company to resolve first is the one that draws **least** — a stationary
+ * company, drawing nothing of its own, banks the whole deficit. Verified
+ * against the engine on game `msxd2ban-qoqtc7`#92: hand 5, one company moving
+ * to Weathertop for 4 (1 printed, +3 modified) and one standing still. Moving
+ * first draws 4 and discards 1; standing still first draws 7 and discards 4.
+ * Both end on 8 cards, but the second sees three more of them.
  */
 
-import { matchesContext, regionTypeCounts, resolveDrawModifier } from '@meccg/shared';
+import { HAND_SIZE, matchesContext, regionTypeCounts, resolveDrawModifier } from '@meccg/shared';
 import type {
   CardDefinition, CollectedEffect, Company, CompanyId, PlayerView,
 } from '@meccg/shared';
@@ -80,6 +114,34 @@ export interface DrawValue {
    * is what playing it would buy.
    */
   drawsAt(companyId: CompanyId, site: SiteExposure, extra?: readonly unknown[]): number;
+  /**
+   * Resource cards a company will draw of its **own** in this movement/hazard
+   * phase, counted the way the engine counts them rather than off the printed
+   * destination: zero when it is not moving, and read from the *site of origin*
+   * when a company that is neither fallen-wizard nor balrog moves to a haven.
+   *
+   * This is `drawsAt` applied to the right site, and it is what a decision
+   * *inside* the movement/hazard phase wants; `drawsAt` remains the primitive
+   * for pricing a destination that has not been chosen yet.
+   */
+  siteDraws(companyId: CompanyId): number;
+  /**
+   * How far below hand size the hand is right now — the free top-up that
+   * step 8b will hand to whichever company is resolved first, to whatever
+   * extent that company's own site draws have not already covered it.
+   */
+  handDeficit(): number;
+  /**
+   * Cards the rest of this movement/hazard phase will let us see if
+   * `companyId` is resolved next: every still-unresolved company's site draws,
+   * plus whatever of the hand deficit this one's own draws leave unclaimed.
+   *
+   * The sum over companies is the same whichever order they are taken in, so
+   * this differs between candidates only in the `max(0, deficit − draws)` term
+   * — but it is reported whole, because the number a reader wants to check
+   * against the engine is how many cards the phase actually yields.
+   */
+  phaseDrawsIfFirst(companyId: CompanyId): number;
   /**
    * Extra resource cards a card's effects would add across every company that
    * would benefit, given the movement already planned this turn.
@@ -176,6 +238,22 @@ function buildDrawValue(
       .filter(effect => effect.type === 'draw-modifier' && effect.appliesTo === 'any-company'),
   ];
 
+  /**
+   * Whether the company may draw resources at all — CoE 2.IV.v, mirrored from
+   * `transitionToDrawCards`: it needs an avatar (`mind === null`) or a
+   * character with mind ≥ 3. Failing it zeroes the *printed* count only. The
+   * engine applies draw-modifiers on top of that zero regardless, and
+   * `applyDrawModifier` clamps only reductions — so A Short Rest still pays a
+   * company of hobbits, and Smaug at Home cannot hand one a draw it never had.
+   */
+  const hasEligibleDrawer = (company: Company): boolean => company.characters.some(id => {
+    const character = view.self.characters[id];
+    if (!character) return false;
+    const def = cardPool[character.definitionId] as { mind?: number | null } | undefined;
+    if (!def) return false;
+    return def.mind === null || (typeof def.mind === 'number' && def.mind >= 3);
+  });
+
   const drawsAt = (
     companyId: CompanyId,
     site: SiteExposure,
@@ -183,6 +261,7 @@ function buildDrawValue(
   ): number => {
     const company = view.self.companies.find(c => c.id === companyId);
     if (!company) return site.resourceDraws;
+    const base = hasEligibleDrawer(company) ? site.resourceDraws : 0;
     const context = drawContextFor(view, company, site);
     const candidates = [...fromCharacters(company), ...fromTable(), ...(extra as DrawEffect[])];
     // The engine's collectors apply each effect's `when` before summing, and
@@ -196,11 +275,83 @@ function buildDrawValue(
         || matchesContext(effect.when as never, context))
       .map(effect => ({ effect } as unknown as CollectedEffect));
     const modifier = resolveDrawModifier(collected, 'resource', context);
-    if (modifier.adjustment === 0) return site.resourceDraws;
+    if (modifier.adjustment === 0) return base;
     // `applyDrawModifier` in `mh-steps.ts`, which is private to it: floor at
     // `min`, and never let a *reduction* raise the count.
-    const adjusted = Math.max(modifier.min, site.resourceDraws + modifier.adjustment);
-    return modifier.adjustment < 0 ? Math.min(site.resourceDraws, adjusted) : adjusted;
+    const adjusted = Math.max(modifier.min, base + modifier.adjustment);
+    return modifier.adjustment < 0 ? Math.min(base, adjusted) : adjusted;
+  };
+
+  /**
+   * The site whose printed draws a company's *actual* movement this turn reads
+   * from, or null when it is not moving and so draws nothing.
+   *
+   * The haven rule is the engine's (`mh-steps.ts`): a hero or minion company
+   * arriving at a haven draws from the site it left, not from the haven. A
+   * fallen-wizard or balrog company is exempt and draws from the haven itself.
+   */
+  const drawSiteOf = (company: Company): SiteExposure | null => {
+    const destination = exposure.destination(company.id);
+    if (!destination) return null;
+    const alignment = view.self.alignment as unknown as string;
+    const movingToHaven = alignment !== 'fallen-wizard' && alignment !== 'balrog'
+      && destination.siteType === 'haven';
+    if (!movingToHaven) return destination;
+    return exposure.currentSite(company.id) ?? destination;
+  };
+
+  const siteDraws = (companyId: CompanyId): number => {
+    const company = view.self.companies.find(c => c.id === companyId);
+    if (!company) return 0;
+    const site = drawSiteOf(company);
+    return site ? drawsAt(companyId, site) : 0;
+  };
+
+  /**
+   * The player's hand size: the base plus every `hand-size-modifier` in play.
+   *
+   * `resolveHandSize` is the engine's, and it takes a `GameState` a module
+   * does not have. The sum it performs is a plain one — no conditions this
+   * cannot read, no ordering — so it is repeated here over the view's own
+   * characters, their items, our permanent events and our player-scoped
+   * constraints, in the same order and with the same fallback to zero.
+   */
+  const handSize = (): number => {
+    let total = HAND_SIZE;
+    const add = (effects: readonly DrawEffect[]): void => {
+      for (const effect of effects) {
+        if (effect.type !== 'hand-size-modifier') continue;
+        total += typeof effect.value === 'number' ? effect.value : 0;
+      }
+    };
+    for (const company of view.self.companies) {
+      for (const id of company.characters) {
+        const character = view.self.characters[id];
+        if (!character) continue;
+        add(effectsOf(cardPool[character.definitionId]));
+        for (const item of character.items) add(effectsOf(cardPool[item.definitionId]));
+      }
+    }
+    for (const card of view.self.cardsInPlay) add(effectsOf(cardPool[card.definitionId]));
+    for (const constraint of view.activeConstraints) {
+      const kind = constraint.kind as unknown as { type?: string; value?: number };
+      const target = constraint.target as unknown as { kind?: string; playerId?: string };
+      if (kind.type !== 'hand-size-modifier' || target.kind !== 'player') continue;
+      if (target.playerId !== (view.self.id as unknown as string)) continue;
+      total += typeof kind.value === 'number' ? kind.value : 0;
+    }
+    return total;
+  };
+
+  const handDeficit = (): number => Math.max(0, handSize() - view.self.hand.length);
+
+  /** The companies this phase has not resolved yet, ours only. */
+  const unresolvedCompanies = (): readonly Company[] => {
+    const handled = new Set(
+      ((view.phaseState as unknown as { handledCompanyIds?: readonly CompanyId[] })
+        .handledCompanyIds ?? []).map(id => id as string),
+    );
+    return view.self.companies.filter(c => !handled.has(c.id as string));
   };
 
   const movingCompanies = (): { company: Company; site: SiteExposure }[] => view.self.companies
@@ -215,6 +366,16 @@ function buildDrawValue(
     perCard: tunables.resourceDrawValue,
 
     drawsAt,
+
+    siteDraws,
+
+    handDeficit,
+
+    phaseDrawsIfFirst(companyId: CompanyId): number {
+      const rest = unresolvedCompanies()
+        .reduce((sum, company) => sum + siteDraws(company.id), 0);
+      return rest + Math.max(0, handDeficit() - siteDraws(companyId));
+    },
 
     extraFrom(effects: readonly unknown[]): number {
       const declared = (effects as readonly DrawEffect[])

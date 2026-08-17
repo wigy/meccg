@@ -31,8 +31,15 @@ import type { SiteExposure } from './exposure.js';
 const SITE = 'site-wilderness';
 /** Radagast (tw-178): "+1 resource draw per Wilderness in the site path". */
 const RADAGAST = 'ch-radagast';
-/** An ordinary character with nothing to say about draws. */
+/** An ordinary character with nothing to say about draws, and mind enough to draw. */
 const PLAIN = 'ch-plain';
+/**
+ * Halbarad (tw-162), mind 1 — below the mind-3 bar CoE 2.IV.v sets for drawing
+ * at all. A company of nothing else draws no *printed* cards.
+ */
+const LOW_MIND = 'ch-low-mind';
+/** A haven, which a hero company draws from the *origin* on reaching. */
+const HAVEN = 'site-haven';
 /** A Short Rest (td-95): an extra card per region short of four. */
 const SHORT_REST = 'ev-short-rest';
 /** Smaug at Home (td-71): every moving company draws one less, floor of one. */
@@ -54,12 +61,22 @@ const POOL: Readonly<Record<string, CardDefinition>> = {
     sitePath: [RegionType.Wilderness, RegionType.Wilderness],
     resourceDraws: 2,
   },
+  [HAVEN]: {
+    cardType: 'hero-site',
+    name: 'Rivendell',
+    siteType: 'haven',
+    sitePath: [],
+    resourceDraws: 4,
+  },
   [RADAGAST]: {
     cardType: 'hero-character',
     name: 'Radagast',
+    // A wizard is an avatar: `mind: null`, and always eligible to draw.
+    mind: null,
     effects: [{ type: 'draw-modifier', draw: 'resource', value: 'sitePath.wildernessCount', min: 0 }],
   },
-  [PLAIN]: { cardType: 'hero-character', name: 'Halbarad', effects: [] },
+  [PLAIN]: { cardType: 'hero-character', name: 'Boromir II', mind: 4, effects: [] },
+  [LOW_MIND]: { cardType: 'hero-character', name: 'Halbarad', mind: 1, effects: [] },
   [SHORT_REST]: {
     cardType: 'hero-resource-event',
     name: 'A Short Rest',
@@ -338,5 +355,164 @@ describe('the characters a company is carrying', () => {
     }).items = [{ instanceId: 'i-1', definitionId: DRAWING_ITEM }];
     const draws = computeDrawValue(withItem, POOL, DEFAULT_TUNABLES);
     expect(draws.drawsAt('co-1' as CompanyId, DESTINATION)).toBe(3);
+  });
+});
+
+/**
+ * A movement/hazard position with two companies, for the questions that are
+ * about the *phase* rather than about one company.
+ *
+ * `destinations` is one entry per company: a site definition to be headed for,
+ * or null for a company standing still. Every company carries one mind-4
+ * character, so nothing here trips the mind bar.
+ */
+function movementView(options: {
+  readonly destinations: readonly (string | null)[];
+  readonly hand?: number;
+  readonly handled?: readonly string[];
+  readonly alignment?: string;
+  readonly ourTable?: readonly string[];
+}): PlayerView {
+  const characters: Record<string, unknown> = {};
+  const companies = options.destinations.map((destination, index) => {
+    characters[`c-${index}`] = {
+      instanceId: `c-${index}`,
+      definitionId: PLAIN,
+      status: CardStatus.Untapped,
+      items: [],
+      allies: [],
+      hazards: [],
+    };
+    return {
+      id: `co-${index}`,
+      characters: [`c-${index}`],
+      currentSite: { instanceId: `here-${index}`, definitionId: SITE },
+      destinationSite: destination ? { instanceId: `there-${index}`, definitionId: destination } : null,
+      moved: false,
+    };
+  });
+  return {
+    self: {
+      id: 'p1',
+      alignment: options.alignment ?? 'hero',
+      characters,
+      companies,
+      cardsInPlay: (options.ourTable ?? []).map((definitionId, index) => ({
+        instanceId: `ours-${index}`, definitionId,
+      })),
+      hand: Array.from({ length: options.hand ?? 8 }, (_, i) => ({ instanceId: `h-${i}` })),
+      playDeck: [],
+      discardPile: [],
+    },
+    opponent: {
+      cardsInPlay: [], hand: [], discardPile: [], companies: [], characters: {},
+    },
+    phaseState: {
+      phase: 'movement-hazard',
+      handledCompanyIds: options.handled ?? [],
+    },
+    activeConstraints: [],
+    turnNumber: 3,
+  } as unknown as PlayerView;
+}
+
+describe('the site a company actually draws from', () => {
+  test('is nothing at all when it is not moving', () => {
+    // `transitionToDrawCards` skips the draw step outright for a company with
+    // no destination. It does not draw its own site's printed count, however
+    // many cards it looks like it should be owed for standing there.
+    const draws = computeDrawValue(movementView({ destinations: [null] }), POOL, DEFAULT_TUNABLES);
+    expect(draws.siteDraws('co-0' as CompanyId)).toBe(0);
+  });
+
+  test('is the destination when it moves to an ordinary site', () => {
+    const draws = computeDrawValue(movementView({ destinations: [SITE] }), POOL, DEFAULT_TUNABLES);
+    expect(draws.siteDraws('co-0' as CompanyId)).toBe(2);
+  });
+
+  test('is the site of *origin* when a hero company moves to a haven', () => {
+    // The haven prints four draws and the origin two, and the two is the one
+    // that counts. Reading the destination here is worth two phantom cards a
+    // trip on the commonest movement in the game.
+    const draws = computeDrawValue(movementView({ destinations: [HAVEN] }), POOL, DEFAULT_TUNABLES);
+    expect(draws.siteDraws('co-0' as CompanyId)).toBe(2);
+  });
+
+  test('but is the haven itself for a fallen-wizard, who is exempt', () => {
+    const draws = computeDrawValue(
+      movementView({ destinations: [HAVEN], alignment: 'fallen-wizard' }), POOL, DEFAULT_TUNABLES,
+    );
+    expect(draws.siteDraws('co-0' as CompanyId)).toBe(4);
+  });
+});
+
+describe('how many cards the phase yields, and which company should go first', () => {
+  test('the deficit is what the hand is short of hand size', () => {
+    const draws = computeDrawValue(movementView({ destinations: [SITE], hand: 5 }), POOL, DEFAULT_TUNABLES);
+    expect(draws.handDeficit()).toBe(3);
+  });
+
+  test('and nothing at all on a full hand, which is the ordinary case mid-phase', () => {
+    const draws = computeDrawValue(movementView({ destinations: [SITE], hand: 8 }), POOL, DEFAULT_TUNABLES);
+    expect(draws.handDeficit()).toBe(0);
+  });
+
+  test('the company drawing least goes first, because it banks the whole top-up', () => {
+    // One company moving for two cards, one standing still, hand three short.
+    // Standing still first: 2 + 3 = 5 cards seen. Moving first: its own two
+    // eat two of the deficit and step 8b tops up the last one, so 2 + 1 = 3.
+    const position = movementView({ destinations: [SITE, null], hand: 5 });
+    const draws = computeDrawValue(position, POOL, DEFAULT_TUNABLES);
+    expect(draws.phaseDrawsIfFirst('co-1' as CompanyId)).toBe(5);
+    expect(draws.phaseDrawsIfFirst('co-0' as CompanyId)).toBe(3);
+  });
+
+  test('and the order stops mattering once the hand is already full', () => {
+    const draws = computeDrawValue(
+      movementView({ destinations: [SITE, null], hand: 8 }), POOL, DEFAULT_TUNABLES,
+    );
+    expect(draws.phaseDrawsIfFirst('co-0' as CompanyId)).toBe(2);
+    expect(draws.phaseDrawsIfFirst('co-1' as CompanyId)).toBe(2);
+  });
+
+  test('a company already resolved this phase no longer contributes its draws', () => {
+    // Its cards are drawn and spent; only what is still to come is on offer.
+    const draws = computeDrawValue(
+      movementView({ destinations: [SITE, SITE], hand: 8, handled: ['co-0'] }), POOL, DEFAULT_TUNABLES,
+    );
+    expect(draws.phaseDrawsIfFirst('co-1' as CompanyId)).toBe(2);
+  });
+});
+
+describe('the mind-3 bar on drawing at all', () => {
+  test('zeroes the printed count for a company that clears nobody over it', () => {
+    const draws = computeDrawValue(view({ characters: [LOW_MIND] }), POOL, DEFAULT_TUNABLES);
+    expect(draws.drawsAt('co-1' as CompanyId, DESTINATION)).toBe(0);
+  });
+
+  test('but an avatar clears it however low the mind beside them', () => {
+    // Radagast is `mind: null`. The company draws its printed two, plus his own
+    // two for the Wildernesses crossed.
+    const draws = computeDrawValue(view({ characters: [LOW_MIND, RADAGAST] }), POOL, DEFAULT_TUNABLES);
+    expect(draws.drawsAt('co-1' as CompanyId, DESTINATION)).toBe(4);
+  });
+
+  test('and zeroes the printed count only — a modifier still pays on top of nothing', () => {
+    // `applyDrawModifier` adds to whatever base survived the bar, and the base
+    // here is zero. A Short Rest's two are still two.
+    const draws = computeDrawValue(
+      view({ characters: [LOW_MIND], ourTable: [SHORT_REST] }), POOL, DEFAULT_TUNABLES,
+    );
+    expect(draws.drawsAt('co-1' as CompanyId, DESTINATION)).toBe(2);
+  });
+
+  test('while a reduction cannot lift a company off it, which is what `min` is for', () => {
+    // Smaug at Home floors at one, and that floor is a floor on a *reduction*:
+    // it must not hand a draw to a company that had none. CoE 2.IV.v, and the
+    // clamp in `applyDrawModifier` that spells it out.
+    const draws = computeDrawValue(
+      view({ characters: [LOW_MIND], theirTable: [SMAUG_AT_HOME] }), POOL, DEFAULT_TUNABLES,
+    );
+    expect(draws.drawsAt('co-1' as CompanyId, DESTINATION)).toBe(0);
   });
 });
