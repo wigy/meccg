@@ -679,6 +679,21 @@
           "from": "self-location",
           "to": "discard"
         }
+      },
+      {
+        "type": "on-event",
+        "event": "host-item-stored",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "kill-pile"
+        },
+        "when": {
+          "storedItem.itemKeywords": {
+            "$includes": "palantir"
+          }
+        }
       }
     ],
     "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír.",

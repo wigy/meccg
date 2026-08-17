@@ -3,7 +3,7 @@
  *
  * Card test: Align Palantír (tw-190)
  * Type: hero-resource-event (permanent)
- * Effects: 3 (play-target, duplication-limit, on-event bearer-company-moves)
+ * Effects: 4 (play-target, duplication-limit, on-event bearer-company-moves, on-event host-item-stored)
  *
  * "Sage only. Playable on a Palantír with a sage in the company. Bearer
  *  now has the ability to use the Palantír. If the Palantír is stored,
@@ -19,7 +19,7 @@ import {
   PALANTIR_OF_ORTHANC,
   LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  viableActions, dispatch, makePlayDeck,
+  viableActions, viableFor, dispatch, makePlayDeck,
   playPermanentEventAndResolve,
   findCharInstanceId, getCharacter, makeMHState, RESOURCE_PLAYER,
   makeShadowMHState, makeBodyCheckCombat, setCharStatus, companyIdAt,
@@ -29,6 +29,7 @@ import type {
   ActivateGrantedAction,
   CardDefinitionId,
 } from '../../index.js';
+import type { StoreItemAction } from '../../types/actions-organization.js';
 import { ISENGARD } from '../../index.js';
 
 const ALIGN_PALANTIR = 'tw-190' as CardDefinitionId;
@@ -320,6 +321,52 @@ describe('Align Palantír (tw-190)', () => {
     const sarumanId = findCharInstanceId(stateAtMH, RESOURCE_PLAYER, SARUMAN);
     const charAfter = afterHazardPass.players[0].characters[sarumanId];
     expect(charAfter.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(true);
+  });
+
+  // ── Effect 4: on-event host-item-stored (CRF 22: "If the Palantír is stored, this card is stored too") ──
+
+  test('Align Palantír is stored alongside its Palantír when the Palantír is stored at a Haven', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: LORIEN,
+            characters: [{
+              defId: SARUMAN,
+              items: [PALANTIR_OF_ORTHANC, ALIGN_PALANTIR],
+            }],
+          }],
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const sarumanId = findCharInstanceId(state, RESOURCE_PLAYER, SARUMAN);
+    const charBefore = getCharacter(state, RESOURCE_PLAYER, SARUMAN);
+    const palantirInstId = charBefore.items.find(i => i.definitionId === PALANTIR_OF_ORTHANC)!.instanceId;
+
+    const stores = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item') as { action: StoreItemAction }[];
+    const storeAction = stores.find(a => a.action.itemInstanceId === palantirInstId);
+    expect(storeAction).toBeDefined();
+
+    const after = dispatch(state, storeAction!.action);
+
+    // Both the Palantír and Align Palantír leave the bearer's items.
+    const charAfter = after.players[0].characters[sarumanId];
+    expect(charAfter.items.some(i => i.definitionId === PALANTIR_OF_ORTHANC)).toBe(false);
+    expect(charAfter.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(false);
+
+    // Align Palantír is not lost — it lands in the marshalling point (kill) pile too.
+    expect(after.players[0].killPile.some(c => c.definitionId === PALANTIR_OF_ORTHANC)).toBe(true);
+    expect(after.players[0].killPile.some(c => c.definitionId === ALIGN_PALANTIR)).toBe(true);
   });
 
   // ── CoE rule 3.I.2: elimination — only true items are salvageable ──

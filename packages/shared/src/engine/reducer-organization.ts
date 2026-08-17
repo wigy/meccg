@@ -21,7 +21,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1648,6 +1648,35 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const charDef = resolveDef(state, charId);
   logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
 
+  // Companion cards that must be stored alongside this item (Align Palantír
+  // tw-190: "If the Palantír is stored, this card is stored too"). Scan the
+  // bearer's remaining items for an `on-event: host-item-stored` self-store
+  // move whose `when` (if any) matches the stored item's keywords. Skipped
+  // for the item-cache destination (Armory dm-116) below — that alternate
+  // path is scoped to true "minor items", not their companion permanent
+  // events, so a companion left behind simply stays on the bearer.
+  const hostItemStoredCtx = { storedItem: { itemKeywords: itemKeywordsOf(state, [item]) } };
+  let playerAfterRemoval = removed.player;
+  const companionCards: CardInstance[] = [];
+  if (action.cacheHostInstanceId === undefined) {
+    for (const companion of playerAfterRemoval.characters[charId]?.items ?? []) {
+      const companionDef = defById(state, companion.definitionId);
+      const storesToo = getOnEventEffects(companionDef, 'host-item-stored').some(
+        e => isSelfStoreMove(e.apply) && (!e.when || matchesCondition(e.when, hostItemStoredCtx)),
+      );
+      if (!storesToo) continue;
+      const removedCompanion = removeAttachment(playerAfterRemoval, 'items', companion.instanceId);
+      if (!removedCompanion || removedCompanion.charId !== charId) continue;
+      playerAfterRemoval = removedCompanion.player;
+      logDetail(`Store item: ${companionDef?.name ?? '?'} stored together with ${itemDef?.name ?? '?'}`);
+      companionCards.push({
+        instanceId: removedCompanion.attachment.instanceId,
+        definitionId: removedCompanion.attachment.definitionId,
+        ...(storeCompany?.currentSite ? { storedAtSite: storeCompany.currentSite.definitionId } : {}),
+      });
+    }
+  }
+
   // Record where the card is stored: "stored there" references (Wizard's
   // Trove wh-85 `play-with-stored-card`) match against this site binding.
   const storedCard: CardInstance = {
@@ -1665,15 +1694,15 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   // corruption check and bearer-cannot-untap cleanup below run unchanged.
   const stateAfterStore: GameState = action.cacheHostInstanceId !== undefined
     ? placeCardSetAside(
-      updatePlayer(state, playerIndex, () => removed.player),
+      updatePlayer(state, playerIndex, () => playerAfterRemoval),
       action.cacheHostInstanceId,
       storedCard,
       false,
       true,
     )
     : updatePlayer(state, playerIndex, () => ({
-      ...removed.player,
-      killPile: [...removed.player.killPile, storedCard],
+      ...playerAfterRemoval,
+      killPile: [...playerAfterRemoval.killPile, storedCard, ...companionCards],
     }));
 
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
