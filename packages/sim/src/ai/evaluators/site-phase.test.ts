@@ -112,6 +112,31 @@ const MALADY_WITHOUT_HEALING: CardDefinition = {
   ],
 } as unknown as CardDefinition;
 
+// Mount Gundabad (tw-416): a shadow-hold with an 8-prowess Orc automatic-attack.
+const MOUNT_GUNDABAD: CardDefinition = {
+  cardType: 'hero-site',
+  name: 'Mount Gundabad',
+  siteType: 'shadow-hold',
+  playableResources: ['minor', 'major', 'greater'],
+  sitePath: ['wilderness', 'border', 'dark'],
+  resourceDraws: 2,
+  automaticAttacks: [{ creatureType: 'Orcs', strikes: 2, prowess: 8 }],
+} as unknown as CardDefinition;
+
+// Rescue Prisoners (tw-315): a permanent resource event playable without
+// tapping a character to declare, but only "at an already tapped Dark-hold
+// or Shadow-hold" (play-target: site + tapped-site-only play-flag).
+const RESCUE_PRISONERS: CardDefinition = {
+  cardType: 'hero-resource-event',
+  eventType: 'permanent',
+  marshallingPoints: 0,
+  effects: [
+    { type: 'play-target', target: 'site', filter: { siteType: { $in: ['dark-hold', 'shadow-hold'] } } },
+    { type: 'play-flag', flag: 'tapped-site-only' },
+    { type: 'play-target', target: 'character' },
+  ],
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'tw-404': ISENGARD,
   'td-178': ISLE_OF_THE_ULOND,
@@ -122,6 +147,8 @@ const POOL: Record<string, CardDefinition> = {
   'tw-397': GLITTERING_CAVES,
   'tw-322': SAPLING_OF_THE_WHITE_TREE,
   'le-159': MALADY_WITHOUT_HEALING,
+  'tw-416': MOUNT_GUNDABAD,
+  'tw-315': RESCUE_PRISONERS,
   hobbit: HOBBIT,
 };
 
@@ -224,6 +251,30 @@ function makeGlitteringCavesView(bestProwess: number): PlayerView {
   } as unknown as PlayerView;
 }
 
+/**
+ * Build a view for the Mount Gundabad / Rescue Prisoners regression: a
+ * company with no untapped character (and no untap source) at an
+ * `untapped`-or-`tapped` Mount Gundabad, holding only Rescue Prisoners.
+ */
+function makeRescuePrisonersView(siteTapped: boolean): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'tw-315' }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-182', status: 'tapped', items: [], effectiveStats: { prowess: 4 } },
+        c2: { instanceId: 'c2', definitionId: 'tw-182', status: 'inverted', items: [], effectiveStats: { prowess: 5 } },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'tw-416', status: siteTapped ? 'tapped' : 'untapped' },
+          characters: ['c1', 'c2'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
 const ENTER_SITE: GameAction = {
   type: 'enter-site',
   player: 'p2',
@@ -278,6 +329,29 @@ describe('sitePhaseEvaluator enter-site', () => {
   // enter for the same item.
   test('scores 50 for the same item when the company can plausibly stay untapped', () => {
     const view = makeGlitteringCavesView(12);
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
+  });
+
+  // Regression (game msxdgosl-8meok7, seq 894): the AI entered Mount Gundabad
+  // with Alatar tapped and its only other member wounded — no untapped
+  // character, no untap source — holding just Rescue Prisoners, a permanent
+  // event playable without tapping a character to declare. The old
+  // `handHasNoTapPlayableAt` treated any permanent event as a no-tap play at
+  // any site, ignoring that Rescue Prisoners requires an *already tapped*
+  // Dark-hold/Shadow-hold (`tapped-site-only`). Mount Gundabad was untapped,
+  // so the card could never actually be played there; the company just took
+  // the 8-prowess Orc automatic-attack for nothing.
+  test('scores 0 when the only no-tap play requires an already-tapped site that is untapped', () => {
+    const view = makeRescuePrisonersView(false);
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
+  });
+
+  // Contrast: once the site is already tapped, Rescue Prisoners is a
+  // legitimate no-tap play and entering is justified.
+  test('scores 50 when the tapped-site-only no-tap play\'s site is already tapped', () => {
+    const view = makeRescuePrisonersView(true);
     const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
     expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
   });
