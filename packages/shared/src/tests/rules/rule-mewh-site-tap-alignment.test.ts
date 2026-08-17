@@ -17,7 +17,7 @@
  */
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Alignment } from '../../index.js';
-import type { CardDefinitionId, GameState } from '../../index.js';
+import type { ActiveConstraint, CardDefinitionId, CardInstanceId, ConstraintId, GameState } from '../../index.js';
 import {
   buildTestState, resetMint, makeSitePhase, viableActions,
   PLAYER_1, PLAYER_2, LORIEN, MINAS_TIRITH, ARAGORN,
@@ -28,6 +28,13 @@ const HERO_RL = 'dm-31' as CardDefinitionId;        // Haudh-in-Gwanûr — hero
 const MINION_RL = 'le-351' as CardDefinitionId;     // Bandit Lair — minion R&L (minor playable)
 const HERO_ITEM = 'tw-206' as CardDefinitionId;     // Dagger of Westernesse — hero minor item
 const MINION_ITEM = 'le-345' as CardDefinitionId;   // Strange Rations — minion minor item
+// Palantír of Minas Tirith — a minion item whose own item-play-site restriction
+// names the (printed-hero) site "Minas Tirith" by name, regardless of subtype.
+const PALANTIR_MINAS_TIRITH = 'le-333' as CardDefinitionId;
+// Chambers in the Royal Court — the Stage resource whose `wizardhaven-conversion`
+// flag the test injects directly (mirrors wh-25.test.ts), rather than actually
+// playing it through the organization phase.
+const CHAMBERS = 'wh-97' as CardDefinitionId;
 
 /** Company at `site` with `hand`, in the play-resources site step, for `alignment`. */
 function companyAt(alignment: Alignment, site: CardDefinitionId, hand: CardDefinitionId[]): GameState {
@@ -72,5 +79,28 @@ describe('MEWH §10 — Site-tap alignment match', () => {
 
   test('a Wizard player is not subject to the guard (hero item at a hero site still offered)', () => {
     expect(playCount(companyAt(Alignment.Wizard, HERO_RL, [HERO_ITEM]), HERO_ITEM)).toBe(1);
+  });
+
+  // A site converted into a Wizardhaven (e.g. by Chambers in the Royal Court,
+  // wh-97) counts as both a hero and minion site "for these purposes", exactly
+  // like a printed Fallen-wizard site — not just a printed `fallen-wizard`
+  // alignment card. Bug report: a Fallen-wizard could not play Palantír of
+  // Minas Tirith (a minion item, own item-play-site restriction naming
+  // "Minas Tirith" by name) at the hero Minas Tirith after Chambers converted
+  // it to a Wizardhaven.
+  test('at a hero site converted to a Wizardhaven, a minion item naming the site by name is offered', () => {
+    const barred = fwAt(MINAS_TIRITH, [PALANTIR_MINAS_TIRITH]);
+    expect(playCount(barred, PALANTIR_MINAS_TIRITH)).toBe(0);
+
+    const conversion: ActiveConstraint = {
+      id: 'c-mewh10-conversion' as ConstraintId,
+      source: 'p1-chambers' as CardInstanceId,
+      sourceDefinitionId: CHAMBERS,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'player', playerId: PLAYER_1 },
+      kind: { type: 'site-flag', flag: 'wizardhaven-conversion', siteDefinitionId: MINAS_TIRITH },
+    };
+    const converted = { ...barred, activeConstraints: [conversion] };
+    expect(playCount(converted, PALANTIR_MINAS_TIRITH)).toBe(1);
   });
 });
