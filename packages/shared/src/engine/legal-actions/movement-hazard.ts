@@ -86,6 +86,17 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
 
   if (mhState.step === 'select-company') {
     const base = viable(selectCompanyActions(state, playerId, mhState.handledCompanyIds));
+    // Every remaining company may have dissolved after the phase began — the
+    // resource player's last character can fail a corruption check at this very
+    // step, and rule 2.IV.1 has a player with no companies skip the phase. The
+    // entry check in reducer-events only sees the company count at the
+    // long-event → M/H transition, so without a pass here the phase has no exit
+    // and neither player has a viable action. Mirror of the site phase's own
+    // select-company step (legal-actions/site.ts).
+    if (isActive && base.length === 0) {
+      logDetail('M/H select-company: no companies left to select — offering pass to end the phase');
+      base.push({ action: { type: 'pass', player: playerId }, viable: true });
+    }
     // Rule 2.1.1: resource player may play resource short-events and
     // resource permanent-events during any phase of their turn, including
     // before selecting which company moves next — e.g. Bade to Rule
