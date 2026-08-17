@@ -48,7 +48,44 @@ const ATTACHED_HAZARD = 'hz-attached';
  */
 const ATTACHED_EVENT = 'hz-attached-event';
 
+/** A Short Rest (td-95): a resource *long* event, the family nobody owned. */
+const SHORT_REST = 'ev-short-rest';
+/** Dark Tryst (as-80): "draw three cards and remove this card from the game". */
+const DARK_TRYST = 'ev-dark-tryst';
+/** A site two wilderness regions out, drawing two cards on arrival. */
+const SITE = 'site-two-regions';
+
 const POOL = {
+  [SHORT_REST]: {
+    cardType: 'hero-resource-event',
+    name: 'A Short Rest',
+    eventType: 'long',
+    effects: [{
+      type: 'draw-modifier',
+      draw: 'resource',
+      value: '4 - sitePath.regionCount',
+      min: 0,
+      when: {
+        $and: [
+          { movementType: { $in: ['region', 'starter'] } },
+          { 'sitePath.regionCount': { $gt: 0 } },
+          { 'sitePath.regionCount': { $lt: 4 } },
+        ],
+      },
+    }],
+  },
+  [DARK_TRYST]: {
+    cardType: 'minion-resource-event',
+    name: 'Dark Tryst',
+    effects: [{ type: 'draw-cards', count: 3, removeFromGame: true }],
+  },
+  [SITE]: {
+    cardType: 'hero-site',
+    name: 'Wilderness Ruin',
+    siteType: 'ruins-and-lairs',
+    sitePath: ['wilderness', 'wilderness'],
+    resourceDraws: 2,
+  },
   [RECOVERY]: {
     cardType: 'hero-resource-event',
     name: 'Smoke Rings',
@@ -110,6 +147,8 @@ function context(): ModuleContext {
         { instanceId: 'c-opaque', definitionId: OPAQUE },
         { instanceId: 'c-inert', definitionId: INERT },
         { instanceId: 'c-removal', definitionId: REMOVAL },
+        { instanceId: 'c-short-rest', definitionId: SHORT_REST },
+        { instanceId: 'c-dark-tryst', definitionId: DARK_TRYST },
       ],
       playDeck: [],
       sideboard: [],
@@ -156,6 +195,29 @@ const playDiscarding = (instanceId: string, discardTargetInstanceId: string): Ga
     type: 'play-short-event', player: 'p1', cardInstanceId: instanceId, discardTargetInstanceId,
   } as unknown as GameAction);
 
+/** Playing a resource long event, which is a different action type entirely. */
+const playLong = (instanceId: string): GameAction =>
+  ({ type: 'play-long-event', player: 'p1', cardInstanceId: instanceId } as unknown as GameAction);
+
+/** A context whose one company is two wilderness regions from its destination. */
+function movingContext(): ModuleContext {
+  const moving = context();
+  (moving.view.self as unknown as { characters: Record<string, unknown> }).characters = {
+    'ch-1': {
+      instanceId: 'ch-1', definitionId: 'ch-1-def', status: 'untapped',
+      items: [], allies: [], hazards: [], followers: [],
+    },
+  };
+  (moving.view.self as unknown as { companies: unknown[] }).companies = [{
+    id: 'co-1',
+    characters: ['ch-1'],
+    currentSite: { instanceId: 'here', definitionId: SITE },
+    destinationSite: { instanceId: 'there', definitionId: SITE },
+    moved: false,
+  }];
+  return moving;
+}
+
 describe('a family it recognises', () => {
   test('a card recovered is worth what a draw is worth, and says it is a floor', () => {
     const evaluation = eventsModule.evaluate(play('c-recovery'), context())!;
@@ -169,6 +231,63 @@ describe('a family it recognises', () => {
   test('the card it spends is charged at the shadow price', () => {
     const evaluation = eventsModule.evaluate(play('c-recovery'), context())!;
     expect(JSON.stringify(evaluation.rationale)).toContain('the card it spends');
+  });
+});
+
+describe('a resource long event', () => {
+  test('is scored at all, which it was not: no evaluator in the codebase owned the action', () => {
+    // The regression this guards is total rather than numerical. `play-long-event`
+    // was absent from every module's `ownedActionTypes` *and* from Heuristics 1's
+    // switch, so the ranking on a long-event decision held one candidate — the
+    // baseline's `pass`, at zero — and both agents passed the phase in every
+    // game either had ever played.
+    expect(eventsModule.ownedActionTypes).toContain('play-long-event');
+    expect(eventsModule.evaluate(playLong('c-short-rest'), movingContext())).not.toBeNull();
+  });
+
+  test('A Short Rest is worth the cards it adds to the company that is moving', () => {
+    // Two regions crossed, so `4 - 2` extra cards on top of the printed two —
+    // which beats the one card the play spends, so the module prefers it to
+    // passing. That preference is the whole point: the card exists to multiply
+    // a turn's draws and was previously unplayable by construction.
+    const evaluation = eventsModule.evaluate(playLong('c-short-rest'), movingContext())!;
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('2 extra card(s)');
+    expect(text).toContain('1 moving company');
+  });
+
+  test('and worth nothing on a turn where no company moves, which is a fact not a discount', () => {
+    // A draw-modifier pays on a company that draws. With nothing moving there
+    // is no draw to modify, so the play spends a card for nothing and the
+    // module says so rather than declining.
+    const evaluation = eventsModule.evaluate(playLong('c-short-rest'), context())!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('nothing is moving this turn');
+  });
+});
+
+describe('a card that draws straight off the deck', () => {
+  test('Dark Tryst is worth the three cards it draws', () => {
+    const deep = context();
+    (deep.view.self as unknown as { playDeck: unknown[] }).playDeck =
+      Array.from({ length: 20 }, (_, i) => ({ instanceId: `d-${i}`, definitionId: 'unknown' }));
+    const evaluation = eventsModule.evaluate(play('c-dark-tryst'), deep)!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('3 card(s) drawn');
+  });
+
+  test('and only what the deck can actually supply', () => {
+    // The draw stops at exhaustion, and the deck's size is the one thing about
+    // it the view reports honestly. A card promising three from a deck of one
+    // must not be priced at three.
+    const shallow = context();
+    (shallow.view.self as unknown as { playDeck: unknown[] }).playDeck = [
+      { instanceId: 'd-0', definitionId: 'unknown' },
+    ];
+    const evaluation = eventsModule.evaluate(play('c-dark-tryst'), shallow)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('the deck holds only that many');
   });
 });
 

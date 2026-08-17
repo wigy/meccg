@@ -1,7 +1,8 @@
 /**
  * @module ai/h2/modules/events/events
  *
- * The `events` module — short events, priced by what their effects declare.
+ * The `events` module — short and long events, priced by what their effects
+ * declare.
  *
  * `play-short-event` is the largest unowned action type left, at 183 blocked
  * decisions in three self-play games, and it is the hardest kind of card to
@@ -15,6 +16,9 @@
  * - **A card comes back.** `move ... to: "hand"` or `to: "deck"` recovers a
  *   card, worth at least what a draw is worth — a floor, because the card is
  *   chosen rather than drawn.
+ * - **Cards are drawn.** `draw-cards` (Dark Tryst) hands over a stated number of
+ *   them; `draw-modifier` (A Short Rest) adds them to every company that moves
+ *   this turn, which `draw-value` counts against the movement already planned.
  * - **A company is shut to creatures.** Stealth adds
  *   `no-creature-hazards-on-company` for the turn, and that is worth the whole
  *   hazard plan the opponent would otherwise aim at it — `defence`, against the
@@ -65,21 +69,38 @@ import { leaf, node } from '../../core/rationale.js';
 import { declaresAnEffect, gainOf } from '../../services/event-value.js';
 import type { Effect } from '../../services/event-value.js';
 
-/** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['play-short-event'] as const;
+/**
+ * Action types this module scores.
+ *
+ * `play-long-event` was owned by **nothing** — not a module, and not the
+ * Heuristics-1 evaluator that covers the phase, whose switch falls through to
+ * `null` for it. So the ranking on a long-event decision held one candidate,
+ * the baseline's `pass` at zero, and both agents passed the long-event phase
+ * unconditionally in every game either has ever played. A whole card family —
+ * A Short Rest among them, the one card in the pool that multiplies a turn's
+ * draws — was unplayable by construction rather than by judgement.
+ *
+ * A long event is priced by the same machinery as a short one because it is the
+ * same question: what does the effect list achieve, against what the card is
+ * worth to spend. What differs is *when* the effect pays, and for the families
+ * read here that difference is already in the numbers — a `draw-modifier` is
+ * measured against the movement this turn's plan has declared, which is exactly
+ * the window a long event lasts.
+ */
+const OWNED_ACTION_TYPES = ['play-short-event', 'play-long-event'] as const;
 
 
 
 /**
- * The events module. No context gate: a short event is always its own, and
- * what it cannot price it declines per action rather than per decision.
+ * The events module. No context gate: an event is always its own, and what it
+ * cannot price it declines per action rather than per decision.
  */
 export const eventsModule: H2Module = {
   name: 'events',
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
-    if (action.type !== 'play-short-event') return null;
+    if (!OWNED_ACTION_TYPES.includes(action.type as typeof OWNED_ACTION_TYPES[number])) return null;
     const instanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
     if (!instanceId) return null;
     const card = context.view.self.hand.find(c => c.instanceId === instanceId);
@@ -149,6 +170,13 @@ export const eventsModule: H2Module = {
         'whether a removal has a target is decided by the filter keys this module reads (card type, '
         + 'event type, keywords); a filter it cannot read is assumed to have one, so the card is '
         + 'declined rather than called useless',
+        'a long event is credited only for what it achieves *this* turn; one whose effect would pay '
+        + 'again on a later turn is under-valued, and one played before the movement plan is '
+        + 'declared is priced against a plan that may still change',
+        'a card that swaps the whole hand for a fresh one (Favor of the Valar, `new-hand`) is '
+        + 'declined rather than priced: it draws no *net* cards, and what the swap is worth is the '
+        + 'difference between this hand and an average one — which is `card-price`\'s question, and '
+        + 'asking it from here would be a cycle',
       ],
     };
   },
