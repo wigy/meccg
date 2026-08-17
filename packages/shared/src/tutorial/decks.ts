@@ -77,10 +77,10 @@ export const TUTORIAL_HERO_DECK: TutorialDeck = {
     RIVER,                 // Mentor's turn 3: blanks its site phase
     MARVELS_TOLD,          // turn 3 site phase: answers Foolish Words
     RIDERS_OF_ROHAN,       // turn 3 site phase: the faction
-    // ---- filler (never load-bearing; padding against refills) ----
-    DAGGER_OF_WESTERNESSE,
+    // ---- filler (mostly padding against refills) ----
+    DAGGER_OF_WESTERNESSE,  // discarded at the turn 2 hand-limit (mh-2)
     CAVE_DRAKE,
-    DAGGER_OF_WESTERNESSE,
+    DAGGER_OF_WESTERNESSE,  // turn 2 site phase: the additional-minor-item bonus
     CAVE_DRAKE,
     HORN_OF_ANOR,
     CAVE_DRAKE,
