@@ -21,6 +21,7 @@ import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tuto
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
+import { handleAiExplanation, setAskAiSender, setObserver } from './ask-ai.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
 import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
 import { buildToolbarStatusText } from './render-toolbar-status.js';
@@ -74,6 +75,19 @@ let awaitingResponse = false;
 export function clearAwaitingResponse(): void {
   awaitingResponse = false;
 }
+
+/**
+ * Ask the attached observer about the current position.
+ *
+ * Not routed through `sendAction`: this is not a game action, takes no
+ * awaiting-response lock, and must stay askable while it is the opponent's
+ * turn — which is exactly when the question is interesting.
+ */
+setAskAiSender((requestId: string, agent: string, mode: 'now' | 'last-move') => {
+  if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
+  const msg: ClientMessage = { type: 'ask-ai', requestId, agent, mode };
+  appState.ws.send(JSON.stringify(msg));
+});
 
 /** Send a game action to the server. */
 export function sendAction(action: GameAction): void {
@@ -723,6 +737,16 @@ export function connect(name: string): void {
 
       case 'spectators':
         setSpectators(msg.names);
+        break;
+
+      case 'observer':
+        // An observer attaching or leaving is what makes the Ask AI control
+        // appear or vanish (specs/2026-08-17-ask-ai-observer.md).
+        setObserver({ attached: msg.attached, agents: msg.agents });
+        break;
+
+      case 'ai-explanation':
+        handleAiExplanation(msg);
         break;
 
       case 'restart':

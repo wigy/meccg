@@ -8,24 +8,14 @@
  */
 
 import { formatGameState, formatPlayerView, loadCardPool, setEngineConsoleLog, stripCardMarkers } from '@meccg/shared';
-import { forwardActions } from '../ai/regress.js';
 import type { GameState, PlayerId, PlayerView } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
 import { parseCliArgs, numberFlag, stringFlag } from './common.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
-import { loadWinProbModel } from '../ai/h2/core/winprob.js';
-import { evaluateDecision, proposePlans, resolveModules } from '../ai/h2/core/registry.js';
-import { select } from '../ai/h2/services/portfolio.js';
-import { rankWithPlans } from '../ai/h2/services/plan-value.js';
-import { computeStanding } from '../ai/h2/services/standing.js';
-import { computeBudget } from '../ai/h2/services/budget.js';
-import { computeExposure } from '../ai/h2/services/exposure.js';
-import { computeCardPrices } from '../ai/h2/services/card-price.js';
-import { computeHazardPlan } from '../ai/h2/services/hazard-plan.js';
 import { renderExplanation } from '../ai/h2/explain.js';
+import { analyzeH2Position, decisionCandidates } from '../ai/explain-decision.js';
 import { hashState, loadScenario, withStandardCardPool } from '../ai/h2/scenario-store.js';
 import { findGameLogRecord } from '../ai/h2/game-log.js';
-import { heuristicStrategy } from '../ai/heuristic.js';
 
 /** Flag reference, printed by `--help`. */
 const USAGE = `explain — why the Heuristics-2 AI would take one action over another
@@ -134,42 +124,25 @@ if (!view) {
   view = projectPlayerView(state, requested ?? (preferredPlayer ?? state.players[0].id));
 }
 
-// Regressive candidates are dropped, because every agent drops them: the
-// engine marks the actions that undo this phase's own progress and explaining a
-// ranking that includes them would explain a decision nobody makes.
-const legalActions = forwardActions(view.legalActions.filter(e => e.viable).map(e => e.action));
+const { legalActions } = decisionCandidates(view);
 
 // ---- Evaluate ----
 
 const tunables = DEFAULT_TUNABLES;
-const model = loadWinProbModel();
 const riskFlag = stringFlag(args, 'risk');
 const riskOverride = riskFlag === undefined ? undefined : Number(riskFlag);
 if (riskOverride !== undefined && !Number.isFinite(riskOverride)) {
   throw new Error(`--risk expects a number in [-1, 1], got "${riskFlag}"`);
 }
 
-const standing = computeStanding(view, model, tunables, riskOverride);
-const modules = resolveModules(stringFlag(args, 'module'));
-const moduleContext = { view, cardPool, legalActions, tunables, standing };
-const { modules: contributors, evaluations: tactical, uncovered }
-  = evaluateDecision(modules, moduleContext);
-
-const fallback = contributors.length === 0
-  ? heuristicStrategy.weighActions({ view, cardPool, legalActions })
-  : undefined;
-
-// What the modules would commit to from this position, with no history behind
-// it. `explain` sees one position rather than a game, so there are no
-// incumbents to retain and the hysteresis has nothing to hold on to — this is
-// the portfolio a fresh agent would choose here, not necessarily the one an
-// agent that had been playing would still be carrying.
-const commitment = select(view.turnNumber, [], proposePlans(modules, moduleContext), tunables);
-
-// Ranked the way the agent ranks it: with the commitments folded in. Printing
-// the tactical order instead would explain a decision the agent does not make.
-const evaluations = rankWithPlans(modules, tactical, commitment, moduleContext)
-  .map(p => p.evaluation);
+// The pipeline itself lives in `ai/explain-decision`, so the CLI and the Ask AI
+// panel (`specs/2026-08-17-ask-ai-observer.md`) explain the same agent.
+const analysis = analyzeH2Position(view, cardPool, legalActions, {
+  modules: stringFlag(args, 'module'),
+  tunables,
+  riskOverride,
+});
+const { standing, modules: contributors, uncovered, evaluations, fallback, commitment } = analysis;
 
 // ---- Report ----
 
@@ -224,10 +197,10 @@ if (asJson) {
     evaluations,
     fallback,
     topN,
-    budget: computeBudget(view, cardPool),
-    exposure: computeExposure(view, cardPool),
-    prices: computeCardPrices(view, cardPool, standing, tunables),
-    hazardPlan: computeHazardPlan(view, cardPool, standing, tunables),
+    budget: analysis.budget,
+    exposure: analysis.exposure,
+    prices: analysis.prices,
+    hazardPlan: analysis.hazardPlan,
     commitment,
   }).join('\n'));
 }

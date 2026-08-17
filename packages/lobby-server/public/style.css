@@ -1957,6 +1957,60 @@ h2 {
   color: #c4a35a;
 }
 
+/* Ask AI panel (specs/2026-08-17-ask-ai-observer.md): a wide, scrollable
+   monospace read-out. Wider and taller than the report dialogs because the
+   content is a ranked candidate list with a derivation under it — wrapping that
+   into a 480px column would make it unreadable. */
+
+#ask-ai-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ask-ai-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+#ask-ai-dialog {
+  position: relative;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 900px;
+  max-width: 92vw;
+  color: #e0e0e0;
+}
+
+#ask-ai-heading {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+  font-size: 1rem;
+}
+
+/* pre-wrap, not pre: the derivation is indented text whose alignment carries
+   meaning, but a long card name must still wrap rather than scroll the page. */
+#ask-ai-body {
+  margin: 0;
+  background: #16162a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0.75rem;
+  max-height: 65vh;
+  overflow: auto;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: #d8d2c2;
+}
+
 /* Feature request modal */
 
 #feature-request-modal,
@@ -2046,26 +2100,30 @@ h2 {
 }
 
 #feature-request-cancel,
-#bug-report-cancel {
+#bug-report-cancel,
+#ask-ai-copy {
   background: transparent;
   color: #aaa;
   border: 1px solid #555;
 }
 
 #feature-request-cancel:hover,
-#bug-report-cancel:hover {
+#bug-report-cancel:hover,
+#ask-ai-copy:hover {
   background: rgba(255,255,255,0.05);
   color: #ddd;
 }
 
 #feature-request-send,
-#bug-report-send {
+#bug-report-send,
+#ask-ai-close {
   background: #c4a35a;
   color: #1a1a2e;
 }
 
 #feature-request-send:hover,
-#bug-report-send:hover {
+#bug-report-send:hover,
+#ask-ai-close:hover {
   background: #d4b36a;
 }
 
@@ -3500,6 +3558,52 @@ h2 {
 #view-toggle-btn.mode-debug .view-icon-debug { display: inline; }
 
 /* Dev menu popup: a floating panel anchored under the toolbar icons. */
+/* Ask AI menu: which agent to ask, and about what. Same popup treatment as the
+   dev menu — it hangs under the toolbar from the same flex column. */
+#ask-ai-menu {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 14rem;
+}
+
+#ask-ai-menu.hidden {
+  display: none;
+}
+
+#ask-ai-menu button {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  background: transparent;
+  color: #d0d0d0;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+#ask-ai-menu button:hover {
+  color: #c4a35a;
+  border-color: #c4a35a;
+  background: rgba(196, 163, 90, 0.08);
+}
+
+/* Group label above each agent's two questions. */
+#ask-ai-menu .ask-ai-menu-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a8a99;
+  padding: 0.2rem 0.1rem 0;
+}
+
 #dev-menu-popup {
   align-self: flex-end;
   display: flex;
@@ -5627,6 +5731,36 @@ body.all-companies-mode:has(#debug-view.hidden) {
   box-shadow:
     0 0 10px rgba(var(--color-selected), 0.45),
     0 0 24px rgba(var(--color-selected), 0.2);
+}
+
+/* Single-company view marks the active company with the "Active" badge on the
+   site card instead — the full-block glow is too heavy at that scale. */
+.company-single .company-block--active {
+  box-shadow: none;
+}
+
+.active-badge-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.company-active-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  /* Above on-guard cards, which stack at --z-attachment + 1 over the site. */
+  z-index: calc(var(--z-attachment) + 2);
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgba(var(--color-selected), 0.7);
+  border-radius: 3px;
+  background: rgba(20, 40, 22, 0.85);
+  color: rgb(var(--color-selected));
+  font-family: 'Cinzel', serif;
+  font-size: calc(0.7rem * var(--company-scale, 1));
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }
 
 .company-block--clickable {

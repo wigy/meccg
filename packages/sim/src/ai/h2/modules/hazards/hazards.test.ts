@@ -562,6 +562,84 @@ describe('a hazard event already in play', () => {
   });
 });
 
+describe('a support event whose modifier names several races', () => {
+  /**
+   * The reported position, reduced to its two cards: a boost that reads "all
+   * Spider and Animal attacks receive +2 prowess" and a Spider attack in the
+   * same hand.
+   *
+   * The boost has to reach the table *before* the attack, or it improves
+   * nothing — and it will not, unless the module can see that it does anything
+   * at all. Its condition is a race *list*, which the reader used to drop whole:
+   * the card scored nothing, lost every comparison to the spider it was meant to
+   * strengthen, and was never played.
+   */
+  function spiderPosition() {
+    const scenario = loadScenario('movement/support-event-boost');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    const legalActions = viableActions(scenario);
+    const plays = legalActions.filter(a => a.type === 'play-hazard') as (GameAction & {
+      cardInstanceId: string;
+    })[];
+    expect(plays.length).toBeGreaterThanOrEqual(2);
+    // Swapping definitions under the offered plays is the same trick the Doors
+    // of Night cases use: the instance ids the engine offered stay valid.
+    const cardOf = (instanceId: string) =>
+      view.self.hand.find(c => (c.instanceId as string) === instanceId)! as unknown as {
+        definitionId: string;
+      };
+    cardOf(plays[0].cardInstanceId).definitionId = definitionOf('Full of Froth and Rage');
+    cardOf(plays[1].cardInstanceId).definitionId = definitionOf('Lesser Spiders');
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    return {
+      boost: plays[0],
+      spider: plays[1],
+      context: { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing },
+    };
+  }
+
+  test('is scored at all', () => {
+    const { boost, context } = spiderPosition();
+    const evaluation = hazardsModule.evaluate(boost, context);
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation!.rationale)).toContain('spider');
+  });
+
+  test('is not credited with an attack the slot it spends leaves no room for', () => {
+    // Playing an event counts against the same hazard limit its attacks need —
+    // the engine increments `hazardsPlayedThisCompany` for events too. Priced
+    // without that, "play the boost" was credited with a boosted bundle it had
+    // no slot left to play, and the last slot of a phase went to a modifier
+    // with nothing to modify.
+    const spacious = spiderPosition();
+    const cramped = spiderPosition();
+    // The scenario publishes a limit of 4; spending three leaves one slot, so
+    // the boost and an attack cannot both be played.
+    (cramped.context.view.phaseState as unknown as { hazardsPlayedThisCompany: number })
+      .hazardsPlayedThisCompany = 3;
+    const roomy = hazardsModule.evaluate(spacious.boost, spacious.context)!.expectedTsd;
+    const tight = hazardsModule.evaluate(cramped.boost, cramped.context)?.expectedTsd ?? 0;
+    expect(tight).toBeLessThan(roomy);
+    // With the last slot spent on the modifier there is no attack left to
+    // modify, so the play is worth no more than doing nothing with it.
+    expect(tight).toBeLessThanOrEqual(
+      hazardsModule.evaluate(cramped.spider, cramped.context)!.expectedTsd,
+    );
+  });
+
+  test('outranks the attack it boosts, so it is played first', () => {
+    const { boost, spider, context } = spiderPosition();
+    const boostTsd = hazardsModule.evaluate(boost, context)!.expectedTsd;
+    const spiderTsd = hazardsModule.evaluate(spider, context)!.expectedTsd;
+    // Not a tie-break preference: the boost is worth the whole boosted bundle it
+    // unlocks, and playing the spider first throws that away for good.
+    expect(boostTsd).toBeGreaterThan(spiderTsd);
+  });
+});
+
 describe('an event that enables another card rather than acting itself', () => {
   test('Doors of Night is worth what the Minions Stir already out gains from it', () => {
     // Doors of Night does nothing to an attack itself. What it does is satisfy

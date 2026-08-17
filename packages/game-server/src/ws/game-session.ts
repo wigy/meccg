@@ -130,6 +130,16 @@ interface GameSave {
  */
 export const IDLE_EXIT_GRACE_MS = 60_000;
 
+/**
+ * How long an Ask AI question may stay unanswered before the asker is told the
+ * observer timed out (`specs/2026-08-17-ask-ai-observer.md`).
+ *
+ * Generous because the observer's agent is doing real work: `mc:ms=2000` spends
+ * its whole budget per decision, and a `bc` agent loading weights for the first
+ * question pays for that too.
+ */
+export const ASK_AI_TIMEOUT_MS = 90_000;
+
 export interface GameSessionOptions {
   /** Enable development-mode operations (undo, save, load, reseed). */
   dev?: boolean;
@@ -162,6 +172,26 @@ export class GameSession {
   private players: Map<string, { ws: WebSocket; playerId: PlayerId; name: string }> = new Map();
   /** Spectator connections, each mapped to the display name it joined with. */
   private spectators: Map<WebSocket, string> = new Map();
+  /**
+   * The attached Ask AI observer, if any: a headless process that explains what
+   * its agent would do in the current position
+   * (`specs/2026-08-17-ask-ai-observer.md`).
+   *
+   * One at a time, though it may offer several agents — asking `h2` and `mc`
+   * about the same position is how their disagreements become visible. Never
+   * seated, never sent state, and — since `hasConnectedHuman` only counts
+   * players and pending joins — never able to keep an abandoned game alive.
+   */
+  private observer: { ws: WebSocket; agents: readonly string[] } | null = null;
+  /** Ask AI questions forwarded to the observer and still awaiting an answer. */
+  private pendingAsks: Map<string, {
+    ws: WebSocket;
+    forPlayer: PlayerId;
+    /** Which agent was asked, so a failure can still name it. */
+    agent: string;
+    stateSeq: number;
+    timer: ReturnType<typeof setTimeout>;
+  }> = new Map();
   private pending: Map<string, PendingPlayer> = new Map();
   private cardPool: Readonly<Record<string, CardDefinition>>;
   private nameToPlayerId: Record<string, string> = {};
@@ -281,6 +311,13 @@ export class GameSession {
       ws.close();
     }
     this.spectators.clear();
+
+    if (this.observer) {
+      this.send(this.observer.ws, msg);
+      this.observer.ws.close();
+      this.observer = null;
+      this.failPendingAsks('unavailable', 'The game server restarted.');
+    }
   }
 
   private handleMessage(ws: WebSocket, msg: ClientMessage): void {
@@ -291,6 +328,15 @@ export class GameSession {
         break;
       case 'action':
         this.handleAction(ws, msg);
+        break;
+      case 'ask-ai':
+        this.handleAskAi(ws, msg.requestId, msg.agent, msg.mode ?? 'now');
+        break;
+      case 'ai-answer':
+        this.handleAiAnswer(ws, msg.requestId, msg.lines, msg.agent, msg.elapsedMs);
+        break;
+      case 'ai-error':
+        this.handleAiError(ws, msg.requestId, msg.message);
         break;
       case 'tutorial-continue':
         // The player acknowledged a continue-gated Mentor beat: resume the
@@ -359,6 +405,21 @@ export class GameSession {
     }
 
     const normalizedName = msg.name.toLowerCase();
+
+    // An observer attaches instead of being seated or counted as a watcher.
+    if (msg.observer) {
+      if (this.playerNames.has(normalizedName)) {
+        // Refused rather than seated: an observer that took a seat would be
+        // asked to play the game it is only supposed to comment on.
+        this.send(ws, {
+          type: 'error',
+          message: `"${msg.name}" plays in this game — an observer must attach under another name`,
+        });
+        return;
+      }
+      this.addObserver(ws, msg.name, msg.observer.agents);
+      return;
+    }
 
     // Not a designated player → spectator
     if (!this.playerNames.has(normalizedName)) {
@@ -474,6 +535,241 @@ export class GameSession {
       this.send(ws, { type: 'state', view });
     }
     this.broadcastSpectators();
+  }
+
+  /**
+   * Attach an Ask AI observer, replacing any previous one.
+   *
+   * The reply carries the real `gameId` because that is how the observer finds
+   * this game's log — where it reads the position from. The server projects
+   * per player and never ships an omniscient state, so an honest explanation of
+   * one seat's decision cannot be computed from anything it sends.
+   */
+  private addObserver(ws: WebSocket, name: string, agents: readonly string[]): void {
+    if (agents.length === 0) {
+      this.send(ws, { type: 'error', message: 'An observer must offer at least one agent' });
+      return;
+    }
+    if (this.observer && this.observer.ws !== ws) {
+      // Replacing rather than refusing: the common case is a restarted
+      // observer whose predecessor's socket has not been reaped yet.
+      this.serverLog.log('observer-replace', { was: this.observer.agents, now: agents });
+      this.send(this.observer.ws, { type: 'error', message: 'Replaced by another observer.' });
+      this.observer.ws.close();
+      this.failPendingAsks('unavailable', 'The observer was replaced before answering.');
+    }
+    this.observer = { ws, agents };
+    this.serverLog.log('join', { name, role: 'observer', agents });
+    this.send(ws, { type: 'assigned', playerId: 'observer' as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
+    this.broadcastObserver();
+  }
+
+  /** Tell every player and spectator whether an observer is attached, and which agents it offers. */
+  private broadcastObserver(): void {
+    this.broadcastToAll({
+      type: 'observer',
+      attached: this.observer !== null,
+      agents: this.observer?.agents ?? [],
+    });
+  }
+
+  /**
+   * Answer every outstanding Ask AI question with a non-`ok` status.
+   *
+   * Called when the observer goes away: a browser left with a spinner and no
+   * message reads as a hung game.
+   */
+  private failPendingAsks(status: 'unavailable' | 'error', message: string): void {
+    for (const [requestId, ask] of this.pendingAsks.entries()) {
+      clearTimeout(ask.timer);
+      this.send(ask.ws, { type: 'ai-explanation', requestId, status, agent: ask.agent, message });
+    }
+    this.pendingAsks.clear();
+  }
+
+  /**
+   * Forward one Ask AI question to the observer.
+   *
+   * Which seat gets explained is decided here rather than by the client: a
+   * seated player may only ask about their own decision, because the
+   * explanation is derived from that seat's private view and answering about
+   * the opponent would hand over their hand. A spectator — who has no seat —
+   * asks about whoever is to act, which is the point of watching an AI game.
+   */
+  private handleAskAi(
+    ws: WebSocket,
+    requestId: string,
+    requestedAgent: string | undefined,
+    mode: 'now' | 'last-move',
+  ): void {
+    const refuse = (status: 'unavailable' | 'error', message: string): void => {
+      this.send(ws, {
+        type: 'ai-explanation',
+        requestId,
+        status,
+        agent: requestedAgent ?? this.observer?.agents[0] ?? null,
+        message,
+      });
+    };
+
+    if (!this.observer) {
+      refuse('unavailable', 'No observer is attached. Start one with `bin/observe --agent h2`.');
+      return;
+    }
+    if (!this.state) {
+      refuse('error', 'The game has not started yet.');
+      return;
+    }
+    if (this.observer.ws === ws) {
+      refuse('error', 'The observer cannot ask itself.');
+      return;
+    }
+
+    const role = this.roleOf(ws);
+    if (role === null) {
+      refuse('error', 'Only a seated player or a spectator can ask.');
+      return;
+    }
+    const forPlayer = role === 'spectator' ? this.seatToExplain() : role;
+    if (!forPlayer) {
+      refuse('error', 'Nobody is to act in this position — nothing to decide.');
+      return;
+    }
+
+    // The asked agent must be one the observer actually offers: a stale browser
+    // (or a tab left open across an observer restart) could otherwise ask for an
+    // agent this one was not launched with and get an answer from a different
+    // one without being told.
+    const agent = requestedAgent ?? this.observer.agents[0];
+    if (!this.observer.agents.includes(agent)) {
+      refuse('error', `The observer offers ${this.observer.agents.join(', ')} — not "${agent}".`);
+      return;
+    }
+
+    for (const ask of this.pendingAsks.values()) {
+      if (ask.ws === ws) {
+        refuse('error', 'Still thinking about the previous question.');
+        return;
+      }
+    }
+
+    const stateSeq = this.state.stateSeq;
+    const timer = setTimeout(() => {
+      this.pendingAsks.delete(requestId);
+      this.send(ws, {
+        type: 'ai-explanation',
+        requestId,
+        status: 'timeout',
+        agent,
+        forPlayer,
+        stateSeq,
+        message: `The observer did not answer within ${Math.round(ASK_AI_TIMEOUT_MS / 1000)}s.`,
+      });
+    }, ASK_AI_TIMEOUT_MS);
+    this.pendingAsks.set(requestId, { ws, forPlayer, agent, stateSeq, timer });
+
+    const phaseState = this.state.phaseState;
+    const step = phaseState.phase === 'setup' ? phaseState.setupStep.step : undefined;
+    this.send(this.observer.ws, {
+      type: 'ai-question',
+      requestId,
+      stateSeq,
+      forPlayer,
+      agent,
+      mode,
+      turn: this.state.turnNumber,
+      phase: phaseState.phase,
+      ...(step ? { step } : {}),
+    });
+  }
+
+  /** Relay the observer's answer to the connection that asked — and to nobody else. */
+  private handleAiAnswer(
+    ws: WebSocket,
+    requestId: string,
+    lines: readonly string[],
+    agent: string,
+    elapsedMs: number,
+  ): void {
+    if (!this.observer || this.observer.ws !== ws) {
+      this.send(ws, { type: 'error', message: 'Only the attached observer can answer Ask AI questions' });
+      return;
+    }
+    const ask = this.pendingAsks.get(requestId);
+    if (!ask) {
+      // Timed out, or the asker left. Dropping is right — there is nobody to
+      // tell — but it is worth a log line, since a persistently late observer
+      // is a configuration problem (an `mc` budget above the timeout).
+      this.serverLog.log('ask-ai-late', { requestId, agent, elapsedMs });
+      return;
+    }
+    clearTimeout(ask.timer);
+    this.pendingAsks.delete(requestId);
+    // Never broadcast: the explanation is derived from one seat's private view.
+    this.send(ask.ws, {
+      type: 'ai-explanation',
+      requestId,
+      status: 'ok',
+      agent,
+      forPlayer: ask.forPlayer,
+      stateSeq: ask.stateSeq,
+      lines,
+      elapsedMs,
+    });
+  }
+
+  /** Relay the observer's failure to the asker, so the panel says why. */
+  private handleAiError(ws: WebSocket, requestId: string, message: string): void {
+    if (!this.observer || this.observer.ws !== ws) {
+      this.send(ws, { type: 'error', message: 'Only the attached observer can answer Ask AI questions' });
+      return;
+    }
+    const ask = this.pendingAsks.get(requestId);
+    if (!ask) {
+      this.serverLog.log('ask-ai-late-error', { requestId, message });
+      return;
+    }
+    clearTimeout(ask.timer);
+    this.pendingAsks.delete(requestId);
+    this.send(ask.ws, {
+      type: 'ai-explanation',
+      requestId,
+      status: 'error',
+      agent: ask.agent,
+      forPlayer: ask.forPlayer,
+      stateSeq: ask.stateSeq,
+      message,
+    });
+  }
+
+  /**
+   * The seat a spectator's question is about: whoever is to act.
+   *
+   * `activePlayer` answers that in every sequential phase, but it is null
+   * through the simultaneous ones — the character draft, organisation — where a
+   * spectator asking "what would h2 do here" is asking about whichever player
+   * still *can* move. Without this fallback the answer during setup would
+   * always be "nothing to decide", which is the phase people watch most.
+   */
+  private seatToExplain(): PlayerId | null {
+    if (!this.state) return null;
+    if (this.state.activePlayer) return this.state.activePlayer;
+    for (const player of this.state.players) {
+      if (computeLegalActions(this.state, player.id).some(e => e.viable)) return player.id;
+    }
+    return null;
+  }
+
+  /**
+   * Which seat a connection speaks for: its `PlayerId`, `'spectator'`, or null
+   * for a connection that is neither (pending, or the observer itself).
+   */
+  private roleOf(ws: WebSocket): PlayerId | 'spectator' | null {
+    for (const [, p] of this.players.entries()) {
+      if (p.ws === ws) return p.playerId;
+    }
+    if (this.spectators.has(ws)) return 'spectator';
+    return null;
   }
 
   /**
@@ -1131,6 +1427,13 @@ export class GameSession {
     const who = this.identifyWs(ws);
     this.serverLog.log('disconnect', { who });
 
+    if (this.observer?.ws === ws) {
+      this.observer = null;
+      this.failPendingAsks('unavailable', 'The observer detached before answering.');
+      this.broadcastObserver();
+      return;
+    }
+
     if (this.spectators.delete(ws)) {
       this.broadcastSpectators();
       return;
@@ -1559,6 +1862,7 @@ export class GameSession {
       if (p.ws === ws) return name;
     }
     if (this.spectators.has(ws)) return 'spectator';
+    if (this.observer?.ws === ws) return 'observer';
     return 'unknown';
   }
 
@@ -1570,6 +1874,13 @@ export class GameSession {
         this.serverLog.log('msg-out', { msgType: msg.type, to: this.identifyWs(ws), msg });
       }
       ws.send(json);
+      // A client seated while an observer is already attached would otherwise
+      // never hear about it — attachment is broadcast once, when it happens.
+      // Hooked here rather than at each of the seven `assigned` sites so a new
+      // seating path cannot forget it.
+      if (msg.type === 'assigned' && this.observer) {
+        this.send(ws, { type: 'observer', attached: true, agents: this.observer.agents });
+      }
     }
   }
 }

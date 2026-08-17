@@ -156,6 +156,12 @@ export function renderCompanyBlock(
   owner: 'self' | 'opponent',
   options?: {
     hideTitle?: boolean;
+    /**
+     * Rendered as the single focused company. The green glow that marks the
+     * active company in the overview grid is dropped there (CSS) in favour of
+     * an "Active" badge on the site card — see {@link renderSiteArea}.
+     */
+    singleView?: boolean;
     hasLegalMovement?: boolean;
     onAction?: (action: GameAction) => void;
     /** Map from character instance ID to move-to-influence actions for that character. */
@@ -285,6 +291,7 @@ export function renderCompanyBlock(
     agentAttackActions,
     cardsInPlay: owner === 'self' ? view.self.cardsInPlay : view.opponent.cardsInPlay,
     renderedSiteInstances: options?.renderedSiteInstances,
+    activeBadge: options?.singleView === true && !isInactive,
   }));
 
   // Characters — title character always rendered first (leftmost after site).

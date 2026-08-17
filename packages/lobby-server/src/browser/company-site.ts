@@ -192,6 +192,13 @@ export function renderSiteArea(
      */
     cardsInPlay?: readonly CardInPlay[];
     /**
+     * Mark this company as the active one with an "Active" badge in the top-left
+     * corner of its site card (the destination site when moving, otherwise the
+     * current site). Used by the single-company view, which replaces the green
+     * glow around the whole block with this badge.
+     */
+    activeBadge?: boolean;
+    /**
      * Shared set accumulating the site instance ids already rendered this pass.
      * Threaded across all companies of the all-companies overview so a site
      * instance shared by sibling companies gets a company-scoped
@@ -618,6 +625,35 @@ export function renderSiteArea(
         });
         wrapper.appendChild(thumb);
       }
+    }
+  }
+
+  // "Active" badge — top-left corner of the site card the company is heading to
+  // (destination if moving, otherwise the current site). Anchored to whichever
+  // wrapper the overlays above ended up wrapping the site in, so the badge sits
+  // on the outermost positioned box regardless of which overlays are present.
+  if (options?.activeBadge) {
+    const agentWrapper = area.querySelector<HTMLElement>('.agent-attack-wrapper');
+    const constraintAnchor = area.querySelector<HTMLElement>('.constraint-anchor');
+    const onGuardWrapper = area.querySelector<HTMLElement>('.on-guard-wrapper');
+    // On-guard cards also carry `company-card--site`, so exclude them here —
+    // the badge belongs on the site itself, not on a card lying on it.
+    const siteImages = area.querySelectorAll<HTMLElement>('.company-card--site:not(.on-guard-card)');
+    let anchor = agentWrapper ?? constraintAnchor ?? onGuardWrapper;
+    if (!anchor) {
+      const lastSite = siteImages[siteImages.length - 1] as HTMLElement | undefined;
+      if (lastSite) {
+        anchor = document.createElement('div');
+        anchor.className = 'active-badge-wrapper';
+        lastSite.replaceWith(anchor);
+        anchor.appendChild(lastSite);
+      }
+    }
+    if (anchor) {
+      const badge = document.createElement('div');
+      badge.className = 'company-active-badge';
+      badge.textContent = 'Active';
+      anchor.appendChild(badge);
     }
   }
 

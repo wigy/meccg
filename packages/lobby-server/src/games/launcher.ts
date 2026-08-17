@@ -44,6 +44,12 @@ export interface PseudoAiRelay {
 export interface LaunchResult {
   /** Port the game server is listening on. */
   readonly port: number;
+  /**
+   * The game id the server logs under — `~/.meccg/logs/games/<gameId>.jsonl`.
+   * Returned so the lobby can hand it to the Ask AI observer, whose whole view
+   * of the position is that log (`specs/2026-08-17-ask-ai-observer.md`).
+   */
+  readonly gameId: string;
   /** JWT tokens for [player1, player2]. */
   readonly tokens: [string, string];
   /** Register a callback for when the game ends (child process exits). */
@@ -222,6 +228,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 
   return {
     port,
+    gameId,
     tokens,
     onEnd(callback: () => void) {
       endCallbacks.push(callback);

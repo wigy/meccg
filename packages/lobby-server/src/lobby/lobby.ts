@@ -118,6 +118,15 @@ interface WatchableGame {
   readonly port: number;
   readonly player1: string;
   readonly player2: string;
+  /**
+   * The game server's own game id — the name of its log file under
+   * `~/.meccg/logs/games`. Carried so the Ask AI observer can open the right
+   * log the moment it is told which game to attach to
+   * (`specs/2026-08-17-ask-ai-observer.md`).
+   */
+  readonly gameId: string;
+  /** When the game server was launched, ISO 8601. Orders "newest game". */
+  readonly launchedAt: string;
 }
 
 /** The lobby state: tracks online players and pending challenges. */
@@ -241,6 +250,48 @@ function cancelChallengesInvolving(name: string): void {
 }
 
 /** Send a typed message to a specific player if they are online. Silently drops if offline. */
+/**
+ * What an Ask AI observer needs to attach to a game
+ * (`specs/2026-08-17-ask-ai-observer.md`).
+ */
+export interface ObserverTarget {
+  readonly port: number;
+  readonly gameId: string;
+  readonly player1: string;
+  readonly player2: string;
+  readonly launchedAt: string;
+  /** Join token, signed for the observer's own name. */
+  readonly token: string;
+}
+
+/**
+ * The most recently launched game an observer could attach to, or null when
+ * there is none. With `since`, only games launched after that instant count —
+ * which is how `bin/observe --new` waits for the next game instead of
+ * attaching to the one already running.
+ *
+ * The token mirrors the spectator token (`watch-<port>`): the game server checks
+ * only that a token's subject matches the joining name, since a non-player
+ * connection has no seat to protect.
+ */
+export function newestObserverTarget(observerName: string, since?: string): ObserverTarget | null {
+  const cutoff = since === undefined ? null : Date.parse(since);
+  let newest: WatchableGame | null = null;
+  for (const game of watchableGames.values()) {
+    if (cutoff !== null && !(Date.parse(game.launchedAt) > cutoff)) continue;
+    if (!newest || game.launchedAt > newest.launchedAt) newest = game;
+  }
+  if (!newest) return null;
+  return {
+    port: newest.port,
+    gameId: newest.gameId,
+    player1: newest.player1,
+    player2: newest.player2,
+    launchedAt: newest.launchedAt,
+    token: signGameToken(observerName, `observe-${newest.port}`),
+  };
+}
+
 export function notifyPlayer(name: string, msg: LobbyServerMessage): void {
   const player = onlinePlayers.get(name);
   if (player) {
@@ -614,7 +665,13 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
 
     // Register the game so others can watch it, then broadcast so the updated
     // list (players now in-game, a new watchable game) reaches everyone.
-    watchableGames.set(result.port, { port: result.port, player1: player1.name, player2: player2.name });
+    watchableGames.set(result.port, {
+      port: result.port,
+      player1: player1.name,
+      player2: player2.name,
+      gameId: result.gameId,
+      launchedAt: new Date().toISOString(),
+    });
 
     send(player1.ws, { type: 'game-starting', ...p1Game });
     send(player2.ws, { type: 'game-starting', ...p2Game });
@@ -695,7 +752,13 @@ async function startAiGame(
     setActiveGame(player, gameInfo);
     // Register the game so others see this player as busy — shown as a
     // "player vs. AI-*" row they can watch instead of a Challenge button.
-    watchableGames.set(result.port, { port: result.port, player1: player.name, player2: aiName });
+    watchableGames.set(result.port, {
+      port: result.port,
+      player1: player.name,
+      player2: aiName,
+      gameId: result.gameId,
+      launchedAt: new Date().toISOString(),
+    });
 
     send(player.ws, { type: 'game-starting', ...gameInfo });
     broadcastPlayerList();
@@ -755,7 +818,13 @@ async function startTutorialGame(player: OnlinePlayer): Promise<void> {
       opponentDisplayName: mentorName,
     };
     setActiveGame(player, gameInfo);
-    watchableGames.set(result.port, { port: result.port, player1: player.name, player2: mentorName });
+    watchableGames.set(result.port, {
+      port: result.port,
+      player1: player.name,
+      player2: mentorName,
+      gameId: result.gameId,
+      launchedAt: new Date().toISOString(),
+    });
 
     send(player.ws, { type: 'game-starting', ...gameInfo });
     broadcastPlayerList();
@@ -797,7 +866,13 @@ async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise
     // Like real AI games, a pseudo-AI game shows up as a watchable "vs. AI-Pseudo"
     // row; the spectator projection hides both hands, so it is safe to watch even
     // though one human controls both seats.
-    watchableGames.set(result.port, { port: result.port, player1: player.name, player2: aiName });
+    watchableGames.set(result.port, {
+      port: result.port,
+      player1: player.name,
+      player2: aiName,
+      gameId: result.gameId,
+      launchedAt: new Date().toISOString(),
+    });
 
     send(player.ws, {
       type: 'game-starting',

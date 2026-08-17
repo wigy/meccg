@@ -55,7 +55,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS, isAdminPlayer } from '../config.js';
-import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
+import { broadcastNotification, broadcastForceReload, newestObserverTarget } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
@@ -1098,6 +1098,36 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         lobbyLog.log('system-mail', { id, recipients: body.recipients, topic: body.topic });
         sendJson(res, 200, { ok: true, id });
       });
+      return;
+    }
+
+    /**
+     * The newest launched game, for an Ask AI observer to attach to
+     * (`specs/2026-08-17-ask-ai-observer.md`). `?since=<ISO>` restricts it to
+     * games launched after that instant, which is how `bin/observe --new`
+     * waits for the next game rather than the running one.
+     *
+     * Dev-only on top of the master key: the observer reads the game log off
+     * the server's own disk, so it is a development tool by construction.
+     */
+    if (urlPath === '/api/system/observer-target' && method === 'GET') {
+      if (!DEV) {
+        sendJson(res, 403, { error: 'observer-target is only available in development mode' });
+        return;
+      }
+      const since = url.searchParams.get('since') ?? undefined;
+      if (since !== undefined && Number.isNaN(Date.parse(since))) {
+        sendJson(res, 400, { error: 'since must be an ISO 8601 timestamp' });
+        return;
+      }
+      const observerName = url.searchParams.get('name') ?? 'Observer';
+      const target = newestObserverTarget(observerName, since);
+      if (!target) {
+        sendJson(res, 404, { error: 'no game' });
+        return;
+      }
+      lobbyLog.log('observer-target', { port: target.port, gameId: target.gameId, observerName });
+      sendJson(res, 200, target);
       return;
     }
 
