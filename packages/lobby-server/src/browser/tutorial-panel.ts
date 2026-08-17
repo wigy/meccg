@@ -222,6 +222,9 @@ function renderCompletionCard(progress: NonNullable<PlayerView['tutorial']>): vo
   document.getElementById('tutorial-dim')?.remove();
   const dim = document.createElement('div');
   dim.id = 'tutorial-dim';
+  // Heavier than the continue gate's backdrop: the game is over, and a
+  // half-lit board behind the card still reads as a game in progress.
+  dim.className = 'tutorial-dim--complete';
   document.body.appendChild(dim);
 
   const card = document.createElement('div');

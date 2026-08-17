@@ -6993,6 +6993,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
   z-index: calc(var(--z-hover) + 9);
 }
 
+/* Backing the completion card: the chapter is over, so the board is put
+   away rather than merely dimmed. */
+#tutorial-dim.tutorial-dim--complete {
+  background: rgba(8, 10, 16, 0.93);
+  backdrop-filter: blur(4px);
+}
+
 /* The panel's own Continue button for the gate — deliberately styled like
    the tutorial panel, not like the game's pass button. */
 .tutorial-continue-btn {
