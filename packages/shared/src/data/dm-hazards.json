@@ -971,7 +971,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NeverSeenHim.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "agent"
+      },
+      {
+        "type": "extra-agent-actions",
+        "value": 1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "agent",
+        "max": 1
+      }
+    ],
+    "certified": "2026-08-17",
     "text": "Playable on an agent. Target agent may take an extra agent action (which does not count against the hazard limit) each time he normally takes an agent action. Cannot be duplicated on a given agent. Cannot be played if your opponent is a minion player."
   },
   {

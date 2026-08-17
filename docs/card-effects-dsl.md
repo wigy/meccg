@@ -5712,6 +5712,9 @@ Supported scopes:
 - `"game"` — one copy anywhere in play across both players.
 - `"player"` — one copy per player across all their characters (e.g. The Windlord Found Me).
 - `"company"` — one copy per company (e.g. Orders from Lugbúrz).
+- `"agent"` — one copy per agent, counted by name across `cardsInPlay` entries
+  sharing the target agent's `attachedToAgentId` (e.g. Never Seen Him dm-74,
+  "Cannot be duplicated on a given agent").
 
 ```json
 { "type": "duplication-limit", "scope": "character", "max": 1 }
@@ -6370,6 +6373,24 @@ Supported targets:
   gate) and `discard-self-when condition: { "inPlayAnywhere": "Doors of
   Night" }` (the ongoing trigger, since not every resource long-event carries
   the `environment` keyword that Doors of Night's own entry sweep checks).
+- `agent` — a **hazard** permanent event played on one of the hazard player's
+  own agents (`player.agents`), any status — face-up or face-down. One action
+  is emitted per agent, carrying `targetAgentId`. On resolution the card
+  enters the hazard player's `cardsInPlay` bound via
+  `CardInPlay.attachedToAgentId` (the same generic permanent-event binding
+  `agent-reveal-site-override` uses). `duplication-limit` `scope: "agent"`
+  limits copies bound to one agent instance, counted by name across
+  `cardsInPlay` entries sharing that `attachedToAgentId`. Cannot be played
+  against a minion/Balrog opponent (checked directly via `isMinionOrBalrog`,
+  matching the other agent-related hazard cards' convention rather than a
+  generic `play-restriction`). The card stays attached for as long as the
+  bound agent remains in play — see `discardOrphanedAgentAttachedEvents`
+  (only a card also carrying `agent-reveal-site-override` discards early, on
+  reveal). Used by Never Seen Him (dm-74): "Playable on an agent. Target
+  agent may take an extra agent action … each time he normally takes an
+  agent action. Cannot be duplicated on a given agent." — paired with
+  `extra-agent-actions` (below), scoped to the bound agent via
+  `countExtraAgentActions(state, agentId)`.
 
 Optional fields:
 
@@ -9513,27 +9534,53 @@ Used by *The Windlord Found Me* (dm-164).
 
 ### 39. `extra-agent-actions`
 
-Grants each agent an additional agent action per turn. Applied during the
-Untap phase: when any player has a card with this effect in their
-`cardsInPlay`, every agent's `remainingActions` is set to `1 + Σ(value)`
-instead of the default 1.
+Grants an additional agent action per turn. Applied during the Untap phase via
+`countExtraAgentActions(state, agentId)` (`mh-agents.ts`): each agent's
+`remainingActions` is set to `1 + Σ(value)` instead of the default 1, where the
+sum is scoped **per agent** from three possible sources:
+
+- Untargeted — the effect sits on a card in `cardsInPlay` with no
+  `attachedToAgentId` (Great Need or Purpose dm-62: "Each agent may take an
+  extra agent action…"). Applies to **every** agent of **both** players.
+- Self, `whileRevealed: true` — the effect is on the agent's own character
+  definition and only counts while that specific agent is revealed (My
+  Precious dm-29: "If face-up, may take an extra agent action…").
+- Attached — the effect is on a card in `cardsInPlay` whose
+  `attachedToAgentId` matches this agent (via `play-target: "agent"`; Never
+  Seen Him dm-74: "Target agent may take an extra agent action…"). Applies
+  only to the one bound agent, for as long as it remains attached (see
+  `play-target`'s `agent` entry).
+
+The same total also gates which of an agent's actions taken this turn are
+free (don't count against the hazard limit): `chargeAgentActionTail` and the
+`agent-move`/`agent-move-back`/`agent-return-home` handlers (`mh-agents.ts`)
+mark an action as free when `remainingActions <= countExtraAgentActions(state,
+agent.id)` *before* decrementing — i.e. the last `Σ(value)` actions taken are
+the free ones, the first (base) action always counts.
 
 Fields:
 
-| Field   | Type   | Description                                |
-|---------|--------|--------------------------------------------|
-| `value` | number | Number of extra actions granted (usually 1)|
+| Field           | Type    | Description                                              |
+|-----------------|---------|-----------------------------------------------------------|
+| `value`         | number  | Number of extra actions granted (usually 1)                |
+| `whileRevealed` | boolean | Self-scoped: only counts while *this* agent is revealed. Omit for untargeted/attached effects. |
 
 Implementation:
 
-- `reducer-untap.ts` scans all players' `cardsInPlay` for `extra-agent-actions`
-  effects and sums their `value` fields. Each agent's `remainingActions` is
-  set to `1 + extraAgentActions` during the resource-player untap step.
+- `reducer-untap.ts` sets each agent's `remainingActions` to
+  `1 + countExtraAgentActions(state, agent.id)` during the resource-player
+  untap step.
+- `legal-actions/movement-hazard.ts` (`agentTurnActions`) and `mh-agents.ts`
+  action handlers pass the acting agent's `id` so the free-action threshold is
+  scoped to that agent, not summed globally.
 
-Used by *Great Need or Purpose* (dm-62).
+Used by *Great Need or Purpose* (dm-62, untargeted), *My Precious* (dm-29,
+self `whileRevealed`), and *Never Seen Him* (dm-74, attached via
+`play-target: "agent"`).
 
 ```json
 { "type": "extra-agent-actions", "value": 1 }
+{ "type": "extra-agent-actions", "value": 1, "whileRevealed": true }
 ```
 
 ### 40. `agent-tap-attack`

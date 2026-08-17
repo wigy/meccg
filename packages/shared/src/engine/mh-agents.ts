@@ -16,7 +16,7 @@
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
 import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect } from '../types/effects.js';
-import type { CardInstanceId, Race } from '../types/common.js';
+import type { CardInstanceId, CompanyId, Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
@@ -33,11 +33,23 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 
 /**
- * Count the total extra agent actions granted by `extra-agent-actions` effects
- * currently in play across all players (e.g. Great Need or Purpose).
- * Exported so legal-actions can reuse the same logic.
+ * Count the total extra agent actions in play, e.g. Great Need or Purpose
+ * (dm-62). Three sources contribute:
+ *  - Untargeted cardsInPlay effects (no `attachedToAgentId`), which grant the
+ *    bonus to every agent — summed across both players.
+ *  - A revealed agent's own `whileRevealed` effect (My Precious dm-29),
+ *    scoped to that agent alone.
+ *  - A permanent event attached to one specific agent via
+ *    `CardInPlay.attachedToAgentId` (Never Seen Him dm-74), scoped to that
+ *    agent alone.
+ *
+ * When `agentId` is given, the result is the total applicable to that one
+ * agent (untargeted + its own self/attached bonuses). When omitted (legacy
+ * callers), self/attached bonuses are summed across every agent — the
+ * pre-existing behavior for callers that don't yet know which agent they
+ * care about. Exported so legal-actions can reuse the same logic.
  */
-export function countExtraAgentActions(state: GameState): number {
+export function countExtraAgentActions(state: GameState, agentId?: CompanyId): number {
   const sumEffects = (defId: CardDefinition['id'], requireGlobal: boolean, revealed: boolean): number =>
     getCardEffects(defById(state, defId)).reduce(
       (n, e) => {
@@ -52,8 +64,12 @@ export function countExtraAgentActions(state: GameState): number {
     );
   return state.players.reduce((sum, p) =>
     sum
-      + p.cardsInPlay.reduce((s, card) => s + sumEffects(card.definitionId, true, false), 0)
-      + p.agents.reduce((s, a) => s + sumEffects(a.character.definitionId, false, a.revealed), 0),
+      + p.cardsInPlay
+        .filter(card => card.attachedToAgentId === undefined || card.attachedToAgentId === agentId)
+        .reduce((s, card) => s + sumEffects(card.definitionId, true, false), 0)
+      + p.agents
+        .filter(a => agentId === undefined || a.id === agentId)
+        .reduce((s, a) => s + sumEffects(a.character.definitionId, false, a.revealed), 0),
   0);
 }
 
@@ -121,7 +137,7 @@ function chargeAgentActionTail(
   agentRef: { hazardIndex: number; agentIdx: number; agent: AgentInPlay },
   mutate: (a: AgentInPlay) => AgentInPlay,
 ): ReducerResult {
-  const isExtra = agentRef.agent.remainingActions <= countExtraAgentActions(state);
+  const isExtra = agentRef.agent.remainingActions <= countExtraAgentActions(state, agentRef.agent.id);
   const newState = updateAgent(state, agentRef.hazardIndex, agentRef.agentIdx,
     a => ({ ...mutate(a), remainingActions: a.remainingActions - 1 }));
   return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtra) } };
@@ -146,7 +162,7 @@ export function handleAgentMove(state: GameState, action: GameAction, mhState: M
     status: CardStatus.Untapped,
   };
 
-  const isExtraMove = agentBeforeMove.remainingActions <= countExtraAgentActions(state);
+  const isExtraMove = agentBeforeMove.remainingActions <= countExtraAgentActions(state, agentBeforeMove.id);
 
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
@@ -179,7 +195,7 @@ export function handleAgentMoveBack(state: GameState, action: GameAction, mhStat
   const backName = backDef && isSiteCard(backDef) ? backDef.name : 'previous site';
   logDetail(`Agent ${action.agentId as string}: moving back to "${backName}", returning ${topSite.instanceId as string} to deck`);
 
-  const isExtraMoveBack = agent.remainingActions <= countExtraAgentActions(state);
+  const isExtraMoveBack = agent.remainingActions <= countExtraAgentActions(state, agent.id);
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -228,7 +244,7 @@ export function handleAgentReturnHome(state: GameState, action: GameAction, mhSt
       status: CardStatus.Untapped,
     };
 
-    const isExtraReturnFaceUp = agent.remainingActions <= countExtraAgentActions(state);
+    const isExtraReturnFaceUp = agent.remainingActions <= countExtraAgentActions(state, agent.id);
     const newState = updatePlayer(state, hazardIndex, p => ({
       ...p,
       agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -245,7 +261,7 @@ export function handleAgentReturnHome(state: GameState, action: GameAction, mhSt
   // Face-down: siteStack becomes empty, no site card needed
   logDetail(`Agent ${action.agentId as string}: returning home (face-down), returning ${agent.siteStack.length} site(s) to deck`);
 
-  const isExtraReturnFaceDown = agent.remainingActions <= countExtraAgentActions(state);
+  const isExtraReturnFaceDown = agent.remainingActions <= countExtraAgentActions(state, agent.id);
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {

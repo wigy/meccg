@@ -21,6 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
+import { countExtraAgentActions } from './mh-agents.js';
 import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
 
 
@@ -403,16 +404,14 @@ function performUntap(state: GameState): GameState {
   // Reset per-turn agent bookkeeping and untap tapped agents.
   // An agent that was in play before this untap is now eligible to take
   // agent actions (inPlayAtTurnStart → true). remainingActions is set to
-  // 1 + extra-agent-actions effects in play (e.g. Great Need or Purpose).
-  const extraAgentActions = state.players.reduce((sum, p) =>
-    p.cardsInPlay.reduce((s, card) => {
-      const def = defById(state, card.definitionId);
-      return s + (getCardEffects(def) as CardEffect[]).reduce((n, e) => e.type === 'extra-agent-actions' ? n + (e as { value: number }).value : n, 0);
-    }, sum), 0);
+  // 1 + extra-agent-actions effects applicable to that specific agent — the
+  // untargeted-global total (e.g. Great Need or Purpose dm-62) plus any
+  // self/attached bonus scoped to it alone (My Precious dm-29's whileRevealed,
+  // Never Seen Him dm-74's attached permanent event) — see countExtraAgentActions.
   const newAgents = player.agents.map(a => ({
     ...a,
     inPlayAtTurnStart: true,
-    remainingActions: 1 + extraAgentActions,
+    remainingActions: 1 + countExtraAgentActions(state, a.id),
     character: a.character.status === CardStatus.Tapped
       ? { ...a.character, status: CardStatus.Untapped }
       : a.character,

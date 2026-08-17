@@ -930,7 +930,7 @@ function agentTurnActions(
     const agentName = agentDef?.name ?? String(agent.character.definitionId);
     const status = agent.character.status;
 
-    const extraAgentActions = countExtraAgentActions(state);
+    const extraAgentActions = countExtraAgentActions(state, agent.id);
     const isExtraAction = agent.remainingActions <= extraAgentActions;
     function push(action: AgentMoveAction | AgentMoveBackAction | AgentReturnHomeAction | AgentHealAction | AgentUntapAction | AgentTurnFaceDownAction | AgentKeyCreaturesAction) {
       if (limitReached && !isExtraAction) {
@@ -3696,6 +3696,44 @@ function playHazardsActions(
             logDetail(`Hazard event "${def.name}" playable on site ${siteDefName}`);
             actions.push({
               action: { ...action, targetSiteDefinitionId: destSiteDefId },
+              viable: true,
+            });
+          }
+        }
+      } else if (playTarget?.target === 'agent') {
+        // Agent-targeting permanent hazard events (Never Seen Him dm-74): one
+        // action per one of the hazard player's own agents, any status
+        // (face-up or face-down). Cannot be played against a minion/Balrog
+        // opponent, matching the other agent-related cards' convention.
+        if (isMinionOrBalrog(resourcePlayer)) {
+          logDetail(`Hazard event "${def.name}" not playable — opponent is a minion player`);
+          actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+        } else if (player.agents.length === 0) {
+          logDetail(`Hazard event "${def.name}" not playable — no agents in play`);
+          actions.push({ action, viable: false, reason: 'No agents in play' });
+        } else {
+          // "Cannot be duplicated on a given agent": one copy per targeted
+          // agent, counted by name across cardsInPlay entries bound to it.
+          const agentDupLimit = findDuplicationLimitEffect(def, 'agent');
+          for (const agent of player.agents) {
+            if (agentDupLimit) {
+              const copiesOnAgent = player.cardsInPlay.filter(cip =>
+                cip.attachedToAgentId === agent.id
+                && defById(state, cip.definitionId)?.name === def.name,
+              ).length;
+              if (copiesOnAgent >= agentDupLimit.max) {
+                logDetail(`Hazard "${def.name}" already bound to agent ${agent.id as string} (${copiesOnAgent}/${agentDupLimit.max})`);
+                actions.push({
+                  action: { ...action, targetAgentId: agent.id },
+                  viable: false,
+                  reason: `${def.name} cannot be duplicated on this agent`,
+                });
+                continue;
+              }
+            }
+            logDetail(`Hazard event "${def.name}" playable on agent ${agent.id as string}`);
+            actions.push({
+              action: { ...action, targetAgentId: agent.id },
               viable: true,
             });
           }

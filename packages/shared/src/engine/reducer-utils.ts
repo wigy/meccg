@@ -5295,10 +5295,13 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
 }
 
 /**
- * Inner Cunning (dm-68) mode 1: discard any permanent event bound to a
- * face-down agent ({@link CardInPlay.attachedToAgentId}) once that agent is no
- * longer a face-down agent in the same player's `agents` list — i.e. it was
- * revealed ("Discard when the agent is revealed.") or otherwise left play.
+ * Discard any permanent event bound to an agent ({@link CardInPlay.attachedToAgentId})
+ * once its bound agent leaves play entirely (defeated, discarded, …). A card
+ * whose own effects mark it as `agent-reveal-site-override` additionally
+ * discards the moment its agent is revealed — Inner Cunning (dm-68) mode 1:
+ * "Discard when the agent is revealed." Cards without that marker (Never Seen
+ * Him dm-74: an ongoing extra-agent-action grant) stay attached through reveal
+ * and persist for as long as the agent remains in play, face-up or face-down.
  * Runs as part of the post-reduce sweep, mirroring
  * {@link discardOrphanedSiteAttachedEvents}.
  */
@@ -5308,7 +5311,10 @@ export function discardOrphanedAgentAttachedEvents(state: GameState): GameState 
     (card, player) => {
       if (card.attachedToAgentId === undefined) return false;
       const agent = player.agents.find(a => a.id === card.attachedToAgentId);
-      return !agent || agent.revealed;
+      if (!agent) return true;
+      const def = defById(state, card.definitionId);
+      const discardsOnReveal = getCardEffects(def).some(e => e.type === 'agent-reveal-site-override');
+      return discardsOnReveal && agent.revealed;
     },
     (card, player) => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
