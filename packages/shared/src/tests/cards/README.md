@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1149 | 1148 | 1 | 99.9% |
+| 1150 | 1149 | 1 | 99.9% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 97 | 97 | 100.0% |
 | DM | 105 | 105 | 100.0% |
 | LE | 303 | 302 | 99.7% |
-| TD | 94 | 94 | 100.0% |
+| TD | 95 | 95 | 100.0% |
 | TW | 351 | 351 | 100.0% |
 | WH | 90 | 90 | 100.0% |
 
@@ -302,7 +302,7 @@
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 11 | ☑ |
-| dm-120 | Choice of Lúthien | — | 13 | ☑ |
+| dm-120 | Choice of Lúthien | — | 14 | ☑ |
 | dm-121 | Crown of Flowers | — | 8 | ☑ |
 | dm-123 | Dark Numbers | — | 14 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
@@ -653,6 +653,7 @@
 | td-27 | From the Pits of Angband | — | 15 | ☑ |
 | td-30 | Hobgoblins  | — | 4 | ☑ |
 | td-32 | Ice-drake | — | 2 | ☑ |
+| td-33 | Icy Touch | — | 11 | ☑ |
 | td-34 | Incite Denizens | — | 10 | ☑ |
 | td-36 | Itangast | — | 8 | ☑ |
 | td-37 | Itangast Ahunt | — | 13 | ☑ |

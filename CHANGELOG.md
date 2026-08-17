@@ -1,5 +1,125 @@
 # Changelog
 
+## 0.111.0 — 2026-08-17
+
+The tutorial finds its ending, the Elo ledger its audit
+
+### Web Client
+
+- Chapter one of the guided tutorial is now the player's own first turn
+  and ends cleanly. `TUTORIAL_STEPS` / `TUTORIAL_BEATS` stop at the
+  `eot-1-end` End Turn (34 steps); the Mentor's turns and rounds 2-3 move
+  to `LATER_CHAPTER_STEPS` / `LATER_CHAPTER_BEATS`, still replayed by both
+  tutorial tests as a continuation so they stay engine-verified until
+  released as chapters of their own. Previously a player who reached the
+  end of the script had nothing left to click — `gateHumanActions` demoted
+  every human action except pass-chain-priority and the panel only swapped
+  its label to "Complete!". When the last beat is done the docked
+  instruction panel now gives way to a card in the middle of the board:
+  what the chapter taught, one line per lesson, and an "Exit Tutorial"
+  button wired to `disconnect()`. `TutorialProgress` gained an optional
+  `learned` list; the closing line reuses the existing `footer` field, so
+  the panel still renders purely from `PlayerView.tutorial`. The lobby
+  button drops its "(Not finished yet)" tag.
+- A finished tutorial releases the game immediately. Exiting the
+  completion card closes the WebSocket, but the session then sat in the
+  no-humans grace period for a full minute before the child process
+  exited — and the lobby learns a game ended only from that exit — so for
+  `IDLE_EXIT_GRACE_MS` the player was still listed "In game". A finished
+  tutorial now reports itself idle at once; quitting mid-chapter still
+  waits out the grace period, since that player may be reloading. The
+  completion card also gets its own heavier backdrop instead of sitting
+  behind the continue gate's 55% one.
+- The tutorial teaches the additional-minor-item bonus. The
+  `site-goldberry` step played Goldberry (tapping the Old Forest) and then
+  immediately passed, discarding the CoE rule 2.V.5 bonus that opens right
+  there. A new `site-minor-item-bonus` step plays the spare Dagger of
+  Westernesse the player's hand already held on Arwen via the bonus.
+  Reported by a player via bug-report mail.
+- The "Stop Existing Game" button stays pressable. Starting a game called
+  `setLobbyPlayButtonsDisabled(true)`, which swept every
+  `#lobby-screen .lobby-play-btn` — and `#stop-game-btn` carries that
+  class — so after start-game → quit the player saw themselves listed as
+  playing with no way to end it. The launch sweep now skips the stop
+  button, the per-id reset moves into an exported `resetLobbyButtons()`,
+  and rejected actions call it too, so "You are not in a game" no longer
+  leaves the button stuck on "Stopping...".
+
+### Game Engine
+
+- The movement/hazard phase can end when its last company dissolves. A
+  self-play batch deadlocked at seed 1157: the active player's sole
+  character failed a corruption check while the phase sat at
+  select-company, dissolving the company and with it every action the step
+  could offer. Rule 2.IV.1's skip was applied only at the long-event → M/H
+  transition. Pass is now offered at M/H select-company when no unhandled
+  company remains, and accepted in the reducer.
+- `isCompanyAtSite()` covers a departing company mid-sub-phase. It treated
+  a company as en route only once `company.moved` flipped, missing the
+  mirror-image window where a company has revealed its new site but not
+  finished its own sub-phase (CoE 2.IV.5 / CRF-22 Annotation 25). A
+  company at Minas Tirith that had already declared movement elsewhere was
+  still offered Choice of Lúthien (dm-120) mid-sub-phase.
+- Switching an item back is marked as undoing the switch. A game hit the
+  25000-decision limit at seed 4029 with 23000 spent declaring two copies
+  of Hauberk of Bright Mail at each other. `handleUseItem` already stored
+  the displaced item as the reverse, but `matchesAction` had no `use-item`
+  case, so nothing could ever set the documented `regress?: true` field.
+  Seed 4029 now finishes in 1987 decisions.
+
+### Cards
+
+- **Icy Touch (td-33)** certified. Adds a `attachCorruptionOnWound`
+  modify-attack rider for hazard events played on a company facing an
+  attack that then attach to whichever character the attack wounds:
+  `CombatState.pendingCorruptionAttach` marks it eligible and
+  `finalizeCombat` splices it out of the discard pile onto the first
+  eligible wounded character. Documented as DSL section 10e-ter.
+
+### AI / Simulation
+
+- Heuristics 1 plays its argmax instead of sampling its weights. The
+  evaluators were written to rank candidates and the agent read their
+  output as a distribution, so it chose from outside its own top-weighted
+  set on 26.4% of contested decisions. Worth about +47 Elo, pooled
+  2230W-1687L-80D over 3997 games across ten paired 400-game blocks, all
+  ten favouring argmax. Ties break uniformly from the seeded stream with a
+  relative tolerance. Sampling stays reachable as `heuristic:sample`, and
+  `export-training` / `fit-winprob` ask for it by name. Note that H1 is
+  the default gate champion, so every historical challenger was rated
+  against the weaker version.
+- The gate verifies its own working tree. Controls had been run in a `git
+  worktree` or after a `git checkout` inside a compound command, and when
+  the git step failed — it did, because a worktree already held `master` —
+  the gate ran anyway and printed a clean-looking result for a tree it had
+  never been given. `cli/tree-check` now refuses (rather than warns) if
+  the code being run is not the code in this directory or the tree is
+  dirty; `--allow-dirty` opts out of the second only. Every gate result
+  now carries the branch and SHA it measured.
+- The full ledger of what each merged change is worth, re-measured against
+  a verified master: acting on ties +244 (claimed +110), favourites draft
+  +51 (claimed neutral), haven healing +47 (+33), move-to-influence +26
+  (+9), corruption check +20 (neutral), revisit charge +20 (+21),
+  mind-priority draft 0 (+17), carried wound −18 (claimed +157, not
+  merged), and #2397's tap deduction −75 (−87, reverted). Five of nine
+  claims were directionally right, three inverted, one exact. Every H2
+  figure from the broken harness — −96, −101, −111, −134, −155, −188,
+  −211, −265 — is wrong and the conclusions resting on differences between
+  them are unsupported. What survives is everything measured without a
+  gate: corpus agreement rates, the `scoring-loop` funnel, `hand-flow`
+  arrivals, `route-compare` shapes and the wounded/tapped/untapped splits.
+- The heuristic stops burning Cram when it can already move.
+- Fine-tuning inherits its parent's decode declaration. Deriving it from
+  the training targets is right for a fresh clone and wrong for every RL
+  candidate, which would have stamped `argmax` on a lineage cloned from
+  human one-hots and gated it at a readout scoring 3.5% instead of 43%.
+  `--decode` still forces it; a run without `--init` still derives.
+- An opt-in `--hazard-memory` export was added and recorded as not
+  helping: `plan-movement` moved from 3.3% to 3.6% against ~5% for
+  guessing uniformly, still at chance. Corpus growth to 703 logs agrees —
+  the pure policy improved from −83 to −47 Elo while the hybrid built on
+  those weights measured −1 against the deployed hybrid's +23.
+
 ## 0.110.0 — 2026-08-16
 
 Seven certifications and two corruption miscounts
