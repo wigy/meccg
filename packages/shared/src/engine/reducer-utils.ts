@@ -3708,15 +3708,25 @@ export function siteFactionLockedByAgentHomeSite(
 
 /**
  * True if a character named `charName` is already in play as a character on
- * either player. Backs the uniqueness check shared by the organization phase
- * and recruit-via-event: a `unique` character cannot be brought into play while
- * a same-named character is already in play. (The `.unique` gate lives at the
- * call site; this only tests name-in-play.)
+ * either player, or has been eliminated into either player's `outOfPlayPile`.
+ * Backs the uniqueness check shared by the organization phase and
+ * recruit-via-event: a `unique` character cannot be brought into play while a
+ * same-named character is already in play or has been eliminated, per the
+ * glossary's "unique" entry (docs/coe-rules.md) — an eliminated unique
+ * permanently occupies the "in play and/or removed-from-play" slot, so no
+ * other copy (including the opponent's) may enter play afterward. A merely
+ * discarded (not eliminated) copy does not block replay, so `discardPile` is
+ * deliberately not scanned. (The `.unique` gate lives at the call site; this
+ * only tests name-in-play-or-eliminated.)
  */
 export function isUniqueCharacterInPlay(state: GameState, charName: string): boolean {
   for (const p of state.players) {
     for (const char of Object.values(p.characters)) {
       const def = resolveDef(state, char.instanceId);
+      if (isCharacterCard(def) && def.name === charName) return true;
+    }
+    for (const card of p.outOfPlayPile) {
+      const def = state.cardPool[card.definitionId];
       if (isCharacterCard(def) && def.name === charName) return true;
     }
   }

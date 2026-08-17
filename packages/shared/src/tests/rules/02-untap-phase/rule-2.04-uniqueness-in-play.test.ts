@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, makeSitePhase,
+  buildTestState, resetMint, mint, addToPile, Phase, makeSitePhase,
   viableOfType, nonViableOfType,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, EOWYN,
@@ -110,6 +110,38 @@ describe('Rule 2.04 — Uniqueness In Play', () => {
     const actions = computeLegalActions(state, PLAYER_1);
     const playActions = viableOfType(actions, 'play-character');
     expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  test('Unique character eliminated into opponent out-of-play pile cannot be played by the other player', () => {
+    // Legolas was eliminated (failed body check) for P2 and sits in P2's
+    // outOfPlayPile. P1 has their own copy of Legolas in hand — per the
+    // glossary's "unique" ruling, an eliminated unique permanently occupies
+    // the "in play and/or removed-from-play" slot, so P1's copy must remain
+    // blocked even though no Legolas is currently in play.
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [LEGOLAS],
+          siteDeck: [],
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [],
+          companies: [{ site: LORIEN, characters: [] }],
+        },
+      ],
+      recompute: true,
+    });
+    state = addToPile(state, 1, 'outOfPlayPile', { instanceId: mint(), definitionId: LEGOLAS });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const playActions = viableOfType(actions, 'play-character');
+    expect(playActions).toHaveLength(0);
   });
 
   test('Unique item in play for opponent cannot be played by resource player', () => {
