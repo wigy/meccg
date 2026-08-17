@@ -9,22 +9,27 @@
 
 import { describe, test, expect } from 'vitest';
 import type { AiExplanationMessage, PlayerId } from '@meccg/shared';
-import { askAiButtonState, askAiPendingText, formatAskAiPanel } from './ask-ai.js';
+import { askAiButtonState, askAiMenuEntries, askAiPendingText, formatAskAiPanel } from './ask-ai.js';
 
 describe('askAiButtonState', () => {
   test('is hidden with no observer attached', () => {
-    expect(askAiButtonState({ attached: false, agent: null })).toEqual({ visible: false, title: '' });
+    expect(askAiButtonState({ attached: false, agents: [] })).toEqual({ visible: false, title: '' });
   });
 
   test('names the agent, because the answer differs per agent', () => {
-    expect(askAiButtonState({ attached: true, agent: 'mc:ms=2000/turns=2' })).toEqual({
+    expect(askAiButtonState({ attached: true, agents: ['mc:ms=2000/turns=2'] })).toEqual({
       visible: true,
       title: 'Ask AI (mc:ms=2000/turns=2)',
     });
   });
 
-  test('shows even for an attached observer that did not name its agent', () => {
-    expect(askAiButtonState({ attached: true, agent: null })).toEqual({
+  test('names every agent an observer offers', () => {
+    expect(askAiButtonState({ attached: true, agents: ['h2', 'mc:ms=2000'] }).title)
+      .toBe('Ask AI (h2, mc:ms=2000)');
+  });
+
+  test('shows even for an attached observer that named no agent', () => {
+    expect(askAiButtonState({ attached: true, agents: [] })).toEqual({
       visible: true,
       title: 'Ask AI',
     });
@@ -34,8 +39,28 @@ describe('askAiButtonState', () => {
     // Availability is decided by attachment alone: a spectator watching an AI
     // game is one of the readers this exists for, and nothing here can alter
     // the game, so there is nothing for a dev gate to protect.
-    const attached = askAiButtonState({ attached: true, agent: 'h2' });
+    const attached = askAiButtonState({ attached: true, agents: ['h2'] });
     expect(attached.visible).toBe(true);
+  });
+});
+
+describe('askAiMenuEntries', () => {
+  test('offers both questions for a single agent', () => {
+    expect(askAiMenuEntries({ attached: true, agents: ['h2'] })).toEqual([
+      { label: 'This position — h2', agent: 'h2', mode: 'now' },
+      { label: 'My last move — h2', agent: 'h2', mode: 'last-move' },
+    ]);
+  });
+
+  test('offers both questions for each agent, in launch order', () => {
+    const entries = askAiMenuEntries({ attached: true, agents: ['h2', 'mc:ms=2000'] });
+    expect(entries.map(e => `${e.agent}/${e.mode}`)).toEqual([
+      'h2/now', 'h2/last-move', 'mc:ms=2000/now', 'mc:ms=2000/last-move',
+    ]);
+  });
+
+  test('is empty when nothing is offered', () => {
+    expect(askAiMenuEntries({ attached: false, agents: [] })).toEqual([]);
   });
 });
 
@@ -97,7 +122,10 @@ describe('formatAskAiPanel', () => {
 
 describe('askAiPendingText', () => {
   test('names the agent being asked, so a slow answer is explicable', () => {
-    expect(askAiPendingText({ attached: true, agent: 'mc:ms=2000' }).heading)
-      .toBe('Asking mc:ms=2000…');
+    expect(askAiPendingText('mc:ms=2000').heading).toBe('Asking mc:ms=2000…');
+  });
+
+  test('says it is rewinding when the question is about the last move', () => {
+    expect(askAiPendingText('h2', 'last-move').body).toContain('before your last move');
   });
 });

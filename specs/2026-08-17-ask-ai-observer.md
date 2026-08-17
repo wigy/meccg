@@ -1,9 +1,8 @@
 # Spec: Ask AI — an Observer that Explains What the Selected Agent Would Do
 
-*Status: implemented 2026-08-17 (phases 1–3). The three policy questions the
+*Status: implemented 2026-08-17 (phases 1–4, bar two follow-ups). The three policy questions the
 first draft left open — cheat marking, default agent, spectator access — are
-decided; see "Resolved decisions" at the end. Phase 4 is still a list of
-follow-ups.*
+decided; see "Resolved decisions" at the end.*
 
 *Where the build differs from this design, the reason is recorded in
 "Implementation notes" at the end.*
@@ -131,14 +130,18 @@ export interface JoinMessage {
    * spec). Observers never act, never receive state broadcasts, and never keep
    * a session alive.
    */
-  readonly observer?: { readonly agent: string };
+  readonly observer?: { readonly agents: readonly string[] };
 }
 
-/** Ask the attached observer what its agent would do right now. */
+/** Ask the attached observer what one of its agents would do. */
 export interface AskAiMessage {
   readonly type: 'ask-ai';
   /** Client-generated id, echoed back on the answer. */
   readonly requestId: string;
+  /** Which offered agent to ask. Absent means the first. */
+  readonly agent?: string;
+  /** The decision facing the seat, or the seat's own last move. Absent means `now`. */
+  readonly mode?: 'now' | 'last-move';
 }
 
 /** Observer → server: the finished explanation. */
@@ -173,8 +176,8 @@ Server → client:
 export interface ObserverMessage {
   readonly type: 'observer';
   readonly attached: boolean;
-  /** Agent spec, or null when nothing is attached. */
-  readonly agent: string | null;
+  /** Agent specs on offer, in launch order. Empty when nothing is attached. */
+  readonly agents: readonly string[];
 }
 
 /** Server → observer: please explain this position. */
@@ -185,6 +188,10 @@ export interface AiQuestionMessage {
   readonly stateSeq: number;
   /** Whose decision to explain. */
   readonly forPlayer: PlayerId;
+  /** Which of the observer's agents to run. */
+  readonly agent: string;
+  /** Whether to explain the decision now, or the seat's own last move. */
+  readonly mode: 'now' | 'last-move';
   readonly turn: number;
   readonly phase: string;
   readonly step?: string;
@@ -600,23 +607,41 @@ of the newest position and exits.
 **Phase 3 — the game screen.** Icon, panel, wiring. The user-visible feature
 lands here.
 
-**Phase 4 — follow-ups, separate specs.** See *Follow-ups* below.
+**Phase 4 — the follow-ups that fit.** Three of the five shipped:
+
+- **Several agents per observer.** `bin/observe --agent h2 --agent mc:ms=2000`
+  offers both; the icon opens a menu; `ask-ai` names the one to run, and the
+  server refuses an agent the attached observer does not offer rather than
+  quietly answering with a different one.
+- **"My last move."** The second row of each agent's menu entry. The observer
+  rewinds through the log to the position that seat last decided from and
+  renders a verdict — *agrees*, or *would have played X instead*. Attribution
+  reads the action's own `player` first and the previous record's
+  `activePlayer` second: the simultaneous phases have no active player, and
+  they are exactly the ones where actions name their author.
+- **`?` asks the first agent about this position**, since the letter keys are
+  all spent on hand and board targets.
+
+The seat rule is unchanged for the new question, and that is what keeps it
+honest: "my last move" means *the asker's own* last move, because the
+explanation is still built from that seat's view. For a spectator it is the last
+move by whoever is to act now. Explaining the *opponent's* last move would mean
+rendering their view to someone who may not see it, which is the one thing this
+design does not do.
+
+The two that did not ship are below: both need a design decision this spec does
+not make.
 
 ## Follow-ups (not in this spec)
 
-- **Several agents per observer.** `bin/observe --agent h2 --agent mc:ms=2000`,
-  the icon becoming a small menu, `ask-ai` carrying the chosen spec. The
-  protocol is already shaped for it: `ObserverMessage.agent` becomes a list.
-- **"Explain the opponent's last move."** Each log record stores the `action`
-  that produced it, so the observer can compare what the agent would have done
-  against what was actually played — the most interesting question a player has
-  while watching an AI.
-- **Keyboard shortcut** in `browser/keyboard-shortcuts.ts`.
-- **Ask from the replay viewer.** A replay has no socket, but it does have
-  `gameId#stateSeq`, so the same explanation could be fetched over HTTP for any
-  recorded position.
+- **Ask from the replay viewer.** A replay has no game server, so there is no
+  socket to relay a question over and no observer attached to anything. The
+  explanation would have to come from an HTTP endpoint — which means deciding
+  *where the agent runs*, and the whole design above rests on it not being the
+  lobby or the game server. Needs its own spec.
 - **Streaming progress** for slow agents (`mc` rollout counts) instead of a
-  spinner.
+  spinner. Needs a partial-answer message and a decision about what a partial
+  ranking means before it is complete.
 
 ## Implementation notes
 

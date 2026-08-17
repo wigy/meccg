@@ -28,7 +28,7 @@ import type { AiQuestionMessage, ClientMessage, JoinMessage, ServerMessage } fro
 import { Alignment, loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { Agent } from '@meccg/sim';
 import { explainDecision, resolveAgent } from '@meccg/sim';
-import { openLogTail, resolveRecord } from './observer-log-tail.js';
+import { lastMoveBy, openLogTail, resolveRecord } from './observer-log-tail.js';
 import type { LogTail } from './observer-log-tail.js';
 
 const USAGE = `observer — explain what an AI agent would do in the live game
@@ -37,8 +37,11 @@ Usage:
   bin/observe [--agent <spec>] [--new] [--lobby <url>] [--once]
 
 Options:
-  --agent <spec>  Sim registry spec of the explaining agent — h2 (default),
+  --agent <spec>  Sim registry spec of an explaining agent — h2 (default),
                   heuristic, 'mc:ms=2000/turns=2', 'bc:weights.json', …
+                  Repeatable: every agent given is offered in the game
+                  screen's Ask AI menu, so the same position can be put to
+                  each of them.
   --new           Wait for the NEXT game to be launched instead of attaching
                   to the newest existing one.
   --lobby <url>   Lobby base URL. Default http://localhost:8080.
@@ -65,7 +68,21 @@ function option(name: string, fallback: string): string {
   return at >= 0 && argv[at + 1] && !argv[at + 1].startsWith('--') ? argv[at + 1] : fallback;
 }
 
-const agentSpec = option('agent', 'h2');
+/** Every `--flag value` occurrence, in the order given. */
+function options(name: string): string[] {
+  const values: string[] = [];
+  argv.forEach((arg, i) => {
+    if (arg !== `--${name}`) return;
+    const value = argv[i + 1];
+    if (value && !value.startsWith('--')) values.push(value);
+  });
+  return values;
+}
+
+const agentSpecs = options('agent');
+if (agentSpecs.length === 0) agentSpecs.push('h2');
+/** The default agent: the first one given, and what `--once` uses. */
+const agentSpec = agentSpecs[0];
 const lobbyUrl = option('lobby', 'http://localhost:8080').replace(/\/$/, '');
 const observerName = option('name', 'Observer');
 const waitForNew = argv.includes('--new');
@@ -79,13 +96,16 @@ const once = argv.includes('--once');
  * someone is waiting for an answer in a browser. It also pays a `bc` agent's
  * weights-loading cost before the clock is running.
  */
-let agent: Agent;
-try {
-  agent = resolveAgent(agentSpec);
-} catch (err) {
-  console.error(`observer: cannot use --agent ${agentSpec}: ${(err as Error).message}`);
-  process.exit(2);
+const agents = new Map<string, Agent>();
+for (const spec of agentSpecs) {
+  try {
+    agents.set(spec, resolveAgent(spec));
+  } catch (err) {
+    console.error(`observer: cannot use --agent ${spec}: ${(err as Error).message}`);
+    process.exit(2);
+  }
 }
+const agent = agents.get(agentSpec)!;
 
 const cardPool = loadCardPool();
 
@@ -173,28 +193,44 @@ async function answer(
   tail: LogTail,
   gameId: string,
 ): Promise<{ lines: string[]; elapsedMs: number } | { error: string }> {
+  const asked = agents.get(question.agent);
+  if (!asked) {
+    return { error: `this observer offers ${[...agents.keys()].join(', ')}, not "${question.agent}"` };
+  }
+
   const resolved = await resolveRecord(tail, question.stateSeq);
   if (!resolved) {
     return { error: `no position recorded yet in ${path.basename(tail.path)}` };
+  }
+
+  // `last-move` rewinds to the position the seat last decided from, and carries
+  // the move it made so the explanation can render a verdict on it.
+  const target = question.mode === 'last-move'
+    ? lastMoveBy(tail, resolved.record.stateSeq, question.forPlayer)
+    : { record: resolved.record, played: undefined };
+  if (!target) {
+    return { error: `${question.forPlayer} has not moved yet in this game` };
   }
 
   const started = Date.now();
   let lines: string[];
   try {
     lines = [...explainDecision({
-      agent,
-      agentSpec,
-      state: resolved.record.state,
+      agent: asked,
+      agentSpec: question.agent,
+      state: target.record.state,
       playerId: question.forPlayer,
-      title: `game ${gameId}#${resolved.record.stateSeq}`,
+      title: `game ${gameId}#${target.record.stateSeq}`
+        + (question.mode === 'last-move' ? ' — the position before their last move' : ''),
       cardPool,
-      source: { gameId, stateSeq: resolved.record.stateSeq },
+      source: { gameId, stateSeq: target.record.stateSeq },
+      actuallyPlayed: target.played,
     }).lines];
   } catch (err) {
-    return { error: `${agentSpec} failed on this position: ${(err as Error).message}` };
+    return { error: `${question.agent} failed on this position: ${(err as Error).message}` };
   }
 
-  if (!resolved.exact) {
+  if (question.mode !== 'last-move' && !resolved.exact) {
     // An explanation of the wrong position must never look like an explanation
     // of the right one.
     lines.unshift(
@@ -219,7 +255,7 @@ function observerJoin(target: ObserverTarget): JoinMessage {
     playDeck: [],
     siteDeck: [],
     sideboard: [],
-    observer: { agent: agentSpec },
+    observer: { agents: agentSpecs },
   };
 }
 
@@ -254,7 +290,8 @@ function watch(target: ObserverTarget): Promise<void> {
       working = true;
       try {
         for (let question = queue.shift(); question; question = queue.shift()) {
-          console.log(`observer: asked about ${question.forPlayer} at #${question.stateSeq}`
+          console.log(`observer: ${question.agent} asked about ${question.forPlayer}`
+            + `${question.mode === 'last-move' ? "'s last move" : ''} at #${question.stateSeq}`
             + ` (turn ${question.turn}, ${question.phase}${question.step ? `/${question.step}` : ''})`);
           const result = await answer(question, tail, gameId);
           if ('error' in result) {
@@ -266,7 +303,7 @@ function watch(target: ObserverTarget): Promise<void> {
             type: 'ai-answer',
             requestId: question.requestId,
             lines: result.lines,
-            agent: agentSpec,
+            agent: question.agent,
             elapsedMs: result.elapsedMs,
           });
           // The terminal running the observer doubles as a transcript of
@@ -299,7 +336,7 @@ function watch(target: ObserverTarget): Promise<void> {
             tail = openLogTail(gameId);
           }
           console.log(`observer: attached to ${gameId} on port ${target.port}`
-            + ` as "${observerName}" with agent ${agentSpec}`);
+            + ` as "${observerName}" offering ${agentSpecs.join(', ')}`);
           console.log(`observer: following ${tail.path}`);
           if (once) explainNewestAndExit(tail, gameId);
           break;
@@ -362,7 +399,7 @@ function explainNewestAndExit(tail: LogTail, gameId: string): void {
 // ---- Main loop ----
 
 async function main(): Promise<void> {
-  console.log(`observer: agent ${agent.name} (spec ${agentSpec}), lobby ${lobbyUrl}`);
+  console.log(`observer: agents ${agentSpecs.join(', ')}, lobby ${lobbyUrl}`);
   // `--new` skips whatever is already running: the point of the flag is to
   // start the observer first and then launch the game you want watched.
   let since = waitForNew ? new Date().toISOString() : undefined;

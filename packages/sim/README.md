@@ -200,7 +200,9 @@ npm run explain -w @meccg/sim -- --scenario combat/creature-with-body --state
 # of the module derivation. Reads the position from the game log, so it runs on
 # the server's own host and authenticates with MASTER_KEY.
 bin/observe [--agent h2] [--new] [--once]
-bin/observe --agent 'mc:ms=2000/turns=2'   # ask the search agent instead
+bin/observe --agent h2 --agent 'mc:ms=2000/turns=2'   # offer both, pick per ask
+# In the game screen the icon's menu asks either about the position or about
+# your own last move — the latter renders a verdict on what you actually played.
 
 # The fixed sample set: named positions modules are tested and explained against
 npm run scenarios -w @meccg/sim -- list [--module combat]

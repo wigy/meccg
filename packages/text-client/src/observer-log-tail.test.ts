@@ -12,7 +12,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { GameLogRecord } from '@meccg/sim';
-import { openLogTail, resolveRecord } from './observer-log-tail.js';
+import { lastMoveBy, openLogTail, resolveRecord } from './observer-log-tail.js';
 
 let dir: string;
 let logPath: string;
@@ -36,6 +36,29 @@ function record(stateSeq: number, turn = 1): string {
     phase: 'site',
     activePlayer: 'p1',
     state: { stateSeq, turnNumber: turn, players: [] },
+  };
+  return `${JSON.stringify(entry)}\n`;
+}
+
+/**
+ * A record with an explicit active player and the action that produced it —
+ * the pair `lastMoveBy` reads to work out who chose what.
+ */
+function move(
+  stateSeq: number,
+  activePlayer: string | null,
+  action: string | null,
+  actionPlayer?: string,
+): string {
+  const entry = {
+    ts: new Date(0).toISOString(),
+    event: 'state',
+    stateSeq,
+    turn: 1,
+    phase: 'site',
+    activePlayer,
+    ...(action ? { action: { type: action, ...(actionPlayer ? { player: actionPlayer } : {}) } } : {}),
+    state: { stateSeq, turnNumber: 1, players: [] },
   };
   return `${JSON.stringify(entry)}\n`;
 }
@@ -95,6 +118,46 @@ describe('following a log', () => {
     const tail = openLogTail('alice-vs-bob-1755000000000');
     expect(tail.path).toContain(path.join('.meccg', 'logs', 'games'));
     expect(tail.path).toContain('alice-vs-bob-1755000000000.jsonl');
+  });
+});
+
+describe('lastMoveBy', () => {
+  test('returns the position the seat decided from and the move it made', () => {
+    // p1 was to act at #1 and played `pass`, which produced #2.
+    fs.writeFileSync(logPath, move(0, 'p1', null) + move(1, 'p1', 'draw') + move(2, 'p2', 'pass'));
+    const found = lastMoveBy(openLogTail(logPath), 2, 'p1');
+    expect(found?.record.stateSeq).toBe(1);
+    expect(found?.played).toEqual({ type: 'pass' });
+  });
+
+  test('skips over the opponent\'s moves to find this seat\'s own', () => {
+    fs.writeFileSync(logPath,
+      move(0, 'p1', null)
+      + move(1, 'p1', 'draw')      // p1 decided at #0
+      + move(2, 'p2', 'travel')    // p1 decided at #1
+      + move(3, 'p2', 'organise')  // p2 decided at #2
+      + move(4, 'p1', 'pass'));    // p2 decided at #3
+    // Asked at #4: p1's own last decision was at #1, not p2's at #3.
+    const found = lastMoveBy(openLogTail(logPath), 4, 'p1');
+    expect(found?.record.stateSeq).toBe(1);
+    expect(found?.played).toEqual({ type: 'travel' });
+  });
+
+  test('reads the actor off the action in a simultaneous phase', () => {
+    // The character draft has no active player, and every setup action names
+    // its own — which is why the action field is consulted first.
+    fs.writeFileSync(logPath,
+      move(0, null, null)
+      + move(1, null, 'draft-pick', 'p1')
+      + move(2, null, 'draft-pick', 'p2'));
+    const found = lastMoveBy(openLogTail(logPath), 2, 'p1');
+    expect(found?.record.stateSeq).toBe(0);
+    expect(found?.played).toMatchObject({ type: 'draft-pick', player: 'p1' });
+  });
+
+  test('is null before the seat has moved at all', () => {
+    fs.writeFileSync(logPath, move(0, 'p2', null) + move(1, 'p2', 'draw'));
+    expect(lastMoveBy(openLogTail(logPath), 1, 'p1')).toBeNull();
   });
 });
 

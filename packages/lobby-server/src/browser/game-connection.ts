@@ -83,9 +83,9 @@ export function clearAwaitingResponse(): void {
  * awaiting-response lock, and must stay askable while it is the opponent's
  * turn — which is exactly when the question is interesting.
  */
-setAskAiSender((requestId: string) => {
+setAskAiSender((requestId: string, agent: string, mode: 'now' | 'last-move') => {
   if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
-  const msg: ClientMessage = { type: 'ask-ai', requestId };
+  const msg: ClientMessage = { type: 'ask-ai', requestId, agent, mode };
   appState.ws.send(JSON.stringify(msg));
 });
 
@@ -742,7 +742,7 @@ export function connect(name: string): void {
       case 'observer':
         // An observer attaching or leaving is what makes the Ask AI control
         // appear or vanish (specs/2026-08-17-ask-ai-observer.md).
-        setObserver({ attached: msg.attached, agent: msg.agent });
+        setObserver({ attached: msg.attached, agents: msg.agents });
         break;
 
       case 'ai-explanation':

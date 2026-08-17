@@ -350,6 +350,15 @@ export interface DecisionExplanationInput {
   readonly seed?: number;
   /** Where the position came from, for the reproduce footer. */
   readonly source?: { readonly gameId: string; readonly stateSeq: number };
+  /**
+   * The move that was actually played from this position, when explaining a
+   * decision already made ("would the agent have played that?").
+   *
+   * Rendered as a verdict against the agent's own pick, which is the whole
+   * point of asking about a move afterwards: agreement is a much cheaper thing
+   * to read than two rankings side by side.
+   */
+  readonly actuallyPlayed?: GameAction;
   /** H2 knobs; parsed from `agentSpec` when omitted. */
   readonly h2?: H2AnalysisOptions;
 }
@@ -487,6 +496,20 @@ export function explainDecision(input: DecisionExplanationInput): DecisionExplan
     }
     if (nonViable.length > NON_VIABLE_SHOWN) {
       lines.push(`  … and ${nonViable.length - NON_VIABLE_SHOWN} more`);
+    }
+  }
+
+  if (input.actuallyPlayed) {
+    const played = describe(input.actuallyPlayed);
+    lines.push('');
+    lines.push('ACTUALLY PLAYED');
+    lines.push(`  ${played}`);
+    if (chosen === null) {
+      lines.push('  The agent had no opinion about this position.');
+    } else if (JSON.stringify(chosen) === JSON.stringify(input.actuallyPlayed)) {
+      lines.push(`  ${agent.name} agrees — it would have played the same move.`);
+    } else {
+      lines.push(`  ${agent.name} would have played ${chosenDescription} instead.`);
     }
   }
 

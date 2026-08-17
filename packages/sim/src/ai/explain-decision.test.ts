@@ -9,6 +9,7 @@
 
 import { describe, test, expect } from 'vitest';
 import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
+import { projectPlayerView } from '@meccg/game-server';
 import type { PlayerId } from '@meccg/shared';
 import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createRandomAgent } from '../agents/random-agent.js';
@@ -138,6 +139,46 @@ describe('explainDecision — the H2 path', () => {
     expect(text).toContain('STANDING');
     expect(text).toContain('Position: scenario combat/assign-two-strikes');
   }, 60_000);
+});
+
+describe('explaining a move already made', () => {
+  test('says so when the agent agrees with what was played', () => {
+    const { state, playerId } = position();
+    const agent = createHeuristicAgent();
+    // What the agent itself would pick, played back to it as the move made.
+    const pick = explainDecision({
+      agent, agentSpec: 'heuristic', state, playerId, title: 'position', cardPool,
+    }).chosen!;
+
+    const text = explainDecision({
+      agent, agentSpec: 'heuristic', state, playerId, title: 'position', cardPool,
+      actuallyPlayed: pick,
+    }).lines.join('\n');
+
+    expect(text).toContain('ACTUALLY PLAYED');
+    expect(text).toContain('agrees');
+  });
+
+  test('names what it would have played instead when it disagrees', () => {
+    const { state, playerId } = position();
+    const agent = createHeuristicAgent();
+    const explanation = explainDecision({
+      agent, agentSpec: 'heuristic', state, playerId, title: 'position', cardPool,
+    });
+    // Any viable action that is not the agent's own pick.
+    const other = projectPlayerView(state, playerId).legalActions
+      .filter(e => e.viable)
+      .map(e => e.action)
+      .find(a => JSON.stringify(a) !== JSON.stringify(explanation.chosen))!;
+
+    const text = explainDecision({
+      agent, agentSpec: 'heuristic', state, playerId, title: 'position', cardPool,
+      actuallyPlayed: other,
+    }).lines.join('\n');
+
+    expect(text).toContain('would have played');
+    expect(text).toContain(explanation.chosenDescription);
+  });
 });
 
 describe('the view-only invariant', () => {

@@ -22,6 +22,7 @@
  */
 
 import * as fs from 'fs';
+import type { GameAction } from '@meccg/shared';
 import type { GameLogRecord } from '@meccg/sim';
 import { resolveGameLogPath } from '@meccg/sim';
 
@@ -126,6 +127,49 @@ export function openLogTail(gameIdOrPath: string): LogTail {
       return seq === undefined ? null : records.get(seq) ?? null;
     },
   };
+}
+
+/**
+ * Who made the move a record records, or null when the log does not say.
+ *
+ * Two sources, in this order. Many actions name their own player — every setup
+ * action does — and that is authoritative. Where the action does not, the actor
+ * is whoever was active in the position the move was made *from*, which is the
+ * preceding record. The action field has to come first because the phases where
+ * it exists are exactly the simultaneous ones, where `activePlayer` is null and
+ * the fallback would answer nobody.
+ */
+function actorOf(record: GameLogRecord, previous: GameLogRecord): string | null {
+  const named = (record.action as { player?: string } | undefined)?.player;
+  return named ?? previous.activePlayer ?? null;
+}
+
+/**
+ * The last decision `player` made at or before `stateSeq`: the position they
+ * decided from, and the move they chose.
+ *
+ * A log record names the move *into* its position, so the choice made at record
+ * N is `records[N + 1].action`. Walking back from the current position therefore
+ * looks for the first record whose successor's action came from this seat.
+ *
+ * Only ever called with the seat the server said may be asked about, which is
+ * what keeps "explain the last move" from becoming a way to read the opponent's
+ * hand: the explanation is still built from that seat's own view.
+ */
+export function lastMoveBy(
+  tail: LogTail,
+  stateSeq: number,
+  player: string,
+): { record: GameLogRecord; played?: GameAction } | null {
+  for (let seq = stateSeq; seq > 0; seq--) {
+    const after = tail.at(seq);
+    const before = tail.at(seq - 1);
+    if (!after?.action || !before) continue;
+    if (actorOf(after, before) === player) {
+      return { record: before, played: after.action };
+    }
+  }
+  return null;
 }
 
 /** Outcome of waiting for a position: the record, and whether it is the one asked for. */

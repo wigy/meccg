@@ -70,8 +70,8 @@ class FakeSocket extends EventEmitter {
     });
   }
 
-  /** Attach as an Ask AI observer offering `agent`. */
-  observe(name: string, agent: string): void {
+  /** Attach as an Ask AI observer offering `agents`. */
+  observe(name: string, ...agents: string[]): void {
     this.message({
       type: 'join',
       name,
@@ -80,7 +80,7 @@ class FakeSocket extends EventEmitter {
       playDeck: [],
       siteDeck: [],
       sideboard: [],
-      observer: { agent },
+      observer: { agents },
     });
   }
 
@@ -105,22 +105,22 @@ function seatedGame(): { alice: FakeSocket; bob: FakeSocket; session: GameSessio
   return { alice, bob, session };
 }
 
-/** A seated game with an observer attached, offering `agent`. */
-function observedGame(agent = 'h2'): {
+/** A seated game with an observer attached, offering `agents`. */
+function observedGame(...agents: string[]): {
   alice: FakeSocket; bob: FakeSocket; observer: FakeSocket; session: GameSession;
 } {
   const { alice, bob, session } = seatedGame();
   const observer = new FakeSocket();
   session.addConnection(observer as never);
-  observer.observe('Observer', agent);
+  observer.observe('Observer', ...(agents.length > 0 ? agents : ['h2']));
   return { alice, bob, observer, session };
 }
 
 describe('attaching', () => {
   test('is announced to both players with the agent it offers', () => {
     const { alice, bob } = observedGame('mc:ms=2000');
-    expect(alice.latest('observer')).toMatchObject({ attached: true, agent: 'mc:ms=2000' });
-    expect(bob.latest('observer')).toMatchObject({ attached: true, agent: 'mc:ms=2000' });
+    expect(alice.latest('observer')).toMatchObject({ attached: true, agents: ['mc:ms=2000'] });
+    expect(bob.latest('observer')).toMatchObject({ attached: true, agents: ['mc:ms=2000'] });
   });
 
   test('tells the observer the real gameId, which is how it finds the log', () => {
@@ -142,7 +142,7 @@ describe('attaching', () => {
   test('detaching is announced', () => {
     const { alice, observer } = observedGame();
     observer.close();
-    expect(alice.latest('observer')).toMatchObject({ attached: false, agent: null });
+    expect(alice.latest('observer')).toMatchObject({ attached: false, agents: [] });
   });
 
   test('a second observer replaces the first', () => {
@@ -152,7 +152,7 @@ describe('attaching', () => {
     session.addConnection(replacement as never);
     replacement.observe('Observer', 'heuristic');
 
-    expect(alice.latest('observer')).toMatchObject({ attached: true, agent: 'heuristic' });
+    expect(alice.latest('observer')).toMatchObject({ attached: true, agents: ['heuristic'] });
     // The displaced one is told why, and closed — otherwise a restarted
     // observer leaves its predecessor holding the name.
     expect(observer.latest('error')?.message).toContain('Replaced by another observer');
@@ -175,7 +175,7 @@ describe('attaching', () => {
     const watcher = new FakeSocket();
     session.addConnection(watcher as never);
     watcher.join('Rodrigo');
-    expect(watcher.latest('observer')).toMatchObject({ attached: true, agent: 'h2' });
+    expect(watcher.latest('observer')).toMatchObject({ attached: true, agents: ['h2'] });
   });
 });
 
@@ -195,7 +195,7 @@ describe('asking', () => {
     alice.message({ type: 'ask-ai', requestId: 'r1' });
 
     const question = observer.latest('ai-question');
-    expect(question).toMatchObject({ requestId: 'r1', forPlayer: 'p1' });
+    expect(question).toMatchObject({ requestId: 'r1', forPlayer: 'p1', agent: 'h2', mode: 'now' });
     expect(typeof question?.stateSeq).toBe('number');
     expect(typeof question?.turn).toBe('number');
   });
@@ -242,6 +242,40 @@ describe('asking', () => {
 
     expect(alice.latest('ai-explanation')).toMatchObject({ requestId: 'r1', status: 'error' });
     expect(alice.latest('ai-explanation')?.message).toContain('game log unreadable');
+  });
+
+  test('asks the named agent, and refuses one the observer does not offer', () => {
+    const { alice, observer } = observedGame('h2', 'mc:ms=2000');
+
+    alice.message({ type: 'ask-ai', requestId: 'r1', agent: 'mc:ms=2000' });
+    expect(observer.latest('ai-question')).toMatchObject({ agent: 'mc:ms=2000' });
+
+    observer.message({ type: 'ai-answer', requestId: 'r1', lines: ['x'], agent: 'mc:ms=2000', elapsedMs: 1 });
+    // A tab left open across an observer restart must not silently get an
+    // answer from a different agent than the one it asked.
+    alice.message({ type: 'ask-ai', requestId: 'r2', agent: 'bc:nope.json' });
+    expect(alice.latest('ai-explanation')).toMatchObject({ requestId: 'r2', status: 'error' });
+    expect(alice.latest('ai-explanation')?.message).toContain('h2, mc:ms=2000');
+  });
+
+  test('defaults to the first agent when the client names none', () => {
+    const { alice, observer } = observedGame('h2', 'heuristic');
+    alice.message({ type: 'ask-ai', requestId: 'r1' });
+    expect(observer.latest('ai-question')).toMatchObject({ agent: 'h2' });
+  });
+
+  test('forwards the last-move mode as asked', () => {
+    const { alice, observer } = observedGame();
+    alice.message({ type: 'ask-ai', requestId: 'r1', mode: 'last-move' });
+    expect(observer.latest('ai-question')).toMatchObject({ mode: 'last-move', forPlayer: 'p1' });
+  });
+
+  test('an observer offering no agent at all is refused', () => {
+    const { session } = seatedGame();
+    const empty = new FakeSocket();
+    session.addConnection(empty as never);
+    empty.observe('Observer');
+    expect(empty.latest('error')?.message).toContain('at least one agent');
   });
 
   test('a second question from the same client is refused while one is in flight', () => {

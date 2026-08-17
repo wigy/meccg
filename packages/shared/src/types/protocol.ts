@@ -86,16 +86,20 @@ export interface JoinMessage {
   /**
    * Attach as an *observer* rather than as a player or a spectator
    * (`specs/2026-08-17-ask-ai-observer.md`): a headless process that answers
-   * {@link AskAiMessage} with an explanation of what `agent` would do in the
-   * current position.
+   * {@link AskAiMessage} with an explanation of what one of its `agents` would
+   * do in the current position.
    *
    * An observer never acts, is never seated, receives no state broadcasts, and
    * never keeps a session alive. Only one is attached at a time — a second
-   * replaces the first, because the Ask AI control names one agent.
+   * replaces the first — but one observer may offer several agents, so the
+   * control can ask each of them about the same position.
    */
   readonly observer?: {
-    /** Sim registry spec of the explaining agent, e.g. `h2` or `mc:ms=2000`. */
-    readonly agent: string;
+    /**
+     * Sim registry specs of the agents on offer, e.g. `['h2', 'mc:ms=2000']`.
+     * The first is the default the control asks when it is not told which.
+     */
+    readonly agents: readonly string[];
   };
 }
 
@@ -210,6 +214,17 @@ export interface AskAiMessage {
   readonly type: 'ask-ai';
   /** Client-generated id, echoed back on the answer so a late reply can be matched. */
   readonly requestId: string;
+  /**
+   * Which of the observer's offered agents to ask. Absent means the first —
+   * how a client that does not care, or predates the choice, behaves.
+   */
+  readonly agent?: string;
+  /**
+   * `now` explains the decision facing the seat; `last-move` explains the
+   * seat's own most recent decision and says whether the agent would have
+   * played it. Absent means `now`.
+   */
+  readonly mode?: 'now' | 'last-move';
 }
 
 /**
@@ -473,8 +488,13 @@ export interface ObserverMessage {
   readonly type: 'observer';
   /** Whether an observer is currently attached. */
   readonly attached: boolean;
-  /** Its agent spec, or null when nothing is attached. */
-  readonly agent: string | null;
+  /**
+   * The agent specs it offers, in the order it was launched with them. Empty
+   * when nothing is attached. More than one means the control offers a choice —
+   * asking `h2` and `mc` about the same position is how their disagreements
+   * become visible.
+   */
+  readonly agents: readonly string[];
 }
 
 /**
@@ -493,6 +513,10 @@ export interface AiQuestionMessage {
   readonly stateSeq: number;
   /** Whose decision to explain. */
   readonly forPlayer: PlayerId;
+  /** Which of the observer's agents to run. */
+  readonly agent: string;
+  /** Whether to explain the decision now, or the seat's own last move. */
+  readonly mode: 'now' | 'last-move';
   /** Turn number, for the observer's own logging. */
   readonly turn: number;
   /** Phase name, likewise. */

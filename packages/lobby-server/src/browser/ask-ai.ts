@@ -17,12 +17,16 @@
 import type { AiExplanationMessage } from '@meccg/shared';
 
 /** Observer presence, as last reported by the server. */
-interface ObserverState {
+export interface ObserverState {
   readonly attached: boolean;
-  readonly agent: string | null;
+  /** Agent specs on offer, in the order the observer was launched with them. */
+  readonly agents: readonly string[];
 }
 
-let observer: ObserverState = { attached: false, agent: null };
+/** What a question is about: the decision now, or the seat's own last move. */
+export type AskAiMode = 'now' | 'last-move';
+
+let observer: ObserverState = { attached: false, agents: [] };
 
 /** Request id of the question in flight, or null when the panel is idle. */
 let inFlight: string | null = null;
@@ -31,7 +35,7 @@ let inFlight: string | null = null;
 let requestCounter = 0;
 
 /** Sender for `ask-ai`, injected by the game connection so this module holds no socket. */
-let sendAsk: ((requestId: string) => void) | null = null;
+let sendAsk: ((requestId: string, agent: string, mode: AskAiMode) => void) | null = null;
 
 /** How the toolbar button should render, or null when it must not be shown. */
 export interface AskAiButtonState {
@@ -50,10 +54,33 @@ export interface AskAiButtonState {
  */
 export function askAiButtonState(state: ObserverState): AskAiButtonState {
   if (!state.attached) return { visible: false, title: '' };
+  if (state.agents.length === 0) return { visible: true, title: 'Ask AI' };
   return {
     visible: true,
-    title: state.agent ? `Ask AI (${state.agent})` : 'Ask AI',
+    title: `Ask AI (${state.agents.join(', ')})`,
   };
+}
+
+/** One row of the Ask AI menu. */
+export interface AskAiMenuEntry {
+  readonly label: string;
+  readonly agent: string;
+  readonly mode: AskAiMode;
+}
+
+/**
+ * The menu the button opens: every offered agent, asked either about the
+ * position or about the seat's own last move.
+ *
+ * Both questions are offered for each agent rather than a single "ask" plus a
+ * mode toggle, because they are different questions and the second one — "would
+ * it have played what I just played?" — is the one nobody thinks to look for.
+ */
+export function askAiMenuEntries(state: ObserverState): AskAiMenuEntry[] {
+  return state.agents.flatMap(agent => [
+    { label: `This position — ${agent}`, agent, mode: 'now' as AskAiMode },
+    { label: `My last move — ${agent}`, agent, mode: 'last-move' as AskAiMode },
+  ]);
 }
 
 /** Heading and body for the panel, given whatever the server said. */
@@ -104,11 +131,14 @@ export function formatAskAiPanel(msg: AiExplanationMessage): AskAiPanelText {
 }
 
 /** The text shown while the agent is thinking. */
-export function askAiPendingText(state: ObserverState): AskAiPanelText {
+export function askAiPendingText(agent: string, mode: AskAiMode = 'now'): AskAiPanelText {
   return {
-    heading: `Asking ${state.agent ?? 'the AI'}…`,
-    body: 'Reading the position and ranking the moves.\n\n'
-      + 'A search agent takes a few seconds.',
+    heading: `Asking ${agent}…`,
+    body: mode === 'last-move'
+      ? 'Rewinding to the position before your last move, and ranking it.\n\n'
+        + 'A search agent takes a few seconds.'
+      : 'Reading the position and ranking the moves.\n\n'
+        + 'A search agent takes a few seconds.',
   };
 }
 
@@ -148,10 +178,51 @@ export function closeAskAiPanel(): void {
   document.getElementById('ask-ai-modal')?.classList.add('hidden');
 }
 
+/** Close the agent menu if it is open. */
+function closeMenu(): void {
+  document.getElementById('ask-ai-menu')?.classList.add('hidden');
+}
+
+/**
+ * Open the menu of questions, or ask straight away when there is only one.
+ *
+ * A single-agent observer still gets a menu, because the second row — the last
+ * move — is a question the button alone could not offer.
+ */
+function openMenu(): void {
+  const menu = document.getElementById('ask-ai-menu');
+  if (!menu) return;
+  menu.innerHTML = '';
+  const entries = askAiMenuEntries(observer);
+  if (entries.length === 0) return;
+
+  let lastAgent = '';
+  for (const entry of entries) {
+    if (entry.agent !== lastAgent && observer.agents.length > 1) {
+      const label = document.createElement('div');
+      label.className = 'ask-ai-menu-label';
+      label.textContent = entry.agent;
+      menu.appendChild(label);
+      lastAgent = entry.agent;
+    }
+    const btn = document.createElement('button');
+    btn.textContent = observer.agents.length > 1
+      ? entry.label.replace(` — ${entry.agent}`, '')
+      : entry.label;
+    btn.addEventListener('click', () => {
+      closeMenu();
+      askAi(entry.agent, entry.mode);
+    });
+    menu.appendChild(btn);
+  }
+  menu.classList.remove('hidden');
+}
+
 /** Record the observer presence the server pushed, and refresh the button. */
 export function setObserver(state: ObserverState): void {
   observer = state;
   if (!state.attached) {
+    closeMenu();
     // Any question in flight is already being failed by the server; drop the
     // local lock so the button is not left disabled forever.
     inFlight = null;
@@ -163,21 +234,28 @@ export function setObserver(state: ObserverState): void {
 export function resetObserver(): void {
   inFlight = null;
   closeAskAiPanel();
-  setObserver({ attached: false, agent: null });
+  setObserver({ attached: false, agents: [] });
 }
 
 /** Register the sender for `ask-ai` messages (the game connection owns the socket). */
-export function setAskAiSender(send: (requestId: string) => void): void {
+export function setAskAiSender(send: (requestId: string, agent: string, mode: AskAiMode) => void): void {
   sendAsk = send;
 }
 
-/** Ask the observer about the current position. */
-export function askAi(): void {
+/**
+ * Ask one agent about the position, or about the seat's own last move.
+ *
+ * Defaults to the observer's first agent, which is what the keyboard shortcut
+ * uses: the common question should not need a menu.
+ */
+export function askAi(agent?: string, mode: AskAiMode = 'now'): void {
   if (!observer.attached || inFlight || !sendAsk) return;
+  const asked = agent ?? observer.agents[0];
+  if (!asked) return;
   inFlight = `ask-${++requestCounter}`;
   render();
-  showPanel(askAiPendingText(observer));
-  sendAsk(inFlight);
+  showPanel(askAiPendingText(asked, mode));
+  sendAsk(inFlight, asked, mode);
 }
 
 /** Handle an `ai-explanation` from the server. */
@@ -195,18 +273,32 @@ function panelOpen(): boolean {
   return document.getElementById('ask-ai-modal')?.classList.contains('hidden') === false;
 }
 
-/** Wire the button, the close affordances, and the copy action. */
+/** Wire the button, the menu, the close affordances, and the copy action. */
 export function installAskAi(): void {
-  button()?.addEventListener('click', () => askAi());
+  button()?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById('ask-ai-menu');
+    if (menu && !menu.classList.contains('hidden')) closeMenu();
+    else openMenu();
+  });
+  // A click anywhere else dismisses the menu, like the dev menu's popup.
+  document.addEventListener('click', (e) => {
+    const target = e.target as Node | null;
+    const menu = document.getElementById('ask-ai-menu');
+    if (!menu || menu.classList.contains('hidden') || !target) return;
+    if (!menu.contains(target)) closeMenu();
+  });
   document.getElementById('ask-ai-close')?.addEventListener('click', () => closeAskAiPanel());
   document.getElementById('ask-ai-backdrop')?.addEventListener('click', () => closeAskAiPanel());
   // Escape closes, like every other dialog. Handled here rather than in the
   // shared shortcut table because it must only fire while the panel is open —
   // the game's own Escape behaviour has to keep working underneath it.
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !panelOpen()) return;
+    if (e.key !== 'Escape') return;
+    if (!panelOpen() && document.getElementById('ask-ai-menu')?.classList.contains('hidden') !== false) return;
     e.preventDefault();
     e.stopPropagation();
+    closeMenu();
     closeAskAiPanel();
   }, true);
   document.getElementById('ask-ai-copy')?.addEventListener('click', () => {
