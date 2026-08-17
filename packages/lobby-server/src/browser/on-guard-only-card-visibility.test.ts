@@ -16,9 +16,11 @@
  * acts directly on legal actions, bypassing this rendering) placed on-guard
  * cards throughout the same game without trouble.
  *
- * The fix renders on-guard-only cards with `hand-card-playable` — the same
- * bright, clickable styling every other actionable branch in the hand-arc
- * loop already uses — so the card reads as interactive.
+ * The highlight is deliberately *not* the answer: since any hand card may go
+ * on-guard, glowing them all would make the whole hand read as playable and
+ * drown out the cards with a real play. On-guard-only cards therefore keep the
+ * dimmed styling but stay clickable, so the on-guard menu is still reachable
+ * from every card.
  *
  * Uses the hand-rolled DOM stub pattern of `company-attachments-render.test.ts`
  * (the package runs vitest in the default node environment, with no jsdom).
@@ -109,15 +111,15 @@ function onGuardOnlyView(): PlayerView {
 }
 
 describe('a hand card whose only legal action is place-on-guard', () => {
-  test('renders as playable, not indistinguishable from a dead card', () => {
+  test('renders dimmed, so the on-guard option never glows like a real play', () => {
     renderHand(onGuardOnlyView(), pool, () => { /* no-op */ });
 
     expect(handArc.children).toHaveLength(1);
     const cardsEl = handArc.children[0];
     expect(cardsEl.children).toHaveLength(1);
     const img = cardsEl.children[0];
-    expect(img.className).toBe('hand-card hand-card-playable');
-    expect(img.className).not.toContain('hand-card-dimmed');
+    expect(img.className).toBe('hand-card hand-card-dimmed');
+    expect(img.className).not.toContain('hand-card-playable');
   });
 
   test('clicking it opens a menu that dispatches place-on-guard', () => {
