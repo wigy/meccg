@@ -194,6 +194,14 @@ npm run explain -w @meccg/sim -- --game <gameId> --seq 412 [--player p1] [--hash
 # uses — as the acting player saw it, or `--state full` for the omniscient one
 npm run explain -w @meccg/sim -- --scenario combat/creature-with-body --state
 
+# The same explanation, live, for the game on screen: attach an observer and the
+# game screen grows an "Ask AI" icon (specs/2026-08-17-ask-ai-observer.md).
+# Any agent, not just h2 — a non-h2 spec renders its ranked candidates instead
+# of the module derivation. Reads the position from the game log, so it runs on
+# the server's own host and authenticates with MASTER_KEY.
+bin/observe [--agent h2] [--new] [--once]
+bin/observe --agent 'mc:ms=2000/turns=2'   # ask the search agent instead
+
 # The fixed sample set: named positions modules are tested and explained against
 npm run scenarios -w @meccg/sim -- list [--module combat]
 npm run scenarios -w @meccg/sim -- capture --game <id> --seq 412 --as combat/orc-ambush-3v1

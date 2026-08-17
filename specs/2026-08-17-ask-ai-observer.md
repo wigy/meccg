@@ -1,8 +1,12 @@
 # Spec: Ask AI — an Observer that Explains What the Selected Agent Would Do
 
-*Status: design, 2026-08-17. Nothing here is implemented. The three policy
-questions the first draft left open — cheat marking, default agent, spectator
-access — are decided; see "Resolved decisions" at the end.*
+*Status: implemented 2026-08-17 (phases 1–3). The three policy questions the
+first draft left open — cheat marking, default agent, spectator access — are
+decided; see "Resolved decisions" at the end. Phase 4 is still a list of
+follow-ups.*
+
+*Where the build differs from this design, the reason is recorded in
+"Implementation notes" at the end.*
 
 ## Overview
 
@@ -613,6 +617,33 @@ lands here.
   recorded position.
 - **Streaming progress** for slow agents (`mc` rollout counts) instead of a
   spinner.
+
+## Implementation notes
+
+Three things the design did not anticipate, all in the shipped code:
+
+1. **The game log strips the card pool.** The server writes card definitions
+   once per game, not per state, so a log record cannot be projected as-is —
+   `projectPlayerView` throws on the first card it tries to resolve.
+   `explainDecision` rehydrates the standard pool (`withStandardCardPool`, what
+   the `explain` CLI already did for the same reason), so a caller holding a log
+   record does not have to know this.
+2. **A spectator's question needs a seat even in simultaneous phases.**
+   `activePlayer` is null through the character draft and organisation — the
+   phases people watch most — so `seatToExplain()` falls back to whichever
+   player still has a viable action. Without it a spectator asking during setup
+   would always be told "nothing to decide".
+3. **Presence is attached to `assigned` rather than broadcast alone.** A client
+   seated *after* an observer attached would otherwise never hear about it, and
+   there are seven places that send `assigned`. `send()` follows every one with
+   the observer state, so a new seating path cannot forget it.
+
+Also: the candidate listing is shared with the AI client's decision log through
+`renderCandidateRanking`, but the client keeps its own one-line header and its
+6-row cap — the shared piece is the listing, not the whole block. And
+`bin/observe` runs under `packages/text-client/tsconfig.dev.json`, which maps the
+workspace packages onto their source: an observer resolving the built dist would
+explain the last `npm run build` rather than the agent code being worked on.
 
 ## Resolved decisions
 

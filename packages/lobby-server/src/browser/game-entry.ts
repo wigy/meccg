@@ -22,6 +22,7 @@ import { resetCompanyViews } from './company-view.js';
 import { clearDice, restoreDice, dismissDiceOverlays } from './dice.js';
 import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
 import { resetSpectators } from './spectators.js';
+import { installAskAi, resetObserver } from './ask-ai.js';
 import { renderLog } from './render-log.js';
 import { showConfirm } from './dialog.js';
 
@@ -76,6 +77,7 @@ ns.startReplay = startReplay;
 // Called at module load time (after DOMContentLoaded has already fired).
 
 installKeyboardShortcuts();
+installAskAi();
 
 const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
 const debugView = document.getElementById('debug-view') as HTMLElement;
@@ -184,6 +186,7 @@ export function clearGameBoard(): void {
   removeMapRadar();
   resetCompanyViews();
   resetSpectators();
+  resetObserver();
   clearDice();
 }
 

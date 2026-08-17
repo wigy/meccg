@@ -1957,6 +1957,60 @@ h2 {
   color: #c4a35a;
 }
 
+/* Ask AI panel (specs/2026-08-17-ask-ai-observer.md): a wide, scrollable
+   monospace read-out. Wider and taller than the report dialogs because the
+   content is a ranked candidate list with a derivation under it — wrapping that
+   into a 480px column would make it unreadable. */
+
+#ask-ai-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ask-ai-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+#ask-ai-dialog {
+  position: relative;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 900px;
+  max-width: 92vw;
+  color: #e0e0e0;
+}
+
+#ask-ai-heading {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+  font-size: 1rem;
+}
+
+/* pre-wrap, not pre: the derivation is indented text whose alignment carries
+   meaning, but a long card name must still wrap rather than scroll the page. */
+#ask-ai-body {
+  margin: 0;
+  background: #16162a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0.75rem;
+  max-height: 65vh;
+  overflow: auto;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: #d8d2c2;
+}
+
 /* Feature request modal */
 
 #feature-request-modal,
@@ -2046,26 +2100,30 @@ h2 {
 }
 
 #feature-request-cancel,
-#bug-report-cancel {
+#bug-report-cancel,
+#ask-ai-copy {
   background: transparent;
   color: #aaa;
   border: 1px solid #555;
 }
 
 #feature-request-cancel:hover,
-#bug-report-cancel:hover {
+#bug-report-cancel:hover,
+#ask-ai-copy:hover {
   background: rgba(255,255,255,0.05);
   color: #ddd;
 }
 
 #feature-request-send,
-#bug-report-send {
+#bug-report-send,
+#ask-ai-close {
   background: #c4a35a;
   color: #1a1a2e;
 }
 
 #feature-request-send:hover,
-#bug-report-send:hover {
+#bug-report-send:hover,
+#ask-ai-close:hover {
   background: #d4b36a;
 }
 

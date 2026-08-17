@@ -24,7 +24,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { WebSocket } from 'ws';
-import type { AiQuestionMessage, ClientMessage, JoinMessage, PlayerId, ServerMessage } from '@meccg/shared';
+import type { AiQuestionMessage, ClientMessage, JoinMessage, ServerMessage } from '@meccg/shared';
 import { Alignment, loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { Agent } from '@meccg/sim';
 import { explainDecision, resolveAgent } from '@meccg/sim';
@@ -185,7 +185,7 @@ async function answer(
       agent,
       agentSpec,
       state: resolved.record.state,
-      playerId: question.forPlayer as PlayerId,
+      playerId: question.forPlayer,
       title: `game ${gameId}#${resolved.record.stateSeq}`,
       cardPool,
       source: { gameId, stateSeq: resolved.record.stateSeq },
@@ -301,7 +301,7 @@ function watch(target: ObserverTarget): Promise<void> {
           console.log(`observer: attached to ${gameId} on port ${target.port}`
             + ` as "${observerName}" with agent ${agentSpec}`);
           console.log(`observer: following ${tail.path}`);
-          if (once) void explainNewestAndExit(tail, gameId);
+          if (once) explainNewestAndExit(tail, gameId);
           break;
         case 'ai-question':
           queue.push(msg);
@@ -339,7 +339,7 @@ function watch(target: ObserverTarget): Promise<void> {
  * server makes for a spectator's question. Useful on its own, and it makes the
  * observer testable without a browser.
  */
-async function explainNewestAndExit(tail: LogTail, gameId: string): Promise<void> {
+function explainNewestAndExit(tail: LogTail, gameId: string): void {
   const record = tail.newest();
   if (!record) {
     console.error(`observer: nothing recorded yet in ${tail.path}`);
