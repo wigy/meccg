@@ -26,6 +26,7 @@ import type {
   CancelMovementAction,
   MoveToInfluenceAction,
   TransferItemAction,
+  UseItemAction,
 } from '../types/actions.js';
 import type { EvaluatedAction } from '../index.js';
 
@@ -87,6 +88,18 @@ function matchesAction(a: GameAction, b: GameAction): boolean {
       return a.characterInstanceId === r.characterInstanceId
         && a.sourceCompanyId === r.sourceCompanyId
         && a.targetCompanyId === r.targetCompanyId;
+    }
+    case 'use-item': {
+      // A character bearing two items of one slot can only ever have one of
+      // them in use, so declaring either always leaves the other declarable —
+      // the pair is switchable back and forth forever. `handleUseItem` stores
+      // the displaced item as the reverse; without this case it matched
+      // nothing, no candidate was ever stamped `regress`, and a self-play game
+      // spent its last 23000 decisions handing the armor slot back and forth
+      // between two copies of Hauberk of Bright Mail borne by one character.
+      const r = b as UseItemAction;
+      return a.characterInstanceId === r.characterInstanceId
+        && a.itemInstanceId === r.itemInstanceId;
     }
     case 'merge-companies': {
       // Unordered: a stored reverse only ever exists because a split created
