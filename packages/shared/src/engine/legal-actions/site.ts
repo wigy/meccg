@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, findCompanySizeAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, findCompanySizeAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -68,18 +68,23 @@ function withoutCompanyTargetPermanentEvents(state: GameState, actions: Evaluate
 }
 
 /**
- * MEWH §10 (site-tap alignment match): a non-Fallen-wizard resource that taps a
- * site (faction, ally, or item) may only be played at a site of the same
- * alignment class — a hero resource at a hero site, a minion resource at a
- * minion site. A Fallen-wizard site (Wizardhaven) counts as **both**, and
- * Fallen-wizard / stage / dual resources are themselves exempt. Returns true
- * when the play is barred by the alignment mismatch.
+ * MEWH §10 / CoE 2.V.F1 (site-tap alignment match): a non-Fallen-wizard
+ * resource that taps a site (faction, ally, or item) may only be played at a
+ * site of the same alignment class — a hero resource at a hero site, a
+ * minion resource at a minion site. "Wizardhavens and Stage resources count
+ * as either alignment for this purpose" (2.V.F1) — this covers both a
+ * printed Fallen-wizard haven and a site converted into a Wizardhaven by a
+ * `wizardhaven-conversion` constraint (e.g. Chambers in the Royal Court
+ * wh-97), and Fallen-wizard / stage / dual resources are themselves exempt.
+ * Returns true when the play is barred by the alignment mismatch.
  *
  * Only relevant for a Fallen-wizard player, who mixes hero and minion resources
  * and visits both site types; for single-alignment players the classes always
  * match. The caller gates this on `player.alignment === 'fallen-wizard'`.
  */
 function siteTapCrossAlignmentBlocked(
+  state: GameState,
+  playerId: PlayerId,
   def: CardDefinition,
   siteDef: CardDefinition | undefined,
 ): boolean {
@@ -90,6 +95,7 @@ function siteTapCrossAlignmentBlocked(
   // Fallen-wizard / stage / dual resources are exempt; FW sites count as both.
   if (resAlign === 'fallen-wizard' || resAlign === 'stage' || resAlign === 'dual') return false;
   if (siteAlign === 'fallen-wizard') return false;
+  if (isWizardhavenConversionFor(state, siteDef.id, playerId)) return false;
   if (resAlign === 'wizard' && siteAlign === 'ringwraith') return true;
   if (resAlign === 'ringwraith' && siteAlign === 'wizard') return true;
   return false;
@@ -1068,7 +1074,7 @@ function playResourcesActions(
     // Double-dealing (wh-66) lifts this restriction at the site it is played on:
     // a `cross-alignment-resources-unlocked` constraint for this player + site
     // makes the opposite alignment's resources playable there.
-    if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(def, siteDef)) {
+    if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(state, playerId, def, siteDef)) {
       const crossUnlocked = hasSiteFlagForPlayer(
         state.activeConstraints, 'cross-alignment-resources-unlocked', siteDefId, playerId,
       );
@@ -2674,7 +2680,7 @@ function playResourcesActions(
 
       // MEWH §10 cross-alignment site-tap (mirrors the hand loop). A Double-dealing
       // unlock lifts it at the played-on site.
-      if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(allyDef, siteDef)) {
+      if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(state, playerId, allyDef, siteDef)) {
         const crossUnlocked = hasSiteFlagForPlayer(
           state.activeConstraints, 'cross-alignment-resources-unlocked', siteDefId, playerId,
         );
