@@ -41,7 +41,7 @@
  */
 
 import { CardStatus } from '@meccg/shared';
-import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
+import type { CardInstanceId, CompanyId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
@@ -54,6 +54,7 @@ import { computeBeliefs } from '../../services/beliefs.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import { computeReach } from '../../services/reach.js';
+import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
@@ -172,7 +173,13 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
   const detail: Rationale[] = [leaf('company', companyId), leaf('site', site?.name ?? 'unknown')];
 
   if (inMovement) {
-    const draws = site?.resourceDraws ?? 0;
+    // The draw-modifiers in play are part of the count, not a footnote to it:
+    // ordering companies by what they draw is the whole criterion here, and two
+    // companies at identical sites draw different numbers when one of them is
+    // the one Radagast is travelling with.
+    const draws = site
+      ? computeDrawValue(context.view, cardPool, tunables).drawsAt(company.id, site)
+      : 0;
     dtsd = draws * tunables.resourceDrawValue;
     label = `resolve this company — ${draws} card(s) drawn`;
     detail.push(leaf('resource cards drawn', draws, {
@@ -272,21 +279,6 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const threat = beliefs.holdsAtLeastOne('creature');
   const tempo = site.pathLength * tunables.regionCrossingCost * (1 + threat);
 
-  // The cards the site draws on arrival. Priced at the same
-  // `resourceDrawValue` this module already spends on `select-company`, so the
-  // two cannot disagree about what a card is worth — and counted as potential
-  // rather than realized, because a drawn card is not a point until it is
-  // played.
-  //
-  // Leaving it out was the whole of the "sits still" problem. A destination
-  // with nothing playable on it scored *exactly* zero, and `pass` is zero by
-  // definition, so every movement tied with staying put and the tie fell
-  // wherever it fell: measured against `heuristic`, a move planned on 31% of
-  // turns against 42%, and 16.8 site changes a game against 26.6. Movement is
-  // how a deck is drawn in this game, and a destination model that ignores the
-  // draw cannot see the main reason to go anywhere.
-  const draws = site.resourceDraws * tunables.resourceDrawValue;
-
   // A site this company has already worked is a site whose *new* options are
   // the ones the hand has drawn since — and `route-compare` says human players
   // treat that as close to disqualifying. Over 64 recorded movement decisions
@@ -311,6 +303,30 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const beenHere = site.siteType !== 'haven'
     && (context.visited?.[companyId] ?? []).includes(arriving);
   const revisit = beenHere ? tunables.revisitedSiteCost : 0;
+
+  // The cards the company draws on arrival. Priced at the same
+  // `resourceDrawValue` this module already spends on `select-company`, so the
+  // two cannot disagree about what a card is worth — and counted as potential
+  // rather than realized, because a drawn card is not a point until it is
+  // played.
+  //
+  // Leaving it out was the whole of the "sits still" problem. A destination
+  // with nothing playable on it scored *exactly* zero, and `pass` is zero by
+  // definition, so every movement tied with staying put and the tie fell
+  // wherever it fell: measured against `heuristic`, a move planned on 31% of
+  // turns against 42%, and 16.8 site changes a game against 26.6. Movement is
+  // how a deck is drawn in this game, and a destination model that ignores the
+  // draw cannot see the main reason to go anywhere.
+  //
+  // The count comes from `draw-value` rather than from the site card, because
+  // the printed number is only the base: a company carrying Radagast or Alatar
+  // draws more than its site says, A Short Rest in play adds a card for every
+  // region short of four, and Smaug at Home across the table takes one away.
+  // Reading the printed figure priced every one of those routes as though the
+  // cards were not on the table.
+  const drawCount = computeDrawValue(context.view, context.cardPool, tunables)
+    .drawsAt(companyId as unknown as CompanyId, site);
+  const draws = drawCount * tunables.resourceDrawValue;
 
   // What going home is *for*. A wounded character cannot carry an item, attempt
   // influence or play a resource, so the company arrives able to do less every
@@ -407,7 +423,10 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
     leaf('resource draws', draws, {
       unit: 'tsd',
       tunable: 'resourceDrawValue',
-      note: `${site.resourceDraws} card(s) printed on the site, discounted as potential`,
+      note: drawCount === site.resourceDraws
+        ? `${drawCount} card(s) printed on the site, discounted as potential`
+        : `${drawCount} card(s) drawn — ${site.resourceDraws} printed, adjusted by the `
+          + 'draw-modifiers in play; discounted as potential',
     }),
   ];
   for (const card of playableNow) {

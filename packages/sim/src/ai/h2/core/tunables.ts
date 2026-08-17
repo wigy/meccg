@@ -179,6 +179,28 @@ export interface Tunables {
    * made of, and during movement/hazard the draw is the whole reason to
    * resolve one company before another. A price rather than a tally, so the
    * criterion can be compared against everything else in the same currency.
+   *
+   * It is pinned to {@link provisionalCardPrice} and must never fall below it.
+   * A draw hands over a card in hand, and `provisionalCardPrice` is what the
+   * *worst* card in hand is worth to keep — the price `hand` charges itself to
+   * discard a card whose use it cannot even model. At 0.35 against that 1.00
+   * the two halves of one exchange were quoted in different currencies, and
+   * the incoherence was visible in play rather than merely on paper:
+   *
+   * - `hand` charged 1.00 to throw the deadest card in hand and credited 0.35
+   *   to draw a fresh one, so cycling always lost to hoarding.
+   * - A Short Rest adding **two** cards was worth 0.70 against the 1.00 the
+   *   card cost to play, so the agent declined to double a turn's draws.
+   * - A two-draw site contributed 0.35 to a destination against the 12.0 an
+   *   item already in hand contributed, a ratio of 34:1, so routes were only
+   *   ever chosen to cash cards already held and never to acquire any.
+   *
+   * The floor is conservative rather than fitted. Measured on a real position
+   * (`explain --game msxd2ban-qoqtc7 --seq 73`) the shadow price of the seven
+   * cards actually in hand averaged 1.86, so 1.00 still understates an average
+   * draw — deliberately, because it is the one figure here that can be argued
+   * from the rules rather than tuned: whatever a drawn card turns out to be, it
+   * is at least a card in hand.
    */
   readonly resourceDrawValue: number;
   /**
@@ -379,7 +401,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   decisiveMargin: 0,
   gatingResolutionTsd: 1,
   revisitedSiteCost: 1.5,
-  resourceDrawValue: 0.35,
+  resourceDrawValue: 1,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,
   hazardMaxBundle: 3,
