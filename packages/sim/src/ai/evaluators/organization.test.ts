@@ -303,6 +303,53 @@ describe('organizationEvaluator discard-character', () => {
   });
 });
 
+describe('organizationEvaluator activate-granted-action extra-region-movement', () => {
+  // Regression: the AI activated Cram's extra-region-movement grant to reach
+  // a site five regions away when five other sites were already legally
+  // reachable within the base four-region limit — the flat "hazard removal"
+  // weight (8) treated the item's one-time discard as worthwhile regardless
+  // of whether the company could already move without it (bug report: game
+  // msw40rsq-minsg3, stateSeq 33 — Rivendell to Edhellond via Cram, with
+  // Glittering Caves/Isengard/Isle of the Ulond/Lórien/Moria all already
+  // reachable for free).
+  function extraRegionMovement(characterId: string): GameAction {
+    return {
+      type: 'activate-granted-action',
+      player: 'p2',
+      characterId,
+      sourceCardId: 'p2-101',
+      sourceCardDefinitionId: 'td-105',
+      actionId: 'extra-region-movement',
+      rollThreshold: 0,
+    } as unknown as GameAction;
+  }
+
+  function companyView(): PlayerView {
+    return {
+      self: {
+        hand: [],
+        siteDeck: [],
+        companies: [{ id: 'company-p2-0', characters: ['p2-103'] }],
+      },
+    } as unknown as PlayerView;
+  }
+
+  test('scores 0 when the company can already move without the extra distance', () => {
+    const view = companyView();
+    const action = extraRegionMovement('p2-103');
+    const alreadyLegal = planMovement('s1');
+    const context: AiContext = { view, cardPool: POOL, legalActions: [action, alreadyLegal] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+
+  test('keeps the full weight when the company has no move without the extra distance', () => {
+    const view = companyView();
+    const action = extraRegionMovement('p2-103');
+    const context: AiContext = { view, cardPool: POOL, legalActions: [action] };
+    expect(organizationEvaluator.score(action, context)).toBe(8);
+  });
+});
+
 describe('organizationEvaluator pass suppression', () => {
   // Regression: a healthy company holding a playable item passed the
   // organization phase instead of declaring movement to a site where the

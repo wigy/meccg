@@ -202,9 +202,26 @@ export const organizationEvaluator: ActionEvaluator = {
         // waste actions.
         return 0;
 
-      case 'activate-granted-action':
+      case 'activate-granted-action': {
+        // Extra-region movement (Cram et al.) permanently discards a card to
+        // extend how far a company can travel this turn. Nothing here can
+        // judge whether a farther site is worth more than an already-
+        // reachable one — the h2 AI's grants module explicitly declines to
+        // price this same effect for the same reason. Only treat it as
+        // valuable when it is the difference between moving and not moving
+        // at all; otherwise it is the flat "hazard removal" weight applied
+        // to an action that bought nothing (bug report: AI discarded Cram to
+        // reach a site one region past several already-legal, free
+        // destinations).
+        if (action.actionId === 'extra-region-movement') {
+          const company = view.self.companies.find(c => c.characters.includes(action.characterId));
+          const canAlreadyMove = company != null
+            && context.legalActions.some(a => a.type === 'plan-movement' && a.companyId === company.id);
+          return canAlreadyMove ? 0 : 8;
+        }
         // Removing attached hazards is high value when likely to succeed.
         return 8;
+      }
 
       case 'pass':
         // Never idle a company that could move to a site where a hand
