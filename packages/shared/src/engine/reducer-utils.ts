@@ -4055,6 +4055,41 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
 }
 
 /**
+ * Draw `count` cards for `playerIndex` in one atomic step, exhausting and
+ * reshuffling the play deck (CoE rule 2.4) whenever it runs dry mid-draw, then
+ * resuming the draw from the reshuffled deck. For multi-card effects that
+ * resolve in a single reducer pass (e.g. Dark Tryst as-80's "draw three
+ * cards", Palantír of Elostirion le-332's granted-action draw) there is no
+ * interactive window to offer the sub-flow's optional discard/sideboard
+ * exchange — only the exhaustion + reshuffle itself is mandatory, and rule
+ * 2.4 says that part "cannot be responded to" and happens immediately. Stops
+ * only when both the play deck and discard pile are empty (nothing left to
+ * shuffle in).
+ */
+export function drawCardsExhausting(
+  state: GameState,
+  playerIndex: 0 | 1,
+  count: number,
+): { readonly state: GameState; readonly drawnCards: readonly CardInstance[] } {
+  let current = state;
+  const drawnCards: CardInstance[] = [];
+  let remaining = count;
+  while (remaining > 0) {
+    const player = current.players[playerIndex];
+    if (player.playDeck.length === 0) {
+      if (player.discardPile.length === 0) break;
+      current = completeDeckExhaust(startDeckExhaust(current, playerIndex), playerIndex);
+      continue;
+    }
+    const take = Math.min(remaining, player.playDeck.length);
+    drawnCards.push(...player.playDeck.slice(0, take));
+    current = updatePlayer(current, playerIndex, p => ({ ...p, playDeck: p.playDeck.slice(take) }));
+    remaining -= take;
+  }
+  return { state: current, drawnCards };
+}
+
+/**
  * Returns the name of an in-play card (either player's `cardsInPlay`) whose
  * `cancel-deck-search` effect cancels own-deck/discard searches for the given
  * acting player, or `null` when none applies.

@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -4109,9 +4109,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // the declaring player's play deck into their hand, then dispose of the
   // spent event card: out-of-play when `removeFromGame` is set (so it can
   // never be recurred), otherwise the discard pile. The card rode on the chain
-  // entry (it left the hand at play time), so dispose it now. Drawing stops
-  // early if the deck runs out — no card instance disappears, the deck is
-  // simply exhausted.
+  // entry (it left the hand at play time), so dispose it now. Per CoE rule
+  // 2.4, a play deck that runs dry mid-draw is exhausted and reshuffled
+  // immediately, and the draw resumes from the reshuffled deck —
+  // `drawCardsExhausting` handles that; it only stops short if the discard
+  // pile is also empty (nothing left to shuffle in).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
     const drawEffect = getCardEffects(def).find(
@@ -4119,20 +4121,19 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (drawEffect) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
-      const deck = current.players[declaringIndex].playDeck;
-      const drawCount = Math.min(drawEffect.count, deck.length);
-      const drawnCards = deck.slice(0, drawCount);
       const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
-      logDetail(`${cardName}: chain resolves draw-cards — drawing ${drawCount}/${drawEffect.count} card(s) from play deck (deck size ${deck.length})`);
-      if (drawCount < drawEffect.count) {
-        logDetail(`${cardName}: play deck exhausted — drew only ${drawCount} of ${drawEffect.count}`);
+      const deckSizeBefore = current.players[declaringIndex].playDeck.length;
+      logDetail(`${cardName}: chain resolves draw-cards — drawing ${drawEffect.count} card(s) from play deck (deck size ${deckSizeBefore})`);
+      const { state: afterDraw, drawnCards } = drawCardsExhausting(current, declaringIndex, drawEffect.count);
+      current = afterDraw;
+      if (drawnCards.length < drawEffect.count) {
+        logDetail(`${cardName}: play deck and discard pile both exhausted — drew only ${drawnCards.length} of ${drawEffect.count}`);
       }
       const spentCard = toCardInstance(entry.card);
       logDetail(`${cardName}: spent event card → ${drawEffect.removeFromGame ? 'out-of-play (removed from game)' : 'discard'}`);
       current = updatePlayer(current, declaringIndex, p => ({
         ...p,
         hand: [...p.hand, ...drawnCards],
-        playDeck: p.playDeck.slice(drawCount),
         ...(drawEffect.removeFromGame
           ? { outOfPlayPile: [...p.outOfPlayPile, spentCard] }
           : { discardPile: [...p.discardPile, spentCard] }),

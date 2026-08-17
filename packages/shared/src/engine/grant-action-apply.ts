@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -924,23 +924,27 @@ function runGrantApply(
 
   // `draw-cards` — draw N cards from the top of the activating player's play
   // deck into their hand (Palantír of Elostirion le-332: "tap Palantír of
-  // Elostirion to draw a card"). Drawing stops at deck exhaustion: no card
-  // instance is invented or lost, the deck simply runs out.
+  // Elostirion to draw a card"). Per CoE rule 2.4, a play deck that runs dry
+  // mid-draw is exhausted and reshuffled immediately, and the draw resumes
+  // from the reshuffled deck — `drawCardsExhausting` handles that; it only
+  // stops short if the discard pile is also empty (nothing left to shuffle in).
   if (apply.type === 'draw-cards') {
-    const drawingPlayer = newPlayers[ctx.playerIndex];
     const wanted = apply.count;
-    const drawCount = Math.min(wanted, drawingPlayer.playDeck.length);
-    if (drawCount < wanted) {
-      logDetail(`Grant-action ${ctx.action.actionId}: play deck exhausted — drawing only ${drawCount} of ${wanted}`);
+    const playerIndex = ctx.playerIndex as 0 | 1;
+    const syntheticState: GameState = { ...state, players: newPlayers as [PlayerState, PlayerState], rng: rngRef.rng };
+    const { state: afterDraw, drawnCards } = drawCardsExhausting(syntheticState, playerIndex, wanted);
+    rngRef.rng = afterDraw.rng;
+    if (drawnCards.length < wanted) {
+      logDetail(`Grant-action ${ctx.action.actionId}: play deck and discard pile both exhausted — drawing only ${drawnCards.length} of ${wanted}`);
     }
-    if (drawCount > 0) {
-      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.sourceName} draws ${drawCount} card(s) from the play deck`);
-      newPlayers[ctx.playerIndex] = {
-        ...drawingPlayer,
-        hand: [...drawingPlayer.hand, ...drawingPlayer.playDeck.slice(0, drawCount)],
-        playDeck: drawingPlayer.playDeck.slice(drawCount),
-      };
+    if (drawnCards.length > 0) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.sourceName} draws ${drawnCards.length} card(s) from the play deck`);
     }
+    const drawingPlayerAfter = afterDraw.players[playerIndex];
+    newPlayers[ctx.playerIndex] = {
+      ...drawingPlayerAfter,
+      hand: [...drawingPlayerAfter.hand, ...drawnCards],
+    };
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
