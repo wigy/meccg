@@ -238,6 +238,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     return viable(automaticAttacksActions(state, playerId, siteState));
   }
 
+  if (siteState.step === 'rescue-tap') {
+    return viable(rescueTapActions(state, playerId, siteState));
+  }
+
   if (siteState.step === 'declare-agent-attack') {
     return viable(declareAgentAttackActions(state, playerId));
   }
@@ -496,6 +500,42 @@ function forewarnedSelectAttackActions(
  * home site matches the current site — one attack canceled per tap, still
  * counting as faced.
  */
+/**
+ * Actions in the 'rescue-tap' step (CoE rule 8.36): one `rescue-prisoner` per
+ * untapped company member that could tap to free the host's prisoners, plus
+ * `pass` to walk away with them still held. A prisoner of the host being
+ * rescued is never offered — they are the ones being freed.
+ */
+function rescueTapActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): GameAction[] {
+  if (state.activePlayer !== playerId) {
+    logDetail(`Not active player — no actions during rescue-tap step`);
+    return [];
+  }
+  const actions: GameAction[] = [{ type: 'pass', player: playerId }];
+  const rescue = siteState.rescueInProgress;
+  const player = playerById(state, playerId);
+  const company = player?.companies[siteState.activeCompanyIndex];
+  const host = rescue ? state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId) : undefined;
+  if (!rescue || !player || !company || !host) return actions;
+
+  for (const characterId of company.characters) {
+    if (host.prisoners.includes(characterId)) continue;
+    if (player.characters[characterId]?.status !== CardStatus.Untapped) continue;
+    actions.push({
+      type: 'rescue-prisoner',
+      player: playerId,
+      hostInstanceId: rescue.hostInstanceId,
+      characterInstanceId: characterId,
+    });
+  }
+  logDetail(`Rescue-tap: ${actions.length - 1} untapped company member(s) could free the prisoner(s)`);
+  return actions;
+}
+
 function automaticAttacksActions(
   state: GameState,
   playerId: PlayerId,

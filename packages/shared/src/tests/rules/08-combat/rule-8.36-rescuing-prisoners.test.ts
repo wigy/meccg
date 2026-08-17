@@ -19,29 +19,141 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { CardStatus, Phase, Race } from '../../../index.js';
-import type { CardDefinitionId, CardInstanceId, CombatState, PlayerState } from '../../../index.js';
+import type {
+  ActiveConstraint, CardDefinitionId, CardInstanceId, CombatState, ConstraintId,
+  HazardHost, PlayerState, RescuePrisonerAction, SitePhaseState,
+} from '../../../index.js';
 import {
-  buildTestState, resetMint, dispatch, viableActions,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ARAGORN, LEGOLAS,
+  buildTestState, buildSitePhaseState, resetMint, dispatch, viableActions, recomputeDerived,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
+  ARAGORN, GIMLI, LEGOLAS,
   MORIA, LORIEN, MINAS_TIRITH,
   findCharInstanceId, companyIdAt,
   makeShadowMHState,
 } from '../../test-helpers.js';
 
 const GWAIHIR = 'tw-251' as CardDefinitionId;
+// Troll-purse (dm-95) bound to The Under-grottos (dm-39, one Orc
+// automatic-attack): the rescue-attack is the site's own attack.
+const TROLL_PURSE = 'dm-95' as CardDefinitionId;
+const THE_UNDER_GROTTOS = 'dm-39' as CardDefinitionId;
+const TROLL_PURSE_INSTANCE = 'troll-purse-1' as CardInstanceId;
 
 describe('Rule 8.36 — Rescuing Prisoners', () => {
   beforeEach(() => resetMint());
 
-  // The full rescue flow (enter the rescue site, face the host's
-  // rescue-attacks, prisoners freed and the host record cleared) is already
-  // exercised end-to-end for two real hazard hosts: Troll-purse (dm-95) and
-  // Flies and Spiders (dm-58). Both cover: rescue-attack = the host's own
-  // rescue-attacks (not the site's automatic-attacks), the rescued
-  // prisoner(s) protected from strike assignment during the rescue-attack,
-  // and the prisoner constraint/host record being cleared on success.
-  test.todo('Company enters rescue site, faces rescue-attacks, taps character to rescue all prisoners from host; may play minor item');
+  // How the rescue-attack itself is derived (the host's own fixed attacks for
+  // a take-prisoner card, the site's automatic-attacks for a Troll-purse) and
+  // the prisoners' protection from strike assignment are covered by dm-58 and
+  // dm-95. What is tested here is the rule's second half: the tap that pays
+  // for the rescue, and what that tap buys.
+  test('a character taps after the rescue-attacks to free all the host\'s prisoners, tapping the site and opening the minor-item window', () => {
+    const base = buildSitePhaseState({ site: THE_UNDER_GROTTOS, characters: [ARAGORN, GIMLI] });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(base, RESOURCE_PLAYER, GIMLI);
+    const siteInstanceId = base.players[RESOURCE_PLAYER].companies[0].currentSite!.instanceId;
+    const state = {
+      ...base,
+      activeConstraints: [...base.activeConstraints, {
+        id: 'c-prisoner-1' as ConstraintId,
+        source: TROLL_PURSE_INSTANCE,
+        sourceDefinitionId: TROLL_PURSE,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'character', characterId: aragornId },
+        kind: { type: 'character-is-prisoner', hostInstanceId: TROLL_PURSE_INSTANCE },
+      } as ActiveConstraint],
+      hazardHosts: [{
+        hostCard: { instanceId: TROLL_PURSE_INSTANCE, definitionId: TROLL_PURSE },
+        rescueSiteCard: { instanceId: siteInstanceId, definitionId: THE_UNDER_GROTTOS },
+        prisoners: [aragornId],
+        ownedBy: PLAYER_2,
+      } as HazardHost],
+      players: base.players.map((p, i) => (i === HAZARD_PLAYER
+        ? { ...p, cardsInPlay: [{ instanceId: TROLL_PURSE_INSTANCE, definitionId: TROLL_PURSE, status: CardStatus.Untapped, attachedToSite: THE_UNDER_GROTTOS }] }
+        : p)) as unknown as typeof base.players,
+    };
+
+    // Declare the rescue, then face the single rescue-attack (dm-39 has one
+    // printed automatic-attack; the combat itself is dm-95's territory).
+    const declared = dispatch(state, { type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: TROLL_PURSE_INSTANCE });
+    expect((declared.phaseState as SitePhaseState).step).toBe('rescue-attacks');
+    const faced = dispatch(
+      { ...declared, combat: null, phaseState: { ...(declared.phaseState as SitePhaseState), rescueInProgress: { hostInstanceId: TROLL_PURSE_INSTANCE, resolved: 1 } } },
+      { type: 'pass', player: PLAYER_1 },
+    );
+
+    // Facing the attacks does not free anyone by itself — a character must tap.
+    expect((faced.phaseState as SitePhaseState).step).toBe('rescue-tap');
+    expect(faced.hazardHosts).toHaveLength(1);
+
+    // The prisoner is not offered as their own rescuer; their untapped
+    // company-mate is.
+    const tappers = viableActions(faced, PLAYER_1, 'rescue-prisoner')
+      .map(ea => (ea.action as RescuePrisonerAction).characterInstanceId);
+    expect(tappers).toEqual([gimliId]);
+    expect(tappers).not.toContain(aragornId);
+
+    const after = dispatch(faced, {
+      type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: TROLL_PURSE_INSTANCE, characterInstanceId: gimliId,
+    });
+
+    // The rescuer taps, and the prisoner is free: constraint lifted, host
+    // record dropped, and the freed character now costs general influence.
+    expect(after.players[RESOURCE_PLAYER].characters[gimliId].status).toBe(CardStatus.Tapped);
+    expect(after.activeConstraints.some(
+      c => c.target.kind === 'character' && c.target.characterId === aragornId && c.kind.type === 'character-is-prisoner',
+    )).toBe(false);
+    expect(after.hazardHosts).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].characters[aragornId].controlledBy).toBe('general');
+
+    // The rescue site taps, and that opens the additional-minor-item window.
+    expect(after.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Tapped);
+    const siteState = after.phaseState as SitePhaseState;
+    expect(siteState.step).toBe('play-resources');
+    expect(siteState.minorItemAvailable).toBe(true);
+    expect(siteState.rescueInProgress).toBeUndefined();
+  });
+
+  test('with nobody left untapped the rescue cannot be completed, and the prisoners stay held', () => {
+    // The same position after the rescue-attack has tapped (wounded) the only
+    // free company member: rule 8.36 asks for a character to tap and there is
+    // none, so passing leaves the prisoner with the host.
+    const base = buildSitePhaseState({ site: THE_UNDER_GROTTOS, characters: [ARAGORN, GIMLI] });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(base, RESOURCE_PLAYER, GIMLI);
+    const siteInstanceId = base.players[RESOURCE_PLAYER].companies[0].currentSite!.instanceId;
+    const state = recomputeDerived({
+      ...base,
+      activeConstraints: [...base.activeConstraints, {
+        id: 'c-prisoner-1' as ConstraintId,
+        source: TROLL_PURSE_INSTANCE,
+        sourceDefinitionId: TROLL_PURSE,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'character', characterId: aragornId },
+        kind: { type: 'character-is-prisoner', hostInstanceId: TROLL_PURSE_INSTANCE },
+      } as ActiveConstraint],
+      hazardHosts: [{
+        hostCard: { instanceId: TROLL_PURSE_INSTANCE, definitionId: TROLL_PURSE },
+        rescueSiteCard: { instanceId: siteInstanceId, definitionId: THE_UNDER_GROTTOS },
+        prisoners: [aragornId],
+        ownedBy: PLAYER_2,
+      } as HazardHost],
+      phaseState: { ...(base.phaseState), step: 'rescue-tap', rescueInProgress: { hostInstanceId: TROLL_PURSE_INSTANCE, resolved: 1 } },
+      players: base.players.map((p, i) => (i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: { ...p.characters, [gimliId as string]: { ...p.characters[gimliId], status: CardStatus.Tapped } },
+      })) as unknown as typeof base.players,
+    });
+
+    expect(viableActions(state, PLAYER_1, 'rescue-prisoner')).toHaveLength(0);
+
+    const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect((after.phaseState as SitePhaseState).step).toBe('play-resources');
+    expect(after.hazardHosts).toHaveLength(1);
+    expect(after.activeConstraints.some(
+      c => c.target.kind === 'character' && c.target.characterId === aragornId && c.kind.type === 'character-is-prisoner',
+    )).toBe(true);
+  });
 
   test('an ally facing an untargeted prisoner-taking attack is neither tapped nor wounded', () => {
     // A re-faced Troll-purse-style automatic-attack (untargeted: whoever is

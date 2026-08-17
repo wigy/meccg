@@ -298,8 +298,8 @@ describe('Troll-purse (dm-95)', () => {
     expect(siteState.rescueInProgress).toEqual({ hostInstanceId: host.instanceId, resolved: 1 });
   });
 
-  test('once the rescue-attack is faced, the prisoner is freed and the host is removed', () => {
-    const { state, aragornId, host } = prisonerHeldState();
+  test('once the rescue-attack is faced, a company-mate taps and the prisoner is freed and the host removed', () => {
+    const { state, aragornId, gimliId, host } = prisonerHeldState();
     // dm-39 has a single printed auto-attack; simulate it already faced.
     const ready = {
       ...state,
@@ -310,7 +310,12 @@ describe('Troll-purse (dm-95)', () => {
         rescueInProgress: { hostInstanceId: host.instanceId, resolved: 1 },
       } as SitePhaseState,
     };
-    const after = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+    // Facing the attacks leads to the rule 8.36 tap that actually frees them.
+    const faced = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+    expect((faced.phaseState as SitePhaseState).step).toBe('rescue-tap');
+    const after = dispatch(faced, {
+      type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: host.instanceId, characterInstanceId: gimliId,
+    });
 
     // Prisoner constraint lifted.
     const stillPrisoner = after.activeConstraints.some(
