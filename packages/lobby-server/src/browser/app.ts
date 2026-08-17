@@ -163,9 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Disable every play button in the lobby while a game launch is in flight.
      * The browser dims disabled buttons via the `.lobby-play-btn:disabled` rule.
+     *
+     * "Stop Existing Game" is exempt: it shares the .lobby-play-btn class but
+     * is the escape hatch out of a lingering game, not a way into a new one,
+     * so a launch must never be what dims it.
      */
     function setLobbyPlayButtonsDisabled(disabled: boolean): void {
-      for (const btn of document.querySelectorAll<HTMLButtonElement>('#lobby-screen .lobby-play-btn')) {
+      for (const btn of document.querySelectorAll<HTMLButtonElement>('#lobby-screen .lobby-play-btn:not(#stop-game-btn)')) {
         btn.disabled = disabled;
       }
       for (const btn of document.querySelectorAll<HTMLButtonElement>('.lobby-player-item button')) {

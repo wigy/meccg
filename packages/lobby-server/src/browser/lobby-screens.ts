@@ -87,33 +87,56 @@ export function showScreen(id: ScreenId): void {
   updateAdminNavVisibility();
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
-    const tutorialBtn = document.getElementById('play-tutorial-btn') as HTMLButtonElement | null;
-    if (tutorialBtn) { tutorialBtn.textContent = 'Play the Tutorial'; tutorialBtn.disabled = false; }
-    const heuristicBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement | null;
-    if (heuristicBtn) { heuristicBtn.textContent = 'Play vs Heuristic-AI'; heuristicBtn.disabled = false; }
-    const realBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
-    if (realBtn) { realBtn.textContent = 'Play vs Real-AI (experimental)'; realBtn.disabled = false; }
-    // Collapse the model picker again, so returning to the lobby starts from
-    // the same state as a fresh visit.
+    resetLobbyButtons();
+    // Collapse the model picker and the tutorial chapter picker again, so
+    // returning to the lobby starts from the same state as a fresh visit.
     document.getElementById('real-ai-options')?.classList.add('hidden');
-    const startRealBtn = document.getElementById('start-real-ai-btn') as HTMLButtonElement | null;
-    if (startRealBtn) { startRealBtn.textContent = 'Start'; startRealBtn.disabled = false; }
-    // Same for the tutorial chapter picker.
     document.getElementById('tutorial-options')?.classList.add('hidden');
-    const startTutorialBtn = document.getElementById('start-tutorial-btn') as HTMLButtonElement | null;
-    if (startTutorialBtn) { startTutorialBtn.textContent = 'Start'; startTutorialBtn.disabled = false; }
-    const mcBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
-    if (mcBtn) { mcBtn.textContent = 'Play vs MC-AI (experimental)'; mcBtn.disabled = false; }
-    const modularBtn = document.getElementById('play-modular-ai-btn') as HTMLButtonElement | null;
-    if (modularBtn) { modularBtn.textContent = 'Play vs Modular AI (experimental)'; modularBtn.disabled = false; }
-    const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
-    if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
     void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());
   }
   // Load decks when showing the decks screen
   if (id === 'decks-screen') {
     void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());
   }
+}
+
+/**
+ * Idle label of every lobby button that swaps its own text and disables
+ * itself while the action it starts is in flight.
+ */
+const LOBBY_BUTTON_LABELS: Readonly<Record<string, string>> = {
+  'play-tutorial-btn': 'Play the Tutorial',
+  'start-tutorial-btn': 'Start',
+  'play-heuristic-ai-btn': 'Play vs Heuristic-AI',
+  'play-real-ai-btn': 'Play vs Real-AI (experimental)',
+  'start-real-ai-btn': 'Start',
+  'play-mc-ai-btn': 'Play vs MC-AI (experimental)',
+  'play-modular-ai-btn': 'Play vs Modular AI (experimental)',
+  'play-pseudo-ai-btn': 'Play vs Pseudo-AI',
+  'stop-game-btn': 'Stop Existing Game',
+};
+
+/**
+ * Restore every lobby button to its idle label and enabled state. Called both
+ * when the lobby screen is shown (returning from a game) and when the server
+ * rejects the action a button was disabled for — otherwise a button that
+ * self-disabled on click stays dimmed with nothing to re-enable it.
+ *
+ * "Stop Existing Game" matters most here: it is only ever visible while a
+ * lingering game server still lists us in-game, and the reset in the
+ * 'online-players' handler runs only once that flag drops back to false — by
+ * which point the button is hidden again. Left out of this reset, a launch
+ * that dimmed it (it shares the .lobby-play-btn class the launch-time disable
+ * sweeps over) handed the player back a stop button they could not press.
+ */
+export function resetLobbyButtons(): void {
+  for (const [id, label] of Object.entries(LOBBY_BUTTON_LABELS)) {
+    const btn = document.getElementById(id) as HTMLButtonElement | null;
+    if (btn) { btn.textContent = label; btn.disabled = false; }
+  }
+  // Challenge/Watch buttons carry their own disabled rules (no deck selected,
+  // join already sent), so re-render them rather than blanket-enabling them.
+  renderOnlineList();
 }
 
 /** Show an error message on an auth form. */
@@ -357,6 +380,11 @@ export function connectLobbyWs(): void {
       }
       case 'error': {
         renderLog(`Lobby: ${msg.message as string}`);
+        // The rejected action ("You are already in a game", "You are not in a
+        // game", "A game is already restarting") is never followed by the
+        // state change its button waits on, so undo the click-time disable
+        // here rather than strand the player on a dimmed lobby.
+        resetLobbyButtons();
         break;
       }
       case 'mail-notification': {
