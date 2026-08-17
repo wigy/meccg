@@ -52,6 +52,20 @@ const ANCHOR_ELEMENT_IDS: Record<TutorialAnchorId, string> = {
 let repositionListenersRegistered = false;
 
 /**
+ * Callback invoked by the completion panel's "Return to Lobby" button.
+ * Registered by game-connection.ts (its `disconnect()`) at module load —
+ * a forward reference like {@link setReplayExit}, so this module does not
+ * import game-connection.js and create a cycle (game-connection.ts already
+ * imports {@link renderTutorialPanel}).
+ */
+let leaveTutorialFn: (() => void) | null = null;
+
+/** Register the handler for the tutorial-complete panel's exit button. */
+export function setLeaveTutorial(fn: () => void): void {
+  leaveTutorialFn = fn;
+}
+
+/**
  * Render (or remove) the tutorial panel for the current view. Shows the
  * active step's title and instruction, glossary entries for concepts the
  * step introduces, and overall progress (steps narrate the Mentor's turns
@@ -177,6 +191,18 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
       appState.ws?.send(JSON.stringify(msg));
     });
     panel.appendChild(cont);
+  }
+
+  // The script is exhausted — the human's actions are gated to nothing from
+  // here on (see gateHumanActions), so the panel itself must offer the way
+  // out: the toolbar's disconnect button is not part of this overlay.
+  if (progress.done) {
+    const leave = document.createElement('button');
+    leave.type = 'button';
+    leave.className = 'tutorial-leave-btn';
+    leave.textContent = 'Return to Lobby ➜';
+    leave.addEventListener('click', () => leaveTutorialFn?.());
+    panel.appendChild(leave);
   }
 
   document.body.appendChild(panel);

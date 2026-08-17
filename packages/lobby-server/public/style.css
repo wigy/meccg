@@ -6972,6 +6972,25 @@ body.all-companies-mode:has(#debug-view.hidden) {
   background: rgba(70, 110, 160, 0.95);
 }
 
+/* The completion panel's exit button — same shape as the Continue gate's
+   button, tinted to match .tutorial-panel--done's green accent. */
+.tutorial-leave-btn {
+  display: block;
+  margin: 10px auto 2px;
+  padding: 6px 22px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: rgba(220, 245, 230, 0.95);
+  background: rgba(50, 110, 70, 0.9);
+  border: 1px solid rgba(140, 220, 140, 0.8);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tutorial-leave-btn:hover {
+  background: rgba(65, 135, 85, 0.95);
+}
+
 /* Emphasized closing line of a tutorial step ("TO BE CONTINUED...."). */
 .tutorial-panel-footer {
   margin-top: 8px;
