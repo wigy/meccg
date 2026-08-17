@@ -1153,6 +1153,12 @@
             }
           }
         }
+      },
+      {
+        "type": "return-self-to-hand-when",
+        "condition": {
+          "inPlayAnywhere": "Shelob"
+        }
       }
     ],
     "playableAt": [
