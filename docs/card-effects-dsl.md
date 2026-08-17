@@ -4821,6 +4821,63 @@ Implemented in `engine/legal-actions/combat.ts`
 (`altPermanentEventModifyAttackActions`) and `engine/combat-actions.ts`
 (`handleModifyAttack`).
 
+### 10e-ter. `modify-attack` `attachCorruptionOnWound` (dynamic post-attack corruption attachment)
+
+A from-hand `modify-attack` (attacker-played) may carry
+`"attachCorruptionOnWound": true` to additionally attach *itself*, as a
+corruption card, to whichever character the attack ends up wounding — a
+target that isn't known until after combat resolves, unlike every other
+corruption card (which is played onto a specific character up front). Used
+by Icy Touch (td-33): "Playable on a company facing an Undead attack. The
+prowess of the attack is modified by +1. Corruption. The next character
+wounded by the attack (on whom a corruption card has not already been
+played this turn) receives 2 corruption points (place this card with the
+character). Discard Icy Touch if it is not played with a character."
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifier": 1,
+  "attachCorruptionOnWound": true,
+  "when": { "enemy.race": "undead" } }
+```
+
+The card is still discarded immediately when played, exactly like any other
+from-hand `modify-attack` (`handleModifyAttack`, `combat-actions.ts`) — the
+only addition is that `CombatState.pendingCorruptionAttach` is set to
+`{ sourceCardInstanceId, sourceCardDefinitionId, ownerPlayerIndex }`, marking
+the just-discarded instance as eligible for reattachment.
+
+At combat finalization (`finalizeCombat`, `combat-finalize.ts`), the engine
+reuses the `woundedCharIds` list it already computes for
+`woundedByRaceThisTurn` (strike-array order; empty under detainment, since a
+detainment strike taps rather than wounds). It scans that list for the
+first character who (a) is still in play and (b) has not already had a
+corruption card played on him this turn — checked against
+`MovementHazardPhaseState.corruptionCardsPlayedPerChar`, when the phase state
+is available (Movement/Hazard phase only, matching every other consumer of
+that field; site-phase automatic attacks have no such bookkeeping, so every
+wounded character there is treated as eligible). If a match is found, the
+card is spliced out of `ownerPlayerIndex`'s discard pile and pushed onto the
+matched character's `hazards`, and `corruptionCardsPlayedPerChar` is updated.
+If no eligible character was wounded, the card simply remains in the discard
+pile — "discard if not played with a character" requires no separate code
+path. The corruption-point value itself is an ordinary `stat-modifier`
+effect on the card (`{ "type": "stat-modifier", "stat": "corruption-points",
+"value": 2 }`), picked up automatically once the instance sits in
+`char.hazards` — the same mechanism every other corruption card uses.
+
+Note: "the *next* character wounded" is read as strike-array order, not
+strict dice-roll chronology — when a multi-strike attack has more than one
+strike outstanding, the defender may choose to resolve them in a different
+order (`combat-strike.ts` `choose-strike-order`), which this simplification
+does not track. This mirrors the existing precision of `woundedCharIds`
+itself (also array order) and is judged an acceptable approximation given
+how rarely multi-strike Undead attacks occur and how rarely a defender would
+deliberately reorder them.
+
+Implemented in `engine/combat-actions.ts` (`handleModifyAttack`) and
+`engine/combat-finalize.ts` (`finalizeCombat`).
+
 ### 10f-bis. `counter-cancel-attack-roll`
 
 A hazard short-event the **attacking** (hazard) player plays during a combat

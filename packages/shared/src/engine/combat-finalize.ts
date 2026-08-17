@@ -479,6 +479,61 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       }), p));
   }
 
+  // Icy Touch (td-33): a from-hand `modify-attack` carrying
+  // `attachCorruptionOnWound` already discarded itself when played (same as
+  // any other from-hand modify-attack); if this attack wounded at least one
+  // eligible character, splice the card back out of the discard pile and
+  // attach it to the first such character — in strike-array order — instead
+  // of leaving it discarded. "Eligible" means no corruption card has already
+  // been played on him this turn (CoE 7.2.1), checked against
+  // `corruptionCardsPlayedPerChar` where that per-turn bookkeeping is
+  // available (Movement/Hazard phase only, matching every other consumer of
+  // that field). No eligible wound → the card simply stays discarded,
+  // satisfying "Discard Icy Touch if it is not played with a character" for
+  // free.
+  if (combat.pendingCorruptionAttach && woundedCharIds.length > 0) {
+    const pending = combat.pendingCorruptionAttach;
+    const ownerIdx = pending.ownerPlayerIndex;
+    const stillDiscarded = stateAfterCombat.players[ownerIdx]?.discardPile
+      .some(c => c.instanceId === pending.sourceCardInstanceId);
+    if (stillDiscarded) {
+      const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+      const mhState = state.phaseState.phase === Phase.MovementHazard
+        ? state.phaseState as MovementHazardPhaseState
+        : undefined;
+      let targetCharId: CardInstanceId | undefined;
+      for (const charId of woundedCharIds) {
+        if (mhState && mhState.corruptionCardsPlayedPerChar[charId]) continue;
+        if (!stateAfterCombat.players[defIdx]?.characters[charId]) continue;
+        targetCharId = charId;
+        break;
+      }
+      const cardLabel = defById(stateAfterCombat, pending.sourceCardDefinitionId)?.name ?? pending.sourceCardDefinitionId as string;
+      if (targetCharId) {
+        logDetail(`${cardLabel}: attaching to ${targetCharId as string} — first eligible character wounded by this attack`);
+        stateAfterCombat = updatePlayer(stateAfterCombat, ownerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== pending.sourceCardInstanceId),
+        }));
+        stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => updateCharacter(p, targetCharId as CardInstanceId, c => ({
+          ...c,
+          hazards: [...c.hazards, { instanceId: pending.sourceCardInstanceId, definitionId: pending.sourceCardDefinitionId, status: CardStatus.Untapped }],
+        })));
+        if (mhState) {
+          stateAfterCombat = {
+            ...stateAfterCombat,
+            phaseState: {
+              ...mhState,
+              corruptionCardsPlayedPerChar: { ...mhState.corruptionCardsPlayedPerChar, [targetCharId as string]: true },
+            },
+          };
+        }
+      } else {
+        logDetail(`${cardLabel}: no eligible wounded character — remains discarded`);
+      }
+    }
+  }
+
   // Combatants whose strike *succeeded* — CoE 3.iv.5: "the strike is successful.
   // The defending character is immediately wounded (which is considered
   // synonymous with the strike succeeding) … and then the hazard player

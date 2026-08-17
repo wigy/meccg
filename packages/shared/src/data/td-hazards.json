@@ -1094,7 +1094,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/IcyTouch.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 6,
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifier": 1,
+        "attachCorruptionOnWound": true,
+        "when": { "enemy.race": "undead" }
+      },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 2 },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+        }
+      }
+    ],
+    "certified": "2026-08-17",
     "text": "Playable on a company facing an Undead attack. The prowess of the attack is modified by +1.Corruption. The next character wounded by the attack (on whom a corruption card has not already been played this turn) receives 2 corruption points (place this card with the character). Discard Icy Touch if it is not played with a character.During his organization phase, a character with this card may tap and attempt to remove it. Make a roll: if this result is greater than a 6, discard this card."
   },
   {

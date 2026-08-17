@@ -650,6 +650,24 @@ export interface CombatState {
    */
   readonly mindRollSplitPending?: { readonly threshold: number };
   /**
+   * Icy Touch (td-33): set when a hand-played `modify-attack` carrying
+   * `attachCorruptionOnWound` was played against this attack. The card was
+   * already discarded by the ordinary from-hand `modify-attack` path (same
+   * as every other card using that effect); this field just marks it as
+   * eligible for reattachment. At combat finalization, `finalizeCombat`
+   * looks for the first character wounded by the attack who has not already
+   * had a corruption card played on him this turn and, if one exists,
+   * splices the referenced instance out of `ownerPlayerIndex`'s discard pile
+   * and onto that character's `hazards`. If no eligible character was
+   * wounded, the card simply stays in the discard pile — "discard if not
+   * played with a character" falls out for free.
+   */
+  readonly pendingCorruptionAttach?: {
+    readonly sourceCardInstanceId: CardInstanceId;
+    readonly sourceCardDefinitionId: CardDefinitionId;
+    readonly ownerPlayerIndex: number;
+  };
+  /**
    * True when the creature carries `combat-attacker-chooses-defenders`
    * (e.g. Cave-drake). Determines the post-cancel-window transition:
    * attacker-chooses → `'attacker'` assignment; otherwise → `'defender'`
