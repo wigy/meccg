@@ -887,7 +887,7 @@
 | tw-187 | Wacho | — | 4 | ☑ |
 | tw-188 | A Chance Meeting | — | 13 | ☑ |
 | tw-189 | A Friend or Three | — | 12 | ☑ |
-| tw-190 | Align Palantír | — | 10 | ☑ |
+| tw-190 | Align Palantír | — | 11 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |

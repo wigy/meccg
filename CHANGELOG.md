@@ -1,5 +1,179 @@
 # Changelog
 
+## 0.112.0 — 2026-08-17
+
+Ask the AI what it would do, and it learns what a card is worth
+
+### Web Client
+
+- **Ask AI.** A toolbar icon appears while an observer is attached and
+  answers, in one click, what the selected agent would do in the position
+  on screen: its pick, the ranked alternatives, what the engine refused,
+  and the `explain` command that re-derives the whole thing offline. No
+  confirmation dialog and no dev gate — asking is a read, it changes no
+  state and does not mark the game cheated — and spectators get the
+  control too, since watching an AI game and asking what a different
+  agent would have played is a main use of it. `?` asks the first agent
+  about the position; punctuation, because the letter keys all address
+  hand and board targets. The follow-up questions — another agent, or
+  "would it have played what I just played?" — live in the answer
+  panel's action row, where there is already a ranking on screen to
+  compare against. Every refusal says what to do about it: "no observer"
+  prints the `bin/observe` line, a timeout suggests a cheaper agent. The
+  button is disabled while a question is in flight and a late answer to
+  a question the panel has moved on from is ignored.
+- The active company is marked with an "Active" badge on the top-left
+  corner of the site it is heading to — the destination while moving,
+  the current site otherwise — instead of a green glow around its whole
+  block. In the single-company view the glow had nothing to contrast
+  against; the overview grid keeps it, where it does distinguish
+  companies. The badge anchors to whichever wrapper the existing site
+  overlays already built (agent attack, constraints, on-guard), falling
+  back to wrapping the site image, so it lands on the outermost
+  positioned box regardless of which overlays are present.
+- Cards revealed from the opponent's hand are now shown. Palantír of Amon
+  Sûl's peek-hand action grew `handRevealedInstances` and the projection
+  resolved those instances to their real definition ids, but
+  `getOpponentCards()` discarded that and filled the opponent arc with
+  card backs unconditionally, so the reveal had nothing to show for
+  itself. Unrevealed slots still carry `UNKNOWN_CARD` and render as backs.
+- Hand cards whose only play is on-guard are dimmed again. Any card may
+  be placed on-guard, so highlighting that branch lit up the whole hand
+  and drowned out the cards with a genuine play; the click handler stays,
+  so the on-guard menu is still reachable from every card.
+- User actions are ignored for a short window after auto-pass fires. The
+  pass button is one persistent DOM element rebound on every render, so a
+  click already in flight when auto-pass acted could land after the
+  re-render and silently send the *next* phase's action too.
+
+### Game Engine
+
+- A unique character that has been eliminated can no longer be replaced by
+  the opposing player's own copy. `isUniqueCharacterInPlay()` scanned only
+  in-play characters, so once (say) Balin was eliminated into its owner's
+  out-of-play pile the other physical copy passed the uniqueness gate. Per
+  the glossary's "unique" ruling an eliminated unique permanently occupies
+  the "in play and/or removed-from-play" slot; a merely *discarded* copy is
+  unaffected and stays replayable by either player. The check now scans
+  both out-of-play piles, fixing play-character, organization-phase
+  character play and recruit-via-event uniformly.
+- Plan-movement can no longer take a two-leader company off a haven. CoE
+  3.26 was enforced by move-to-company and merge-companies but never by
+  `planMovementActions`, so a company holding two Leaders — legal while at
+  a haven — could declare and travel to a non-haven site with both.
+- A site converted into a Wizardhaven counts as either alignment for MEWH
+  §10. `siteTapCrossAlignmentBlocked()` exempted only sites whose *printed*
+  alignment was fallen-wizard, which blocked a Fallen-wizard from playing
+  Palantír of Minas Tirith once Chambers in the Royal Court (wh-97) had
+  converted the site into Gandalf's Wizardhaven.
+
+### Cards
+
+- **Align Palantír (tw-190)** is stored together with its Palantír, as CRF
+  22 requires. `handleStoreItem` removed only the targeted item from its
+  bearer, so the permanent event sharing that `character.items` slot
+  vanished from game state entirely instead of following the Palantír into
+  the marshalling point pile. A new `host-item-stored` on-event trigger
+  scans the bearer's remaining items for a companion declaring a self-store
+  `move`, mirroring the existing bearer-company-moves self-discard pattern.
+
+### AI / Simulation
+
+- **The long-event phase is scored at all.** `play-long-event` appeared in
+  no evaluator anywhere in the repository, so the ranking on a long-event
+  decision held exactly one candidate — the baseline's `pass` at zero — and
+  both agents had passed the phase unconditionally in every game either has
+  ever played. A whole card family was unplayable by construction rather
+  than by judgement. The `events` module now owns it, being the same
+  question as a short event.
+- **Draws are valued.** Nothing in `packages/sim` referenced `draw-cards`,
+  `new-hand` or `draw-modifier`; `travel` read a route's draws off the
+  site's *printed* `resourceDraws`, so Radagast's and Alatar's extra draws,
+  A Short Rest in play and Smaug at Home across the table all priced routes
+  as though the cards were not on the table. A new `draw-value` service
+  predicts what a company will actually draw, delegating the arithmetic to
+  the engine's own `resolveDrawModifier` rather than reimplementing
+  "4 − regionCount" a second time. `resourceDrawValue` is pinned to the
+  floor a card in hand is worth: it had been 0.35 against the 1.00 `hand`
+  charges itself to discard its deadest card, so the model held that two
+  cards are worth less than one — cycling always lost to hoarding, and a
+  two-draw site contributed 0.35 against the 12.0 of an item already in
+  hand.
+- **Companies are ordered by what the phase draws, not by what each one
+  does.** A movement/hazard phase draws in two places: the moving company
+  takes its site's draws, then step 8b tops *both* hands back to hand size
+  after every company. Since the total does not depend on the order, only
+  the first pick matters — and it should be the company drawing *least*, so
+  the free top-up is not wasted. `travel` had that rule backwards. Two
+  further rules `drawsAt` contradicted, both found while checking the
+  first: a company moving to a **haven** draws from the site of origin (two
+  phantom cards a trip on the commonest movement in the game), and a
+  company with no avatar and nobody over **mind 3** draws no printed cards
+  (CoE 2.IV.v) — the bar zeroes the base only, so A Short Rest still pays a
+  company of hobbits.
+- **Detainment attacks are played before the creatures that can be
+  killed.** Both hazard agents hardcoded the detainment flag to false, so a
+  detainment creature was priced as if it wounded and as if losing it
+  handed the defender kill MP. `ai/detainment.ts` predicts the flag from the
+  hazard seat by calling the engine's own `isDetainmentAttack` (CoE §3.II);
+  H2's ordering then falls out of its sequence enumeration, and H1 gets the
+  preference as a weight.
+- **The hazard plan searches attack orderings** instead of inheriting the
+  order it happened to pick cards in, crediting every card for what it adds
+  *in that order*. At one reported position Wargs → Lesser Spiders is worth
+  17.93 against 17.31 reversed; at another, a near-certain kill correctly
+  still leads, because ending the company would leave the follow-up nothing
+  to hit. Both are captured as scenarios.
+- **A boost that names two races is visible again.** Full of Froth and Rage
+  declares its condition as a race *list* and the modifier reader
+  understood only a bare string, so a card whose entire text is "all Spider
+  and Animal attacks receive +2 prowess" declared nothing: never played,
+  never planned around, priced at nothing to keep. The plan now also
+  includes support events, applies the board's existing modifiers to its
+  own numbers, orders a support first, and reserves the hazard-limit slot
+  the event itself spends.
+- **The AI client no longer storms a dead server.** Four clients died on a
+  4 GB heap in one day. `installReconnect` scheduled a retry from both the
+  `close` and the `error` handler and `ws` emits *both* for a refused
+  connection, so every failed attempt produced two sockets, then four, then
+  eight — ~29,000 retries in a ten-second bucket, and a 512 MB lobby log.
+  What set it off is that `npx` runs the client four processes deep and
+  forwards no signal, so the game-exit `kill()` reaped the wrapper and left
+  the client retrying a server that was gone. Now: one retry per socket,
+  exponential backoff to a 30 s ceiling, give up after 15 consecutive
+  failures, and spawn the client detached so the launcher can signal the
+  whole process group. Adds vitest coverage to text-client, which had none.
+
+### Infrastructure
+
+- `bin/observe` launches a headless observer with one or more agents
+  selected, asks the lobby which game is newest, attaches to that game
+  server as an observer rather than a seat, and tails the game's log. The
+  position comes from the log because the server never ships a full state —
+  it projects per player — and the reader handles a live log's two
+  properties: the last line may be half written, and `undo` truncates the
+  file, so a shrink means re-read rather than append. An observer takes no
+  seat, gets no state broadcasts, is absent from the watcher badge, and
+  cannot keep an abandoned game alive. The server refuses an agent the
+  attached observer does not offer, rather than quietly answering with a
+  different one.
+- `explainDecision()` renders a position, an agent's pick and its ranked
+  candidates as text for every agent in one place — h2 by re-running its
+  own module pipeline, everything else by asking it to choose once and
+  rendering the weights it publishes. The pipeline assembly moved out of
+  the explain CLI and the candidate listing out of the AI client, so the
+  CLI, the lobby log and the browser panel cannot drift into explaining
+  different things. Everything rendered comes from `projectPlayerView`,
+  never from the state, because the text is bound for a browser.
+
+### Documentation
+
+- `specs/2026-08-17-ask-ai-observer.md` — the Ask AI observer design, with
+  its open questions resolved: asking never marks a game cheated, the
+  honesty model is social (the observer exists only when someone with the
+  local master key started it, and its presence is broadcast to both
+  sides), spectators may ask with no dev gate, and h2 is the default agent.
+
 ## 0.111.0 — 2026-08-17
 
 The tutorial finds its ending, the Elo ledger its audit
