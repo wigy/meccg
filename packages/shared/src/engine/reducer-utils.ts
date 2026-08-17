@@ -577,6 +577,11 @@ export function defById(state: GameState, definitionId: CardDefinitionId): CardD
  * resolution ({@link import('./chain-reducer.js').resolvePermanentEvent}) and
  * the short-event reducer (Far-sight tw-238: "Tap the sage and the site"),
  * so both event modes tap the site through the same code path.
+ *
+ * Per CoE rule 2.V.5, when this tap successfully happens during the site
+ * phase's `play-resources` step, it opens the "additional minor item" bonus
+ * window — mirroring the bookkeeping `handleSitePlayHeroResource` performs
+ * for items/allies/factions ({@link ./reducer-site.js}).
  */
 export function applyTapSiteOnPlayFlag(
   state: GameState,
@@ -602,7 +607,15 @@ export function applyTapSiteOnPlayFlag(
     ...company,
     currentSite: { ...siteInPlay, status: CardStatus.Tapped },
   };
-  return updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies }));
+  let newState = updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies }));
+  if (newState.phaseState.phase === Phase.Site) {
+    const siteState = newState.phaseState;
+    if (!siteState.resourcePlayed) {
+      logDetail(`"${def?.name ?? '?'}" tap-site-on-play: opens the rule 2.V.5 additional minor item bonus`);
+      newState = { ...newState, phaseState: { ...siteState, resourcePlayed: true, minorItemAvailable: true } };
+    }
+  }
+  return newState;
 }
 
 /**
