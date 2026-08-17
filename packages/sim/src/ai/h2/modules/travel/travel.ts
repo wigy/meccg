@@ -148,10 +148,12 @@ function destinationOf(view: PlayerView, action: GameAction): { definitionId: st
  * The criterion differs by phase, and the difference is domain knowledge
  * rather than anything the module could derive:
  *
- * - **Movement/hazard**: how many resource cards the company will draw. A
- *   company that is *not* moving can still be the right pick — it may be the
- *   one that played heavily during organization — so the criterion is the
- *   draw itself, not whether the company travels.
+ * - **Movement/hazard**: how many resource cards the *phase* will let us see,
+ *   which depends on which company goes first rather than on any one of them
+ *   alone. A company that is not moving draws nothing of its own, and is for
+ *   that exact reason usually the right company to resolve first: the free
+ *   top-up to hand size that follows every company is worth most when the
+ *   company it follows has not already drawn past it. See `draw-value`.
  * - **Site phase**: the biggest marshalling-point expectation, so that the
  *   cards and taps that help a company through its site are spent where the
  *   points actually are rather than on a weaker chance of them.
@@ -173,18 +175,32 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
   const detail: Rationale[] = [leaf('company', companyId), leaf('site', site?.name ?? 'unknown')];
 
   if (inMovement) {
-    // The draw-modifiers in play are part of the count, not a footnote to it:
-    // ordering companies by what they draw is the whole criterion here, and two
-    // companies at identical sites draw different numbers when one of them is
-    // the one Radagast is travelling with.
-    const draws = site
-      ? computeDrawValue(context.view, cardPool, tunables).drawsAt(company.id, site)
-      : 0;
+    // Ordering companies by what each one draws is the wrong criterion, and it
+    // gets the order exactly backwards. Step 8b tops the hand back up to hand
+    // size after *every* company, so the free top-up goes to whichever company
+    // is resolved first — minus whatever that company's own site draws already
+    // covered. The phase therefore yields `ΣN + max(0, deficit − N_first)`
+    // cards, `ΣN` is the same however they are ordered, and the company to take
+    // first is the one drawing *least*. A stationary company, which draws
+    // nothing of its own, banks the whole deficit; picking it last throws it
+    // away. See `draw-value` for the derivation and the engine check.
+    const drawValue = computeDrawValue(context.view, cardPool, tunables);
+    const own = drawValue.siteDraws(company.id);
+    const deficit = drawValue.handDeficit();
+    const banked = Math.max(0, deficit - own);
+    const draws = drawValue.phaseDrawsIfFirst(company.id);
     dtsd = draws * tunables.resourceDrawValue;
-    label = `resolve this company — ${draws} card(s) drawn`;
-    detail.push(leaf('resource cards drawn', draws, {
-      note: site && exposure.destination(company.id) ? 'on arrival' : 'not moving — drawn where it stands',
+    label = `resolve this company first — ${draws} card(s) seen this phase`;
+    detail.push(leaf('this company draws', own, {
+      note: exposure.destination(company.id) ? 'on arrival' : 'not moving — draws nothing of its own',
     }));
+    detail.push(leaf('hand below hand size by', deficit));
+    detail.push(leaf('top-up this pick banks', banked, {
+      note: banked > 0
+        ? 'its own draws leave the deficit unclaimed, so step 8b pays it'
+        : 'its own draws cover the deficit — the top-up pays nothing',
+    }));
+    detail.push(leaf('cards seen this phase', draws, { note: 'every company\'s draws, plus what this pick banks' }));
     detail.push(leaf('worth per card', tunables.resourceDrawValue, { unit: 'tsd', tunable: 'resourceDrawValue' }));
   } else {
     const playable = site ? playableAt(context, siteDefinitionOf(context, company.id) ?? '') : [];
@@ -213,8 +229,11 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
     rationale: node(label, scored.utility, [node('sequencing', dtsd, detail), scored.rationale], { unit: 'winprob' }),
     assumptions: [
       inMovement
-        ? 'companies are ordered by the cards they draw; what the opponent will spend on each is '
-          + 'not modelled, which needs the belief half of `exposure`'
+        ? 'companies are ordered to see the most cards, which the hand is reset to hand size after '
+          + 'each of them makes a question of which goes first; the *hand* is the same size either '
+          + 'way, so what the extra cards buy is selection, priced here as though a card seen and '
+          + 'discarded were worth as much as one kept. What the opponent will spend on each company '
+          + 'is not modelled, which needs the belief half of `exposure`'
         : 'companies are ordered by the points they can bank now; a company kept for later is not '
           + 'credited for what it might do then',
       ...ASSUMPTIONS,
