@@ -32,7 +32,10 @@ const args = parseCliArgs(process.argv.slice(2));
 const games = numberFlag(args, 'games', 400);
 const baseSeed = numberFlag(args, 'seed', 1);
 const holdoutFraction = numberFlag(args, 'holdout', 0.25);
-const agentNames = resolvePair(args, 'agents', ['heuristic', 'heuristic']);
+// `heuristic:sample` keeps the fitting set the shape it had when the shipped
+// coefficients were fitted: W(tsd, turn) is a map from position to outcome, and
+// an argmax self-play batch would sample that map along one line per seed.
+const agentNames = resolvePair(args, 'agents', ['heuristic:sample', 'heuristic:sample']);
 const decks = resolveDecks(args);
 const outPath = stringFlag(args, 'out') ?? MODEL_PATH;
 

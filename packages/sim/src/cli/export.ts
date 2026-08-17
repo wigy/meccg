@@ -41,7 +41,11 @@ const args = parseCliArgs(process.argv.slice(2));
 const games = numberFlag(args, 'games', 10);
 const baseSeed = numberFlag(args, 'seed', 1);
 const maxDecisions = numberFlag(args, 'max-decisions', 25000);
-const agentNames = resolvePair(args, 'agents', ['heuristic', 'heuristic']);
+// `heuristic:sample`, not plain `heuristic`: the teacher plays its argmax now,
+// and an argmax teacher visits one trajectory per seed. What the student needs
+// is the states either side of that line, so the exporter keeps asking for the
+// weaker, wider policy on purpose.
+const agentNames = resolvePair(args, 'agents', ['heuristic:sample', 'heuristic:sample']);
 const outFile = stringFlag(args, 'out') ?? 'training.jsonl';
 // SIM_JOBS lets a driver script (e.g. selfplay_loop.sh) parallelize every
 // CLI call it makes without threading a flag through its own interface.

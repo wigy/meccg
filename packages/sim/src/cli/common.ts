@@ -166,7 +166,17 @@ export function resolveAgent(spec: string): Agent {
   }
   switch (name) {
     case 'random': return createRandomAgent();
-    case 'heuristic': return createHeuristicAgent();
+    case 'heuristic': {
+      // `heuristic` plays the argmax of its weights. `heuristic:sample` reads
+      // the same weights as a distribution, which is what it used to do and is
+      // worth ~47 Elo less; it stays reachable because off-policy coverage is
+      // the point when the games become training data. `:greedy` is accepted
+      // as a no-op alias so the gate logs that named it still run.
+      if (param !== undefined && param !== 'sample' && param !== 'greedy') {
+        throw new Error(`heuristic takes no parameter except "sample" (or the no-op "greedy"), got "${param}"`);
+      }
+      return createHeuristicAgent({ sample: param === 'sample' });
+    }
     case 'noisy-heuristic': {
       const epsilon = param === undefined ? 0.5 : Number(param);
       if (!Number.isFinite(epsilon)) throw new Error(`noisy-heuristic expects a numeric ε, got "${param}"`);
