@@ -112,6 +112,43 @@ const MALADY_WITHOUT_HEALING: CardDefinition = {
   ],
 } as unknown as CardDefinition;
 
+// Mount Gram (tw-415): a shadow-hold site with a 6-prowess automatic-attack
+// (not hard enough to force a tap on its own — the regression below must be
+// caught by the tapped-company check, not the automatic-attack-forces-tap one).
+const MOUNT_GRAM: CardDefinition = {
+  cardType: 'hero-site',
+  name: 'Mount Gram',
+  siteType: 'shadow-hold',
+  playableResources: ['minor', 'major'],
+  sitePath: ['wilderness', 'shadow'],
+  resourceDraws: 2,
+  automaticAttacks: [{ creatureType: 'Orcs', strikes: 3, prowess: 6 }],
+} as unknown as CardDefinition;
+
+// Rescue Prisoners (tw-315): a permanent resource event playable at a
+// dark-hold/shadow-hold. It attaches to a character the same way an item
+// does — tapping one on success, or discarding itself for nothing if no
+// character is left untapped after its own triggered Spider attack. It is
+// not a "no tap needed" play.
+const RESCUE_PRISONERS: CardDefinition = {
+  cardType: 'hero-resource-event',
+  eventType: 'permanent',
+  marshallingPoints: 0,
+  effects: [
+    { type: 'play-target', target: 'site', filter: { siteType: { $in: ['dark-hold', 'shadow-hold'] } } },
+    { type: 'play-flag', flag: 'tapped-site-only' },
+    { type: 'play-target', target: 'character' },
+    { type: 'play-flag', flag: 'bearer-cannot-untap-until-stored' },
+    { type: 'play-flag', flag: 'rescues-prisoners' },
+  ],
+} as unknown as CardDefinition;
+
+const BALIN: CardDefinition = {
+  cardType: 'hero-character',
+  race: 'dwarf',
+  skills: ['warrior'],
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'tw-404': ISENGARD,
   'td-178': ISLE_OF_THE_ULOND,
@@ -122,6 +159,9 @@ const POOL: Record<string, CardDefinition> = {
   'tw-397': GLITTERING_CAVES,
   'tw-322': SAPLING_OF_THE_WHITE_TREE,
   'le-159': MALADY_WITHOUT_HEALING,
+  'tw-415': MOUNT_GRAM,
+  'tw-315': RESCUE_PRISONERS,
+  'tw-123': BALIN,
   hobbit: HOBBIT,
 };
 
@@ -193,6 +233,29 @@ function makeView(characterDefId: string): PlayerView {
         {
           id: 'company-p2-0',
           currentSite: { instanceId: 's1', definitionId: 'tw-404' },
+          characters: ['c1'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+/**
+ * Build a view for the Rescue Prisoners regression: a company of one
+ * already-tapped character (Balin) at a shadow-hold site, holding only
+ * Rescue Prisoners.
+ */
+function makeRescuePrisonersView(): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'tw-315' }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-123', status: 'tapped', items: [], effectiveStats: { prowess: 4 } },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'tw-415' },
           characters: ['c1'],
         },
       ],
@@ -280,6 +343,21 @@ describe('sitePhaseEvaluator enter-site', () => {
     const view = makeGlitteringCavesView(12);
     const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
     expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
+  });
+
+  // Regression (game msxdgosl-8meok7, seq 894, reported by Fatty75): the AI
+  // entered Mount Gram with Balin as the lone, already-tapped company member,
+  // holding only Rescue Prisoners. Rescue Prisoners' site-target filter
+  // (dark-hold/shadow-hold) matched, and it was wrongly treated as a "no tap
+  // needed" permanent event by handHasNoTapPlayableAt, so the tapped-company
+  // check never fired. Rescue Prisoners taps a character on success (or
+  // discards itself for nothing if none is untapped after its own triggered
+  // attack) — it needs an untapped character just like an item does. Balin
+  // took the site's automatic-attack for a play that was never even legal.
+  test('scores 0 for Rescue Prisoners in hand when the only company member is already tapped', () => {
+    const view = makeRescuePrisonersView();
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
   });
 });
 
