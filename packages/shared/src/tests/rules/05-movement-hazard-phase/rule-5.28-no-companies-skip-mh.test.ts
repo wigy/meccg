@@ -46,6 +46,56 @@ describe('Rule 5.28 — No Companies Skip M/H Phase', () => {
     expect(after.phaseState.phase).toBe(Phase.EndOfTurn);
   });
 
+  test('The last company dissolving at select-company leaves the phase a way out', () => {
+    // The entry check in the first test only sees the company count at the
+    // long-event → M/H transition. P1's only character can still fail a
+    // corruption check *after* that, while the phase sits at select-company —
+    // and then there is no company to select, no company mid-flight to
+    // finalize, and (P2 being the hazard player with nothing to answer) no
+    // viable action for either player. Rule 2.IV.1 says a player with no
+    // companies skips the phase, so a pass must be offered and accepted.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FARAMIR] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const legolasId = findCharInstanceId(base, RESOURCE_PLAYER, LEGOLAS);
+    const readyState = enqueueCorruptionCheck(
+      { ...base, phaseState: { ...makeShadowMHState(), step: 'select-company' as const } },
+      PLAYER_1,
+      legolasId,
+    );
+
+    // Roll 2 vs CP 10 → hard fail → Legolas eliminated → P1's only company
+    // dissolves while the phase is still at select-company.
+    const afterElimination = dispatch({ ...readyState, cheatRollTotal: 2 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: legolasId,
+      corruptionPoints: 10,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 11,
+      explanation: 'Test',
+    });
+    expect(afterElimination.players[RESOURCE_PLAYER].companies).toEqual([]);
+    expect(afterElimination.phaseState.phase).toBe(Phase.MovementHazard);
+
+    // Neither player can select, play, or answer anything — the pass is the
+    // only thing standing between this state and a deadlocked game.
+    const legalActions = computeLegalActions(afterElimination, PLAYER_1);
+    expect(legalActions.some(a => a.action.type === 'pass' && a.viable)).toBe(true);
+
+    // Rule 2.IV.1 skips the M/H phase, and rule 2.V.7 the site phase after it.
+    const afterPass = dispatch(afterElimination, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.phaseState.phase).toBe(Phase.EndOfTurn);
+  });
+
   test('A company dissolving mid-M/H-phase does not cause a later company to skip its own M/H phase', () => {
     // P1 has three companies. The middle one (Aragorn, alone) is mid-way
     // through its own M/H phase when a hazard-driven corruption check (e.g.

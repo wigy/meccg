@@ -35,7 +35,7 @@ type MHHandler = (state: GameState, action: GameAction, mhState: MovementHazardP
  * pending-resolution dispatcher before this table is consulted.
  */
 const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHandler>> = {
-  'select-company': handleSelectCompany,
+  'select-company': handleSelectCompanyStep,
   'reveal-new-site': handleRevealNewSite,
   'under-deeps-roll': handleUnderDeepsRoll,
   'set-hazard-limit': handleSetHazardLimit,
@@ -75,6 +75,36 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
 export function autoAdvanceMHOrderEffects(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   logDetail(`Movement/Hazard: auto-advancing through order-effects (post-ahunt or initial entry)`);
   return handleOrderEffects(state, mhState);
+}
+
+/**
+ * Handle the select-company step, plus the pass that closes a phase with no
+ * company left to select.
+ *
+ * Rule 2.IV.1 skips the movement/hazard phase for a resource player with no
+ * companies, and reducer-events applies that at the long-event → M/H
+ * transition. It cannot apply it to a company that dissolves *after* the phase
+ * has begun: the player's last character can fail a corruption check while the
+ * phase sits at select-company, which leaves nothing to select and no way out —
+ * `legal-actions/movement-hazard.ts` offers the pass, and it must be accepted
+ * here or the engine would refuse an action it advertised as legal.
+ *
+ * `advanceAfterCompanyMH` finalizes the vanished company slot and, finding no
+ * companies at all, skips the site phase too (rule 2.V.7) on to end-of-turn.
+ * Mirror of the site phase's equivalent (reducer-site.ts).
+ */
+function handleSelectCompanyStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type === 'pass') {
+    const player = playerById(state, state.activePlayer);
+    const handled = new Set(mhState.handledCompanyIds);
+    const unhandled = player ? player.companies.filter(c => !handled.has(c.id)) : [];
+    if (unhandled.length > 0) {
+      return { state, error: 'Cannot pass the movement/hazard phase while companies remain unhandled' };
+    }
+    logDetail('Movement/Hazard: no companies left to select → ending the phase (rule 2.IV.1)');
+    return advanceAfterCompanyMH(state, mhState);
+  }
+  return handleSelectCompany(state, action, mhState);
 }
 
 /** @deprecated No longer reachable; set-hazard-limit is now auto-advanced. Kept for step dispatch map. */
