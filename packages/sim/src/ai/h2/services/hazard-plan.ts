@@ -241,6 +241,27 @@ function harmOf(
   return expected - tunables.provisionalCardPrice * sequence.length;
 }
 
+/**
+ * Longest sequence whose orderings are searched exhaustively.
+ *
+ * 4! is 24 resolutions per company, which is affordable beside the allocation
+ * itself; beyond that the greedy order is kept rather than paying 120. Hazard
+ * limits in practice sit at 2–4, so the cap almost never binds.
+ */
+const MAX_ORDERED = 4;
+
+/** Every ordering of `items`. */
+function orderings<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [[...items]];
+  const out: T[][] = [];
+  items.forEach((item, index) => {
+    for (const rest of orderings(items.filter((_, other) => other !== index))) {
+      out.push([item, ...rest]);
+    }
+  });
+  return out;
+}
+
 /** Build the plan for a position. */
 function buildHazardPlan(
   view: PlayerView,
@@ -383,39 +404,102 @@ function buildHazardPlan(
         best.target.assigned.push(best.hazard);
         best.target.harm += best.marginal;
         unassigned.delete(best.hazard.instanceId as string);
-        assigned.set(best.hazard.instanceId as string, {
-          instanceId: best.hazard.instanceId,
-          name: best.hazard.name,
-          targetCompanyId: best.target.companyId,
-          targetLabel: best.target.label,
-          marginal: best.marginal,
-          // Supports are played first, so the attacks behind them start after.
-          order: best.target.supports.length + best.target.assigned.length,
-          support: false,
-        });
       } else {
         boost = mergeBoosts(boost, best.support.boost);
         best.target.supports.push(best.support);
         unplayed.delete(best.support.instanceId as string);
         reprice();
-        assigned.set(best.support.instanceId as string, {
-          instanceId: best.support.instanceId,
-          name: best.support.name,
-          targetCompanyId: best.target.companyId,
-          targetLabel: best.target.label,
-          marginal: best.marginal,
-          // First, always: a modifier reaches the table before the attacks it
-          // improves, or it improves nothing. The attacks already aimed here are
-          // renumbered for the same reason.
-          order: best.target.supports.length,
-          support: true,
-        });
-        for (const hazard of best.target.assigned) {
-          const entry = assigned.get(hazard.instanceId as string);
-          if (entry) assigned.set(hazard.instanceId as string, { ...entry, order: entry.order + 1 });
-        }
       }
     }
+
+    /**
+     * Put each company's attacks in the order they would actually be played,
+     * and credit every card for what it adds *in that order*.
+     *
+     * The order is not the order the cards were chosen in. Greedy picks the card
+     * worth most on its own and appends the next behind it, and that is not the
+     * best sequence: against a two-character company, leading with the
+     * high-prowess single strike and following with the many-strike attack was
+     * worth 0.6 tsd more than the reverse in the position this was reported from
+     * — the first attack taps a defender, and the four strikes behind it meet a
+     * company one body short. The reverse can also be right: against a lone
+     * already-wounded character, the near-certain kill leaves the follow-up
+     * nothing to hit, so the many-strike attack leads. Both readings come out of
+     * `resolveAttacks`; neither needs to be a rule.
+     *
+     * Only the ordering is searched, not the selection: which cards to spend is
+     * left to the greedy pass above, because this service is consulted for a
+     * price rather than for a move — the `hazards` module beam-searches the real
+     * decision, orderings included.
+     */
+    const orderAndCredit = (): void => {
+      for (const target of targets) {
+        if (target.assigned.length > 1 && target.assigned.length <= MAX_ORDERED) {
+          let bestOrder = target.assigned;
+          let bestHarm = harmOf(target, cardPool, bestOrder, tunables, boost);
+          for (const order of orderings(target.assigned)) {
+            const harm = harmOf(target, cardPool, order, tunables, boost);
+            if (harm > bestHarm) {
+              bestHarm = harm;
+              bestOrder = order;
+            }
+          }
+          target.assigned.splice(0, target.assigned.length, ...bestOrder);
+        }
+        target.harm = contribution(target);
+      }
+
+      // Attacks are credited for what they deny with the board as it stands;
+      // each support is then credited for what its boost adds on top of the
+      // finished sequences. Split that way the credits sum to `totalHarm`
+      // exactly, with no part of the gain paid for twice.
+      for (const target of targets) {
+        let running = 0;
+        target.assigned.forEach((hazard, index) => {
+          const upTo = harmOf(
+            target, cardPool, target.assigned.slice(0, index + 1), tunables, boardBoost,
+          );
+          assigned.set(hazard.instanceId as string, {
+            instanceId: hazard.instanceId,
+            name: hazard.name,
+            targetCompanyId: target.companyId,
+            targetLabel: target.label,
+            marginal: upTo - running,
+            // Supports reach the table first, so the attacks start behind them.
+            order: target.supports.length + index + 1,
+            support: false,
+          });
+          running = upTo;
+        });
+      }
+
+      let applied = boardBoost;
+      let before = targets.reduce(
+        (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied), 0,
+      );
+      for (const target of targets) {
+        target.supports.forEach((support, index) => {
+          applied = mergeBoosts(applied, support.boost);
+          const after = targets.reduce(
+            (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied), 0,
+          );
+          assigned.set(support.instanceId as string, {
+            instanceId: support.instanceId,
+            name: support.name,
+            targetCompanyId: target.companyId,
+            targetLabel: target.label,
+            marginal: after - before - tunables.provisionalCardPrice,
+            // First, always: a modifier reaches the table before the attacks it
+            // improves, or it improves nothing.
+            order: index + 1,
+            support: true,
+          });
+          before = after;
+        });
+      }
+    };
+
+    orderAndCredit();
     return { assigned, boost };
   };
 

@@ -80,6 +80,60 @@ describe('what each hazard is for', () => {
   });
 });
 
+describe('the order the attacks are played in', () => {
+  /** The plan for the hazard player at a captured position. */
+  function planAt(id: string) {
+    const scenario = loadScenario(id);
+    const view = scenarioView(scenario, 'p1' as never);
+    const cardPool = loadCardPool();
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const plan = computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES);
+    const orderOf = (name: string) => plan.assignments.find(a => a.name === name);
+    return { plan, orderOf };
+  }
+
+  test('leads with the attack that softens the company for the one behind it', () => {
+    // Two defenders. Wargs is worth less alone than the four-strike Lesser
+    // Spiders, so a greedy plan led with the Spiders — but taking a defender out
+    // first and following with four strikes into the gap is worth more than the
+    // reverse, and the `hazards` module's own bundle search says so too. The
+    // plan used to inherit the order it happened to pick cards in.
+    const { orderOf } = planAt('hazards/order-two-defenders');
+    const wargs = orderOf('Wargs');
+    const spiders = orderOf('Lesser Spiders');
+    expect(wargs?.targetCompanyId).not.toBeNull();
+    expect(spiders?.targetCompanyId).toBe(wargs?.targetCompanyId);
+    expect(wargs!.order).toBeLessThan(spiders!.order);
+  });
+
+  test('but leads with the many-strike attack against a lone wounded defender', () => {
+    // The same reasoning, reversed by the position: one already-wounded
+    // character, where the near-certain kill ends the company and leaves the
+    // follow-up nothing to hit. "Highest chance of wounding first" is a
+    // consequence of the numbers, not a rule above them.
+    const { orderOf } = planAt('hazards/order-lone-wounded-defender');
+    const spiders = orderOf('Lesser Spiders');
+    const worm = orderOf('Cave Worm');
+    expect(spiders?.targetCompanyId).not.toBeNull();
+    expect(worm?.targetCompanyId).toBe(spiders?.targetCompanyId);
+    expect(spiders!.order).toBeLessThan(worm!.order);
+  });
+
+  test('credits each attack for what it adds in the order it will be played', () => {
+    // The lead attack is credited what it denies on its own and the follower
+    // what it adds behind it, so the two still sum to the plan's total — the
+    // property that makes these numbers usable as prices.
+    const { plan } = planAt('hazards/order-two-defenders');
+    const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
+    expect(summed).toBeCloseTo(plan.totalHarm, 6);
+    const [lead, follower] = plan.assignments
+      .filter(a => a.targetCompanyId !== null)
+      .sort((a, b) => a.order - b.order);
+    expect(lead.order).toBe(1);
+    expect(follower.order).toBe(2);
+  });
+});
+
 describe('a support event in hand', () => {
   /**
    * The plan with a readable boost in hand: "all Spider and Animal attacks

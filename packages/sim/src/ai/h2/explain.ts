@@ -202,7 +202,8 @@ export function renderExplanation(input: ExplanationInput): string[] {
       lines.push(`  ${assignment.marginal.toFixed(2).padStart(6)}  ${assignment.name.padEnd(24)} ${where}`);
     }
     lines.push(`  total denied if carried out: ${plan.totalHarm.toFixed(2)} tsd`);
-    lines.push('  (a greedy assignment, re-made each round so a follow-up is credited as one)');
+    lines.push('  (greedy selection, best ordering searched — each card credited for what it'
+      + ' adds in the order shown)');
     lines.push('');
   }
 
