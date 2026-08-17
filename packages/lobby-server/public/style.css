@@ -6883,8 +6883,52 @@ body.all-companies-mode:has(#debug-view.hidden) {
   color: rgba(220, 230, 245, 0.95);
 }
 
-.tutorial-panel--done {
-  border-color: rgba(140, 220, 140, 0.6);
+/* End-of-chapter card: the recap and the exit button, centered over the
+   dimmed board (#tutorial-dim) once the script is exhausted. */
+.tutorial-complete {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40rem;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  z-index: calc(var(--z-hover) + 12);
+  background: rgba(25, 35, 50, 0.97);
+  border: 1px solid rgba(140, 220, 140, 0.6);
+  border-radius: 10px;
+  padding: 22px 28px;
+  color: rgba(220, 230, 245, 0.95);
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.tutorial-complete-title {
+  font-weight: bold;
+  font-size: 1.4rem;
+  color: rgba(160, 230, 160, 1);
+}
+
+.tutorial-complete-body {
+  margin-top: 12px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+/* One line per lesson of the finished chapter. */
+.tutorial-complete-learned {
+  margin: 10px 0 0;
+  padding-left: 1.4em;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: left;
+  color: rgba(205, 220, 240, 0.92);
+}
+
+.tutorial-complete-learned li {
+  margin-bottom: 4px;
 }
 
 /* An explicitly expanded opponent deck box (top-left) may reach down into the
@@ -6905,10 +6949,6 @@ body.all-companies-mode:has(#debug-view.hidden) {
   font-weight: bold;
   font-size: 1.05rem;
   color: rgba(180, 210, 250, 1);
-}
-
-.tutorial-panel--done .tutorial-panel-title {
-  color: rgba(160, 230, 160, 1);
 }
 
 .tutorial-panel-progress {
@@ -6953,6 +6993,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
   z-index: calc(var(--z-hover) + 9);
 }
 
+/* Backing the completion card: the chapter is over, so the board is put
+   away rather than merely dimmed. */
+#tutorial-dim.tutorial-dim--complete {
+  background: rgba(8, 10, 16, 0.93);
+  backdrop-filter: blur(4px);
+}
+
 /* The panel's own Continue button for the gate — deliberately styled like
    the tutorial panel, not like the game's pass button. */
 .tutorial-continue-btn {
@@ -6970,6 +7017,25 @@ body.all-companies-mode:has(#debug-view.hidden) {
 
 .tutorial-continue-btn:hover {
   background: rgba(70, 110, 160, 0.95);
+}
+
+/* The completion card's exit button — the Continue gate's shape, tinted to
+   the card's green accent. */
+.tutorial-exit-btn {
+  display: block;
+  margin: 18px auto 2px;
+  padding: 8px 26px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: rgba(220, 245, 230, 0.95);
+  background: rgba(50, 110, 70, 0.9);
+  border: 1px solid rgba(140, 220, 140, 0.8);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tutorial-exit-btn:hover {
+  background: rgba(65, 135, 85, 0.95);
 }
 
 /* Emphasized closing line of a tutorial step ("TO BE CONTINUED...."). */

@@ -17,4 +17,7 @@ export type { ActionMatcher, TutorialActor, TutorialBeat, TutorialStepInfo } fro
 export { actionMatches, findMatchingAction, gateHumanActions } from './match.js';
 export type { TutorialSeats } from './driver.js';
 export { TutorialScriptError, applyBeat, runBeats } from './driver.js';
-export { TUTORIAL_STEPS, TUTORIAL_BEATS, TUTORIAL_STEP_BY_ID } from './script.js';
+export {
+  TUTORIAL_STEPS, TUTORIAL_BEATS, TUTORIAL_STEP_BY_ID, TUTORIAL_COMPLETION,
+  LATER_CHAPTER_STEPS, LATER_CHAPTER_BEATS,
+} from './script.js';

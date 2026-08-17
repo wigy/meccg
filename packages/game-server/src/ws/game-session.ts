@@ -1193,6 +1193,18 @@ export class GameSession {
       }
       return;
     }
+    // A finished tutorial has nothing left to come back to: the player left
+    // through the completion card's Exit Tutorial button, and the script is
+    // over. Shut down at once instead of holding the seat for the grace
+    // period — the lobby would keep showing them "In game" all that while.
+    if (this.tutorial?.isDone() === true) {
+      if (this.idleTimer) {
+        clearTimeout(this.idleTimer);
+        this.idleTimer = null;
+      }
+      this.onIdle();
+      return;
+    }
     this.idleTimer ??= setTimeout(() => {
       this.idleTimer = null;
       if (!this.hasConnectedHuman()) this.onIdle?.();
