@@ -2757,15 +2757,7 @@ function playHazardsActions(
 
             // Agent's current site: top of its site stack, else its first home
             // site (a face-down agent sitting at home).
-            const agentHomesites = parseHomesiteNames(agentDef.homesite);
-            let agentSiteName: string | null = null;
-            if (agent.siteStack.length > 0) {
-              const topSite = agent.siteStack[agent.siteStack.length - 1];
-              const topSiteDef = defById(state, topSite.definitionId);
-              if (topSiteDef && isSiteCard(topSiteDef)) agentSiteName = topSiteDef.name;
-            } else {
-              agentSiteName = agentHomesites[0] ?? null;
-            }
+            const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
             if (agentSiteName === null) continue;
 
             // Any opponent character in play whose home site == agent's site.
