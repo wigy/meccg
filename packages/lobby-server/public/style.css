@@ -5322,6 +5322,22 @@ body.spectating.combat-active #hand-arc.kbd-peek {
   visibility: hidden;
 }
 
+/* Free Council forces the all-companies overview for the whole phase (see
+   company-view.ts), so character corruption-check targets can land inside
+   the hand-arc's always-present hover catch zone at the bottom of the
+   viewport. That zone inherits #hand-arc's z-board stacking position, above
+   the company blocks' unpositioned normal flow, so its pointer-events: auto
+   strip swallowed clicks meant for characters underneath (bug report
+   428ae9e408de09b3: characters "not selectable ... the final hand cards
+   were always in the foreground"). Suppressing the catch zone here still
+   leaves the visible fanned cards themselves (.hand-arc-cards > *,
+   pointer-events: auto) directly hoverable/clickable, so CoE 10.3.i's
+   reactive hand plays stay reachable -- only the invisible full-width catch
+   strip is disabled. */
+.free-council-mode #hand-arc:not(:empty)::before {
+  pointer-events: none;
+}
+
 /* Reclaim the space freed by hiding the opponent arc.
    Only suppress body scroll in visual mode (debug-view is hidden then). */
 body.all-companies-mode:has(#debug-view.hidden) {
