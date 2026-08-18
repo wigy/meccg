@@ -1450,18 +1450,25 @@ export function isWizardhavenConversionFor(
 }
 
 /**
- * True when `player` has an in-play character carrying a `fw-kill-mp-full`
- * effect (Alatar wh-1) — the MEWH §4 kill-MP exemption. Consulted by both the
- * marshalling-point tally (`recompute-derived.ts`, full printed kill MP instead
- * of the flat 1) and combat finalization (`combat-finalize.ts`, routing a
- * defeated **detainment** creature to the kill pile so it scores at all — the
- * "even with *" clause). Only Fallen-wizard players are ever subject to the §4
- * clamp, so this returns `false` for any other alignment.
+ * True when `player` has an in-play character or `cardsInPlay` permanent-event
+ * carrying a `fw-kill-mp-full` effect (Alatar wh-1; A Merrier World wh-59) —
+ * the MEWH §4 kill-MP exemption. Consulted by both the marshalling-point tally
+ * (`recompute-derived.ts`, full printed kill MP instead of the flat 1) and
+ * combat finalization (`combat-finalize.ts`, routing a defeated **detainment**
+ * creature to the kill pile so it scores at all — the "even with *" clause).
+ * Only Fallen-wizard players are ever subject to the §4 clamp, so this returns
+ * `false` for any other alignment.
  */
 export function playerHasKillMpExemption(state: GameState, player: PlayerState): boolean {
   if (player.alignment !== 'fallen-wizard') return false;
   for (const char of Object.values(player.characters)) {
     const def = resolveDef(state, char.instanceId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-kill-mp-full') return true;
+    }
+  }
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
     for (const effect of getCardEffects(def)) {
       if (effect.type === 'fw-kill-mp-full') return true;
     }

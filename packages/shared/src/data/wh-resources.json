@@ -907,9 +907,23 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.stagePoints": { "$gt": 7 } }
+      },
+      {
+        "type": "fw-kill-mp-full"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
-    "text": "Playable if you have more than 7 stage points. Hazards your companies defeat (for which you otherwise get 1 MP) are each worth full kill marshalling points. Cannot be duplicated by a given player."
+    "text": "Playable if you have more than 7 stage points. Hazards your companies defeat (for which you otherwise get 1 MP) are each worth full kill marshalling points. Cannot be duplicated by a given player.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "minion-resource-event",
