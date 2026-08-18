@@ -2419,13 +2419,23 @@ export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | 
 }
 
 /**
- * Collects all in-play card instance IDs across both players that match
- * the supplied `discard-in-play` filter. Searches both general in-play
- * cards ({@link PlayerState.cardsInPlay}, e.g. Eye of Sauron long-events,
- * non-attached permanent-events) and hazard cards attached to characters
- * (`character.hazards`, e.g. Foolish Words, Lure of the Senses). Without
- * the character-hazard pass, cards like Marvels Told would fail to
- * offer any attached hazard permanent-events as discard targets.
+ * Collects all in-play card instance IDs that match the supplied
+ * `discard-in-play` filter. Searches two zones:
+ *
+ * - General in-play cards ({@link PlayerState.cardsInPlay}, e.g. Eye of
+ *   Sauron long-events, untargeted permanent-events) across **both**
+ *   players — an untargeted hazard event sits in its owner's own
+ *   `cardsInPlay`, so a hero player's Marvels Told must be able to reach
+ *   into the hazard player's zone to discard it there.
+ * - Hazard cards attached to characters (`character.hazards`, e.g. Foolish
+ *   Words, Lure of the Senses), restricted to **`actorPlayerId`'s own**
+ *   characters only. Per CoE 2.IV.vii.3 a hazard event targets "the current
+ *   company", i.e. whoever was moving when it was played — so an attached
+ *   hazard always ends up on its bearer's own side, and Marvels Told-style
+ *   cards may only clean hazards off the caster's own characters, never off
+ *   the opponent's (even when the caster happens to be the hazard's owner,
+ *   e.g. a Rebel-talk they themselves played onto the opponent's character
+ *   during an earlier hazard phase).
  *
  * Nazgûl-style dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel
  * tw-2, …) sitting in `cardsInPlay` are matched via their
@@ -2436,6 +2446,7 @@ export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | 
 export function collectDiscardInPlayTargets(
   state: GameState,
   filter: Condition,
+  actorPlayerId: PlayerId,
 ): CardInstanceId[] {
   const targets: CardInstanceId[] = [];
   for (const p of state.players) {
@@ -2445,6 +2456,7 @@ export function collectDiscardInPlayTargets(
         targets.push(c.instanceId);
       }
     }
+    if (p.id !== actorPlayerId) continue;
     for (const charId of Object.keys(p.characters) as CardInstanceId[]) {
       const char = p.characters[charId];
       for (const haz of char.hazards) {
@@ -3607,7 +3619,7 @@ export function playResourceShortEventActions(
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardWhenMet && discardInPlay && discardInPlay.filter) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
       if (discardTargetIds.length === 0 && !sideboardModeAvailable) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target to discard`));

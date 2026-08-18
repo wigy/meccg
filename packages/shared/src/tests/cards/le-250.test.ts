@@ -563,14 +563,21 @@ describe('Voices of Malice (le-250)', () => {
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(firstTargetId);
   });
 
-  test('emits distinct actions when the same hazard type is attached to characters of both players', () => {
-    // Regression: a game (mo8gx6ts-go9s38, state 168) had Foolish Words
-    // attached to a P1 character AND another Foolish Words attached to a P2
-    // character. Both are legal discard targets per the card text, so the
-    // engine must emit two distinct play actions — one per hazard instance.
-    // The UI disambiguation layer uses the bearer character to render the
-    // two actions differently; the engine's contract here is just that each
-    // action carries a unique `discardTargetInstanceId`.
+  test('emits distinct actions when the same hazard type is attached to two of the caster\'s own characters', () => {
+    // Regression: a game (mo8gx6ts-go9s38, state 168) had two Foolish Words
+    // of the same card type attached to two different P1 characters. Both
+    // are legal discard targets per the card text, so the engine must emit
+    // distinct play actions — one per hazard instance. The UI disambiguation
+    // layer uses the bearer character to render the two actions differently;
+    // the engine's contract here is just that each action carries a unique
+    // `discardTargetInstanceId`.
+    //
+    // (The original regression fixture attached one of the two hazards to
+    // the opponent's character instead of a second P1 character — but a
+    // hazard event always ends up on whoever was moving when it was played
+    // (CoE 2.IV.vii.3), so Voices of Malice may only ever reach the caster's
+    // own characters; see bug dcfcd0c823ac4c71 / td-134.test.ts for the
+    // cross-player-targeting bug this would otherwise mask.)
     const base = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -579,11 +586,11 @@ describe('Voices of Malice (le-250)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
-    const withP1Hazard = attachHazardToChar(base, RESOURCE_PLAYER, CIRYAHER, FOOLISH_WORDS);
-    const state = attachHazardToChar(withP1Hazard, 1, OSTISEN, FOOLISH_WORDS);
+    const withCiryaherHazard = attachHazardToChar(base, RESOURCE_PLAYER, CIRYAHER, FOOLISH_WORDS);
+    const state = attachHazardToChar(withCiryaherHazard, RESOURCE_PLAYER, LAYOS, FOOLISH_WORDS);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
-    // Two sages × two Foolish Words (one per player's character) = 4 actions.
+    // Two sages × two Foolish Words (one per own character) = 4 actions.
     expect(playActions).toHaveLength(4);
 
     const discardTargetIds = playActions.map(a =>
@@ -599,14 +606,13 @@ describe('Voices of Malice (le-250)', () => {
     expect(uniquePairs.size).toBe(4);
 
     // The two hazard instance IDs must correspond to the two Foolish Words
-    // attached to characters on opposite sides of the table.
+    // attached to P1's own characters.
     const p1Chars = state.players[0].characters;
     const ciryaherKey = (Object.keys(p1Chars) as CardInstanceId[]).find(k => p1Chars[k].definitionId === CIRYAHER)!;
-    const p1HazardId = p1Chars[ciryaherKey].hazards[0].instanceId;
-    const p2Chars = state.players[1].characters;
-    const ostisenKey = (Object.keys(p2Chars) as CardInstanceId[]).find(k => p2Chars[k].definitionId === OSTISEN)!;
-    const p2HazardId = p2Chars[ostisenKey].hazards[0].instanceId;
-    expect(new Set(discardTargetIds)).toEqual(new Set([p1HazardId, p2HazardId]));
+    const ciryaherHazardId = p1Chars[ciryaherKey].hazards[0].instanceId;
+    const layosKey = (Object.keys(p1Chars) as CardInstanceId[]).find(k => p1Chars[k].definitionId === LAYOS)!;
+    const layosHazardId = p1Chars[layosKey].hazards[0].instanceId;
+    expect(new Set(discardTargetIds)).toEqual(new Set([ciryaherHazardId, layosHazardId]));
   });
 
   test('discarding an all-attacks bonus before strikes are assigned lowers the live attack (CoE 3.i, bug 019a9d05f1afb164)', () => {

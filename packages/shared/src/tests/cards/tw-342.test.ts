@@ -186,8 +186,11 @@ describe('The Cock Crows (tw-342)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    // Attach Foolish Words (hazard permanent-event) to Aragorn
-    const state = attachHazardToChar(base, HAZARD_PLAYER, LEGOLAS, FOOLISH_WORDS);
+    // Attach Foolish Words (hazard permanent-event) to Aragorn — a hazard
+    // event always ends up on whoever was moving when it was played (CoE
+    // 2.IV.vii.3), so the discard-in-play target must be the caster's own
+    // character, not the opponent's (see bug dcfcd0c823ac4c71).
+    const state = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
@@ -235,7 +238,10 @@ describe('The Cock Crows (tw-342)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = attachHazardToChar(base, HAZARD_PLAYER, LEGOLAS, FOOLISH_WORDS);
+    // Attach to Aragorn (the caster's own character) — a hazard event
+    // always ends up on whoever was moving when it was played (CoE
+    // 2.IV.vii.3), owned here by the hazard player (see bug dcfcd0c823ac4c71).
+    const state = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS, HAZARD_PLAYER);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
@@ -246,9 +252,9 @@ describe('The Cock Crows (tw-342)', () => {
     expect(after.players[0].hand).toHaveLength(0);
     expectInDiscardPile(after, RESOURCE_PLAYER, THE_COCK_CROWS);
 
-    // Foolish Words removed from Legolas and sent to hazard player's discard pile
-    const legolasChar = Object.values(after.players[1].characters)[0];
-    expect(legolasChar.hazards).toHaveLength(0);
+    // Foolish Words removed from Aragorn and sent to hazard player's discard pile
+    const aragornChar = Object.values(after.players[0].characters)[0];
+    expect(aragornChar.hazards).toHaveLength(0);
     expectInDiscardPile(after, HAZARD_PLAYER, FOOLISH_WORDS);
   });
 
@@ -304,13 +310,15 @@ describe('The Cock Crows (tw-342)', () => {
       phase: Phase.LongEvent,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [THE_COCK_CROWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS, GIMLI] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, GIMLI] }], hand: [THE_COCK_CROWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    // Attach two separate hazard permanent-events to different characters
-    const withFirst = attachHazardToChar(base, HAZARD_PLAYER, LEGOLAS, FOOLISH_WORDS);
-    const state = attachHazardToChar(withFirst, HAZARD_PLAYER, GIMLI, LURE_OF_THE_SENSES);
+    // Attach two separate hazard permanent-events to two of the caster's own
+    // characters — a hazard event always ends up on whoever was moving when
+    // it was played (CoE 2.IV.vii.3), never the opponent's (bug dcfcd0c823ac4c71).
+    const withFirst = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
+    const state = attachHazardToChar(withFirst, RESOURCE_PLAYER, GIMLI, LURE_OF_THE_SENSES);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     // One action per valid discard target (both FOOLISH_WORDS and LURE_OF_THE_SENSES)
