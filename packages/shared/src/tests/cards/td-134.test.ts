@@ -30,7 +30,7 @@ import {
   viableActions, viableFor, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState, resolveChain,
-  actionAs, RESOURCE_PLAYER,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
@@ -670,6 +670,34 @@ describe('Marvels Told (td-134)', () => {
     expect(aragornAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
     expect(aragornAfter.hazards).toHaveLength(1);
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(firstTargetId);
+  });
+
+  test('does not target a hazard attached to the opponent\'s character, even one the caster owns (bug dcfcd0c823ac4c71)', () => {
+    // Reported in bug dcfcd0c823ac4c71 (game msymw7ly-c2dcwr, seq 218):
+    // Balin played Marvels Told and discarded Rebel-talk from the
+    // *opponent's* character. Rebel-talk's card instance was owned by
+    // Balin's controller (they had played it as a hazard during an earlier
+    // turn when they were the hazard player), but per CoE 2.IV.vii.3 a
+    // hazard event always ends up attached to whoever was moving at the
+    // time it was played — here, the opponent. Marvels Told may only clean
+    // a hazard off the caster's *own* characters, regardless of who
+    // currently owns the hazard card instance for discard-destination
+    // purposes.
+    const base = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    // Foolish Words attached to the opponent's (PLAYER_2's) character, but
+    // its card instance is owned by PLAYER_1 (hazardOwnerIdx: 0) — mirroring
+    // Rebel-talk sitting on the reported game's opponent character.
+    const state = attachHazardToChar(base, HAZARD_PLAYER, LEGOLAS, FOOLISH_WORDS, RESOURCE_PLAYER);
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
   });
 
   test('targets a Nazgûl dual creature/permanent-event card in play (bug 0e940d7eb424d074)', () => {

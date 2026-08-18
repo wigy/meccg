@@ -415,7 +415,7 @@ export function heroResourceShortEventActions(
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardWhenMet && discardInPlay && discardInPlay.filter) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target to discard`));
@@ -431,7 +431,7 @@ export function heroResourceShortEventActions(
     // combat cancel stays playable in that mode via the combat path.
     const discardAllInPlay = findMoveEffectByShape(def, 'filter-all', 'in-play', 'discard');
     if (discardAllInPlay?.filter) {
-      const sweepTargets = collectDiscardInPlayTargets(state, discardAllInPlay.filter);
+      const sweepTargets = collectDiscardInPlayTargets(state, discardAllInPlay.filter, playerId);
       if (sweepTargets.length === 0) {
         logDetail(`${def.name}: nothing in play matches the discard-all filter — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has nothing in play to discard`));
