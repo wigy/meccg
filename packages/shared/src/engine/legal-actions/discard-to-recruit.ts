@@ -17,11 +17,11 @@
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import type { DiscardToRecruitEffect } from '../../types/effects.js';
-import { isCharacterCard, isSiteCard } from '../../types/cards.js';
+import { isCharacterCard } from '../../types/cards.js';
 import { SiteType } from '../../types/common.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
-import { characterEntries, defById, findCharacterCompany, getCardEffects, playerById } from '../reducer-utils.js';
+import { characterEntries, companySiteDef, defById, findCharacterCompany, getCardEffects, playerById } from '../reducer-utils.js';
 
 /**
  * One action per (in-play recruit-carrying character, matching hand card)
@@ -51,9 +51,8 @@ export function discardToRecruitActions(state: GameState, playerId: PlayerId): E
 
     // "at a Haven" — the company's current site must be a Haven.
     if (recruit.requireHaven) {
-      const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-      const atHaven = !!siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven;
-      if (!atHaven) {
+      const siteDef = companySiteDef(state, company);
+      if (siteDef?.siteType !== SiteType.Haven) {
         logDetail(`discard-to-recruit on ${def.name}: company not at a Haven (${company.currentSite ? siteDef?.name : 'no site'})`);
         continue;
       }

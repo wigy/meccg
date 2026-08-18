@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -699,8 +699,7 @@ export function buildSiteEntryAttackCombat(
   const defender = state.players[defenderIndex];
   const company = defender?.companies[siteState.activeCompanyIndex];
   if (!company || company.characters.length === 0) return null;
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const siteEffects = siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined;
+  const siteEffects = companySiteDef(state, company)?.effects;
   const creatureRace = normalizeCreatureRace(attack.creatureType);
   const detainment = isDetainmentAttack({
     attackRace: creatureRace as Race | null,
@@ -1822,8 +1821,8 @@ function handleSiteTrollPurseAttacks(
   const reface = siteState.trollPurseReface;
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
+  const siteDef = companySiteDef(state, company);
+  const autoAttacks = siteDef ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
 
   if (!reface || reface.resolved >= autoAttacks.length) {
     logDetail('Troll-purse: all re-faced automatic-attacks resolved → play-resources');
@@ -1949,9 +1948,8 @@ function handleSiteRescueAttacks(
   const rescue = siteState.rescueInProgress;
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteCardDef = companySiteDef(state, company);
   const host = rescue ? state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId) : undefined;
-  const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
   const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
 
   if (!rescue) {
@@ -1971,7 +1969,7 @@ function handleSiteRescueAttacks(
   const protectedIds = host ? host.prisoners : [];
   const aa = rescueAttacks[rescue.resolved];
   logDetail(`Rescue: facing rescue-attack ${rescue.resolved + 1}/${rescueAttacks.length}`);
-  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, rescue.resolved, {
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteCardDef as import('../types/cards.js').SiteCard, aa, rescue.resolved, {
     prowessBonus: 0,
     protectedFromStrikeAssignment: protectedIds,
   });
@@ -2784,8 +2782,7 @@ function handleSitePlayResources(
     if (!rescuable || rescuable.hostInstanceId !== action.hostInstanceId) {
       return { state, error: 'No rescuable prisoners at this site for that host' };
     }
-    const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+    const siteCardDef = companySiteDef(state, company);
     const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
     const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
     if (rescueAttacks.length === 0) {
