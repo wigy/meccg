@@ -33,6 +33,7 @@ import type {
   CardDefinition,
   GrantActionEffect,
   DiscardCharacterOrgAction,
+  DiscardItemFromCompanyAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -80,6 +81,21 @@ export function getStoreItemActions(view: PlayerView): Map<string, StoreItemActi
   const result = new Map<string, StoreItemAction>();
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'store-item') continue;
+    result.set(action.itemInstanceId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable discard-item-from-company actions, keyed by the item
+ * instance ID. Enqueued when a `discard-one-company-item` pending resolution
+ * (e.g. Brigands tw-17, An Article Missing dm-43) forces the defending player
+ * to pick which company item is lost. At most one such action exists per item.
+ */
+export function getDiscardItemFromCompanyActions(view: PlayerView): Map<string, DiscardItemFromCompanyAction> {
+  const result = new Map<string, DiscardItemFromCompanyAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'discard-item-from-company') continue;
     result.set(action.itemInstanceId as string, action);
   }
   return result;
