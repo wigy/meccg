@@ -3003,8 +3003,52 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall.Tap to cancel a hazard that targets (as an active condition of playing the card itself) Leaflock’s company or an entity associated with his company.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Leaflock if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "cancel-chain-entry",
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "most-recent-unresolved-hazard"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "$not": {
+            "site.region": {
+              "$in": [
+                "Fangorn",
+                "Rohan",
+                "Gap of Isen",
+                "Wold & Foothills",
+                "Enedhwaith",
+                "Old Pûkel-land",
+                "Brown Lands",
+                "Anduin Vales",
+                "Redhorn Gate"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at Wellinghall.Tap to cancel a hazard that targets (as an active condition of playing the card itself) Leaflock’s company or an entity associated with his company.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Leaflock if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-event",
