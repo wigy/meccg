@@ -29,7 +29,7 @@
 import { CardStatus, stayUntappedPenalty } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
 import type { CombatAbilities } from './ability.js';
-import { NO_ABILITIES, combatAbilitiesOf } from './ability.js';
+import { combatAbilitiesOf } from './ability.js';
 
 /** A character or ally that could face a strike. */
 export interface StrikeTarget {
