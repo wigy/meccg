@@ -22,12 +22,17 @@ const SCORER = 'tw-scorer';
 const CHEAP = 'tw-cheap';
 /** A faction an influence attempt could bring in — what freed influence is *for*. */
 const FACTION = 'tw-faction';
+/** An avatar: `mind: null` is what `isAvatarCharacter` keys on, MP left at zero on purpose. */
+const AVATAR = 'tw-avatar';
 
 const POOL = {
   [SCORER]: { name: 'Elrond', marshallingPoints: 3, marshallingCategory: 'character', mind: 8 },
   [CHEAP]: { name: 'A Hobbit', marshallingPoints: 0, marshallingCategory: 'character', mind: 1 },
   [FACTION]: {
     name: 'Rangers of the North', marshallingPoints: 3, marshallingCategory: 'faction', influenceNumber: 10,
+  },
+  [AVATAR]: {
+    name: 'Saruman', cardType: 'hero-character', marshallingPoints: 0, marshallingCategory: 'character', mind: null,
   },
 } as unknown as Readonly<Record<string, CardDefinition>>;
 
@@ -42,7 +47,7 @@ function contextWith(self: Record<string, number>, opponent: Record<string, numb
     self: {
       id: 'p1',
       marshallingPoints: testMarshallingPoints(self),
-      hand: [SCORER, CHEAP].map(d => ({ instanceId: `card-${d}`, definitionId: d })),
+      hand: [SCORER, CHEAP, AVATAR].map(d => ({ instanceId: `card-${d}`, definitionId: d })),
       characters: {
         'held-1': {
           instanceId: 'held-1',
@@ -96,6 +101,32 @@ describe('playing a character', () => {
     expect(text).toContain('7 of 20 general influence free');
     expect(text).toContain('reported, not priced');
     expect(evaluation.assumptions.some(a => a.includes('roster plan'))).toBe(true);
+  });
+
+  // Bug report: an AI opponent never played their wizard (Saruman) across
+  // several games. Saruman is the avatar (`mind: null`) and, like most
+  // avatars, carries 0 marshalling points — its value is in what it unlocks,
+  // not its MP. `characterPlayedThisTurn` (CoE 2.II.2) allows only one
+  // character played per turn, so without a floor for the avatar, a
+  // positive-MP non-avatar always won the slot and the avatar sat in hand for
+  // the rest of the game (game msyie3gw-umgdub, turns 2-5).
+  test('an avatar with no points still outscores a cheap non-avatar', () => {
+    const context = contextWith(BALANCED, BALANCED);
+    const avatarEval = charactersModule.evaluate(play(AVATAR), context)!;
+    const cheapEval = charactersModule.evaluate(play(CHEAP), context)!;
+    expect(avatarEval.expectedTsd).toBeGreaterThan(cheapEval.expectedTsd);
+    expect(avatarEval.expectedTsd).toBeGreaterThan(0);
+  });
+
+  test('prices the avatar floor by the avatarInPlayTsd tunable, and only for the avatar', () => {
+    const avatarEval = charactersModule.evaluate(play(AVATAR), contextWith(BALANCED, BALANCED))!;
+    expect(avatarEval.expectedTsd).toBe(DEFAULT_TUNABLES.avatarInPlayTsd);
+    const text = JSON.stringify(avatarEval.rationale);
+    expect(text).toContain('avatar floor');
+    expect(text).toContain('sideboard access');
+
+    const cheapEval = charactersModule.evaluate(play(CHEAP), contextWith(BALANCED, BALANCED))!;
+    expect(cheapEval.expectedTsd).toBe(0);
   });
 });
 

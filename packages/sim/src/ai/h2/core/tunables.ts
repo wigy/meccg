@@ -420,6 +420,22 @@ export interface Tunables {
    * expectation so the *decision* is priced rather than the event.
    */
   readonly gatingResolutionTsd: number;
+  /**
+   * What having an avatar in play is worth, in TSD, beyond the marshalling
+   * points it carries (often zero — an avatar's value is not in its MP).
+   *
+   * Two capabilities are gated on an avatar (`mind === null`) being in play
+   * and priced nowhere else at decision time: tapping it to fetch up to five
+   * cards from the sideboard (CoE 2.II.6), and making a company eligible to
+   * draw resources at all when none of its other characters has mind ≥ 3
+   * (CoE 2.IV.v, `draw-value.ts`'s `hasEligibleDrawer`). Both are exact rules,
+   * not guesses, but pricing either in full needs the sideboard's actual
+   * contents or a company's actual composition, which `play-character` does
+   * not have yet. A flat floor is the honest middle ground: without it, an
+   * avatar with 0 marshalling points reads as worth exactly what a Hobbit is
+   * worth, and is never played.
+   */
+  readonly avatarInPlayTsd: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -458,6 +474,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
   heldCardFloor: 1,
+  avatarInPlayTsd: 2,
 };
 
 /**
