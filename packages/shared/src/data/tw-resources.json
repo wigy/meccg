@@ -3787,8 +3787,24 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Playable at the Vale of Erech and if the Men of Lamedon are already in play. Discard if the Men of Lamedon leave play."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Men of Lamedon"
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "name": "Vale of Erech" }
+      },
+      {
+        "type": "discard-on-card-leaves-play",
+        "filter": { "card.name": "Men of Lamedon" }
+      }
+    ],
+    "text": "Unique. Playable at the Vale of Erech and if the Men of Lamedon are already in play. Discard if the Men of Lamedon leave play.",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "hero-resource-event",
