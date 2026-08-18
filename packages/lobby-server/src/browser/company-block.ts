@@ -40,6 +40,7 @@ import type {
   PayEventMaintenanceAction,
   ActivateOrgFetchAction,
   DiscardCharacterOrgAction,
+  PlayHazardAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -98,6 +99,37 @@ export function influenceVariantLabel(action: InfluenceAttemptAction): string {
   return action.placeUnderLeaderControl
     ? "Place under leader's control (site not tapped)"
     : 'Influence (tap site)';
+}
+
+/**
+ * All viable `play-hazard` actions for the given hand card targeting the
+ * given character. A hazard card that declares multiple mutually-exclusive
+ * `play-option` effects (e.g. Weariness of the Heart's prowess-penalty vs.
+ * corruption-check options) yields one legal action per option — the click
+ * handler must present all of them as a choice rather than silently firing
+ * whichever one `.find()` happens to hit first.
+ */
+export function findHazardVariants(
+  viable: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+  charInstanceId: CardInstanceId,
+): PlayHazardAction[] {
+  return viable.filter(
+    (a): a is PlayHazardAction =>
+      a.type === 'play-hazard'
+      && a.cardInstanceId === cardInstanceId
+      && 'targetCharacterId' in a
+      && a.targetCharacterId === charInstanceId,
+  );
+}
+
+/**
+ * Human-readable label for a play-hazard variant, used when the UI must
+ * disambiguate multiple `play-option` effects on the same target.
+ */
+export function hazardVariantLabel(action: PlayHazardAction): string {
+  if (!action.optionId) return 'Play';
+  return action.optionId.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
 }
 
 /**
@@ -808,19 +840,36 @@ export function renderCompanyBlock(
     // Hazard character targeting: click a character to play hazard on them
     const selectedHazard = getSelectedHazardForPlay();
     if (selectedHazard) {
-      const hazardAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-hazard'
-          && a.cardInstanceId === selectedHazard
-          && 'targetCharacterId' in a
-          && a.targetCharacterId === charInstId,
+      const hazardVariants = findHazardVariants(
+        viableActions(view.legalActions), selectedHazard, charInstId,
       );
-      if (hazardAction) {
+      if (hazardVariants.length > 0) {
         return {
           cls: 'company-card--influence-target',
           handler: (e) => {
             e.stopPropagation();
-            clearHazardPlaySelection();
-            options?.onAction?.(hazardAction);
+            // A single variant fires immediately. Multiple variants (e.g.
+            // Weariness of the Heart's prowess vs. corruption-check
+            // play-options) require a choice — show a tooltip menu so the
+            // player can pick which effect to apply instead of always
+            // getting the first-declared option (bug report 03e85bc501c15064:
+            // corruption mode was silently unreachable).
+            if (hazardVariants.length === 1) {
+              clearHazardPlaySelection();
+              options?.onAction?.(hazardVariants[0]);
+              return;
+            }
+            showTooltipMenu(
+              e.target as HTMLElement,
+              hazardVariants.map(variant => ({
+                label: hazardVariantLabel(variant),
+                onClick: () => {
+                  clearHazardPlaySelection();
+                  options?.onAction?.(variant);
+                },
+              })),
+              { placement: 'auto' },
+            );
           },
         };
       }
