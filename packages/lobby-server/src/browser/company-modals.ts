@@ -26,6 +26,7 @@ import type {
   RestoreCharacterByEffectAction,
   OpponentInfluenceAttemptAction,
   ActivateGrantedAction,
+  DiscardCharacterOrgAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
 import {
@@ -38,6 +39,7 @@ import {
   setPendingFocusCharacterId,
   rerender,
 } from './company-view-state.js';
+import { showConfirm } from './dialog.js';
 import { setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction, buildCardPreviewInfo } from './render.js';
 import { switchToAllCompanies } from './company-view.js';
 import { showTooltipMenu, tooltipButton, type TooltipMenuItem } from './tooltip-menu.js';
@@ -439,6 +441,7 @@ export function showCharacterActionTooltip(
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
     grantedActions?: Map<string, ActivateGrantedAction[]>;
+    discardCharacterActions?: Map<string, DiscardCharacterOrgAction>;
     companyId?: CompanyId;
   },
 ): void {
@@ -542,6 +545,20 @@ export function showCharacterActionTooltip(
     const defId = cachedInstanceLookup(id);
     return defId ? cardPool[defId as string]?.name : undefined;
   }));
+
+  const discardAction = options.discardCharacterActions?.get(charInstId as string);
+  if (discardAction) {
+    const charDefId = cachedInstanceLookup(charInstId);
+    const charName = charDefId ? cardPool[charDefId as string]?.name : undefined;
+    items.push({
+      label: 'Discard Character',
+      onClick: () => {
+        void showConfirm(`Discard ${charName ?? 'this character'}?`).then(ok => {
+          if (ok) onAction(discardAction);
+        });
+      },
+    });
+  }
 
   // Opponent influence: enter targeting mode
   if (lastView) {

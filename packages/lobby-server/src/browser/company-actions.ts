@@ -32,6 +32,7 @@ import type {
   AgentMoveAction,
   CardDefinition,
   GrantActionEffect,
+  DiscardCharacterOrgAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -182,6 +183,20 @@ export function getSupportCorruptionCheckActions(view: PlayerView): Map<string, 
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'support-corruption-check') continue;
     result.set(action.supportingCharacterId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable discard-character actions (CoE rule 3.22 — discarding a
+ * character while organizing), keyed by the character instance ID. Each
+ * character can have at most one discard action.
+ */
+export function getDiscardCharacterActions(view: PlayerView): Map<string, DiscardCharacterOrgAction> {
+  const result = new Map<string, DiscardCharacterOrgAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'discard-character') continue;
+    result.set(action.characterInstanceId as string, action);
   }
   return result;
 }
