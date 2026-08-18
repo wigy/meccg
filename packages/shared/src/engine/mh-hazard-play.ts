@@ -2662,9 +2662,23 @@ export function extraMHMoveDestinations(
   const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   if (!currentDef || !isSiteCard(currentDef)) return [];
   const movementMap = buildMovementMap(state.cardPool, player.alignment);
-  const allSites = Object.values(state.cardPool).filter(
-    (s): s is SiteCard => isSiteCard(s) && s.alignment === player.alignment,
-  );
+  // Candidates come from the player's own site deck, not from a cardPool
+  // filter on exact alignment equality: a Fallen-wizard's location deck mixes
+  // hero, minion, and Fallen-wizard-alignment sites (CoE 1.4.F1), and a Balrog's
+  // mixes minion and Balrog-alignment sites (CoE 1.4.B1) — an exact-equality
+  // filter would drop nearly all of a mixed-alignment player's own sites and
+  // starve `grant-extra-mh-phase` cards (Carambor le-5, Forced March le-185,
+  // Bridge tw-202, Leg It Double Quick le-202) of destinations. Mirrors the
+  // candidate-building in `planMovementActions`.
+  const seenSiteDefIds = new Set<string>();
+  const allSites: SiteCard[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (seenSiteDefIds.has(siteInst.definitionId as string)) continue;
+    const siteDef = defById(state, siteInst.definitionId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    seenSiteDefIds.add(siteInst.definitionId as string);
+    allSites.push(siteDef);
+  }
   let reachable = getReachableSites(movementMap, currentDef, allSites);
 
   // CoE 2.II.7.R1: a company containing a Ringwraith avatar is bound by the
