@@ -177,202 +177,40 @@ build_mail() {
   jq -n "$@"
 }
 
-# Detect an API-capacity / usage-limit condition in a claude stream-json log:
-# the subscription session/usage limit, a rate limit, a server overload, or a
-# transient 5xx. In all of these the skill never actually ran, so — exactly like
-# a 401 — the message must be RESET, not burned. The caller resets it to 'new'
-# and stops so a later, healthy run retries it once capacity returns.
-#
-# Precision matters as much as it does for the 401 check. In particular we must
-# NOT trigger on the bare strings "rate_limit"/"rateLimit": every single run's
-# stream carries a benign `_info` object like
-#   "..._info":{"status":"allowed",...,"rateLimitType":"five_hour",...}
-# reporting the CURRENT (allowed) rate-limit window — matching that would flag
-# every request as a limit hit. So we key off (a) the TERMINAL result line's own
-# error text ("You've hit your session limit", "usage limit reached") and (b)
-# structured, unambiguous markers the CLI/API only emit on a real error:
-# "API Error: 429", "API Error: 5xx", or an Anthropic error object of type
-# rate_limit_error / overloaded_error.
-#   $1 = path to the raw stream-json log
-is_api_capacity_error() {
-  local f="$1"
-  # (a) The terminal result line reports an error naming a usage/session limit.
-  if grep '"type":"result"' "$f" 2>/dev/null | grep -qiE '"is_error":[[:space:]]*true' \
-     && grep '"type":"result"' "$f" 2>/dev/null \
-        | grep -qiE "hit your (session|usage) limit|usage limit reached|claude usage limit"; then
-    return 0
-  fi
-  # (b) A structured capacity/rate/overload/5xx API error anywhere in the stream.
-  # (Numeric codes only — a bare "API Error: Connection closed" has no code and
-  # is left as an ordinary error, matching prior behavior.)
-  if grep -qiE 'API Error:[[:space:]]*(429|5[0-9][0-9])|"type":[[:space:]]*"(rate_limit_error|overloaded_error)"' "$f" 2>/dev/null; then
-    return 0
-  fi
-  return 1
-}
-
 # Run a Claude skill and capture the text output.
 # $1=skill prompt (full text with $ARGUMENTS already substituted)
 #
-# The claude CLI has a known failure mode where it prints a terminal
-# {"type":"result",...} line (logical completion) but does not exit,
-# stalling the caller indefinitely. To stay reliable we run claude in
-# the background and actively terminate it when either (a) the terminal
-# result line appears, (b) claude exits on its own, or (c) a hard
-# 45-minute deadline passes.
+# Supervision (background watch, the CLI's print-result-but-never-exit hang,
+# the 60-minute hard deadline, SIGTERM/SIGKILL escalation) is bin/claude-run's
+# job now. This wrapper only supplies the parameters.
 #
-# The sidecar stats file includes a third line: "success" if the stream
-# contained a successful terminal marker, else "error" or "timeout".
-# Callers use that — not prose parsing of the summary — to decide whether
-# the skill succeeded.
+# The sidecar stats file's third line carries the status: "success" when the
+# stream reached a successful terminal result, else "auth", "apierror",
+# "timeout" or "error". Callers use that — not prose parsing of the summary —
+# to decide whether the skill succeeded, and the auth/apierror values in
+# particular mean the skill never ran, so the message must not be consumed.
 run_skill() {
   cd "$PROJECT_DIR"
 
-  # Authenticate the headless claude with a long-lived, non-rotating OAuth
-  # token (generated once via `claude setup-token`). This is REQUIRED for an
-  # unattended worker: the interactive subscription login stores a *rotating*
-  # refreshToken in ~/.claude/.credentials.json, and because we SIGKILL claude
-  # after it prints its result (see below), a refresh that is in-flight or not
-  # yet persisted leaves that file holding a stale/invalidated token — so every
-  # run after the first failed with "401 Invalid authentication credentials".
-  # CLAUDE_CODE_OAUTH_TOKEN is read from the environment and never touches the
-  # credentials file, so the kill can't break it. Prefer an already-exported
-  # value; otherwise pull it from ~/.meccg/secrets.json (claudeOauthToken).
-  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -f "$SECRETS" ]; then
-    local _tok
-    _tok=$(jq -r '.claudeOauthToken // empty' "$SECRETS" 2>/dev/null || true)
-    [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
-  fi
-  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-    echo "[handle-mail] WARNING: CLAUDE_CODE_OAUTH_TOKEN is not set and no claudeOauthToken in $SECRETS." >&2
-    echo "[handle-mail]          Falling back to ~/.claude/.credentials.json, whose rotating token gets" >&2
-    echo "[handle-mail]          invalidated when claude is killed — the next run will likely 401." >&2
-    echo "[handle-mail]          Fix: run 'claude setup-token' once and add the token to $SECRETS as" >&2
-    echo "[handle-mail]          {\"claudeOauthToken\": \"<token>\"} (or export CLAUDE_CODE_OAUTH_TOKEN)." >&2
-  fi
-
-  local raw_tmp
-  raw_tmp=$(mktemp)
-
-  # The prompt goes in on stdin, NOT as `-p "$1"`. Linux caps a single argv
-  # string at MAX_ARG_STRLEN (32 pages = 128KB) — a limit separate from, and far
-  # below, the ~2MB total ARG_MAX, and not raisable via ulimit. handle-certify-card.md
-  # grew past 128KB, so execve rejected it with E2BIG and every certification died
-  # instantly with "Argument list too long" (exit 126) before claude ever started.
-  # A pipe has no such limit, and `claude -p` with no argument reads the prompt
-  # from stdin.
-  printf '%s' "$1" | claude --dangerously-skip-permissions --verbose --output-format stream-json -p > "$raw_tmp" 2>&1 &
-  local claude_pid=$!
-
-  local hard_deadline=$(( $(date +%s) + 3600 ))
-  local result_seen_at=0
-  local term_reason=""
-  local now
-
-  while kill -0 "$claude_pid" 2>/dev/null; do
-    now=$(date +%s)
-    if [ "$now" -ge "$hard_deadline" ]; then
-      term_reason="hard-deadline"
-      break
-    fi
-    if [ "$result_seen_at" -eq 0 ]; then
-      if grep -q '"type":"result"' "$raw_tmp" 2>/dev/null; then
-        result_seen_at=$now
-        echo "[handle-mail] run_skill: terminal result emitted — allowing 10s for graceful exit" >&2
-      fi
-    elif [ $(( now - result_seen_at )) -ge 10 ]; then
-      term_reason="post-result-hang"
-      break
-    fi
-    sleep 2
-  done
-
-  if [ -n "$term_reason" ]; then
-    echo "[handle-mail] run_skill: terminating claude (reason=$term_reason, pid=$claude_pid)" >&2
-    kill -TERM "$claude_pid" 2>/dev/null || true
-    # Give claude a generous grace period to exit cleanly after SIGTERM so it
-    # can finish flushing any credential/session writes before we resort to
-    # SIGKILL (a hard kill mid-write is what historically corrupted auth state).
-    local i=0
-    while kill -0 "$claude_pid" 2>/dev/null && [ "$i" -lt 15 ]; do
-      sleep 1
-      i=$(( i + 1 ))
-    done
-    kill -KILL "$claude_pid" 2>/dev/null || true
-  fi
-
-  local rc
-  if wait "$claude_pid" 2>/dev/null; then rc=0; else rc=$?; fi
-
-  cat "$raw_tmp" >> "$LOG_DIR/ai-raw.log"
-
-  # Distinguish an authentication failure (bad/expired CLAUDE_CODE_OAUTH_TOKEN)
-  # from an ordinary skill error. A 401 means the skill never actually ran, so
-  # the caller must NOT consume the message — see the auth guard after dispatch.
-  # The patterns require structured/quoted context so incidental hex (UUIDs
-  # containing "401") cannot trigger a false auth verdict.
-  # Classify the terminal result object with jq, NOT a literal substring match.
-  # The CLI emits the result fields in an UNSTABLE order — in the current build
-  # `is_error` is the 1st key, `subtype` the 13th and `type` the 19th of 21 — so
-  # the old pattern '"type":"result","subtype":"success","is_error":false'
-  # assumed an adjacency that no longer holds. After a CLI upgrade it silently
-  # stopped matching and EVERY successful run came back status=error: the
-  # certification path then reported "Skill did not reach a successful terminal
-  # result", mailed a failure, and marked the message 'failed' — while the skill
-  # had in fact done the work and opened a perfectly good PR (as-16, tw-46,
-  # tw-31 and ~110 more were burned this way). run-ai's preflight_token already
-  # carries this fix; handle-mail did not.
+  # Everything this used to do by hand — stdin-fed prompt, background watch,
+  # post-result grace, SIGTERM/SIGKILL escalation, jq classification of the
+  # terminal result, the cost/duration sidecar — now lives in bin/claude-run,
+  # which is the single supervisor shared with run-ai and nightly-release. The
+  # four hand-rolled copies of that loop drifted, and the drift burned ~110
+  # certifications whose PRs were fine (see claude-run's header).
   #
-  # Grep the single result line out first rather than running `jq -s` over the
-  # whole file: claude's stderr is merged into $raw_tmp by the 2>&1 above, so it
-  # is not guaranteed to be pure JSON and one malformed line would abort jq.
-  #
-  # Read .is_error bare — do NOT write `.is_error // false` or `// true` as a
-  # missing-key guard. jq's `//` treats BOTH null and false as empty, so on the
-  # success case (is_error=false) it yields the fallback. Bare .is_error fails
-  # safe: a missing key prints "null" and an unparseable line prints nothing,
-  # neither of which equals "false".
-  local status="error"
-  local result_line
-  result_line=$(grep '"type":"result"' "$raw_tmp" 2>/dev/null | tail -1 || true)
-  if [ -n "$result_line" ] \
-     && [ "$(jq -r '.is_error' <<<"$result_line" 2>/dev/null)" = "false" ]; then
-    status="success"
-  elif grep -qiE 'API Error: 401|401 Invalid authentication|"status":[[:space:]]*401|authentication_error|Failed to authenticate' "$raw_tmp"; then
-    status="auth"
-  elif is_api_capacity_error "$raw_tmp"; then
-    # Session/usage limit, rate limit, or overload — the skill never ran. Like
-    # a 401 this must NOT burn the message (see the apierror guard after dispatch).
-    status="apierror"
-  elif [ "$term_reason" = "hard-deadline" ] && [ "$result_seen_at" -eq 0 ]; then
-    status="timeout"
-  fi
-  # Capture cost/duration into variables and echo each explicitly. A bare
-  # `grep ... | tail -1` emits ZERO bytes (not a blank line) when there is no
-  # match — which is exactly what a 401 / early crash produces, since that
-  # output carries no total_cost_usd or duration_ms. Inlining the greps in the
-  # brace group therefore collapsed the three fields onto one line, pushing
-  # "$status" up into the cost slot and leaving SKILL_STATUS empty (so the auth
-  # guard never fired and the message was burned). Explicit echo guarantees the
-  # status is always on line 3.
-  local skill_cost skill_duration
-  skill_cost=$(grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true)
-  skill_duration=$(grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true)
-  {
-    echo "$skill_cost"
-    echo "$skill_duration"
-    echo "$status"
-  } > "$LOG_DIR/.skill-stats"
-
-  jq -r 'select(.type == "result") | .result // empty' "$raw_tmp" 2>/dev/null || true
-  rm -f "$raw_tmp"
-
-  # If the skill reached a successful terminal result, force a 0 return
-  # even if we had to kill a post-result hang.
-  if [ "$status" = "success" ]; then
-    return 0
-  fi
-  return "$rc"
+  # MECCG_ENGINE_SKILL pins the engine for skill work, e.g. "sonnet-5:high" for
+  # the certification backlog or "opus-5:xhigh" for bug fixes. Unset means the
+  # CLI default, which is the behaviour this replaced.
+  printf '%s' "$1" | "$SCRIPT_DIR/claude-run" \
+    --label handle-mail \
+    --engine "${MECCG_ENGINE_SKILL:-}" \
+    --timeout 3600 \
+    --grace 10 \
+    --poll 2 \
+    --cwd "$PROJECT_DIR" \
+    --raw-log "$LOG_DIR/ai-raw.log" \
+    --stats "$LOG_DIR/.skill-stats"
 }
 
 # Read cost/duration/status from the sidecar file written by run_skill.

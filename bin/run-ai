@@ -484,76 +484,41 @@ preflight_token() {
   fi
 
   echo "[run-ai] Validating headless claude OAuth token..." | tee -a "$LOG_FILE"
-  local tmp
+  local tmp stats status verdict
   tmp=$(mktemp)
-  CLAUDE_CODE_OAUTH_TOKEN="$tok" claude --dangerously-skip-permissions \
-    --output-format stream-json --verbose -p "Reply with the single word OK." \
-    > "$tmp" 2>&1 &
-  local pid=$!
+  stats=$(mktemp)
 
-  # Precise auth-failure markers. Deliberately NOT a bare "401": the
-  # stream-json output is full of UUIDs/request-ids whose hex happens to
-  # contain "401" (e.g. ...-ba7a-401e-...), which a loose pattern misreads as
-  # a 401 and intermittently fails a perfectly good token. Each alternative
-  # below requires structured context that only a real auth error produces.
-  local auth_re='"status":[[:space:]]*401|authentication_error|"type":[[:space:]]*"error".*"type":[[:space:]]*"authentication|invalid (bearer token|api key|x-api-key|authentication credentials)|oauth token (has )?expired|please run.*(/login|setup-token)'
+  # Supervision, the precise auth-marker patterns and the jq classification of
+  # the terminal result all live in bin/claude-run now — this used to be a
+  # third hand-rolled copy of that loop, and it was the ONLY copy carrying the
+  # jq fix when the CLI reordered its result keys (handle-mail's copy did not,
+  # and burned ~110 certifications).
+  #
+  # --early-auth-abort matters here specifically: a bad token never produces a
+  # terminal result at all, so without it the check would sit out the whole
+  # deadline before concluding anything. --grace 0 keeps the preflight snappy —
+  # we have our answer the moment the result line lands.
+  printf '%s' "Reply with the single word OK." \
+    | CLAUDE_CODE_OAUTH_TOKEN="$tok" "$SCRIPT_DIR/claude-run" \
+        --label run-ai-preflight \
+        --timeout 120 \
+        --grace 0 \
+        --poll 2 \
+        --early-auth-abort \
+        --raw-log "$tmp" \
+        --stats "$stats" \
+        >/dev/null 2>>"$LOG_FILE" || true
 
-  local deadline=$(( $(date +%s) + 120 ))
-  local verdict=""
-  while kill -0 "$pid" 2>/dev/null; do
-    # Wait for the terminal result line, then classify it below — don't try to
-    # judge mid-stream (partial output is where the false positives live).
-    if grep -q '"type":"result"' "$tmp" 2>/dev/null; then
-      break
-    fi
-    if grep -qiE "$auth_re" "$tmp" 2>/dev/null; then
-      verdict="invalid"; break
-    fi
-    if [ "$(date +%s)" -ge "$deadline" ]; then
-      verdict="timeout"; break
-    fi
-    sleep 2
-  done
+  status=$(sed -n '3p' "$stats" 2>/dev/null || true)
+  rm -f "$stats"
 
-  # claude is known to occasionally print its terminal result without exiting;
-  # we've already decided, so stop it.
-  kill -TERM "$pid" 2>/dev/null || true
-  sleep 1
-  kill -KILL "$pid" 2>/dev/null || true
-
-  if [ -z "$verdict" ]; then
-    # Trust the success marker first: a clean trivial reply means the token
-    # authenticated, regardless of any incidental hex in the stream.
-    #
-    # Classify from the terminal result object with jq, NOT a substring grep.
-    # The CLI emits the result fields in an unstable order (in 2.1.218 `is_error`
-    # is the 1st key, `subtype` the 12th, `type` the 18th of 21), so the old
-    # literal '"type":"result","subtype":"success","is_error":false' match
-    # assumed an adjacency that no longer holds. After a CLI upgrade it silently
-    # stopped matching and EVERY valid token came back verdict=unknown — the
-    # check could no longer confirm a good token, nor distinguish one from an
-    # expired token whose error wording $auth_re does not cover.
-    #
-    # Grep the single result line out first rather than running `jq -s` over the
-    # whole file: claude's stderr is merged into $tmp by the 2>&1 above, so the
-    # file is not guaranteed to be pure JSON and a malformed line would abort jq.
-    #
-    # Read .is_error bare — do NOT write `.is_error // true` as a missing-key
-    # guard. jq's `//` treats BOTH null and false as empty, so on the success
-    # case (is_error=false) it yields `true` and rejects a perfectly good token.
-    # Bare .is_error already fails safe: a missing key prints "null" and an
-    # unparseable line prints nothing, neither of which equals "false".
-    local result_line
-    result_line=$(grep '"type":"result"' "$tmp" 2>/dev/null | tail -1)
-    if [ -n "$result_line" ] \
-       && [ "$(jq -r '.is_error' <<<"$result_line" 2>/dev/null)" = "false" ]; then
-      verdict="valid"
-    elif grep -qiE "$auth_re" "$tmp" 2>/dev/null; then
-      verdict="invalid"
-    else
-      verdict="unknown"
-    fi
-  fi
+  # Anything that is neither a clean success nor a definite auth failure stays
+  # "unknown": an inconclusive check must not block the operator.
+  case "$status" in
+    success) verdict="valid" ;;
+    auth)    verdict="invalid" ;;
+    *)       verdict="unknown" ;;
+  esac
 
   case "$verdict" in
     valid)
@@ -563,7 +528,7 @@ preflight_token() {
       return 0 ;;
     invalid)
       echo "[run-ai] ERROR: the OAuth token is invalid or expired (claude refused to authenticate)." | tee -a "$LOG_FILE" >&2
-      grep -iE "$auth_re" "$tmp" 2>/dev/null | tail -3 | sed 's/^/[run-ai]   /' >&2 || true
+      tail -5 "$tmp" 2>/dev/null | sed 's/^/[run-ai]   /' >&2 || true
       print_token_help
       rm -f "$tmp"
       return 1 ;;
@@ -768,38 +733,37 @@ Finish with a single-line summary of what you did (or "nothing actionable") — 
 EOF
 }
 
-# Run the headless claude on a single-PR maintenance prompt. Mirrors the
-# background-watch pattern used by preflight_token (and handle-mail's
-# run_skill): claude sometimes prints its terminal result without exiting, so
-# we watch the stream-json output for the result line (or a timeout) and then
-# make sure the process is gone. The OAuth token is already exported by
+# Run the headless claude on a single-PR maintenance prompt, via the shared
+# supervisor in bin/claude-run. The OAuth token is already exported by
 # preflight_token, so the child inherits it. Returns 0 if claude reached a
 # terminal result, non-zero otherwise (caller only logs — never fatal).
 run_pr_fix() {
-  local prompt="$1"
-  local tmp
-  tmp=$(mktemp)
-  ( cd "$SCRIPT_DIR/.." && claude --dangerously-skip-permissions \
-      --output-format stream-json --verbose -p "$prompt" ) > "$tmp" 2>&1 &
-  local pid=$!
-  local deadline=$(( $(date +%s) + 1800 ))
-  local done=0
-  while kill -0 "$pid" 2>/dev/null; do
-    if grep -q '"type":"result"' "$tmp" 2>/dev/null; then done=1; break; fi
-    if [ "$(date +%s)" -ge "$deadline" ]; then break; fi
-    sleep 5
-  done
-  kill -TERM "$pid" 2>/dev/null || true
-  sleep 1
-  kill -KILL "$pid" 2>/dev/null || true
-
-  # Keep the agent's stream so a failed sweep can be diagnosed. Discarding this
-  # (the old `rm -f "$tmp"`) meant a PR fix that crashed, hit a usage limit, or
-  # gave up left no trace at all — the only symptom was the PR silently staying
-  # broken. Mirrors handle-mail's ai-raw.log.
-  cat "$tmp" >> "$LOG_DIR/ai-pr-raw.log"
-  rm -f "$tmp"
-  [ "$done" -eq 1 ]
+  # The prompt goes in on STDIN. It used to be passed as `-p "$prompt"`, which
+  # is the same MAX_ARG_STRLEN (128KB) trap that once killed every
+  # certification with E2BIG — and this prompt grows with the PR's review
+  # comments and CI output, so it was a live bug waiting on a big enough PR.
+  #
+  # claude-run also escalates SIGTERM -> 15s -> SIGKILL. The copy this replaced
+  # hard-killed one second after SIGTERM, which is exactly what corrupts
+  # ~/.claude credential state mid-write.
+  #
+  # --ok-on-result preserves this sweep's contract: the caller only
+  # distinguishes "reached a terminal result" from "did not", and treats
+  # neither as fatal.
+  #
+  # The raw stream is kept in ai-pr-raw.log so a sweep that crashed, hit a
+  # usage limit, or gave up leaves a trace — without it the only symptom was
+  # the PR silently staying broken.
+  printf '%s' "$1" | "$SCRIPT_DIR/claude-run" \
+    --label run-ai-pr \
+    --engine "${MECCG_ENGINE_PR_FIX:-}" \
+    --timeout 1800 \
+    --grace 0 \
+    --poll 5 \
+    --cwd "$SCRIPT_DIR/.." \
+    --raw-log "$LOG_DIR/ai-pr-raw.log" \
+    --ok-on-result \
+    >/dev/null
 }
 
 # ---------------------------------------------------------------------------
