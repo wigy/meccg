@@ -21,6 +21,7 @@ const BALIN = 'tw-123' as CardDefinitionId;
 const ARAGORN = 'tw-120' as CardDefinitionId;
 const WORTHY_HILLS = 'as-142' as CardDefinitionId; // non-lair Ruins & Lairs in a wilderness region
 const RIVENDELL = 'tw-258' as CardDefinitionId;
+const GLAMDRING = 'tw-244' as CardDefinitionId; // hero-resource-item
 
 const pool = loadCardPool();
 
@@ -507,6 +508,96 @@ describe('Revealed play-deck-top cards (dm-85 Revealed to all Watchers)', () => 
       bobView.opponent.playDeck.find(c => c.instanceId === id);
     expect(deckById(known)?.definitionId).toBe(ARAGORN);
     expect(deckById(secret)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+});
+
+/**
+ * Regression for bug report 21880899decf2c40 (game msyie3gw-umgdub): Mistress
+ * Lobelia (dm-178) grants "Tap to search your discard pile or play deck for
+ * any one item, ally, or faction playable at her current site." The
+ * `enqueue-pending-fetch` grant-action apply queues a `fetch-to-deck` pending
+ * effect with `deck` among its sources but never records the matching
+ * candidate in any reveal ledger, so `buildSelfView`'s play-deck redaction
+ * kept it as `UNKNOWN_CARD` — the pile browser then had nothing to
+ * distinguish, so it fell back to rendering a non-interactive stack of card
+ * backs. The player reported being unable to see or pick a card at all, only
+ * able to "abort this situation" via the auto-generated decline.
+ *
+ * Builds a bare state with a `fetch-to-deck` pending effect (sources `deck`
+ * and `discard-pile`, matching only `hero-resource-item`) directly active for
+ * Alice, with one matching card (Glamdring) and one non-matching card (Balin,
+ * a character) sitting in her play deck.
+ */
+function gameWithPendingDeckSearchFetch(): {
+  state: GameState;
+  matching: CardInstanceId;
+  nonMatching: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const matching = 'p1-deck-glamdring' as CardInstanceId;
+  const nonMatching = 'p1-deck-balin' as CardInstanceId;
+  const sourceCard = 'p1-lobelia' as CardInstanceId;
+  const state: GameState = {
+    ...base,
+    activePlayer: ALICE,
+    players: [
+      { ...base.players[0], playDeck: [
+        { instanceId: matching, definitionId: GLAMDRING },
+        { instanceId: nonMatching, definitionId: BALIN },
+      ] },
+      base.players[1],
+    ],
+    pendingEffects: [
+      {
+        type: 'card-effect',
+        cardInstanceId: sourceCard,
+        effect: {
+          type: 'fetch-to-deck',
+          source: ['deck', 'discard-pile'],
+          filter: { cardType: { $in: ['hero-resource-item'] } },
+          count: 1,
+          shuffle: true,
+          to: 'hand',
+        },
+      },
+    ],
+  };
+  return { state, matching, nonMatching };
+}
+
+describe('Mistress Lobelia-style grant-action deck fetch (bug 21880899decf2c40)', () => {
+  test('the play-deck candidate a viable fetch-from-pile action targets is unmasked to its owner', () => {
+    const { state, matching, nonMatching } = gameWithPendingDeckSearchFetch();
+    const aliceView = projectPlayerView(state, ALICE);
+    const deckById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.self.playDeck.find(c => c.instanceId === id);
+    expect(deckById(matching)?.definitionId).toBe(GLAMDRING);
+    expect(deckById(nonMatching)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test('the offered fetch-from-pile action targets the unmasked candidate', () => {
+    const { state, matching } = gameWithPendingDeckSearchFetch();
+    const aliceView = projectPlayerView(state, ALICE);
+    const offered = aliceView.legalActions.some(
+      ea => ea.viable && ea.action.type === 'fetch-from-pile'
+        && ea.action.cardInstanceId === matching && ea.action.source === 'deck',
+    );
+    expect(offered).toBe(true);
+  });
+
+  test("the opponent's view of their own irrelevant play deck is unaffected (unchanged)", () => {
+    const { state } = gameWithPendingDeckSearchFetch();
+    const bobView = projectPlayerView(state, BOB);
+    expect(bobView.opponent.playDeck.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
   });
 });
 
