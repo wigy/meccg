@@ -11,6 +11,7 @@
  */
 
 import type { GameAction, Company, CardDefinition, PlayerView } from '@meccg/shared';
+import { CardStatus } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
@@ -100,7 +101,7 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         // attacks without a payoff.
         if (!hasUntappedCharacter(view, company)
             && !hasUntapSource(view, pool, company)
-            && !handHasNoTapPlayableAt(view, pool, siteDef)) {
+            && !handHasNoTapPlayableAt(view, pool, siteDef, company.currentSite.status === CardStatus.Tapped)) {
           return 0;
         }
         // Automatic attacks resolve before any resource can be played. If
