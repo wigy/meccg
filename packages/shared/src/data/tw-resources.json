@@ -3627,6 +3627,7 @@
     "unique": true,
     "prowess": 10,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
@@ -3634,8 +3635,38 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Skinbark if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Anduin Vales, or Redhorn Gate."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "$not": {
+            "site.region": {
+              "$in": [
+                "Fangorn",
+                "Rohan",
+                "Gap of Isen",
+                "Wold & Foothills",
+                "Anduin Vales",
+                "Redhorn Gate"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Skinbark if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Anduin Vales, or Redhorn Gate.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-faction",
