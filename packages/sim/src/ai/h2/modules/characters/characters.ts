@@ -18,6 +18,17 @@
  * displacement is worth belongs to the roster plan of §3.2, which does not
  * exist, so it is declared rather than invented.
  *
+ * An avatar (`mind === null`) is the exception the marshalling-points price
+ * cannot see: its own MP is frequently zero, since its value is never there,
+ * and CoE 2.II.2 allows only one character played per turn — so without a
+ * floor, a positive-MP hero character always wins the slot over an avatar
+ * worth strictly more, and the avatar sits in hand for the rest of the game.
+ * `avatarInPlayTsd` is a flat, declared floor for the two rule-derived
+ * capabilities an avatar in play unlocks (sideboard access, CoE 2.II.6; a
+ * low-mind company's eligibility to draw at all, CoE 2.IV.v) — not a guess at
+ * either one's full value, which needs the sideboard's contents or a roster
+ * plan this module does not have.
+ *
  * `move-to-influence` transfers a character between a controller's direct
  * influence and the general pool. It moves no marshalling points, but it does
  * move direct influence — and free direct influence is exactly what an
@@ -45,6 +56,7 @@
  * destinations the organization phase has not chosen yet.
  */
 
+import { isAvatarCharacter } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { MpSource } from '../../core/tsd.js';
@@ -73,7 +85,7 @@ const OWNED_ACTION_TYPES = [
 function characterOf(
   context: ModuleContext,
   instanceId: CardInstanceId | undefined,
-): { name: string; source: MpSource; marshallingPoints: number; mind: number } | null {
+): { name: string; source: MpSource; marshallingPoints: number; mind: number; avatar: boolean } | null {
   if (!instanceId) return null;
   const inHand = context.view.self.hand.find(c => c.instanceId === instanceId);
   const inPlay = context.view.self.characters[instanceId];
@@ -88,6 +100,7 @@ function characterOf(
     source: (fields.marshallingCategory ?? 'character') as MpSource,
     marshallingPoints: fields.marshallingPoints ?? 0,
     mind: fields.mind ?? 0,
+    avatar: isAvatarCharacter(def),
   };
 }
 
@@ -162,6 +175,8 @@ const ASSUMPTIONS: readonly string[] = [
   'the prowess and direct influence a character brings are not counted as value here; `combat` '
   + 'and `factions` price those where they are actually used',
   'a change of controller is scored as marshalling-point neutral, which it is',
+  'an avatar\'s sideboard access and draw eligibility are priced as one flat `avatarInPlayTsd`, not '
+  + 'by what the sideboard actually holds or which companies currently need it',
 ];
 
 /**
@@ -542,10 +557,20 @@ export const charactersModule: H2Module = {
     const gain = character.marshallingPoints > 0
       ? standing.tsdAfter({ [character.source]: character.marshallingPoints }) - standing.tsd
       : 0;
-    const dtsd = netTsdDelta({ realized: gain }, tunables);
+    // An avatar's own marshalling points are frequently zero — its value is
+    // never in its MP — so without a floor here it reads as worth exactly what
+    // a zero-point non-avatar is worth, and `characterPlayedThisTurn` (CoE
+    // 2.II.2) means a positive-MP hero character then always wins the slot.
+    // `avatarInPlayTsd` is that floor: sideboard access and low-mind-company
+    // draw eligibility are real, rule-derived capabilities this module cannot
+    // price in full without the sideboard's contents or a roster plan, so a
+    // flat number stands in rather than pretending they are worth nothing.
+    const avatarBonus = character.avatar ? tunables.avatarInPlayTsd : 0;
+    const dtsd = netTsdDelta({ realized: gain + avatarBonus }, tunables);
     const outcomes: Outcome[] = [{
       p: 1,
-      label: `play ${character.name} — ${character.marshallingPoints} ${character.source} MP, mind ${character.mind}`,
+      label: `play ${character.name} — ${character.marshallingPoints} ${character.source} MP, mind ${character.mind}`
+        + (character.avatar ? ', avatar' : ''),
       dtsd,
     }];
     const scored = standing.score(outcomes);
@@ -562,6 +587,14 @@ export const charactersModule: H2Module = {
       leaf('mind', character.mind, {
         note: `${budget.freeGeneralInfluence} of ${budget.generalInfluence} general influence free — `
           + 'the cost is reported, not priced',
+      }),
+      leaf('avatar floor', avatarBonus, {
+        unit: 'tsd',
+        tunable: 'avatarInPlayTsd',
+        note: character.avatar
+          ? 'sideboard access (CoE 2.II.6) and low-mind-company draw eligibility (CoE 2.IV.v), '
+            + 'priced flat rather than in full'
+          : 'not an avatar',
       }),
     ];
 
