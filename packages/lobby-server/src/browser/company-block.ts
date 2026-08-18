@@ -39,6 +39,7 @@ import type {
   TapAltPermanentEventAction,
   PayEventMaintenanceAction,
   ActivateOrgFetchAction,
+  DiscardCharacterOrgAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -188,6 +189,8 @@ export function renderCompanyBlock(
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     /** Map from character instance ID to select-card-bearer action. */
     selectCardBearerActions?: Map<string, SelectCardBearerAction>;
+    /** Map from character instance ID to discard-character action (CoE rule 3.22). */
+    discardCharacterActions?: Map<string, DiscardCharacterOrgAction>;
     /**
      * Shared set of site instance ids already rendered in the current
      * all-companies overview pass, forwarded to {@link renderSiteArea} so a
@@ -247,9 +250,10 @@ export function renderCompanyBlock(
     }
 
     // Remaining hazard-limit badge: shown on the currently active company's
-    // block during play-hazards, so the value is visible directly in the
-    // all-companies overview grid \u2014 not just the single #opponent-hazard-limit
-    // chip, which .all-companies-mode CSS hides entirely in that view.
+    // block during play-hazards, so the value sits directly on the company
+    // it applies to in the all-companies overview grid (the top-left
+    // #opponent-hazard-limit chip is also visible there, but is not tied to
+    // a particular block).
     if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'play-hazards') {
       const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
       const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
@@ -866,6 +870,7 @@ export function renderCompanyBlock(
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
     const restoreAction = options?.restoreCharacterActions?.get(charInstId as string);
     const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
+    const discardAction = options?.discardCharacterActions?.get(charInstId as string);
     // Grant-actions declared directly on the character card itself (e.g.
     // Gandalf's test-gold-ring, tw-156) are keyed by the character's own
     // instance ID, same as attached items/hazards are keyed by their own ID.
@@ -880,7 +885,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasOppInfluence, bearerAction, hasGrantedActions].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasOppInfluence, bearerAction, hasGrantedActions, discardAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -1032,6 +1037,22 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           showGrantedActionTooltip(e.currentTarget as HTMLElement, grantedActionsForChar, onAction);
+        },
+      };
+    }
+
+    // Single type: discard character (rule 3.22) — irreversible, so confirm first
+    // (same guard as store-item/self-discard granted actions above).
+    if (discardAction) {
+      const charDefId = cachedInstanceLookup(charInstId);
+      const charName = charDefId ? cardPool[charDefId as string]?.name : undefined;
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          void showConfirm(`Discard ${charName ?? 'this character'}?`).then(ok => {
+            if (ok) options!.onAction!(discardAction);
+          });
         },
       };
     }

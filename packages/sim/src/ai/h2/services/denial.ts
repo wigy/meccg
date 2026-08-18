@@ -136,17 +136,45 @@ export function denialPricer(
     return Math.max(0, Math.min(untappedBefore, held) - Math.min(untappedBefore - 1, held));
   };
 
+  /**
+   * What this outcome takes away from the character's *card text*.
+   *
+   * The abilities were classified by `combatAbilitiesOf` when the roster was
+   * built; this is the conversion that needs the tunables, which is why it lives
+   * here rather than on the target. Three readings, one per outcome:
+   *
+   * - **Tapped.** The tap-gated abilities are unavailable for the rest of the
+   *   combat. This is the whole reason to aim a strike at Fatty Bolger, whose
+   *   prowess makes him the last character the defender would ever put up.
+   * - **Wounded.** The same, and he does not untap at the end of the turn, so
+   *   they stay unavailable into the opponent's next turn — the same doubling
+   *   the denied resource play already gets.
+   * - **Eliminated.** Everything goes, passive abilities included.
+   */
+  const abilityDenied = (target: StrikeTarget, outcome: StrikeOutcome['character']): number => {
+    const { tapGated, passive } = target.abilities;
+    if (tapGated.length === 0 && passive.length === 0) return 0;
+    const tapped = tapGated.length * tunables.abilityTapDenialTsd;
+    switch (outcome) {
+      case 'tapped': return tapped;
+      case 'wounded': return 2 * tapped;
+      case 'eliminated': return 2 * tapped + passive.length * tunables.abilityLossDenialTsd;
+      default: return 0;
+    }
+  };
+
   return (outcome: StrikeOutcome, target: StrikeTarget, strike: StrikeContext): number => {
     // Allies cannot be tapped to play resources, so removing one denies nothing
     // but the tempo of it.
     const denied = target.isAlly ? 0 : playsDenied(strike.untappedBefore) * context.fullPlay;
+    const ability = abilityDenied(target, outcome.character);
     switch (outcome.character) {
       case 'tapped':
-        return tunables.tapTempoCost + denied;
+        return tunables.tapTempoCost + denied + ability;
       case 'wounded':
         // Two plays, not one: a wounded character does not untap at the end of
         // the turn, so next turn's play goes with this one.
-        return tunables.woundTempoCost + 2 * denied;
+        return tunables.woundTempoCost + 2 * denied + ability;
       case 'eliminated': {
         const mp = characterMp(cardPool, target);
         // An ally's points sit in the ally source, a character's in the
@@ -156,7 +184,7 @@ export function denialPricer(
         const mpLoss = mp > 0 ? standing.tsdAfter({}, { [source]: -mp }) - standing.tsd : 0;
         // Its plays are gone for good, but crediting more than the two turns a
         // wound already costs would need a horizon model this does not have.
-        return tunables.eliminationTempoCost + mpLoss + 2 * denied;
+        return tunables.eliminationTempoCost + mpLoss + 2 * denied + ability;
       }
       default:
         return 0;

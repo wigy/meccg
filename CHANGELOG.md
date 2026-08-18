@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.114.0 — 2026-08-18
+
+Attackers pick their targets, and Weathertop opens to Fallen-wizards
+
+### Game Engine
+
+- **Rule 1.10.F1 — Weathertop is a Fallen-wizard starting site.** The
+  rule allows The White Towers or any Ruins & Lairs in Arthedain or
+  Rhudaur, but the allowed-site list enumerated only White Towers and
+  Ettenmoors, so Weathertop — a Ruins & Lairs in Arthedain — was
+  rejected at starting-site selection. Both printings (tw-436 hero,
+  as-169 minion) are accepted per rule 2.II.7.F1, and that completes the
+  enumeration: those three are the only Ruins & Lairs in the two regions.
+
+### Web Client
+
+- **Characters can be discarded during organization again.** The engine
+  offered `discard-character` (CoE rule 3.22 — a non-avatar character at
+  a haven or her home site) but the browser client never consulted that
+  action type: no getter, no click handler, no tooltip-menu entry. A
+  character with no other action available — Ioreth alone in her own
+  company, per two bug reports — was not even clickable. Discarding now
+  asks for confirmation, since it is irreversible.
+- The Pass button during play-hazards reads plain "Pass Hazards"; the
+  "(N left)" suffix duplicated the HL box. In the all-companies overview
+  the HL chip and the opponent status lines (name, MP/GI/SP) stay
+  visible at their single-view positions, and the phase meter shows its
+  two title lines — breadcrumb plus targeting hint, then the moving
+  company's region path — with the phase tracks hidden, so the overview
+  is no longer context-free. The tutorial's button reference was updated
+  to match.
+
+### Card Data & Certification
+
+- Certified: Leaflock (tw-265), Skinbark (tw-328), Master of Shapes
+  (wh-112), Pocketed Robes (wh-113). Skinbark also gained his missing
+  `mind: 3`, and the `shapeshifter` keyword was added to the vocabulary.
+
+### Simulation & AI
+
+- **"Attacker chooses defending characters" is modeled.** The strike walk
+  assumed the defence always answers with its best remaining parrier,
+  which was wrong for the 19 creatures printing that text — Cave-drake
+  among them — and wrong in both seats at once: the hazard side
+  undervalued its own Cave-drake and the defending side over-rated its
+  safety against one. `AttackProfile.attackerChooses` is read off the
+  `combat-attacker-chooses-defenders` effect; a player who is ahead takes
+  the greedy one-step target, one who is behind searches the adaptive
+  optimum over the rest of the attack (bounded by `attackStateCap`). A
+  character's combat-relevant card text now has a price too — tapping
+  Fatty Bolger is worth more than a prowess-1 scout, because a tapped
+  Fatty cannot cancel strikes. Three new unfitted tunables
+  (`abilityTapDenialTsd`, `abilityLossDenialTsd`,
+  `attackerChoiceSearchLambda`); not yet win-rate validated.
+- Offered cards are priced by what their points add. `quote()` — the
+  path fetches, draft picks and sideboard exchanges price on — computed
+  a card's marginal by *subtracting* points it never held from the hand's
+  projected total, so any card whose source had nothing in hand yet was
+  quoted at exactly zero: a 1 MP ally at 0.0 where the point was worth
+  4 TSD. The held branch (`worth()`) is unchanged; the offered branch
+  adds. Also not yet win-rate validated.
+
 ## 0.113.0 — 2026-08-18
 
 Rescues cost a tap, and banned cards buy their way out

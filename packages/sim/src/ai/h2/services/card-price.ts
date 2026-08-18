@@ -198,17 +198,32 @@ function buildComputeCardPrices(
    * What a card's points are worth at the standing its hand would create.
    *
    * The marginal contribution of this card *within* the projected total, not
-   * against today's: `tsdAfter(all of it) − tsdAfter(all of it but this)`. A
-   * card whose source is capped now but would not be once its neighbours land
-   * scores what it will actually be worth, and one in a source that stays
-   * capped however the hand plays still scores nothing — which is the half of
-   * §10.3 that was always right.
+   * against today's: a card whose source is capped now but would not be once
+   * its neighbours land scores what it will actually be worth, and one in a
+   * source that stays capped however the hand plays still scores nothing —
+   * which is the half of §10.3 that was always right.
+   *
+   * `held` is which side of the hand the card is on, and it is not a detail.
+   * {@link handPotential} is summed over the hand, so a **held** card's points
+   * are already inside it and its marginal is what the hand loses without them:
+   * `tsdAfter(all of it) − tsdAfter(all of it but this)`. An **offered** card —
+   * a fetch candidate, a draft pick, a sideboard exchange — is not in the hand
+   * at all, so the same subtraction computes the marginal of points that were
+   * never there. It answered zero for every card whose source had nothing in
+   * hand yet, which is exactly the source a new card is most worth adding to: a
+   * 1 MP ally quoted at 0.0 in a position where `tsdAfter({ ally: 1 })` was
+   * worth 4. Arriving adds, so the offered branch adds.
    */
-  const projectedGain = (source: MpSource, points: number): number => {
-    const withCard = { ...handPotential };
-    const without = { ...handPotential };
-    without[source] = Math.max(0, (without[source] ?? 0) - points);
-    return standing.tsdAfter(withCard) - standing.tsdAfter(without);
+  const projectedGain = (source: MpSource, points: number, held: boolean): number => {
+    const base = { ...handPotential };
+    if (held) {
+      const without = { ...base };
+      without[source] = Math.max(0, (without[source] ?? 0) - points);
+      return standing.tsdAfter(base) - standing.tsdAfter(without);
+    }
+    const withCard = { ...base };
+    withCard[source] = (withCard[source] ?? 0) + points;
+    return standing.tsdAfter(withCard) - standing.tsdAfter(base);
   };
 
   const plan = computeHazardPlan(view, cardPool, standing, tunables);
@@ -225,6 +240,7 @@ function buildComputeCardPrices(
   const priceDefinition = (
     instanceId: CardInstanceId,
     definitionId: string,
+    held: boolean,
     creatureWorth: () => CardWorth,
   ): CardWorth => {
     const def = printed(cardPool[definitionId], definitionId);
@@ -244,7 +260,7 @@ function buildComputeCardPrices(
         };
       }
       const gain = def.marshallingPoints > 0
-        ? projectedGain('character', def.marshallingPoints)
+        ? projectedGain('character', def.marshallingPoints, held)
         : 0;
       return {
         instanceId,
@@ -255,7 +271,7 @@ function buildComputeCardPrices(
     }
 
     if (def.marshallingPoints > 0) {
-      const gain = projectedGain(def.marshallingCategory, def.marshallingPoints);
+      const gain = projectedGain(def.marshallingCategory, def.marshallingPoints, held);
       return {
         instanceId,
         name: def.name,
@@ -326,7 +342,7 @@ function buildComputeCardPrices(
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return atLeastFloor(priceDefinition(instanceId, definitionId, () => {
+    return atLeastFloor(priceDefinition(instanceId, definitionId, true, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -359,7 +375,7 @@ function buildComputeCardPrices(
       const cached = quotes.get(definitionId);
       if (cached) return cached;
       const offered = 'offered' as CardInstanceId;
-      const quoted = priceDefinition(offered, definitionId, () => {
+      const quoted = priceDefinition(offered, definitionId, false, () => {
         const def = printed(cardPool[definitionId], definitionId)!;
         const raw = plan.marginalFor(definitionId);
         return {

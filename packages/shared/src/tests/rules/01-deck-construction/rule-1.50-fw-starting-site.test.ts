@@ -25,6 +25,8 @@ import type { GameConfig, CardDefinitionId } from '../../../index.js';
 const THE_WHITE_TOWERS_FW = 'wh-58' as CardDefinitionId;
 const THE_WHITE_TOWERS_HERO = 'tw-430' as CardDefinitionId;
 const ETTENMOORS_MINION = 'le-373' as CardDefinitionId;
+const WEATHERTOP_HERO = 'tw-436' as CardDefinitionId;
+const WEATHERTOP_MINION = 'as-169' as CardDefinitionId;
 // A low-mind (5), non-agent character a Fallen-wizard may freely draft without
 // an enabling Stage resource (rules 1.42/1.44).
 const BALIN = 'tw-123' as CardDefinitionId;
@@ -41,7 +43,7 @@ describe('Rule 1.50 — Fallen-Wizard Starting Site', () => {
           // without an enabling Stage resource (rules 1.42/1.44).
           draftPool: [BALIN],
           playDeck: makePlayDeck(),
-          siteDeck: [THE_WHITE_TOWERS_FW, THE_WHITE_TOWERS_HERO, ETTENMOORS_MINION, RIVENDELL],
+          siteDeck: [THE_WHITE_TOWERS_FW, THE_WHITE_TOWERS_HERO, ETTENMOORS_MINION, WEATHERTOP_HERO, WEATHERTOP_MINION, RIVENDELL],
           sideboard: [],
         },
         {
@@ -91,12 +93,19 @@ describe('Rule 1.50 — Fallen-Wizard Starting Site', () => {
     const whiteTowersFwInst = findInst(THE_WHITE_TOWERS_FW);
     const whiteTowersHeroInst = findInst(THE_WHITE_TOWERS_HERO);
     const ettenmoorsinst = findInst(ETTENMOORS_MINION);
+    const weathertopHeroInst = findInst(WEATHERTOP_HERO);
+    const weathertopMinionInst = findInst(WEATHERTOP_MINION);
     const rivendellInst = findInst(RIVENDELL);
 
     // Valid FW starting sites: White Towers (FW version) and Ettenmoors
     expect(siteSel.find(ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === whiteTowersFwInst)?.viable).toBe(true);
     expect(siteSel.find(ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === whiteTowersHeroInst)?.viable).toBe(true);
     expect(siteSel.find(ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === ettenmoorsinst)?.viable).toBe(true);
+
+    // Weathertop is a Ruins & Lairs in Arthedain, so both printings are valid
+    // (rule 2.II.7.F1 — a Fallen-wizard may use either version of a Ruins & Lairs).
+    expect(siteSel.find(ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === weathertopHeroInst)?.viable).toBe(true);
+    expect(siteSel.find(ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === weathertopMinionInst)?.viable).toBe(true);
 
     // Rivendell is NOT a valid FW starting site
     expect(siteSel.find(ea => (ea.action as { siteInstanceId?: unknown }).siteInstanceId === rivendellInst)?.viable).toBe(false);
