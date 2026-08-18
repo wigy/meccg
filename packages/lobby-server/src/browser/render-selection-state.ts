@@ -35,6 +35,31 @@ export function getTargetingInstruction(): string | null {
   return targetingInstruction;
 }
 
+/** Arguments a two-step selection flow needs to re-render the board later. */
+export interface SelectionRenderCache {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+}
+
+/** One independent render-cache slot; `set(null)` clears it. */
+export interface RenderCacheSlot {
+  get(): SelectionRenderCache | null;
+  set(cache: SelectionRenderCache | null): void;
+}
+
+/**
+ * Create a render-cache slot for one two-step selection flow. Each flow keeps
+ * its own slot so clearing one (its selection ended) never disturbs another.
+ */
+function renderCacheSlot(): RenderCacheSlot {
+  let cache: SelectionRenderCache | null = null;
+  return {
+    get: () => cache,
+    set: (next) => { cache = next; },
+  };
+}
+
 // ---- Item draft selection ----
 
 /**
@@ -56,21 +81,7 @@ export function setSelectedItemDefId(id: CardDefinitionId | null): void {
 }
 
 /** Cached arguments for re-rendering during item draft target selection. */
-let itemDraftRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached item draft render arguments. */
-export function getItemDraftRenderCache(): typeof itemDraftRenderCache {
-  return itemDraftRenderCache;
-}
-
-/** Set the cached item draft render arguments. */
-export function setItemDraftRenderCache(cache: typeof itemDraftRenderCache): void {
-  itemDraftRenderCache = cache;
-}
+export const itemDraftRenderCache = renderCacheSlot();
 
 // ---- Play-character selection ----
 
@@ -98,21 +109,7 @@ export function clearCharacterPlaySelection(): void {
 }
 
 /** Cached arguments for re-rendering during character play target selection. */
-let playCharacterRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached play-character render arguments. */
-export function getPlayCharacterRenderCache(): typeof playCharacterRenderCache {
-  return playCharacterRenderCache;
-}
-
-/** Set the cached play-character render arguments. */
-export function setPlayCharacterRenderCache(cache: typeof playCharacterRenderCache): void {
-  playCharacterRenderCache = cache;
-}
+export const playCharacterRenderCache = renderCacheSlot();
 
 // ---- Faction influence selection ----
 
@@ -140,21 +137,7 @@ export function clearFactionInfluenceSelection(): void {
 }
 
 /** Cached arguments for re-rendering during faction influence target selection. */
-let factionInfluenceRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached faction influence render arguments. */
-export function getFactionInfluenceRenderCache(): typeof factionInfluenceRenderCache {
-  return factionInfluenceRenderCache;
-}
-
-/** Set the cached faction influence render arguments. */
-export function setFactionInfluenceRenderCache(cache: typeof factionInfluenceRenderCache): void {
-  factionInfluenceRenderCache = cache;
-}
+export const factionInfluenceRenderCache = renderCacheSlot();
 
 // ---- Resource/item play selection ----
 
@@ -182,21 +165,7 @@ export function clearResourcePlaySelection(): void {
 }
 
 /** Cached arguments for re-rendering during resource play target selection. */
-let resourcePlayRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached resource play render arguments. */
-export function getResourcePlayRenderCache(): typeof resourcePlayRenderCache {
-  return resourcePlayRenderCache;
-}
-
-/** Set the cached resource play render arguments. */
-export function setResourcePlayRenderCache(cache: typeof resourcePlayRenderCache): void {
-  resourcePlayRenderCache = cache;
-}
+export const resourcePlayRenderCache = renderCacheSlot();
 
 // ---- Ally play selection ----
 
@@ -224,21 +193,7 @@ export function clearAllyPlaySelection(): void {
 }
 
 /** Cached arguments for re-rendering during ally play target selection. */
-let allyPlayRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached ally play render arguments. */
-export function getAllyPlayRenderCache(): typeof allyPlayRenderCache {
-  return allyPlayRenderCache;
-}
-
-/** Set the cached ally play render arguments. */
-export function setAllyPlayRenderCache(cache: typeof allyPlayRenderCache): void {
-  allyPlayRenderCache = cache;
-}
+export const allyPlayRenderCache = renderCacheSlot();
 
 // ---- Hazard character-targeting selection ----
 
@@ -277,21 +232,7 @@ export function clearHazardPlaySelection(): void {
 }
 
 /** Cached arguments for re-rendering during hazard targeting selection. */
-let hazardPlayRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached hazard play render arguments. */
-export function getHazardPlayRenderCache(): typeof hazardPlayRenderCache {
-  return hazardPlayRenderCache;
-}
-
-/** Set the cached hazard play render arguments. */
-export function setHazardPlayRenderCache(cache: typeof hazardPlayRenderCache): void {
-  hazardPlayRenderCache = cache;
-}
+export const hazardPlayRenderCache = renderCacheSlot();
 
 // ---- Opponent influence selection ----
 
@@ -345,21 +286,7 @@ export function clearShortEventSelection(): void {
 }
 
 /** Cached arguments for re-rendering during short-event target selection. */
-let shortEventRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached short-event render arguments. */
-export function getShortEventRenderCache(): typeof shortEventRenderCache {
-  return shortEventRenderCache;
-}
-
-/** Set the cached short-event render arguments. */
-export function setShortEventRenderCache(cache: typeof shortEventRenderCache): void {
-  shortEventRenderCache = cache;
-}
+export const shortEventRenderCache = renderCacheSlot();
 
 // ---- Cancel-attack scout targeting ----
 
@@ -388,21 +315,7 @@ export function clearCancelAttackSelection(): void {
 }
 
 /** Cached arguments for re-rendering during cancel-attack scout selection. */
-let cancelAttackRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached cancel-attack render arguments. */
-export function getCancelAttackRenderCache(): typeof cancelAttackRenderCache {
-  return cancelAttackRenderCache;
-}
-
-/** Set the cached cancel-attack render arguments. */
-export function setCancelAttackRenderCache(cache: typeof cancelAttackRenderCache): void {
-  cancelAttackRenderCache = cache;
-}
+export const cancelAttackRenderCache = renderCacheSlot();
 
 // ---- Permanent-event character targeting selection ----
 
@@ -431,21 +344,7 @@ export function clearPermanentEventPlaySelection(): void {
 }
 
 /** Cached arguments for re-rendering during permanent-event character targeting. */
-let permanentEventPlayRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached permanent-event play render arguments. */
-export function getPermanentEventPlayRenderCache(): typeof permanentEventPlayRenderCache {
-  return permanentEventPlayRenderCache;
-}
-
-/** Set the cached permanent-event play render arguments. */
-export function setPermanentEventPlayRenderCache(cache: typeof permanentEventPlayRenderCache): void {
-  permanentEventPlayRenderCache = cache;
-}
+export const permanentEventPlayRenderCache = renderCacheSlot();
 
 // ---- Tap-alt-permanent-event character targeting selection ----
 
@@ -505,21 +404,7 @@ export function clearPermanentEventLongEventTargetSelection(): void {
 }
 
 /** Cached arguments for re-rendering during permanent-event long-event targeting. */
-let permanentEventLongEventTargetRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
-
-/** Get the cached permanent-event long-event target render arguments. */
-export function getPermanentEventLongEventTargetRenderCache(): typeof permanentEventLongEventTargetRenderCache {
-  return permanentEventLongEventTargetRenderCache;
-}
-
-/** Set the cached permanent-event long-event target render arguments. */
-export function setPermanentEventLongEventTargetRenderCache(cache: typeof permanentEventLongEventTargetRenderCache): void {
-  permanentEventLongEventTargetRenderCache = cache;
-}
+export const permanentEventLongEventTargetRenderCache = renderCacheSlot();
 
 // ---- CvCC attacker selection ----
 
