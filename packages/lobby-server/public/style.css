@@ -5301,7 +5301,8 @@ body.spectating.combat-active #hand-arc.kbd-peek {
    tracks, and action buttons. Two top-of-screen status cues survive so the
    overview is not context-free: the HL chip (pinned top-left, where the
    hidden opponent deck box would otherwise anchor it) and the phase meter's
-   title line (breadcrumb + targeting hint) without its tracks.
+   two title lines (breadcrumb + targeting hint, then the phase track); the
+   per-company sub-track and movement-path line stay hidden.
    During Free Council the hand stays visible (free-council-mode exception) —
    CoE 10.3.i allows reactive hand plays (e.g. A Friend or Three) while a
    corruption check is pending, and the all-companies view is forced for the
@@ -5311,7 +5312,7 @@ body.spectating.combat-active #hand-arc.kbd-peek {
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
 .all-companies-mode #opponent-deck-box,
-.all-companies-mode #phase-meter .phase-track,
+.all-companies-mode #phase-meter .phase-track--sub,
 .all-companies-mode #phase-meter .phase-meter-path {
   display: none;
 }
@@ -5320,7 +5321,7 @@ body.spectating.combat-active #hand-arc.kbd-peek {
    with that box display:none in the overview the rect is empty, so override
    the inline coordinates and pin the chip to the box's usual corner. */
 .all-companies-mode #opponent-hazard-limit {
-  top: 0.5rem !important;
+  top: 0.2rem !important;
   left: 1rem !important;
 }
 
@@ -5330,8 +5331,9 @@ body.all-companies-mode:has(#debug-view.hidden) {
   overflow-y: hidden;
 }
 
+/* Leaves room for the phase meter's two title lines shown in this mode. */
 .all-companies-mode .company-overview-all {
-  padding-top: 3rem;
+  padding-top: 4rem;
 }
 
 .all-companies-mode .cards-in-play-row {
