@@ -2565,8 +2565,11 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall if the influence check is greater than 9. Standard Modifications: Hobbits (+4)."
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 4, "when": { "bearer.race": "hobbit" } }
+    ],
+    "text": "Unique. Playable at Wellinghall if the influence check is greater than 9. Standard Modifications: Hobbits (+4).",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-event",
