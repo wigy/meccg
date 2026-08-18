@@ -81,6 +81,7 @@ import { bodyOf, effectiveStrikeProwess, needAgainst, rosterOf } from '../../ser
 import { strikeOutcomes } from '../../services/strike/strike-model.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile } from '../../services/strike/sequence.js';
+import { attackerChoosesDefenders } from '../../services/strike/ability.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
@@ -195,6 +196,7 @@ function creatureProfile(
       detainment,
       bodyCheckModifier: 0,
       name: def.name ?? definitionId,
+      attackerChooses: attackerChoosesDefenders(cardPool[definitionId]),
     },
   };
 }

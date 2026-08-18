@@ -31,7 +31,7 @@ import type { Tunables } from '../../core/tunables.js';
 import type { Standing } from '../../services/standing.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile, SequencePricer } from '../../services/strike/sequence.js';
-import { resolveAttacks } from '../../services/strike/sequence.js';
+import { attackerChoiceAt, resolveAttacks } from '../../services/strike/sequence.js';
 import type { SelfFacedRaceBoost } from '../../services/attack-modifiers.js';
 
 /** One hazard card that could be played, with the attack it would make. */
@@ -132,7 +132,9 @@ function scoreBundle(
     cardPool,
     sequenced.map(c => c.profile),
     price,
-    { maxStates: tunables.attackStateCap },
+    // The bundle is the hazard seat's own attack, so the attacker whose choices
+    // are searched here is this player — the policy comes off their standing.
+    { maxStates: tunables.attackStateCap, attackerChoice: attackerChoiceAt(standing.risk, tunables) },
   );
   // Every hazard costs a card out of hand, whatever it achieves.
   const cardPrice = tunables.provisionalCardPrice * cards.length;

@@ -310,7 +310,16 @@ function buildComputeDefence(
               return 0;
           }
         },
-        { maxStates: tunables.attackStateCap },
+        // Harm suffered is priced negative here, so an attacker-chooses profile
+        // must be told which way is up before it maximises anything.
+        //
+        // What this deliberately does *not* carry is the ability-denial term
+        // `denial` adds on the hazard side. That term is worth more in a company
+        // full of hobbits than in one without, and this pricer is the one place
+        // that must stay a function of the character rather than of the company
+        // he is in — the comment above says what happened the last time it was
+        // not.
+        { maxStates: tunables.attackStateCap, ledger: 'defender' },
       );
       // Harm is reported as a positive quantity: callers subtract it.
       return -result.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);

@@ -38,7 +38,7 @@ import type { EliminationCost } from './mp-value.js';
 import { attackStillDefeatable, eliminationCost, killMpOnOffer, strikeCompletesTheAttack } from './mp-value.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import { DEFAULT_BODY, bodyOf as bodyOfTarget, predictedNeed, strikeTargets } from '../../services/strike/prowess.js';
-import { resolveSequentially } from '../../services/strike/sequence.js';
+import { attackerChoiceAt, resolveSequentially } from '../../services/strike/sequence.js';
 import type { CharacterValue } from '../../services/character-value.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
@@ -274,6 +274,13 @@ function facingOutcomes(
     {
       maxStates: context.tunables.attackStateCap,
       forcedFirst,
+      // The attacker's posture is the mirror of ours: `lambda` is `1 − 2W` for
+      // whoever it is computed for, so the seat facing us reads `−lambda`.
+      // Predicting a lazier opponent than the one `hazards` actually runs would
+      // make every attacker-chooses creature look safer than it is.
+      attackerChoice: attackerChoiceAt(
+        { lambda: -context.standing.risk.lambda }, context.tunables,
+      ),
       // Exact rather than convolved: a sequence knows whether every strike was
       // defeated, which is the all-or-nothing condition the points depend on.
       killTsd: context.stillDefeatable ? context.killTsd : 0,
@@ -294,8 +301,10 @@ const ATTACK_ASSUMPTIONS: readonly string[] = [
   'strike targets are projected from effective prowess, which misses modifiers keyed to the '
   + 'attacker\'s race (measured at within 1 on the corpus); the engine publishes the exact target '
   + 'once the strike is reached',
-  'the defence answers each strike with its best remaining parrier, and the attacker does not '
-  + 'concentrate strikes to force a kill',
+  'the defence answers each strike with its best remaining parrier, except where the attack '
+  + 'carries "attacker chooses defending characters", in which case the attacker picks the '
+  + 'target worth most to him — greedily when he is ahead, searching the rest of the attack '
+  + 'when he is behind',
 ];
 
 /** Human-readable label for a joint outcome. */

@@ -46,9 +46,10 @@ import { computeBeliefs } from './beliefs.js';
 import { denialContext, denialPricer } from './denial.js';
 import { computeExposure } from './exposure.js';
 import { rosterOf } from './strike/prowess.js';
+import { attackerChoosesDefenders } from './strike/ability.js';
 import type { StrikeTarget } from './strike/prowess.js';
-import type { AttackProfile, SequencePricer } from './strike/sequence.js';
-import { resolveAttacks } from './strike/sequence.js';
+import type { AttackerChoice, AttackProfile, SequencePricer } from './strike/sequence.js';
+import { attackerChoiceAt, resolveAttacks } from './strike/sequence.js';
 import { attackBoostOf, boostForRace, boostInPlay, mergeBoosts } from './attack-modifiers.js';
 import { attackIsDetainment } from '../../detainment.js';
 import type { AttackBoost } from './attack-modifiers.js';
@@ -213,6 +214,7 @@ function hazardOf(
       killTsd: killTsdOf(killMp),
       killLabel: `${name} beaten — ${killMp} kill MP to the defender`,
       name,
+      attackerChooses: attackerChoosesDefenders(cardPool[definitionId]),
     },
   };
 }
@@ -255,13 +257,14 @@ function harmOf(
   sequence: readonly Hazard[],
   tunables: Tunables,
   boost: AttackBoost | null,
+  attackerChoice: AttackerChoice,
 ): number {
   if (sequence.length === 0) return 0;
   const result = resolveAttacks(
     target.roster, cardPool,
     sequence.map(h => profileOf(h, boost, target.detainment(h.definitionId))),
     target.price,
-    { maxStates: tunables.attackStateCap },
+    { maxStates: tunables.attackStateCap, attackerChoice },
   );
   const expected = result.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
   // Each hazard costs a card out of hand whatever it achieves, exactly as the
@@ -320,6 +323,14 @@ function buildHazardPlan(
    * `hazards` module makes when it resolves a bundle.
    */
   const boardBoost = boostInPlay(view, cardPool);
+
+  /**
+   * How hard this plan searches the attacker's own choice of defender.
+   *
+   * The plan is the hazard seat's, so the attacker is the player it is built
+   * for, and the policy is read from their standing rather than assumed.
+   */
+  const attackerChoice = attackerChoiceAt(standing.risk, tunables);
 
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
@@ -399,7 +410,7 @@ function buildHazardPlan(
 
     /** What a company's assigned attacks are worth under `candidate`. */
     const attackHarm = (target: Target, candidate: AttackBoost | null): number =>
-      harmOf(target, cardPool, target.assigned, tunables, candidate);
+      harmOf(target, cardPool, target.assigned, tunables, candidate, attackerChoice);
 
     /** The same, across every company — what a support's boost is measured against. */
     const attacksHarm = (candidate: AttackBoost | null): number =>
@@ -431,7 +442,7 @@ function buildHazardPlan(
         if (target.slots <= 0 || target.roster.length === 0) continue;
         for (const hazard of hazards) {
           if (!unassigned.has(hazard.instanceId as string)) continue;
-          const marginal = harmOf(target, cardPool, [...target.assigned, hazard], tunables, boost)
+          const marginal = harmOf(target, cardPool, [...target.assigned, hazard], tunables, boost, attackerChoice)
             - attackHarm(target, boost);
           if (!best || marginal > best.marginal) best = { kind: 'creature', hazard, target, marginal };
         }
@@ -488,9 +499,9 @@ function buildHazardPlan(
       for (const target of targets) {
         if (target.assigned.length > 1 && target.assigned.length <= MAX_ORDERED) {
           let bestOrder = target.assigned;
-          let bestHarm = harmOf(target, cardPool, bestOrder, tunables, boost);
+          let bestHarm = harmOf(target, cardPool, bestOrder, tunables, boost, attackerChoice);
           for (const order of orderings(target.assigned)) {
-            const harm = harmOf(target, cardPool, order, tunables, boost);
+            const harm = harmOf(target, cardPool, order, tunables, boost, attackerChoice);
             if (harm > bestHarm) {
               bestHarm = harm;
               bestOrder = order;
@@ -509,7 +520,7 @@ function buildHazardPlan(
         let running = 0;
         target.assigned.forEach((hazard, index) => {
           const upTo = harmOf(
-            target, cardPool, target.assigned.slice(0, index + 1), tunables, boardBoost,
+            target, cardPool, target.assigned.slice(0, index + 1), tunables, boardBoost, attackerChoice,
           );
           assigned.set(hazard.instanceId as string, {
             instanceId: hazard.instanceId,
@@ -527,13 +538,13 @@ function buildHazardPlan(
 
       let applied = boardBoost;
       let before = targets.reduce(
-        (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied), 0,
+        (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied, attackerChoice), 0,
       );
       for (const target of targets) {
         target.supports.forEach((support, index) => {
           applied = mergeBoosts(applied, support.boost);
           const after = targets.reduce(
-            (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied), 0,
+            (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied, attackerChoice), 0,
           );
           assigned.set(support.instanceId as string, {
             instanceId: support.instanceId,
@@ -610,7 +621,7 @@ function buildHazardPlan(
       for (const target of targets) {
         if (target.slots <= 0 || target.roster.length === 0) continue;
         const marginal = harmOf(
-          target, cardPool, [...target.assigned, candidate], tunables, plannedBoost,
+          target, cardPool, [...target.assigned, candidate], tunables, plannedBoost, attackerChoice,
         ) - target.harm;
         if (marginal > best) best = marginal;
       }
