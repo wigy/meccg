@@ -2890,9 +2890,28 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "grant-action",
+        "action": "pocketed-robes-fetch",
+        "cost": { "tap": "self" },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": { "name": { "$in": ["Crept Along Cleverly", "Wizard’s River-horses", "Herb-lore"] } }
+        }
       }
     ],
-    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. If on Radagast, you may tap Pocketed Robes during your end-of-turn phase to take Crept Along Cleverly, Wizard’s River-horses, or Herb-lore from your discard pile to your hand."
+    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. If on Radagast, you may tap Pocketed Robes during your end-of-turn phase to take Crept Along Cleverly, Wizard’s River-horses, or Herb-lore from your discard pile to your hand.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "minion-resource-ally",
