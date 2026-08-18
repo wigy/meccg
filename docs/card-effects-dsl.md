@@ -4473,6 +4473,22 @@ strike, same as default mode; e.g. Blow Turned: "Warrior only").
   "requiredSkill": "warrior" }
 ```
 
+**Item-tap dodge** (`"dodge": true` plus `"cost": { "tap": "self" }`): the
+effect lives on an in-play item/ally instead of a hand card — the source
+taps itself to dodge the current strike for its own bearer. Resolves
+immediately, no chain (matching the item-based `cancel-strike` precedent),
+and emits a `dodge-strike` action instead of `play-strike-event`.
+
+```json
+{ "type": "strike-modifier", "dodge": true,
+  "cost": { "tap": "self" },
+  "when": { "bearer.skills": { "$includes": "warrior" } } }
+```
+
+Used by Great-shield of Rohan (tw-250): "Warrior only: tap Great Shield of
+Rohan to remain untapped against one strike (unless the bearer is wounded by
+the strike)."
+
 **Reroll mode** (`"reroll": true`): two 2d6 rolls are made and the better
 total is used. The card's text says nothing about tapping, so it doesn't
 override the defender's independent CoE 3.iv.3 choice — two `play-strike-event`
@@ -4512,11 +4528,16 @@ per strike).
 - `requiredSkill` — the struck character must carry this skill. Omit to
   allow any character (default and dodge modes; enforces CoE 3.iv.5 in both).
 - `filter` — condition on the strike target character (reroll and cancel modes only).
+- `cost` — if `{ "tap": "self" }`, this is an item/ally-tap dodge ability
+  (item-tap dodge, see above) rather than a hand-played short event. Only
+  meaningful combined with `dodge: true`.
 
-All modes emit a `play-strike-event` action during resolve-strike and
-discard the card from hand after use. Implemented in
+Hand-played modes emit a `play-strike-event` action during resolve-strike
+and discard the card from hand after use. The item-tap dodge variant emits a
+`dodge-strike` action and taps the item/ally instead. Implemented in
 `engine/legal-actions/combat.ts` (availability scan) and
-`engine/reducer-combat.ts` (`resolveChainStrikeModifier`).
+`engine/combat-actions.ts` / `engine/combat-cancel.ts`
+(`resolveChainStrikeModifier`).
 
 ### 10c. `modify-attack`
 

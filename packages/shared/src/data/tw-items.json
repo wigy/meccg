@@ -726,7 +726,8 @@
         "max": 9
       },
       {
-        "type": "cancel-strike",
+        "type": "strike-modifier",
+        "dodge": true,
         "cost": {
           "tap": "self"
         },
@@ -737,7 +738,7 @@
         }
       }
     ],
-    "certified": "2026-04-25"
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-item",
