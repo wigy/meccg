@@ -101,7 +101,7 @@ describe('quoting a card that is not in hand yet', () => {
     // what the hand loses by giving up points it never had, and the answer is
     // always nothing — which is how a 1 MP ally came to be quoted at 0.0 in a
     // position where the same point was worth 4 TSD.
-    const { view, cardPool, prices: priced } = prices();
+    const { view, prices: priced } = prices();
     const standing = standingOf(view, testWinProbModel(), DEFAULT_TUNABLES);
 
     const quoted = priced.quote(WAR_WOLF);
