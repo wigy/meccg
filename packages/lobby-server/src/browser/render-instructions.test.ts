@@ -427,10 +427,10 @@ describe('renderPassButton — Movement/Hazard draw-cards vs play-hazards labels
     expect(visualPanel.children[0].textContent).toBe('Pass Draw');
   });
 
-  test('play-hazards step renders "Pass Hazards (N left)" on the primary button', () => {
+  test('play-hazards step renders "Pass Hazards" on the primary button', () => {
     renderPassButton(playHazardsViewWith([passEval()]), () => { /* no-op */ });
 
-    expect(passBtn.textContent).toBe('Pass Hazards (4 left)');
+    expect(passBtn.textContent).toBe('Pass Hazards');
   });
 
   test('draw-cards and play-hazards never render the same primary button text', () => {

@@ -74,15 +74,11 @@ describe('passButtonLabel — Phase.MovementHazard (generic pass)', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.MovementHazard, step: 'draw-cards' }))).toBe('Pass Draw');
   });
 
-  // Feature request "Stop the view jumping back to overview": clicking Pass
-  // from the all-companies overview gave no indication the active party
-  // still had hazard limit remaining. The label must name the cost.
-  test('play-hazards with remaining hazard limit -> Pass Hazards (N left)', () => {
-    expect(passButtonLabel(passAction, playHazardsViewWith(4, 1))).toBe('Pass Hazards (3 left)');
-  });
-
-  test('play-hazards on the last remaining hazard -> Pass Hazards (1 left)', () => {
-    expect(passButtonLabel(passAction, playHazardsViewWith(4, 3))).toBe('Pass Hazards (1 left)');
+  // The remaining hazard limit is shown by the HL box; the button only
+  // names the step being passed.
+  test('play-hazards -> Pass Hazards (no remaining-count suffix)', () => {
+    expect(passButtonLabel(passAction, playHazardsViewWith(4, 1))).toBe('Pass Hazards');
+    expect(passButtonLabel(passAction, playHazardsViewWith(4, 3))).toBe('Pass Hazards');
   });
 
   test('reset-hand -> Continue', () => {

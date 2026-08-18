@@ -250,9 +250,10 @@ export function renderCompanyBlock(
     }
 
     // Remaining hazard-limit badge: shown on the currently active company's
-    // block during play-hazards, so the value is visible directly in the
-    // all-companies overview grid \u2014 not just the single #opponent-hazard-limit
-    // chip, which .all-companies-mode CSS hides entirely in that view.
+    // block during play-hazards, so the value sits directly on the company
+    // it applies to in the all-companies overview grid (the top-left
+    // #opponent-hazard-limit chip is also visible there, but is not tied to
+    // a particular block).
     if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'play-hazards') {
       const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
       const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
