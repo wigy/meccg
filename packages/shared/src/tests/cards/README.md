@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1158 | 1158 | 0 | 100.0% |
+| 1162 | 1162 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -17,8 +17,8 @@
 | DM | 107 | 107 | 100.0% |
 | LE | 304 | 304 | 100.0% |
 | TD | 96 | 96 | 100.0% |
-| TW | 354 | 354 | 100.0% |
-| WH | 91 | 91 | 100.0% |
+| TW | 356 | 356 | 100.0% |
+| WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -944,6 +944,7 @@
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
 | tw-264 | Lapse of Will | — | 5 | ☑ |
+| tw-265 | Leaflock | — | 9 | ☑ |
 | tw-266 | Lesser Ring | — | 4 | ☑ |
 | tw-268 | Lossoth | — | 2 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
@@ -984,6 +985,7 @@
 | tw-324 | Secret Entrance | — | 8 | ☑ |
 | tw-326 | Shadowfax | — | 8 | ☑ |
 | tw-327 | Shield of Iron-bound Ash | — | 7 | ☑ |
+| tw-328 | Skinbark | — | 5 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 14 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |
@@ -1176,6 +1178,8 @@
 | wh-109 | Friend of Secret Things | — | 11 | ☑ |
 | wh-110 | Girdle of Radagast | — | 19 | ☑ |
 | wh-111 | Glove of Radagast | — | 11 | ☑ |
+| wh-112 | Master of Shapes | — | 12 | ☑ |
+| wh-113 | Pocketed Robes | — | 11 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
 | wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
