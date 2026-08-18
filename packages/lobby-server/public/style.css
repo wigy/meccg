@@ -5297,7 +5297,10 @@ body.spectating.combat-active #hand-arc.kbd-peek {
   bottom: 0;
 }
 
-/* All-companies view: hide hand arcs, text log, deck boxes, and action buttons.
+/* All-companies view: hide hand arcs, text log, the self deck box, and
+   action buttons. The opponent deck box (compact: name + MP/GI/SP lines)
+   and the HL chip next to it stay visible so the overview keeps the same
+   top-of-screen status readout as the single-company view.
    During Free Council the hand stays visible (free-council-mode exception) —
    CoE 10.3.i allows reactive hand plays (e.g. A Friend or Three) while a
    corruption check is pending, and the all-companies view is forced for the
@@ -5306,8 +5309,6 @@ body.spectating.combat-active #hand-arc.kbd-peek {
 .all-companies-mode #opponent-arc,
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
-.all-companies-mode #opponent-deck-box,
-.all-companies-mode #opponent-hazard-limit,
 .all-companies-mode #phase-meter {
   display: none;
 }

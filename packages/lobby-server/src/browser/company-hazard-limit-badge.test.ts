@@ -4,10 +4,10 @@
  * Regression test for the feature request "Stop the view jumping back to
  * overview" (forwarded via admin): from the all-companies overview, nothing
  * distinguished "this party is done taking hazards" from "this party still
- * has hazard limit left" — the `#opponent-hazard-limit` chip is unconditionally
- * hidden by the `.all-companies-mode` CSS class, and clicking Pass looked
- * harmless while it actually ended hazard opportunities against the active
- * company.
+ * has hazard limit left" — at the time the `#opponent-hazard-limit` chip was
+ * hidden by the `.all-companies-mode` CSS class (it is shown there now), and
+ * clicking Pass looked harmless while it actually ended hazard opportunities
+ * against the active company.
  *
  * `renderCompanyBlock` now renders a remaining-hazard-limit badge on the
  * active company's block during the `play-hazards` step, mirroring the
