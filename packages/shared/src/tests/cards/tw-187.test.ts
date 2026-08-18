@@ -62,7 +62,8 @@ describe('Wacho (tw-187)', () => {
 
   test('+2 DI bonus applies when influencing the Woodmen faction', () => {
     // Wacho (man, base DI 0) vs Woodmen (influenceNumber 8) at Woodmen-town.
-    // With +2 DI bonus: need = 8 - 0 - 2 = 6
+    // Wacho's +2, plus the Woodmen card's own "Men (+1)" standard
+    // modification, which Wacho qualifies for: need = 8 - 0 - 2 - 1 = 5
     const state = buildSitePhaseState({
       characters: [WACHO],
       site: WOODMEN_TOWN,
@@ -82,8 +83,8 @@ describe('Wacho (tw-187)', () => {
       a => a.influencingCharacterId === wachoId,
     );
     expect(wachoAttempt).toBeDefined();
-    // need = 8 - DI(0) - DI_bonus(2) = 6
-    expect(wachoAttempt!.need).toBe(6);
+    // need = 8 - DI(0) - DI_bonus(2) - Men(1) = 5
+    expect(wachoAttempt!.need).toBe(5);
   });
 
   test('+2 DI bonus does NOT apply to other factions', () => {
@@ -113,9 +114,11 @@ describe('Wacho (tw-187)', () => {
   });
 
   test('Woodmen +2 bonus is specific to Wacho, not other characters in the company', () => {
-    // Aragorn II (DI 3, no Woodmen bonus) shares the company at Woodmen-town.
-    // His need reflects only his own DI: 8 - 3 = 5. If Wacho's +2 leaked to
-    // him it would drop to 3. Wacho himself still gets the bonus (need 6).
+    // Aragorn II (dunadan, DI 3, no Woodmen bonus) shares the company at
+    // Woodmen-town. His need reflects only his own DI: 8 - 3 = 5 — he is not
+    // a "man", so the Woodmen card's Men (+1) does not reach him either. If
+    // Wacho's +2 leaked to him it would drop to 3. Wacho himself still gets
+    // both his own +2 and the Men (+1) (need 5).
     const state = buildSitePhaseState({
       characters: [WACHO, ARAGORN],
       site: WOODMEN_TOWN,
@@ -135,8 +138,8 @@ describe('Wacho (tw-187)', () => {
 
     expect(wachoAttempt).toBeDefined();
     expect(aragornAttempt).toBeDefined();
-    // Wacho gets the +2 (need 6); Aragorn gets none (need 8 - DI(3) = 5).
-    expect(wachoAttempt!.need).toBe(6);
+    // Wacho gets +2 and Men(+1) (need 5); Aragorn gets neither (need 8 - DI(3) = 5).
+    expect(wachoAttempt!.need).toBe(5);
     expect(aragornAttempt!.need).toBe(5);
   });
 });
