@@ -236,8 +236,9 @@ describe('dm-58: Flies and Spiders', () => {
     expect((after.phaseState as SitePhaseState).step).toBe('rescue-attacks');
   });
 
-  test('once the rescue-attack is faced, the prisoner is freed and the host card is discarded', () => {
+  test('once the rescue-attack is faced, a company-mate taps and the prisoner is freed and the host card discarded', () => {
     const { state, aragornId, hostId } = prisonerAtRescueSite();
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
     // Flies and Spiders has a single rescue-attack; simulate it already faced.
     const ready = {
       ...state,
@@ -248,7 +249,12 @@ describe('dm-58: Flies and Spiders', () => {
         rescueInProgress: { hostInstanceId: hostId, resolved: 1 },
       } as SitePhaseState,
     };
-    const after = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+    // Facing the attack leads to the rule 8.36 tap that actually frees them.
+    const faced = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+    expect((faced.phaseState as SitePhaseState).step).toBe('rescue-tap');
+    const after = dispatch(faced, {
+      type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: hostId, characterInstanceId: gimliId,
+    });
 
     const stillPrisoner = after.activeConstraints.some(
       c => c.target.kind === 'character' && c.target.characterId === aragornId && c.kind.type === 'character-is-prisoner',

@@ -72,6 +72,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'automatic-attacks': handleSiteAutomaticAttacks,
   'troll-purse-attacks': handleSiteTrollPurseAttacks,
   'rescue-attacks': handleSiteRescueAttacks,
+  'rescue-tap': handleSiteRescueTap,
   'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
@@ -1896,6 +1897,22 @@ function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): 
   // Drop the host record (no remaining prisoners).
   const hazardHosts = state.hazardHosts.filter(h => h.hostCard.instanceId !== hostInstanceId);
   let newState: GameState = { ...state, activeConstraints, hazardHosts };
+  // "…which immediately join the company under general influence": a prisoner
+  // costs its owner nothing while held (recompute-derived exempts it), so the
+  // rescue hands the mind back to the general influence pool rather than to
+  // whichever character was paying direct influence before the capture.
+  newState = {
+    ...newState,
+    players: newState.players.map(p => {
+      const rescued = (Object.keys(p.characters) as CardInstanceId[]).filter(id => freed.has(id as string));
+      if (rescued.length === 0) return p;
+      const characters = { ...p.characters };
+      for (const id of rescued) {
+        characters[id] = { ...characters[id], controlledBy: 'general' };
+      }
+      return { ...p, characters };
+    }) as unknown as GameState['players'],
+  };
   // If the host card lives only in the record (not a `cardsInPlay` permanent),
   // discard it to its owner so the instance is preserved.
   const hostInPlay = state.players.some(p => p.cardsInPlay.some(c => c.instanceId === hostInstanceId));
@@ -1937,19 +1954,17 @@ function handleSiteRescueAttacks(
   const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
   const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
 
-  if (!rescue || rescue.resolved >= rescueAttacks.length) {
-    const freedState = rescue ? freePrisonersOfHost(state, rescue.hostInstanceId) : state;
-    logDetail('Rescue: rescue-attack faced — prisoners freed → play-resources');
-    // The rescue succeeded — if the rescue site is Dol Guldur this opens the
-    // tap window for Pass the Doors of Dol Guldur (dm-154) for the rest of this
-    // company's site phase.
-    const marked = rescue ? markPrisonersRescuedAtDolGuldur(freedState, company) : freedState;
-    const markedSiteState = marked.phaseState as SitePhaseState;
+  if (!rescue) {
+    logDetail('Rescue: no rescue in progress → play-resources');
+    return { state: { ...state, phaseState: { ...siteState, step: 'play-resources' as const } } };
+  }
+  if (rescue.resolved >= rescueAttacks.length) {
+    // Every rescue-attack has been faced. The prisoners are not free yet:
+    // rule 8.36 still asks for a character in the company to be tapped, and
+    // whoever survived the attacks untapped is who can pay.
+    logDetail('Rescue: all rescue-attack(s) faced → rescue-tap (a character must tap to free the prisoners)');
     return {
-      state: {
-        ...marked,
-        phaseState: { ...markedSiteState, step: 'play-resources' as const, rescueInProgress: undefined },
-      },
+      state: { ...state, phaseState: { ...siteState, step: 'rescue-tap' as const } },
     };
   }
 
@@ -2774,15 +2789,12 @@ function handleSitePlayResources(
     const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
     const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
     if (rescueAttacks.length === 0) {
-      // No rescue-attack to face — free immediately. A successful rescue at Dol
-      // Guldur opens the Pass the Doors of Dol Guldur (dm-154) tap window.
-      const freed = markPrisonersRescuedAtDolGuldur(
-        freePrisonersOfHost(state, action.hostInstanceId), company,
-      );
+      // No rescue-attack to face — straight to the tap that frees them.
+      logDetail(`Rescue: company ${company.id} attempts to rescue prisoners of ${action.hostInstanceId as string} — no rescue-attack to face → rescue-tap`);
       return {
         state: {
-          ...freed,
-          phaseState: { ...(freed.phaseState as SitePhaseState) },
+          ...state,
+          phaseState: { ...siteState, step: 'rescue-tap' as const, rescueInProgress: { hostInstanceId: action.hostInstanceId, resolved: 0 } },
         },
       };
     }
@@ -2834,6 +2846,101 @@ function handleSitePlayResources(
   }
 
   return { state, error: `Unexpected action '${action.type}' in play-resources step` };
+}
+
+/**
+ * Handle the 'rescue-tap' step — the second half of CoE rule 8.36, once the
+ * host's rescue-attacks have been faced.
+ *
+ * "A character in the company may then be tapped to rescue all of the hazard
+ * host's prisoners, which immediately join the company under general
+ * influence. When a character is successfully rescued, the rescue site taps if
+ * it was untapped and one minor item … may be played as the resource player's
+ * next declared action."
+ *
+ * So the rescue costs a tap and pays three things: the prisoners are freed,
+ * the site taps (unless it never taps), and the additional-minor-item window
+ * opens — the same `minorItemAvailable` flag a site-tapping resource play
+ * sets, since it is the same rule 2.V.5 window.
+ *
+ * `pass` leaves the prisoners held. The attacks were faced for nothing, but
+ * that is the position a company with nobody left untapped is actually in.
+ */
+function handleSiteRescueTap(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  // Constraint pass-through grants are offered in every site step.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+  if (action.type === 'pass') {
+    logDetail('Rescue: no character tapped — prisoners stay held → play-resources');
+    return {
+      state: { ...state, phaseState: { ...siteState, step: 'play-resources' as const, rescueInProgress: undefined } },
+    };
+  }
+  if (action.type !== 'rescue-prisoner') {
+    return { state, error: `Expected 'rescue-prisoner' or 'pass' during rescue-tap step` };
+  }
+
+  const rescue = siteState.rescueInProgress;
+  if (!rescue || rescue.hostInstanceId !== action.hostInstanceId) {
+    return { state, error: 'No rescue in progress for that host' };
+  }
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+  const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
+  if (!host) return { state, error: 'Hazard host not found' };
+
+  const characterId = action.characterInstanceId;
+  if (!characterId) return { state, error: 'A character must be named to complete the rescue' };
+  const rescuer = player.characters[characterId];
+  const rescuerDef = rescuer ? defById(state, rescuer.definitionId) : undefined;
+  if (!rescuer || !rescuerDef) return { state, error: `${characterId as string} is not a character` };
+  if (!company.characters.includes(characterId)) {
+    return { state, error: `${rescuerDef.name} is not in the rescuing company` };
+  }
+  if (rescuer.status !== CardStatus.Untapped) {
+    return { state, error: `${rescuerDef.name} must be untapped to free the prisoners` };
+  }
+  if (host.prisoners.includes(characterId)) {
+    return { state, error: `${rescuerDef.name} is a prisoner and cannot free themselves` };
+  }
+
+  const neverTaps = siteNeverTaps(state, company.currentSite);
+  const siteWasUntapped = company.currentSite?.status === CardStatus.Untapped;
+  const tapsSite = siteWasUntapped && !neverTaps;
+  logDetail(`Rescue: ${rescuerDef.name} taps to free ${host.prisoners.length} prisoner(s)${tapsSite ? ' — the rescue site taps' : neverTaps ? ' — never-taps site left untapped' : ' — site already tapped'}`);
+
+  const tapped = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [characterId as string]: { ...p.characters[characterId], status: CardStatus.Tapped } },
+    companies: p.companies.map(c => (c.id === company.id && c.currentSite && tapsSite
+      ? { ...c, currentSite: { ...c.currentSite, status: CardStatus.Tapped } }
+      : c)),
+  }));
+
+  const freed = freePrisonersOfHost(tapped, action.hostInstanceId);
+  // A successful rescue at Dol Guldur opens the Pass the Doors of Dol Guldur
+  // (dm-154) tap window for the rest of this company's site phase.
+  const marked = markPrisonersRescuedAtDolGuldur(freed, company);
+  const markedSiteState = marked.phaseState as SitePhaseState;
+  return {
+    state: {
+      ...marked,
+      phaseState: {
+        ...markedSiteState,
+        step: 'play-resources' as const,
+        rescueInProgress: undefined,
+        // Rule 8.36's minor item is rule 2.V.5's window, reached by tapping the
+        // site through a rescue rather than through a resource play.
+        minorItemAvailable: tapsSite ? true : markedSiteState.minorItemAvailable,
+      },
+    },
+  };
 }
 
 /**

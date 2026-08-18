@@ -650,7 +650,9 @@ export function describeAction(
     case 'discard-to-recruit':
       return `${playerName(action.player)} discards ${instName(action.characterId)} to bring ${instName(action.cardInstanceId)} into play with his company`;
     case 'rescue-prisoner':
-      return `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
+      return action.characterInstanceId
+        ? `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to free the prisoners held by ${instName(action.hostInstanceId)}`
+        : `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     case 'tap-alt-permanent-event':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     case 'attack-alt-permanent-event':

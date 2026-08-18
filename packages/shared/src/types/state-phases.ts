@@ -780,10 +780,21 @@ export type SiteStep =
    * it must face the host's rescue-attack — the site's automatic-attacks at
    * the time of rescue — sequenced one at a time (mirroring 'automatic-attacks'
    * but with normal wound semantics; held prisoners are protected from strike
-   * assignment). Once all rescue-attacks are faced, the prisoners are freed and
-   * control returns to 'play-resources'.
+   * assignment). Once all rescue-attacks are faced, control passes to
+   * 'rescue-tap', where the rescue is actually paid for.
    */
   | 'rescue-attacks'
+  /**
+   * CoE rule 8.36, after the rescue-attacks have been faced: "A character in
+   * the company may then be tapped to rescue all of the hazard host's
+   * prisoners." One `rescue-prisoner` action per untapped company member that
+   * is not itself a held prisoner; `pass` walks away with the prisoners still
+   * held (the attacks were faced for nothing). The tap is asked for *after*
+   * the attacks rather than charged at declaration because the rule sequences
+   * it that way — a company whose last untapped member is wounded facing the
+   * rescue-attack has no one left to free the prisoner.
+   */
+  | 'rescue-tap'
   /**
    * Step 3 (CoE line 358): After automatic-attacks (or if none), the
    * hazard player may declare that an agent at the company's site will
