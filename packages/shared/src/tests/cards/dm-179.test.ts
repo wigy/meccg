@@ -281,6 +281,62 @@ describe('dm-179: Noble Hound', () => {
     expect(aragornAssign).toBeUndefined();
   });
 
+  test('body-check-roll against Noble Hound uses its own body, not the generic character fallback', () => {
+    // Bug report: Gamling's Noble Hound was wounded by Neeker-breekers (its
+    // detainment converted to a normal attack by Alatar's "more than 7 stage
+    // points" ability), and the resulting body-check-roll legal action
+    // displayed "character body 9" instead of Noble Hound's printed body of
+    // 6 — the ally lookup was missing from bodyCheckActions, so it fell
+    // through to the generic `?? 9` default used for real characters.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+
+    const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
+    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
+    expect(houndId).toBeDefined();
+
+    const combat = {
+      attackSource: { type: 'creature' as const, instanceId: 'fake-orc' as CardInstanceId },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 9,
+      creatureBody: null,
+      creatureRace: Race.Animal,
+      strikeAssignments: [{
+        characterId: houndId,
+        excessStrikes: 0,
+        resolved: true,
+        result: 'wounded' as const,
+        wasAlreadyWounded: false,
+      }],
+      currentStrikeIndex: 0,
+      phase: 'body-check' as const,
+      assignmentPhase: 'done' as const,
+      bodyCheckTarget: 'character' as const,
+      detainment: false,
+    };
+
+    const combatState = { ...withHound, combat, phaseState: makeShadowMHState() };
+    const actions = viableActions(combatState, PLAYER_2, 'body-check-roll');
+
+    expect(actions.length).toBeGreaterThan(0);
+    const act = actions[0].action as { need?: number; explanation?: string };
+    // Noble Hound's printed body is 6 — need = body + 1 = 7.
+    expect(act.explanation).toContain('body 6');
+    expect(act.need).toBe(7);
+  });
+
   test('Noble Hound is playable at an untapped border-hold via play-target filter', () => {
     const state = buildSitePhaseState({
       site: BREE,
