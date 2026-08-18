@@ -715,8 +715,16 @@ export function handHasNoTapPlayableAt(
     const def = lookupDef(pool, card.definitionId);
     if (!def) continue;
     if (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') continue;
-    const ev = def as { eventType?: string };
+    const ev = def as { eventType?: string; effects?: readonly PlayTargetEffect[] };
     if (ev.eventType !== 'permanent') continue;
+    // Permanent events that attach to a character (play-target: character)
+    // bind an untapped character the same way an item does — either as a
+    // declared tap (most) or, for Rescue Prisoners (tw-315), a tap on
+    // resolution that discards the card for nothing if no character is left
+    // untapped after its own triggered attack. Neither is a "no tap needed"
+    // play, so a company with every character already tapped gets no credit
+    // for holding one.
+    if (ev.effects?.some(e => e.type === 'play-target' && e.target === 'character')) continue;
     if (hasPlayFlag(def, 'tapped-site-only') && !siteTapped) continue;
     if (hasPlayFlag(def, 'untapped-site-required') && siteTapped) continue;
     const siteTarget = (def.effects ?? []).find(
