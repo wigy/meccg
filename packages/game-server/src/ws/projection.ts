@@ -34,6 +34,7 @@ import type {
 } from '@meccg/shared';
 import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, PALLANDO, THE_GREAT_HUNT } from '@meccg/shared';
 import { computeLegalActions, stampActionIds } from '@meccg/shared';
+import type { EvaluatedAction } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
 function toViewCards(pile: readonly CardInstance[]): ViewCard[] {
@@ -65,6 +66,44 @@ function revealedCardPile(
     revealed?.[c.instanceId] !== undefined
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
+  );
+}
+
+/**
+ * Unmasks the play-deck instances a player's own `fetch-from-pile` legal
+ * actions currently target with `source: 'deck'`.
+ *
+ * {@link buildSelfView}'s play-deck redaction only unmasks identities already
+ * recorded in {@link GameState.revealedInstances} (e.g. Revealed to all
+ * Watchers, dm-85). A grant-action fetch that can pull from the play deck
+ * (Mistress Lobelia dm-178, Palantír of Amon Sûl tw-296, etc. — any
+ * `enqueue-pending-fetch` apply with `deck` among its sources) never records
+ * that reveal, so the candidate stayed masked: the pile browser then rendered
+ * an undifferentiated stack of card backs with no way to see, or click,
+ * the one legal pick — reported as "can't figure out how to use it, the
+ * only way out is to decline". Since `legalActions` is already computed by
+ * the time `buildSelfView` runs, unmask exactly the instances the player's
+ * own viable `fetch-from-pile` actions reference in their own play deck —
+ * no persisted state change, so it never leaks to the opponent or outlives
+ * the fetch itself.
+ */
+function unmaskOwnDeckFetchCandidates(
+  playDeckView: readonly ViewCard[],
+  realPlayDeck: readonly CardInstance[],
+  legalActions: readonly EvaluatedAction[],
+): readonly ViewCard[] {
+  const candidateIds = new Set(
+    legalActions
+      .filter((ea): ea is EvaluatedAction & { action: { type: 'fetch-from-pile'; source: string; cardInstanceId: CardInstanceId } } =>
+        ea.viable && ea.action.type === 'fetch-from-pile' && (ea.action as { source: string }).source === 'deck')
+      .map(ea => ea.action.cardInstanceId as string),
+  );
+  if (candidateIds.size === 0) return playDeckView;
+  const realDefById = new Map(realPlayDeck.map(c => [c.instanceId as string, c.definitionId]));
+  return playDeckView.map(c =>
+    candidateIds.has(c.instanceId as string)
+      ? { instanceId: c.instanceId, definitionId: realDefById.get(c.instanceId as string) ?? c.definitionId }
+      : c,
   );
 }
 
@@ -378,7 +417,8 @@ function buildPlayerView(
   const selfPlayer = state.players[selfIndex];
   const opponentPlayer = state.players[opponentIndex];
 
-  const self = buildSelfView(state, selfPlayer);
+  let self = buildSelfView(state, selfPlayer);
+  self = { ...self, playDeck: unmaskOwnDeckFetchCandidates(self.playDeck, selfPlayer.playDeck, legalActions) };
   let opponent = buildOpponentView(state, opponentPlayer);
 
   // Reveal the active company's destination site to the opponent when the
