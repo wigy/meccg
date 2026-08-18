@@ -327,8 +327,8 @@ describe('Palantír of Elostirion (le-332)', () => {
     expect(pending[0].kind.type).toBe('corruption-check');
   });
 
-  test('drawing stops at deck exhaustion instead of inventing a card', () => {
-    const state = buildOrgState({ bearer: CALENDAL });
+  test('drawing stops at deck exhaustion instead of inventing a card when the discard pile is also empty', () => {
+    const state = buildOrgState({ bearer: CALENDAL, discardPile: [] });
     const emptyDeck: GameState = {
       ...state,
       players: [{ ...state.players[0], playDeck: [] }, state.players[1]] as typeof state.players,
@@ -339,6 +339,31 @@ describe('Palantír of Elostirion (le-332)', () => {
 
     expect(after.players[0].hand.length).toBe(handBefore);
     expect(after.players[0].playDeck.length).toBe(0);
+    // The tap and the corruption check still happened.
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, CALENDAL);
+    expect(after.players[0].characters[charId].items[0].status).toBe(CardStatus.Tapped);
+    expect(after.pendingResolutions.filter(r => r.kind.type === 'corruption-check').length).toBe(1);
+  });
+
+  test('reshuffles the discard pile and draws when the play deck is empty (CoE 2.4)', () => {
+    // Regression alongside the Dark Tryst "Fark Tryst" bug report (game
+    // msxc5o26-l4c4wc, seq 1121): any draw-cards effect must exhaust and
+    // reshuffle a spent play deck immediately rather than silently drawing
+    // nothing, as long as the discard pile has cards to shuffle in.
+    const state = buildOrgState({ bearer: CALENDAL, discardPile: [LUITPRAND] });
+    const emptyDeck: GameState = {
+      ...state,
+      players: [{ ...state.players[0], playDeck: [] }, state.players[1]] as typeof state.players,
+    };
+    const handBefore = emptyDeck.players[0].hand.length;
+    const startingExhaustionCount = emptyDeck.players[0].deckExhaustionCount;
+
+    const after = dispatch(emptyDeck, grantActions(emptyDeck, 'palantir-draw-card')[0]);
+
+    expect(after.players[0].hand.length).toBe(handBefore + 1);
+    expect(after.players[0].playDeck.length).toBe(0);
+    expect(after.players[0].discardPile.length).toBe(0);
+    expect(after.players[0].deckExhaustionCount).toBe(startingExhaustionCount + 1);
     // The tap and the corruption check still happened.
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, CALENDAL);
     expect(after.players[0].characters[charId].items[0].status).toBe(CardStatus.Tapped);

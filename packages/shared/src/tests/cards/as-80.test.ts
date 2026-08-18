@@ -12,13 +12,14 @@
  *   1. draw-cards: count 3, removeFromGame true
  *
  * Engine support table:
- * | # | Rule                                                                | Status      |
- * |---|---------------------------------------------------------------------|-------------|
- * | 1 | Playable as a resource short-event in any of the player's phases    | IMPLEMENTED |
- * | 2 | Played as an action on the chain of effects (CoE 9.4/9.5)           | IMPLEMENTED |
- * | 3 | Draws three cards from the top of the play deck into hand           | IMPLEMENTED |
- * | 4 | The spent card is removed from the game (out-of-play, not discard)  | IMPLEMENTED |
- * | 5 | Drawing stops at deck exhaustion (no card disappears)              | IMPLEMENTED |
+ * | # | Rule                                                                       | Status      |
+ * |---|-----------------------------------------------------------------------------|-------------|
+ * | 1 | Playable as a resource short-event in any of the player's phases          | IMPLEMENTED |
+ * | 2 | Played as an action on the chain of effects (CoE 9.4/9.5)                 | IMPLEMENTED |
+ * | 3 | Draws three cards from the top of the play deck into hand                 | IMPLEMENTED |
+ * | 4 | The spent card is removed from the game (out-of-play, not discard)        | IMPLEMENTED |
+ * | 5 | A play deck exhausted mid-draw reshuffles and drawing resumes (CoE 2.4)   | IMPLEMENTED |
+ * | 6 | Drawing stops only when deck AND discard pile are both empty              | IMPLEMENTED |
  *
  * Playable: YES
  *
@@ -47,7 +48,7 @@ const OSTISEN = 'le-36' as CardDefinitionId;
 const VARIAGS = 'le-292' as CardDefinitionId;
 const JOIN_WITH_THAT_POWER = 'as-90' as CardDefinitionId;
 
-function buildDarkTrystState(playDeck: CardDefinitionId[]) {
+function buildDarkTrystState(playDeck: CardDefinitionId[], discardPile: CardDefinitionId[] = []) {
   return buildTestState({
     phase: Phase.LongEvent,
     activePlayer: PLAYER_1,
@@ -59,6 +60,7 @@ function buildDarkTrystState(playDeck: CardDefinitionId[]) {
         hand: [DARK_TRYST],
         siteDeck: [MINAS_MORGUL],
         playDeck,
+        discardPile,
       },
       {
         id: PLAYER_2,
@@ -136,8 +138,9 @@ describe('Dark Tryst (as-80)', () => {
     expect(p.discardPile.map(c => c.instanceId)).not.toContain(darkTrystId);
   });
 
-  test('drawing stops at deck exhaustion without losing any card instance', () => {
-    // Only two cards in the deck; Dark Tryst asks for three.
+  test('drawing stops at deck exhaustion without losing any card instance when the discard pile is also empty', () => {
+    // Only two cards in the deck and nothing in the discard pile; Dark Tryst
+    // asks for three. Nothing is left to reshuffle in, so the draw is partial.
     const state = buildDarkTrystState([LUITPRAND, OSTISEN]);
     const darkTrystId = findHandCardId(state, RESOURCE_PLAYER, DARK_TRYST);
     const deckIds = state.players[RESOURCE_PLAYER].playDeck.map(c => c.instanceId);
@@ -152,5 +155,36 @@ describe('Dark Tryst (as-80)', () => {
     // Still removed from the game even when the draw was partial.
     expect(p.outOfPlayPile.map(c => c.instanceId)).toContain(darkTrystId);
     expect(p.discardPile.map(c => c.instanceId)).not.toContain(darkTrystId);
+  });
+
+  test('reshuffles the discard pile mid-draw and resumes drawing when the play deck runs out (CoE 2.4)', () => {
+    // Regression for the "Fark Tryst" bug report (game msxc5o26-l4c4wc, seq
+    // 1121): Dark Tryst's draw of three cards emptied a one-card play deck
+    // after the first draw, but the engine stopped there instead of
+    // reshuffling the discard pile and drawing the remaining two cards.
+    const state = buildDarkTrystState([LUITPRAND, OSTISEN], [VARIAGS, JOIN_WITH_THAT_POWER]);
+    const darkTrystId = findHandCardId(state, RESOURCE_PLAYER, DARK_TRYST);
+    const startingExhaustionCount = state.players[RESOURCE_PLAYER].deckExhaustionCount;
+
+    const onChain = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: darkTrystId });
+    const next = resolveChain(onChain);
+
+    const p = next.players[RESOURCE_PLAYER];
+    // All three cards drawn: two from the original deck, then a reshuffle of
+    // the discard pile supplies the third.
+    expect(p.hand).toHaveLength(3);
+    // The discard pile's two cards were fully shuffled into the new play
+    // deck: one was drawn, one remains on top.
+    expect(p.playDeck).toHaveLength(1);
+    expect(p.discardPile.map(c => c.instanceId)).not.toContain(darkTrystId);
+    expect(p.discardPile).toHaveLength(0);
+    // A genuine rule-2.4 exhaustion occurred.
+    expect(p.deckExhaustionCount).toBe(startingExhaustionCount + 1);
+    // Dark Tryst itself is still removed from the game, not shuffled back in.
+    expect(p.outOfPlayPile.map(c => c.instanceId)).toContain(darkTrystId);
+    // No card instance lost: original deck + discard pile cards all land in
+    // hand or playDeck.
+    const originalIds = [LUITPRAND, OSTISEN, VARIAGS, JOIN_WITH_THAT_POWER];
+    expect(p.hand.length + p.playDeck.length).toBe(originalIds.length);
   });
 });
