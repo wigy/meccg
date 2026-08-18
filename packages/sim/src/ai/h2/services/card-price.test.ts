@@ -14,6 +14,7 @@ import { computeStanding } from './standing.js';
 import { computeCardPrices } from './card-price.js';
 import { loadScenario, scenarioView } from '../scenario-store.js';
 import { testWinProbModel } from '../test-support.js';
+import { computeStanding as standingOf } from './standing.js';
 
 /** A hazard-player position with creatures and events both in hand. */
 const SCENARIO = 'movement/hazard-bundle-choice';
@@ -85,6 +86,48 @@ describe('the card price', () => {
     const ranked = priced.ranked();
     for (let i = 1; i < ranked.length; i++) {
       expect(ranked[i - 1].tsd).toBeGreaterThanOrEqual(ranked[i].tsd);
+    }
+  });
+});
+
+describe('quoting a card that is not in hand yet', () => {
+  /** War-wolf — a minion ally worth 1 MP in the `ally` source. */
+  const WAR_WOLF = 'le-157';
+
+  test('is worth what its points add, not what removing them would cost', () => {
+    // The hand in this scenario is a hazard hand: no card in it carries a
+    // marshalling point, so the projected total for every source is zero.
+    // Pricing an offered card by subtracting its points from that total asks
+    // what the hand loses by giving up points it never had, and the answer is
+    // always nothing — which is how a 1 MP ally came to be quoted at 0.0 in a
+    // position where the same point was worth 4 TSD.
+    const { view, prices: priced } = prices();
+    const standing = standingOf(view, testWinProbModel(), DEFAULT_TUNABLES);
+
+    const quoted = priced.quote(WAR_WOLF);
+    const marginal = standing.tsdAfter({ ally: 1 }) - standing.tsdAfter({});
+    expect(marginal).toBeGreaterThan(0);
+    expect(quoted.tsd).toBeCloseTo(marginal * DEFAULT_TUNABLES.potentialDiscount, 9);
+    expect(quoted.reason).toContain('ally MP');
+  });
+
+  test('and is not floored, because arriving is not holding', () => {
+    // `quote` answers what a card would be worth if it arrived; the floor is a
+    // statement about retention. A quote that came back at the floor would be
+    // indistinguishable from one the model could not price.
+    const { prices: priced } = prices();
+    expect(priced.quote(WAR_WOLF).tsd).not.toBeCloseTo(priced.floor, 9);
+  });
+
+  test('a held card is still priced against the hand it is part of', () => {
+    // The other half of the same branch, and the one that must not move: a card
+    // in hand *is* inside the projected total, so its marginal is still what the
+    // hand loses without it.
+    const { view, prices: priced } = prices();
+    for (const card of view.self.hand) {
+      const worth = priced.worth(card.instanceId);
+      expect(worth).not.toBeNull();
+      expect(worth!.tsd).toBeGreaterThanOrEqual(priced.floor);
     }
   });
 });
