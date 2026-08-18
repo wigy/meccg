@@ -20,7 +20,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
+import { rollDiceForPlayer, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -1328,19 +1328,11 @@ function handleInitiativeRoll(
     return { state, error: 'You have already rolled' };
   }
 
-  // Roll 2d6
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  // Roll 2d6 and store the roll in the player's state
+  const { roll, rollEffect, state: stateWithRoll } = rollDiceForPlayer(state, playerIndex, 'First turn');
   const d1 = roll.die1;
   const d2 = roll.die2;
   logDetail(`${state.players[playerIndex].name} rolls initiative: ${d1} + ${d2} = ${d1 + d2}`);
-  const rollEffect = diceRollEffect(state.players[playerIndex].name, roll, 'First turn');
-
-  // Store the roll in the player's state
-  const stateWithRoll: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, lastDiceRoll: roll })),
-    rng,
-    cheatRollTotal,
-  };
 
   const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
   newRolls[playerIndex] = roll;

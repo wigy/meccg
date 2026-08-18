@@ -35,7 +35,7 @@ import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
@@ -726,14 +726,14 @@ function removeDefeatedAgent(state: GameState, combat: CombatState, agentInstId:
 export function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
+  // The roll (and its lastDiceRoll) is recorded on the attacking player.
+  const { roll, total: rollTotal, rollEffect, state: stateWithRoll } = rollDiceForPlayer(state, atkPlayerIndex, `Body check: ${combat.bodyCheckTarget}`);
   const roller = combat.bodyCheckTarget === 'attacker-character' || combat.bodyCheckTarget === 'creature'
     ? combat.defendingPlayerId
     : combat.attackingPlayerId;
   logDetail(`Body check roll: target=${combat.bodyCheckTarget} roller=${roller as string} roll=${roll.die1}+${roll.die2}=${rollTotal} (lastDiceRoll stored on attacker ${combat.attackingPlayerId as string})`);
-  const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
+  const effects: GameEffect[] = [rollEffect];
   // Broadcast the body-check outcome as a text notification so the result is
   // recorded in every client's text log. The dice-roll effect above only
   // carries the raw roll; clients otherwise derive the wounded/eliminated
@@ -742,13 +742,6 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
   // from the engine makes it visible regardless of whether combat continues.
   const noteOutcome = (message: string): void => {
     effects.push({ effect: 'text-notification', message });
-  };
-
-  // Update lastDiceRoll on the attacking player
-  const stateWithRoll: GameState = {
-    ...updatePlayer(state, atkPlayerIndex, p => ({ ...p, lastDiceRoll: roll })),
-    rng,
-    cheatRollTotal,
   };
 
   if (combat.bodyCheckTarget === 'creature') {
@@ -1150,16 +1143,9 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
 export function handleShieldDiscardRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'shield-discard-roll') return wrongActionType(state, action, 'shield-discard-roll');
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
-  const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, 'Shield discard roll')];
-
-  const stateWithRoll: GameState = {
-    ...updatePlayer(state, atkPlayerIndex, p => ({ ...p, lastDiceRoll: roll })),
-    rng,
-    cheatRollTotal,
-  };
+  const { total: rollTotal, rollEffect, state: stateWithRoll } = rollDiceForPlayer(state, atkPlayerIndex, 'Shield discard roll');
+  const effects: GameEffect[] = [rollEffect];
 
   const threshold = action.rollThreshold;
   logDetail(`Shield discard roll: attacker rolled ${rollTotal}, threshold ${threshold} — shield ${rollTotal > threshold ? 'DISCARDED' : 'survives'}`);
