@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, PlayableAtEntry } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -16,7 +16,7 @@ import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from '../stage-resource-characters.js';
-import { CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
+import { Alignment, CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -747,6 +747,33 @@ export function cardName(
  */
 export function matchesDefinition(def: CardDefinition, condition: Condition): boolean {
   return matchesCondition(condition, def as unknown as Record<string, unknown>);
+}
+
+/**
+ * Like {@link matchesDefinition}, but for Fallen-wizard players also matches
+ * a definition whose `cardType` carries the *opposite* alignment prefix
+ * (`hero-` ↔ `minion-`). CoE 1.3.F1/F4 let a Fallen-wizard's deck (and thus
+ * their own sideboard/discard pile) legitimately hold both hero-typed and
+ * minion-typed resource/character cards, but per-card "retrieve a resource
+ * or character from your sideboard or discard pile" filters (Smoke Rings
+ * dm-159, Weigh All Things to a Nicety le-253, …) are written with a single
+ * alignment's `cardType` list because a Wizard's or Ringwraith's own piles
+ * never hold the other side's cards. Without this, those filters wrongly
+ * decline half of a Fallen-wizard's own retrievable pool.
+ */
+export function matchesDefinitionAcrossFallenWizardAlignment(
+  def: CardDefinition,
+  condition: Condition,
+  playerAlignment: Alignment,
+): boolean {
+  if (matchesDefinition(def, condition)) return true;
+  if (playerAlignment !== Alignment.FallenWizard) return false;
+  const cardType = (def as { cardType?: string }).cardType;
+  const flippedCardType = cardType?.startsWith('hero-') ? cardType.replace('hero-', 'minion-')
+    : cardType?.startsWith('minion-') ? cardType.replace('minion-', 'hero-')
+    : undefined;
+  if (!flippedCardType) return false;
+  return matchesCondition(condition, { ...(def as unknown as Record<string, unknown>), cardType: flippedCardType });
 }
 
 /**
@@ -6246,7 +6273,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   const def = state.cardPool[fetchedCard.definitionId];
 
   // Validate card matches filter condition
-  if (!def || !matchesDefinition(def, current.effect.filter)) {
+  if (!def || !matchesDefinitionAcrossFallenWizardAlignment(def, current.effect.filter, player.alignment)) {
     return { state, error: 'Card does not match fetch filter' };
   }
 
