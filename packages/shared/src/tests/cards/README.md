@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1150 | 1150 | 0 | 100.0% |
+| 1158 | 1158 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,11 +14,11 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 109 | 109 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 105 | 105 | 100.0% |
-| LE | 303 | 303 | 100.0% |
-| TD | 95 | 95 | 100.0% |
-| TW | 351 | 351 | 100.0% |
-| WH | 90 | 90 | 100.0% |
+| DM | 107 | 107 | 100.0% |
+| LE | 304 | 304 | 100.0% |
+| TD | 96 | 96 | 100.0% |
+| TW | 354 | 354 | 100.0% |
+| WH | 91 | 91 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -72,7 +72,7 @@
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-77 | Above the Abyss | — | 7 | ☑ |
 | as-79-the-dark-power | The Dark Power | — | 7 | ☑ |
-| as-80 | Dark Tryst | — | 4 | ☑ |
+| as-80 | Dark Tryst | — | 5 | ☑ |
 | as-82-eye-never-sleeping | Eye Never Sleeping | — | 6 | ☑ |
 | as-83 | Faithless Steward | — | 14 | ☑ |
 | as-85-the-great-eye | The Great Eye | — | 13 | ☑ |
@@ -238,6 +238,7 @@
 | dm-8 | Elwen | — | 9 | ☑ |
 | dm-10 | Firiel | — | 3 | ☑ |
 | dm-11 | Fori the Beardless | — | 5 | ☑ |
+| dm-14 | Golodhros | — | 10 | ☑ |
 | dm-15 | The Grimburgoth | — | 5 | ☑ |
 | dm-16 | Herion | — | 4 | ☑ |
 | dm-17 | Ivic | — | 4 | ☑ |
@@ -278,6 +279,7 @@
 | dm-71 | The Moon Is Dead | — | 9 | ☑ |
 | dm-72 | Mordor in Arms | — | 10 | ☑ |
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
+| dm-74 | Never Seen Him | — | 10 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-76 | Nobody’s Friend | — | 14 | ☑ |
 | dm-78 | Pale Dream-maker | — | 15 | ☑ |
@@ -287,7 +289,7 @@
 | dm-88 | Seized by Terror | — | 8 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
-| dm-96 | Twisted Tales | — | 14 | ☑ |
+| dm-96 | Twisted Tales | — | 15 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
@@ -331,7 +333,7 @@
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-178 | Mistress Lobelia | — | 14 | ☑ |
-| dm-179 | Noble Hound | — | 8 | ☑ |
+| dm-179 | Noble Hound | — | 9 | ☑ |
 | dm-180 | Folco Boffin | — | 9 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
@@ -390,6 +392,7 @@
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-60 | Arthadan Rangers | — | 6 | ☑ |
 | le-61 | Barrow-wight | — | 6 | ☑ |
+| le-64 | Brigands | — | 3 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-66 | Cave-drake | — | 5 | ☑ |
 | le-67 | Corpse-candle | — | 10 | ☑ |
@@ -556,7 +559,7 @@
 | le-325 | The Mithril-coat | — | 7 | ☑ |
 | le-327 | The Oracle’s Ring | — | 9 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
-| le-332 | Palantír of Elostirion | — | 22 | ☑ |
+| le-332 | Palantír of Elostirion | — | 23 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
 | le-334 | Palantír of Orthanc | — | 11 | ☑ |
 | le-339 | Red Book of Westmarch | — | 11 | ☑ |
@@ -683,6 +686,7 @@
 | td-84 | Winged Fire-drake | — | 2 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-86 | Wolf-riders | — | 7 | ☑ |
+| td-87 | Wolf-riders | — | 4 | ☑ |
 | td-89 | Worn and Famished | — | 11 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
 | td-91 | Fram Framson | — | 2 | ☑ |
@@ -760,6 +764,7 @@
 | tw-31 | Dwar of Waw | — | 15 | ☑ |
 | tw-032 | — | — | 6 | ☑ |
 | tw-34 | Fell Turtle | — | 5 | ☑ |
+| tw-35 | Fell Winter | — | 3 | ☑ |
 | tw-36 | Foul Fumes | — | 9 | ☑ |
 | tw-37 | Ghosts | — | 6 | ☑ |
 | tw-38 | Ghouls | — | 9 | ☑ |
@@ -913,6 +918,7 @@
 | tw-225 | Elven Cloak | — | 6 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-227 | Ent-draughts | — | 10 | ☑ |
+| tw-228 | Ents of Fangorn | — | 2 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
 | tw-232 | Fair Sailing | — | 10 | ☑ |
@@ -1008,6 +1014,7 @@
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
 | tw-367 | Wood-elves | — | 4 | ☑ |
+| tw-368 | Woodmen | — | 2 | ☑ |
 | tw-370 | Woses of the Drúadan Forest | — | 5 | ☑ |
 | tw-371 | Amon Hen | — | 8 | ☑ |
 | tw-372 | Bag End | — | 4 | ☑ |
@@ -1127,6 +1134,7 @@
 | wh-56 | Isengard | — | 3 | ☑ |
 | wh-57 | Rhosgobel | — | 10 | ☑ |
 | wh-58 | The White Towers | — | 3 | ☑ |
+| wh-59 | A Merrier World | — | 8 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
 | wh-61 | A Strident Spawn | — | 11 | ☑ |
 | wh-62 | An Untimely Brood | — | 15 | ☑ |

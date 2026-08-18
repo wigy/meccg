@@ -1,5 +1,87 @@
 # Changelog
 
+## 0.113.0 — 2026-08-18
+
+Rescues cost a tap, and banned cards buy their way out
+
+### Game Engine
+
+- **Rule 8.36 — a prisoner rescue now costs a tap, and pays for it.**
+  Facing the host's rescue-attacks used to free the prisoners by itself.
+  The rule sequences the tap *after* the attacks, so a new `rescue-tap`
+  site step asks for it there: a character taps to free all of the
+  hazard host's prisoners, the rescue site taps if it was untapped
+  (never-taps sites excepted), and that tap opens the additional
+  minor-item window — the same rule 2.V.5 flag a site-tapping resource
+  play sets. `pass` walks away with the prisoners still held, which
+  matters when the company's last free member was wounded facing the
+  rescue-attack. Freed characters rejoin the company under general
+  influence, which is the moment their mind starts being paid for again.
+- **Rule 1.36 — trade a card a Balrog opponent made unplayable for a
+  sideboard card.** Five cards cannot be played against a Balrog player
+  and each already declared that ban itself, but the half of the rule
+  that gives something back was missing: drawing one left a dead card in
+  hand for the rest of the game. `swap-banned-vs-balrog` is that trade,
+  in one atomic action naming both cards; per CRF 22 the banned card
+  leaves for the out-of-play pile rather than the discard pile. A card
+  qualifies only when the Balrog opponent is the *reason* it cannot be
+  played — the restriction is re-evaluated against a counterfactual
+  opponent of every other alignment, so CoE 1.35's Ringwraith family
+  does not get a trade it was never granted.
+- The additional-minor-item bonus (rule 2.V.5) now opens when a
+  permanent- or short-event resource taps the site. The shared
+  `applyTapSiteOnPlayFlag` helper never set the phase flags, so cards
+  like Dreams of Lore (tw-210) and Far-sight (tw-238) silently skipped
+  the bonus window that items, allies and factions all got.
+- Multi-card `draw-cards` effects now reshuffle mid-draw (CoE 2.4). Dark
+  Tryst (as-80) and Palantír of Elostirion (le-332) capped the draw at
+  the play deck's remaining size and stopped silently, losing the owed
+  cards and leaving the deck un-reshuffled. The new
+  `drawCardsExhausting()` runs the full exhaust sequence when the deck
+  empties mid-draw and then resumes.
+- Body-check-roll previews now show an ally's own printed body. The
+  legal-action preview only looked up strike targets among characters,
+  so an ally struck via strike-shield fell through to the generic `9`
+  fallback — the reducer already had this right.
+- Influence-defend explanations now name the faction or item being
+  targeted instead of "?", which had hidden what Twisted Tales (dm-96)
+  and friends were actually attempting.
+- `return-self-to-hand-when` joins `discard-self-when` as a way for a
+  card to leave play *for its owner's hand*, and its sweep also reaches
+  allies attached to a character. This closes the last `test.todo` in
+  the card suite: Last Child of Ungoliant (le-153) returns to hand when
+  Shelob reaches the table.
+- Agent attachments generalized for Never Seen Him (dm-74): a
+  `play-target: agent` kind, a `duplication-limit` scope of `agent`, and
+  `extra-agent-actions` that can be scoped to one specific agent rather
+  than only to the whole player or the agent's own reveal.
+
+### Card Data & Certification
+
+- Certified: A Merrier World (wh-59, which also extended the full
+  kill-MP exemption to stage permanent-events), Golodhros (dm-14),
+  Never Seen Him (dm-74), Ents of Fangorn (tw-228), Woodmen (tw-368).
+- Certified reprint siblings whose data had been left inert: Fell Winter
+  (tw-35), Brigands (le-64), Wolf-riders (td-87). Each carried the type
+  and stats but an empty or partial `effects` array, so the second
+  printing did nothing its twin did — including Fell Winter's
+  duplication limit, which spans printings and had let both copies sit
+  in play stacking Wolves attacks on every Border-hold.
+- Modeling Woodmen's "Men (+1)" standard modification changed Wacho's
+  (tw-187) influence needs at Woodmen-town; its expectations were
+  updated to match.
+
+### Simulation & AI
+
+- The heuristic AI no longer enters a site for a permanent event it
+  cannot actually play there. `handHasNoTapPlayableAt` credited any
+  permanent resource event as a no-tap reason to enter, ignoring both
+  the card's own site gates (`play-target: site` filter,
+  `tapped-site-only` / `untapped-site-required`) and the fact that an
+  event attaching to a character needs an untapped one just like an item
+  does. Rescue Prisoners (tw-315) failed both ways, and companies walked
+  into automatic-attacks for plays that were never legal.
+
 ## 0.112.0 — 2026-08-17
 
 Ask the AI what it would do, and it learns what a card is worth
