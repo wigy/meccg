@@ -30,7 +30,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { allyEffectiveProwess } from '../ally-stats.js';
+import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
@@ -1994,11 +1994,24 @@ function bodyCheckActions(
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
     targetLabel = charDef?.name ?? 'attacker';
   } else {
+    // The strike target may be a character or an ally (CoE rule 2.V.2.2) —
+    // allies are not in `defPlayer.characters`, they nest under their host
+    // character's `allies` array, so they need their own lookup with their
+    // own body value (allyEffectiveBody), matching resolveStrikeActions and
+    // the reducer's handleBodyCheckRoll. Without this, an ally target fell
+    // through to the generic `?? 9` default instead of its real body.
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayer = playerById(state, combat.defendingPlayerId);
     const charData = defPlayer?.characters[strike?.characterId];
+    const company = defPlayer ? companyById(defPlayer.companies, combat.companyId) : undefined;
+    const allyMatch = !charData && defPlayer && company
+      ? findAllyInCompany(defPlayer, company.characters, strike?.characterId)
+      : undefined;
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
-    body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    const allyDef = allyMatch ? defById(state, allyMatch.ally.definitionId) : undefined;
+    body = allyMatch
+      ? allyEffectiveBody(state, allyMatch.ally) ?? 9
+      : (charDef as { body?: number } | undefined)?.body ?? 9;
     // Dodge body penalty
     if (strike?.dodged && strike.dodgeBodyPenalty) {
       body = body + strike.dodgeBodyPenalty;
@@ -2007,7 +2020,7 @@ function bodyCheckActions(
     if (strike?.strikeBodyPenalty) {
       body = body + strike.strikeBodyPenalty;
     }
-    targetLabel = charDef?.name ?? 'character';
+    targetLabel = allyDef?.name ?? charDef?.name ?? 'character';
   }
   // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)
   const isWounded = combat.bodyCheckTarget === 'character' &&

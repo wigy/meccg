@@ -928,8 +928,17 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. Two strikes. If any strike of Brigands wounds a character, the company must immediately discard one item (of defender’s choice)."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-discard-one-company-item"
+        }
+      }
+    ],
+    "text": "Men. Two strikes. If any strike of Brigands wounds a character, the company must immediately discard one item (of defender’s choice).",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hazard-creature",

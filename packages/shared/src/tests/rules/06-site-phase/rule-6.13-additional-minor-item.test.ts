@@ -18,13 +18,16 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildSitePhaseState, resetMint, viableActions,
   PLAYER_1,
-  ARAGORN, BILBO,
+  ARAGORN, BILBO, GALADRIEL, CRAM,
   GLAMDRING, DAGGER_OF_WESTERNESSE, THE_MITHRIL_COAT,
   MORIA,
   companyIdAt, charIdAt, handCardId,
-  dispatch, RESOURCE_PLAYER,
+  dispatch, resolveChain, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
-import type { SitePhaseState } from '../../../index.js';
+import type { CardDefinitionId, SitePhaseState } from '../../../index.js';
+
+const AMON_HEN = 'tw-371' as CardDefinitionId; // ruins-and-lairs, Information playable
+const DREAMS_OF_LORE = 'tw-210' as CardDefinitionId; // permanent-event resource, tap-site-on-play
 
 describe('Rule 6.13 — Additional Minor Item', () => {
   beforeEach(() => resetMint());
@@ -145,5 +148,29 @@ describe('Rule 6.13 — Additional Minor Item', () => {
 
     const plays = viableActions(after, PLAYER_1, 'play-hero-resource');
     expect(plays.length).toBe(0);
+  });
+
+  test('playing a permanent-event resource that taps the site (Dreams of Lore) opens the additional-minor-item window', () => {
+    // Dreams of Lore (tw-210) is a permanent-event resource, not an item —
+    // it resolves through the play-permanent-event chain, a different code
+    // path than handleSitePlayHeroResource above. It still taps the site via
+    // `tap-site-on-play`, so it must open the same rule 2.V.5 bonus window.
+    const state = buildSitePhaseState({
+      site: AMON_HEN,
+      characters: [GALADRIEL, ARAGORN],
+      hand: [DREAMS_OF_LORE, CRAM],
+    });
+
+    const action = viableActions(state, PLAYER_1, 'play-permanent-event')[0].action;
+    const after = resolveChain(dispatch(state, action));
+
+    const nextPhase = after.phaseState as SitePhaseState;
+    expect(nextPhase.resourcePlayed).toBe(true);
+    expect(nextPhase.minorItemAvailable).toBe(true);
+
+    // Aragorn is still untapped and Cram (minor) is still in hand — the
+    // bonus must offer it despite the site now being tapped.
+    const plays = viableActions(after, PLAYER_1, 'play-hero-resource');
+    expect(plays.length).toBe(1);
   });
 });

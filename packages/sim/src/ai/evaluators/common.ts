@@ -10,7 +10,7 @@
  */
 
 import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HazardEventCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
-import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
+import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
@@ -693,11 +693,23 @@ export function hasUntapSource(
  * without needing to tap any character — currently permanent resource
  * events that pass the site's play filters. Used to justify entering a
  * site whose only visitors are already tapped.
+ *
+ * Must honour the same site gates the engine enforces
+ * (`legal-actions/site.ts`): a `play-target: site` filter (site name/type)
+ * and the `tapped-site-only` / `untapped-site-required` play-flags. Skipping
+ * these let the AI treat cards like Rescue Prisoners (tw-315, "playable at
+ * an already tapped Dark-hold or Shadow-hold") as a no-tap play at any site
+ * in any tap state, entering with a fully-tapped company for an attack it
+ * couldn't even follow up with the card in hand (bug report: game
+ * msxdgosl-8meok7, seq 894 — Alatar's company entered Mount Gundabad with no
+ * untapped character and faced its Orc automatic-attack for nothing, since
+ * the site wasn't already tapped so Rescue Prisoners was never playable).
  */
 export function handHasNoTapPlayableAt(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
   site: AnySiteCard,
+  siteTapped: boolean,
 ): boolean {
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
@@ -713,10 +725,12 @@ export function handHasNoTapPlayableAt(
     // play, so a company with every character already tapped gets no credit
     // for holding one.
     if (ev.effects?.some(e => e.type === 'play-target' && e.target === 'character')) continue;
-    // A permanent event is considered a no-tap MP play here; more precise
-    // site filtering is done by the engine when computing legal actions.
-    // `site` is accepted but unused — reserved for future filter logic.
-    void site;
+    if (hasPlayFlag(def, 'tapped-site-only') && !siteTapped) continue;
+    if (hasPlayFlag(def, 'untapped-site-required') && siteTapped) continue;
+    const siteTarget = (def.effects ?? []).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+    );
+    if (siteTarget?.filter && !matchesCondition(siteTarget.filter, site as unknown as Record<string, unknown>)) continue;
     return true;
   }
   return false;

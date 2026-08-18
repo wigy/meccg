@@ -389,6 +389,8 @@ export function describeAction(
       return `Play long-event ${instName(action.cardInstanceId)}`;
     case 'exchange-sideboard':
       return `Exchange ${instName(action.discardCardInstanceId)} (discard) ↔ ${instName(action.sideboardCardInstanceId)} (sideboard)`;
+    case 'swap-banned-vs-balrog':
+      return `Remove ${instName(action.cardInstanceId)} from the game (unplayable vs Balrog): bring ${instName(action.sideboardCardInstanceId)} from sideboard into play deck`;
     case 'start-sideboard-to-deck':
       return 'Tap avatar: fetch 1 card from sideboard to play deck';
     case 'start-sideboard-to-discard':
@@ -648,7 +650,9 @@ export function describeAction(
     case 'discard-to-recruit':
       return `${playerName(action.player)} discards ${instName(action.characterId)} to bring ${instName(action.cardInstanceId)} into play with his company`;
     case 'rescue-prisoner':
-      return `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
+      return action.characterInstanceId
+        ? `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to free the prisoners held by ${instName(action.hostInstanceId)}`
+        : `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     case 'tap-alt-permanent-event':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     case 'attack-alt-permanent-event':

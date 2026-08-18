@@ -450,6 +450,8 @@ function renderState(input: RenderInput): string {
     'enter-or-skip': 'Enter or Skip',
     'reveal-on-guard-attacks': 'Reveal On-Guard',
     'automatic-attacks': 'Automatic Attacks',
+    'rescue-attacks': 'Rescue Attacks',
+    'rescue-tap': 'Tap to Free Prisoners',
     'declare-agent-attack': 'Agent Attack',
     'resolve-attacks': 'Resolve Attacks',
     'play-resources': 'Play Resources',

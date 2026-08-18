@@ -125,10 +125,22 @@ const MOUNT_GRAM: CardDefinition = {
   automaticAttacks: [{ creatureType: 'Orcs', strikes: 3, prowess: 6 }],
 } as unknown as CardDefinition;
 
-// Rescue Prisoners (tw-315): a permanent resource event playable at a
-// dark-hold/shadow-hold. It attaches to a character the same way an item
-// does — tapping one on success, or discarding itself for nothing if no
-// character is left untapped after its own triggered Spider attack. It is
+// Mount Gundabad (tw-416): a shadow-hold with an 8-prowess Orc automatic-attack.
+const MOUNT_GUNDABAD: CardDefinition = {
+  cardType: 'hero-site',
+  name: 'Mount Gundabad',
+  siteType: 'shadow-hold',
+  playableResources: ['minor', 'major', 'greater'],
+  sitePath: ['wilderness', 'border', 'dark'],
+  resourceDraws: 2,
+  automaticAttacks: [{ creatureType: 'Orcs', strikes: 2, prowess: 8 }],
+} as unknown as CardDefinition;
+
+// Rescue Prisoners (tw-315): a permanent resource event playable "at an
+// already tapped Dark-hold or Shadow-hold" (play-target: site +
+// tapped-site-only play-flag). It also attaches to a character the same way
+// an item does — tapping one on success, or discarding itself for nothing if
+// no character is left untapped after its own triggered Spider attack. It is
 // not a "no tap needed" play.
 const RESCUE_PRISONERS: CardDefinition = {
   cardType: 'hero-resource-event',
@@ -141,6 +153,31 @@ const RESCUE_PRISONERS: CardDefinition = {
     { type: 'play-flag', flag: 'bearer-cannot-untap-until-stored' },
     { type: 'play-flag', flag: 'rescues-prisoners' },
   ],
+} as unknown as CardDefinition;
+
+// People Diminished (ba-72): a permanent resource event playable on an
+// *untapped* Free-hold or Border-hold. It binds no character, so it is a
+// genuine "no tap needed" play — gated only by the site-target filter and the
+// `untapped-site-required` play-flag.
+const PEOPLE_DIMINISHED: CardDefinition = {
+  cardType: 'minion-resource-event',
+  eventType: 'permanent',
+  marshallingPoints: 5,
+  effects: [
+    { type: 'play-target', target: 'site', filter: { siteType: { $in: ['free-hold', 'border-hold'] } } },
+    { type: 'play-flag', flag: 'untapped-site-required' },
+  ],
+} as unknown as CardDefinition;
+
+// Buhr Widu (le-357): a border-hold with no automatic-attack — entering is
+// only ever justified by having something to play there.
+const BUHR_WIDU: CardDefinition = {
+  cardType: 'hero-site',
+  name: 'Buhr Widu',
+  siteType: 'border-hold',
+  playableResources: ['minor', 'major'],
+  sitePath: ['wilderness'],
+  resourceDraws: 2,
 } as unknown as CardDefinition;
 
 const BALIN: CardDefinition = {
@@ -160,8 +197,11 @@ const POOL: Record<string, CardDefinition> = {
   'tw-322': SAPLING_OF_THE_WHITE_TREE,
   'le-159': MALADY_WITHOUT_HEALING,
   'tw-415': MOUNT_GRAM,
+  'tw-416': MOUNT_GUNDABAD,
   'tw-315': RESCUE_PRISONERS,
   'tw-123': BALIN,
+  'ba-72': PEOPLE_DIMINISHED,
+  'le-357': BUHR_WIDU,
   hobbit: HOBBIT,
 };
 
@@ -245,7 +285,7 @@ function makeView(characterDefId: string): PlayerView {
  * already-tapped character (Balin) at a shadow-hold site, holding only
  * Rescue Prisoners.
  */
-function makeRescuePrisonersView(): PlayerView {
+function makeTappedCompanyRescuePrisonersView(): PlayerView {
   return {
     self: {
       hand: [{ instanceId: 'h1', definitionId: 'tw-315' }],
@@ -281,6 +321,53 @@ function makeGlitteringCavesView(bestProwess: number): PlayerView {
           id: 'company-p2-0',
           currentSite: { instanceId: 's1', definitionId: 'tw-397' },
           characters: ['c1', 'c2'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+/**
+ * Build a view for the Mount Gundabad site-gate regression: a company with no
+ * untapped character (and no untap source) at an `untapped`-or-`tapped` Mount
+ * Gundabad, holding only the given permanent event.
+ */
+function makeSiteGatedNoTapPlayView(definitionId: string, siteTapped: boolean): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-182', status: 'tapped', items: [], effectiveStats: { prowess: 4 } },
+        c2: { instanceId: 'c2', definitionId: 'tw-182', status: 'inverted', items: [], effectiveStats: { prowess: 5 } },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'tw-416', status: siteTapped ? 'tapped' : 'untapped' },
+          characters: ['c1', 'c2'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+/**
+ * Build a view for the `untapped-site-required` gate: a company with no
+ * untapped character at a quiet border-hold (no automatic-attack), holding
+ * only People Diminished.
+ */
+function makeUntappedSiteRequiredView(siteTapped: boolean): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'ba-72' }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-182', status: 'tapped', items: [], effectiveStats: { prowess: 4 } },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'le-357', status: siteTapped ? 'tapped' : 'untapped' },
+          characters: ['c1'],
         },
       ],
     },
@@ -355,7 +442,33 @@ describe('sitePhaseEvaluator enter-site', () => {
   // attack) — it needs an untapped character just like an item does. Balin
   // took the site's automatic-attack for a play that was never even legal.
   test('scores 0 for Rescue Prisoners in hand when the only company member is already tapped', () => {
-    const view = makeRescuePrisonersView();
+    const view = makeTappedCompanyRescuePrisonersView();
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
+  });
+
+  // Same game, same seq: Mount Gundabad was *untapped*, so Rescue Prisoners
+  // ("playable at an already tapped Dark-hold or Shadow-hold") could not have
+  // been played there at all. handHasNoTapPlayableAt must honour the same site
+  // gates the engine enforces — the `tapped-site-only` play-flag here.
+  test('scores 0 when the only no-tap play requires an already-tapped site that is untapped', () => {
+    const view = makeSiteGatedNoTapPlayView('tw-315', false);
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
+  });
+
+  // Contrast for the opposite gate: People Diminished (ba-72) is a permanent
+  // event that binds no character, so it is a genuine no-tap play — but only on
+  // an *untapped* site (`untapped-site-required`). Entering is justified while
+  // the site is untapped, and not once it is tapped.
+  test('scores 50 for a no-tap permanent event whose untapped-site gate is met', () => {
+    const view = makeUntappedSiteRequiredView(false);
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
+  });
+
+  test('scores 0 for the same event once the site it requires untapped is tapped', () => {
+    const view = makeUntappedSiteRequiredView(true);
     const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
     expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
   });

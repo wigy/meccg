@@ -22,6 +22,8 @@
  *   3. tap-discard-attached-hazard (tap self) — same region gate
  *   4. on-event company-arrives-at-site → move self→discard when arriving
  *      outside those three regions (same mechanism as Treebeard tw-353)
+ *   5. return-self-to-hand-when { inPlayAnywhere: "Shelob" } — back to hand
+ *      when her other manifestation reaches the table (g.man.1)
  *   manifestId tw-86 (Shelob) — links the manifestation chain
  *
  * Rule coverage:
@@ -38,20 +40,21 @@
  * |   |   company or character                                   |             |                                                        |
  * | 7 | Discard if company moves to a site not in Gorgoroth /    | IMPLEMENTED | on-event company-arrives-at-site move self→discard     |
  * |   |   Imlad Morgul / Ithilien                                |             |                                                        |
- * | 8 | Return to hand if Shelob is played                       | DORMANT     | Shelob (tw-86) is not yet ported into the card pool;   |
- * |   |                                                          |             | manifestId is set so the link works once it is added   |
+ * | 8 | Return to hand if Shelob is played                       | IMPLEMENTED | `return-self-to-hand-when` { inPlayAnywhere: Shelob }  |
  *
- * Playable: FULLY — CERTIFIED (2026-06-12). Rules 1–7 are implemented and
- * exercised below. Rule 8's trigger card (Shelob, tw-86) is not in the
- * implemented set, so the rule can never fire today; the `manifestId` link is
- * encoded for when Shelob is ported. Tracked as a `test.todo`.
+ * Playable: FULLY — CERTIFIED (2026-06-12). All eight rules are implemented and
+ * exercised below. Rule 8 reads "played" as Shelob (tw-86) reaching the table
+ * in her permanent-event mode (`creature-alt-event`, which needs Doors of Night
+ * in play); a Shelob played as a hazard *creature* is an attack rather than a
+ * card in play and does not trigger the return.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  buildTestState, buildSitePhaseState, resetMint, dispatch,
+  buildTestState, buildSitePhaseState, resetMint, dispatch, addCardInPlay,
   attachAllyToChar, attachHazardToChar, findCharInstanceId,
+  DOORS_OF_NIGHT,
   buildMovingAllyMHState, findAllyInstanceId,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   viableActions, makeCancelWindowCombat,
@@ -65,6 +68,8 @@ const LAST_CHILD = 'le-153' as CardDefinitionId;
 const BARAD_DUR = 'le-352' as CardDefinitionId;
 /** Foolish Words (le-112): a hazard permanent-event, the rule-6 discard target. */
 const FOOLISH_WORDS = 'le-112' as CardDefinitionId;
+/** Shelob (tw-86): the entity Last Child is a manifestation of (`manifestId`). */
+const SHELOB = 'tw-86' as CardDefinitionId;
 
 // Minion characters (LE pool — ringwraith alignment, no inherent effects).
 const ASTERNAK = 'le-1' as CardDefinitionId;   // man, prowess 5, body 7, mind 5 → covert alone
@@ -249,10 +254,37 @@ describe('Last Child of Ungoliant (le-153)', () => {
     expect(after.players[RESOURCE_PLAYER].characters[charId]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(true);
   });
 
-  // ─── Rule 8: return to hand if Shelob is played (dormant) ─────────────────
-  // Shelob (tw-86) is not yet ported into the implemented card pool, so this
-  // manifestation-return trigger can never fire today. The `manifestId: tw-86`
-  // link is encoded on le-153 so the relationship is in place once Shelob is
-  // added and the manifestation-return hook is implemented.
-  test.todo('returns to its owner\'s hand when Shelob (tw-86) is played');
+  // ─── Rule 8: return to hand if Shelob is played ───────────────────────────
+
+  test('returns to its owner\'s hand when Shelob (tw-86) is in play', () => {
+    // Shelob's permanent-event mode needs Doors of Night in play (her own
+    // `discard-self-when` would otherwise sweep her away first), so both go on
+    // the hazard player's table. Last Child is a manifestation of Shelob, and
+    // her text settles g.man.1's one-slot competition by handing the ally back
+    // rather than discarding her.
+    const base = buildSitePhaseState({ characters: [ASTERNAK], site: SHELOBS_LAIR });
+    const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, LAST_CHILD);
+    const withShelob = addCardInPlay(addCardInPlay(withAlly, HAZARD_PLAYER, DOORS_OF_NIGHT), HAZARD_PLAYER, SHELOB);
+
+    const after = dispatch(withShelob, { type: 'pass', player: PLAYER_1 });
+
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
+    expect(after.players[RESOURCE_PLAYER].characters[charId]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(false);
+    // Back in hand — not discarded (rule 7's discard is a different trigger).
+    expect(after.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === LAST_CHILD)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === LAST_CHILD)).toBe(false);
+  });
+
+  test('stays in play while Shelob is not on the table', () => {
+    // The same position with Doors of Night alone: nothing to yield to.
+    const base = buildSitePhaseState({ characters: [ASTERNAK], site: SHELOBS_LAIR });
+    const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, LAST_CHILD);
+    const withoutShelob = addCardInPlay(withAlly, HAZARD_PLAYER, DOORS_OF_NIGHT);
+
+    const after = dispatch(withoutShelob, { type: 'pass', player: PLAYER_1 });
+
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
+    expect(after.players[RESOURCE_PLAYER].characters[charId]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === LAST_CHILD)).toBe(false);
+  });
 });
