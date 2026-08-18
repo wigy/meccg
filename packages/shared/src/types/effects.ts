@@ -4960,8 +4960,11 @@ export interface PlayTargetEffect extends EffectBase {
    * long-events (Echo of All Joy td-110, played "on a resource long-event" —
    * a permanent event attached via `CardInPlay.attachedToLongEvent` that
    * exempts the target from the beginning-of-long-event-phase discard sweep).
+   * `agent` scopes to a hazard player's own agents (Never Seen Him dm-74,
+   * played "on an agent" — a permanent event attached via
+   * `CardInPlay.attachedToAgentId`).
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent';
   /**
    * Widens a `character` target beyond the default own-characters scope. When
    * `'any-player'`, candidates are drawn from **both** players' characters so a

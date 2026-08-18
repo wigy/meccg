@@ -174,13 +174,15 @@ export interface CardInPlay {
    */
   readonly attachedToSite?: CardDefinitionId;
   /**
-   * If this permanent event is attached to one of its controller's *face-down
-   * agents* (Inner Cunning dm-68), the agent's virtual-company id
+   * If this permanent event is attached to one of its controller's *agents*
+   * (`play-target: "agent"`), the agent's virtual-company id
    * ({@link AgentInPlay.id}). The event lives in the controller's `cardsInPlay`
-   * while so attached; it broadens the agent's legal reveal sites (see the
-   * `agent-reveal-site-override` effect) and is discarded once the agent is no
-   * longer a face-down agent (revealed or gone) via the orphaned-agent-attached
-   * event sweep.
+   * while so attached, and is discarded once the bound agent leaves play
+   * entirely — via the orphaned-agent-attached event sweep
+   * (`discardOrphanedAgentAttachedEvents`). A card additionally carrying
+   * `agent-reveal-site-override` (Inner Cunning dm-68) discards early, the
+   * moment the agent is revealed ("Discard when the agent is revealed"); one
+   * without that marker (Never Seen Him dm-74) persists through reveal.
    */
   readonly attachedToAgentId?: import('./common.js').CompanyId;
   /**
