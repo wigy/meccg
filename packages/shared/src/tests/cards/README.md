@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1162 | 1162 | 0 | 100.0% |
+| 1163 | 1163 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 109 | 109 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 107 | 107 | 100.0% |
+| DM | 108 | 108 | 100.0% |
 | LE | 304 | 304 | 100.0% |
 | TD | 96 | 96 | 100.0% |
 | TW | 356 | 356 | 100.0% |
@@ -322,8 +322,9 @@
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
-| dm-159 | Smoke Rings | — | 12 | ☑ |
+| dm-159 | Smoke Rings | — | 13 | ☑ |
 | dm-160 | Token of Goodwill | — | 11 | ☑ |
+| dm-162 | Vein of Arda | — | 15 | ☑ |
 | dm-163 | When You Know More | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 21 | ☑ |
 | dm-165 | Withdrawn to Mordor | — | 10 | ☑ |
@@ -712,7 +713,7 @@
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
-| td-134 | Marvels Told | — | 27 | ☑ |
+| td-134 | Marvels Told | — | 28 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |

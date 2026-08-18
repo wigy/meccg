@@ -1,5 +1,87 @@
 # Changelog
 
+## 0.115.0 — 2026-08-18
+
+Discards stay on your side of the table, and the AI finally plays its Wizard
+
+### Game Engine
+
+- **Discard-in-play cards reach only the caster's own characters.** Marvels
+  Told, Voices of Malice, The Cock Crows and Ancient Secrets let a resource
+  player force-discard a hazard permanent/long-event in play, but
+  `collectDiscardInPlayTargets()` scanned hazards attached to characters
+  on *both* sides, so Balin's Marvels Told could pull Rebel-talk off the
+  opponent's character. Per CoE 2.IV.vii.3 an attached hazard-event always
+  sits on its bearer's own side, so the character-hazard scan is now
+  restricted to the acting player's characters (free-standing long-events
+  such as Eye of Sauron in either player's `cardsInPlay` remain reachable).
+  Two card tests (le-250, tw-342) that incidentally relied on the leak
+  were corrected.
+- **Fallen-wizards can fetch their own cross-alignment resources.** Smoke
+  Rings and similar "bring a resource from your sideboard or discard pile
+  into your play deck" cards filtered candidates by a single alignment's
+  cardType, so a Fallen-wizard playing a hero-side fetch card was denied
+  their own minion-typed cards (CoE 1.3.F1/F4 lets their deck mix both).
+  `matchesDefinitionAcrossFallenWizardAlignment()` flips the hero-/minion-
+  prefix for Fallen-wizard actors at both the legal-action enumeration
+  and the validation site.
+- **Deck-fetch candidates are revealed to their owner.** Mistress Lobelia
+  and similar "tap to search your play deck for…" cards queued a fetch
+  whose play-deck matches were never recorded in any reveal ledger, so
+  the owner's pile browser showed only unpickable card backs and the only
+  option was to decline. `buildSelfView` now unmasks exactly the play-deck
+  instances the player's own viable fetch-from-pile legal actions target —
+  computed at projection time, so nothing leaks to the opponent or
+  outlives the fetch.
+- **Reforging (tw-314) scores its 1 misc MP when stored.** The card
+  database gives it 1 marshalling point but the local data had 0 and no
+  `storable-at` override, so a stored Reforging never counted. It now
+  mirrors Rescue Prisoners: base 0 while bearer-attached, `storable-at`
+  declares `marshallingPoints: 1` once stored.
+- `ItemInPlay.playedAtSiteDefId` is now stamped on the direct
+  `play-target: character` attach path too (previously only the
+  select-card-bearer path set it), so site-scoped duplication limits are
+  anchored to where the card was played rather than the bearer's current
+  location.
+
+### Web Client
+
+- **Corruption checks are clickable during Free Council.** The hand-arc's
+  invisible hover catch zone sat above the all-companies overview that
+  Free Council forces, swallowing clicks on any character row that landed
+  in its band at the bottom of the viewport. The catch zone's
+  pointer-events are disabled while free-council-mode is active; the
+  fanned cards remain hoverable and playable.
+
+### Card Data & Certification
+
+- Certified: Vein of Arda (dm-162) — Sage-or-Dwarf permanent event
+  playable at any Under-deeps site, tapping the site and the character,
+  storable at a Haven for 2 misc MP, bearer cannot untap until stored,
+  one per site.
+
+### Simulation & AI
+
+- **The h2 AI plays its avatar.** `play-character` was priced purely by
+  marshalling points, so Saruman (0 MP by design) always lost the
+  one-character-per-turn slot to any positive-MP character and was
+  eventually discarded at the hand-size limit unplayed. A flat
+  `avatarInPlayTsd` tunable now prices what an avatar in play unlocks —
+  sideboard access (CoE 2.II.6) and resource-draw eligibility (CoE
+  2.IV.v).
+
+### Infrastructure
+
+- **`bin/claude-run` — one supervisor for every headless `claude` run.**
+  `handle-mail`, `run-ai` and `nightly-release` each carried their own
+  copy of the supervisor loop, and the copies had drifted: a CLI change to
+  the result object's key order broke the success check in one copy
+  (burning ~110 good certifications), two of them passed the prompt as
+  argv and hit the 128KB `MAX_ARG_STRLEN` limit, and one SIGKILLed a
+  second after SIGTERM. All three now call `claude-run`, which reads the
+  prompt from stdin, classifies results with jq, and shuts down
+  gracefully.
+
 ## 0.114.0 — 2026-08-18
 
 Attackers pick their targets, and Weathertop opens to Fallen-wizards
