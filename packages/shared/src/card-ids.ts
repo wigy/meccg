@@ -276,6 +276,8 @@ export const BARAD_DUR_MINION = did('le-352');
 export const ETTENMOORS_HERO = did('tw-395');
 /** The White Towers — hero ruins-and-lairs in Arthedain, nearest haven Rivendell. */
 export const THE_WHITE_TOWERS_HERO = did('tw-430');
+/** Weathertop — hero ruins-and-lairs in Arthedain, nearest haven Rivendell. */
+export const WEATHERTOP_HERO = did('tw-436');
 /** Barrow-downs — hero ruins-and-lairs in Cardolan, nearest haven Rivendell. */
 export const BARROW_DOWNS = did('tw-375');
 /** Tolfalas — hero ruins-and-lairs in Mouths of the Anduin, nearest haven Edhellond. */
