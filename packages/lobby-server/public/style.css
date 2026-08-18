@@ -5297,10 +5297,11 @@ body.spectating.combat-active #hand-arc.kbd-peek {
   bottom: 0;
 }
 
-/* All-companies view: hide hand arcs, text log, the self deck box, and
-   action buttons. The opponent deck box (compact: name + MP/GI/SP lines)
-   and the HL chip next to it stay visible so the overview keeps the same
-   top-of-screen status readout as the single-company view.
+/* All-companies view: hide hand arcs, text log, deck boxes, phase-meter
+   tracks, and action buttons. Two top-of-screen status cues survive so the
+   overview is not context-free: the HL chip (pinned top-left, where the
+   hidden opponent deck box would otherwise anchor it) and the phase meter's
+   title line (breadcrumb + targeting hint) without its tracks.
    During Free Council the hand stays visible (free-council-mode exception) —
    CoE 10.3.i allows reactive hand plays (e.g. A Friend or Three) while a
    corruption check is pending, and the all-companies view is forced for the
@@ -5309,8 +5310,18 @@ body.spectating.combat-active #hand-arc.kbd-peek {
 .all-companies-mode #opponent-arc,
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
-.all-companies-mode #phase-meter {
+.all-companies-mode #opponent-deck-box,
+.all-companies-mode #phase-meter .phase-track,
+.all-companies-mode #phase-meter .phase-meter-path {
   display: none;
+}
+
+/* renderPlayerNames positions the HL chip from the opponent deck box's rect;
+   with that box display:none in the overview the rect is empty, so override
+   the inline coordinates and pin the chip to the box's usual corner. */
+.all-companies-mode #opponent-hazard-limit {
+  top: 0.5rem !important;
+  left: 1rem !important;
 }
 
 /* Reclaim the space freed by hiding the opponent arc.
