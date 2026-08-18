@@ -3483,7 +3483,8 @@
         "type": "storable-at",
         "siteTypes": [
           "haven"
-        ]
+        ],
+        "marshallingPoints": 1
       },
       {
         "type": "play-flag",
