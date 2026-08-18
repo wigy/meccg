@@ -186,6 +186,8 @@ export const ACTION_TYPES: readonly string[] = [
   'influence-overflow-discard',
   // Added by certifying tw-326 (Shadowfax).
   'ally-tap-extra-mh-phase',
+  // Added with the CoE 1.8.2 Balrog-banned-card sideboard trade (rule 1.36).
+  'swap-banned-vs-balrog',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

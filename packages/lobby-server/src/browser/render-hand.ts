@@ -240,6 +240,49 @@ function findCreatureFromDiscardActions(
 }
 
 /**
+ * Find the CoE 1.8.2 trade actions for a given hand card — one per sideboard
+ * card the banned card may be exchanged for against a Balrog opponent.
+ */
+function findBalrogSwapActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'swap-banned-vs-balrog' && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
+ * Menu for a card a Balrog opponent has made unplayable (CoE 1.8.2): a
+ * submenu naming every sideboard card it may be traded for, plus the
+ * on-guard option when one is open — the card can still be bluffed
+ * face-down instead of traded away.
+ */
+export function balrogSwapMenuItems(
+  actions: readonly GameAction[],
+  onAction: (action: GameAction) => void,
+  onGuardAction: GameAction | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): TooltipMenuItem[] {
+  const cachedInstanceLookup = getCachedInstanceLookup();
+  const items: TooltipMenuItem[] = [{
+    label: 'Remove from the game: take a sideboard card',
+    children: actions.flatMap(action => {
+      if (action.type !== 'swap-banned-vs-balrog') return [];
+      const defId = cachedInstanceLookup(action.sideboardCardInstanceId);
+      const def = defId ? cardPool[defId as string] : undefined;
+      return [{
+        label: def ? def.name : action.sideboardCardInstanceId as string,
+        onClick: () => onAction(action),
+      }];
+    }),
+  }];
+  if (onGuardAction) items.push({ label: 'Place on-guard', onClick: () => onAction(onGuardAction) });
+  return items;
+}
+
+/**
  * Find the play-agent-hazard action for a given agent card instance.
  * Each agent card has at most one such action.
  */
@@ -1163,6 +1206,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
+    const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
     const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !discardAction && !onGuardAction && !isStartingCompanyEvent
@@ -1599,6 +1643,19 @@ export function renderHand(
           const items: TooltipMenuItem[] = discardOnlyChoices(discardAction, onGuardAction)
             .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
           showCursorTooltipMenu(e, items);
+        });
+      }
+    } else if (balrogSwapActions.length > 0) {
+      // CoE 1.8.2: against a Balrog opponent this card cannot be played, so it
+      // keeps the dimmed styling of a card with no play — but it is not dead
+      // weight: clicking offers the trade of it for any one sideboard card.
+      img.className = 'hand-card hand-card-dimmed';
+      if (nonViableReason) {
+        img.title = nonViableReason;
+      }
+      if (onAction) {
+        img.addEventListener('click', (e) => {
+          showCursorTooltipMenu(e, balrogSwapMenuItems(balrogSwapActions, onAction, onGuardAction, cardPool));
         });
       }
     } else if (onGuardAction) {

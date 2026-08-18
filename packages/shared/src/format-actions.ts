@@ -389,6 +389,8 @@ export function describeAction(
       return `Play long-event ${instName(action.cardInstanceId)}`;
     case 'exchange-sideboard':
       return `Exchange ${instName(action.discardCardInstanceId)} (discard) ↔ ${instName(action.sideboardCardInstanceId)} (sideboard)`;
+    case 'swap-banned-vs-balrog':
+      return `Remove ${instName(action.cardInstanceId)} from the game (unplayable vs Balrog): bring ${instName(action.sideboardCardInstanceId)} from sideboard into play deck`;
     case 'start-sideboard-to-deck':
       return 'Tap avatar: fetch 1 card from sideboard to play deck';
     case 'start-sideboard-to-discard':
