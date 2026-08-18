@@ -4146,8 +4146,18 @@
         "site": "Woodmen-town"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Woodmen-town if the influence check is greater than 7. Standard Modifications: Men (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Woodmen-town if the influence check is greater than 7. Standard Modifications: Men (+1).",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-faction",
