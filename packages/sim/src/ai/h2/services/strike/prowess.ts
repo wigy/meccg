@@ -28,6 +28,8 @@
 
 import { CardStatus, stayUntappedPenalty } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
+import type { CombatAbilities } from './ability.js';
+import { NO_ABILITIES, combatAbilitiesOf } from './ability.js';
 
 /** A character or ally that could face a strike. */
 export interface StrikeTarget {
@@ -47,6 +49,14 @@ export interface StrikeTarget {
   readonly status: CardStatus;
   /** Allies cannot bear items and are salvaged differently. */
   readonly isAlly: boolean;
+  /**
+   * Combat-relevant card text, and what removes each piece of it.
+   *
+   * Carried on the target because the attacker's choice of whom to strike turns
+   * on it: a prowess-1 character the defender would never put up can be the
+   * best target on the board when a tap takes his ability away.
+   */
+  readonly abilities: CombatAbilities;
 }
 
 /** Modifiers that apply to one particular strike assignment. */
@@ -107,6 +117,7 @@ export function rosterOf(
       prowess: character.effectiveStats.prowess,
       status: character.status,
       isAlly: false,
+      abilities: combatAbilitiesOf(cardPool[character.definitionId]),
     });
     for (const ally of character.allies) {
       targets.push({
@@ -119,6 +130,9 @@ export function rosterOf(
         prowess: 0,
         status: ally.status,
         isAlly: true,
+        // An ally's card text is read the same way; nothing about the
+        // classification is character-specific.
+        abilities: combatAbilitiesOf(cardPool[ally.definitionId]),
       });
     }
   }

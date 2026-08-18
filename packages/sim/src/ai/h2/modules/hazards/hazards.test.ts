@@ -19,6 +19,7 @@ import { loadScenario, opposingPlayer, scenarioView } from '../../scenario-store
 import { testWinProbModel } from '../../test-support.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
+import { NO_ABILITIES } from '../../services/strike/ability.js';
 import type { StrikeOutcome } from '../../services/strike/strike-model.js';
 import { hazardsModule } from './hazards.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
@@ -55,6 +56,7 @@ function targetRoster(view: ReturnType<typeof scenarioView>): StrikeTarget[] {
       prowess: c.effectiveStats.prowess,
       status: c.status,
       isAlly: false,
+      abilities: NO_ABILITIES,
     };
   });
 }
@@ -68,6 +70,7 @@ function character(instanceId: string, isAlly = false): StrikeTarget {
     prowess: 5,
     status: 'untapped' as StrikeTarget['status'],
     isAlly,
+    abilities: NO_ABILITIES,
   };
 }
 

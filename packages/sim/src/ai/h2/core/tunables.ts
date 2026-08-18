@@ -239,6 +239,47 @@ export interface Tunables {
    */
   readonly hazardMaxBundle: number;
   /**
+   * TSD denied by tapping a character out of one combat-relevant ability.
+   *
+   * The Fatty Bolger number. He can tap to cancel a strike against another
+   * Hobbit in his company, so tapping him first is worth roughly the strike he
+   * would have cancelled — and a strike is what `tapTempoCost` plus a wound's
+   * share of `woundTempoCost` costs the defender, which is where this sits. It
+   * is charged per ability rather than per character: a character with two
+   * tap-gated abilities loses both to the one tap.
+   *
+   * Deliberately not the value of the ability to its owner. What the attacker
+   * gains is the *use* of it for this combat, which is bounded by the combat,
+   * while a card that reads "cancel a strike" is worth more than that across a
+   * whole game.
+   */
+  readonly abilityTapDenialTsd: number;
+  /**
+   * TSD denied by removing a passive combat ability from play.
+   *
+   * A character who weakens attacking creatures (`enemy-modifier`) goes on doing
+   * it while he is tapped, so only elimination stops him — and a kill is already
+   * priced by `eliminationTempoCost` and his marshalling points. This is what it
+   * adds on top, per ability.
+   */
+  readonly abilityLossDenialTsd: number;
+  /**
+   * Risk posture at or above which the attacker's target choice is searched
+   * exhaustively rather than greedily.
+   *
+   * `risk.lambda` is `1 − 2W`: positive when losing, negative when winning, zero
+   * at an even game (`core/risk.ts`). A player who is ahead can afford the cheap
+   * one-step answer, because the greedy choice is right in the ordinary case and
+   * the difference is small; a player who is behind needs the attack that
+   * actually maximises the damage, and the exhaustive search is what finds the
+   * two-strike plans — tap the parrier, then wound the character his ability was
+   * protecting — that no one-step rule can see.
+   *
+   * Zero therefore means "search whenever the game is not already won", which is
+   * the reading the curvature itself suggests.
+   */
+  readonly attackerChoiceSearchLambda: number;
+  /**
    * The chance an on-guard card is ever revealed and pays, in [0, 1].
    *
    * Placement itself is free: an on-guard card that is never revealed returns
@@ -405,6 +446,9 @@ export const DEFAULT_TUNABLES: Tunables = {
   hazardBeamWidth: 4,
   deniedPlayMp: 1,
   hazardMaxBundle: 3,
+  abilityTapDenialTsd: 1,
+  abilityLossDenialTsd: 0.5,
+  attackerChoiceSearchLambda: 0,
   onGuardDiscount: 0.5,
   planSwitchMarginTsd: 1,
   planAbandonProbability: 0.05,
