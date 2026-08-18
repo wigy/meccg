@@ -8,7 +8,7 @@
 
 import { Alignment } from './types/common.js';
 import type { CardDefinitionId } from './types/common.js';
-import { RIVENDELL, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO } from './card-ids.js';
+import { RIVENDELL, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, WEATHERTOP_HERO } from './card-ids.js';
 
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
@@ -17,6 +17,7 @@ const MORIA_BALROG = 'ba-93' as CardDefinitionId;
 const THE_UNDER_GATES = 'ba-100' as CardDefinitionId;
 const ETTENMOORS = 'le-373' as CardDefinitionId;
 const THE_WHITE_TOWERS_MINION = 'le-412' as CardDefinitionId;
+const WEATHERTOP_MINION = 'as-169' as CardDefinitionId;
 
 /** Per-alignment rule constants. */
 export interface AlignmentRules {
@@ -34,13 +35,14 @@ export interface AlignmentRules {
  * Starting sites per the CRF:
  * - Wizard: Rivendell (1 haven)
  * - Ringwraith: Minas Morgul and/or Dol Guldur (up to 2 darkhavens)
- * - Fallen-wizard: any version of The White Towers or Ettenmoors (1 site)
+ * - Fallen-wizard: any version of The White Towers, or of a Ruins & Lairs in
+ *   Arthedain or Rhudaur — Ettenmoors and Weathertop (1 site, rule 1.10.F1)
  * - Balrog: Moria and/or The Under-gates (up to 2 darkhavens)
  */
 const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
   'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL], maxStartingSites: 1 },
   'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [MINAS_MORGUL, DOL_GULDUR], maxStartingSites: 2 },
-  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [THE_WHITE_TOWERS, THE_WHITE_TOWERS_HERO, THE_WHITE_TOWERS_MINION, ETTENMOORS, ETTENMOORS_HERO], maxStartingSites: 1 },
+  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [THE_WHITE_TOWERS, THE_WHITE_TOWERS_HERO, THE_WHITE_TOWERS_MINION, ETTENMOORS, ETTENMOORS_HERO, WEATHERTOP_HERO, WEATHERTOP_MINION], maxStartingSites: 1 },
   'balrog': { maxStartingCompanySize: 6, defaultStartingSites: [MORIA_BALROG, THE_UNDER_GATES], maxStartingSites: 2 },
 };
 
