@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1150 | 1149 | 1 | 99.9% |
+| 1150 | 1150 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -15,7 +15,7 @@
 | AS | 109 | 109 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 105 | 105 | 100.0% |
-| LE | 303 | 302 | 99.7% |
+| LE | 303 | 303 | 100.0% |
 | TD | 95 | 95 | 100.0% |
 | TW | 351 | 351 | 100.0% |
 | WH | 90 | 90 | 100.0% |
@@ -453,7 +453,7 @@
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
 | le-151 | Wrath of the West | — | 5 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
-| le-153 | Last Child of Ungoliant | — | 11 | ◐ |
+| le-153 | Last Child of Ungoliant | — | 12 | ☑ |
 | le-154 | Stinker | — | 17 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |

@@ -8636,6 +8636,7 @@ export type CardEffect =
   | AgentTapFactionInfluenceEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
+  | ReturnSelfToHandWhenEffect
   | DiscardSelfWhenCompanyEffect
   | CompanySizeUnlimitedEffect
   | CompanyInfluenceExemptEffect
@@ -10638,6 +10639,26 @@ export interface OpponentInfluenceOverrideEffect extends EffectBase {
 export interface DiscardSelfWhenEffect extends EffectBase {
   readonly type: 'discard-self-when';
   /** Condition (against the player-state context) that forces the discard. */
+  readonly condition: Condition;
+}
+
+/**
+ * The return-to-hand sibling of {@link DiscardSelfWhenEffect}: the carrying
+ * card leaves play for its controller's **hand** the moment a player-state
+ * condition holds, rather than for the discard pile. Same context, same
+ * post-action sweep, and — unlike `discard-self-when` — it also reaches a card
+ * held as an **ally attached to a character**, since that is where the
+ * manifestation cards using it live.
+ *
+ * Used by Last Child of Ungoliant (le-153): "Return her to your hand if Shelob
+ * is played." — `{ "inPlayAnywhere": "Shelob" }`. Last Child is a
+ * manifestation of Shelob (`manifestId: tw-86`), so g.man.1 would otherwise
+ * have the two competing for one slot; the rule resolves it in the ally's
+ * favour by giving her back rather than discarding her.
+ */
+export interface ReturnSelfToHandWhenEffect extends EffectBase {
+  readonly type: 'return-self-to-hand-when';
+  /** Condition (against the player-state context) that forces the return. */
   readonly condition: Condition;
 }
 

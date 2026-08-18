@@ -14427,6 +14427,36 @@ hypothetical `charactersInPlayAnywhere` that already includes the character
 being played, and a sister that would yield stops blocking. So the in-play White
 Rider never bars playing Gandalf — the post-action sweep discards it instead.
 
+### 62a. `return-self-to-hand-when`
+
+The return-to-hand sibling of `discard-self-when` (§62): same player-state
+context, same `postReduce` sweep slot (`sweepReturnSelfToHandWhen` in
+`return-self-when.ts`), but the card goes back to its controller's **hand**
+instead of the discard pile. They are separate effects rather than one with a
+destination flag, because a card carrying both would be ambiguous about where
+it ends up.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `condition` | yes | DSL condition (against the player-state context) that forces the return. |
+
+Unlike the discard sweep, this one also reaches a card held as an **ally
+attached to a character**, which is where the manifestation cards that need it
+live. Last Child of Ungoliant (le-153), "Return her to your hand if Shelob is
+played":
+
+```json
+{ "type": "return-self-to-hand-when",
+  "condition": { "inPlayAnywhere": "Shelob" } }
+```
+
+Last Child is a manifestation of Shelob (`manifestId: "tw-86"`), so g.man.1 has
+the two competing for one slot; the card's own text settles it in the ally's
+favour. `inPlayAnywhere` sees Shelob in her **permanent-event** mode (the
+`creature-alt-event` play, which puts tw-86 into `cardsInPlay`). A Shelob played
+as a *hazard creature* is an attack rather than a card on the table, so it does
+not trigger the return.
+
 ### 62b. Company-composition primitives (`company-size-unlimited`, `company-influence-exempt`, `company-character-play-exempt`, `discard-self-when-company`)
 
 Four effects for a permanent-event bound to a **company as a whole** (a
