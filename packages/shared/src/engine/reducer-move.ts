@@ -29,7 +29,8 @@
 import type { GameState, CardInstance, CardInstanceId, PlayerState, CardInPlay, ItemInPlay } from '../index.js';
 import type { MoveEffect, MoveZone, Condition } from '../types/effects.js';
 import { CardStatus } from '../types/common.js';
-import { characterIds, defById, matchesDefinition, toCardInstance } from './reducer-utils.js';
+import { characterIds, defById, findCharacterCompany, matchesDefinition, toCardInstance } from './reducer-utils.js';
+import { resolveInstanceId } from '../types/state.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -677,10 +678,23 @@ function pushOne(
     // routing); slot chosen by card type. Bearer existence was pre-flighted.
     const bearerId = ctx.targetCharacterId ?? ctx.targetCardId;
     const slot = inPlayOnCharacterSlot(defById(state, card.definitionId)?.cardType);
-    const attached: ItemInPlay = { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped };
     for (let pi = 0; pi < state.players.length; pi++) {
       const charInPlay = bearerId ? state.players[pi].characters[bearerId] : undefined;
       if (charInPlay && bearerId) {
+        // Stamp the bearer's company's current site as `playedAtSiteDefId` so
+        // a site-scoped `duplication-limit` (e.g. Vein of Arda dm-162) is
+        // checked against where the card was played, not wherever the bearer
+        // later travels — see `feedback_duplication_limit_site_scope_bearer_travel`.
+        const bearerCompany = findCharacterCompany(state.players[pi].companies, bearerId);
+        const playedAtSiteDefId = bearerCompany?.currentSite
+          ? resolveInstanceId(state, bearerCompany.currentSite.instanceId)
+          : undefined;
+        const attached: ItemInPlay = {
+          instanceId: card.instanceId,
+          definitionId: card.definitionId,
+          status: CardStatus.Untapped,
+          ...(playedAtSiteDefId ? { playedAtSiteDefId } : {}),
+        };
         const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
         newPlayers[pi] = {
           ...newPlayers[pi],

@@ -1444,8 +1444,54 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage or Dwarf only during the site phase at any Under-deeps site. Tap the sage or Dwarf. Tap the site if it is not already tapped. Sage or Dwarf may not untap until Vein of Arda is stored at a Haven [{H}]. Cannot be duplicated at a given site."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "keywords": { "$includes": "under-deeps" }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "$or": [
+                { "target.skills": { "$includes": "sage" } },
+                { "target.race": "dwarf" }
+              ]
+            },
+            { "target.status": "untapped" }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Sage or Dwarf only during the site phase at any Under-deeps site. Tap the sage or Dwarf. Tap the site if it is not already tapped. Sage or Dwarf may not untap until Vein of Arda is stored at a Haven [{H}]. Cannot be duplicated at a given site.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-event",
