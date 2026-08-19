@@ -24,6 +24,7 @@
 import type { GameState, CombatState, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ReducerResult } from './reducer-utils.js';
+import { splitCharacterIntoNewCompany } from './company-split.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import type { TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { shuffle } from '../rng.js';
@@ -38,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1454,16 +1455,13 @@ function applyPostAttackEffects(
 /**
  * Left Behind (td-41) split. Peel `characterId` off the company under attack
  * (`originCompanyId`) into a new `leftBehind` company that has the **same site
- * path** (currentSite / destinationSite / movementPath) as the company he was
- * in. That company is created *unhandled* so the movement/hazard loop naturally
- * gives it its own (separate) movement/hazard phase; its `leftBehind` flag
- * forces that phase's hazard-limit snapshot to one, and after all M/H phases a
- * `left-behind-rejoin` resolution offers the merge back into the original
- * company.
+ * path** as the company he was in ({@link splitCharacterIntoNewCompany}). Its
+ * `leftBehind` flag forces its separate M/H phase's hazard-limit snapshot to
+ * one, and after all M/H phases a `left-behind-rejoin` resolution offers the
+ * merge back into the original company (`leftBehindOriginCompanyId`).
  *
- * If the character was **alone** in his company there is no other company to
- * peel him into, so his own company is flagged `leftBehindExtraPhasePending` to
- * run one more (limit-one) M/H phase this turn instead.
+ * If the character was **alone** in his company, his own company is flagged
+ * `leftBehindExtraPhasePending` to run one more (limit-one) M/H phase instead.
  */
 function applyLeftBehindSplit(
   state: GameState,
@@ -1471,61 +1469,11 @@ function applyLeftBehindSplit(
   characterId: CardInstanceId,
   originCompanyId: import('../types/common.js').CompanyId,
 ): GameState {
-  const newPlayers = clonePlayers(state);
-  const player = newPlayers[playerIndex];
-
-  const sourceIndex = player.companies.findIndex(c => c.id === originCompanyId);
-  if (sourceIndex < 0) {
-    logDetail(`Left Behind: origin company ${originCompanyId as string} not found — split skipped`);
-    return state;
-  }
-  const source = player.companies[sourceIndex];
-  if (!source.characters.includes(characterId)) {
-    logDetail(`Left Behind: ${characterId as string} not in origin company — split skipped`);
-    return state;
-  }
-
-  const updatedCompanies = [...player.companies];
-
-  if (source.characters.length <= 1) {
-    // Lone character — flag his company for one extra (separate) M/H phase.
-    logDetail(`Left Behind: ${characterId as string} is alone — his company gets a separate M/H phase (limit 1)`);
-    updatedCompanies[sourceIndex] = {
-      ...source,
-      leftBehind: true,
-      leftBehindOriginCompanyId: source.id,
-      leftBehindExtraPhasePending: true,
-    };
-    newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
-    return { ...state, players: newPlayers };
-  }
-
-  // Remove the character from his original company.
-  updatedCompanies[sourceIndex] = {
-    ...source,
-    characters: source.characters.filter(id => id !== characterId),
-  };
-
-  // Create the separate "left behind" company sharing the same site path.
-  const newCompany = {
-    id: nextCompanyId(player),
-    characters: [characterId],
-    currentSite: source.currentSite,
-    siteCardOwned: false,
-    destinationSite: source.destinationSite,
-    movementPath: source.movementPath,
-    moved: false,
-    siteOfOrigin: null,
-    onGuardCards: [],
-    hazards: [],
-    leftBehind: true,
-    leftBehindOriginCompanyId: source.id,
-  };
-  updatedCompanies.push(newCompany);
-  logDetail(`Left Behind: ${characterId as string} splits off into ${newCompany.id as string} (same site path as ${source.id as string})`);
-
-  newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
-  return cleanupEmptyCompanies({ ...state, players: newPlayers });
+  return splitCharacterIntoNewCompany(state, playerIndex, characterId, originCompanyId, {
+    label: 'Left Behind',
+    onLoneOrigin: { leftBehind: true, leftBehindOriginCompanyId: originCompanyId, leftBehindExtraPhasePending: true },
+    onNewCompany: { leftBehind: true, leftBehindOriginCompanyId: originCompanyId },
+  });
 }
 
 /**

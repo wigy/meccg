@@ -33,7 +33,7 @@
  *     `gte`) per character still in the defending company, `onFail:
  *     "split-into-own-company"`.
  *   - `applyDiceCheckBranch` (pending-reducers.ts) resolves a failed roll via
- *     `splitCharacterOffCompany` (reducer-utils.ts) — the generalized,
+ *     `splitCharacterOffCompany` (company-split.ts) — the generalized,
  *     auto-rejoining sibling of Left Behind (td-41)'s `applyLeftBehindSplit`:
  *     peels the character into his own new company sharing the same site
  *     path, flagged `forcedSoloHazardLimit` (NOT `leftBehind` — unlike Left
