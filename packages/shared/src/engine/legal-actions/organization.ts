@@ -129,17 +129,26 @@ function grantActionUsedThisTurn(
 /**
  * Sum of the mind cost of every character a controller holds under direct
  * influence — the part of his direct influence that is already *used*. Uses
- * effective mind (The Arkenstone raises Dwarf mind by 1), honours a
- * `control-restriction` cost override (Wizard's Myrmidon), and credits any
- * target-conditional DI bonus the controller has against that specific
- * follower (Whip le-348, Glorfindel II "+1 DI against Elves") — the same
- * bonus {@link availableDI} applies when the follower is admitted and
- * {@link revertOverextendedDirectInfluenceFollowers} applies when checking
- * whether it can still be retained, so all three must agree on the cost of
- * an already-held follower.
+ * effective mind (The Arkenstone raises Dwarf mind by 1) and honours a
+ * `control-restriction` cost override (Wizard's Myrmidon).
  *
- * Shared by {@link availableDI} and {@link normalUnusedDI} so both agree on
- * what "unused" means; only the *total* DI they start from differs.
+ * No restricted direct influence is credited here: this is the base cost that
+ * {@link directInfluenceLedger} then allocates across a controller's
+ * unrestricted and restricted allotments.
+ */
+function followerControlCost(
+  state: GameState,
+  followerChar: import('../../index.js').CharacterInPlay,
+  followerDef: CharacterCard,
+): number {
+  return controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind ?? 0) ?? 0;
+}
+
+/**
+ * Sum of the mind cost of every character a controller holds under direct
+ * influence, charged in full against unrestricted influence. Used by
+ * {@link normalUnusedDI}, where a le-150 nullification has already stripped
+ * every card-sourced restricted allotment.
  */
 function followersMindCost(
   state: GameState,
@@ -152,11 +161,169 @@ function followersMindCost(
     if (!followerChar) continue;
     const followerDef = resolveDef(state, followerChar.instanceId);
     if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      const baseCost = controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
-      usedDI += Math.max(0, baseCost - targetConditionalDIBonus(state, controller, followerDef));
+      usedDI += followerControlCost(state, followerChar, followerDef);
     }
   }
   return usedDI;
+}
+
+/**
+ * The result of allocating a controller's followers across his direct
+ * influence: how much *unrestricted* influence is left (negative when he is
+ * over-extended) and how much of each restricted allotment the followers have
+ * already consumed, keyed by {@link diPoolKey}.
+ */
+export interface DirectInfluenceLedger {
+  /** Unrestricted DI left after the followers are paid for; may be negative. */
+  readonly unrestricted: number;
+/** Card instance granting a restricted allotment → amount of it spent on followers. */
+  readonly poolsUsed: ReadonlyMap<CardInstanceId, number>;
+  /** Per-follower charge against *unrestricted* influence, largest first. */
+  readonly charges: readonly { readonly followerId: CardInstanceId; readonly charge: number }[];
+}
+
+/**
+ * Builds the `influence-check` resolver context a controller's conditional DI
+ * modifiers are evaluated against for one prospective target.
+ */
+function influenceCheckContext(
+  controller: import('../../index.js').CharacterInPlay,
+  ctrlDef: CharacterCard,
+  targetDef: CharacterCard,
+): ResolverContext {
+  return {
+    reason: 'influence-check',
+    // Effective prowess so stat-comparing conditions (Whip le-348:
+    // "prowess less than the bearer's") see the live value, not the
+    // printed one.
+    bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
+    target: {
+      name: targetDef.name,
+      race: targetDef.race,
+      homesite: parseHomesiteNames(targetDef.homesite ?? ''),
+      keywords: targetDef.keywords ?? [],
+      // Printed stats — the target is a definition, not yet in play here.
+      // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
+      ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
+      prowess: targetDef.prowess,
+    },
+  };
+}
+
+/**
+ * Breaks a controller's target-conditional direct influence against one target
+ * down by the card *instance* granting it.
+ *
+ * {@link targetConditionalDIBonus} returns the same influence as a single
+ * total; this keeps the sources apart so a follower already paid for out of
+ * one card's allotment cannot be paid for a second time out of that same
+ * allotment (CoE 3.14: restricted direct influence is applied once, not once
+ * per character being influenced).
+ *
+ * One card instance is one allotment, even when its restriction is spelled out
+ * as several `when`-filtered modifiers: Bûthrakaur ba-5's "+3 direct influence
+ * against Trolls, Orcs, Troll factions, and Orc factions" is a single +3 that
+ * the card data models as four effects, and spending it on an Orc must leave
+ * nothing for a Troll.
+ */
+function targetConditionalDIPools(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  targetDef: CharacterCard,
+): Map<CardInstanceId, number> {
+  const pools = new Map<CardInstanceId, number>();
+  const ctrlDef = resolveDef(state, controller.instanceId);
+  if (!ctrlDef || !isCharacterCard(ctrlDef)) return pools;
+  const resolverCtx = influenceCheckContext(controller, ctrlDef, targetDef);
+  const collected = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
+  const bySource = new Map<CardInstanceId, typeof collected>();
+  for (const effect of collected) {
+    bySource.set(effect.sourceInstance, [...(bySource.get(effect.sourceInstance) ?? []), effect]);
+  }
+  for (const [sourceInstance, effects] of bySource) {
+    const value = resolveStatModifiers(effects, 'direct-influence', 0, resolverCtx);
+    if (value !== 0) pools.set(sourceInstance, value);
+  }
+  return pools;
+}
+
+/**
+ * Pays for every follower a controller holds out of his direct influence.
+ *
+ * A controller's influence comes in two flavours: *unrestricted* influence
+ * (his `effectiveStats.directInfluence`, usable against anything) and
+ * *restricted* allotments gated on the target — Elf-stone tw-224's "+2 against
+ * Elves", Whip le-348's "+2 against one character with a mind and prowess less
+ * than the bearer's", Bolg ba-4's Orc bonuses. Each follower is paid for out
+ * of unrestricted influence first (CoE 3.14 spends unrestricted influence
+ * ahead of restricted influence), and only what is left over draws on the
+ * restricted allotments that match *that* follower.
+ *
+ * Two consequences matter to callers:
+ *
+ *  - A follower covered by a restricted allotment stops eating into the
+ *    controller's unrestricted influence, so a later check against an
+ *    unrelated target (a faction-influence attempt by the same character) sees
+ *    the influence it should — the bug behind Whip le-348 reporting an
+ *    Orc-Captain at −2 DI.
+ *  - An allotment already spent on a follower is *gone*: a second character
+ *    matching the same restriction cannot be admitted on it (CoE 3.14 —
+ *    restricted direct influence is applied once, not once per character being
+ *    influenced).
+ */
+function directInfluenceLedger(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+  unrestrictedDI: number,
+): DirectInfluenceLedger {
+  const poolsUsed = new Map<CardInstanceId, number>();
+  const charges: { followerId: CardInstanceId; charge: number }[] = [];
+  let unrestricted = unrestrictedDI;
+
+  for (const followerId of controller.followers) {
+    const followerChar = player.characters[followerId as string];
+    if (!followerChar) continue;
+    const followerDef = resolveDef(state, followerChar.instanceId);
+    if (!isCharacterCard(followerDef) || followerDef.mind === null) continue;
+
+    let owed = followerControlCost(state, followerChar, followerDef);
+    const fromUnrestricted = Math.min(Math.max(0, unrestricted), owed);
+    unrestricted -= fromUnrestricted;
+    owed -= fromUnrestricted;
+
+    if (owed > 0) {
+      for (const [key, amount] of targetConditionalDIPools(state, controller, followerDef)) {
+        const free = amount - (poolsUsed.get(key) ?? 0);
+        if (free <= 0) continue;
+        const taken = Math.min(free, owed);
+        poolsUsed.set(key, (poolsUsed.get(key) ?? 0) + taken);
+        owed -= taken;
+        if (owed === 0) break;
+      }
+    }
+
+    // Whatever no allotment covers over-extends the controller: it drives his
+    // unrestricted influence negative, which is what the over-extension checks
+    // (`revertOverextendedDirectInfluenceFollowers`) look for.
+    unrestricted -= owed;
+    charges.push({ followerId, charge: fromUnrestricted + owed });
+  }
+
+  charges.sort((a, b) => b.charge - a.charge);
+  return { unrestricted, poolsUsed, charges };
+}
+
+/**
+ * Public entry point to {@link directInfluenceLedger} for a controller in
+ * play, starting from his effective (unrestricted) direct influence.
+ */
+export function directInfluenceLedgerFor(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+): DirectInfluenceLedger {
+  return directInfluenceLedger(state, controller, player, controller.effectiveStats.directInfluence);
 }
 
 /**
@@ -173,6 +340,12 @@ function followersMindCost(
  * played on him, attached hazards — is a modification from another card's text
  * and is therefore nullified, so it is deliberately **not** read off
  * `effectiveStats.directInfluence` the way {@link availableDI} does.
+ *
+ * Followers are charged their full mind cost here, without the restricted-DI
+ * credit {@link directInfluenceLedger} gives them: le-150 has already zeroed
+ * every card-sourced restricted allotment, and the controller's *own*
+ * restricted text is folded into `ownEffects` against the current target
+ * already — crediting it a second time against a follower would double it.
  *
  * @param ownEffects - the influencer's own-card effects, already filtered
  *   against `context` (i.e. the `sourceInstance === controllerInstanceId`
@@ -223,17 +396,23 @@ export function availableDI(
   const controller = player.characters[controllerInstanceId as string];
   if (!controller) return 0;
 
-  const usedDI = followersMindCost(state, controller, player);
-
-  let baseDI = controller.effectiveStats.directInfluence;
+  const ledger = directInfluenceLedgerFor(state, controller, player);
+  let baseDI = ledger.unrestricted;
 
   // When checking DI for a specific target, resolve conditional DI bonuses
-  // (e.g. Glorfindel II "+1 DI against Elves" uses reason: "influence-check")
+  // (e.g. Glorfindel II "+1 DI against Elves" uses reason: "influence-check"),
+  // net of whatever the controller's followers already spent out of those same
+  // restricted allotments (CoE 3.14 — each applies once, not once per
+  // character being influenced).
   if (targetDef) {
-    baseDI += targetConditionalDIBonus(state, controller, targetDef);
+    let alreadySpent = 0;
+    for (const [key, amount] of targetConditionalDIPools(state, controller, targetDef)) {
+      alreadySpent += Math.min(amount, ledger.poolsUsed.get(key) ?? 0);
+    }
+    baseDI += targetConditionalDIBonus(state, controller, targetDef) - alreadySpent;
   }
 
-  return baseDI - usedDI;
+  return baseDI;
 }
 
 /**
@@ -244,10 +423,10 @@ export function availableDI(
  * inside `effectiveStats.directInfluence`, so folding it in again would double
  * it (see `checkConditionalEffects`).
  *
- * Used both when admitting a follower ({@link availableDI}) and when the
- * organization phase ends and over-extended followers are released — the two
- * checks must agree, or a legally admitted follower would be released again
- * at the end of the same phase.
+ * This is the *gross* allotment against the target. Callers that must also
+ * account for what the controller's existing followers already spent out of
+ * the same allotments go through {@link availableDI}, which nets it off using
+ * the {@link DirectInfluenceLedger}.
  */
 export function targetConditionalDIBonus(
   state: GameState,
@@ -256,23 +435,7 @@ export function targetConditionalDIBonus(
 ): number {
   const ctrlDef = resolveDef(state, controller.instanceId);
   if (!ctrlDef || !isCharacterCard(ctrlDef)) return 0;
-  const resolverCtx: ResolverContext = {
-    reason: 'influence-check',
-    // Effective prowess so stat-comparing conditions (Whip le-348:
-    // "prowess less than the bearer's") see the live value, not the
-    // printed one.
-    bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
-    target: {
-      name: targetDef.name,
-      race: targetDef.race,
-      homesite: parseHomesiteNames(targetDef.homesite ?? ''),
-      keywords: targetDef.keywords ?? [],
-      // Printed stats — the target is a definition, not yet in play here.
-      // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
-      ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
-      prowess: targetDef.prowess,
-    },
-  };
+  const resolverCtx = influenceCheckContext(controller, ctrlDef, targetDef);
   const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
   const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
   if (conditionalDI !== 0) {
