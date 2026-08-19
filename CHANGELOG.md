@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.116.0 — 2026-08-19
+
+Nine engine bug fixes and a code-quality sweep that trims 600 lines
+
+### Game Engine
+
+- **Hazard cards with several play-options no longer silently fire the first
+  one.** Weariness of the Heart (le-149/tw-111) offers a prowess-penalty and a
+  corruption-check option on the same target; the character click now presents
+  a menu instead of always dispatching the prowess variant (#2500).
+- **Great-shield of Rohan dodges a strike instead of cancelling it outright**
+  (#2491).
+- **Store-item corruption check uses the pre-storage CP**, not the 0 CP the
+  character has once the item is already stored (#2492).
+- **Fireworks (dm-130) is playable at a site converted into a Wizardhaven**
+  by Hidden Haven (#2503).
+- **An agent without a home site is discarded at the right time**, not one
+  full turn late (#2502).
+- **Extra movement/hazard destinations (Carambor, `grant-extra-mh-phase`)
+  are enumerated correctly for mixed-alignment Fallen-wizard / Balrog decks**
+  (#2497).
+- **Gangways over the Fire honours Caverns Unchoked bridging consistently**:
+  the legal-action offer and the reducer's validation now agree on the
+  moving player's dynamic Under-deeps adjacency (#2488).
+- **Heuristic AI no longer stalls forever after losing every character**
+  (#2489).
+- Certified **Stone of Erech (tw-334)** (#2501).
+
+### Web Client
+
+- **Forced item discards (Brigands, An Article Missing) are clickable again**
+  — the missing click handler is wired (#2499).
+- Character-targeting clicks (short-event, faction influence, ally, resource,
+  permanent-event, tap-alt permanent-event, hazard) are driven by one
+  `CHARACTER_TARGETING_MODES` table instead of seven copied branches (#2493).
+- Two-step-selection render caches and their re-render helpers are one
+  `renderCacheSlot()` factory + `reRenderFromCache()` (−183 lines, #2495).
+
+### Code Quality
+
+A delta scan over the ~30k lines added since 2026-07-30 folded the recurring
+idioms into shared helpers, all behaviour-preserving:
+
+- `pendingChainCards()` / `countUnresolvedChainHazards()` replace ten
+  hand-rolled "unresolved, un-negated chain entry" scans (#2487).
+- `siteDeckDestinations()` + `companySiteDef()` share the site-deck
+  enumerators and the current-site lookup idiom (#2488).
+- `rollDiceForPlayer()` replaces ten copies of roll → toast →
+  `lastDiceRoll` (#2490).
+- `playHazardInAltMode()` folds the four alternate-mode hazard play branches
+  (#2494).
+- Byte-identical Hall of Fire / Hidden Haven blocks merged (#2496);
+  `agentCurrentSiteName` reused instead of re-inlined (#2498).
+
 ## 0.115.0 — 2026-08-18
 
 Discards stay on your side of the table, and the AI finally plays its Wizard

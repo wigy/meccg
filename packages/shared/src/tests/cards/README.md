@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1163 | 1163 | 0 | 100.0% |
+| 1164 | 1164 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 108 | 108 | 100.0% |
 | LE | 304 | 304 | 100.0% |
 | TD | 96 | 96 | 100.0% |
-| TW | 356 | 356 | 100.0% |
+| TW | 357 | 357 | 100.0% |
 | WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
@@ -310,7 +310,7 @@
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
-| dm-130 | Fireworks | — | 17 | ☑ |
+| dm-130 | Fireworks | — | 18 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
 | dm-134 | Hall of Fire | — | 12 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
@@ -341,7 +341,7 @@
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
-| le-5 | Carambor | — | 7 | ☑ |
+| le-5 | Carambor | — | 8 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 2 | ☑ |
@@ -934,7 +934,7 @@
 | tw-247 | Gollum’s Fate | — | 4 | ☑ |
 | tw-248 | Great Ship | — | 12 | ☑ |
 | tw-249 | Great-road | — | 8 | ☑ |
-| tw-250 | Great-shield of Rohan | — | 9 | ☑ |
+| tw-250 | Great-shield of Rohan | — | 11 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-253 | Halfling Strength | — | 14 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
@@ -991,6 +991,7 @@
 | tw-330 | Star-glass | — | 14 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
+| tw-334 | Stone of Erech | — | 6 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
