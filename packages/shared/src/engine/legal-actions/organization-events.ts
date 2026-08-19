@@ -16,6 +16,10 @@ import type {
   MinionResourceEventCard,
   HazardEventCard,
   PlayTargetEffect,
+  PlayerState,
+  SiteCard,
+  Company,
+  SiteInPlay,
 } from '../../index.js';
 import type { ConvertCreatureToAllyEffect, RecruitmentVehicleEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -43,8 +47,8 @@ import { findEnvironmentTargets } from '../environment-targets.js';
  */
 function girdleSupporterCount(
   state: GameState,
-  player: import('../../index.js').PlayerState,
-  siteDef: import('../../index.js').SiteCard,
+  player: PlayerState,
+  siteDef: SiteCard,
 ): number {
   // Allies in play — allies attach to characters (CharacterInPlay.allies).
   let count = 0;
@@ -92,6 +96,36 @@ function companyHasOrcOrTroll(
     return !!def && 'race' in def
       && ((def as { race: Race }).race === Race.Orc || (def as { race: Race }).race === Race.Troll);
   });
+}
+
+/**
+ * Yields each of `player`'s companies whose current site resolves to a site
+ * card matching the event's site play-target filter, paired with the resolved
+ * site. Companies without a current site (or whose site does not resolve to a
+ * site card) are skipped silently; a filter mismatch logs a detail line and
+ * is skipped. Callers apply any further per-card gates on the yielded pairs.
+ */
+function* companiesAtMatchingSite(
+  state: GameState,
+  player: PlayerState,
+  def: { name: string },
+  sitePlayTarget: PlayTargetEffect,
+): Generator<{ company: Company; currentSite: SiteInPlay; siteDefId: CardDefinitionId; siteDef: SiteCard }> {
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const currentSite = company.currentSite;
+    const siteDefId = currentSite.definitionId;
+    const siteDef = defById(state, siteDefId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    if (sitePlayTarget.filter) {
+      const matchTarget = buildSiteFilterContext(state, siteDef, currentSite.instanceId);
+      if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+        logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+        continue;
+      }
+    }
+    yield { company, currentSite, siteDefId, siteDef };
+  }
 }
 
 /**
@@ -450,18 +484,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
-          }
+        for (const { company, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           const charFilter = charPlayTarget?.filter;
           if (charFilter) {
             const hasEligibleChar = company.characters.some(charId => {
@@ -551,21 +574,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         if (blockedByCardInPlay) continue;
 
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
+        for (const { company, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           if (!isCompanyAtSite(state, player, company)) {
             logDetail(`Permanent event ${def.name}: company ${company.id as string} moved this turn and is not yet "at" its site (rule 2.IV.5)`);
             continue;
-          }
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
           }
           const charFilter = charPlayTarget?.filter;
           let targetCharacterId: CardInstanceId | undefined;
@@ -618,21 +630,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (hasPlayFlag(def, 'tapped-site-only') && company.currentSite.status !== CardStatus.Tapped) {
+        for (const { company, currentSite, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
+          if (hasPlayFlag(def, 'tapped-site-only') && currentSite.status !== CardStatus.Tapped) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not tapped`);
             continue;
-          }
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
           }
           const charFilter = charPlayTarget?.filter;
           if (charFilter) {
@@ -705,18 +706,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       );
       if (!orgPhaseSiteTiming && (havenRestoreTrigger || wizardhavenConversionTrigger)) {
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
-          }
+        for (const { siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           anyPlayable = true;
           logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
           actions.push({
@@ -751,23 +741,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const supportersInRegionCond = findPlayConditionEffect(def, 'supporters-in-region');
       const siteDupLimit = findDuplicationLimitEffect(def, 'site');
       let anySite = false;
-      for (const company of player.companies) {
-        if (!company.currentSite) continue;
-        const siteDefId = company.currentSite.definitionId;
-        const siteDef = defById(state, siteDefId);
-        if (!siteDef || !isSiteCard(siteDef)) continue;
-        if (sitePlayTarget.filter) {
-          // The shared site play-target context — the site definition plus its
-          // region type, its *effective* type after any wizardhaven-conversion
-          // / site-type-override, and the Wizardhaven / protected flags — so
-          // filters like Hidden Haven's region gate or Guarded Haven's "your
-          // Wizardhaven [{H}]" match dynamically converted sites.
-          const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-          if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-            logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-            continue;
-          }
-        }
+      // The shared site play-target context (see `companiesAtMatchingSite`)
+      // is the site definition plus its region type, its *effective* type
+      // after any wizardhaven-conversion / site-type-override, and the
+      // Wizardhaven / protected flags — so filters like Hidden Haven's region
+      // gate or Guarded Haven's "your Wizardhaven [{H}]" match dynamically
+      // converted sites.
+      for (const { siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
         if (siteProtectedCond) {
           const protectedForPlayer = isSiteProtectedForPlayer(state, siteDefId, playerId);
           if (!protectedForPlayer) {
