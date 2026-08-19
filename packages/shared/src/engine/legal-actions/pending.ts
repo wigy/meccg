@@ -2026,23 +2026,45 @@ function applyNoCreatureHazardsOnCompany(
   if (constraint.target.kind !== 'company') return base;
   const protectedCompany = constraint.target.companyId;
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    // Check whether the played card is a hazard creature
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'no-creature-hazards-on-company', def => {
     // creatures-always-keyed-to-site bypass: if the destination site carries
     // this rule and the creature is keyed to the site by type or name, allow it.
     if (isCreatureSiteKeyedBypassed(state, protectedCompany, def)) {
-      logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): "${def.name}" bypassed by creatures-always-keyed-to-site rule`);
-      return true;
+      return { allow: true, note: `"${def.name}" bypassed by creatures-always-keyed-to-site rule` };
     }
-    logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): dropping creature play "${def.name}" against protected company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping creature play "${def.name}" against protected company ${protectedCompany as string}` };
+  });
+}
+
+/** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
+type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+
+/**
+ * Shared post-filter for constraints restricting hazard-creature plays against
+ * a protected company. Every action that is not a `play-hazard` of a hazard
+ * creature against `protectedCompany` passes through untouched; for the rest,
+ * `verdict` decides whether the play survives and may attach a `note`, which is
+ * logged as `Constraint <id> (<label>): <note>`.
+ */
+function filterCreaturePlaysAgainstCompany(
+  state: GameState,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+  protectedCompany: CompanyId,
+  label: string,
+  verdict: (def: import('../../types/cards-hazards.js').CreatureCard, action: CreaturePlayAction) => { allow: boolean; note?: string },
+): EvaluatedAction[] {
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const action = ea.action as CreaturePlayAction;
+    if (action.targetCompanyId !== protectedCompany) return true;
+    const cardInstId = action.cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    const { allow, note } = verdict(def, action);
+    if (note) logDetail(`Constraint ${constraint.id as string} (${label}): ${note}`);
+    return allow;
   });
 }
 
@@ -2099,20 +2121,11 @@ function applyOnlyCreaturesKeyedToSite(
   if (constraint.target.kind !== 'company') return base;
   const protectedCompany = constraint.target.companyId;
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-creatures-keyed-to-site', def => {
     if (isCreatureKeyedToDestinationSite(state, def)) {
-      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): "${def.name}" is site-keyed — allowed`);
-      return true;
+      return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
     }
-    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 
@@ -2133,20 +2146,11 @@ function applyOnlyRaceCreaturesOnCompany(
   const protectedCompany = constraint.target.companyId;
   const race = constraint.kind.race;
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-race-creatures-on-company', def => {
     if (def.race === race || def.additionalRaces?.includes(race)) {
-      logDetail(`Constraint ${constraint.id as string} (only-race-creatures-on-company): "${def.name}" is ${race} — allowed`);
-      return true;
+      return { allow: true, note: `"${def.name}" is ${race} — allowed` };
     }
-    logDetail(`Constraint ${constraint.id as string} (only-race-creatures-on-company): dropping non-${race} creature "${def.name}" against company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping non-${race} creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 
@@ -2178,20 +2182,11 @@ function applyOnlyCreaturesKeyedToSiteAtRuinsLairs(
     return base;
   }
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-creatures-keyed-to-site-at-ruins-lairs', def => {
     if (isCreatureKeyedToDestinationSite(state, def)) {
-      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): "${def.name}" is site-keyed — allowed`);
-      return true;
+      return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
     }
-    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 
@@ -2237,18 +2232,10 @@ function applyNoCreaturesKeyedToSite(
     }
   }
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const action = ea.action as { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
-    if (action.targetCompanyId !== protectedCompany) return true;
-    const cardInstId = action.cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'no-creatures-keyed-to-site', (def, action) => {
     const method = action.keyedBy?.method;
-    if (!method || !SITE_KEYING_METHODS.has(method)) return true;
-    logDetail(`Constraint ${constraint.id as string} (no-creatures-keyed-to-site): dropping site-keyed (${method}) creature play "${def.name}" against protected company ${protectedCompany as string}`);
-    return false;
+    if (!method || !SITE_KEYING_METHODS.has(method)) return { allow: true };
+    return { allow: false, note: `dropping site-keyed (${method}) creature play "${def.name}" against protected company ${protectedCompany as string}` };
   });
 }
 
