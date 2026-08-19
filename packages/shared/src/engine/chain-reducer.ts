@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -2632,7 +2632,8 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       const bearer = bearerPi >= 0 ? newState.players[bearerPi].characters[targetCharId] : undefined;
       const bearerDef = bearer ? defById(newState, bearer.definitionId) : undefined;
       const effectiveMind = bearer?.effectiveStats.mind ?? printedMind(bearerDef);
-      const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === Race.Wizard;
+      const bearerRace = raceForCardTextFilter(bearerDef);
+      const isWizard = Array.isArray(bearerRace) ? bearerRace.includes(Race.Wizard) : bearerRace === Race.Wizard;
       const rollBonus = effectiveMind + (isWizard ? rollUntapEffect.wizardBonus : 0);
       logDetail(`"${def?.name ?? '?'}" roll-untap-site: enqueuing dice-check (roll + mind ${effectiveMind}${isWizard ? ` + wizard ${rollUntapEffect.wizardBonus}` : ''} = +${rollBonus} > ${rollUntapEffect.threshold}) on ${targetCharId as string}`);
       newState = enqueueResolution(newState, {
