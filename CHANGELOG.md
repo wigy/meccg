@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.117.0 — 2026-08-19
+
+Combat, scoring and Fallen-wizard bug fixes plus a reducer code-quality sweep
+
+### Game Engine
+
+- **A multi-attack creature is no longer counted as defeated when some of
+  its attacks were merely canceled.** Assassin (tw-8) with two attacks
+  canceled by Dark Quarrels and the third beaten in combat awarded its 2 kill
+  MP; per CRF 22 annotation 14 every attack must be defeated, so canceled
+  attacks now block the kill (#2512).
+- **Fireworks (dm-130) gives its "+10 if a Wizard" untap bonus to a
+  Fallen-wizard avatar sage** — the raw `race` check missed `fallen-wizard`;
+  it now goes through `raceForCardTextFilter()` per g.wiz.F1 (#2508).
+- **No Strangers at this Time (as-51) is no longer playable at a site
+  converted into a Wizardhaven** by Chambers in the Royal Court + Guarded
+  Haven; the play-target filter now tests `effectiveSiteType` instead of the
+  printed type (#2509).
+- **`regressable(state, action)`** replaces `viableWithRegress` and a shared
+  `planMovement` builder covers the five identical plan-movement emitters in
+  the organization phase (#2506).
+- **`guardResolution`** (ex `guardRollResolution`) now also narrows the action
+  and is reused by eleven more pending-resolution reducers (#2505).
+- **`activate-granted-action` is routed once in `handleSite`** instead of in
+  every one of 15 site-step handlers (#2504).
+- **`removeSpentEventFromGame`** helper replaces four hand-rolled discard →
+  out-of-play relocations in the chain reducer (#2507).
+
+### Web Client
+
+- **The Game Over "Total" row shows the authoritative `finalScores`**, so the
+  unique-card-reveal penalty (rule 10.3.v) is reflected in the total (#2511).
+- **Carambor's extra movement/hazard-phase tap is offered as a clickable
+  button** under the company's site area; previously the legal action was
+  only reachable from the debug panel and players saw nothing but "Pass"
+  (#2510).
+
+### Infrastructure
+
+- `bin/pr-check` split out of `bin/run-ai`.
+
 ## 0.116.0 — 2026-08-19
 
 Nine engine bug fixes and a code-quality sweep that trims 600 lines

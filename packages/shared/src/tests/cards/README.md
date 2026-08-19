@@ -55,7 +55,7 @@
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
-| as-51 | No Strangers at this Time | — | 16 | ☑ |
+| as-51 | No Strangers at this Time | — | 17 | ☑ |
 | as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-58 | Angmarim | — | 5 | ☑ |
@@ -310,7 +310,7 @@
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
-| dm-130 | Fireworks | — | 18 | ☑ |
+| dm-130 | Fireworks | — | 19 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
 | dm-134 | Hall of Fire | — | 12 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
@@ -743,7 +743,7 @@
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
-| tw-008 | — | — | 11 | ☑ |
+| tw-008 | — | — | 12 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-12 | Balrog of Moria | — | 11 | ☑ |
