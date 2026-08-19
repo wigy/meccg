@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -48,23 +48,6 @@ import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
 import { cardTargetsSetAside } from '../set-aside.js';
-
-/**
- * Count unresolved hazard-creature / hazard-event chain entries. Used
- * as a context field for granted-action constraints whose `when`
- * checks chain state (e.g. Great Ship needs at least one unresolved
- * hazard to offer a cancel).
- */
-function countUnresolvedChainHazards(state: GameState): number {
-  if (!state.chain) return 0;
-  let n = 0;
-  for (const e of state.chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    const def = defById(state, e.card.definitionId);
-    if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
-  }
-  return n;
-}
 
 /**
  * Compute legal actions for the movement/hazard phase.
