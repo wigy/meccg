@@ -6,7 +6,7 @@
  * shared across multiple phases (organization, long-event, movement/hazard).
  */
 
-import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
+import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction, PlayerId } from '../index.js';
 import { parseConstraintScope } from './constraint-kind.js';
 import { enterMovementHazardPhase } from './mh-phase-state.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -383,6 +383,31 @@ export function dispatchShortEventByCardType(state: GameState, action: GameActio
     : handlePlayShortEvent(state, action);
 }
 
+/**
+ * Route a resource short event from hand onto the chain of effects (CoE
+ * 9.4/9.5): reveal the hand card so the opponent toast can name it, remove it
+ * from the hand, and push a `short-event` chain entry carrying `payload`
+ * (a bare `{ type: 'short-event' }` by default). The reveal is applied before
+ * the hand removal so the visibility event is emitted while the card is still
+ * in hand. `what` names the effect in the log line.
+ */
+function routeShortEventToChain(
+  state: GameState,
+  playerIndex: number,
+  playerId: PlayerId,
+  handCard: CardInstance,
+  what: string,
+  payload: ChainEntryPayload = { type: 'short-event' },
+): ReducerResult {
+  const revealed = revealInstances(state, [handCard]);
+  const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, handCard.instanceId),
+  }));
+  logDetail(`${state.cardPool[handCard.definitionId].name} → chain of effects (${what} resolves on chain resolution)`);
+  return { state: initiateOrPushChain(afterReveal, playerId, handCard, payload) };
+}
+
 export function handlePlayResourceShortEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
 
@@ -407,15 +432,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     (e): e is import('../types/effects.js').DrawCardsEffect => e.type === 'draw-cards',
   );
   if (drawCardsEffect) {
-    const revealed = revealInstances(state, [handCard]);
-    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
-      ...p,
-      hand: removeById(p.hand, handCard.instanceId),
-    }));
-    logDetail(`${def.name} → chain of effects (draw resolves on chain resolution)`);
-    const payload: ChainEntryPayload = { type: 'short-event' };
-    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
-    return { state: chained };
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'draw');
   }
 
   // new-hand (Favor of the Valar tw-239): shuffle the player's hand and discard
@@ -428,15 +445,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     (e): e is import('../types/effects.js').NewHandEffect => e.type === 'new-hand',
   );
   if (newHandEffect) {
-    const revealed = revealInstances(state, [handCard]);
-    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
-      ...p,
-      hand: removeById(p.hand, handCard.instanceId),
-    }));
-    logDetail(`${def.name} → chain of effects (new hand resolves on chain resolution)`);
-    const payload: ChainEntryPayload = { type: 'short-event' };
-    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
-    return { state: chained };
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'new hand');
   }
 
   // Pure fetch-to-deck short event (e.g. Smoke Rings dm-159, Weigh All Things
@@ -459,15 +468,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     || action.discardTargetInstanceId
   );
   if (allEffectsAreFetch && !hasActionTarget) {
-    const revealed = revealInstances(state, [handCard]);
-    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
-      ...p,
-      hand: removeById(p.hand, handCard.instanceId),
-    }));
-    logDetail(`${def.name} → chain of effects (fetch resolves on chain resolution)`);
-    const payload: ChainEntryPayload = { type: 'short-event' };
-    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
-    return { state: chained };
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'fetch');
   }
 
   // Influence-check-boost short events (e.g. Tempering Friendship tw-337,
@@ -493,19 +494,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     && influenceBoostOption.apply.constraint === 'check-modifier'
     && influenceBoostOption.apply.check === 'influence'
   ) {
-    const revealed = revealInstances(state, [handCard]);
-    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
-      ...p,
-      hand: removeById(p.hand, handCard.instanceId),
-    }));
-    logDetail(`${def.name} → chain of effects (influence boost resolves on chain resolution)`);
-    const payload: ChainEntryPayload = {
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'influence boost', {
       type: 'short-event',
       targetCharacterId: action.targetCharacterId,
       optionId: action.optionId,
-    };
-    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
-    return { state: chained };
+    });
   }
 
   // Resource short events skip the chain today — the played card goes
