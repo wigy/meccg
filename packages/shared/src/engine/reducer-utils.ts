@@ -424,6 +424,30 @@ export function updatePlayer(
 }
 
 /**
+ * "Remove this card from the game": move the spent event `eventInstanceId` —
+ * already sitting in `ownerId`'s discard pile from play time — to that
+ * player's out-of-play pile, logging under `label`. No-op when the card is not
+ * in the discard pile (e.g. already relocated by an earlier resolution step).
+ */
+export function removeSpentEventFromGame(
+  state: GameState,
+  ownerId: PlayerId,
+  eventInstanceId: CardInstanceId,
+  label: string,
+): GameState {
+  const ownerIdx = getPlayerIndex(state, ownerId);
+  const spent = state.players[ownerIdx].discardPile.find(c => c.instanceId === eventInstanceId);
+  if (!spent) return state;
+  const next = updatePlayer(state, ownerIdx, p => ({
+    ...p,
+    discardPile: p.discardPile.filter(c => c.instanceId !== eventInstanceId),
+    outOfPlayPile: [...p.outOfPlayPile, spent],
+  }));
+  logDetail(`${label}: removed from the game (→ ${next.players[ownerIdx].name}'s out-of-play pile)`);
+  return next;
+}
+
+/**
  * Immutably update a single character in a player's `characters` map.
  * Returns the player unchanged if `charId` is not found.
  */

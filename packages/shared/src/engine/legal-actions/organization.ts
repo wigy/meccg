@@ -20,7 +20,6 @@ import type {
   CharacterCard,
   ResourceEventCard,
   MovementHazardPhaseState,
-  GameAction,
   PlayerState,
   SiteCard,
   Company,
@@ -46,7 +45,7 @@ import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifesta
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { viableWithRegress } from '../reverse-actions.js';
+import { regressable } from '../reverse-actions.js';
 import { playCharacterActions, discardCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -618,12 +617,11 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   for (const company of player.companies) {
     if (company.destinationSite !== null) {
       logDetail(`Company ${company.id as string} has planned movement → can cancel`);
-      const candidate: GameAction = {
+      actions.push(regressable(state, {
         type: 'cancel-movement',
         player: playerId,
         companyId: company.id,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      }));
     }
   }
 
