@@ -145,6 +145,10 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
   });
 
   test('agent revealed without home site is discarded at end of turn (rule 9.04)', () => {
+    // Turns strictly alternate, so a player's own untap phase always follows
+    // a turn during which THEY were the hazard player. An agent this player
+    // revealed without a home site during the preceding turn therefore lives
+    // in their own `agents` zone (PLAYER_1) by the time PLAYER_1's untap runs.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Untap,
@@ -168,17 +172,60 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
     const state = {
       ...base,
       players: [
-        base.players[0],
-        { ...base.players[1], agents: [agent] },
+        { ...base.players[0], agents: [agent] },
+        base.players[1],
       ] as unknown as typeof base.players,
     };
 
     // Dispatch the 'untap' action (resource player untaps — triggers performUntap which discards)
     const after = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
-    // Agent is gone
-    expect(after.players[HAZARD_PLAYER].agents).toHaveLength(0);
-    // Character card ends up in hazard player's discard pile
-    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
+    // Agent is gone from its owner's (PLAYER_1's) zone
+    expect(after.players[0].agents).toHaveLength(0);
+    // Character card ends up in its owning player's discard pile
+    expect(after.players[0].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
+  });
+
+  test('agent revealed without home site during opponent\'s turn is NOT discarded until its own owner\'s next untap, not delayed an extra turn', () => {
+    // Reproduces a reported bug: an agent revealed as hazard during the
+    // opponent's turn was only discarded two turns later (on the opponent's
+    // own subsequent untap) instead of at the very next untap phase (its
+    // owner's own, which immediately follows per rule 9.04).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: AGENT_CHAR,
+      revealed: true,
+      siteStack: [],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: true,
+    };
+
+    // PLAYER_2 owns the agent — it was revealed as a hazard during PLAYER_1's
+    // preceding turn. PLAYER_2's own untap phase (starting their next turn,
+    // right after PLAYER_1's) is where the discard must happen.
+    const state = {
+      ...base,
+      activePlayer: PLAYER_2,
+      players: [
+        base.players[0],
+        { ...base.players[1], agents: [agent] },
+      ] as unknown as typeof base.players,
+    };
+
+    const after = dispatch(state, { type: 'untap', player: PLAYER_2 });
+
+    expect(after.players[1].agents).toHaveLength(0);
+    expect(after.players[1].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
   });
 });

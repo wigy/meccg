@@ -455,10 +455,14 @@ function performUntap(state: GameState): GameState {
     }
   }
 
-  // Rule 9.04: Discard agents revealed without a home site. These belong to the
-  // hazard player (the opponent of the active player). They are discarded at the
-  // end of the turn in which they were revealed — which is the active player's turn.
-  const hazardPlayerIndex = 1 - playerIndex;
+  // Rule 9.04: Discard agents revealed without a home site. They are discarded
+  // at the end of the turn in which they were revealed. Since turns strictly
+  // alternate between the two players, "the turn that just ended" was always
+  // the other player's turn, and its hazard player — the one who revealed the
+  // agent — is exactly the player now starting their own untap (playerIndex).
+  // Using `1 - playerIndex` here would look at the wrong player's agents and
+  // delay the discard by a full extra turn.
+  const hazardPlayerIndex = playerIndex;
   const hazardPlayer = stateAfterUntap.players[hazardPlayerIndex];
   const discarded = hazardPlayer.agents.filter(a => a.discardAtEndOfTurn);
   if (discarded.length > 0) {
