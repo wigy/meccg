@@ -325,6 +325,25 @@ export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: stri
 }
 
 /**
+ * Roll 2d6 for the player at `rollerIndex`: advance the RNG (consuming any
+ * cheat roll), build the {@link diceRollEffect} toast and store the roll as
+ * that player's `lastDiceRoll`. `label` may be a function of the roll so the
+ * toast can quote the dice. The caller applies any modifier, compares to its
+ * threshold and continues from the returned `state`.
+ */
+export function rollDiceForPlayer(
+  state: GameState,
+  rollerIndex: number,
+  label: string | ((roll: TwoDiceSix, total: number) => string),
+): { readonly roll: TwoDiceSix; readonly total: number; readonly rollEffect: DiceRollEffect; readonly state: GameState } {
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const rollEffect = diceRollEffect(state.players[rollerIndex].name, roll, typeof label === 'string' ? label : label(roll, total));
+  const rolledState = updatePlayer({ ...state, rng, cheatRollTotal }, rollerIndex, p => ({ ...p, lastDiceRoll: roll }));
+  return { roll, total, rollEffect, state: rolledState };
+}
+
+/**
  * Build the {@link ResolutionScope} for a corruption check or other resolution
  * enqueued during a company's combat. Companies resolve hazards in the
  * movement/hazard phase and automatic attacks in the site phase; each phase
