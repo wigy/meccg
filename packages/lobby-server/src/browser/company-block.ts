@@ -146,6 +146,93 @@ function getCompanyName(
 }
 
 /**
+ * The "selected card → click a character to target it" modes of
+ * `buildCombinedClick`, in priority order. Each mode reads its selection from
+ * the render selection state, lists the viable actions that play the selected
+ * card on the clicked character, and clears the selection once one fires.
+ * A mode with an active selection but no match makes the character
+ * unclickable (no fall-through to the ordinary character actions).
+ */
+interface CharacterTargetingMode {
+  readonly selected: () => CardInstanceId | null;
+  readonly clear: () => void;
+  readonly find: (viable: readonly GameAction[], selected: CardInstanceId, charInstId: CardInstanceId) => readonly GameAction[];
+  /** Menu label when several actions match (only faction influence has variants). */
+  readonly label?: (action: GameAction) => string;
+}
+
+/** The first viable action matching `pred`, as a 0- or 1-element list. */
+function firstMatch(viable: readonly GameAction[], pred: (a: GameAction) => boolean): readonly GameAction[] {
+  const action = viable.find(pred);
+  return action ? [action] : [];
+}
+
+const CHARACTER_TARGETING_MODES: readonly CharacterTargetingMode[] = [
+  // Short-event character targeting (e.g. Stealth → scout)
+  {
+    selected: getSelectedShortEvent,
+    clear: clearShortEventSelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-short-event' && a.cardInstanceId === selected && a.targetScoutInstanceId === charInstId,
+    ),
+  },
+  // Faction influence targeting: plain vs. leader-control variants
+  {
+    selected: getSelectedFactionForInfluence,
+    clear: clearFactionInfluenceSelection,
+    find: findInfluenceVariants,
+    label: a => influenceVariantLabel(a as InfluenceAttemptAction),
+  },
+  // Ally play targeting: click an untapped character to control the selected ally
+  {
+    selected: getSelectedAllyForPlay,
+    clear: clearAllyPlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-hero-resource' && a.cardInstanceId === selected && a.attachToCharacterId === charInstId,
+    ),
+  },
+  // Resource/item play targeting: click an untapped character to bear the selected resource
+  {
+    selected: getSelectedResourceForPlay,
+    clear: clearResourcePlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
+        && a.cardInstanceId === selected && a.attachToCharacterId === charInstId,
+    ),
+  },
+  // Permanent-event character targeting: click a character to apply the selected permanent event
+  {
+    selected: getSelectedPermanentEventForPlay,
+    clear: clearPermanentEventPlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-permanent-event' && a.cardInstanceId === selected
+        && 'targetCharacterId' in a && a.targetCharacterId === charInstId,
+    ),
+  },
+  // Tap-alt-permanent-event character targeting: after clicking an in-play
+  // creature-permanent-event (e.g. Adûnaphel tw-2), click any eligible
+  // character — of either player — to tap it. The target may belong to the
+  // opponent, so this mode runs for both self and opponent columns.
+  {
+    selected: getSelectedTapAltPermanentEvent,
+    clear: clearTapAltPermanentEventSelection,
+    find: (viable, selected, charInstId) => {
+      const action = findTapAltPermanentEventTarget(viable, selected, charInstId);
+      return action ? [action] : [];
+    },
+  },
+  // Hazard character targeting: click a character to play the hazard on them
+  {
+    selected: getSelectedHazardForPlay,
+    clear: clearHazardPlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-hazard' && a.cardInstanceId === selected
+        && 'targetCharacterId' in a && a.targetCharacterId === charInstId,
+    ),
+  },
+];
+
+/**
  * Render a complete company block: name label, site area, character columns.
  * Used at both scales via the --company-scale CSS variable.
  */
@@ -661,170 +748,40 @@ export function renderCompanyBlock(
 
   /** Combine all character click handlers into one: if one action type, take it; if multiple, show tooltip. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
-    // Short-event character targeting (e.g. Stealth → scout) takes priority when active
-    const selectedSE = getSelectedShortEvent();
-    if (selectedSE) {
-      const seAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-short-event'
-          && a.cardInstanceId === selectedSE
-          && a.targetScoutInstanceId === charInstId,
-      );
-      if (seAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearShortEventSelection();
-            options?.onAction?.(seAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Faction influence targeting takes priority when active
-    const selectedFaction = getSelectedFactionForInfluence();
-    if (selectedFaction) {
-      const influenceVariants = findInfluenceVariants(
-        viableActions(view.legalActions), selectedFaction, charInstId,
-      );
-      if (influenceVariants.length > 0) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            // A single variant fires immediately. Two variants (plain vs.
-            // leader-control, e.g. Stone Trolls le-288) require a choice — show
-            // a tooltip menu so the player can place the faction under the
-            // Orc/Troll leader's control instead of always tapping the site.
-            if (influenceVariants.length === 1) {
-              clearFactionInfluenceSelection();
-              options?.onAction?.(influenceVariants[0]);
-              return;
-            }
-            showTooltipMenu(
-              e.target as HTMLElement,
-              influenceVariants.map(variant => ({
-                label: influenceVariantLabel(variant),
-                onClick: () => {
-                  clearFactionInfluenceSelection();
-                  options?.onAction?.(variant);
-                },
-              })),
-              { placement: 'auto' },
-            );
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Ally play targeting: click an untapped character to control the selected ally
-    const selectedAlly = getSelectedAllyForPlay();
-    if (selectedAlly) {
-      const allyAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-hero-resource'
-          && a.cardInstanceId === selectedAlly
-          && a.attachToCharacterId === charInstId,
-      );
-      if (allyAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearAllyPlaySelection();
-            options?.onAction?.(allyAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Resource/item play targeting: click an untapped character to bear the selected resource
-    const selectedResource = getSelectedResourceForPlay();
-    if (selectedResource) {
-      const resourceAction = viableActions(view.legalActions).find(
-        a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
-          && a.cardInstanceId === selectedResource
-          && a.attachToCharacterId === charInstId,
-      );
-      if (resourceAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearResourcePlaySelection();
-            options?.onAction?.(resourceAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Permanent-event character targeting: click a character to apply selected permanent event
-    const selectedPermanentEvent = getSelectedPermanentEventForPlay();
-    if (selectedPermanentEvent) {
-      const permEventAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-permanent-event'
-          && a.cardInstanceId === selectedPermanentEvent
-          && 'targetCharacterId' in a
-          && a.targetCharacterId === charInstId,
-      );
-      if (permEventAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearPermanentEventPlaySelection();
-            options?.onAction?.(permEventAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Tap-alt-permanent-event character targeting: after clicking an in-play
-    // creature-permanent-event (e.g. Adûnaphel tw-2), click any eligible
-    // character — of either player — to tap it. The target character may belong
-    // to the opponent, so this branch runs for both self and opponent columns.
-    const selectedTapAltPE = getSelectedTapAltPermanentEvent();
-    if (selectedTapAltPE) {
-      const tapAltAction = findTapAltPermanentEventTarget(
-        viableActions(view.legalActions), selectedTapAltPE, charInstId,
-      );
-      if (tapAltAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearTapAltPermanentEventSelection();
-            options?.onAction?.(tapAltAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Hazard character targeting: click a character to play hazard on them
-    const selectedHazard = getSelectedHazardForPlay();
-    if (selectedHazard) {
-      const hazardAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-hazard'
-          && a.cardInstanceId === selectedHazard
-          && 'targetCharacterId' in a
-          && a.targetCharacterId === charInstId,
-      );
-      if (hazardAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearHazardPlaySelection();
-            options?.onAction?.(hazardAction);
-          },
-        };
-      }
-      return undefined;
+    // A selected hand/in-play card looking for a character target takes
+    // priority over everything else: the character is clickable only when a
+    // viable action targets it with the selected card.
+    for (const mode of CHARACTER_TARGETING_MODES) {
+      const selected = mode.selected();
+      if (!selected) continue;
+      const matches = mode.find(viableActions(view.legalActions), selected, charInstId);
+      if (matches.length === 0) return undefined;
+      return {
+        cls: 'company-card--influence-target',
+        handler: (e) => {
+          e.stopPropagation();
+          // A single match fires immediately. Several (plain vs. leader-control
+          // faction influence, e.g. Stone Trolls le-288) require a choice — show
+          // a tooltip menu so the player can place the faction under the
+          // Orc/Troll leader's control instead of always tapping the site.
+          if (matches.length === 1) {
+            mode.clear();
+            options?.onAction?.(matches[0]);
+            return;
+          }
+          showTooltipMenu(
+            e.target as HTMLElement,
+            matches.map(action => ({
+              label: mode.label?.(action) ?? action.type,
+              onClick: () => {
+                mode.clear();
+                options?.onAction?.(action);
+              },
+            })),
+            { placement: 'auto' },
+          );
+        },
+      };
     }
 
     // Opponent influence targeting: selected influencer deselects on re-click
