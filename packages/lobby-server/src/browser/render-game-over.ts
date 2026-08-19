@@ -7,7 +7,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay } from '@meccg/shared';
-import { cardImageProxyPath, computeTournamentScore, computeTournamentBreakdown, isItemCard, Phase } from '@meccg/shared';
+import { cardImageProxyPath, computeTournamentBreakdown, isItemCard, Phase } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import { mpCategories } from './mp-categories.js';
 
@@ -116,8 +116,12 @@ export function renderGameOverView(
   const oppRaw = view.opponent.marshallingPoints;
   const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
   const oppAdj = computeTournamentBreakdown(oppRaw, selfRaw);
-  const selfTotal = computeTournamentScore(selfRaw, oppRaw);
-  const oppTotal = computeTournamentScore(oppRaw, selfRaw);
+  // The Total row must reflect the authoritative finalScores from the reducer
+  // (CoE 10.3.v unique-card-reveal penalty included), not a fresh
+  // computeTournamentScore() call — that only covers steps 2-4 and would
+  // silently drop the -1-per-match reveal penalty from the displayed total.
+  const selfTotal = goState.finalScores[view.self.id];
+  const oppTotal = goState.finalScores[view.opponent.id];
 
   const selfCards = collectMPCards(view.self.characters, view.self.cardsInPlay, view.self.killPile, cardPool);
   const oppCards = collectMPCards(view.opponent.characters, view.opponent.cardsInPlay, view.opponent.killPile, cardPool);
