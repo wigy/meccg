@@ -187,10 +187,25 @@ export function buildChainApplyContext(
  * for permanent/long events). `move` is intentionally NOT approved yet —
  * move effects are not dispatched through this loop today — and is added
  * when the move-dependent phases land.
+ *
+ * A dual-mode card that carries both `cancel-attack` and a discard-in-play
+ * `move` effect (The Cock Crows tw-342, Wizard's River-horses tw-364,
+ * Darkness Wielded ba-55) pushes a bare `short-event` payload when played
+ * in its cancel-attack mode, but stamps `discardTargetInstanceId` /
+ * `discardAllInPlay` on the payload when played in its discard mode
+ * instead (see `handleCancelAttack` / the discard-in-play branches in
+ * `reducer-events.ts`). Since this loop iterates every effect the card
+ * *defines* rather than the one the play action actually selected, a
+ * resolving discard-mode entry must not also fire the card's unrelated
+ * cancel-attack effect — that would end whatever attack merely happens to
+ * be active at resolution time, entirely by coincidence.
  */
 export function shouldFireOnChainResolution(
   effect: CardEffect,
-  _entry: { readonly payload: { readonly type: string } },
+  entry: { readonly payload: { readonly type: string; readonly discardTargetInstanceId?: unknown; readonly discardAllInPlay?: unknown } },
 ): boolean {
-  return effect.type === 'cancel-attack' || effect.type === 'strike-modifier';
+  if (effect.type === 'cancel-attack') {
+    return !entry.payload.discardTargetInstanceId && !entry.payload.discardAllInPlay;
+  }
+  return effect.type === 'strike-modifier';
 }

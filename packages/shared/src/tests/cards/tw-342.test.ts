@@ -327,4 +327,67 @@ describe('The Cock Crows (tw-342)', () => {
     const discardTargets = playActions.map(a => (a.action as PlayShortEventAction).discardTargetInstanceId);
     expect(new Set(discardTargets).size).toBe(2);
   });
+
+  test('discard mode does not cancel an unrelated non-Troll attack in progress (bug 80b01c8ac7c2faff)', () => {
+    // Regression: a Chill Douser (Undead) attack was wiped out mid
+    // strike-assignment after its defender played The Cock Crows in its
+    // discard-in-play mode (GoM in play, discarding an unrelated hazard
+    // permanent-event) — the chain resolver fired the card's cancel-attack
+    // effect too, purely because the card *defines* one, even though the
+    // played action never invoked it (cancel-attack isn't legal against a
+    // non-Troll attack in the first place). Orc Patrol stands in for the
+    // non-Troll attacker here.
+    const gomInPlay: CardInPlay = {
+      instanceId: mint() as unknown as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [THE_COCK_CROWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const withHazard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS, HAZARD_PLAYER);
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...withHazard, phaseState: mhState };
+
+    const orcId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).not.toBeNull();
+    expect(combatState.combat!.phase).toBe('assign-strikes');
+
+    // Cancel-attack is not legal (Orc Patrol is not a Troll) — only the
+    // discard-mode play-short-event should be offered.
+    expect(viableActions(combatState, PLAYER_1, 'cancel-attack')).toHaveLength(0);
+    const playActions = viableActions(combatState, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = playActions[0].action as PlayShortEventAction;
+    expect(action.discardTargetInstanceId).toBeDefined();
+
+    const after = resolveChain(dispatch(combatState, action));
+
+    // The unrelated attack must survive; only the targeted permanent-event
+    // was discarded.
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.phase).toBe('assign-strikes');
+    expectInDiscardPile(after, HAZARD_PLAYER, FOOLISH_WORDS);
+    expectInDiscardPile(after, RESOURCE_PLAYER, THE_COCK_CROWS);
+  });
 });
