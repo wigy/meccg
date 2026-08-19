@@ -93,6 +93,8 @@ function showAgentActionTooltip(
       label = 'Turn Face-Down';
     } else if (a.type === 'agent-key-creatures') {
       label = 'Key Creatures to Site';
+    } else if (a.type === 'agent-discard-return-to-origin') {
+      label = 'Discard: Return Company to Origin';
     } else {
       label = a.type;
     }
