@@ -40,6 +40,7 @@ import type {
   PayEventMaintenanceAction,
   ActivateOrgFetchAction,
   DiscardCharacterOrgAction,
+  DiscardItemFromCompanyAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -258,6 +259,8 @@ export function renderCompanyBlock(
     transferActions?: Map<string, TransferItemAction[]>;
     /** Map from item instance ID to store-item action for that item. */
     storeItemActions?: Map<string, StoreItemAction>;
+    /** Map from item instance ID to discard-item-from-company action for that item (Brigands, An Article Missing). */
+    discardItemFromCompanyActions?: Map<string, DiscardItemFromCompanyAction>;
     /** Map from character instance ID to split-company actions for that character. */
     splitActions?: Map<string, SplitCompanyAction>;
     /** Map from character instance ID to move-to-company actions for that character. */
@@ -523,6 +526,26 @@ export function renderCompanyBlock(
     if (discardClick) return discardClick;
 
     if (!options?.onAction) return undefined;
+    const onAction = options.onAction;
+
+    // Forced discard (e.g. Brigands, An Article Missing): a pending
+    // resolution requires the defending player to pick one company item to
+    // lose. While this is pending, it is the *only* legal action for the
+    // player, so it always takes priority over any other item interaction.
+    const forcedDiscardAction = options.discardItemFromCompanyActions?.get(itemInstId as string);
+    if (forcedDiscardAction) {
+      const itemDefId = cachedInstanceLookup(itemInstId);
+      const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          void showConfirm(`Discard ${itemName ?? 'this item'}?`).then(ok => {
+            if (ok) onAction(forcedDiscardAction);
+          });
+        },
+      };
+    }
 
     if (transferItemSourceId) {
       // We're in targeting mode — clicking a character card is the target, not items
@@ -543,7 +566,6 @@ export function renderCompanyBlock(
     }
 
     // Not in targeting mode — gather the item's possible actions.
-    const onAction = options.onAction;
     const storeAction = options.storeItemActions?.get(itemInstId as string);
     const hasStore = !!storeAction && storeAction.characterId === charInstId;
     const transferActions = options.transferActions?.get(itemInstId as string) ?? [];
