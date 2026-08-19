@@ -1705,12 +1705,19 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
       killPile: [...playerAfterRemoval.killPile, storedCard, ...companionCards],
     }));
 
+  // CoE 2.II.4.1: the bearer's corruption check for storing an item must
+  // count that item's own corruption points, even though the item has
+  // already physically moved to the marshalling point pile above — the
+  // check determines whether the store *succeeds*, so it has to be made
+  // as if the item were still borne. Reuses `transferredItemId`, the same
+  // already-moved-but-still-counted mechanism the transfer-item check uses.
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
+    transferredItemId: itemInstId,
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.
