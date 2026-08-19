@@ -398,7 +398,7 @@ describe('Dwar the Ringwraith (le-52)', () => {
 
   // ─── Rule #6: per-mode stat changes to the Ringwraith ─────────────────────────
 
-  test('-3 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('-3 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -410,8 +410,10 @@ describe('Dwar the Ringwraith (le-52)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const dwar = getCharacter(state, RESOURCE_PLAYER, DWAR);
-    expect(dwar.effectiveStats.directInfluence).toBe(2); // 5 - 3
-    expect(dwar.effectiveStats.prowess).toBe(9); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own -3 stacks on top of that.
+    expect(dwar.effectiveStats.directInfluence).toBe(5); // 5 - 3 (his own) + 3 (mode card)
+    expect(dwar.effectiveStats.prowess).toBe(7); // 9 - 2 (mode card); his Fell Rider penalty does not apply
   });
 
   test('-1 prowess in Fell Rider mode (direct influence unchanged)', () => {

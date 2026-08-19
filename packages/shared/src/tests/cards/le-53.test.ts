@@ -92,7 +92,7 @@ describe('Hoarmûrath the Ringwraith (le-53)', () => {
     expect(hoarmurath.effectiveStats.directInfluence).toBe(3);
   });
 
-  test('+1 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('+1 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -120,8 +120,10 @@ describe('Hoarmûrath the Ringwraith (le-53)', () => {
     state = recomputeDerived(state);
 
     const hoarmurath = getCharacter(state, RESOURCE_PLAYER, HOARMURATH);
-    expect(hoarmurath.effectiveStats.directInfluence).toBe(4); // 3 + 1
-    expect(hoarmurath.effectiveStats.prowess).toBe(8); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own +1 stacks on top of that.
+    expect(hoarmurath.effectiveStats.directInfluence).toBe(7); // 3 + 1 (his own) + 3 (mode card)
+    expect(hoarmurath.effectiveStats.prowess).toBe(6); // 8 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
   test('+2 prowess in Fell Rider mode (direct influence unchanged)', () => {
