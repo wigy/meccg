@@ -272,6 +272,50 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
 }
 
 /**
+ * Tap an in-play item (or ally) to resolve the current strike against its own
+ * bearer in dodge mode — full prowess, the strike still rolls normally, but
+ * the bearer doesn't tap unless the strike wounds him (CoE 3.iv.3 territory,
+ * paid by tapping the item instead of the usual -3 prowess penalty). Used by
+ * Great-shield of Rohan (tw-250): "Warrior only: tap Great Shield of Rohan to
+ * remain untapped against one strike (unless the bearer is wounded by the
+ * strike)." Reuses `resolveChainStrikeModifier`'s dodge path, matching the
+ * item-tap `cancel-strike` precedent of resolving immediately with no chain.
+ */
+export function handleDodgeStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'dodge-strike') return wrongActionType(state, action, 'dodge-strike');
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return { state, error: 'No active unresolved strike' };
+  if (currentStrike.characterId !== action.characterInstanceId) return { state, error: 'Item bearer is not the current strike target' };
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  if (!defPlayer.characters[action.characterInstanceId]) return { state, error: 'Character not found' };
+
+  const found = findAttachment(defPlayer, 'items', action.cardInstanceId)
+    ?? findAttachment(defPlayer, 'allies', action.cardInstanceId);
+  if (!found || found.charId !== action.characterInstanceId) return { state, error: 'Item not found on character' };
+  if (found.attachment.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = defById(state, found.attachment.definitionId);
+  const strikeEffect = getCardEffects(itemDef).find(
+    (e): e is StrikeModifierEffect => e.type === 'strike-modifier' && e.dodge === true && e.cost?.tap === 'self',
+  );
+  if (!strikeEffect) return { state, error: 'Item has no dodge strike-modifier effect' };
+
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (found.attachment.definitionId as string);
+  logDetail(`${itemName} taps so ${action.characterInstanceId as string} dodges the current strike (no tap unless wounded)`);
+
+  const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
+  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, tap)
+    ?? updateAttachment(defPlayer, 'allies', action.cardInstanceId, tap);
+  if (!tapped) return { state, error: 'Item not found on character' };
+
+  const nextState = updatePlayer(state, defPlayerIndex, () => tapped.player);
+  return resolveChainStrikeModifier(nextState, strikeEffect);
+}
+
+/**
  * Fled into Darkness (ba-18): the defending player plays a `flee-from-strike`
  * permanent-event from hand during resolve-strike to make the named character
  * (The Balrog) flee the current strike. The strike is canceled, the character
