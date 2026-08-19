@@ -32,6 +32,24 @@ import {
 /** Definition ID of Great Ship (tw-248) — see the `play-short-event` case below. */
 const GREAT_SHIP_ID = 'tw-248';
 
+/**
+ * Weight added to any `play-character` when the player has nothing in play.
+ * Large enough to outrank `pass` (5) whatever the character's stats are —
+ * see the company-less branch of `play-character` below.
+ */
+const REBUILD_BONUS = 100;
+
+/**
+ * True when the player has no characters in play at all.
+ *
+ * Such a player cannot move, score, or defend anything: every phase after the
+ * organization phase has nothing to act on, so the only way back into the game
+ * is to bring a character into play at a haven.
+ */
+function hasNoCharactersInPlay(view: AiContext['view']): boolean {
+  return Object.keys(view.self.characters ?? {}).length === 0;
+}
+
 export const organizationEvaluator: ActionEvaluator = {
   phases: ['organization', 'untap'],
 
@@ -54,7 +72,14 @@ export const organizationEvaluator: ActionEvaluator = {
         const giUsed = view.self.generalInfluenceUsed;
         const headroom = 20 - giUsed - mind;
         const penalty = headroom < 0 ? 50 : (headroom < 3 ? 5 : 0);
-        return Math.max(1, score - penalty);
+        const base = Math.max(1, score - penalty);
+        // With nothing in play, card stats decide *which* character to bring
+        // back but not *whether* to: any character beats passing, because
+        // passing forfeits every later phase. Without this, Anborn (0 MP, 2
+        // prowess) scored 2 against pass's flat 5 and the company-less player
+        // passed every organization phase for the rest of the game — the h1-vs-h2
+        // seed 32 stalemate that ran out the 25000-decision limit.
+        return hasNoCharactersInPlay(view) ? REBUILD_BONUS + base : base;
       }
 
       case 'play-permanent-event': {
@@ -231,6 +256,10 @@ export const organizationEvaluator: ActionEvaluator = {
         // playable item sitting still — the reported "it has a playable
         // item and healthy company but it does not move" bug.
         if (hasDirectlyPlayableMovement(view, pool, context.legalActions)) return 0;
+        // Likewise never pass out of a rebuild: with no characters in play,
+        // passing on a playable character forfeits the rest of the game.
+        if (context.legalActions.some(a => a.type === 'play-character')
+          && hasNoCharactersInPlay(view)) return 0;
         // Otherwise pass at a moderate weight: lower than a good play (which
         // scores 20+) but higher than mediocre busy-work, so the AI advances
         // the phase rather than thrashing on low-value moves.
