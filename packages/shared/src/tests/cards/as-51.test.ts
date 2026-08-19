@@ -14,7 +14,10 @@
  *    card. Cannot be duplicated on a given site."
  *
  * Effects:
- *   1. play-target site { siteType in [free-hold, border-hold] }        — site.ts filter
+ *   1. play-target site { effectiveSiteType in [free-hold, border-hold] } — site.ts filter
+ *        (keys off the *effective* type so a site converted into a Wizardhaven
+ *        by e.g. Chambers in the Royal Court wh-97 correctly stops qualifying —
+ *        regression: bug report on game mszxdmm1-v55s34)
  *   2. play-condition company-context { company.playedFactionHere }     — site.ts / reducer-utils
  *        (`PlayerState.factionsPlayedAtSites`, a persistent per-site record set
  *        when a faction resolves — not scoped to the current site-phase visit)
@@ -36,24 +39,34 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1,
   RESOURCE_PLAYER,
+  HAZARD_PLAYER,
   CardStatus,
-  buildSitePhaseState, buildMinionSitePhaseState,
+  buildSitePhaseState, buildMinionSitePhaseState, buildFallenWizardOrgPhaseState,
   resetMint, mint,
   viableActions, dispatch,
   findCharInstanceId,
   addP1CardsInPlay, addP2CardsInPlay,
   setupAutoAttackStep,
+  playPermanentEventAndResolve,
 } from '../test-helpers.js';
-import { ARAGORN, RIDERS_OF_ROHAN } from '../../index.js';
+import {
+  ARAGORN, RIDERS_OF_ROHAN, WELLINGHALL, Phase, SiteType,
+} from '../../index.js';
 import { resolveInfluenceAttemptRoll } from '../../engine/reducer-site.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
+import { getEffectiveSiteType } from '../../engine/effective.js';
 import type {
   CardDefinitionId, GameState, SitePhaseState,
   PlayPermanentEventAction,
 } from '../../index.js';
 
 const NO_STRANGERS = 'as-51' as CardDefinitionId;
+
+// Chambers in the Royal Court (wh-97): Gandalf-specific, converts a hero
+// Free-hold into a Wizardhaven for the converting player — see wh-97.test.ts.
+const CHAMBERS = 'wh-97' as CardDefinitionId;
+const GANDALF_AVATAR = 'wh-4' as CardDefinitionId; // Fallen-wizard avatar, home site "Any Free-hold"
 
 // Sites (shared pool).
 const GOBEL_MIRLOND = 'as-139' as CardDefinitionId;   // border-hold; Men 4/9 auto-attack; unconditional combat-detainment
@@ -120,6 +133,56 @@ describe('No Strangers at this Time (as-51)', () => {
     const state = withFactionPlayed(
       buildSitePhaseState({ site: MINAS_MORGUL, characters: [ARAGORN], hand: [NO_STRANGERS] }),
     );
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
+  });
+
+  test('NOT playable at a Free-hold converted into a Wizardhaven by Chambers in the Royal Court, even after a faction is played there (regression: bug report on game mszxdmm1-v55s34)', () => {
+    // Chambers in the Royal Court (wh-97) converts a hero Free-hold into a
+    // Wizardhaven for the converting player (effective site type: haven). The
+    // filter must key off that effective type, not the printed one — else No
+    // Strangers at this Time (which reads "siteType" verbatim) stays offered
+    // even though the site is no longer a Free-hold or Border-hold for this
+    // player.
+    const orgState = buildFallenWizardOrgPhaseState({
+      site: WELLINGHALL, characters: [GANDALF_AVATAR], hand: [CHAMBERS],
+    });
+    const chambersId = orgState.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === CHAMBERS)!.instanceId;
+    const converted = playPermanentEventAndResolve(
+      orgState, PLAYER_1, chambersId, undefined, { targetSiteDefinitionId: WELLINGHALL },
+    );
+    expect(getEffectiveSiteType(converted, WELLINGHALL, SiteType.FreeHold)).toBe(SiteType.Haven);
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const p1 = converted.players[RESOURCE_PLAYER];
+    const state: GameState = {
+      ...converted,
+      phaseState: sitePhaseState,
+      players: [
+        {
+          ...p1,
+          hand: [...p1.hand, { instanceId: mint(), definitionId: NO_STRANGERS, status: CardStatus.Untapped }],
+          factionsPlayedAtSites: { ...p1.factionsPlayedAtSites, [WELLINGHALL]: true },
+        },
+        converted.players[HAZARD_PLAYER],
+      ] as GameState['players'],
+    };
+
     expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBe(0);
   });
 

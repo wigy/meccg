@@ -14,7 +14,7 @@
         "type": "play-target",
         "target": "site",
         "filter": {
-          "siteType": {
+          "effectiveSiteType": {
             "$in": ["free-hold", "border-hold"]
           }
         }
