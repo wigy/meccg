@@ -41,11 +41,12 @@ export function isRegressive(candidate: GameAction, reverseActions: readonly Gam
 /**
  * Wrap a candidate action as a viable {@link EvaluatedAction}, stamping the
  * `regress` flag when the action would undo this phase's progress (per
- * {@link isRegressive}). Folds the identical build-candidate → check-regress →
- * push boilerplate repeated across the organization-phase emitters.
+ * {@link isRegressive} against `state.reverseActions`). Folds the identical
+ * build-candidate → check-regress → push boilerplate repeated across the
+ * organization-phase emitters.
  */
-export function viableWithRegress(candidate: GameAction, reverseActions: readonly GameAction[]): EvaluatedAction {
-  const regress = isRegressive(candidate, reverseActions);
+export function regressable(state: { readonly reverseActions: readonly GameAction[] }, candidate: GameAction): EvaluatedAction {
+  const regress = isRegressive(candidate, state.reverseActions);
   return { action: { ...candidate, ...(regress ? { regress: true } : {}) }, viable: true };
 }
 

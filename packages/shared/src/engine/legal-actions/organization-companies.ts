@@ -37,11 +37,16 @@ import { getEffectiveSiteType } from '../effective.js';
 import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import { viableWithRegress } from '../reverse-actions.js';
+import { regressable } from '../reverse-actions.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
+
+/** A `plan-movement` candidate: send `companyId` to the site-deck instance `destinationSite`. */
+function planMovement(playerId: PlayerId, companyId: CompanyId, destinationSite: CardInstanceId): GameAction {
+  return { type: 'plan-movement', player: playerId, companyId, destinationSite };
+}
 
 /**
  * Resolve the grouping key for a company's current site: the site's
@@ -722,13 +727,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
         logDetail(`  ${siteDef.name} in ${siteDef.region ?? '?'} (${regionType ?? '?'}) — reachable via Gwaihir`);
-        const candidate: GameAction = {
-          type: 'plan-movement',
-          player: playerId,
-          companyId: company.id,
-          destinationSite: destInstId,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
       }
       continue;
     }
@@ -746,13 +745,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
         logDetail(`  ${siteDef.name} reachable via Paths of the Dead`);
-        const candidate: GameAction = {
-          type: 'plan-movement',
-          player: playerId,
-          companyId: company.id,
-          destinationSite: destInstId,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
       }
       continue;
     }
@@ -882,13 +875,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         logDetail(`  ${r.site.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
         continue;
       }
-      const candidate: GameAction = {
-        type: 'plan-movement',
-        player: playerId,
-        companyId: company.id,
-        destinationSite: destInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
     }
 
     // --- Under-deeps movement pass ---
@@ -913,13 +900,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
       logDetail(`  Under-deeps destination: ${dest.name}`);
-      const candidate: GameAction = {
-        type: 'plan-movement',
-        player: playerId,
-        companyId: company.id,
-        destinationSite: destInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
     }
 
     // --- Deep Mines descent / ascent pass (wh-55) ---
@@ -948,13 +929,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       logDetail(originIsDeepMines
         ? `  Deep Mines ascent destination: ${dest.name} (from ${currentSiteDef.name})`
         : `  Deep Mines descent destination: ${dest.name} (from protected Wizardhaven ${currentSiteDef.name}, ${player.stagePoints} stage points)`);
-      const candidate: GameAction = {
-        type: 'plan-movement',
-        player: playerId,
-        companyId: company.id,
-        destinationSite: destInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
     }
   }
 
@@ -1046,13 +1021,12 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
           const avail = availableDI(state, ctrl.instanceId, player, charDef);
           if (avail >= controlCost) {
             logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) under DI of ${ctrlName} (avail DI ${avail})`);
-            const candidate: GameAction = {
+            actions.push(regressable(state, {
               type: 'move-to-influence',
               player: playerId,
               characterInstanceId: charInstId,
               controlledBy: ctrlInstId,
-            };
-            actions.push(viableWithRegress(candidate, state.reverseActions));
+            }));
           }
         }
         }
@@ -1065,13 +1039,12 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         const controlCost = controlCostOf(state, char, charDef.mind);
         if (controlCost !== null && controlCost <= remainingGI) {
           logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) to GI (remaining GI ${remainingGI})`);
-          const candidate: GameAction = {
+          actions.push(regressable(state, {
             type: 'move-to-influence',
             player: playerId,
             characterInstanceId: charInstId,
             controlledBy: 'general',
-          };
-          actions.push(viableWithRegress(candidate, state.reverseActions));
+          }));
         }
       }
     }
@@ -1150,14 +1123,13 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
           const targetName = isCharacterCard(targetDef) ? targetDef.name : '?';
 
           logDetail(`  → viable: transfer ${itemName} from ${charName} to ${targetName}`);
-          const candidate: GameAction = {
+          actions.push(regressable(state, {
             type: 'transfer-item',
             player: playerId,
             itemInstanceId: item.instanceId,
             fromCharacterId: charInstId,
             toCharacterId: targetInstId,
-          };
-          actions.push(viableWithRegress(candidate, state.reverseActions));
+          }));
         }
       }
     }
@@ -1206,13 +1178,12 @@ export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedA
           continue;
         }
         logDetail(`  → viable: ${charName} begins using ${itemName} as their ${slot}`);
-        const candidate: GameAction = {
+        actions.push(regressable(state, {
           type: 'use-item',
           player: playerId,
           characterInstanceId: charInstId,
           itemInstanceId: item.instanceId,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        }));
       }
     }
   }
@@ -1458,13 +1429,12 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
       }
 
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
-      const candidate: GameAction = {
+      actions.push(regressable(state, {
         type: 'split-company',
         player: playerId,
         sourceCompanyId: company.id,
         characterId: charInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      }));
     }
   }
 
@@ -1553,14 +1523,13 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
         }
 
         logDetail(`  → viable: move ${charDef.name} from ${company.id as string} to ${targetCompany.id as string}`);
-        const candidate: GameAction = {
+        actions.push(regressable(state, {
           type: 'move-to-company',
           player: playerId,
           characterInstanceId: charInstId,
           sourceCompanyId: company.id,
           targetCompanyId: targetCompany.id,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        }));
       }
     }
   }
@@ -1785,13 +1754,12 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
       }
 
       logDetail(`  → viable: merge company ${company.id as string} into ${targetCompany.id as string}`);
-      const candidate: GameAction = {
+      actions.push(regressable(state, {
         type: 'merge-companies',
         player: playerId,
         sourceCompanyId: company.id,
         targetCompanyId: targetCompany.id,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      }));
     }
   }
 
