@@ -3915,6 +3915,45 @@ function hazardLimitExceededAtResolution(state: GameState, entry: ChainEntry): b
   return mhState.hazardsPlayedThisCompany > limit;
 }
 
+/**
+ * Shared preamble of the race-threshold attempt short events (Flatter a Foe
+ * td-116, Riddling Talk td-148). When `entry` is an un-negated short event
+ * targeting a character while an attack is being faced, and its card carries
+ * an effect of `effectType` whose thresholds list the attacking creature's
+ * race, returns the matched effect and threshold entry together with the
+ * target character and the resolution source/actor/scope to enqueue the
+ * attempt with. Returns undefined when any part does not apply (the caller
+ * then falls through without enqueuing anything).
+ */
+function matchRaceThresholdEffect<E extends FlatteryCancelAttackEffect | RiddlingAttemptEffect>(
+  state: GameState,
+  entry: ChainEntry,
+  effectType: E['type'],
+) {
+  if (entry.payload.type !== 'short-event'
+    || !entry.payload.targetCharacterId
+    || entry.negated
+    || !entry.card
+    || !state.combat) return undefined;
+  const cardDef = defById(state, entry.card.definitionId);
+  const effect = getCardEffects(cardDef).find((e): e is E => e.type === effectType);
+  if (!effect) return undefined;
+  const creatureRace = state.combat.creatureRace;
+  const matchedEntry = creatureRace === undefined
+    ? undefined
+    : effect.thresholds.find(t => t.races.includes(creatureRace));
+  if (!matchedEntry || creatureRace === undefined) return undefined;
+  return {
+    effect,
+    creatureRace,
+    threshold: matchedEntry.threshold,
+    characterInstanceId: entry.payload.targetCharacterId,
+    source: entry.card.instanceId,
+    actor: state.combat.defendingPlayerId,
+    scope: companySubphaseScope(state.phaseState.phase, state.combat.companyId),
+  };
+}
+
 function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   const chain = state.chain!;
   const entry = chain.entries[entryIndex];
@@ -4559,81 +4598,49 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // un-negated, create a flattery-attempt pending resolution for the defending
   // player to roll 2d6. The roll determines whether the attack is cancelled and
   // the hazard limit reduced. Do NOT immediately cancel the attack here.
-  if (entry.payload.type === 'short-event'
-    && entry.payload.targetCharacterId
-    && !entry.negated
-    && entry.card
-    && current.combat) {
-    const cardDef = defById(current, entry.card.definitionId);
-    const flatEffect = getCardEffects(cardDef).find(
-      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
-    );
-    if (flatEffect) {
-      const creatureRace = current.combat.creatureRace;
-      const matchedEntry = creatureRace === undefined
-        ? undefined
-        : flatEffect.thresholds.find(t => t.races.includes(creatureRace));
-      if (matchedEntry && creatureRace !== undefined) {
-        const defPlayerId = current.combat.defendingPlayerId;
-        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
-        logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
-        current = enqueueResolution(current, {
-          source: entry.card.instanceId,
-          actor: defPlayerId,
-          scope,
-          kind: {
-            type: 'flattery-attempt',
-            characterInstanceId: entry.payload.targetCharacterId,
-            creatureRace,
-            threshold: matchedEntry.threshold,
-            diplomatBonus: flatEffect.diplomatBonus,
-            hazardLimitReduction: flatEffect.hazardLimitReduction,
-          },
-        });
-        return { state: current, needsInput: true };
-      }
-    }
+  const flattery = matchRaceThresholdEffect<FlatteryCancelAttackEffect>(current, entry, 'flattery-cancel-attack');
+  if (flattery) {
+    const { effect, creatureRace, threshold, characterInstanceId, source, actor, scope } = flattery;
+    logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${characterInstanceId as string} (race "${creatureRace}", threshold ${threshold})`);
+    current = enqueueResolution(current, {
+      source,
+      actor,
+      scope,
+      kind: {
+        type: 'flattery-attempt',
+        characterInstanceId,
+        creatureRace,
+        threshold,
+        diplomatBonus: effect.diplomatBonus,
+        hazardLimitReduction: effect.hazardLimitReduction,
+      },
+    });
+    return { state: current, needsInput: true };
   }
 
   // Riddling-attempt (Riddling Talk td-148): when the chain entry resolves
   // un-negated, create a riddling-attempt pending resolution for the defending
   // player to roll 2d6. The roll only determines whether a follow-up guess is
   // offered — it does not itself cancel the attack. Do NOT cancel here.
-  if (entry.payload.type === 'short-event'
-    && entry.payload.targetCharacterId
-    && !entry.negated
-    && entry.card
-    && current.combat) {
-    const cardDef = defById(current, entry.card.definitionId);
-    const riddlingEffect = getCardEffects(cardDef).find(
-      (e): e is RiddlingAttemptEffect => e.type === 'riddling-attempt',
-    );
-    if (riddlingEffect) {
-      const creatureRace = current.combat.creatureRace;
-      const matchedEntry = creatureRace === undefined
-        ? undefined
-        : riddlingEffect.thresholds.find(t => t.races.includes(creatureRace));
-      if (matchedEntry && creatureRace !== undefined) {
-        const defPlayerId = current.combat.defendingPlayerId;
-        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
-        logDetail(`Riddling-attempt: enqueuing riddling-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
-        current = enqueueResolution(current, {
-          source: entry.card.instanceId,
-          actor: defPlayerId,
-          scope,
-          kind: {
-            type: 'riddling-attempt',
-            characterInstanceId: entry.payload.targetCharacterId,
-            creatureRace,
-            threshold: matchedEntry.threshold,
-            sageBonus: riddlingEffect.sageBonus,
-            hobbitBonus: riddlingEffect.hobbitBonus,
-            hazardLimitReduction: riddlingEffect.hazardLimitReduction,
-          },
-        });
-        return { state: current, needsInput: true };
-      }
-    }
+  const riddling = matchRaceThresholdEffect<RiddlingAttemptEffect>(current, entry, 'riddling-attempt');
+  if (riddling) {
+    const { effect, creatureRace, threshold, characterInstanceId, source, actor, scope } = riddling;
+    logDetail(`Riddling-attempt: enqueuing riddling-attempt for character ${characterInstanceId as string} (race "${creatureRace}", threshold ${threshold})`);
+    current = enqueueResolution(current, {
+      source,
+      actor,
+      scope,
+      kind: {
+        type: 'riddling-attempt',
+        characterInstanceId,
+        creatureRace,
+        threshold,
+        sageBonus: effect.sageBonus,
+        hobbitBonus: effect.hobbitBonus,
+        hazardLimitReduction: effect.hazardLimitReduction,
+      },
+    });
+    return { state: current, needsInput: true };
   }
 
   // Goodwill-cancel-attack (Token of Goodwill dm-160): when the chain entry
