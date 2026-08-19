@@ -17,6 +17,7 @@ import type {
   OpponentCompanyView,
   DeclarePathAction,
   ExtraMHMoveAction,
+  CharacterTapExtraMHPhaseAction,
   RegionType,
   ActivateGrantedAction,
   DeclareAgentAttackAction,
@@ -360,6 +361,44 @@ export function renderSiteArea(
         moveList.appendChild(btn);
       }
       area.appendChild(moveList);
+    }
+  }
+
+  // Character-tap choice during the character-tap-mh-offer step
+  // (`character-tap-extra-mh-phase` — Carambor le-5): the engine legally
+  // offers to tap the qualifying bearer character to send the company on
+  // another movement/hazard phase, but the board gave no way to trigger
+  // it — only the generic "Pass" button was visible, indistinguishable
+  // from declining the option. List the offered tap as a clickable button,
+  // mirroring the extra-mh-move-offer choice list above.
+  if (options?.onAction && view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'character-tap-mh-offer') {
+    const isSelfTurn = view.activePlayer === view.self.id;
+    const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const mhActiveCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+    const isActiveCompany = mhActiveCompany && company.id === mhActiveCompany.id;
+    const tapActions = isActiveCompany ? viableActions(view.legalActions).filter(
+      (a): a is CharacterTapExtraMHPhaseAction => a.type === 'character-tap-extra-mh-phase',
+    ) : [];
+    if (tapActions.length > 0) {
+      const tapList = document.createElement('div');
+      tapList.className = 'path-choice-list';
+      for (const action of tapActions) {
+        const charDef = resolveCardDef(action.characterInstanceId, view, cardPool);
+        const btn = document.createElement('button');
+        btn.className = 'char-action-tooltip__btn';
+
+        const label = document.createElement('div');
+        label.textContent = `Tap ${charDef?.name ?? action.characterInstanceId as string} for another movement/hazard phase`;
+        btn.appendChild(label);
+
+        const onAction = options.onAction;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(action);
+        });
+        tapList.appendChild(btn);
+      }
+      area.appendChild(tapList);
     }
   }
 
