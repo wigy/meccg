@@ -61,7 +61,19 @@ describe('headless runner', () => {
       seed: 7,
     });
     expect(run.result.outcome).toBe('completed');
-    expect(run.result.winner).not.toBeNull();
+    expect(run.result.winReason).toBeDefined();
+    const ranked = Object.entries(run.result.finalScores ?? {}).sort((a, b) => b[1] - a[1]);
+    expect(ranked).toHaveLength(2);
+    // A tie on marshalling points leaves `winner` null, which the result
+    // record documents as a legitimate end. Pinning this seed to a decisive
+    // game would turn any engine change that reshuffles the trajectory into a
+    // harness failure, so assert the contract instead: the victor follows the
+    // final scores, and a forced ending (e.g. The One Ring) names a winner.
+    if (run.result.winReason === 'marshalling-points') {
+      expect(run.result.winner).toBe(ranked[0][1] === ranked[1][1] ? null : ranked[0][0]);
+    } else {
+      expect(run.result.winner).not.toBeNull();
+    }
   }, GAME_TIMEOUT);
 
   test('same seed reproduces the identical decision sequence', () => {

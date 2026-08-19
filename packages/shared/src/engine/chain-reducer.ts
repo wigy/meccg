@@ -3442,6 +3442,25 @@ function collectHavenJumpOffers(
 }
 
 /**
+ * Finds a creature's `on-event: creature-attack-begins` +
+ * `apply: force-check-all-company` corruption effect (Corpse-candle,
+ * tw-23/le-67), if any. The card text is conditional ("if this attack is not
+ * canceled"), so the caller must defer enqueueing the actual checks until
+ * the pre-assignment cancel-window closes rather than firing immediately.
+ */
+function findAttackBeginsCorruptionEffect(creatureDef: CreatureCard): { modifier: number } | null {
+  for (const effect of creatureDef.effects ?? []) {
+    if (effect.type !== 'on-event') continue;
+    const onEvent: OnEventEffect = effect;
+    if (onEvent.event !== 'creature-attack-begins') continue;
+    if (onEvent.apply.type !== 'force-check-all-company') continue;
+    if (onEvent.apply.check !== 'corruption') continue;
+    return { modifier: onEvent.apply.modifier ?? 0 };
+  }
+  return null;
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -3738,6 +3757,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // the defender has an explicit opt-in before strike assignment begins.
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
   const defendingSiteDef = resolveDefendingSiteDef(state, company);
+  // Scan for on-event: creature-attack-begins → force-check-all-company
+  // corruption (Corpse-candle). Also forces a cancel-window: the check is
+  // conditioned on "if this attack is not canceled," so it must wait for the
+  // defender's pre-assignment cancel opportunity to close (see
+  // `pendingAttackBeginsCorruption` handling in reducer-combat.ts).
+  const attackBeginsCorruption = findAttackBeginsCorruptionEffect(creatureDef);
 
   let combat: CombatState = makeCombatState({
     attackSource,
@@ -3752,8 +3777,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
-    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0) ? 'cancel-window' : 'defender',
+    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
+    pendingAttackBeginsCorruption: attackBeginsCorruption ? {
+      source: entry.card!.instanceId,
+      reason: creatureDef.name,
+      modifier: attackBeginsCorruption.modifier,
+    } : undefined,
     attackerChoosesDefenders: attackerChooses ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
@@ -3840,39 +3870,11 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     };
   }
 
-  let finalState: GameState = { ...state, players: newPlayers, combat };
-
-  // Scan for on-event: creature-attack-begins → force-check-all-company
-  // (e.g. Corpse-candle). The attack was not canceled — enqueue a corruption
-  // check for every character in the defending company before defender selection.
-  if (creatureDef.effects) {
-    for (const effect of creatureDef.effects) {
-      if (effect.type !== 'on-event') continue;
-      const onEvent: OnEventEffect = effect;
-      if (onEvent.event !== 'creature-attack-begins') continue;
-      if (onEvent.apply.type !== 'force-check-all-company') continue;
-      if (onEvent.apply.check !== 'corruption') continue;
-      const scope = companySubphaseScope(state.phaseState.phase, company.id);
-      const modifier = onEvent.apply.modifier ?? 0;
-      logDetail(`${creatureDef.name} (creature-attack-begins): enqueueing corruption check for all ${company.characters.length} character(s) in company`);
-      for (const charInstanceId of company.characters) {
-        finalState = enqueueCorruptionCheck(finalState, {
-          source: entry.card!.instanceId,
-          actor: state.activePlayer!,
-          scope,
-          characterId: charInstanceId,
-          modifier,
-          reason: creatureDef.name,
-          // CoE 7.1.1: the resource player may tap other untapped company mates
-          // for +1 each on any corruption check declared but not yet resolved —
-          // this is unconditional, not specific to this card.
-          allowSupport: true,
-        });
-      }
-    }
-  }
-
-  return finalState;
+  // `pendingAttackBeginsCorruption` (Corpse-candle) is deferred — enqueued
+  // when the defender passes out of the cancel-window (reducer-combat.ts)
+  // instead of immediately, since the check only applies "if this attack is
+  // not canceled."
+  return { ...state, players: newPlayers, combat };
 }
 
 /**

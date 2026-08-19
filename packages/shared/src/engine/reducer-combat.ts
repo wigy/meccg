@@ -11,7 +11,8 @@ import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects } from './reducer-utils.js';
+import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects, companySubphaseScope } from './reducer-utils.js';
+import { enqueueCorruptionCheck } from './pending.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
@@ -555,9 +556,38 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   // consumed on pass — the player declined.
   if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-window') {
     const next = combat.attackerChoosesDefenders ? 'attacker' : 'defender';
+    // Corpse-candle (tw-23/le-67): "if this attack is not canceled, every
+    // character in the company makes a corruption check" — the attack just
+    // survived the cancel window, so the deferred check now fires (CoE 3.i:
+    // cancel/modify-attack actions must be exhausted before anything
+    // conditioned on non-cancellation resolves).
+    let nextState: GameState = state;
+    if (combat.pendingAttackBeginsCorruption) {
+      const { source, reason, modifier } = combat.pendingAttackBeginsCorruption;
+      const defPlayer = playerById(state, combat.defendingPlayerId);
+      const company = defPlayer ? companyById(defPlayer.companies, combat.companyId) : undefined;
+      if (company) {
+        const scope = companySubphaseScope(state.phaseState.phase, company.id);
+        logDetail(`${reason} (creature-attack-begins): attack survived the cancel window — enqueueing corruption check for all ${company.characters.length} character(s) in company`);
+        for (const charInstanceId of company.characters) {
+          nextState = enqueueCorruptionCheck(nextState, {
+            source,
+            actor: state.activePlayer!,
+            scope,
+            characterId: charInstanceId,
+            modifier,
+            reason,
+            // CoE 7.1.1: the resource player may tap other untapped company
+            // mates for +1 each on any corruption check declared but not yet
+            // resolved — this is unconditional, not specific to this card.
+            allowSupport: true,
+          });
+        }
+      }
+    }
     logDetail(`Defender passed cancel window — transitioning to ${next} assignment`);
     return {
-      state: { ...state, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined } },
+      state: { ...nextState, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined, pendingAttackBeginsCorruption: undefined } },
     };
   }
 

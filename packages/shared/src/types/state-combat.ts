@@ -628,6 +628,22 @@ export interface CombatState {
    */
   readonly havenJumpOffers?: readonly HavenJumpOffer[];
   /**
+   * A `creature-attack-begins` + `force-check-all-company` corruption effect
+   * (Corpse-candle, tw-23/le-67) raised when the attack began, deferred until
+   * the cancel-window closes. The card text conditions the check on "if this
+   * attack is not canceled," and CoE rule 3.i requires the pre-assignment
+   * cancel/modify-attack window to close before anything conditioned on
+   * non-cancellation resolves — so the corruption checks are enqueued only
+   * when the defender passes out of the cancel-window (not at attack
+   * declaration), mirroring how `havenJumpOffers` defer Alatar's offer.
+   * Cleared once the checks are enqueued or the attack is canceled.
+   */
+  readonly pendingAttackBeginsCorruption?: {
+    readonly source: CardInstanceId;
+    readonly reason: string;
+    readonly modifier: number;
+  };
+  /**
    * Character instance IDs that MUST each receive a strike before any
    * other defender/attacker assignment is legal. Populated when a
    * haven-join-attack is accepted with `forceStrike: true`. The
