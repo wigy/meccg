@@ -2,9 +2,9 @@
  * @module ai-client
  *
  * Headless AI player that connects to a game server via WebSocket
- * and submits legal moves chosen by the heuristic ("Smart") strategy.
- * Card definitions are loaded once at start so the strategy can score
- * actions against the static card pool.
+ * and submits legal moves chosen by the heuristic ("Smart") strategy's
+ * argmax. Card definitions are loaded once at start so the strategy can
+ * score actions against the static card pool.
  *
  * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
  *          [--model <weights.json>] [--agent <spec>]
@@ -22,9 +22,9 @@
 
 import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
-import type { AiContext, WeightedAction } from '@meccg/sim';
+import type { WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted, createAgentFromWeights, resolveAgent, makeActionDescriber, renderCandidateRanking } from '@meccg/sim';
+import { createAgentFromWeights, resolveAgent, makeActionDescriber, renderCandidateRanking } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
@@ -44,23 +44,24 @@ setEngineConsoleLog(false);
 
 /**
  * Agent seam: a registry agent (`--agent`), a trained model (`--model`), or
- * null to fall through to the heuristic strategy below.
+ * the heuristic strategy's argmax by default — the same `resolveAgent('heuristic')`
+ * the sim's self-play harness plays, so this client can't drift from it the
+ * way the old hand-rolled `sampleWeighted` call here once did (it read the
+ * evaluators' preference-ordered weights as a distribution, so a move scored
+ * half as good still got played about a third of the time).
  */
-let modelAgent: Agent | null = null;
+let agent: Agent;
 if (clientArgs.agentSpec) {
-  modelAgent = resolveAgent(clientArgs.agentSpec);
+  agent = resolveAgent(clientArgs.agentSpec);
   console.log(`AI using agent: ${clientArgs.agentSpec}`);
 } else if (clientArgs.modelPath) {
   // The file decides how it is read and which decisions it delegates.
-  modelAgent = createAgentFromWeights(clientArgs.modelPath);
+  agent = createAgentFromWeights(clientArgs.modelPath);
   console.log(`AI using trained model: ${clientArgs.modelPath}`);
+} else {
+  agent = resolveAgent('heuristic');
+  console.log(`AI using strategy: ${agent.name}`);
 }
-const strategy = loadAiStrategy('heuristic');
-if (!strategy && !modelAgent) {
-  console.error('Heuristic AI strategy is not available — this should never happen.');
-  process.exit(1);
-}
-if (!modelAgent) console.log(`AI using strategy: ${strategy!.name}`);
 
 /** Static card pool — loaded once and reused for every decision. */
 const cardPool = loadCardPool();
@@ -129,39 +130,25 @@ function logCandidates(
 }
 
 /**
- * Pick the next action by delegating to the active strategy and emit a
+ * Pick the next action by delegating to the active agent and emit a
  * decision summary to stdout. The summary lists the top weighted candidates
  * with their score so a tail of the lobby log shows what the AI is thinking.
  */
 function pickAction(view: PlayerView, actions: readonly GameAction[]): GameAction {
-  // Real-AI mode: the trained net picks the argmax action from the same
-  // projected view a human client sees; the value estimate is logged so a
-  // lobby-log tail shows the model's win-probability read of the position.
-  if (modelAgent) {
-    const decision = modelAgent.chooseAction({
-      view,
-      cardPool,
-      legalActions: actions,
-      evaluated: view.legalActions,
-      random: Math.random,
-    });
-    const header = decision.note
-      ? `${decision.note} — of ${actions.length} actions:`
-      : `agent pick of ${actions.length} actions:`;
-    logCandidates(view, header, decision.considered ?? [], decision.action, decision.weightUnit);
-    return decision.action;
-  }
-  const context: AiContext = { view, cardPool, legalActions: actions };
-  const weighted = strategy!.weighActions(context);
-  if (weighted.length === 0) {
-    console.log(`AI [${view.phaseState.phase}] no weighted actions, defaulting to first legal action`);
-    return actions[0];
-  }
-
-  const picked = sampleWeighted(weighted);
-  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
-  logCandidates(view, `weighing ${weighted.length} actions (total weight ${totalWeight}):`, weighted, picked);
-  return picked;
+  // The value estimate (for a policy-net agent) or weight ranking (for the
+  // heuristic) is logged so a lobby-log tail shows what the AI is thinking.
+  const decision = agent.chooseAction({
+    view,
+    cardPool,
+    legalActions: actions,
+    evaluated: view.legalActions,
+    random: Math.random,
+  });
+  const header = decision.note
+    ? `${decision.note} — of ${actions.length} actions:`
+    : `agent pick of ${actions.length} actions:`;
+  logCandidates(view, header, decision.considered ?? [], decision.action, decision.weightUnit);
+  return decision.action;
 }
 
 function connect(): void {
