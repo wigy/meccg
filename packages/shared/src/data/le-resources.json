@@ -5009,14 +5009,45 @@
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
     "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
     "playableAt": [
       {
-        "site": "Cirith"
+        "site": "Cirith Ungol"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Cirith Ungol if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Snaga-hai (+2), Orcs of Angmar (-2). ￼"
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Snaga-hai"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Angmar"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Cirith Ungol if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Snaga-hai (+2), Orcs of Angmar (-2).",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "minion-resource-faction",
