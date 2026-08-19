@@ -385,3 +385,56 @@ describe('organizationEvaluator discard-character', () => {
     expect(organizationEvaluator.score(action, context)).toBe(0);
   });
 });
+
+describe('organizationEvaluator rebuilding after losing every character', () => {
+  // Regression: h1 vs h2, seed 32. A corruption check took the last character
+  // out of play, leaving the player with no companies. Anborn (0 MP, prowess 2,
+  // 0 DI) scored 2 against pass's flat 5, so the player passed every
+  // organization phase from turn 48 to the 25000-decision limit — it could
+  // never move, score, or end the game. With nothing in play, any character
+  // must outrank passing.
+  const ANBORN: CardDefinition = {
+    cardType: 'hero-character',
+    name: 'Anborn',
+    prowess: 2,
+    mind: 2,
+    directInfluence: 0,
+    marshallingPoints: 0,
+  } as unknown as CardDefinition;
+
+  const REBUILD_POOL: Record<string, CardDefinition> = { anborn: ANBORN, 'tw-408': LORIEN };
+
+  /** A view holding Anborn in hand, with `characters` in play as given. */
+  function rebuildView(charactersInPlay: Record<string, unknown>): PlayerView {
+    return {
+      self: {
+        hand: [{ instanceId: 'c1', definitionId: 'anborn' }],
+        siteDeck: [{ instanceId: 's1', definitionId: 'tw-408' }],
+        generalInfluenceUsed: 0,
+        characters: charactersInPlay,
+        companies: Object.keys(charactersInPlay).length > 0
+          ? [{ id: 'company-p2-0', characters: Object.keys(charactersInPlay) }]
+          : [],
+      },
+    } as unknown as PlayerView;
+  }
+
+  const PLAY_ANBORN: GameAction = {
+    type: 'play-character', player: 'p2', characterInstanceId: 'c1', atSite: 's1', controlledBy: 'general',
+  } as unknown as GameAction;
+
+  test('a low-stat character outranks pass when nothing is in play', () => {
+    const view = rebuildView({});
+    const context: AiContext = { view, cardPool: REBUILD_POOL, legalActions: [PLAY_ANBORN, PASS] };
+    const playScore = organizationEvaluator.score(PLAY_ANBORN, context)!;
+    expect(playScore).toBeGreaterThan(5);
+    expect(organizationEvaluator.score(PASS, context)).toBe(0);
+  });
+
+  test('the bonus applies only while nothing is in play', () => {
+    const view = rebuildView({ theoden: { instanceId: 'theoden', definitionId: 'anborn', status: 'inverted', items: [] } });
+    const context: AiContext = { view, cardPool: REBUILD_POOL, legalActions: [PLAY_ANBORN, PASS] };
+    expect(organizationEvaluator.score(PLAY_ANBORN, context)).toBe(2);
+    expect(organizationEvaluator.score(PASS, context)).toBe(5);
+  });
+});

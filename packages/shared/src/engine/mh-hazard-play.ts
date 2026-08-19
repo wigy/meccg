@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
 import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
 import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
@@ -41,7 +41,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -1329,7 +1329,7 @@ export function findForcingEnvironment(
   state: GameState,
   company: Company,
   mhState: MovementHazardPhaseState,
-  movingPlayer: import('../index.js').PlayerState,
+  movingPlayer: PlayerState,
 ): import('../index.js').CardInPlay | null {
   const path = mhState.resolvedSitePath;
   // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
@@ -2034,9 +2034,34 @@ export function fireAllyArrivalEffects(
 }
 
 /**
+ * Enumerate the site instances in `player`'s site deck whose site definition
+ * passes `accept`, de-duplicated by definition (the first instance of each
+ * accepted definition wins). Shared core of every "offer another movement to a
+ * site from the site deck" enumerator below.
+ */
+function siteDeckDestinations(
+  state: GameState,
+  player: PlayerState,
+  accept: (destDef: SiteCard, siteInst: CardInstance) => boolean,
+): readonly CardInstance[] {
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!accept(destDef, siteInst)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
  * Enumerate the Under-deeps destination sites (instances in the active
  * player's site deck) a company may reach via a Gangways over the Fire
- * (ba-60) extra move: Under-deeps-adjacent to the company's current site and
+ * (ba-60) extra move: Under-deeps-adjacent to the company's current site
+ * (including adjacency the moving player's Caverns Unchoked ba-51 grants) and
  * not among the sites it has already used this turn.
  */
 export function gangwaysExtraDestinations(
@@ -2046,21 +2071,12 @@ export function gangwaysExtraDestinations(
   usedSiteDefIds: readonly CardDefinitionId[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
-  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const currentDef = companySiteDef(state, company);
+  if (!currentDef) return [];
   const used = new Set(usedSiteDefIds.map(id => id as string));
-  const seenDefs = new Set<string>();
-  const dests: CardInstance[] = [];
-  for (const siteInst of player.siteDeck) {
-    if (used.has(siteInst.definitionId as string)) continue;
-    if (seenDefs.has(siteInst.definitionId as string)) continue;
-    const destDef = defById(state, siteInst.definitionId);
-    if (!destDef || !isSiteCard(destDef)) continue;
-    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
-    seenDefs.add(siteInst.definitionId as string);
-    dests.push(siteInst);
-  }
-  return dests;
+  return siteDeckDestinations(state, player, (destDef, siteInst) =>
+    !used.has(siteInst.definitionId as string)
+    && isUnderDeepsAdjacent(state, currentDef, destDef, player.id));
 }
 
 /**
@@ -2136,8 +2152,8 @@ function extraMHPhaseConstraint(
   company: Company,
 ): import('../types/pending.js').ActiveConstraint | null {
   if (!company.moved) return null;
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!siteDef || !isSiteCard(siteDef)) return null;
+  const siteDef = companySiteDef(state, company);
+  if (!siteDef) return null;
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'extra-mh-phase') continue;
     if (c.target.kind !== 'company' || c.target.companyId !== company.id) continue;
@@ -2164,7 +2180,7 @@ function extraMHPhaseConstraint(
  */
 function findAllyTapExtraMHPhase(
   state: GameState,
-  player: import('../index.js').PlayerState,
+  player: PlayerState,
   company: Company,
 ): { readonly allyInstanceId: CardInstanceId; readonly allyName: string } | null {
   for (const charId of company.characters) {
@@ -2193,7 +2209,7 @@ function findAllyTapExtraMHPhase(
  */
 function findCharacterTapExtraMHPhase(
   state: GameState,
-  player: import('../index.js').PlayerState,
+  player: PlayerState,
   company: Company,
 ): { readonly characterInstanceId: CardInstanceId; readonly characterName: string; readonly effect: CharacterTapExtraMHPhaseEffect } | null {
   for (const charId of company.characters) {
@@ -2643,8 +2659,8 @@ export function extraMHMoveDestinations(
   requiresSitePathIncludes?: readonly RegionType[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
-  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const currentDef = companySiteDef(state, company);
+  if (!currentDef) return [];
   const movementMap = buildMovementMap(state.cardPool, player.alignment);
   const allSites = Object.values(state.cardPool).filter(
     (s): s is SiteCard => isSiteCard(s) && s.alignment === player.alignment,
@@ -2677,19 +2693,12 @@ export function extraMHMoveDestinations(
   }
 
   const reachableNames = new Set(reachable.map(r => r.site.name));
-  const seenDefs = new Set<string>();
-  const dests: CardInstance[] = [];
-  for (const siteInst of player.siteDeck) {
-    if (seenDefs.has(siteInst.definitionId as string)) continue;
-    const destDef = defById(state, siteInst.definitionId);
-    if (!destDef || !isSiteCard(destDef)) continue;
-    if (!reachableNames.has(destDef.name)) continue;
-    if (requiresSitePathIncludes && requiresSitePathIncludes.length > 0
-      && !requiresSitePathIncludes.some(rt => destDef.sitePath.includes(rt))) continue;
-    seenDefs.add(siteInst.definitionId as string);
-    dests.push(siteInst);
-  }
-  return dests;
+  const requiresRegionTypes = requiresSitePathIncludes && requiresSitePathIncludes.length > 0
+    ? requiresSitePathIncludes
+    : undefined;
+  return siteDeckDestinations(state, player, destDef =>
+    reachableNames.has(destDef.name)
+    && (!requiresRegionTypes || requiresRegionTypes.some(rt => destDef.sitePath.includes(rt))));
 }
 
 /**
@@ -2709,22 +2718,13 @@ export function extraMHUnderDeepsDestinations(
   attemptedSiteDefIds: readonly CardDefinitionId[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
-  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const currentDef = companySiteDef(state, company);
+  if (!currentDef) return [];
   const attempted = new Set(attemptedSiteDefIds.map(id => id as string));
-  const seenDefs = new Set<string>();
-  const dests: CardInstance[] = [];
-  for (const siteInst of player.siteDeck) {
-    if (attempted.has(siteInst.definitionId as string)) continue;
-    if (seenDefs.has(siteInst.definitionId as string)) continue;
-    const destDef = defById(state, siteInst.definitionId);
-    if (!destDef || !isSiteCard(destDef)) continue;
-    if (!(destDef.keywords?.includes('under-deeps') ?? false)) continue;
-    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
-    seenDefs.add(siteInst.definitionId as string);
-    dests.push(siteInst);
-  }
-  return dests;
+  return siteDeckDestinations(state, player, (destDef, siteInst) =>
+    !attempted.has(siteInst.definitionId as string)
+    && (destDef.keywords?.includes('under-deeps') ?? false)
+    && isUnderDeepsAdjacent(state, currentDef, destDef));
 }
 
 /**

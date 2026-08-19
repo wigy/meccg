@@ -1206,6 +1206,56 @@ function selfCancelStrikeActions(
 }
 
 /**
+ * Scan `candidates` (a struck character's items/allies) for `strike-modifier`
+ * effects with `dodge: true` and `cost: { tap: "self" }` — an item/ally that
+ * taps itself to dodge the current strike for its own bearer (e.g.
+ * Great-shield of Rohan tw-250). Emits one `dodge-strike` action per eligible
+ * match. `need`/`explanation` reflect the bearer's full (tap) prowess, since
+ * dodge mode resolves at full prowess without tapping unless wounded.
+ */
+function selfDodgeStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  targetCharacterId: CardInstanceId,
+  targetName: string,
+  candidates: ReadonlyArray<{ readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status: CardStatus }>,
+  buildCtx: () => Record<string, unknown>,
+  need: number,
+  explanation: string,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const c of candidates) {
+    if (c.status !== CardStatus.Untapped) continue;
+    const def = defById(state, c.definitionId);
+    if (!def) continue;
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'strike-modifier') continue;
+      if (!eff.dodge || eff.cost?.tap !== 'self') continue;
+
+      const name = (def as { name?: string }).name ?? (c.definitionId as string);
+      if (eff.when && !matchesCondition(eff.when, buildCtx())) {
+        logDetail(`Dodge-strike ${name}: when condition not met (target ${targetName})`);
+        continue;
+      }
+
+      logDetail(`Dodge-strike available: ${name} can tap so ${targetName} dodges the strike (no tap unless wounded)`);
+      actions.push({
+        action: {
+          type: 'dodge-strike',
+          player: playerId,
+          cardInstanceId: c.instanceId,
+          characterInstanceId: targetCharacterId,
+          need,
+          explanation,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Fled into Darkness (ba-18): during resolve-strike the defending player may
  * play a `flee-from-strike` permanent-event from hand to cancel the current
  * strike against the named character (The Balrog), provided the strike's prowess
@@ -1668,6 +1718,14 @@ function resolveStrikeActions(
     actions.push(...selfCancelStrikeActions(
       state, playerId, currentStrike.characterId, charName,
       [...charData.items, ...charData.allies], buildCancelCtx,
+    ));
+
+    // Scan the same items/allies for self-tap dodge effects (e.g. Great-shield
+    // of Rohan) — full prowess, no roll skipped, no tap unless wounded.
+    actions.push(...selfDodgeStrikeActions(
+      state, playerId, currentStrike.characterId, charName,
+      [...charData.items, ...charData.allies], buildCancelCtx,
+      tapNeed, `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap unless wounded)`,
     ));
   }
 

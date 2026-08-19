@@ -22,7 +22,7 @@ import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { modifyCorruptionCheckGrantActions } from './legal-actions/organization.js';
 import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
-import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
+import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
@@ -286,16 +286,13 @@ function resolveCorruptionCheck(
   const cp = pending.corruptionPoints;
   const modifier = pending.corruptionModifier + pending.supportCount + effectModifier;
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, playerIndex, `Corruption: ${charName}`);
   const total = roll.die1 + roll.die2 + modifier;
   const modStr = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
   const supportStr = pending.supportCount > 0 ? ` (includes +${pending.supportCount} support)` : '';
   logDetail(`Free Council corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}${supportStr}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Corruption: ${charName}`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+  const newPlayers = clonePlayers(rolledState);
 
   const newChecked = [...fcState.checkedCharacters, pending.characterId as string];
   const newFcBase = { ...fcState, checkedCharacters: newChecked, pendingCheck: null };
@@ -326,9 +323,8 @@ function resolveCorruptionCheck(
     }
     return {
       state: {
-        ...state,
+        ...rolledState,
         players: newPlayers,
-        rng, cheatRollTotal,
         phaseState: newFcBase,
       },
       effects: [rollEffect],
@@ -414,9 +410,8 @@ function resolveCorruptionCheck(
 
   return {
     state: cleanupEmptyCompanies({
-      ...state,
+      ...rolledState,
       players: newPlayers,
-      rng, cheatRollTotal,
       phaseState: newFcBase,
     }),
     effects: [rollEffect],

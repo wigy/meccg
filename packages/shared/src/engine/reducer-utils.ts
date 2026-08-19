@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -325,6 +325,25 @@ export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: stri
 }
 
 /**
+ * Roll 2d6 for the player at `rollerIndex`: advance the RNG (consuming any
+ * cheat roll), build the {@link diceRollEffect} toast and store the roll as
+ * that player's `lastDiceRoll`. `label` may be a function of the roll so the
+ * toast can quote the dice. The caller applies any modifier, compares to its
+ * threshold and continues from the returned `state`.
+ */
+export function rollDiceForPlayer(
+  state: GameState,
+  rollerIndex: number,
+  label: string | ((roll: TwoDiceSix, total: number) => string),
+): { readonly roll: TwoDiceSix; readonly total: number; readonly rollEffect: DiceRollEffect; readonly state: GameState } {
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const rollEffect = diceRollEffect(state.players[rollerIndex].name, roll, typeof label === 'string' ? label : label(roll, total));
+  const rolledState = updatePlayer({ ...state, rng, cheatRollTotal }, rollerIndex, p => ({ ...p, lastDiceRoll: roll }));
+  return { roll, total, rollEffect, state: rolledState };
+}
+
+/**
  * Build the {@link ResolutionScope} for a corruption check or other resolution
  * enqueued during a company's combat. Companies resolve hazards in the
  * movement/hazard phase and automatic attacks in the site phase; each phase
@@ -568,6 +587,16 @@ export function toCardInstance(c: { readonly instanceId: CardInstance['instanceI
  */
 export function defById(state: GameState, definitionId: CardDefinitionId): CardDefinition | undefined {
   return state.cardPool[definitionId];
+}
+
+/**
+ * The site card definition of the site a company currently occupies, or
+ * `undefined` when the company is not at a site (or its `currentSite` does not
+ * resolve to a site definition).
+ */
+export function companySiteDef(state: GameState, company: Company | undefined): SiteCard | undefined {
+  const def = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  return def && isSiteCard(def) ? def : undefined;
 }
 
 /**
@@ -3051,6 +3080,51 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * A chain entry that is still live — neither resolved nor negated — and that
+ * physically holds a card, paired with that card and its definition.
+ *
+ * Returned by {@link pendingChainCards}; the shape every "look at what is
+ * still pending on the chain" scan needs (cancel targets, hazard counts,
+ * duplication-limit checks).
+ */
+export interface PendingChainCard {
+  readonly entry: ChainEntry;
+  readonly card: CardInstance;
+  readonly def: CardDefinition | undefined;
+}
+
+/**
+ * The live (unresolved, un-negated) card-carrying entries of the active chain,
+ * in declaration order, each with its card and definition resolved. Empty when
+ * no chain is active. Entries without a card (passive conditions and other
+ * non-card actions) are skipped.
+ */
+export function pendingChainCards(state: GameState): PendingChainCard[] {
+  const chain = state.chain;
+  if (!chain) return [];
+  const out: PendingChainCard[] = [];
+  for (const entry of chain.entries) {
+    if (entry.resolved || entry.negated || !entry.card) continue;
+    out.push({ entry, card: entry.card, def: defById(state, entry.card.definitionId) });
+  }
+  return out;
+}
+
+/** True when `def` is a hazard creature or hazard event definition. */
+export function isHazardCreatureOrEventDef(def: CardDefinition | undefined): boolean {
+  return def?.cardType === 'hazard-creature' || def?.cardType === 'hazard-event';
+}
+
+/**
+ * Number of hazards (creatures or hazard events) still pending on the active
+ * chain. Zero when no chain is active. Backs the granted-action `chain.hazardCount`
+ * context (e.g. Great Ship: tap to cancel a hazard needs at least one to cancel).
+ */
+export function countUnresolvedChainHazards(state: GameState): number {
+  return pendingChainCards(state).filter(pc => isHazardCreatureOrEventDef(pc.def)).length;
+}
+
+/**
  * Count in-play copies of `name` that are currently being targeted for discard
  * by an unresolved chain entry.
  *
@@ -3104,14 +3178,7 @@ export function countCopiesInPlayTargetedForDiscard(state: GameState, name: stri
  * pending chain entry is visible immediately.
  */
 export function countCopiesDeclaredInChain(state: GameState, name: string): number {
-  const chain = state.chain;
-  if (!chain) return 0;
-  let count = 0;
-  for (const entry of chain.entries) {
-    if (entry.resolved || entry.negated || !entry.card) continue;
-    if (defById(state, entry.card.definitionId)?.name === name) count += 1;
-  }
-  return count;
+  return pendingChainCards(state).filter(pc => pc.def?.name === name).length;
 }
 
 /**
@@ -3249,15 +3316,11 @@ export function countPermanentEventCopiesDeclaredInChainAtSite(
   name: string,
   siteDefId: CardDefinitionId,
 ): number {
-  const chain = state.chain;
-  if (!chain) return 0;
-  let count = 0;
-  for (const entry of chain.entries) {
-    if (entry.resolved || entry.negated || !entry.card) continue;
-    if (entry.payload.type !== 'permanent-event' || entry.payload.targetSiteDefinitionId !== siteDefId) continue;
-    if (defById(state, entry.card.definitionId)?.name === name) count += 1;
-  }
-  return count;
+  return pendingChainCards(state).filter(({ entry, def }) =>
+    entry.payload.type === 'permanent-event'
+    && entry.payload.targetSiteDefinitionId === siteDefId
+    && def?.name === name,
+  ).length;
 }
 
 /**

@@ -22,7 +22,6 @@ import type {
   CompanyId,
   GameEffect,
   CharacterInPlay,
-  TwoDiceSix,
 } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
@@ -41,7 +40,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, ringwraithReclaimMark, roll2d6, splitCharacterOffCompany, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, splitCharacterOffCompany, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -448,16 +447,10 @@ export function applyCorruptionCheckResolution(
   const traitorCompanyId = player.companies.find(c => c.characters.includes(characterId))?.id;
 
   // Roll 2d6 + modifier
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, playerIndex, `Corruption: ${charName}`);
   const total = roll.die1 + roll.die2 + modifier;
   const modStr = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
   logDetail(`Corruption check for ${charName} (${reason}): rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
-
-  const rollEffect = diceRollEffect(player.name, roll, `Corruption: ${charName}`);
-
-  // Store the roll on the player
-  const playersAfterRoll = clonePlayers(state);
-  playersAfterRoll[playerIndex] = { ...playersAfterRoll[playerIndex], lastDiceRoll: roll };
 
   // Consume one-shot check-modifier constraints for this character. Any
   // constraint kind `check-modifier` with `check === 'corruption'` targeting
@@ -469,7 +462,8 @@ export function applyCorruptionCheckResolution(
   // consumed — it stands until its scope sweeps it. Company-targeted
   // constraints were never consumed here either (they are matched by company,
   // not by character, in the modifier computation).
-  let postRollState: GameState = { ...state, players: playersAfterRoll, rng, cheatRollTotal };
+  const playersAfterRoll = clonePlayers(rolledState);
+  let postRollState: GameState = { ...rolledState, players: playersAfterRoll };
   let autoPass = false;
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type === 'check-modifier'
@@ -1083,23 +1077,6 @@ function guardRollResolution<K extends PendingResolution['kind']['type']>(
   };
 }
 
-/**
- * Roll 2d6 for a resolution: build the {@link diceRollEffect} toast and store
- * the roll as `rollerIndex`'s `lastDiceRoll` (advancing the RNG / cheat roll).
- * The caller applies any modifier, compares to its threshold, and dequeues.
- */
-function rollForResolution(
-  state: GameState,
-  rollerIndex: number,
-  label: string,
-): { readonly roll: TwoDiceSix; readonly total: number; readonly rollEffect: GameEffect; readonly state: GameState } {
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2;
-  const rollEffect = diceRollEffect(state.players[rollerIndex].name, roll, label);
-  const rolledState = updatePlayer({ ...state, rng, cheatRollTotal }, rollerIndex, p => ({ ...p, lastDiceRoll: roll }));
-  return { roll, total, rollEffect, state: rolledState };
-}
-
 /** True when the `dice-check` kind's referenced target still exists. */
 function diceCheckTargetPresent(
   state: GameState,
@@ -1491,7 +1468,7 @@ export function applyDiceCheckResolution(
     return { state: skipped };
   }
 
-  const rolled = rollForResolution(state, rollerIndex, kind.label);
+  const rolled = rollDiceForPlayer(state, rollerIndex, kind.label);
   let mod = 0;
   for (const m of kind.modifiers) {
     if (m.kind === 'constant') {
@@ -1686,18 +1663,13 @@ export function applyFlateryAttemptResolution(
   const bonus = isDiplomat ? diplomatBonus : 0;
   const unusedDI = availableDI(state, characterInstanceId, player);
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Flattery attempt: ${charName} vs ${creatureRace}`);
   const total = roll.die1 + roll.die2 + unusedDI + bonus;
   const success = total > threshold;
 
   logDetail(`Flattery attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + DI ${unusedDI}${isDiplomat ? ` + diplomat ${bonus}` : ''} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Flattery attempt: ${charName} vs ${creatureRace}`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
-
-  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+  let postRoll = dequeueResolution(rolledState, top.id);
 
   if (success) {
     logDetail(`Flattery attempt succeeded: cancelling attack and reducing hazard limit by ${hazardLimitReduction}`);
@@ -1835,18 +1807,13 @@ export function applyRiddlingAttemptResolution(
   }
   const bonus = sages * sageBonus + hobbits * hobbitBonus;
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Riddling attempt: ${charName} vs ${creatureRace}`);
   const total = roll.die1 + roll.die2 + bonus;
   const success = total > threshold;
 
   logDetail(`Riddling attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Riddling attempt: ${charName} vs ${creatureRace}`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
-
-  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+  let postRoll = dequeueResolution(rolledState, top.id);
 
   if (success) {
     logDetail(`Riddling attempt succeeded: player may now name a card to guess`);
@@ -1974,29 +1941,29 @@ export function applyGoodwillAttemptResolution(
 
   const unusedDI = availableDI(state, characterInstanceId, player);
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Goodwill attempt: ${charName}`);
   const total = roll.die1 + roll.die2 + unusedDI;
   const success = total > threshold;
 
   logDetail(`Goodwill attempt by ${charName}: discarded "${itemName}" (${itemSubtype}), rolled ${roll.die1}+${roll.die2} + DI ${unusedDI} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Goodwill attempt: ${charName}`);
-
   // Discard the item regardless of the roll's outcome — the discard is the
   // cost that enables the roll (CRF 22 erratum), not a reward for success.
-  const newPlayers = clonePlayers(state);
-  const bearer = newPlayers[actorIndex].characters[bearerCharId];
-  newPlayers[actorIndex] = {
-    ...newPlayers[actorIndex],
-    characters: {
-      ...newPlayers[actorIndex].characters,
-      [bearerCharId]: { ...bearer, items: bearer.items.filter(it => it.instanceId !== itemInstanceId) },
-    },
-    discardPile: [...newPlayers[actorIndex].discardPile, removedItem],
-    lastDiceRoll: roll,
-  };
+  const discardedItem = removedItem;
+  const itemBearerId = bearerCharId;
+  const stateAfterDiscard = updatePlayer(rolledState, actorIndex, p => {
+    const bearer = p.characters[itemBearerId];
+    return {
+      ...p,
+      characters: {
+        ...p.characters,
+        [itemBearerId]: { ...bearer, items: bearer.items.filter(it => it.instanceId !== itemInstanceId) },
+      },
+      discardPile: [...p.discardPile, discardedItem],
+    };
+  });
 
-  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+  let postRoll = dequeueResolution(stateAfterDiscard, top.id);
 
   if (success && top.source) {
     logDetail(`Goodwill attempt succeeded: cancelling attack`);
@@ -2386,7 +2353,7 @@ export function applySeizedByTerrorRollResolution(
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
   const mind = printedMind(charDef);
 
-  const rolled = rollForResolution(state, actorIndex, `Seized by Terror: ${charName}`);
+  const rolled = rollDiceForPlayer(state, actorIndex, `Seized by Terror: ${charName}`);
   const checkValue = rolled.total + mind;
   const passed = checkValue >= threshold;
   logDetail(`Seized by Terror on ${charName}: rolled ${rolled.total} + mind ${mind} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'SPLITS OFF TO ORIGIN'}`);
@@ -2437,7 +2404,7 @@ export function applyCompanyTapRollResolution(
     : 0;
   const hazardName = defById(state, kind.hazardDefinitionId)?.name ?? '?';
 
-  const rolled = rollForResolution(state, actorIndex, `${hazardName}: ${charName}`);
+  const rolled = rollDiceForPlayer(state, actorIndex, `${hazardName}: ${charName}`);
   const total = rolled.total + next.modifier;
   const taps = total > mind && charInPlay.status === CardStatus.Untapped;
   logDetail(`${hazardName} on ${charName}: rolled ${rolled.total}${next.modifier !== 0 ? ` ${next.modifier > 0 ? '+' : ''}${next.modifier}` : ''} = ${total} vs mind ${mind} → ${taps ? 'TAPPED' : 'stays untapped'}`);
@@ -2567,7 +2534,7 @@ export function applyOpposedRollResolution(
   }
 
   const rollerName = resolveDef(state, rolling)?.name ?? (rolling as string);
-  const rolled = rollForResolution(state, actorIndex, `${sourceName}: ${rollerName}`);
+  const rolled = rollDiceForPlayer(state, actorIndex, `${sourceName}: ${rollerName}`);
   let next = rolled.state;
 
   // First roll — record the challenger's total and requeue for the opponent.
@@ -2751,7 +2718,7 @@ export function applyGoldRingTestResolution(
     logDetail(`Gold-ring test: Fallen-wizard testing a hero gold ring — applying ${formatSignedNumber(fwGoldRingModifier)} (MEWH §10)`);
   }
 
-  const rolled = rollForResolution(state, actorIndex, `Gold-ring test: ${ringNameForRoll}`);
+  const rolled = rollDiceForPlayer(state, actorIndex, `Gold-ring test: ${ringNameForRoll}`);
   const total = rolled.total + rollModifier + itemCheckModifier + fwGoldRingModifier;
   const rollLabel = rollCount > 1 ? ` (roll ${rolledTotals.length + 1} of ${rollCount})` : '';
   logDetail(`Gold-ring test: ${ringNameForRoll}${rollLabel} — rolled ${rolled.roll.die1} + ${rolled.roll.die2} ${formatSignedNumber(rollModifier)}${itemCheckModifier !== 0 ? ` item ${formatSignedNumber(itemCheckModifier)}` : ''}${fwGoldRingModifier !== 0 ? ` fw ${formatSignedNumber(fwGoldRingModifier)}` : ''} = ${total}`);
@@ -4775,24 +4742,15 @@ export function applyStayHerAppetiteRollResolution(
   const sourceName = (defById(state, sourceDefinitionId) as { name?: string })?.name ?? 'Stay Her Appetite';
 
   // Condition roll
-  const { roll: roll1, rng: rng1, cheatRollTotal: cheat1 } = roll2d6(state);
-  const roll1Total = roll1.die1 + roll1.die2;
   const threshold = opponentUnusedGI + controllerUnusedDI + 5;
+  const { total: roll1Total, rollEffect: roll1Effect, state: stateAfterRoll1 } = rollDiceForPlayer(
+    state,
+    1 - allyOwnerPlayerIndex,
+    (_roll, total) => `${sourceName}: condition roll (${total} + mind ${allyMind} vs GI ${opponentUnusedGI} + DI ${controllerUnusedDI} + 5 = ${threshold})`,
+  );
   const conditionMet = (roll1Total + allyMind) > threshold;
 
-  const roll1Effect = diceRollEffect(
-    state.players[1 - allyOwnerPlayerIndex].name,
-    roll1,
-    `${sourceName}: condition roll (${roll1Total} + mind ${allyMind} vs GI ${opponentUnusedGI} + DI ${controllerUnusedDI} + 5 = ${threshold})`,
-  );
-
   logDetail(`${sourceName}: rolled ${roll1Total} + mind ${allyMind} = ${roll1Total + allyMind} vs ${threshold} → ${conditionMet ? 'ATTACK TRIGGERED' : 'no effect'}`);
-
-  const stateAfterRoll1 = updatePlayer(
-    { ...state, rng: rng1, cheatRollTotal: cheat1 },
-    1 - allyOwnerPlayerIndex,
-    p => ({ ...p, lastDiceRoll: roll1 }),
-  );
 
   if (!conditionMet) {
     const postRoll = dequeueResolution(stateAfterRoll1, top.id);
@@ -4804,23 +4762,14 @@ export function applyStayHerAppetiteRollResolution(
   }
 
   // Prowess roll
-  const { roll: roll2, rng: rng2, cheatRollTotal: cheat2 } = roll2d6(stateAfterRoll1);
-  const roll2Total = roll2.die1 + roll2.die2;
+  const { total: roll2Total, rollEffect: roll2Effect, state: stateAfterRoll2 } = rollDiceForPlayer(
+    stateAfterRoll1,
+    1 - allyOwnerPlayerIndex,
+    (_roll, total) => `${sourceName}: prowess roll (${allyProwess} + ${total} = ${allyProwess + total})`,
+  );
   const attackProwess = allyProwess + roll2Total;
 
-  const roll2Effect = diceRollEffect(
-    state.players[1 - allyOwnerPlayerIndex].name,
-    roll2,
-    `${sourceName}: prowess roll (${allyProwess} + ${roll2Total} = ${attackProwess})`,
-  );
-
   logDetail(`${sourceName}: attack prowess = ally ${allyProwess} + roll ${roll2Total} = ${attackProwess}`);
-
-  const stateAfterRoll2 = updatePlayer(
-    { ...stateAfterRoll1, rng: rng2, cheatRollTotal: cheat2 },
-    1 - allyOwnerPlayerIndex,
-    p => ({ ...p, lastDiceRoll: roll2 }),
-  );
 
   // Dequeue resolution then set up combat
   const stateDequeued = dequeueResolution(stateAfterRoll2, top.id);

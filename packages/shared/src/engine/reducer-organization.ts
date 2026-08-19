@@ -21,7 +21,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1234,8 +1234,8 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   const company = findCharacterCompany(player.companies, oldId);
   if (!company) return { state, error: 'discard-to-recruit: bearer has no company' };
   if (recruit.requireHaven) {
-    const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== SiteType.Haven) {
+    const siteDef = companySiteDef(state, company);
+    if (!siteDef || siteDef.siteType !== SiteType.Haven) {
       return { state, error: 'discard-to-recruit: bearer\'s company is not at a Haven' };
     }
   }
@@ -1560,8 +1560,8 @@ function storeCompanyBoundCard(
     return { state, error: `${cardDef?.name ?? '?'} must be tapped before it can be stored` };
   }
 
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a site' };
+  const siteDef = companySiteDef(state, company);
+  if (!siteDef) return { state, error: 'Company is not at a site' };
   if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
     logDetail(`Store rejected: ${siteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${siteDef.name}` };
@@ -1705,12 +1705,19 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
       killPile: [...playerAfterRemoval.killPile, storedCard, ...companionCards],
     }));
 
+  // CoE 2.II.4.1: the bearer's corruption check for storing an item must
+  // count that item's own corruption points, even though the item has
+  // already physically moved to the marshalling point pile above — the
+  // check determines whether the store *succeeds*, so it has to be made
+  // as if the item were still borne. Reuses `transferredItemId`, the same
+  // already-moved-but-still-counted mechanism the transfer-item check uses.
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
+    transferredItemId: itemInstId,
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.
