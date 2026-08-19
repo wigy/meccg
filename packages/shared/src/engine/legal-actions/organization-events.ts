@@ -690,47 +690,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // phase as long as a company is at a matching site — evaluated
       // directly here rather than deferred to the site phase.
       const havenRestoreTrigger = def.effects?.some(e => e.type === 'on-event' && e.event === 'company-mh-end-at-site');
-      if (!orgPhaseSiteTiming && havenRestoreTrigger) {
-        let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
-          }
-          anyPlayable = true;
-          logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
-          actions.push({
-            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetSiteDefinitionId: siteDefId },
-            viable: true,
-          });
-        }
-        if (!anyPlayable) {
-          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site target`));
-        }
-        continue;
-      }
-
       // Hidden Haven (wh-75): "Playable on a non-Dragon's lair Ruins & Lairs
       // in a Wilderness, Border-land, or Shadow-land." converts the site into
       // one of the player's Wizardhavens via a `wizardhaven-conversion`
       // constraint (`on-event: self-enters-play`). Its card text declares no
       // site-phase timing — under rule 2.1.1 it is playable during any phase
       // as long as a company is at a matching site, exactly like Return of
-      // the King / Fireworks / Hall of Fire above (game msnfzusi-73w1gh, seq
+      // the King / Fireworks / Hall of Fire (game msnfzusi-73w1gh, seq
       // 725: the engine wrongly restricted it to the site phase, blocking it
       // during the organization phase for a company that had stayed put).
       const wizardhavenConversionTrigger = def.effects?.some(
         e => e.type === 'on-event' && e.event === 'self-enters-play'
           && e.apply.type === 'add-constraint' && e.apply.constraint === 'wizardhaven-conversion',
       );
-      if (!orgPhaseSiteTiming && wizardhavenConversionTrigger) {
+      if (!orgPhaseSiteTiming && (havenRestoreTrigger || wizardhavenConversionTrigger)) {
         let anyPlayable = false;
         for (const company of player.companies) {
           if (!company.currentSite) continue;

@@ -504,6 +504,30 @@ export interface TapItemForStrikeAction {
 }
 
 /**
+ * Tap an in-play item (or ally) carrying a `strike-modifier` effect with
+ * `dodge: true` and `cost: { tap: "self" }` (e.g. Great-shield of Rohan
+ * tw-250) to resolve the current strike against its bearer in dodge mode:
+ * full prowess, no roll skipped, but the bearer doesn't tap unless the
+ * strike wounds him. Mirrors `cancel-strike`'s item-tap convention (resolves
+ * immediately, no chain/response window) rather than the hand-played
+ * `play-strike-event` dodge path.
+ */
+export interface DodgeStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'dodge-strike';
+  /** The defending player tapping the item. */
+  readonly player: PlayerId;
+  /** The in-play item (or ally) being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character bearing the item (must be the current strike target). */
+  readonly characterInstanceId: CardInstanceId;
+  /** The 2d6 value needed (full, untapped prowess vs the strike). */
+  readonly need: number;
+  /** Human-readable breakdown of the modified prowess vs creature prowess. */
+  readonly explanation: string;
+}
+
+/**
  * Tap an in-play `face-strike-on-tap` item (e.g. Bow of Alatar wh-90) during
  * the `assign-strikes` defender phase to let its bearer face one of the
  * attack's strikes regardless of the attack's normal capabilities and the

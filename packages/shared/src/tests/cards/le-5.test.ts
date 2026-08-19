@@ -178,4 +178,41 @@ describe('Carambor (le-5)', () => {
     const actions = viableFor(state, PLAYER_1).map(a => a.action);
     expect(actions.some(a => a.type === 'character-tap-extra-mh-phase')).toBe(false);
   });
+
+  // Bag End and Zarak Dûm are `ringwraith`-alignment site cards. A Fallen-wizard's
+  // location deck legally includes them (CoE 1.4.F1: one copy of each hero site
+  // and each minion site), so they must still be offered as extra-mh-move
+  // destinations even though their alignment field doesn't equal 'fallen-wizard'.
+  test('offers Wilderness-path destinations to a Fallen-wizard company despite its mixed-alignment site deck', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: CARN_DUM, characters: [{ defId: CARAMBOR, status: CardStatus.Untapped }] }],
+          hand: [],
+          siteDeck: [BAG_END, ZARAK_DUM],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const offered = passToAdvance({ ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) });
+    expect((offered.phaseState as MovementHazardPhaseState).step).toBe('character-tap-mh-offer');
+
+    const caramborId = offered.players[0].companies[0].characters[0];
+    const companyId = offered.players[0].companies[0].id;
+    const tapped = dispatch(offered, {
+      type: 'character-tap-extra-mh-phase', player: PLAYER_1, companyId, characterInstanceId: caramborId,
+    });
+
+    const bagEndInst = tapped.players[0].siteDeck.find(s => s.definitionId === BAG_END)!;
+    const zarakDumInst = tapped.players[0].siteDeck.find(s => s.definitionId === ZARAK_DUM)!;
+    const extraMoves = viableActions(tapped, PLAYER_1, 'extra-mh-move')
+      .map(ea => ea.action as ExtraMHMoveAction);
+
+    expect(extraMoves.some(a => a.destinationSite === bagEndInst.instanceId)).toBe(true);
+    expect(extraMoves.some(a => a.destinationSite === zarakDumInst.instanceId)).toBe(false);
+  });
 });

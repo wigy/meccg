@@ -5731,6 +5731,15 @@ export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
  *   precedent of not offering the opponent a response window).
  *   Example: Orc Stealth (le-217) — Orc scout only; cancels one strike
  *   against an Orc scout.
+ *
+ * A `dodge` effect may instead carry `cost: { tap: "self" }`, marking it as
+ * an in-play item/ally ability (not a hand-played short event): the bearer's
+ * item taps itself to dodge one strike against its own bearer, rather than
+ * being played from hand and discarded. Emits a `dodge-strike` action
+ * (resolved immediately, no chain — same item-tap convention as
+ * `cancel-strike`) instead of `play-strike-event`. Example: Great-shield of
+ * Rohan (tw-250) — Warrior only, tap to remain untapped against one strike
+ * (unless the bearer is wounded by the strike).
  */
 export interface StrikeModifierEffect extends EffectBase {
   readonly type: 'strike-modifier';
@@ -5748,6 +5757,13 @@ export interface StrikeModifierEffect extends EffectBase {
   readonly requiredSkill?: string;
   /** Filter condition on the strike target character (reroll and cancel modes). */
   readonly filter?: Condition;
+  /**
+   * When present, this is an in-play item/ally ability rather than a
+   * hand-played short event: the source taps itself to protect its own
+   * bearer against the current strike (dodge mode only). Absent for
+   * hand-played strike-modifier cards.
+   */
+  readonly cost?: ActionCost;
 }
 
 /**

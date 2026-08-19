@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -40,7 +40,7 @@ import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
-import { extraMHMoveDestinations, extraMHUnderDeepsDestinations } from '../mh-hazard-play.js';
+import { extraMHMoveDestinations, extraMHUnderDeepsDestinations, gangwaysExtraDestinations } from '../mh-hazard-play.js';
 import { buildCompanyCompositionContext } from '../company-composition.js';
 import { currentHazardLimit } from '../hazard-limit.js';
 import { computeCandidateRegionPaths } from '../region-keying.js';
@@ -48,23 +48,6 @@ import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
 import { cardTargetsSetAside } from '../set-aside.js';
-
-/**
- * Count unresolved hazard-creature / hazard-event chain entries. Used
- * as a context field for granted-action constraints whose `when`
- * checks chain state (e.g. Great Ship needs at least one unresolved
- * hazard to offer a cancel).
- */
-function countUnresolvedChainHazards(state: GameState): number {
-  if (!state.chain) return 0;
-  let n = 0;
-  for (const e of state.chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    const def = defById(state, e.card.definitionId);
-    if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
-  }
-  return n;
-}
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -234,19 +217,10 @@ function gangwaysOfferActions(
   const company = player.companies[mhState.activeCompanyIndex];
   const actions: GameAction[] = [];
   if (company?.moved) {
-    const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    const used = new Set((mhState.gangwaysSitesUsed?.[company.id as string] ?? []).map(id => id as string));
-    const seen = new Set<string>();
-    if (currentDef && isSiteCard(currentDef)) {
-      for (const siteInst of player.siteDeck) {
-        if (used.has(siteInst.definitionId as string) || seen.has(siteInst.definitionId as string)) continue;
-        const destDef = defById(state, siteInst.definitionId);
-        if (!destDef || !isSiteCard(destDef)) continue;
-        if (!isUnderDeepsAdjacent(state, currentDef, destDef, playerId)) continue;
-        seen.add(siteInst.definitionId as string);
-        actions.push({ type: 'gangways-extra-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
-        logDetail(`Gangways over the Fire: offering extra Under-deeps move to ${destDef.name}`);
-      }
+    const used = mhState.gangwaysSitesUsed?.[company.id as string] ?? [];
+    for (const siteInst of gangwaysExtraDestinations(state, activeIndex, company, used)) {
+      actions.push({ type: 'gangways-extra-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
+      logDetail(`Gangways over the Fire: offering extra Under-deeps move to ${defById(state, siteInst.definitionId)?.name ?? '?'}`);
     }
   }
   // Always allow passing to finish the company.
@@ -2757,15 +2731,7 @@ function playHazardsActions(
 
             // Agent's current site: top of its site stack, else its first home
             // site (a face-down agent sitting at home).
-            const agentHomesites = parseHomesiteNames(agentDef.homesite);
-            let agentSiteName: string | null = null;
-            if (agent.siteStack.length > 0) {
-              const topSite = agent.siteStack[agent.siteStack.length - 1];
-              const topSiteDef = defById(state, topSite.definitionId);
-              if (topSiteDef && isSiteCard(topSiteDef)) agentSiteName = topSiteDef.name;
-            } else {
-              agentSiteName = agentHomesites[0] ?? null;
-            }
+            const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
             if (agentSiteName === null) continue;
 
             // Any opponent character in play whose home site == agent's site.

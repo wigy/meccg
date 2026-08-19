@@ -16,9 +16,9 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
-import type { CardInstance } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
+import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
+import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
@@ -41,7 +41,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -624,6 +624,50 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
 }
 
 /**
+ * Play a hand card in one of its alternate hazard-event modes (a dual-mode
+ * creature or event declared as a short-event or permanent-event via
+ * `altEventMode`): count it against the hazard limit unless it carries the
+ * `no-hazard-limit` play flag, take it out of hand (straight into the discard
+ * pile when `discardOnPlay` — short events resolve off the chain), reset the
+ * resource player's pass, and push the chain entry with `payload`.
+ */
+function playHazardInAltMode(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  action: PlayHazardAction,
+  hazardIndex: number,
+  handCard: CardInstance,
+  def: { readonly effects?: readonly CardEffect[] },
+  opts: {
+    /** What is being played, for the log line ("creature \"X\" as a short-event"). */
+    readonly description: string;
+    readonly logSuffix?: string;
+    readonly discardOnPlay: boolean;
+    readonly payload: ChainEntryPayload;
+  },
+): ReducerResult {
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit
+    ? mhState.hazardsPlayedThisCompany
+    : mhState.hazardsPlayedThisCompany + 1;
+  logDetail(`Play-hazards: hazard player plays ${opts.description} (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}${opts.logSuffix ?? ''}`);
+
+  const newState: GameState = {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      ...(opts.discardOnPlay ? { discardPile: [...p.discardPile, handCard] } : {}),
+    })),
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: newHazardCount,
+      resourcePlayerPassed: false,
+    },
+  };
+  return { state: initiateOrPushChain(newState, action.player, handCard, opts.payload, !bypassesLimit) };
+}
+
+/**
  * Play a hazard card from hand during the play-hazards step.
  *
  * Currently supports hazard long-events. Playing a hazard counts as one
@@ -680,33 +724,15 @@ export function handlePlayHazardCard(
   if (def.cardType === 'hazard-creature'
       && action.type === 'play-hazard'
       && action.altEventMode === 'short-event') {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a short-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
-
-    // Short events are discarded at play time (they resolve off the chain).
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        hand: newHand,
-        discardPile: [...p.discardPile, handCard],
-      })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `creature "${def.name}" as a short-event`,
+      // Short events are discarded at play time (they resolve off the chain).
+      discardOnPlay: true,
+      payload: {
+        type: 'short-event',
+        ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
       },
-    };
-
-    const shortEventPayload: import('../index.js').ChainEntryPayload = {
-      type: 'short-event',
-      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
-    };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
-    return { state: newState };
+    });
   }
 
   // --- Dual-mode creature played as a permanent-event (creature-alt-event) ---
@@ -719,26 +745,14 @@ export function handlePlayHazardCard(
   if (def.cardType === 'hazard-creature'
       && action.type === 'play-hazard'
       && action.altEventMode === 'permanent-event') {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a permanent-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} — enters play`);
-
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-      },
-    };
-    // General permanent-event (no character/site binding): resolvePermanentEvent
-    // places it into the hazard player's cardsInPlay untapped.
-    const payload: import('../index.js').ChainEntryPayload = { type: 'permanent-event' };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
-    return { state: newState };
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `creature "${def.name}" as a permanent-event`,
+      logSuffix: ' — enters play',
+      discardOnPlay: false,
+      // General permanent-event (no character/site binding): resolvePermanentEvent
+      // places it into the hazard player's cardsInPlay untapped.
+      payload: { type: 'permanent-event' },
+    });
   }
 
   // --- Inner Cunning (dm-68) mode 2: dual permanent-event card played as a
@@ -750,28 +764,11 @@ export function handlePlayHazardCard(
       && action.type === 'play-hazard'
       && action.altEventMode === 'short-event'
       && getCardEffects(def).some(e => e.type === 'fetch-agent-to-hand')) {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays "${def.name}" as a short-event tutor (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
-
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        hand: newHand,
-        discardPile: [...p.discardPile, handCard],
-      })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-      },
-    };
-    const shortEventPayload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
-    return { state: newState };
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `"${def.name}" as a short-event tutor`,
+      discardOnPlay: true,
+      payload: { type: 'short-event' },
+    });
   }
 
   // --- Short-event card played in a permanent-event `play-option` mode ---
@@ -787,30 +784,17 @@ export function handlePlayHazardCard(
       && action.type === 'play-hazard'
       && action.altEventMode === 'permanent-event'
       && action.optionId) {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays "${def.name}" as a permanent-event (option "${action.optionId}") (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
-
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `"${def.name}" as a permanent-event (option "${action.optionId}")`,
+      discardOnPlay: false,
+      payload: {
+        type: 'permanent-event',
+        optionId: action.optionId,
+        ...(action.optionTargetInstanceId
+          ? { optionTargetInstanceId: action.optionTargetInstanceId }
+          : {}),
       },
-    };
-    const payload: import('../index.js').ChainEntryPayload = {
-      type: 'permanent-event',
-      optionId: action.optionId,
-      ...(action.optionTargetInstanceId
-        ? { optionTargetInstanceId: action.optionTargetInstanceId }
-        : {}),
-    };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
-    return { state: newState };
+    });
   }
 
   // --- Creature handling (via chain of effects) ---
@@ -1345,7 +1329,7 @@ export function findForcingEnvironment(
   state: GameState,
   company: Company,
   mhState: MovementHazardPhaseState,
-  movingPlayer: import('../index.js').PlayerState,
+  movingPlayer: PlayerState,
 ): import('../index.js').CardInPlay | null {
   const path = mhState.resolvedSitePath;
   // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
@@ -2050,9 +2034,34 @@ export function fireAllyArrivalEffects(
 }
 
 /**
+ * Enumerate the site instances in `player`'s site deck whose site definition
+ * passes `accept`, de-duplicated by definition (the first instance of each
+ * accepted definition wins). Shared core of every "offer another movement to a
+ * site from the site deck" enumerator below.
+ */
+function siteDeckDestinations(
+  state: GameState,
+  player: PlayerState,
+  accept: (destDef: SiteCard, siteInst: CardInstance) => boolean,
+): readonly CardInstance[] {
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!accept(destDef, siteInst)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
  * Enumerate the Under-deeps destination sites (instances in the active
  * player's site deck) a company may reach via a Gangways over the Fire
- * (ba-60) extra move: Under-deeps-adjacent to the company's current site and
+ * (ba-60) extra move: Under-deeps-adjacent to the company's current site
+ * (including adjacency the moving player's Caverns Unchoked ba-51 grants) and
  * not among the sites it has already used this turn.
  */
 export function gangwaysExtraDestinations(
@@ -2062,21 +2071,12 @@ export function gangwaysExtraDestinations(
   usedSiteDefIds: readonly CardDefinitionId[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
-  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const currentDef = companySiteDef(state, company);
+  if (!currentDef) return [];
   const used = new Set(usedSiteDefIds.map(id => id as string));
-  const seenDefs = new Set<string>();
-  const dests: CardInstance[] = [];
-  for (const siteInst of player.siteDeck) {
-    if (used.has(siteInst.definitionId as string)) continue;
-    if (seenDefs.has(siteInst.definitionId as string)) continue;
-    const destDef = defById(state, siteInst.definitionId);
-    if (!destDef || !isSiteCard(destDef)) continue;
-    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
-    seenDefs.add(siteInst.definitionId as string);
-    dests.push(siteInst);
-  }
-  return dests;
+  return siteDeckDestinations(state, player, (destDef, siteInst) =>
+    !used.has(siteInst.definitionId as string)
+    && isUnderDeepsAdjacent(state, currentDef, destDef, player.id));
 }
 
 /**
@@ -2152,8 +2152,8 @@ function extraMHPhaseConstraint(
   company: Company,
 ): import('../types/pending.js').ActiveConstraint | null {
   if (!company.moved) return null;
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!siteDef || !isSiteCard(siteDef)) return null;
+  const siteDef = companySiteDef(state, company);
+  if (!siteDef) return null;
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'extra-mh-phase') continue;
     if (c.target.kind !== 'company' || c.target.companyId !== company.id) continue;
@@ -2180,7 +2180,7 @@ function extraMHPhaseConstraint(
  */
 function findAllyTapExtraMHPhase(
   state: GameState,
-  player: import('../index.js').PlayerState,
+  player: PlayerState,
   company: Company,
 ): { readonly allyInstanceId: CardInstanceId; readonly allyName: string } | null {
   for (const charId of company.characters) {
@@ -2209,7 +2209,7 @@ function findAllyTapExtraMHPhase(
  */
 function findCharacterTapExtraMHPhase(
   state: GameState,
-  player: import('../index.js').PlayerState,
+  player: PlayerState,
   company: Company,
 ): { readonly characterInstanceId: CardInstanceId; readonly characterName: string; readonly effect: CharacterTapExtraMHPhaseEffect } | null {
   for (const charId of company.characters) {
@@ -2659,12 +2659,26 @@ export function extraMHMoveDestinations(
   requiresSitePathIncludes?: readonly RegionType[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
-  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const currentDef = companySiteDef(state, company);
+  if (!currentDef) return [];
   const movementMap = buildMovementMap(state.cardPool, player.alignment);
-  const allSites = Object.values(state.cardPool).filter(
-    (s): s is SiteCard => isSiteCard(s) && s.alignment === player.alignment,
-  );
+  // Candidates come from the player's own site deck, not from a cardPool
+  // filter on exact alignment equality: a Fallen-wizard's location deck mixes
+  // hero, minion, and Fallen-wizard-alignment sites (CoE 1.4.F1), and a Balrog's
+  // mixes minion and Balrog-alignment sites (CoE 1.4.B1) — an exact-equality
+  // filter would drop nearly all of a mixed-alignment player's own sites and
+  // starve `grant-extra-mh-phase` cards (Carambor le-5, Forced March le-185,
+  // Bridge tw-202, Leg It Double Quick le-202) of destinations. Mirrors the
+  // candidate-building in `planMovementActions`.
+  const seenSiteDefIds = new Set<string>();
+  const allSites: SiteCard[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (seenSiteDefIds.has(siteInst.definitionId as string)) continue;
+    const siteDef = defById(state, siteInst.definitionId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    seenSiteDefIds.add(siteInst.definitionId as string);
+    allSites.push(siteDef);
+  }
   let reachable = getReachableSites(movementMap, currentDef, allSites);
 
   // CoE 2.II.7.R1: a company containing a Ringwraith avatar is bound by the
@@ -2693,19 +2707,12 @@ export function extraMHMoveDestinations(
   }
 
   const reachableNames = new Set(reachable.map(r => r.site.name));
-  const seenDefs = new Set<string>();
-  const dests: CardInstance[] = [];
-  for (const siteInst of player.siteDeck) {
-    if (seenDefs.has(siteInst.definitionId as string)) continue;
-    const destDef = defById(state, siteInst.definitionId);
-    if (!destDef || !isSiteCard(destDef)) continue;
-    if (!reachableNames.has(destDef.name)) continue;
-    if (requiresSitePathIncludes && requiresSitePathIncludes.length > 0
-      && !requiresSitePathIncludes.some(rt => destDef.sitePath.includes(rt))) continue;
-    seenDefs.add(siteInst.definitionId as string);
-    dests.push(siteInst);
-  }
-  return dests;
+  const requiresRegionTypes = requiresSitePathIncludes && requiresSitePathIncludes.length > 0
+    ? requiresSitePathIncludes
+    : undefined;
+  return siteDeckDestinations(state, player, destDef =>
+    reachableNames.has(destDef.name)
+    && (!requiresRegionTypes || requiresRegionTypes.some(rt => destDef.sitePath.includes(rt))));
 }
 
 /**
@@ -2725,22 +2732,13 @@ export function extraMHUnderDeepsDestinations(
   attemptedSiteDefIds: readonly CardDefinitionId[],
 ): readonly CardInstance[] {
   const player = state.players[activeIndex];
-  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const currentDef = companySiteDef(state, company);
+  if (!currentDef) return [];
   const attempted = new Set(attemptedSiteDefIds.map(id => id as string));
-  const seenDefs = new Set<string>();
-  const dests: CardInstance[] = [];
-  for (const siteInst of player.siteDeck) {
-    if (attempted.has(siteInst.definitionId as string)) continue;
-    if (seenDefs.has(siteInst.definitionId as string)) continue;
-    const destDef = defById(state, siteInst.definitionId);
-    if (!destDef || !isSiteCard(destDef)) continue;
-    if (!(destDef.keywords?.includes('under-deeps') ?? false)) continue;
-    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
-    seenDefs.add(siteInst.definitionId as string);
-    dests.push(siteInst);
-  }
-  return dests;
+  return siteDeckDestinations(state, player, (destDef, siteInst) =>
+    !attempted.has(siteInst.definitionId as string)
+    && (destDef.keywords?.includes('under-deeps') ?? false)
+    && isUnderDeepsAdjacent(state, currentDef, destDef));
 }
 
 /**
