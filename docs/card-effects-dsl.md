@@ -4900,6 +4900,78 @@ deliberately reorder them.
 Implemented in `engine/combat-actions.ts` (`handleModifyAttack`) and
 `engine/combat-finalize.ts` (`finalizeCombat`).
 
+### 10e-quater. `modify-attack` `grantAttackerChoosesDefenders` / `bodyCheckModifier`, and multiple from-hand modes on one card
+
+A card may declare **more than one** `modify-attack` (`fromHand: true`)
+effect — distinct modes gated by different `player`/`when` combinations, one
+per printed "Alternatively, playable on ..." clause. Both the offering
+(`modifyAttackActions`, `legal-actions/combat.ts`) and the reducer
+(`handleModifyAttack`, `combat-actions.ts`) select the **first** effect whose
+`player` matches the acting side and whose `when` (if any) matches — the same
+"modes tried in order" convention used elsewhere for on-event effects
+(Choking Shadows). In practice each mode's `when` describes a mutually
+exclusive combat (e.g. "attack *against* her" vs. "attack *by* her"), so at
+most one ever matches at a time; the reducer reuses the exact same context
+builder (`buildPlayedModifyAttackContext`) as the legal-action generator, so
+it always applies whichever effect was actually offered.
+
+Two additional fields, usable on any from-hand mode:
+
+- `grantAttackerChoosesDefenders: true` — sets
+  `CombatState.attackerChoosesDefenders`. Since a from-hand `modify-attack`
+  can only be played before any strike is assigned, `assignmentPhase` is
+  still `'defender'` (the normal CvCC/creature start) — the effect redirects
+  it straight to `'attacker'` rather than waiting for a defender pass. The
+  existing assignment machinery (`cvccAttackerAssignActions` for CvCC,
+  ordinary attacker-assignment for creature attacks) then runs unmodified
+  from a cold start, exactly as it already does when a creature's own
+  `combat-attacker-chooses-defenders` effect sets the flag at combat
+  creation. The opposite of `removeAttackerChoosesDefenders` (§10c).
+- `bodyCheckModifier: N` — adds to `CombatState.bodyCheckModifier`, the
+  pre-existing attack-wide body-check modifier (§12 `combat-body-check-modifier`)
+  that `handleBodyCheckRoll` already folds into every body check of the
+  combat — creature and character alike. Distinct from `bodyModifier`, which
+  changes the creature's own body *stat*, not the body-check roll.
+
+The `when` context (`buildPlayedModifyAttackContext`) gained
+`defender.companySize` / `defender.characterNames` (any attack — the
+defending company's roster) and, for CvCC attacks only,
+`attacker.companySize` / `attacker.characterNames` (resolved from
+`attackSource.attackingCompanyId`), letting a card gate on "the only
+character in her company" from either side without a hardcoded name/race
+keyword.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "defender",
+  "setStrikesTo": 1, "bodyModifier": -2,
+  "when": { "$and": [
+    { "defender.companySize": 1 },
+    { "defender.characterNames": { "$includes": "Adûnaphel the Ringwraith" } }
+  ] } }
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "grantAttackerChoosesDefenders": true, "bodyCheckModifier": 2,
+  "when": { "$and": [
+    { "attacker.companySize": 1 },
+    { "attacker.characterNames": { "$includes": "Adûnaphel the Ringwraith" } }
+  ] } }
+```
+
+Example: Adûnaphel Unleashed (le-161) — "Playable on any attack against
+Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in
+her company. The number of strikes of the attack is reduced to one and the
+attack's body is modified by -2. Alternatively, playable on any attack by a
+lone Adûnaphel the Ringwraith (as your Ringwraith). You choose defending
+characters. Any resulting body checks for defending characters are modified
+by +2. Cannot be duplicated on a given attack." — Mode A (defender play)
+reduces the attack against her; Mode B (attacker play) grants her the
+attacker-chooses-defenders rule and boosts the resulting body checks; a
+shared `duplication-limit` (`scope: "attack"`) covers both modes since it is
+keyed by card definition ID, not by which mode was played.
+
+Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`,
+`buildPlayedModifyAttackContext`) and `engine/combat-actions.ts`
+(`handleModifyAttack`).
+
 ### 10f-bis. `counter-cancel-attack-roll`
 
 A hazard short-event the **attacking** (hazard) player plays during a combat

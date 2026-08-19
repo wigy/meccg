@@ -3103,9 +3103,41 @@
           "deck.alignment": "balrog"
         },
         "reason": "rule 1.23"
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "setStrikesTo": 1,
+        "bodyModifier": -2,
+        "when": {
+          "$and": [
+            { "defender.companySize": 1 },
+            { "defender.characterNames": { "$includes": "Adûnaphel the Ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "grantAttackerChoosesDefenders": true,
+        "bodyCheckModifier": 2,
+        "when": {
+          "$and": [
+            { "attacker.companySize": 1 },
+            { "attacker.characterNames": { "$includes": "Adûnaphel the Ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
       }
     ],
-    "text": "Playable on any attack against Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in her company. The number of strikes of the attack is reduced to one and the attack’s body is modified by -2. Alternatively, playable on any attack by a lone Adûnaphel the Ringwraith (as your Ringwraith).You choose defending characters. Any resulting body checks for defending characters are modified by +2. Cannot be duplicated on a given attack."
+    "text": "Playable on any attack against Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in her company. The number of strikes of the attack is reduced to one and the attack’s body is modified by -2. Alternatively, playable on any attack by a lone Adûnaphel the Ringwraith (as your Ringwraith).You choose defending characters. Any resulting body checks for defending characters are modified by +2. Cannot be duplicated on a given attack.",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "minion-resource-event",
