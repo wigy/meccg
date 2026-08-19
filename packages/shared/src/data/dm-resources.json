@@ -947,7 +947,7 @@
         "type": "play-target",
         "target": "site",
         "filter": {
-          "siteType": "haven"
+          "effectiveSiteType": "haven"
         }
       },
       {

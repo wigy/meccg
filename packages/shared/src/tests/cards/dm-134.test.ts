@@ -12,8 +12,9 @@
  *    site card is returned to the location deck."
  *
  * Modelled as a permanent event bound to the Haven it is played on
- * (`play-target` target `site`, filtered to `siteType: haven`). The site
- * binding (`attachedToSite`) drives two things:
+ * (`play-target` target `site`, filtered to `effectiveSiteType: haven` so it
+ * also matches a Wizardhaven-converted site). The site binding
+ * (`attachedToSite`) drives two things:
  *   - the discard sweep (`discardOrphanedSiteAttachedEvents`) removes the card
  *     once no company occupies the bound haven (the haven site card has been
  *     returned to the location deck);
@@ -33,6 +34,7 @@
  * | 5 | only fires for a company at the bound haven                | OK     |
  * | 6 | discarded when the haven leaves play                       | OK     |
  * | 7 | playable during the organization phase (rule 2.1.1)        | OK     |
+ * | 8 | playable on a Wizardhaven-converted site (effective type)  | OK     |
  *
  * Playable: YES
  */
@@ -43,6 +45,7 @@ import {
   dispatch, resetMint, mint, pushCardInPlay,
   buildTestState, buildSitePhaseState, makeMHState,
   findCharInstanceId,
+  buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
   LEGOLAS, GIMLI, RIVENDELL, MORIA,
   CardStatus, Phase,
 } from '../test-helpers.js';
@@ -51,6 +54,13 @@ import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js
 import type { CardDefinitionId, CardInstanceId, CardInPlay, GameState } from '../../index.js';
 
 const HALL_OF_FIRE = 'dm-134' as CardDefinitionId;
+const HIDDEN_HAVEN = 'wh-75' as CardDefinitionId;
+
+// Ettenmoors (le-373): Ruins & Lairs in Rhudaur (wilderness) — Hidden-Haven
+// eligible. Mirrors the reported game (mt08lcl7-ztx6f8, seq 44).
+const ETTENMOORS = 'le-373' as CardDefinitionId;
+// A character a Fallen-wizard may field.
+const ARAGORN = 'tw-120' as CardDefinitionId;
 
 /** Make a Hall of Fire permanent event bound to a haven, owned by player 0. */
 function attachHallOfFire(state: GameState, havenDefId: CardDefinitionId): GameState {
@@ -142,6 +152,31 @@ describe('Hall of Fire (dm-134)', () => {
     );
     expect(plays).toHaveLength(1);
     expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(RIVENDELL);
+  });
+
+  // Regression (game mt08lcl7-ztx6f8, seq 44): a Fallen-wizard had converted a
+  // Ruins & Lairs (Ettenmoors) into a Wizardhaven via Hidden Haven (wh-75) and
+  // had a company there. Hall of Fire's play-target filter checked the site's
+  // printed `siteType` (still "ruins-and-lairs") instead of its effective type,
+  // so the converted Wizardhaven was never offered as a target — only the
+  // player's other, printed haven was.
+  test('playable on a Ruins & Lairs converted into a Wizardhaven by Hidden Haven', () => {
+    const before = buildFallenWizardSitePhaseState({ site: ETTENMOORS, characters: [ARAGORN], hand: [HIDDEN_HAVEN] });
+    const hiddenHavenId = before.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === HIDDEN_HAVEN)!.instanceId;
+    const converted = playPermanentEventAndResolve(
+      before, PLAYER_1, hiddenHavenId, undefined, { targetSiteDefinitionId: ETTENMOORS },
+    );
+    const state: GameState = { ...converted, players: [
+      { ...converted.players[RESOURCE_PLAYER], hand: [{ instanceId: mint(), definitionId: HALL_OF_FIRE }] },
+      converted.players[1],
+    ] as GameState['players'] };
+    const id = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === HALL_OF_FIRE)!.instanceId;
+    const plays = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-permanent-event'
+        && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === id,
+    );
+    expect(plays).toHaveLength(1);
+    expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(ETTENMOORS);
   });
 
   test('NOT playable on a non-Haven site (Moria)', () => {
