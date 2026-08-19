@@ -41,6 +41,7 @@ import type {
   ActivateOrgFetchAction,
   DiscardCharacterOrgAction,
   DiscardItemFromCompanyAction,
+  PlayHazardAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -99,6 +100,37 @@ export function influenceVariantLabel(action: InfluenceAttemptAction): string {
   return action.placeUnderLeaderControl
     ? "Place under leader's control (site not tapped)"
     : 'Influence (tap site)';
+}
+
+/**
+ * All viable `play-hazard` actions for the given hand card targeting the
+ * given character. A hazard card that declares multiple mutually-exclusive
+ * `play-option` effects (e.g. Weariness of the Heart's prowess-penalty vs.
+ * corruption-check options) yields one legal action per option — the click
+ * handler must present all of them as a choice rather than silently firing
+ * whichever one `.find()` happens to hit first.
+ */
+export function findHazardVariants(
+  viable: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+  charInstanceId: CardInstanceId,
+): PlayHazardAction[] {
+  return viable.filter(
+    (a): a is PlayHazardAction =>
+      a.type === 'play-hazard'
+      && a.cardInstanceId === cardInstanceId
+      && 'targetCharacterId' in a
+      && a.targetCharacterId === charInstanceId,
+  );
+}
+
+/**
+ * Human-readable label for a play-hazard variant, used when the UI must
+ * disambiguate multiple `play-option` effects on the same target.
+ */
+export function hazardVariantLabel(action: PlayHazardAction): string {
+  if (!action.optionId) return 'Play';
+  return action.optionId.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
 }
 
 /**
@@ -222,14 +254,14 @@ const CHARACTER_TARGETING_MODES: readonly CharacterTargetingMode[] = [
       return action ? [action] : [];
     },
   },
-  // Hazard character targeting: click a character to play the hazard on them
+  // Hazard character targeting: click a character to play the hazard on them.
+  // A card with several `play-option` effects (Weariness of the Heart's
+  // prowess vs. corruption-check) yields one variant per option → menu.
   {
     selected: getSelectedHazardForPlay,
     clear: clearHazardPlaySelection,
-    find: (viable, selected, charInstId) => firstMatch(viable,
-      a => a.type === 'play-hazard' && a.cardInstanceId === selected
-        && 'targetCharacterId' in a && a.targetCharacterId === charInstId,
-    ),
+    find: findHazardVariants,
+    label: a => hazardVariantLabel(a as PlayHazardAction),
   },
 ];
 
