@@ -2377,6 +2377,58 @@ function siteSwapCancelActions(
   return actions;
 }
 
+/**
+ * Race-threshold cancel-attack offers (Flatter a Foe td-116 / Riddling Talk
+ * td-148): for each hand card carrying an effect of `effectType`, when the
+ * attacking creature's race has a threshold entry in the effect, emit one
+ * `cancel-attack` action per character in the defending company (the player
+ * selects who makes the attempt; the roll — and any follow-up — happens in
+ * later pending resolutions). `label` prefixes the debug log lines.
+ */
+function raceThresholdCancelAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  player: PlayerState,
+  company: Company,
+  combat: CombatState,
+  effectType: 'flattery-cancel-attack' | 'riddling-attempt',
+  label: string,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is FlatteryCancelAttackEffect | RiddlingAttemptEffect => e.type === effectType,
+    );
+    if (!effect) continue;
+
+    if (!combat.creatureRace) {
+      logDetail(`${label} ${handCard.definitionId as string}: no creature race — skipping`);
+      continue;
+    }
+    const matchedEntry = effect.thresholds.find(t => t.races.includes(combat.creatureRace!));
+    if (!matchedEntry) {
+      logDetail(`${label} ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
+      continue;
+    }
+
+    // One action per character in the company — player picks who makes the attempt
+    for (const charId of company.characters) {
+      logDetail(`${label} ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
 function cancelAttackActions(
   state: GameState,
   playerId: PlayerId,
@@ -2904,78 +2956,11 @@ function cancelAttackActions(
     }
   }
 
-  // Flattery-cancel-attack: hand cards with a `flattery-cancel-attack` effect
-  // (e.g. Flatter a Foe). Only offered when the attacking creature's race has
-  // a threshold entry in the effect. One `cancel-attack` action is emitted per
-  // character in the defending company (the player selects who makes the attempt).
-  for (const handCard of player.hand) {
-    const cardDef = defById(state, handCard.definitionId);
-    const flatEffect = getCardEffects(cardDef).find(
-      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
-    );
-    if (!flatEffect) continue;
-
-    if (!combat.creatureRace) {
-      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: no creature race — skipping`);
-      continue;
-    }
-    const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
-    if (!matchedEntry) {
-      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
-      continue;
-    }
-
-    // One action per character in the company — player picks who makes the attempt
-    for (const charId of company.characters) {
-      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
-      actions.push({
-        action: {
-          type: 'cancel-attack',
-          player: playerId,
-          cardInstanceId: handCard.instanceId,
-          targetCharacterId: charId,
-        },
-        viable: true,
-      });
-    }
-  }
-
-  // Riddling-attempt: hand cards with a `riddling-attempt` effect (e.g.
-  // Riddling Talk). Only offered when the attacking creature's race has a
-  // threshold entry in the effect. One `cancel-attack` action is emitted per
-  // character in the defending company (the player selects who makes the
-  // attempt) — the roll and, on success, the guess happen in later pending
-  // resolutions.
-  for (const handCard of player.hand) {
-    const cardDef = defById(state, handCard.definitionId);
-    const riddlingEffect = getCardEffects(cardDef).find(
-      (e): e is RiddlingAttemptEffect => e.type === 'riddling-attempt',
-    );
-    if (!riddlingEffect) continue;
-
-    if (!combat.creatureRace) {
-      logDetail(`Riddling-attempt ${handCard.definitionId as string}: no creature race — skipping`);
-      continue;
-    }
-    const matchedEntry = riddlingEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
-    if (!matchedEntry) {
-      logDetail(`Riddling-attempt ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
-      continue;
-    }
-
-    for (const charId of company.characters) {
-      logDetail(`Riddling-attempt ${handCard.definitionId as string}: offering for character ${charId as string}`);
-      actions.push({
-        action: {
-          type: 'cancel-attack',
-          player: playerId,
-          cardInstanceId: handCard.instanceId,
-          targetCharacterId: charId,
-        },
-        viable: true,
-      });
-    }
-  }
+  // Flattery-cancel-attack (Flatter a Foe td-116) and riddling-attempt
+  // (Riddling Talk td-148): race-threshold cancel-attack attempts offered once
+  // per character in the defending company.
+  actions.push(...raceThresholdCancelAttackActions(state, playerId, player, company, combat, 'flattery-cancel-attack', 'Flattery-cancel-attack'));
+  actions.push(...raceThresholdCancelAttackActions(state, playerId, player, company, combat, 'riddling-attempt', 'Riddling-attempt'));
 
   // Goodwill-cancel-attack: hand cards with a `goodwill-cancel-attack` effect
   // (e.g. Token of Goodwill dm-160). Only offered when the facing attack's
