@@ -82,6 +82,24 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
 
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
   const siteState = requirePhaseState(state, Phase.Site);
+
+  // Granted-action activations (constraint pass-through grants such as River's
+  // cancel, any-phase grants such as Cram / Orc-draughts) are offered in every
+  // site step, so they are routed here once rather than by each step handler —
+  // an offered action must never be rejected by the reducer. The shared generic
+  // handler resolves the apply from the active granted-action constraint
+  // matching action.sourceCardId + action.actionId.
+  if (action.type === 'activate-granted-action') {
+    // Hermit's Hill discard-minors-for-major (dm-32) / discard-minors-for-gold-ring
+    // (le-382) during play-resources: handled ahead of the generic path because
+    // it has no character actor to tap — the cost is discarding two minor items.
+    if (siteState.step === 'play-resources'
+      && (action.actionId === 'discard-minors-for-major' || action.actionId === 'discard-minors-for-gold-ring')) {
+      return handleDiscardMinorsForUnlock(state, action, siteState);
+    }
+    return handleGrantActionApply(state, action);
+  }
+
   const handler = SITE_STEP_HANDLERS[siteState.step];
   if (handler) {
     const result = handler(state, action, siteState);
@@ -286,15 +304,6 @@ function handleSiteSelectCompany(
     return endSitePhase(state);
   }
 
-  // Granted-action activation (e.g. River: ranger taps to cancel
-  // site-phase-do-nothing). The constraint pass-through offers these in
-  // every step, so every step handler must route them — mirror of the
-  // enter-or-skip handler above (engine gap class: an offered action must
-  // never be rejected by the reducer).
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
-
   if (action.type !== 'select-company') {
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
@@ -430,12 +439,6 @@ function handleSiteSiegeAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during siege-attacks step` };
@@ -489,13 +492,6 @@ function handleSiteEnterOrSkip(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Granted-action activation (e.g. River: ranger taps to cancel
-  // site-phase-do-nothing). Routed through the shared generic handler,
-  // which resolves the apply from the active granted-action
-  // constraint matching action.sourceCardId + action.actionId.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   // Rule 2.1.1: resource short-events remain playable at the enter-or-skip
   // decision window (`siteActions` offers them here too). Accept them so the
@@ -739,12 +735,6 @@ function handleSiteEntryAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during site-entry-attack step, got '${action.type}'` };
@@ -771,12 +761,6 @@ function handleRevealOnGuardAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   // Pass: advance to forewarned-select-attack (if Forewarned Is Forearmed is
   // in play and the site has >1 printed attacks), automatic-attacks (if the
@@ -949,12 +933,6 @@ function handleForewarnedSelectAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'select-forewarned-attack') {
     return { state, error: `Expected 'select-forewarned-attack' during forewarned-select-attack step, got '${action.type}'` };
@@ -1030,12 +1008,6 @@ function handleSiteAutomaticAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   // A chain response may arrive during the automatic-attacks step (e.g. a
   // hazard short event answering a declared effect while an auto-attack
@@ -1808,12 +1780,6 @@ function handleSiteTrollPurseAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during troll-purse-attacks step` };
@@ -1935,12 +1901,6 @@ function handleSiteRescueAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during rescue-attacks step` };
@@ -1998,12 +1958,6 @@ function handleDeclareAgentAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type === 'pass') {
     logDetail(`Site: declare-agent-attack → no agent attack declared (pass)`);
@@ -2248,12 +2202,6 @@ function handleSitePlaySiteAutoAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
@@ -2384,12 +2332,6 @@ function handleSiteResolveAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during resolve-attacks step` };
@@ -2826,22 +2768,6 @@ function handleSitePlayResources(
     return handleOpponentInfluenceAttempt(state, action, siteState);
   }
 
-  // Site-phase grant-action: Hermit's Hill discard-minors-for-major (dm-32) /
-  // discard-minors-for-gold-ring (le-382). Handled before the generic
-  // grant-action path because it has no character actor to tap — the cost is
-  // discarding two minor items directly.
-  if (action.type === 'activate-granted-action'
-    && (action.actionId === 'discard-minors-for-major' || action.actionId === 'discard-minors-for-gold-ring')) {
-    return handleDiscardMinorsForUnlock(state, action, siteState);
-  }
-
-  // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The
-  // legal-action emitter only offers activations flagged
-  // `anyPhase: true` during site phase, so we can delegate unconditionally.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
-
   return { state, error: `Unexpected action '${action.type}' in play-resources step` };
 }
 
@@ -2868,10 +2794,6 @@ function handleSiteRescueTap(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants are offered in every site step.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
   if (action.type === 'pass') {
     logDetail('Rescue: no character tapped — prisoners stay held → play-resources');
     return {
@@ -5219,12 +5141,6 @@ function handleDeclareCompanyAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
