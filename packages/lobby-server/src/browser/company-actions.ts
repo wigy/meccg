@@ -309,13 +309,14 @@ export function getAgentMoveActions(view: PlayerView): Map<string, AgentMoveActi
 
 /**
  * Collect all viable non-move agent actions (heal/untap/turn-face-down/key-creatures/
- * move-back/return-home), keyed by agent company ID.
+ * move-back/return-home/discard-return-to-origin), keyed by agent company ID.
  */
 export function getAgentOtherActions(view: PlayerView): Map<string, GameAction[]> {
   const AGENT_OTHER_TYPES = new Set([
     'agent-move-back', 'agent-return-home',
     'agent-heal', 'agent-untap',
     'agent-turn-face-down', 'agent-key-creatures',
+    'agent-discard-return-to-origin',
   ]);
   const result = new Map<string, GameAction[]>();
   for (const action of viableActions(view.legalActions)) {
