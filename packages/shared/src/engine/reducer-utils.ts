@@ -571,6 +571,16 @@ export function defById(state: GameState, definitionId: CardDefinitionId): CardD
 }
 
 /**
+ * The site card definition of the site a company currently occupies, or
+ * `undefined` when the company is not at a site (or its `currentSite` does not
+ * resolve to a site definition).
+ */
+export function companySiteDef(state: GameState, company: Company | undefined): SiteCard | undefined {
+  const def = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  return def && isSiteCard(def) ? def : undefined;
+}
+
+/**
  * `tap-site-on-play`: taps the active company's current site when a resource
  * event carrying the flag enters play, unless the site carries the
  * `never-taps` site-rule (e.g. The Worthy Hills). Shared by permanent-event
