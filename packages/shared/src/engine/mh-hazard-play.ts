@@ -17,8 +17,8 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
-import type { CardInstance } from '../index.js';
+import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
+import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
@@ -624,6 +624,50 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
 }
 
 /**
+ * Play a hand card in one of its alternate hazard-event modes (a dual-mode
+ * creature or event declared as a short-event or permanent-event via
+ * `altEventMode`): count it against the hazard limit unless it carries the
+ * `no-hazard-limit` play flag, take it out of hand (straight into the discard
+ * pile when `discardOnPlay` — short events resolve off the chain), reset the
+ * resource player's pass, and push the chain entry with `payload`.
+ */
+function playHazardInAltMode(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  action: PlayHazardAction,
+  hazardIndex: number,
+  handCard: CardInstance,
+  def: { readonly effects?: readonly CardEffect[] },
+  opts: {
+    /** What is being played, for the log line ("creature \"X\" as a short-event"). */
+    readonly description: string;
+    readonly logSuffix?: string;
+    readonly discardOnPlay: boolean;
+    readonly payload: ChainEntryPayload;
+  },
+): ReducerResult {
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit
+    ? mhState.hazardsPlayedThisCompany
+    : mhState.hazardsPlayedThisCompany + 1;
+  logDetail(`Play-hazards: hazard player plays ${opts.description} (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}${opts.logSuffix ?? ''}`);
+
+  const newState: GameState = {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      ...(opts.discardOnPlay ? { discardPile: [...p.discardPile, handCard] } : {}),
+    })),
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: newHazardCount,
+      resourcePlayerPassed: false,
+    },
+  };
+  return { state: initiateOrPushChain(newState, action.player, handCard, opts.payload, !bypassesLimit) };
+}
+
+/**
  * Play a hazard card from hand during the play-hazards step.
  *
  * Currently supports hazard long-events. Playing a hazard counts as one
@@ -680,33 +724,15 @@ export function handlePlayHazardCard(
   if (def.cardType === 'hazard-creature'
       && action.type === 'play-hazard'
       && action.altEventMode === 'short-event') {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a short-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
-
-    // Short events are discarded at play time (they resolve off the chain).
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        hand: newHand,
-        discardPile: [...p.discardPile, handCard],
-      })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `creature "${def.name}" as a short-event`,
+      // Short events are discarded at play time (they resolve off the chain).
+      discardOnPlay: true,
+      payload: {
+        type: 'short-event',
+        ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
       },
-    };
-
-    const shortEventPayload: import('../index.js').ChainEntryPayload = {
-      type: 'short-event',
-      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
-    };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
-    return { state: newState };
+    });
   }
 
   // --- Dual-mode creature played as a permanent-event (creature-alt-event) ---
@@ -719,26 +745,14 @@ export function handlePlayHazardCard(
   if (def.cardType === 'hazard-creature'
       && action.type === 'play-hazard'
       && action.altEventMode === 'permanent-event') {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a permanent-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} — enters play`);
-
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-      },
-    };
-    // General permanent-event (no character/site binding): resolvePermanentEvent
-    // places it into the hazard player's cardsInPlay untapped.
-    const payload: import('../index.js').ChainEntryPayload = { type: 'permanent-event' };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
-    return { state: newState };
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `creature "${def.name}" as a permanent-event`,
+      logSuffix: ' — enters play',
+      discardOnPlay: false,
+      // General permanent-event (no character/site binding): resolvePermanentEvent
+      // places it into the hazard player's cardsInPlay untapped.
+      payload: { type: 'permanent-event' },
+    });
   }
 
   // --- Inner Cunning (dm-68) mode 2: dual permanent-event card played as a
@@ -750,28 +764,11 @@ export function handlePlayHazardCard(
       && action.type === 'play-hazard'
       && action.altEventMode === 'short-event'
       && getCardEffects(def).some(e => e.type === 'fetch-agent-to-hand')) {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays "${def.name}" as a short-event tutor (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
-
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        hand: newHand,
-        discardPile: [...p.discardPile, handCard],
-      })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-      },
-    };
-    const shortEventPayload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
-    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
-    return { state: newState };
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `"${def.name}" as a short-event tutor`,
+      discardOnPlay: true,
+      payload: { type: 'short-event' },
+    });
   }
 
   // --- Short-event card played in a permanent-event `play-option` mode ---
@@ -787,30 +784,17 @@ export function handlePlayHazardCard(
       && action.type === 'play-hazard'
       && action.altEventMode === 'permanent-event'
       && action.optionId) {
-    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit
-      ? mhState.hazardsPlayedThisCompany
-      : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays "${def.name}" as a permanent-event (option "${action.optionId}") (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
-
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-    let newState: GameState = {
-      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
+    return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
+      description: `"${def.name}" as a permanent-event (option "${action.optionId}")`,
+      discardOnPlay: false,
+      payload: {
+        type: 'permanent-event',
+        optionId: action.optionId,
+        ...(action.optionTargetInstanceId
+          ? { optionTargetInstanceId: action.optionTargetInstanceId }
+          : {}),
       },
-    };
-    const payload: import('../index.js').ChainEntryPayload = {
-      type: 'permanent-event',
-      optionId: action.optionId,
-      ...(action.optionTargetInstanceId
-        ? { optionTargetInstanceId: action.optionTargetInstanceId }
-        : {}),
-    };
-    newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
-    return { state: newState };
+    });
   }
 
   // --- Creature handling (via chain of effects) ---
