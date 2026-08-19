@@ -209,8 +209,15 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
  * Builds the "opponent" portion of a player's view. Hides the opponent's
  * hand contents, play deck, site deck, sideboard, and discard pile
  * (represented as arrays of {@link UNKNOWN_INSTANCE} / {@link UNKNOWN_CARD}
- * — cards are discarded face-down per the CoE glossary), and redacts planned
- * movement destinations to a boolean `hasPlannedMovement` flag.
+ * — cards are discarded face-down per the CoE glossary), except for any
+ * discard-pile instance already made public per
+ * {@link GameState.handRevealedInstances} (e.g. Aware of their Ways, dm-46,
+ * which reveals a random subset of the opponent's discard pile so the
+ * card-player may choose one to remove from the game — without this, the
+ * chosen instances stayed `UNKNOWN_CARD` in the card-player's own view,
+ * so the pile browser rendered them as an anonymous face-down stack with no
+ * click targets), and redacts planned movement destinations to a boolean
+ * `hasPlannedMovement` flag.
  * Public information — characters in play, company locations — is passed
  * through. {@link projectPlayerView} layers on top of this for exceptions
  * that depend on the *viewing* player's own state, such as Pallando's
@@ -248,7 +255,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     hand: revealedCardPile(player.hand, state.handRevealedInstances),
     playDeck: revealedCardPile(player.playDeck, state.handRevealedInstances),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
-    discardPile: hiddenCardPile(player.discardPile),
+    discardPile: revealedCardPile(player.discardPile, state.handRevealedInstances),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),
@@ -455,13 +462,14 @@ function buildPlayerView(
     }
   }
 
-  // The Great Hunt (wh-91) forces the opponent to discard face-up for as
-  // long as it is in play: the engine reveals every newly discarded card via
-  // {@link sweepGreatHuntDiscards} (growing `handRevealedInstances`), so a
-  // later discard landing on top does not re-hide an earlier one.
-  if (selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT)) {
-    opponent = { ...opponent, discardPile: revealedCardPile(opponentPlayer.discardPile, state.handRevealedInstances) };
-  } else if (Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
+  // The Great Hunt (wh-91) forces the opponent to discard face-up for as long
+  // as it is in play: the engine reveals every newly discarded card via
+  // {@link sweepGreatHuntDiscards} (growing `handRevealedInstances`), which
+  // `buildOpponentView`'s discard-pile redaction already consults — so a
+  // later discard landing on top does not re-hide an earlier one, with no
+  // extra handling needed here.
+  if (!selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT)
+    && Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
     // Pallando (tw-175, CRF 22): the controlling player can see only the top
     // card of the opponent's discard pile (discards happen one at a time, so
     // this lets them see each card as it is discarded).
