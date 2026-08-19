@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -3991,18 +3991,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         && e.apply.removeFromGame === true,
     );
     if (removesSelf) {
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-      if (eventCard) {
-        const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, eventCard],
-        }));
-        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-      }
+      const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardName);
     }
   }
 
@@ -4198,17 +4188,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
     if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-      if (spent) {
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, spent],
-        }));
-        logDetail(`${cardDef?.name ?? (entry.card.definitionId as string)}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-      }
+      current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardDef?.name ?? (entry.card.definitionId as string));
     }
   }
 
@@ -4503,17 +4483,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
       // "Remove this card from the game." — move the event from the card-player's
       // discard pile (where it was placed at play time) to their out-of-play pile.
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      if (current.players[declarerIdx].discardPile.some(c => c.instanceId === eventInstId)) {
-        const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId)!;
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, eventCard],
-        }));
-        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-      }
+      current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardName);
 
       if (revealCount === 0) {
         logDetail(`${cardName}: nothing to reveal — the event fizzles`);
@@ -4883,17 +4853,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         // runs again for it, so the generic remove-from-game block further
         // down would never fire for News of Doom.
         if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
-          const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-          const eventInstId = entry.card.instanceId;
-          const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-          if (spent) {
-            current = updatePlayer(current, declarerIdx, p => ({
-              ...p,
-              discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-              outOfPlayPile: [...p.outOfPlayPile, spent],
-            }));
-            logDetail(`${cardLabel}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-          }
+          current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardLabel);
         }
         return { state: current, needsInput: true };
       }
