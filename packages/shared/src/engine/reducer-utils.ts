@@ -3698,37 +3698,49 @@ export function agentMatchesFilter(agentDef: CardDefinition, filter?: Condition)
 }
 
 /**
- * True if a character definition is an agent whose *printed* home site is a
- * site of one of the given {@link SiteType}s.
+ * Resolves a character definition's *printed* home site(s) to the matching
+ * {@link SiteCard}s in the card pool.
  *
- * The `homesite` field is a comma-separated list of site *names*; this resolves
- * each name against the card pool and checks whether any matching site's type
- * is in `types`. A single site name can exist in more than one alignment's map
- * with *different* types (e.g. Dol Guldur is a minion haven but a hero
- * dark-hold), so when the character definition carries an alignment the lookup
- * is restricted to sites of that same alignment (falling back to any-alignment
- * site of that name only when no alignment-matched site exists). This keys the
- * classification off the map the agent actually uses. Used by Inner Cunning
- * (dm-68) — both mode 1's reveal broadening ("if his home site is a Shadow-hold
- * or Dark-hold") and mode 2's fetch filter ("any agent whose home site is a
- * Shadow-hold or Dark-hold").
+ * The `homesite` field is a comma-separated list of site *names*; each name is
+ * resolved against the card pool. A single site name can exist in more than one
+ * alignment's map with *different* types (e.g. Dol Guldur is a minion haven but
+ * a hero dark-hold), so when the character definition carries an alignment the
+ * lookup is restricted to sites of that same alignment (falling back to
+ * any-alignment sites of that name only when no alignment-matched site exists).
+ * This keys the classification off the map the character actually uses. Shared
+ * core of {@link agentHomeSiteMatchesTypes}, {@link characterHomeSiteTypes} and
+ * {@link characterHomeSiteRegions}.
+ */
+export function characterHomeSiteCards(
+  state: GameState,
+  def: { homesite?: string; alignment?: Alignment } | undefined,
+): SiteCard[] {
+  if (!def?.homesite) return [];
+  const names = new Set(parseHomesiteNames(def.homesite));
+  if (names.size === 0) return [];
+  const align = def.alignment;
+  // Collect same-named sites, preferring those matching the character's alignment.
+  const named = Object.values(state.cardPool).filter(
+    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
+  );
+  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
+  return aligned.length > 0 ? aligned : named;
+}
+
+/**
+ * True if a character definition is an agent whose *printed* home site is a
+ * site of one of the given {@link SiteType}s (resolution per
+ * {@link characterHomeSiteCards}). Used by Inner Cunning (dm-68) — both mode
+ * 1's reveal broadening ("if his home site is a Shadow-hold or Dark-hold") and
+ * mode 2's fetch filter ("any agent whose home site is a Shadow-hold or
+ * Dark-hold").
  */
 export function agentHomeSiteMatchesTypes(
   state: GameState,
   def: { homesite?: string; alignment?: Alignment } | undefined,
   types: readonly SiteType[],
 ): boolean {
-  if (!def?.homesite) return false;
-  const names = new Set(parseHomesiteNames(def.homesite));
-  if (names.size === 0) return false;
-  const align = def.alignment;
-  // Collect same-named sites, preferring those matching the agent's alignment.
-  const named = Object.values(state.cardPool).filter(
-    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
-  );
-  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
-  const candidates = aligned.length > 0 ? aligned : named;
-  return candidates.some(s => types.includes(s.siteType));
+  return characterHomeSiteCards(state, def).some(s => types.includes(s.siteType));
 }
 
 /**
@@ -3737,26 +3749,14 @@ export function agentHomeSiteMatchesTypes(
  * Companion to {@link agentHomeSiteMatchesTypes} that returns the *set* of types
  * rather than a boolean, so a play-target filter context can expose
  * `target.homeSiteTypes` and gate on "who has a Border-hold or Free-hold as a
- * home site" (Faithless Steward as-83). Resolution mirrors
- * `agentHomeSiteMatchesTypes`: each comma-separated home-site name is resolved
- * against the pool, preferring sites of the character's own alignment.
+ * home site" (Faithless Steward as-83). Resolution per
+ * {@link characterHomeSiteCards}.
  */
 export function characterHomeSiteTypes(
   state: GameState,
   def: { homesite?: string; alignment?: Alignment } | undefined,
 ): SiteType[] {
-  if (!def?.homesite) return [];
-  const names = new Set(parseHomesiteNames(def.homesite));
-  if (names.size === 0) return [];
-  const align = def.alignment;
-  const named = Object.values(state.cardPool).filter(
-    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
-  );
-  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
-  const candidates = aligned.length > 0 ? aligned : named;
-  const types = new Set<SiteType>();
-  for (const s of candidates) types.add(s.siteType);
-  return [...types];
+  return [...new Set(characterHomeSiteCards(state, def).map(s => s.siteType))];
 }
 
 /**
@@ -3764,10 +3764,8 @@ export function characterHomeSiteTypes(
  *
  * Companion to {@link characterHomeSiteTypes} for the region-name form of the
  * same standard-modification pattern, e.g. Wild Horses (wh-39): "Men with home
- * sites in [Rohan, Khand, …] (+3)". Resolution mirrors
- * `agentHomeSiteMatchesTypes`/`characterHomeSiteTypes` — each comma-separated
- * home-site name is resolved against the pool, preferring sites of the
- * character's own alignment — with one addition: the compound `"Any site in
+ * sites in [Rohan, Khand, …] (+3)". Resolution per
+ * {@link characterHomeSiteCards}, with one addition: the compound `"Any site in
  * <Region>"` home-site form (see `homesiteMatchesSite`) names its region
  * directly, with no site lookup needed.
  */
@@ -3775,21 +3773,12 @@ export function characterHomeSiteRegions(
   state: GameState,
   def: { homesite?: string; alignment?: Alignment } | undefined,
 ): string[] {
-  if (!def?.homesite) return [];
   const ANY_SITE_IN_PREFIX = 'Any site in ';
-  if (def.homesite.startsWith(ANY_SITE_IN_PREFIX)) {
+  if (def?.homesite?.startsWith(ANY_SITE_IN_PREFIX)) {
     return [def.homesite.slice(ANY_SITE_IN_PREFIX.length)];
   }
-  const names = new Set(parseHomesiteNames(def.homesite));
-  if (names.size === 0) return [];
-  const align = def.alignment;
-  const named = Object.values(state.cardPool).filter(
-    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
-  );
-  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
-  const candidates = aligned.length > 0 ? aligned : named;
   const regions = new Set<string>();
-  for (const s of candidates) {
+  for (const s of characterHomeSiteCards(state, def)) {
     if (s.region) regions.add(s.region);
   }
   return [...regions];
@@ -6035,47 +6024,26 @@ export interface WizardhavenAllyPlayGrant {
 }
 
 /**
- * Finds a `grant-ally-play` permission with `atProtectedWizardhavens` among the
- * player's in-play permanent-events. Returns the effect and the granting card's
- * instance id, or `undefined` when the player has no such grant. Backs An
- * Untimely Brood (wh-62): "One non-unique ally with a mind of 1 is playable at
- * one of your … protected Wizardhavens each of your site phases."
- */
-export function findWizardhavenAllyPlayGrant(
-  state: GameState,
-  player: PlayerState,
-): WizardhavenAllyPlayGrant | undefined {
-  for (const card of player.cardsInPlay) {
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    const eff = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
-        e.type === 'grant-ally-play' && e.atProtectedWizardhavens === true,
-    );
-    if (eff) return { effect: eff, sourceId: card.instanceId };
-  }
-  return undefined;
-}
-
-/**
- * Finds a `grant-ally-play` permission with `maxCompanySize` among the
- * player's in-play permanent-events. Returns the effect and the granting
+ * Finds a player-scoped `grant-ally-play` permission satisfying `pred` among
+ * the player's in-play permanent-events. Returns the effect and the granting
  * card's instance id, or `undefined` when the player has no such grant. Backs
- * Friend of Secret Things (wh-109): "Your companies with a company size of 2
- * or less may play allies at tapped sites." Reuses the
- * {@link WizardhavenAllyPlayGrant} shape (effect + granting source id) since
- * both grants are free-standing permanent-events in `cardsInPlay`.
+ * An Untimely Brood (wh-62, `atProtectedWizardhavens`: "One non-unique ally
+ * with a mind of 1 is playable at one of your … protected Wizardhavens each of
+ * your site phases") and Friend of Secret Things (wh-109, `maxCompanySize`:
+ * "Your companies with a company size of 2 or less may play allies at tapped
+ * sites") — both free-standing permanent-events in `cardsInPlay`.
  */
-export function findCompanySizeAllyPlayGrant(
+export function findPlayerAllyPlayGrant(
   state: GameState,
   player: PlayerState,
+  pred: (eff: import('../types/effects.js').GrantAllyPlayEffect) => boolean,
 ): WizardhavenAllyPlayGrant | undefined {
   for (const card of player.cardsInPlay) {
     const def = defById(state, card.definitionId);
     if (!def) continue;
     const eff = getCardEffects(def).find(
       (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
-        e.type === 'grant-ally-play' && e.maxCompanySize !== undefined,
+        e.type === 'grant-ally-play' && pred(e),
     );
     if (eff) return { effect: eff, sourceId: card.instanceId };
   }
