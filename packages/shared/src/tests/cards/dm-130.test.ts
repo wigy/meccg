@@ -31,7 +31,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildSitePhaseState, buildFallenWizardOrgPhaseState, resetMint, mint, Phase, CardStatus,
+  buildSitePhaseState, buildFallenWizardOrgPhaseState, buildFallenWizardSitePhaseState, resetMint, mint, Phase, CardStatus,
   viableActions, dispatch, resolveChain, playPermanentEventAndResolve,
   findCharInstanceId, findHandCardId,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
@@ -326,6 +326,29 @@ describe('Fireworks (dm-130)', () => {
       { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
     );
     expect(heroResolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Tapped);
+  });
+
+  test('a Fallen-wizard avatar sage also adds +10 per g.wiz.F1 (bug 5349ae0a977d2f79)', () => {
+    // Reported in bug 5349ae0a977d2f79 (game mszq6oak-jexnvn, seq 683):
+    // Fireworks played on Gandalf the Fallen-wizard avatar (wh-4, race
+    // "fallen-wizard") never applied the +10 Wizard bonus, so the roll's
+    // constant modifier came out as 0 instead of 10 and the site never
+    // untapped. CoE glossary g.wiz.F1: card text referring to a Fallen-wizard
+    // player's "Wizard" (as Fireworks' "+10 if a Wizard" does) refers to that
+    // player's Fallen-wizard avatar — the "isWizard" check must accept the
+    // avatar's race, not just the raw Race.Wizard value.
+    const fwState = buildFallenWizardSitePhaseState({
+      site: EDORAS, characters: [GANDALF_FW], hand: [FIREWORKS], siteStatus: CardStatus.Tapped,
+    });
+    const gandalfFwId = findCharInstanceId(fwState, RESOURCE_PLAYER, GANDALF_FW);
+    const fwCard = findHandCardId(fwState, RESOURCE_PLAYER, FIREWORKS);
+    const fwPlayed = playPermanentEventAndResolve(fwState, PLAYER_1, fwCard, gandalfFwId, { targetSiteDefinitionId: EDORAS });
+    // Rolled 3 → mind null (→ 0) + 10 wizard bonus = 13 > 12 → pass.
+    const fwResolved = dispatch(
+      { ...fwPlayed, cheatRollTotal: 3 },
+      { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
+    );
+    expect(fwResolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Untapped);
   });
 
   // ── Delayed effect: the sage stays tapped next untap + Fireworks is discarded ─
