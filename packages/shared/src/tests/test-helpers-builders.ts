@@ -1091,6 +1091,45 @@ export function makeCancelWindowCombat(
 }
 
 /**
+ * Attach a pre-assignment automatic-attack {@link CombatState} for the
+ * resource player's first company against its current site, and switch the
+ * (already Site-phase) `phaseState.step` to `'automatic-attacks'`.
+ *
+ * Unlike {@link makeCancelWindowCombat} — which always forces Movement/Hazard
+ * `phaseState` — this keeps the caller's Site-phase state, so cancel-attack
+ * effects that also react to the site phase itself (e.g. Riven Gate as-98's
+ * `cancelsRemainingSiteAttacks`, which sets `SitePhaseState.autoAttacksSkipped`)
+ * can be exercised end-to-end.
+ */
+export function attachSiteAutomaticAttackCombat(
+  state: GameState,
+  opts: { creatureRace?: Race; strikesTotal?: number; strikeProwess?: number } = {},
+): GameState {
+  const company = state.players[RESOURCE_PLAYER].companies[0];
+  const siteInstanceId = company.currentSite?.instanceId ?? ('fake-site' as CardInstanceId);
+  const combat: CombatState = {
+    attackSource: { type: 'automatic-attack', siteInstanceId, attackIndex: 0 },
+    companyId: company.id,
+    defendingPlayerId: state.players[RESOURCE_PLAYER].id,
+    attackingPlayerId: state.players[HAZARD_PLAYER].id,
+    strikesTotal: opts.strikesTotal ?? 1,
+    strikeProwess: opts.strikeProwess ?? 5,
+    creatureBody: null,
+    creatureRace: opts.creatureRace ?? Race.Man,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+  const phaseState = state.phaseState.phase === Phase.Site
+    ? { ...state.phaseState, step: 'automatic-attacks' as const }
+    : state.phaseState;
+  return { ...state, phaseState, combat };
+}
+
+/**
  * MH state describing arrival at a Shadow-Hold "Moria" via an Imlad Morgul
  * shadow region. Mirrors the setup used by many combat rule tests.
  */

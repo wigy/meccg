@@ -31,6 +31,7 @@ import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './combat-c
 import { addConstraint } from './pending.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
+import { Phase } from '../types/state-phases.js';
 
 /**
  * Runtime context passed to {@link applyEffect} from a chain-resolution
@@ -121,6 +122,30 @@ export function applyEffect(
           kind: { type: 'tap-on-strike-assignment' },
         });
         logDetail(`applyEffect: cancel-attack installed tap-on-strike-assignment on company ${defendingCompanyId as string} for the rest of the turn (source: ${sourceDefinitionId as string})`);
+      }
+    }
+    // Riven Gate (as-98): "All automatic-attacks at the site are canceled" —
+    // abandon the rest of this company's site-phase automatic-attack
+    // sequence, the same "sequence abandoned" flag Farmer Maggot's site-swap
+    // and Burglary's success use.
+    if (effect.cancelsRemainingSiteAttacks && next.phaseState.phase === Phase.Site) {
+      logDetail('applyEffect: cancel-attack abandons the remaining automatic-attack sequence at the site');
+      next = { ...next, phaseState: { ...next.phaseState, autoAttacksSkipped: true } };
+    }
+    if (effect.influenceAtSiteModifier !== undefined && defendingPlayerId && defendingCompanyId) {
+      const defPlayerIdx = getPlayerIndex(next, defendingPlayerId);
+      const defCompany = next.players[defPlayerIdx].companies.find(c => c.id === defendingCompanyId);
+      const siteDefId = defCompany?.currentSite?.definitionId;
+      const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
+      if (siteDefId && sourceDefinitionId) {
+        next = addConstraint(next, {
+          source: ctx.sourceCardId,
+          sourceDefinitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'player', playerId: defendingPlayerId },
+          kind: { type: 'influence-at-site-modifier', siteDefinitionId: siteDefId, value: effect.influenceAtSiteModifier },
+        });
+        logDetail(`applyEffect: cancel-attack added a +${effect.influenceAtSiteModifier} influence-at-site-modifier for site ${siteDefId as string}, rest of turn (source: ${sourceDefinitionId as string})`);
       }
     }
     return { state: next };

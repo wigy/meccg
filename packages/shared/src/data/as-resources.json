@@ -1729,11 +1729,33 @@
     "name": "Riven Gate",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/RivenGate.jpg",
     "unique": false,
+    "keywords": [
+      "sorcery"
+    ],
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Sorcery. Playable on a sorcery-using character when facing the automatic-attack at a Border-hold [{B}]. All automatic-attacks at the site are canceled, and any influence attempt against a faction at the site this turn is modified by +2. Unless he is a Ringwraith, he makes a corruption check modified by -4."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "sorcery",
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        },
+        "costExemptRace": "ringwraith",
+        "cancelsRemainingSiteAttacks": true,
+        "influenceAtSiteModifier": 2,
+        "when": {
+          "$and": [
+            { "attack.source": "automatic-attack" },
+            { "site.type": "border-hold" }
+          ]
+        }
+      }
+    ],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character when facing the automatic-attack at a Border-hold [{B}]. All automatic-attacks at the site are canceled, and any influence attempt against a faction at the site this turn is modified by +2. Unless he is a Ringwraith, he makes a corruption check modified by -4.",
+    "certified": "2026-08-20"
   },
   {
     "cardType": "minion-resource-event",
