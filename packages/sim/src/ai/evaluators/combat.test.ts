@@ -149,3 +149,35 @@ describe('combatEvaluator convert-creature-to-ally', () => {
     expect(convertScore).toBeGreaterThan(assignScore);
   });
 });
+
+describe('combatEvaluator tap-item-for-strike', () => {
+  // Bug report: AI-Heuristic did not tap Shield of Iron-bound Ash (tw-327)
+  // to gain +1 prowess on the last strike of the attack, even though doing
+  // so improved the roll need from 7+ (untapped) to 3+ and cost nothing.
+  // `tap-item-for-strike` was scored by diceSuccessPct(need), which should
+  // outscore the alternative `resolve-strike` (untapped) action once the
+  // item's boost is applied.
+  const tapItemAction = {
+    type: 'tap-item-for-strike',
+    player: 'p2',
+    cardInstanceId: 'p2-103',
+    characterInstanceId: 'p2-107',
+    need: 3,
+    explanation: '',
+  } as unknown as GameAction;
+
+  const resolveStrikeUntapped = {
+    type: 'resolve-strike',
+    player: 'p2',
+    tapToFight: false,
+    need: 7,
+    explanation: '',
+  } as unknown as GameAction;
+
+  test('scores tap-item-for-strike above the resolve-strike alternative it improves on', () => {
+    const context = makeContext(CardStatus.Untapped, []);
+    const tapItemScore = combatEvaluator.score(tapItemAction, context)!;
+    const resolveScore = combatEvaluator.score(resolveStrikeUntapped, context)!;
+    expect(tapItemScore).toBeGreaterThan(resolveScore);
+  });
+});
