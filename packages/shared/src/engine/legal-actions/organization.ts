@@ -129,8 +129,14 @@ function grantActionUsedThisTurn(
 /**
  * Sum of the mind cost of every character a controller holds under direct
  * influence — the part of his direct influence that is already *used*. Uses
- * effective mind (The Arkenstone raises Dwarf mind by 1) and honours a
- * `control-restriction` cost override (Wizard's Myrmidon).
+ * effective mind (The Arkenstone raises Dwarf mind by 1), honours a
+ * `control-restriction` cost override (Wizard's Myrmidon), and credits any
+ * target-conditional DI bonus the controller has against that specific
+ * follower (Whip le-348, Glorfindel II "+1 DI against Elves") — the same
+ * bonus {@link availableDI} applies when the follower is admitted and
+ * {@link revertOverextendedDirectInfluenceFollowers} applies when checking
+ * whether it can still be retained, so all three must agree on the cost of
+ * an already-held follower.
  *
  * Shared by {@link availableDI} and {@link normalUnusedDI} so both agree on
  * what "unused" means; only the *total* DI they start from differs.
@@ -146,7 +152,8 @@ function followersMindCost(
     if (!followerChar) continue;
     const followerDef = resolveDef(state, followerChar.instanceId);
     if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      usedDI += controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
+      const baseCost = controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
+      usedDI += Math.max(0, baseCost - targetConditionalDIBonus(state, controller, followerDef));
     }
   }
   return usedDI;
