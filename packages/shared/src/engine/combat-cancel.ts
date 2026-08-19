@@ -762,6 +762,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         strikesTotal: newStrikesTotal,
         cancelByTapRemaining: newCancelByTap,
         multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
+        anyAttackCanceled: true,
       },
     };
   }
@@ -933,6 +934,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
       strikeAssignments: newAssignmentsW,
       strikesTotal: newStrikesTotalW,
       cancelByTapRemaining: newCancelRemainingW > 0 ? newCancelRemainingW : undefined,
+      anyAttackCanceled: true,
     };
     // No untapped characters left to tap → proceed to strike resolution.
     if (newCancelRemainingW <= 0) {
@@ -1000,6 +1002,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     strikesTotal: newStrikesTotal,
     cancelByTapRemaining: newCancelRemaining > 0 ? newCancelRemaining : undefined,
     multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
+    anyAttackCanceled: true,
   };
 
   // The canceled attack may have been the last unresolved one — e.g. it was

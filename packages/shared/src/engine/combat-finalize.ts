@@ -310,7 +310,16 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // 'absorbed' strikes (Sable Shield) do not count as defeating the creature —
   // the attacker won the roll but the wound was intercepted by the item.
+  //
+  // Per CoE COMBAT / CRF 22 Annotation 14, a canceled attack is never
+  // "defeated" — a multi-attack creature (e.g. Assassin) with even one
+  // outright-canceled sub-attack cannot be fully defeated, no matter how
+  // its other attacks resolve. Whole-attack cancellation (cancel-attack,
+  // cancel-by-tap) removes the canceled attack's strike(s) from
+  // strikeAssignments entirely rather than leaving a 'canceled' entry
+  // behind, so anyAttackCanceled carries that fact forward here.
   const allDefeated = combat.strikeAssignments.length > 0
+    && !combat.anyAttackCanceled
     && combat.strikeAssignments.every(a => a.result === 'success');
 
   const newPlayers = clonePlayers(state);

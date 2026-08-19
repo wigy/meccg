@@ -29,6 +29,7 @@ import {
   buildTestState, resetMint, makeMHState,
   resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  viableActions, findInPile,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.js';
@@ -757,5 +758,93 @@ describe('Assassin (tw-8)', () => {
     expect(combat.strikeAssignments).toHaveLength(3);
     expect(combat.strikeAssignments.every(sa => sa.characterId === aragornCharId)).toBe(true);
     expect(combat.strikeAssignments.every(sa => sa.excessStrikes === 1)).toBe(true);
+  });
+
+  test('canceling 2 of 3 attacks then defeating the 3rd does NOT award kill MP (bug report regression)', () => {
+    // CoE COMBAT / CRF 22 Annotation 14: a canceled attack is never "defeated".
+    // A multi-attack creature is only defeated (and its kill MP awarded) if
+    // EVERY attack was genuinely defeated in combat — canceling some of them
+    // (even via Dark Quarrels) and defeating the rest does not count.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [DARK_QUARRELS, DARK_QUARRELS],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    // Cancel 2 of the 3 attacks with Dark Quarrels, leaving 1.
+    const dq1 = handCardId(afterChain, RESOURCE_PLAYER);
+    const afterCancel1 = resolveChain(dispatch(afterChain, {
+      type: 'cancel-attack',
+      player: PLAYER_1,
+      cardInstanceId: dq1,
+    }));
+    const dq2 = handCardId(afterCancel1, RESOURCE_PLAYER);
+    const afterCancel2 = resolveChain(dispatch(afterCancel1, {
+      type: 'cancel-attack',
+      player: PLAYER_1,
+      cardInstanceId: dq2,
+    }));
+    expect(afterCancel2.combat!.strikesTotal).toBe(1);
+    expect(afterCancel2.combat!.anyAttackCanceled).toBe(true);
+
+    // Defender ends the cancel-window; attacker assigns the last strike to Aragorn.
+    const afterPass = dispatch(afterCancel2, { type: 'pass', player: PLAYER_1 });
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
+    const afterAssign = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(afterAssign.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Defender declines the final cancel-by-tap opportunity.
+    const afterCancelByTapPass = dispatch(afterAssign, { type: 'pass', player: PLAYER_1 });
+    expect(afterCancelByTapPass.combat!.phase).toBe('resolve-strike');
+
+    // Aragorn taps to fight at full prowess (6), rolls max (12): 18 > 11 —
+    // strike defeated outright (Assassin has no body, so no body check).
+    const resolveActions = viableActions({ ...afterCancelByTapPass, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    const tapToFightAction = resolveActions.find(a => 'tapToFight' in a.action && a.action.tapToFight)!.action;
+    const afterResolve = dispatch({ ...afterCancelByTapPass, cheatRollTotal: 12 }, tapToFightAction);
+
+    // The last attack was genuinely defeated, but the other 2 were only
+    // canceled — the creature as a whole is not "defeated".
+    expect(afterResolve.combat).toBeNull();
+    expect(findInPile(afterResolve, RESOURCE_PLAYER, 'killPile', ASSASSIN)).toBeUndefined();
+    expect(findInPile(afterResolve, HAZARD_PLAYER, 'discardPile', ASSASSIN)).toBeDefined();
   });
 });

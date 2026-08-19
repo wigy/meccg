@@ -503,6 +503,18 @@ export interface CombatState {
    */
   readonly forceSingleTarget?: boolean;
   /**
+   * Set when at least one of a multi-attack creature's sub-attacks was
+   * canceled outright (via `cancel-attack`/Dark Quarrels-style cards or
+   * `cancel-by-tap`) before it ever produced a strike-assignment entry.
+   * Per CoE COMBAT / CRF 22 Annotation 14, a canceled attack is never
+   * "defeated" — so even if every *other* attack's strike is genuinely
+   * defeated in combat, the creature as a whole is not defeated and must
+   * not earn kill-MP. `finalizeCombat` ANDs this into `allDefeated`
+   * because a canceled attack leaves no trace in `strikeAssignments` for
+   * the usual `every(a => a.result === 'success')` check to see.
+   */
+  readonly anyAttackCanceled?: boolean;
+  /**
    * Number of separate attacks in a multi-attack creature (e.g. Assassin = 3).
    * When present, `strikesTotal` equals `multiAttackCount × strikesPerAttack`.
    * Used by the UI to display "3 attacks of 1 strike" instead of "3 strikes".
