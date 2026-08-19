@@ -3933,6 +3933,37 @@ function companyCombatBoostActions(
       continue;
     }
 
+    // Cost-bearing single-target mode (Some Secret Art of Flame le-232): the
+    // card is played on ONE character — matching `requiredSkill` if set —
+    // who pays `cost` (skipped when the payer's race matches
+    // `costExemptRace`) and alone receives the boost. One action is offered
+    // per qualifying character, carrying `targetCharacterId` so the reducer
+    // knows who to charge and who to boost.
+    const costEffect = eligibleBoosts.find(e => e.cost);
+    if (costEffect?.cost) {
+      const cost = costEffect.cost;
+      for (const charId of company.characters) {
+        const charData = player.characters[charId];
+        if (!charData) continue;
+        const charDef = defById(state, charData.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+        const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
+        if (!exempt && !canPayCost(cost, charData)) continue;
+        logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
     // At least one boost effect must match a character in the defending
     // company. A boost with neither `filter` nor `companyFilter` matches
     // unconditionally; a `filter` matches when any character satisfies it

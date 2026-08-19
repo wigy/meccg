@@ -10891,6 +10891,9 @@ character with `scope: { kind: 'attack' }`, swept when the attack finalizes.
 | `companyFilter` | no | Company-level eligibility gate. When present, the event may be played only if at least one member satisfies it — and then **every** character in the company is boosted (the per-character `filter` is not used). Distinguishes "boost characters that are X" (`filter`) from "boost the whole company if it contains an X" (`companyFilter`). |
 | `when` | no | Gate restricting which attack the card may be played against, evaluated against `{ enemy: { race, name } }`. `race` is the current attack's creature race (populated for hazard creatures, on-guard reveals, played-auto-attacks, and site automatic-attacks alike); `name` is the specific creature card's printed name, empty when the attack has no individual creature card. Absent means any attack. |
 | `costDiscard` | no | `{ source: "hand", filter, minCount, maxCount }` — replaces the fixed `value` with a variable one. The player picks between `minCount` and `maxCount` matching cards from `source` to discard as payment; the boost `value` becomes the sum of their printed `marshallingPoints`. `filter` is matched against each candidate's card definition, extended with `faction.playableRegions` (via `buildFactionPlayableRegions`) for faction candidates. One `play-short-event` action is offered per eligible combination, carrying the chosen instances as `costDiscardInstanceIds`. |
+| `requiredSkill` | no | Switches to cost-bearing single-target mode (see below) — the skill the chosen/paying character must have. Only meaningful alongside `cost`. |
+| `cost` | no | Switches to cost-bearing single-target mode — an {@link ActionCost} (e.g. a corruption check) the chosen character pays; only that character receives the boost, `filter`/`companyFilter` are ignored. |
+| `costExemptRace` | no | Waives `cost` for a cost-payer of this race. |
 
 ```json
 { "type": "company-combat-boost", "stat": "prowess", "value": 1,
@@ -10942,6 +10945,40 @@ resolution, `handlePlayResourceShortEvent` validates the chosen
 `costDiscardInstanceIds` against the same filter and count bounds, moves them
 from the controller's hand to their discard pile, and sums their printed
 `marshallingPoints` as the constraint `value` instead of a fixed number.
+
+**Cost-bearing single-target mode.** A `cost` field (an {@link ActionCost},
+typically a corruption check) switches the effect from "boost every
+`filter`-matching character" to "boost exactly one chosen character, who also
+pays the cost." Add `requiredSkill` to gate which characters qualify (matched
+against the character's *printed* skills, not `filter`/`companyFilter` — those
+two fields are ignored once `cost` is present). `costExemptRace` waives the
+cost for a cost-payer of that race, mirroring `cancel-attack`'s field of the
+same name.
+
+`companyCombatBoostActions` (`legal-actions/combat.ts`) offers one
+`play-short-event` action per company character satisfying `requiredSkill`
+(or every character when absent) that `canPayCost` accepts, carrying
+`targetCharacterId` for the chosen character — no tap-cost filtering is
+needed since corruption-check costs don't require the payer to be untapped.
+`handlePlayResourceShortEvent` (`reducer-events.ts`) resolves `action.
+targetCharacterId`: if the character's race matches `costExemptRace` the cost
+is skipped, otherwise `applyCost` enqueues the corruption check (or pays
+whatever the cost declares); the boost constraint is then added for that one
+character only.
+
+```json
+{ "type": "company-combat-boost", "stat": "prowess", "value": 4,
+  "requiredSkill": "sorcery",
+  "cost": { "check": "corruption", "modifier": -4 },
+  "costExemptRace": "ringwraith" }
+```
+
+Used by Some Secret Art of Flame (le-232): "Playable on a sorcery-using
+character facing an attack. +4 prowess for the character against the attack.
+Unless he is a Ringwraith, character makes a corruption check modified by
+-4." — the same `requiredSkill`/`cost`/`costExemptRace` shape as `cancel-attack`
+(see The Tormented Earth as-102), but boosting the chosen character's own
+prowess instead of canceling or weakening the attack.
 
 ---
 
