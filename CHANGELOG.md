@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.118.0 — 2026-08-19
+
+Cancel-window timing fixes, Wizardhaven targeting and an argmax AI
+
+### Game Engine
+
+- **Corpse-candle's (tw-23/le-67) company-wide corruption check no longer
+  fires before the cancel-attack window closes.** The attack now opens in
+  the cancel-window sub-phase and the checks are deferred via a new
+  `pendingAttackBeginsCorruption` combat-state field, so a defender who
+  cancels the attack (e.g. Star-glass) is not forced through corruption
+  checks for an attack that never happened — per CoE rule 3.i (#2514).
+- **Dual-mode discard events no longer fire their unrelated cancel-attack
+  effect.** The Cock Crows (tw-342) played in its discard-in-play mode (via
+  Gates of Morning) was wiping out whichever attack happened to be active;
+  `shouldFireOnChainResolution` now skips the cancel-attack effect when the
+  resolving entry carries a discard-mode payload (#2517).
+- **Hall of Fire (dm-134) is playable on a converted Wizardhaven** — its
+  play-target filter tested the printed `siteType` instead of
+  `effectiveSiteType`, so a Ruins & Lairs turned into a Fallen-wizard's haven
+  by Hidden Haven (wh-75) was never offered (#2515).
+- **`companiesAtMatchingSite`** generator replaces five identical
+  company-at-site scans in organization-events (White Tree, Return of the
+  King, Fireworks, Hall of Fire / Hidden Haven, Caverns Unchoked) (#2518).
+- **`filterCreaturePlaysAgainstCompany`** post-filter factors the shared
+  skeleton of five creature-constraint appliers in `legal-actions/pending.ts`
+  into verdict callbacks (#2519).
+- **`findPlayerAllyPlayGrant`** and **`characterHomeSiteCards`** collapse the
+  Wizardhaven/company-size ally-play-grant finders and the three home-site
+  resolution loops in reducer-utils (#2520).
+- **`raceThresholdCancelAttackActions`** / **`matchRaceThresholdEffect`**
+  dedupe the Flatter a Foe (td-116) and Riddling Talk (td-148) twins in
+  legal-actions/combat and the chain reducer (#2521).
+- **New `engine/company-split.ts`** — `splitCharacterIntoNewCompany` is the
+  single split core behind Left Behind (td-41) and
+  `splitCharacterOffCompany` (as-41) (#2522).
+- **`routeShortEventToChain`** folds four reveal → remove-from-hand → push
+  chain-entry short-event branches in reducer-events into one helper (#2523).
+
+### Web Client
+
+- **Baduila's (dm-2) discard-to-return-company-to-origin power now appears
+  in the agent tooltip** — `agent-discard-return-to-origin` was missing from
+  the agent-action whitelist, so the engine offered it but it was unclickable
+  (#2516).
+
+### AI
+
+- **The production heuristic AI plays its argmax move instead of sampling
+  its weights.** `ai-client.ts` had its own weigh-then-pick loop that never
+  received the argmax fix applied to `@meccg/sim`'s `createHeuristicAgent`, so
+  a move scored half as good still won about a third of the time — e.g.
+  playing Corpse-candle before The Moon Is Dead (#2513).
+
+### Infrastructure
+
+- The seed-7 sim game test now asserts the engine contract (scored game-over,
+  victor follows final scores, `winner` null on a tie) instead of pinning one
+  seed's outcome (#2514).
+
 ## 0.117.0 — 2026-08-19
 
 Combat, scoring and Fallen-wizard bug fixes plus a reducer code-quality sweep

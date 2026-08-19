@@ -312,7 +312,7 @@
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
 | dm-130 | Fireworks | — | 19 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
-| dm-134 | Hall of Fire | — | 12 | ☑ |
+| dm-134 | Hall of Fire | — | 13 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
@@ -396,7 +396,7 @@
 | le-64 | Brigands | — | 3 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-66 | Cave-drake | — | 5 | ☑ |
-| le-67 | Corpse-candle | — | 10 | ☑ |
+| le-67 | Corpse-candle | — | 12 | ☑ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
 | le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
 | le-70 | Elves upon Errantry | — | 6 | ☑ |
@@ -756,7 +756,7 @@
 | tw-020 | Cave-drake | — | 3 | ☑ |
 | tw-021 | — | — | 15 | ☑ |
 | tw-22 | Clouds | — | 7 | ☑ |
-| tw-23 | Corpse-candle | — | 11 | ☑ |
+| tw-23 | Corpse-candle | — | 13 | ☑ |
 | tw-024 | — | — | 2 | ☑ |
 | tw-26 | Daelomin | — | 7 | ☑ |
 | tw-27 | Despair of the Heart | — | 9 | ☑ |
@@ -997,7 +997,7 @@
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
 | tw-338 | Test of Form | — | 16 | ☑ |
 | tw-341 | The Arkenstone | — | 12 | ☑ |
-| tw-342 | The Cock Crows | — | 9 | ☑ |
+| tw-342 | The Cock Crows | — | 10 | ☑ |
 | tw-344 | The Great Eagles | — | 5 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
