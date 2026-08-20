@@ -957,6 +957,11 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // no bearer to attach to, so scanned separately (Reforging tw-314)
   actions.push(...storedCardGrantActions(state, playerId));
 
+  // Stored-card combine actions — no tap, discard a differently-named
+  // stored card instead (Andúril tw-192: "discard a stored Reforging and
+  // place Andúril with Narsil")
+  actions.push(...storedCombineGrantActions(state, playerId));
+
   // The Lidless Eye (le-203) / Sauron (ba-43): once-per-org-phase dual-mode
   // ability (sideboard-fetch or peek-opponent-hand)
   actions.push(...sauronOrgGrantActions(state, playerId));
@@ -1967,6 +1972,73 @@ export function storedCardGrantActions(state: GameState, playerId: PlayerId): Ev
         }
         logDetail(`Stored grant-action ${effect.action} on ${def.name}: offered ${zoneItemIds.length} item(s) × ${recipients.length} recipient(s) via ${charDef.name} at a Haven`);
       }
+    }
+  }
+  return actions;
+}
+
+/**
+ * `fromStored` grant-actions with a `discard: "named-stored-card"` cost and a
+ * `place-source-with-item` apply — the source card itself has no bearer (it
+ * sits in `killPile`) and no tap cost, unlike {@link storedCardGrantActions}'s
+ * `sage-at-haven` shape. One activation is offered per (eligible discard
+ * candidate × qualifying recipient) pair: the discard candidate is any other
+ * of the player's own `killPile` entries (also `storedAtSite`) whose
+ * definition name matches `cost.discardCardName`; the recipient is any of the
+ * player's characters currently bearing an item named `apply.itemName`.
+ * `characterId` self-references the source's own instance ID, mirroring the
+ * bearer-less convention `grantedAction` documents — `handleGrantActionApply`
+ * routes such actions to `handleStoredCardGrantAction`.
+ *
+ * Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
+ * discard a stored Reforging and place Andúril with Narsil."
+ */
+export function storedCombineGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+
+  for (const stored of player.killPile) {
+    if (!stored.storedAtSite) continue;
+    const def = defById(state, stored.definitionId);
+    if (!def) continue;
+
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action' || !effect.fromStored) continue;
+      if (effect.cost.tap !== undefined || effect.cost.discard !== 'named-stored-card') continue;
+      if (effect.apply?.type !== 'place-source-with-item') continue;
+
+      const discardCandidates = player.killPile.filter(c =>
+        c.instanceId !== stored.instanceId
+        && c.storedAtSite
+        && defById(state, c.definitionId)?.name === effect.cost.discardCardName);
+      if (discardCandidates.length === 0) {
+        logDetail(`Stored grant-action ${effect.action} on ${def.name}: no stored ${effect.cost.discardCardName ?? '?'} to discard`);
+        continue;
+      }
+
+      const itemName = effect.apply.itemName;
+      const recipients: CardInstanceId[] = [];
+      for (const [charId, char] of characterEntries(player)) {
+        if (char.items.some(i => defById(state, i.definitionId)?.name === itemName)) recipients.push(charId);
+      }
+      if (recipients.length === 0) {
+        logDetail(`Stored grant-action ${effect.action} on ${def.name}: no character bears ${itemName}`);
+        continue;
+      }
+
+      for (const discardCandidate of discardCandidates) {
+        for (const recipientId of recipients) {
+          actions.push(grantedActionFor(
+            playerId,
+            stored.instanceId,
+            stored,
+            effect,
+            { targetCardId: discardCandidate.instanceId, recipientCharacterId: recipientId },
+          ));
+        }
+      }
+      logDetail(`Stored grant-action ${effect.action} on ${def.name}: offered ${discardCandidates.length} discard candidate(s) × ${recipients.length} recipient(s) bearing ${itemName}`);
     }
   }
   return actions;

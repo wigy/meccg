@@ -2055,12 +2055,20 @@ export interface ActionCost {
    * discards a card matching {@link discardCardName} from the acting
    * player's hand — no character actor is tapped or otherwise required
    * (Fifteen Birds in Five Firtrees dm-129: "or you discard Eagle-mounts
-   * from your hand").
+   * from your hand"). "named-stored-card" is the `fromStored` counterpart:
+   * discards a *different* card matching {@link discardCardName} out of the
+   * acting player's own marshalling-point pile (`killPile`, a `storedAtSite`
+   * entry) — unlike `discard: "self"`'s `killPile` fallback (which discards
+   * the source card itself), this leaves the source in place so it can be
+   * relocated by the effect's `apply` instead. Used by Andúril, the Flame of
+   * the West (tw-192): "you may discard a stored Reforging and place Andúril
+   * with Narsil."
    */
-  readonly discard?: 'self' | 'bearer' | 'character' | 'named-card';
+  readonly discard?: 'self' | 'bearer' | 'character' | 'named-card' | 'named-stored-card';
   /**
-   * For `discard: "named-card"` — the card definition name to find and
-   * discard from the acting player's hand.
+   * For `discard: "named-card"` / `discard: "named-stored-card"` — the card
+   * definition name to find and discard from the acting player's hand (or,
+   * for the stored variant, their `killPile`).
    */
   readonly discardCardName?: string;
   /**
@@ -2167,6 +2175,7 @@ export type TriggeredActionType =
   | 'modify-current-strike-prowess'
   | 'move'
   | 'place-item-on-character'
+  | 'place-source-with-item'
   | 'discard-named-in-play'
   | 'discard-target-in-play'
   | 'discard-bearer-corruption'
@@ -2866,6 +2875,28 @@ export interface PlaceItemOnCharacterAction extends TriggeredActionBase {
 }
 
 /**
+ * `place-source-with-item` — a `fromStored` grant-action apply that relocates
+ * the *source* card itself (not a fetched item) out of the marshalling-point
+ * pile (`killPile`) onto whichever of the controller's characters currently
+ * bears an item named {@link itemName}, untapped, alongside that item. Unlike
+ * `place-item-on-character` (which fetches a *different* card into play),
+ * this moves the grant-action's own source. Scanned by the dedicated
+ * `storedCombineGrantActions` legal-action emitter, which enumerates one
+ * activation per (eligible `discard: "named-stored-card"` cost card ×
+ * qualifying recipient) pair, and applied by
+ * `handleStoredCardGrantAction` — the source has no bearer, so it is routed
+ * there rather than through the generic attached-card apply dispatch. Used
+ * by Andúril, the Flame of the West (tw-192): "Once stored, you may discard
+ * a stored Reforging and place Andúril with Narsil." Narsil's stat bonuses
+ * once combined are not yet certified — see the card's data comment.
+ */
+export interface PlaceSourceWithItemAction extends TriggeredActionBase {
+  readonly type: 'place-source-with-item';
+  /** Exact name of the item the source is placed alongside on its bearer. */
+  readonly itemName: string;
+}
+
+/**
  * `discard-named-in-play` — on `self-enters-play`, find every in-play card with
  * the given name (scanning both players' `cardsInPlay` plus every character's
  * attached `items`/`hazards`) and move each instance to its owner's discard
@@ -3370,6 +3401,7 @@ export type TriggeredAction =
   | ReturnCharacterToHandAction
   | TapOneCharacterAction
   | PlaceItemOnCharacterAction
+  | PlaceSourceWithItemAction
   | DiscardNamedInPlayAction
   | DiscardTargetInPlayAction
   | DiscardBearerCorruptionAction
