@@ -4421,10 +4421,31 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SomeSecretArtofFlame.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sorcery"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Sorcery. Playable on a sorcery-using character facing an attack. +4 prowess for the character against the attack. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be duplicated against a given attack."
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 4,
+        "requiredSkill": "sorcery",
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        },
+        "costExemptRace": "ringwraith"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
+    ],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character facing an attack. +4 prowess for the character against the attack. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be duplicated against a given attack.",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "minion-resource-event",

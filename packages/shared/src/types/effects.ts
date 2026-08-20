@@ -4441,6 +4441,29 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * factions discarded" — `minCount: 1, maxCount: 2`.
    */
   readonly costDiscard?: CompanyCombatBoostDiscardCost;
+  /**
+   * The skill required on the character who both pays `cost` and receives
+   * the boost. Only meaningful alongside `cost` — presence of `cost` (with
+   * or without `requiredSkill`) switches the effect to single-target mode:
+   * one action is offered per qualifying character in the defending
+   * company, and only the chosen character (not every `filter`-matching
+   * character) receives the boost. Used by Some Secret Art of Flame
+   * (le-232): "Playable on a sorcery-using character facing an attack. +4
+   * prowess for the character against the attack."
+   */
+  readonly requiredSkill?: string;
+  /**
+   * The cost the chosen character pays to receive the boost (e.g. a
+   * corruption check). Presence of `cost` switches the effect to
+   * single-target mode — see {@link requiredSkill}.
+   */
+  readonly cost?: ActionCost;
+  /**
+   * When set, a cost-paying character whose race matches this value pays no
+   * cost. Backs clauses like "Unless he is a Ringwraith, character makes a
+   * corruption check modified by -4" (Some Secret Art of Flame, le-232).
+   */
+  readonly costExemptRace?: Race;
 }
 
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */

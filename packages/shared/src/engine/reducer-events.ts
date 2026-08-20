@@ -1011,6 +1011,54 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             logDetail(`${def.name}: attack does not satisfy when-condition — boost not applied`);
             continue;
           }
+          // Cost-bearing single-target mode (Some Secret Art of Flame le-232):
+          // the legal-action layer already chose the paying/boosted character
+          // (action.targetCharacterId); pay the cost (unless the payer's race
+          // matches costExemptRace) and boost only that character — never the
+          // whole `filter`-matching set.
+          if (boostEffect.cost) {
+            const targetId = action.targetCharacterId;
+            const targetChar = targetId ? defPlayer.characters[targetId] : undefined;
+            const targetCharDef = targetChar ? defById(newState, targetChar.definitionId) : undefined;
+            if (!targetId || !targetChar || !targetCharDef) {
+              logDetail(`${def.name}: cost-bearing company-combat-boost requires a valid targetCharacterId — boost not applied`);
+              continue;
+            }
+            const exempt = !!boostEffect.costExemptRace
+              && 'race' in targetCharDef
+              && (targetCharDef as { race?: Race }).race === boostEffect.costExemptRace;
+            if (exempt) {
+              logDetail(`${def.name}: ${targetId as string} is cost-exempt race — corruption check skipped`);
+            } else {
+              const costResult = applyCost(newState, boostEffect.cost, targetId, {
+                playerIndex: defPlayerIndex,
+                sourceCardId: handCard.instanceId,
+                companyId: company.id,
+                checkScopeKind: newState.phaseState.phase === Phase.MovementHazard ? 'company-mh-subphase' : 'company-site-subphase',
+                label: def.name ?? '?',
+              });
+              if ('error' in costResult) {
+                logDetail(`${def.name}: cost payment failed (${costResult.error}) — boost not applied`);
+                continue;
+              }
+              newState = costResult.state;
+            }
+            logDetail(`${def.name}: adding attack-scoped +${boostEffect.value ?? 0} ${boostEffect.stat} to ${targetId as string}`);
+            newState = addConstraint(newState, {
+              source: handCard.instanceId,
+              sourceDefinitionId: handCard.definitionId,
+              scope: { kind: 'attack' },
+              target: { kind: 'character', characterId: targetId },
+              kind: {
+                type: 'character-stat-modifier',
+                stat: boostEffect.stat,
+                value: boostEffect.value ?? 0,
+                characterId: targetId,
+              },
+            });
+            continue;
+          }
+
           // A `companyFilter` gates the whole company: only apply the boost (to
           // every character) if at least one member satisfies it (Foe Dismayed's
           // leader-or-Balrog gate). A `filter` restricts which members receive it.
