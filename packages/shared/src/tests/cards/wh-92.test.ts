@@ -18,6 +18,9 @@
  * | 4 | Tap the Garb during end-of-turn to fetch one of 3 named cards | IMPLEMENTED |
  * | 5 | Only the three named cards are fetchable; only end-of-turn    | IMPLEMENTED |
  * | 6 | Cost taps the Garb itself (not Alatar)                        | IMPLEMENTED |
+ * | 7 | Playable bare when Alatar is NOT in play ("if he is in play") | IMPLEMENTED |
+ * | 8 | Attaches to Alatar the moment he enters play                  | IMPLEMENTED |
+ * | 9 | The fetch is unavailable while the card is not on Alatar      | IMPLEMENTED |
  *
  * Modeling:
  *  - Rules 1: the `alatar-specific` keyword gates playability to a player whose
@@ -37,6 +40,15 @@
  *    `tap: self` on an item-borne grant taps the *item* (via `applyCost`
  *    `tapAttachment`), so eligibility keys on the Garb's own status — not the
  *    bearer's — meaning the fetch works even while Alatar is tapped.
+ *  - Rules 7–8: "Place this card on Alatar **if he is in play**" — placement is
+ *    conditional, not a play requirement. An untargeted `play-option` gated on
+ *    `player.avatarInPlay: false` lets the card enter play bare in
+ *    `cardsInPlay`, and an `on-event: avatar-enters-play` move (self →
+ *    `in-play-on-character`) attaches it to Alatar the moment he is revealed —
+ *    the wh-99 / Bade to Rule (le-167) pattern.
+ *  - Rule 9 falls out of the scanner: `endOfTurnGrantActions` walks characters
+ *    and their attached items only, so a Garb sitting bare in `cardsInPlay`
+ *    is never a grant source ("If on Alatar, you may tap…").
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -44,7 +56,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   addCardToDiscardPile,
@@ -53,7 +65,7 @@ import {
   dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameState, PlayerState } from '../../index.js';
-import { Phase, Alignment, CardStatus } from '../../index.js';
+import { Phase, Alignment, CardStatus, computeLegalActions } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
@@ -69,6 +81,9 @@ const SARUMAN = 'wh-9' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId;
 /** Isengard — a Fallen-wizard Wizardhaven (haven site). */
 const ISENGARD = 'wh-56' as CardDefinitionId;
+/** The White Towers — a Wilderness Ruins & Lairs matching Alatar's home-site
+ *  rule, so he can be revealed there from hand. */
+const THE_WHITE_TOWERS = 'tw-430' as CardDefinitionId;
 
 /** The three cards the Garb may retrieve from the discard pile. */
 const RISKY_BLOW = 'tw-319' as CardDefinitionId;
@@ -292,5 +307,102 @@ describe("Huntsman's Garb (wh-92)", () => {
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
     } as GameState;
     expect(grantedActionsFor(org, alatarId, FETCH, PLAYER_1).length).toBe(0);
+  });
+
+  // ── Rules 7–9: playable without Alatar, not usable without Alatar ──────────
+  // Bug report: "Huntsman's Garb is playable without Alatar. It is not usable
+  // without Alatar." — "Place this card on Alatar if he is in play" makes the
+  // placement conditional, not the play; the fetch clause is "If on Alatar".
+  // Mirrors Give Welcome to the Unexpected (wh-99) / Bade to Rule (le-167).
+
+  /** Organization-phase state with Alatar NOT in play: he sits in hand (still
+   *  the declared avatar, so the alatar-specific gate passes) and his home
+   *  site heads the site deck so he can be revealed. */
+  function alatarUnrevealedOrgState(): GameState {
+    return buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [BOROMIR] }],
+          hand: [HUNTSMANS_GARB, ALATAR],
+          siteDeck: [THE_WHITE_TOWERS],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+  }
+
+  /** Every viable end-of-turn fetch offer, regardless of which character it is
+   *  keyed on — a bare Garb has no bearer to ask `grantedActionsFor` about. */
+  const allFetchOffers = (state: GameState) =>
+    computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable)
+      .map(ea => ea.action)
+      .filter(a => a.type === 'activate-granted-action'
+        && (a as { actionId?: string }).actionId === FETCH);
+
+  test('playable bare during the organization phase when Alatar is not in play', () => {
+    const state = alatarUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const garbId = findHandCardId(state, RESOURCE_PLAYER, HUNTSMANS_GARB);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, garbId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === HUNTSMANS_GARB)).toBe(true);
+    // The stage point is earned whether or not the card sits on Alatar.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+  });
+
+  test('the fetch is NOT offered while the Garb sits in play unattached', () => {
+    const org = alatarUnrevealedOrgState();
+    const garbId = findHandCardId(org, RESOURCE_PLAYER, HUNTSMANS_GARB);
+    let state = playPermanentEventAndResolve(org, PLAYER_1, garbId);
+    for (const d of [RISKY_BLOW, TRUE_FANA, THE_HUNT]) state = addCardToDiscardPile(state, RESOURCE_PLAYER, d);
+    const eot = {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+
+    // Three fetchable cards in the discard pile, and still no offer: only a
+    // Garb *on* Alatar can be tapped.
+    expect(allFetchOffers(eot).length).toBe(0);
+  });
+
+  test('attaches to Alatar the moment he enters play, and the fetch works from then on', () => {
+    const org = alatarUnrevealedOrgState();
+    const garbId = findHandCardId(org, RESOURCE_PLAYER, HUNTSMANS_GARB);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, garbId);
+
+    // Reveal Alatar at his home site — the Garb leaves `cardsInPlay` for his items.
+    const playAlatar = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, ALATAR));
+    expect(playAlatar).toBeDefined();
+    const revealed = dispatch(bare, playAlatar!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === HUNTSMANS_GARB)).toBe(false);
+    expect(getCharacter(revealed, RESOURCE_PLAYER, ALATAR).items.some(i => i.definitionId === HUNTSMANS_GARB)).toBe(true);
+    expect(revealed.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+
+    // With the Garb on Alatar, the end-of-turn fetch is offered again.
+    let seeded = revealed;
+    for (const d of [RISKY_BLOW, TRUE_FANA, THE_HUNT]) seeded = addCardToDiscardPile(seeded, RESOURCE_PLAYER, d);
+    const eot = {
+      ...seeded,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+    expect(allFetchOffers(eot).length).toBe(3);
   });
 });

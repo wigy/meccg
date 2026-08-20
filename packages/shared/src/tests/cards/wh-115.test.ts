@@ -33,6 +33,8 @@
  * |10 | Radagast may bear, but may not use, items                     | IMPLEMENTED | NEW `play-flag: bearer-cannot-use-items` (CP still applies) |
  * |11 | Return to hand during your organization phase (optional)      | IMPLEMENTED | `return-to-hand` `organization`, extended to attached permanent-events |
  * |12 | Return to hand when another Shapeshifter card is played       | IMPLEMENTED | NEW `return-to-hand` `replaced-by-keyword` + `shapeshifter` keyword |
+ * |13 | Playable bare when Radagast is NOT in play ("if he is in play")| IMPLEMENTED | untargeted `play-option` on `player.avatarInPlay: false` (wh-99 pattern) |
+ * |14 | Attaches to Radagast the moment he enters play                | IMPLEMENTED | `on-event: avatar-enters-play` move self → `in-play-on-character` |
  *
  * Modeling notes:
  *  - "Adopting the given attributes" is an absolute **set**, not a delta. The
@@ -55,7 +57,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint, recomputeDerived,
-  viableActions, dispatch,
+  viableActions, viablePlayCharacterActions, dispatch,
   findCharInstanceId, findHandCardId, getCharacter, companyIdAt,
   attachItemToChar, playPermanentEventAndResolve, enqueueCorruptionCheck,
   assertEveryInstanceReachable,
@@ -86,6 +88,8 @@ const ARAGORN = 'tw-120' as CardDefinitionId;
  *  Rhosgobel (wh-57), which grants a stage point of its own and would muddy
  *  the stage-point assertions. */
 const ISENGARD_FW = 'wh-56' as CardDefinitionId;
+/** Rhosgobel — Radagast's home site, so he can be revealed from hand. */
+const RHOSGOBEL = 'wh-57' as CardDefinitionId;
 /** Moria — site path [wilderness, wilderness]. */
 const MORIA = 'tw-413' as CardDefinitionId;
 /** Himring — site path [free, coastal-sea]: NO wilderness. */
@@ -513,5 +517,48 @@ describe('Shifter of Hues (wh-115)', () => {
     expect(state.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === firstId)).toBe(false);
     expect(state.players[RESOURCE_PLAYER].stagePoints).toBe(1);
     assertEveryInstanceReachable(state);
+  });
+
+  // ── Rules 13–14: playable without Radagast, attaches when he is revealed ───
+  // "Place this card on Radagast if he is in play" makes the placement
+  // conditional, not the play. Mirrors Huntsman's Garb (wh-92) / Give Welcome
+  // to the Unexpected (wh-99).
+
+  /** Organization-phase state with Radagast NOT in play: he sits in hand
+   *  (still the declared avatar, so the radagast-specific gate passes) and his
+   *  home site Rhosgobel heads the site deck so he can be revealed. */
+  const radagastUnrevealedOrgState = (): GameState => fwOrgState({
+    companies: [{ site: ISENGARD_FW, characters: [BOROMIR] }],
+    hand: [SHIFTER, RADAGAST],
+    siteDeck: [RHOSGOBEL],
+  });
+
+  test('playable bare during the organization phase when Radagast is not in play', () => {
+    const state = radagastUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const shifterId = findHandCardId(state, RESOURCE_PLAYER, SHIFTER);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, shifterId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === SHIFTER)).toBe(true);
+    // The stage point is earned whether or not the card sits on Radagast.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+  });
+
+  test('attaches to Radagast the moment he enters play', () => {
+    const org = radagastUnrevealedOrgState();
+    const shifterId = findHandCardId(org, RESOURCE_PLAYER, SHIFTER);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, shifterId);
+
+    // Reveal Radagast at his home site — the form leaves `cardsInPlay` for his items.
+    const playRadagast = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, RADAGAST));
+    expect(playRadagast).toBeDefined();
+    const revealed = dispatch(bare, playRadagast!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === SHIFTER)).toBe(false);
+    expect(getCharacter(revealed, RESOURCE_PLAYER, RADAGAST).items.some(i => i.definitionId === SHIFTER)).toBe(true);
+    assertEveryInstanceReachable(revealed);
   });
 });

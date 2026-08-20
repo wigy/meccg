@@ -22,6 +22,9 @@
  * | 5 | Tap the Stave during end-of-turn to fetch a faction           | IMPLEMENTED |
  * | 6 | Only factions are fetchable; only during end-of-turn          | IMPLEMENTED |
  * | 7 | Cost taps the Stave itself (not Pallando)                     | IMPLEMENTED |
+ * | 8 | Playable bare when Pallando is NOT in play ("if he is in play")| IMPLEMENTED |
+ * | 9 | Attaches to Pallando the moment he enters play                | IMPLEMENTED |
+ * | 10| The fetch is unavailable while the card is not on Pallando    | IMPLEMENTED |
  *
  * Modeling (identical shape to Pallando's Hood wh-105, with the fetch filter
  * keyed on card type instead of names):
@@ -45,6 +48,15 @@
  *    grant taps the *card* (via `applyCost` `tapAttachment`), so eligibility
  *    keys on the Stave's own status — not the bearer's — meaning the fetch
  *    works even while Pallando is tapped.
+ *  - Rules 8–9: "Place this card on Pallando **if he is in play**" — placement
+ *    is conditional, not a play requirement. An untargeted `play-option` gated
+ *    on `player.avatarInPlay: false` lets the card enter play bare in
+ *    `cardsInPlay`, and an `on-event: avatar-enters-play` move (self →
+ *    `in-play-on-character`) attaches it to Pallando the moment he is revealed —
+ *    the wh-99 / Bade to Rule (le-167) pattern.
+ *  - Rule 10 falls out of the scanner: `endOfTurnGrantActions` walks characters
+ *    and their attached items only, so a Stave sitting bare in `cardsInPlay`
+ *    is never a grant source ("If on Pallando, you may tap…").
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -52,7 +64,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   addCardToDiscardPile,
@@ -61,7 +73,7 @@ import {
   dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameState, PlayerState } from '../../index.js';
-import { Phase, Alignment, CardStatus } from '../../index.js';
+import { Phase, Alignment, CardStatus, computeLegalActions } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
@@ -77,6 +89,9 @@ const SARUMAN = 'wh-9' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId;
 /** Isengard — a Fallen-wizard Wizardhaven (haven site). */
 const ISENGARD = 'wh-56' as CardDefinitionId;
+/** The White Towers — Pallando's printed home site, so he can be revealed
+ *  there from hand. */
+const THE_WHITE_TOWERS = 'tw-430' as CardDefinitionId;
 
 /** A hero faction — fetchable ("a faction", either alignment). */
 const WOOD_ELVES = 'tw-367' as CardDefinitionId;
@@ -276,5 +291,101 @@ describe('Stave of Pallando (wh-107)', () => {
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
     } as GameState;
     expect(grantedActionsFor(org, pallandoId, FETCH, PLAYER_1).length).toBe(0);
+  });
+
+  // ── Rules 8–10: playable without Pallando, not usable without Pallando ─────
+  // "Place this card on Pallando if he is in play" makes the placement
+  // conditional, not the play; the fetch clause is "If on Pallando". Mirrors
+  // Huntsman's Garb (wh-92) / Give Welcome to the Unexpected (wh-99).
+
+  /** Organization-phase state with Pallando NOT in play: he sits in hand
+   *  (still the declared avatar, so the pallando-specific gate passes) and his
+   *  home site heads the site deck so he can be revealed. */
+  function pallandoUnrevealedOrgState(): GameState {
+    return buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [BOROMIR] }],
+          hand: [STAVE, PALLANDO],
+          siteDeck: [THE_WHITE_TOWERS],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+  }
+
+  /** Every viable end-of-turn fetch offer, regardless of which character it is
+   *  keyed on — a bare Stave has no bearer to ask `grantedActionsFor` about. */
+  const allFetchOffers = (state: GameState) =>
+    computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable)
+      .map(ea => ea.action)
+      .filter(a => a.type === 'activate-granted-action'
+        && (a as { actionId?: string }).actionId === FETCH);
+
+  test('playable bare during the organization phase when Pallando is not in play', () => {
+    const state = pallandoUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const staveId = findHandCardId(state, RESOURCE_PLAYER, STAVE);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, staveId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === STAVE)).toBe(true);
+    // The stage points are earned whether or not the card sits on Pallando.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+  });
+
+  test('the fetch is NOT offered while the Stave sits in play unattached', () => {
+    const org = pallandoUnrevealedOrgState();
+    const staveId = findHandCardId(org, RESOURCE_PLAYER, STAVE);
+    let state = playPermanentEventAndResolve(org, PLAYER_1, staveId);
+    for (const d of [WOOD_ELVES, ORCS_OF_MORIA]) state = addCardToDiscardPile(state, RESOURCE_PLAYER, d);
+    const eot = {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+
+    // Two fetchable factions in the discard pile, and still no offer: only a
+    // Stave *on* Pallando can be tapped.
+    expect(allFetchOffers(eot).length).toBe(0);
+  });
+
+  test('attaches to Pallando the moment he enters play, and the fetch works from then on', () => {
+    const org = pallandoUnrevealedOrgState();
+    const staveId = findHandCardId(org, RESOURCE_PLAYER, STAVE);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, staveId);
+
+    // Reveal Pallando at his home site — the Stave leaves `cardsInPlay` for his items.
+    const playPallando = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, PALLANDO));
+    expect(playPallando).toBeDefined();
+    const revealed = dispatch(bare, playPallando!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === STAVE)).toBe(false);
+    expect(getCharacter(revealed, RESOURCE_PLAYER, PALLANDO).items.some(i => i.definitionId === STAVE)).toBe(true);
+    expect(revealed.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+
+    // With the Stave on Pallando, the end-of-turn fetch is offered again.
+    let seeded = revealed;
+    for (const d of [WOOD_ELVES, ORCS_OF_MORIA]) seeded = addCardToDiscardPile(seeded, RESOURCE_PLAYER, d);
+    const eot = {
+      ...seeded,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+    expect(allFetchOffers(eot).length).toBe(2);
   });
 });
