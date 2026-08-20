@@ -270,4 +270,52 @@ describe('Gandalf (tw-156)', () => {
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
     expect(actions.length).toBe(1);
   });
+
+  test('test-gold-ring available during end-of-turn phase (discard step)', () => {
+    // Bug report: end-of-turn's legal-action handler had its own bespoke
+    // grant-action scanner (discard-pile fetches only, e.g. Saruman) and
+    // never consulted the generic any-phase scanner, so Gandalf's
+    // test-gold-ring was silently never offered during end-of-turn.
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
+    expect(actions.length).toBe(1);
+  });
+
+  test('test-gold-ring available during end-of-turn phase (signal-end step)', () => {
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn, step: 'signal-end', discardDone: [true, true], resetHandDone: [true, true] } as typeof state.phaseState,
+    };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
+    expect(actions.length).toBe(1);
+  });
 });

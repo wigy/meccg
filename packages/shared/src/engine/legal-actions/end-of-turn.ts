@@ -19,7 +19,7 @@ import { matchesDefinition, characterEntries, playerById, getCardEffects, defByI
 import { isCharacterCard, isSiteCard } from '../../types/cards.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
-import { buildGrantActionContext } from './organization.js';
+import { buildGrantActionContext, grantedActionActivations } from './organization.js';
 import { resolveHandSize } from '../effects/index.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
@@ -55,6 +55,10 @@ import { grantedAction } from './granted-action-emit.js';
  * phase the company is at a site" — this includes end-of-turn, so
  * character-recruitment events are also offered here via
  * {@link recruitViaEventActions}.
+ *
+ * Rule 2.1.1: the resource player may also activate any-phase grant-actions
+ * (e.g. Gandalf tapping to test a gold ring in his company, tw-156) during
+ * the end-of-turn phase, via {@link grantedActionActivations}.
  */
 export function endOfTurnActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const eotState = requirePhaseState(state, Phase.EndOfTurn);
@@ -68,6 +72,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
+        base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
       }
       return base;
     }
@@ -79,6 +84,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
+        base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
       }
       return base;
     }
