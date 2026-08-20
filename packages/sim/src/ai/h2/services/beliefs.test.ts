@@ -42,6 +42,13 @@ describe('classification', () => {
     expect(kindOf(POOL[CHARACTER])).toBe('character');
     expect(kindOf(undefined)).toBeNull();
   });
+
+  test('a definition with no card type is unclassifiable, not a crash', () => {
+    // Consumers pass whatever pool they were built with, and a partial entry
+    // must fall through to "unknown" the same way a missing one does.
+    const partial = { name: 'A Trinket', marshallingPoints: 0 } as unknown as CardDefinition;
+    expect(kindOf(partial)).toBeNull();
+  });
 });
 
 describe('with nothing shown', () => {
