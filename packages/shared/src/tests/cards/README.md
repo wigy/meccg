@@ -748,7 +748,7 @@
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
-| tw-008 | — | — | 12 | ☑ |
+| tw-008 | — | — | 13 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-12 | Balrog of Moria | — | 11 | ☑ |
@@ -1180,7 +1180,7 @@
 | wh-103 | Arcane School | — | 9 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
 | wh-105 | Pallando’s Hood | — | 12 | ☑ |
-| wh-106 | Prophet of Doom | — | 15 | ☑ |
+| wh-106 | Prophet of Doom | — | 16 | ☑ |
 | wh-107 | Stave of Pallando | — | 12 | ☑ |
 | wh-108 | Truths of Doom | — | 9 | ☑ |
 | wh-109 | Friend of Secret Things | — | 11 | ☑ |

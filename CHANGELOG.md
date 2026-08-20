@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.122.0 — 2026-08-20
+
+Pass wins AI ties, same-site company moves fixed, and combat corrections
+
+### AI
+
+- **`pass` wins any tie in the h2 agent.** Design decision: an action no
+  module needs in its plan is never taken — every action worth taking is
+  priced strictly positive by the module whose plan needs it. This
+  replaces the old "among equals, act" tie-break, which turned unmotivated
+  legal actions into busywork: handing away starting items and touring a
+  minor item around a whole five-character company one hop per decision,
+  every organization phase (#2554, game `mt1j9m0i-5d4lze`). A module that
+  prices passing strictly *below* the tied best is still respected.
+- **The heuristic AI risks at most one character untapped per
+  auto-attack.** It kept several characters untapped against a
+  multi-strike automatic attack when one defender was enough, taking
+  needless -1 modifiers on every extra strike (#2557).
+
+### Game Engine
+
+- **Moving a character between two companies at the same site works
+  again when each company holds its own physical site-card instance.**
+  `handleMoveToCompany` compared raw site instance ids where the
+  legal-action generator compares site *definitions* (rule g.site.1), so
+  the offered move was silently rejected — reported twice, from two games
+  at Minas Morgul and after a company split (#2560, closing duplicate
+  #2559).
+- **Cancel-by-tap no longer discards an already-faced Assassin strike.**
+  Tapping to cancel one strike of a multi-strike Assassin discarded the
+  whole attack including a strike already resolved (#2556).
+
+### Cards
+
+- **Prophet of Doom (wh-106) awards its 3 miscellaneous marshalling
+  points** (#2558).
+- **Join the Hunt (P)** approved into the card pool.
+
+### Web Client
+
+- **The single-company view shrinks to fit large companies on screen**
+  instead of overflowing (#2555).
+
 ## 0.121.0 — 2026-08-20
 
 Whole-board organization planning and a round of AI-advice fixes
