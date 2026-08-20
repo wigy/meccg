@@ -26,7 +26,7 @@
 import type { GameAction } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { findCharacterInPlay, isWounded, isTapped, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
+import { findCharacterInPlay, findCompanyOf, isWounded, isTapped, isUntapped, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
 
 export const combatEvaluator: ActionEvaluator = {
   // Combat is phase-independent — these phases are where it most often
@@ -56,6 +56,25 @@ export const combatEvaluator: ActionEvaluator = {
       }
 
       case 'resolve-strike': {
+        // If a company teammate has already resolved its strike and stayed
+        // untapped, the company already has an untapped member — staying
+        // untapped here too is a needless extra risk, since it costs -3
+        // prowess (CoE 3.iv.3) for no further benefit while tapping is
+        // strictly the safer roll. Strongly prefer tapping in that case.
+        const combat = context.view.combat;
+        const struckId = combat?.strikeAssignments[combat.currentStrikeIndex]?.characterId;
+        const struck = struckId ? findCharacterInPlay(view, struckId) : null;
+        if (combat && struck?.isSelf) {
+          const company = findCompanyOf(view, struckId!);
+          const teammateAlreadyUntapped = company?.characters.some(id => {
+            if (id === struckId) return false;
+            const assignment = combat.strikeAssignments.find(sa => sa.characterId === id);
+            if (!assignment?.resolved) return false;
+            const teammate = view.self.characters[id];
+            return teammate ? isUntapped(teammate) : false;
+          }) ?? false;
+          if (teammateAlreadyUntapped) return action.tapToFight ? 20 : 1;
+        }
         // Tap to fight when the roll need is hard and the alternative not.
         if (action.tapToFight && action.need >= 8) return 20;
         if (!action.tapToFight && action.need <= 7) return 20;
