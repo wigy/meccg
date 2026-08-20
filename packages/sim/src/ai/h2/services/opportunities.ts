@@ -245,3 +245,102 @@ function buildEnumerateOpportunities(
  * decision, and the answer cannot differ between them. See `core/memo`.
  */
 export const enumerateOpportunities = memoizeOnFirst(buildEnumerateOpportunities);
+
+/**
+ * A (card × site) pair the organization potential could adopt as a goal.
+ *
+ * Deliberately *coarser* than an {@link Opportunity}: no company, no route,
+ * no harm netting. The organization potential must be a function of the
+ * arrangement over **position-fixed** inputs, or `utility(change) +
+ * utility(undo)` stops being zero — and the opportunity enumeration's
+ * per-company `netPayoff > 0` filter is exactly the kind of
+ * partition-dependent input that would let the goal list drift between the
+ * two sides of an undo. So a goal candidate carries only what no shape
+ * action can move: the card, the site, playability, and the gross marginal
+ * payoff. The site's toll is netted later, inside the matching, against the
+ * roster of whichever company the arrangement says serves it.
+ */
+export interface GoalCandidate {
+  readonly cardInstanceId: CardInstanceId;
+  readonly cardDefinitionId: string;
+  readonly cardName: string;
+  readonly cardType: string;
+  readonly source: MpSource;
+  readonly mp: number;
+  readonly influenceTarget?: number;
+  readonly siteDefinitionId: string;
+  readonly siteName: string;
+  /** Marginal TSD through `standing` — gross: the site's toll is not netted. */
+  readonly grossPayoffTsd: number;
+  /** How many automatic attacks the site prints — a pool-only safety proxy. */
+  readonly automaticAttackCount: number;
+  /** Their total printed strikes, the tie-break behind the count. */
+  readonly automaticAttackStrikes: number;
+}
+
+/** Every candidate site of the position, in a partition-independent order. */
+function candidateSitesOf(view: PlayerView): string[] {
+  const seen = new Set<string>();
+  for (const company of view.self.companies) {
+    for (const site of [company.currentSite, company.destinationSite]) {
+      if (site) seen.add(site.definitionId);
+    }
+  }
+  for (const site of view.self.siteDeck) seen.add(site.definitionId);
+  // Sorted by definition, never by company order: a split re-orders the
+  // company list without changing where anyone stands, and the goal list must
+  // not notice.
+  return [...seen].sort();
+}
+
+/** Enumerate the goal candidates of a position: hand order, then site order. */
+function buildEnumerateGoalCandidates(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  standing: Standing,
+): readonly GoalCandidate[] {
+  const sites = candidateSitesOf(view);
+  const candidates: GoalCandidate[] = [];
+
+  for (const card of view.self.hand) {
+    const def = cardPool[card.definitionId];
+    if (!def) continue;
+    const fields = def as unknown as {
+      name?: string;
+      cardType?: string;
+      marshallingPoints?: number;
+      marshallingCategory?: string;
+      influenceTarget?: number;
+    };
+    const mp = fields.marshallingPoints ?? 0;
+    if (mp <= 0) continue;
+    const source = (fields.marshallingCategory ?? 'misc') as MpSource;
+    const grossPayoffTsd = standing.tsdAfter({ [source]: mp }) - standing.tsd;
+    if (grossPayoffTsd <= 0) continue;
+
+    for (const siteDefinitionId of sites) {
+      const siteDef = cardPool[siteDefinitionId];
+      if (!siteDef || !isSiteDefinition(siteDef)) continue;
+      if (!resourcePlayableAt(def, siteDef as never)) continue;
+      const attacks = automaticAttacksOf(cardPool, siteDefinitionId);
+      candidates.push({
+        cardInstanceId: card.instanceId,
+        cardDefinitionId: card.definitionId,
+        cardName: fields.name ?? card.definitionId,
+        cardType: fields.cardType ?? '',
+        source,
+        mp,
+        influenceTarget: fields.influenceTarget,
+        siteDefinitionId,
+        siteName: siteNameOf(siteDef),
+        grossPayoffTsd,
+        automaticAttackCount: attacks.length,
+        automaticAttackStrikes: attacks.reduce((sum, attack) => sum + attack.strikes, 0),
+      });
+    }
+  }
+  return candidates;
+}
+
+/** Build the goal-candidate list, once per position. See `core/memo`. */
+export const enumerateGoalCandidates = memoizeOnFirst(buildEnumerateGoalCandidates);

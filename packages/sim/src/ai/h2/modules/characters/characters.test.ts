@@ -16,6 +16,7 @@ import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
+import { loadWinProbModel } from '../../core/winprob.js';
 import { charactersModule } from './characters.js';
 
 const SCORER = 'tw-scorer';
@@ -296,6 +297,106 @@ describe('company shape', () => {
     expect(charactersModule.evaluate({
       type: 'merge-companies', sourceCompanyId: 'nope', targetCompanyId: 'also-nope',
     } as unknown as GameAction, context)).toBeNull();
+  });
+});
+
+describe('the organization potential', () => {
+  const cardPool = loadCardPool();
+  // The shipped model: the potential integrates the real fitted curvature,
+  // and these scenarios were built to exercise exactly that.
+  const model = loadWinProbModel();
+
+  /** Context for a scenario at an optionally forced risk posture. */
+  function scenarioContext(id: string, riskOverride?: number): ModuleContext {
+    const view = scenarioView(loadScenario(id));
+    return {
+      view,
+      cardPool,
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, model, DEFAULT_TUNABLES, riskOverride),
+    };
+  }
+
+  /** The best split of the largest company, through the module. */
+  function bestSplitUtility(context: ModuleContext): number {
+    const company = [...context.view.self.companies].sort(
+      (a, b) => b.characters.length - a.characters.length)[0];
+    const utilities = company.characters.map(characterId => charactersModule.evaluate({
+      type: 'split-company', sourceCompanyId: company.id, characterId,
+    } as unknown as GameAction, context)!.utility);
+    return Math.max(...utilities);
+  }
+
+  test('trailing with two goals: the split is chosen', () => {
+    // Two playable items, two companies, two goals in parallel — and the
+    // convex limb of W behind it. No branch says "am I trailing".
+    expect(bestSplitUtility(scenarioContext('organization/trailing-split-two-goals')))
+      .toBeGreaterThan(0);
+  });
+
+  test('trailing with no second goal: the split is refused', () => {
+    // "Resources to play for all": the spun-off company would serve nothing
+    // distinct, so only the harm term moves, and it moves against.
+    expect(bestSplitUtility(scenarioContext('organization/trailing-split-no-second-goal')))
+      .toBeLessThan(0);
+  });
+
+  test('leading: the big company is kept', () => {
+    expect(bestSplitUtility(scenarioContext('organization/leading-keeps-big-company')))
+      .toBeLessThan(0);
+  });
+
+  test('undo is exactly free, at every posture', () => {
+    // The anti-oscillation property of spec §5, swept across the risk
+    // postures — the new part relative to the old expectedTsd-only pins. A
+    // scored *delta* would fail this under any convex posture by Jensen.
+    for (const id of [
+      'organization/leading-keeps-big-company',
+      'organization/trailing-split-two-goals',
+      'organization/trailing-split-no-second-goal',
+    ]) {
+      for (const riskOverride of [undefined, 0.8, -0.8]) {
+        const context = scenarioContext(id, riskOverride);
+        const view = context.view;
+        const company = [...view.self.companies].sort(
+          (a, b) => b.characters.length - a.characters.length)[0];
+        const characterId = company.characters[0];
+        const split = charactersModule.evaluate({
+          type: 'split-company', sourceCompanyId: company.id, characterId,
+        } as unknown as GameAction, context)!;
+
+        const departing = new Set<string>([characterId as string]);
+        for (const follower of view.self.characters[characterId]?.followers ?? []) {
+          departing.add(follower as string);
+        }
+        const stays = company.characters.filter(c => !departing.has(c as string));
+        const goes = company.characters.filter(c => departing.has(c as string));
+        const afterSplit = {
+          ...view,
+          self: {
+            ...view.self,
+            companies: [
+              ...view.self.companies.filter(c => c.id !== company.id),
+              { ...company, id: 'company-stay', characters: stays },
+              { ...company, id: 'company-go', characters: goes },
+            ],
+          },
+        } as unknown as typeof view;
+        const mergeBack = charactersModule.evaluate({
+          type: 'merge-companies', sourceCompanyId: 'company-go', targetCompanyId: 'company-stay',
+        } as unknown as GameAction, {
+          ...context,
+          view: afterSplit,
+          standing: computeStanding(afterSplit, model, DEFAULT_TUNABLES, riskOverride),
+        })!;
+
+        expect(Math.abs(split.utility + mergeBack.utility),
+          `${id} @ risk ${riskOverride ?? 'fitted'}`).toBeLessThan(1e-9);
+        expect(Math.abs(split.expectedTsd + mergeBack.expectedTsd),
+          `${id} @ risk ${riskOverride ?? 'fitted'}`).toBeLessThan(1e-9);
+      }
+    }
   });
 });
 

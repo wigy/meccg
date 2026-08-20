@@ -421,6 +421,17 @@ export interface Tunables {
    */
   readonly gatingResolutionTsd: number;
   /**
+   * How many goals the organization potential's matching considers at once.
+   *
+   * A performance bound like `hazardBeamWidth`, not a gameplay choice: the
+   * goal-to-company matching is exact over permutations, so its cost grows
+   * with the goal list, and the list is truncated to the top so-many by
+   * discounted payoff with a deterministic tie-break. When the cap binds it
+   * is reported in the rationale, so a reader can see how much of the hand
+   * was actually considered.
+   */
+  readonly organizationGoalCap: number;
+  /**
    * What having an avatar in play is worth, in TSD, beyond the marshalling
    * points it carries (often zero — an avatar's value is not in its MP).
    *
@@ -474,6 +485,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
   heldCardFloor: 1,
+  organizationGoalCap: 4,
   avatarInPlayTsd: 2,
 };
 
