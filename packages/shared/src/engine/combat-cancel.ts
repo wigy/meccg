@@ -968,9 +968,18 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
   // Remove one full attack's worth of strike assignments.
   // For multi-attack creatures (e.g. Nameless Thing: 3 attacks × 2 strikes),
   // strikesPerAttack is set so one tap cancels one full attack (all its strikes).
+  // Per CRF 22 Assassin: "you may decide to cancel one of the attacks after
+  // facing another attack" — an already-resolved (faced) strike must never be
+  // removed by a later cancellation, so only unresolved assignments are
+  // eligible for removal.
   const strikesToRemove = combat.strikesPerAttack ?? 1;
   const newAssignments = [...combat.strikeAssignments];
-  for (let i = 0; i < strikesToRemove; i++) newAssignments.pop();
+  let removed = 0;
+  for (let i = newAssignments.length - 1; i >= 0 && removed < strikesToRemove; i--) {
+    if (newAssignments[i].resolved) continue;
+    newAssignments.splice(i, 1);
+    removed++;
+  }
 
   const newCancelRemaining = combat.cancelByTapRemaining - 1;
   const newStrikesTotal = combat.strikesTotal - strikesToRemove;
