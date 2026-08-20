@@ -792,18 +792,22 @@ export const combatModule: H2Module = {
         const supporterId = (action as unknown as { supportingCharacterId?: CardInstanceId }).supportingCharacterId;
         // CoE 3.iv.4: each supporter taps for +1 prowess, which lowers the
         // target by one. The value of supporting is the improved strike minus
-        // the supporter's tap.
+        // the supporter's tap — priced by the same character-value service as
+        // every other tap in this module, so supporting with the company's
+        // best influencer is not as cheap as supporting with a spare hand.
+        const supporterTap = supporterId ? ctx.characterValue.tapCost(supporterId) : { tsd: ctx.tunables.tapTempoCost, reason: 'unknown supporter — flat tempo' };
         const supported: StrikeOption = { need: Math.max(2, need - 1), tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 };
         return evaluateOption(
           ctx,
           action,
           supported,
           'tap a companion to support',
-          ctx.tunables.tapTempoCost,
+          supporterTap.tsd,
           [
             leaf('support bonus', 1, { note: 'CoE 3.iv.4 — +1 prowess, one lower on the die' }),
             leaf('supporter tapped', supporterId ? nameOfInstance(ctx, supporterId) : 'unknown', {
-              note: 'cannot tap again this site phase',
+              tunable: 'tapTempoCost',
+              note: `cannot tap again this site phase — ${supporterTap.reason}`,
             }),
           ],
           ['the supported strike is then faced by tapping to fight'],
