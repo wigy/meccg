@@ -439,11 +439,19 @@ describe('the organization potential', () => {
     return Math.max(...utilities);
   }
 
-  test('trailing with two goals: the split is chosen', () => {
+  test('trailing with two goals: the second goal is what the split prices', () => {
     // Two playable items, two companies, two goals in parallel — and the
-    // convex limb of W behind it. No branch says "am I trailing".
-    expect(bestSplitUtility(scenarioContext('organization/trailing-split-two-goals')))
-      .toBeGreaterThan(0);
+    // convex limb of W behind it. No branch says "am I trailing". Every split
+    // this scenario offers spins off a singleton, and a singleton still
+    // invites two hazards (the engine's min-2 hazard-limit floor), so the
+    // absolute sign is a wash: the extra slot eats roughly what the second
+    // item's discounted payoff adds. What must hold is the ordering — the
+    // same spin-off with a second goal to serve beats one with none, and by
+    // at least that goal's worth showing through.
+    const withSecondGoal = bestSplitUtility(scenarioContext('organization/trailing-split-two-goals'));
+    const withoutSecondGoal = bestSplitUtility(scenarioContext('organization/trailing-split-no-second-goal'));
+    expect(withSecondGoal).toBeGreaterThan(withoutSecondGoal);
+    expect(withSecondGoal).toBeGreaterThan(-0.005);
   });
 
   test('trailing with no second goal: the split is refused', () => {

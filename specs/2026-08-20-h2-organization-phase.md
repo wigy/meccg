@@ -29,8 +29,15 @@ What the code does today, and why each part fails:
 
 - `modules/characters/characters.ts` prices `split-company`,
   `merge-companies` and `move-to-company` by exactly one thing: the harm the
-  shape invites (`services/defence.ts` `expectedHarm(roster, roster.length)`,
-  a company's hazard limit being its own size). Its own docstring records the
+  shape invites (`services/defence.ts` `expectedHarm(roster, hazardSlots(|roster|))`,
+  a company's hazard limit being its own size **floored at two** — the
+  engine's `snapshotHazardLimit`. The floor was added post-P5 when the
+  floorless model priced every split as harm-free and recommended one split
+  per goal, singletons included, in game msygr2v0-z5h2i8: with it, a
+  spun-off singleton pays for the extra slot it hands the opponent, which
+  also makes `trailing-split-two-goals`' best 1+4 split a wash rather than
+  positive — the pinned property is now the ordering against
+  `trailing-split-no-second-goal`). Its own docstring records the
   missing half: *"splitting also lets two companies reach two sites, which is
   usually the reason anyone does it, and pricing that needs destinations the
   organization phase has not chosen yet."* The destinations now exist — they

@@ -374,9 +374,8 @@ export function resourcePlayableAt(
     def.cardType === 'hero-resource-ally' ||
     def.cardType === 'minion-resource-ally'
   ) {
-    const regionType = site.sitePath.length > 0
-      ? site.sitePath[site.sitePath.length - 1]
-      : undefined;
+    const sitePath = site.sitePath ?? [];
+    const regionType = sitePath.length > 0 ? sitePath[sitePath.length - 1] : undefined;
     return def.playableAt.some(entry => siteMatchesEntry(site, entry, site.siteType, regionType));
   }
   // Resource events with play-target: site — card must be played at the company's current site,
