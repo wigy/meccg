@@ -111,11 +111,13 @@ beforeEach(() => {
     body: bodyStub,
   };
   (globalThis as unknown as { window: unknown }).window = { innerWidth: 1024, innerHeight: 768 };
+  (globalThis as unknown as { requestAnimationFrame: unknown }).requestAnimationFrame = () => 0;
   resetState();
 });
 
 afterEach(() => {
   delete (globalThis as unknown as { document?: unknown }).document;
+  delete (globalThis as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame;
   resetState();
 });
 
