@@ -116,6 +116,25 @@ describe('transferring', () => {
     expect(evaluation.expectedTsd).toBe(0);
   });
 
+  test('a second transfer of the same item this turn is charged, so it no longer ties with pass', () => {
+    // game mt1j9m0i-5d4lze, turn 7: with every company member at corruption 0
+    // or 1, `checkRisk` correctly prices each hop's check at zero (2d6 cannot
+    // roll under 2), so without `repeatedTransferCost` every hop ties with
+    // `pass` and the agent's tie-break prefers to act — the item toured all
+    // five characters, one hop per decision, for nothing.
+    const context = contextWith(BALANCED, BALANCED);
+    const action = {
+      type: 'transfer-item', itemInstanceId: `item-${PLAIN}`, fromCharacterId: 'hero-1', toCharacterId: 'hero-2',
+    } as unknown as GameAction;
+
+    const firstHop = healthModule.evaluate(action, context)!;
+    expect(firstHop.expectedTsd).toBe(0);
+
+    const secondHop = healthModule.evaluate(action, { ...context, itemTransfers: { [`item-${PLAIN}`]: 1 } })!;
+    expect(secondHop.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(secondHop.rationale)).toContain('already transferred this turn');
+  });
+
   test('a bearer who would risk failing the enqueued check makes the transfer costly, not neutral', () => {
     // CoE 2.II.5: transferring enqueues a corruption check on the giving
     // bearer unconditionally. A bearer already carrying corruption points can

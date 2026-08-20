@@ -407,6 +407,30 @@ export interface Tunables {
    */
   readonly revisitedSiteCost: number;
   /**
+   * What it costs, in TSD, to transfer an item that has already been
+   * transferred once this turn.
+   *
+   * Not a rule — `health` prices the only real, unconditional cost a transfer
+   * carries, the corruption check CoE 2.II.5 enqueues on the bearer giving the
+   * item up, and that check genuinely cannot fail below corruption 2 (2d6
+   * cannot roll under 2), so `checkRisk` correctly returns zero there. A
+   * company whose members are mostly at corruption 0 or 1 — the common case —
+   * then has every transfer tie with `pass`, and the agent's tie-break prefers
+   * to act: the item tours the company one hop per decision until the engine's
+   * own-history guard (`reverse-actions`, `reducer-organization.ts`) finally
+   * runs out of characters it has not already borne the item this phase (game
+   * mt1j9m0i-5d4lze, turn 7: four transfers moving one item through an entire
+   * five-character company, gaining nothing).
+   *
+   * The first transfer of a turn is left at whatever `checkRisk` prices it —
+   * one hop is a defensible destination the health module simply cannot see a
+   * reason for, the same argument that keeps a single tied `transfer-item`
+   * free elsewhere. What should not be free is *touring*: this charges every
+   * hop after the first, so a second and third hop need a real reason from
+   * another module to still be worth taking.
+   */
+  readonly repeatedTransferCost: number;
+  /**
    * What resolving a *gating* pending resolution is worth, in TSD.
    *
    * Some resolutions block everything else until they are answered — a pending
@@ -498,6 +522,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   decisiveMargin: 0,
   gatingResolutionTsd: 1,
   revisitedSiteCost: 1.5,
+  repeatedTransferCost: 1,
   resourceDrawValue: 1,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,

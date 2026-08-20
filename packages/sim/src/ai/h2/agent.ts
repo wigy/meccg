@@ -197,12 +197,24 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
    */
   const visited = new Map<string, string[]>();
 
+  /**
+   * How many times each item, by instance id, has been transferred between
+   * characters this turn. Unlike `visited`, this is per-*turn*, not per-game
+   * — a weapon reassigned before this turn's combat and again before next
+   * turn's is two separate, ordinary decisions, not a repeat. Cleared
+   * whenever the turn number moves on. See `ModuleContext.itemTransfers`.
+   */
+  const itemTransfers = new Map<string, number>();
+  let itemTransfersTurn = -1;
+
   return {
     name: label,
 
     startGame(): void {
       portfolio.reset();
       visited.clear();
+      itemTransfers.clear();
+      itemTransfersTurn = -1;
       // Signatures are coarse on purpose, so one game's history must never
       // narrow another's candidates.
       cycleGuard.reset();
@@ -211,6 +223,10 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
     chooseAction(context: AgentContext): AgentDecision {
       if (context.legalActions.length === 0) {
         throw new Error('h2 agent asked to choose with no legal actions');
+      }
+      if (context.view.turnNumber !== itemTransfersTurn) {
+        itemTransfersTurn = context.view.turnNumber;
+        itemTransfers.clear();
       }
       const signature = viewSignature(context.view);
       // The engine marks candidates that undo this phase's own progress, and
@@ -221,6 +237,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       const decision = decide(context, legalActions);
       cycleGuard.taken(signature, decision.action);
       rememberDestination(context, decision.action);
+      rememberTransfer(decision.action);
       return decision;
     },
   };
@@ -244,6 +261,21 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
     visited.set(record.companyId, [...seen, site.definitionId as string]);
   }
 
+  /**
+   * Record that an item was just handed to another character, so the next
+   * decision can see how many hops it has already made this turn.
+   *
+   * Keyed by instance, not definition — unlike a site, an item does not go
+   * back in a shared deck, so two carried items of the same card are still
+   * two different histories.
+   */
+  function rememberTransfer(action: GameAction): void {
+    if (action.type !== 'transfer-item') return;
+    const record = action as unknown as { itemInstanceId?: string };
+    if (!record.itemInstanceId) return;
+    itemTransfers.set(record.itemInstanceId, (itemTransfers.get(record.itemInstanceId) ?? 0) + 1);
+  }
+
   /** The ranking itself, on whatever candidate list survived the filters. */
   function decide(context: AgentContext, legalActions: readonly GameAction[]): AgentDecision {
       const moduleContext: ModuleContext = {
@@ -253,6 +285,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
         visited: Object.fromEntries(visited),
+        itemTransfers: Object.fromEntries(itemTransfers),
       };
       // Commit once per turn, then price every candidate against what is
       // committed. Re-selecting per decision would let the portfolio churn
