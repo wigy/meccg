@@ -10,7 +10,8 @@
  */
 
 import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HazardEventCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
-import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag } from '@meccg/shared';
+import type { Alignment } from '@meccg/shared';
+import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag, siteMatchesEntry } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
@@ -300,8 +301,39 @@ const SITE_DANGER: Record<string, number> = {
   'dark-hold': 7,
 };
 
-/** Whether a hand resource card can be played at the given site. */
-export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
+/**
+ * Whether a hand resource card can be played at the given site.
+ *
+ * `playerAlignment` enables the MEWH §10 cross-alignment site-tap gate
+ * (legal-actions/site.ts `siteTapCrossAlignmentBlocked`): a Fallen-wizard may
+ * not play a hero item/ally/faction at a minion site or vice versa. Without it
+ * the travel module priced hero items at Ringwraith sites the engine then
+ * refused — sending a company to face a Dragon for a payoff of nothing
+ * (Durin's Axe at Zarak Dûm, game msygr2v0-z5h2i8). The engine's in-state
+ * unlocks (Double-dealing wh-66, wizardhaven conversion wh-97) are not
+ * modelled here — the gate errs on "not playable", which costs a candidate
+ * destination, never a wasted move.
+ */
+export function resourcePlayableAt(
+  def: CardDefinition,
+  site: AnySiteCard,
+  playerAlignment?: Alignment | `${Alignment}`,
+): boolean {
+  // MEWH §10 (Fallen-wizard only): a resource that taps a site — item, ally,
+  // or faction — needs a site of its own alignment class. FW/stage/dual
+  // resources and FW sites count as both classes and pass.
+  if (
+    playerAlignment === 'fallen-wizard' &&
+    (isItemCard(def) || isAllyCard(def) || isFactionCard(def))
+  ) {
+    const resAlign = (def as { alignment?: string }).alignment;
+    const siteAlign = (site as { alignment?: string }).alignment;
+    if (resAlign !== 'fallen-wizard' && resAlign !== 'stage' && resAlign !== 'dual'
+      && siteAlign !== 'fallen-wizard') {
+      if (resAlign === 'wizard' && siteAlign === 'ringwraith') return false;
+      if (resAlign === 'ringwraith' && siteAlign === 'wizard') return false;
+    }
+  }
   // Items: playability mirrors the engine (legal-actions/site.ts).
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
     // An item that carries its own `item-play-site` effect defines exactly
@@ -329,18 +361,22 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
     // site's automatic-attack for no payoff.
     return (site.playableResources as readonly string[]).includes(def.subtype);
   }
-  // Factions / allies: matched by named site or site type.
+  // Factions / allies: delegate to the engine's own `playableAt` matcher so
+  // the entries' `when` gates hold here too — matching on site type alone
+  // priced War-wolf ("Ruins & Lairs with a Wolf automatic-attack") at every
+  // Ruins & Lairs, Dragon lairs included, and the travel module ranked those
+  // destinations as if the ally would score there. The site's own region type
+  // is the last leg of its printed site path; `isUnderDeepsSurface` is not
+  // derivable from the definition alone and defaults to false.
   if (
     def.cardType === 'hero-resource-faction' ||
     def.cardType === 'minion-resource-faction' ||
     def.cardType === 'hero-resource-ally' ||
     def.cardType === 'minion-resource-ally'
   ) {
-    for (const entry of def.playableAt) {
-      if ('site' in entry && entry.site === site.name) return true;
-      if ('siteType' in entry && entry.siteType === site.siteType) return true;
-    }
-    return false;
+    const sitePath = site.sitePath ?? [];
+    const regionType = sitePath.length > 0 ? sitePath[sitePath.length - 1] : undefined;
+    return def.playableAt.some(entry => siteMatchesEntry(site, entry, site.siteType, regionType));
   }
   // Resource events with play-target: site — card must be played at the company's current site,
   // so movement to a matching site unlocks the card.
@@ -370,7 +406,7 @@ export function anyCardPlayableAt(
 ): boolean {
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
-    if (def && resourcePlayableAt(def, site)) return true;
+    if (def && resourcePlayableAt(def, site, view.self.alignment)) return true;
   }
   return false;
 }
@@ -431,7 +467,7 @@ export function scoreDestinationSite(
   let playableScore = 0;
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
-    if (def && resourcePlayableAt(def, destSite)) {
+    if (def && resourcePlayableAt(def, destSite, view.self.alignment)) {
       // Weight by MP value so high-value cards strongly motivate movement.
       // Coefficient 20 ensures even a single 2-MP item (score 40) clearly
       // dominates the org-phase pass score (5), reducing the chance the AI

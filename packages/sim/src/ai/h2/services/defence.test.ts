@@ -11,7 +11,7 @@ import { describe, expect, test } from 'vitest';
 import { loadCardPool } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../core/tunables.js';
 import { computeStanding } from './standing.js';
-import { computeDefence } from './defence.js';
+import { computeDefence, hazardSlots } from './defence.js';
 import { rosterOf } from './strike/prowess.js';
 import { loadScenario, scenarioView } from '../scenario-store.js';
 import { testWinProbModel } from '../test-support.js';
@@ -86,6 +86,23 @@ describe('what a shape invites', () => {
     } as unknown as typeof view;
     const other = computeDefence(resplit, cardPool, standing, DEFAULT_TUNABLES);
     expect(other.expectedHarm(roster, 3)).toBeCloseTo(defence.expectedHarm(roster, 3), 9);
+  });
+
+  test('fragmentation is not free: the min-2 floor charges singletons for the slots they invite', () => {
+    // The engine's hazard limit is max(size, 2) (`snapshotHazardLimit`), so a
+    // company split into singletons hands the opponent two slots per fragment
+    // where the united company handed one per character. Priced without the
+    // floor, every split looked harm-free and the arrangement scorer
+    // recommended one split per goal on the board (game msygr2v0-z5h2i8).
+    const { defence, roster } = position();
+    expect(roster.length).toBeGreaterThan(2);
+    expect(hazardSlots(1)).toBe(2);
+    expect(hazardSlots(2)).toBe(2);
+    expect(hazardSlots(roster.length)).toBe(roster.length);
+    const united = defence.expectedHarm(roster, hazardSlots(roster.length));
+    const fragmented = roster.reduce(
+      (sum, character) => sum + defence.expectedHarm([character], hazardSlots(1)), 0);
+    expect(fragmented).toBeGreaterThan(united);
   });
 
   test('a bigger roster answers the same attack better, per slot', () => {

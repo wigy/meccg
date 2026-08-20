@@ -3,13 +3,18 @@
  *
  * What a company of ours would suffer from the hazards its own size invites.
  *
- * The hazard limit *is* the company size. That single rule is what makes
- * company shape a real decision rather than a bookkeeping one: a company of
- * five hands the opponent five slots to spend on it, and a five-character
- * company split into two and three hands them two and three — the same total,
- * aimed at rosters that answer very differently. Which is better is not
- * obvious, and it is exactly the kind of question that should be computed
- * rather than assumed.
+ * The hazard limit is the company size **with a floor of two** (the engine's
+ * `snapshotHazardLimit`: `max(size, 2)`). Both halves of that rule are what
+ * make company shape a real decision rather than a bookkeeping one: a company
+ * of five hands the opponent five slots to spend on it, and split into two and
+ * three it hands them two and three — the same total, aimed at rosters that
+ * answer very differently. The floor is the half that makes *fragmentation*
+ * expensive: a lone character still invites two hazards, so five singletons
+ * invite ten where the united five invited five. Dropping the floor priced
+ * every split as harm-free, and the arrangement scorer duly recommended
+ * splitting a character out for every goal on the board (game
+ * msygr2v0-z5h2i8, turn 2). Which shape is better is not obvious, and it is
+ * exactly the kind of question that should be computed rather than assumed.
  *
  * So this service answers one question: what does a roster expect to lose when
  * `slots` hazards are spent against it? The answer is a function of the *set* of
@@ -50,6 +55,17 @@ import type { Standing } from './standing.js';
 import type { StrikeTarget } from './strike/prowess.js';
 import type { AttackProfile } from './strike/sequence.js';
 import { resolveAttacks } from './strike/sequence.js';
+
+/**
+ * The hazard slots a company of `size` characters invites — the engine's
+ * hazard limit, `max(size, 2)` (`snapshotHazardLimit`, before in-game
+ * modifiers). Every caller pricing "the hazard plan aimed at this company"
+ * must use this, not the bare size: the floor is what stops a singleton
+ * company from looking cheaper to hazard than it is.
+ */
+export function hazardSlots(size: number): number {
+  return Math.max(size, 2);
+}
 
 /** The attack a company is assumed to face, and where it came from. */
 export interface TypicalAttack {

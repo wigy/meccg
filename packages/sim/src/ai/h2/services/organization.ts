@@ -9,7 +9,7 @@
  * scored number per arrangement:
  *
  * ```text
- * Φ(arrangement) = − Σ_c expectedHarm(roster_c, |roster_c|)   (existing)
+ * Φ(arrangement) = − Σ_c expectedHarm(roster_c, hazardSlots(|roster_c|))   (existing)
  *                + OpportunityValue(arrangement)              (new)
  * u(arrangement) = E[ W(tsd + X(arrangement), turn) ] − W(tsd, turn)
  * ```
@@ -49,7 +49,7 @@ import type { Tunables } from '../core/tunables.js';
 import type { MpSource } from '../core/tsd.js';
 import { pAtLeast } from '../core/dice.js';
 import { leaf, node } from '../core/rationale.js';
-import { automaticAttacksOf, computeDefence } from './defence.js';
+import { automaticAttacksOf, computeDefence, hazardSlots } from './defence.js';
 import { computeReach } from './reach.js';
 import { enumerateGoalCandidates, routeProbabilityFor } from './opportunities.js';
 import { rosterOf } from './strike/prowess.js';
@@ -135,7 +135,7 @@ export interface GoalAssignment {
 
 /** Everything `valueOf` computes about one arrangement. */
 export interface ArrangementValue {
-  /** `Σ expectedHarm(roster, |roster|)`, as a positive quantity. */
+  /** `Σ expectedHarm(roster, hazardSlots(|roster|))`, as a positive quantity. */
   readonly harmTsd: number;
   /** The matching's total weight plus the general-influence headroom. */
   readonly opportunityTsd: number;
@@ -336,7 +336,7 @@ function buildComputeOrganization(
     if (harm === undefined) {
       const roster = rosterOf({ characters: characterIds as unknown as CardInstanceId[] },
         view.self.characters, cardPool);
-      harm = defence.expectedHarm(roster, roster.length);
+      harm = defence.expectedHarm(roster, hazardSlots(roster.length));
       harmCache.set(key, harm);
     }
     return harm;

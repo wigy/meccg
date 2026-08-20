@@ -30,7 +30,7 @@ import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { ModuleContext } from '../core/types.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
 import { computeBeliefs } from './beliefs.js';
-import { computeDefence } from './defence.js';
+import { computeDefence, hazardSlots } from './defence.js';
 import { computeDrawValue } from './draw-value.js';
 import { rosterOf } from './strike/prowess.js';
 import type { StrikeTarget } from './strike/prowess.js';
@@ -246,7 +246,7 @@ export function gainOf(
     const target = targetCompanyRoster(action, context);
     if (!target) return null;
     const defence = computeDefence(context.view, context.cardPool, context.standing, tunables);
-    const harm = defence.expectedHarm(target.roster, target.size);
+    const harm = defence.expectedHarm(target.roster, hazardSlots(target.size));
     // Shutting a company to creatures is worth what the opponent *would* have
     // aimed at it, which is nothing if they hold no creature to aim.
     //
@@ -381,9 +381,9 @@ function reliefFromRemoval(
     roster: rosterOf(company, view.self.characters, cardPool),
     size: company.characters.length,
   }));
-  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, c.size), 0);
+  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, hazardSlots(c.size)), 0);
   const reliefFrom = (instanceId: string): number => now - companies.reduce(
-    (sum, c) => sum + defence.harmWithout(instanceId, c.roster, c.size), 0,
+    (sum, c) => sum + defence.harmWithout(instanceId, c.roster, hazardSlots(c.size)), 0,
   );
 
   const target = namedDiscardTarget(action);

@@ -88,7 +88,7 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         let bestPlayableMp = -1;
         for (const card of view.self.hand) {
           const def = lookupDef(pool, card.definitionId);
-          if (def && resourcePlayableAt(def, siteDef)) {
+          if (def && resourcePlayableAt(def, siteDef, view.self.alignment)) {
             bestPlayableMp = Math.max(bestPlayableMp, mpValue(def));
           }
         }

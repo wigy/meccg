@@ -104,7 +104,7 @@ function playableAt(
     if (!def) continue;
     // Playability is the engine's rule, not a heuristic: reuse the predicate
     // rather than restate which site types accept which item classes.
-    if (!resourcePlayableAt(def, siteDef as never)) continue;
+    if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
     const record = def as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string };
     const source = (record.marshallingCategory ?? 'misc') as MpSource;
     const points = record.marshallingPoints ?? 0;

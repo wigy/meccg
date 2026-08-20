@@ -158,7 +158,7 @@ function playableHere(view: PlayerView, siteDefinitionId: string): number {
   let count = 0;
   for (const card of view.self.hand) {
     const def = cardPool[card.definitionId];
-    if (def && resourcePlayableAt(def, siteDef as never)) count++;
+    if (def && resourcePlayableAt(def, siteDef as never, view.self.alignment)) count++;
   }
   return count;
 }
