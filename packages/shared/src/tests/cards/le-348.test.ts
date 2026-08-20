@@ -83,6 +83,12 @@ const BROAD_HEADED_SPEAR = 'le-304' as CardDefinitionId; // +2 prowess (warrior,
 const WAR_WOLF = 'le-157' as CardDefinitionId;           // minion ally
 const SNAGA_HAI = 'le-286' as CardDefinitionId;          // orc faction, influence# 10
 
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;         // orc leader, mind 5, prowess 5, DI 0 — +3 DI vs Orcs/Orc factions
+const CROOK_LEGGED_ORC = 'ba-6' as CardDefinitionId;     // orc warrior, mind 2, prowess 3, DI 0
+const BLAZON_OF_THE_EYE = 'le-302' as CardDefinitionId;  // +2 DI vs factions
+const ORCS_OF_UDUN = 'le-282' as CardDefinitionId;       // orc faction, influence# 9, playable at Cirith Gorgor
+const CIRITH_GORGOR = 'le-361' as CardDefinitionId;      // dark-hold — Orcs of Udûn's home site
+
 const MORIA = 'le-392' as CardDefinitionId;        // shadow-hold
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // haven
 const DOL_GULDUR = 'le-367' as CardDefinitionId;   // haven
@@ -317,6 +323,44 @@ describe('Whip (le-348)', () => {
     expect(attempt).toBeDefined();
     // influence# 10, Lagduf DI 0, Whip gives NO faction bonus → need = 10.
     expect(attempt!.need).toBe(10);
+  });
+
+  // ─── Whip discount frees DI already spent on a qualifying follower ────────
+
+  test('a follower matching the Whip\'s conditions costs discounted DI to retain, freeing DI for a later faction-influence attempt (regression — Orc-Captain + Blazon of the Eye + Whip + Orcs of Udûn, game mt0g5tyu-v2y1js seq 538)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Site, recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: CIRITH_GORGOR,
+            characters: [
+              { defId: ORC_CAPTAIN, items: [BLAZON_OF_THE_EYE, WHIP] },
+              { defId: CROOK_LEGGED_ORC, followerOf: 0 },
+            ],
+          }],
+          hand: [ORCS_OF_UDUN],
+          siteDeck: [ETTENMOORS],
+        },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [CIRYAHER] }], hand: [], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    const factionId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    const attempt = firstFactionInfluenceAttempt(state, factionId);
+    expect(attempt).toBeDefined();
+    // Orc Captain's own +3 (vs Orc factions) and Blazon of the Eye's +2 give
+    // a +5 DI bonus toward the influence# 9 check. Crook-legged Orc (mind 2,
+    // prowess 3 < Orc Captain's 5) qualifies for the Whip's target-conditional
+    // +2 DI, so keeping him under control should cost Orc Captain 0 DI, not
+    // his full mind of 2 — need = 9 - 5 = 4. Before the fix, followers' mind
+    // was always charged in full regardless of the Whip, driving Orc
+    // Captain's available DI to -2 and inflating the need to 6 — exactly
+    // what stranded the real influence roll of 5 in game mt0g5tyu-v2y1js.
+    expect(attempt!.need).toBe(4);
   });
 
   // ─── Duplication: cannot be duplicated on a given character ───────────────

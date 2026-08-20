@@ -23,6 +23,7 @@ import {
   FARAMIR, BEREGOND, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
+import { availableDI } from '../../../engine/legal-actions/organization.js';
 
 // Restricted direct influence is modelled as a `stat-modifier` on
 // `direct-influence` gated on `reason: "influence-check"` plus a target
@@ -119,6 +120,40 @@ describe('Rule 3.14 — Restricted Direct Influence', () => {
     expect(moves.some(a => a.characterInstanceId === haldirId && a.controlledBy === 'general')).toBe(true);
     expect(moves.filter(a => a.controlledBy === faramirId).map(a => a.characterInstanceId))
       .not.toContain(orophinId);
+  });
+
+  test('a follower paid for out of restricted DI stops consuming unrestricted DI', () => {
+    // Shut Yer Mouth empties Faramir's single unrestricted point, so the whole
+    // of Orophin's mind-2 control cost falls on the elf-restricted +2 from
+    // Elf-stone. Faramir's unrestricted influence is therefore 0, not -2: a
+    // later check by the same character against something the restriction does
+    // not cover (a faction-influence attempt) must not be dragged down by a
+    // follower somebody else's card is paying for.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: FARAMIR, items: [ELF_STONE] },
+              { defId: OROPHIN, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, FARAMIR, SHUT_YER_MOUTH));
+    expect(getCharacter(state, RESOURCE_PLAYER, FARAMIR).effectiveStats.directInfluence).toBe(0);
+
+    const faramirId = findCharInstanceId(state, RESOURCE_PLAYER, FARAMIR);
+    expect(availableDI(state, faramirId, state.players[RESOURCE_PLAYER])).toBe(0);
   });
 
   test('a downward modification comes from unrestricted DI before restricted DI', () => {
