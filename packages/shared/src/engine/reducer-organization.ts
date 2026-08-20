@@ -9,7 +9,6 @@
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter, isItemCard } from '../types/cards.js';
 import { CardStatus, SiteType, Race } from '../types/common.js';
@@ -21,7 +20,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1906,42 +1905,15 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   if (action.type !== 'fetch-from-sideboard') return wrongActionType(state, action, 'fetch-from-sideboard');
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
   const orgState = requirePhaseState(state, Phase.Organization);
 
   if (orgState.sideboardFetchDestination === null) {
     return { state, error: 'No sideboard access sub-flow active' };
   }
-
-  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
-  const sideboardCard = player.sideboard[cardIdx];
-  const def = defById(state, sideboardCard.definitionId)!;
   const destination = orgState.sideboardFetchDestination;
 
-  const newSideboard = [...player.sideboard];
-  newSideboard.splice(cardIdx, 1);
-
-  const newPlayers = clonePlayers(state);
-  let newRng = state.rng;
-
-  if (destination === 'discard') {
-    logDetail(`Sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      discardPile: [...player.discardPile, sideboardCard],
-    };
-  } else {
-    logDetail(`Sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
-    newRng = nextRng;
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      playDeck: shuffledDeck,
-    };
-  }
+  const moved = moveSideboardCard(state, playerIndex, action.sideboardCardInstanceId, destination, 'Sideboard');
+  if (moved.error) return moved;
 
   const newOrgState: OrganizationPhaseState = {
     ...orgState,
@@ -1950,14 +1922,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
     sideboardFetchDestination: destination === 'deck' ? null : destination,
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng: newRng,
-      phaseState: newOrgState,
-    },
-  };
+  return { state: { ...moved.state, phaseState: newOrgState } };
 }
 
 /**

@@ -8,7 +8,6 @@
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import { hasNoDirectInfluenceRestriction, hasPlayFlag } from '../effects/play-flags.js';
-import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, printedMind } from '../types/cards.js';
 import { Alignment, CardStatus, Race, SiteType } from '../types/common.js';
@@ -18,7 +17,7 @@ import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import { countExtraAgentActions } from './mh-agents.js';
@@ -89,40 +88,13 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
 
   const untapState = requirePhaseState(state, Phase.Untap);
   const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-
-  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
-  const sideboardCard = player.sideboard[cardIdx];
-  const def = defById(state, sideboardCard.definitionId)!;
   const destination = untapState.hazardSideboardDestination!;
 
-  const newSideboard = [...player.sideboard];
-  newSideboard.splice(cardIdx, 1);
-
-  const newPlayers = clonePlayers(state);
-  let newRng = state.rng;
-
-  if (destination === 'discard') {
-    logDetail(`Hazard sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      discardPile: [...player.discardPile, sideboardCard],
-    };
-  } else {
-    logDetail(`Hazard sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
-    newRng = nextRng;
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      playDeck: shuffledDeck,
-    };
-  }
+  const moved = moveSideboardCard(state, playerIndex, action.sideboardCardInstanceId, destination, 'Hazard sideboard');
+  if (moved.error) return moved;
 
   // Mark sideboard accessed for hazard limit halving
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], sideboardAccessedDuringUntap: true };
+  const marked = updatePlayer(moved.state, playerIndex, p => ({ ...p, sideboardAccessedDuringUntap: true }));
 
   const newUntapState: UntapPhaseState = {
     ...untapState,
@@ -131,14 +103,7 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
     hazardSideboardDestination: destination === 'deck' ? null : destination,
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng: newRng,
-      phaseState: newUntapState,
-    },
-  };
+  return { state: { ...marked, phaseState: newUntapState } };
 }
 
 /**

@@ -24,7 +24,6 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapA
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
-import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { resetCompanyMHFields } from './mh-phase-state.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsRingwraithAvatar } from '../state-utils.js';
@@ -41,7 +40,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, moveSideboardCard, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -313,36 +312,14 @@ function handleFetchHazardFromSideboardMH(
   if (!mhState.nazgulSideboardDestination) return { state, error: 'No active Nazgûl sideboard sub-flow' };
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
-  const sideboardCard = player.sideboard[cardIdx];
-  const def = defById(state, sideboardCard.definitionId)!;
   const destination = mhState.nazgulSideboardDestination;
 
-  const newSideboard = [...player.sideboard];
-  newSideboard.splice(cardIdx, 1);
-
-  let nextState: GameState;
-  if (destination === 'discard') {
-    logDetail(`Rule 5.24: sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
-    nextState = updatePlayer(state, playerIndex, p => ({
-      ...p,
-      sideboard: newSideboard,
-      discardPile: [...p.discardPile, sideboardCard],
-    }));
-  } else {
-    logDetail(`Rule 5.24: sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
-    nextState = {
-      ...updatePlayer(state, playerIndex, p => ({ ...p, sideboard: newSideboard, playDeck: shuffledDeck })),
-      rng: nextRng,
-    };
-  }
+  const moved = moveSideboardCard(state, playerIndex, action.sideboardCardInstanceId, destination, 'Rule 5.24: sideboard');
+  if (moved.error) return moved;
 
   return {
     state: {
-      ...nextState,
+      ...moved.state,
       phaseState: {
         ...mhState,
         nazgulSideboardFetched: mhState.nazgulSideboardFetched + 1,
