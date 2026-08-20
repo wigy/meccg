@@ -2396,18 +2396,42 @@ function playHazardsActions(
                 ?? targetCompany.currentSite?.instanceId ?? null;
               const siteDefId = siteInstId ? resolveInstanceId(state, siteInstId) : null;
               if (!siteDefId) continue;
+              // A company is "at" its destination site for hazard purposes,
+              // falling back to the current site for a non-moving company —
+              // mirrors the siteDefId derivation above for the candidate play.
+              const companySiteDefId = (companyId: import('../../index.js').CompanyId): CardDefinitionId | null => {
+                for (const p of state.players) {
+                  const company = p.companies.find(c => c.id === companyId);
+                  if (!company) continue;
+                  const inst = company.destinationSite?.instanceId ?? company.currentSite?.instanceId ?? null;
+                  return inst ? resolveInstanceId(state, inst) ?? null : null;
+                }
+                return null;
+              };
               const constraintCopies = state.activeConstraints.filter(
                 c => c.sourceDefinitionId === def.id
                   && ((c.kind.type === 'item-play-corruption-check' && c.kind.siteDefinitionId === siteDefId)
                     // Arouse Defenders (le-101): count resolved boosts still
                     // bound to this destination site.
-                    || (c.kind.type === 'auto-attack-boost' && c.kind.siteDefinitionId === siteDefId)),
+                    || (c.kind.type === 'auto-attack-boost' && c.kind.siteDefinitionId === siteDefId)
+                    // Incite Defenders le-115 / Incite Denizens le-116, td-34
+                    // ("Cannot be duplicated on a given site"): the resolved
+                    // copy lives on as an auto-attack-duplicate constraint
+                    // targeting a company — attribute it to that company's
+                    // site so a second copy at a *different* site stays legal.
+                    || (c.kind.type === 'auto-attack-duplicate'
+                      && c.target.kind === 'company'
+                      && companySiteDefId(c.target.companyId) === siteDefId)),
               ).length;
               const chainCopies = state.chain?.entries.filter(e => {
                 if (e.payload.type !== 'short-event') return false;
-                if (e.payload.targetSiteDefinitionId !== siteDefId) return false;
                 const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
-                return cDef?.name === def.name;
+                if (cDef?.name !== def.name) return false;
+                if (e.payload.targetSiteDefinitionId) return e.payload.targetSiteDefinitionId === siteDefId;
+                // Company-targeted copy (Incite …): attribute the unresolved
+                // entry to its target company's site.
+                return e.payload.targetCompanyId !== undefined
+                  && companySiteDefId(e.payload.targetCompanyId) === siteDefId;
               }).length ?? 0;
               if (constraintCopies + chainCopies >= effect.max) {
                 logDetail(`Hazard short-event "${def.name}" cannot be duplicated on this site (${constraintCopies} active, ${chainCopies} on chain)`);
