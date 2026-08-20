@@ -25,7 +25,7 @@
 
 import { createRng, loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { parseCliArgs, numberFlag, stringFlag } from './common.js';
+import { cliPreamble, numberFlag, stringFlag } from './common.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
@@ -68,11 +68,7 @@ Options:
  */
 const CLASSIFIED = ['combat', 'corruption', 'factions', 'grants', 'resources'] as const;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 const rollouts = numberFlag(args, 'rollouts', 5000);
 const seed = numberFlag(args, 'seed', 20260727);

@@ -60,7 +60,7 @@ import type { CardDefinition, GameAction, PlayerId } from '@meccg/shared';
 import { readGameLog } from '../ai/h2/game-log.js';
 import { hashState, withStandardCardPool } from '../ai/h2/scenario-store.js';
 import { forwardActions } from '../ai/regress.js';
-import { parseCliArgs, numberFlag, stringFlag, resolveAgent } from './common.js';
+import { cliPreamble, numberFlag, stringFlag, resolveAgent } from './common.js';
 
 const USAGE = `route-compare — does the company have somewhere to be?
 
@@ -147,11 +147,7 @@ interface GameRoutes {
   agreed: number;
 }
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags.help === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 
 setEngineConsoleLog(false);
 const cardPool = loadCardPool();
