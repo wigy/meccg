@@ -33,6 +33,16 @@
  * condition carries, so the supermodularity above is produced rather than
  * asserted.
  *
+ * The walk also models the one defensive answer that is public information
+ * before any dice are rolled: a character who can tap to cancel a strike
+ * against a company-mate (Fatty Bolger tw-495). The defence is assumed to
+ * spend the tap exactly when facing the strike would hand the attacker more —
+ * the tap's own price against the expected harm plus the kill MP still on
+ * offer — and the tap is carried in the roster state, so a spent canceller
+ * protects nobody for the rest of the bundle and meets later strikes tapped.
+ * What stays unmodelled is hidden information: cancels held in hand, and the
+ * defence assigning a protected character deliberately to bait a cheap cancel.
+ *
  * The state space is bounded by merging states that agree on the roster and
  * fall in the same TSD bucket, then — only if that is still too many — by
  * merging across rosters. Probability mass is always conserved; a truncated
@@ -47,6 +57,7 @@ import type { StrikeOutcome, StrikeSituation } from './strike-model.js';
 import { strikeOutcomes } from './strike-model.js';
 import type { StrikeTarget } from './prowess.js';
 import { availableDefenders, bodyOf, effectiveStrikeProwess, needAgainst, strikeTargets } from './prowess.js';
+import { cancelProtects } from './ability.js';
 
 /** A strike target together with how many strikes it has already faced. */
 interface RosterEntry {
@@ -177,6 +188,16 @@ export interface AttackProfile {
   /** Name of the attacking creature, for labels in a bundle. */
   readonly name?: string;
   /**
+   * The attacking creature's race, when known.
+   *
+   * Consulted by `when`-guarded cancel abilities on the defending company,
+   * mirroring the engine's `enemyRaceContext`: a guard that names an enemy
+   * race is evaluated against this, and against an empty context when the
+   * attack's race is unknown — which is also what the engine does when the
+   * combat carries none.
+   */
+  readonly race?: string;
+  /**
    * True when the *attacker* assigns this attack's strikes (CoE: "attacker
    * chooses defending characters"), rather than the defence answering with its
    * best parrier.
@@ -304,6 +325,7 @@ export function resolveSequentially(
     creatureBody: combat.creatureBody,
     detainment: combat.detainment,
     bodyCheckModifier: combat.bodyCheckModifier ?? 0,
+    race: combat.creatureRace,
     killTsd: options.killTsd,
     killLabel: options.killLabel,
     // Published by the engine rather than read off the card, because by this
@@ -378,6 +400,125 @@ export function resolveAttacks(
     );
 
   /**
+   * What a cancel costs, priced as the tap it is.
+   *
+   * The canceller taps and nothing else happens (`combat-actions.ts`), so the
+   * pricer's own reading of a `tapped` outcome — tempo, the resource play it
+   * forfeits, the tap-gated abilities it takes off the table — is exactly the
+   * price of paying the cancel, with no second opinion about what a tap is
+   * worth. `tie` because a cancelled strike is ineffectual without being
+   * defeated, though no pricer currently reads the strike fate of a tap.
+   */
+  const CANCEL_OUTCOME: StrikeOutcome = { p: 1, character: 'tapped', strike: 'tie' };
+
+  /**
+   * The company-mate who could tap to cancel a strike on `entry`, or undefined.
+   *
+   * Eligibility mirrors the engine's scan (`legal-actions/combat.ts`): an
+   * untapped character other than the struck one, whose guards accept this
+   * target and this attack. When several qualify, the defence spends the one
+   * whose tap costs it least — the same quantity `wouldCancel` compares.
+   */
+  const cancellerFor = (
+    entries: readonly RosterEntry[],
+    entry: RosterEntry,
+    profile: AttackProfile,
+  ): RosterEntry | undefined => {
+    const untappedBefore = untappedIn(entries);
+    let best: RosterEntry | undefined;
+    let bestGain = Infinity;
+    for (const candidate of entries) {
+      if (candidate.target.instanceId === entry.target.instanceId) continue;
+      if (candidate.target.isAlly || candidate.target.status !== CardStatus.Untapped) continue;
+      const guard = candidate.target.strikeCancel;
+      if (!guard) continue;
+      if (!cancelProtects(guard, cardPool[entry.target.definitionId], profile.race)) continue;
+      const gain = gainOf(CANCEL_OUTCOME, candidate.target, { untappedBefore });
+      if (gain < bestGain) {
+        bestGain = gain;
+        best = candidate;
+      }
+    }
+    return best;
+  };
+
+  /**
+   * Whether the defence would spend `canceller`'s tap on this strike.
+   *
+   * The defence minimises the attacker's gain, so it cancels exactly when the
+   * cancel hands the attacker less than facing would: the tap's own price on
+   * one side, the expected harm of rolling **plus the kill MP still on offer**
+   * on the other. The kill term is what keeps a beatable creature honest — a
+   * cancelled strike is never `'defeated'` (`combat-finalize.ts`), so spending
+   * the tap forfeits the whole attack's kill MP, and a defence that would
+   * probably parry anyway keeps rolling for it.
+   *
+   * The forfeited kill MP is weighted by this strike's own defeat chance,
+   * as if the attack's remaining strikes were certain to be defeated too —
+   * exact for the attack's last strike, and an overweight before it that makes
+   * the modelled defence cancel a touch *less* than an optimal one. The bias
+   * runs the safe way for the attacking seat: a bundle is never over-valued by
+   * assuming the defence too willing to cancel.
+   */
+  const wouldCancel = (
+    entry: RosterEntry,
+    canceller: RosterEntry,
+    profile: AttackProfile,
+    untappedBefore: number,
+    allDefeated: boolean,
+  ): boolean => {
+    const context = { untappedBefore };
+    const cancelGain = gainOf(CANCEL_OUTCOME, canceller.target, context);
+    let faceGain = 0;
+    let pDefeated = 0;
+    for (const outcome of outcomesAgainst(entry, profile)) {
+      faceGain += outcome.p * gainOf(outcome, entry.target, context);
+      if (outcome.strike === 'defeated') pDefeated += outcome.p;
+    }
+    const killGain = allDefeated ? pDefeated * ledgerSign * (profile.killTsd ?? 0) : 0;
+    return cancelGain < faceGain + killGain;
+  };
+
+  /** The roster after the canceller has paid its tap; nobody else moves. */
+  const tapCanceller = (entries: readonly RosterEntry[], canceller: RosterEntry): RosterEntry[] =>
+    entries.map(e => e.target.instanceId === canceller.target.instanceId
+      ? { target: { ...e.target, status: CardStatus.Tapped }, struck: e.struck }
+      : e);
+
+  /**
+   * Expected attacker gain of aiming one strike at `entry`, the defence's
+   * response included: a single deterministic branch when the defence would
+   * cancel, the outcome distribution when it would roll. `continuation` values
+   * whatever roster each branch leaves behind.
+   *
+   * Used only by the attacker-chooses search, which omits the kill MP term
+   * throughout (see `lookahead`) — so the cancel decision is taken here as if
+   * none were on offer, a defence very slightly more willing to cancel than
+   * the one the main walk models.
+   */
+  const aimedValue = (
+    entries: readonly RosterEntry[],
+    entry: RosterEntry,
+    profile: AttackProfile,
+    continuation: (next: RosterEntry[]) => number,
+  ): number => {
+    const untappedBefore = untappedIn(entries);
+    const canceller = cancellerFor(entries, entry, profile);
+    if (canceller && wouldCancel(entry, canceller, profile, untappedBefore, false)) {
+      return gainOf(CANCEL_OUTCOME, canceller.target, { untappedBefore })
+        + continuation(tapCanceller(entries, canceller));
+    }
+    let value = 0;
+    for (const outcome of outcomesAgainst(entry, profile)) {
+      value += outcome.p * (
+        gainOf(outcome, entry.target, { untappedBefore })
+        + continuation(applyOutcome(entries, entry, outcome))
+      );
+    }
+    return value;
+  };
+
+  /**
    * The best expected gain from `strikesLeft` further strikes of this attack,
    * with the attacker choosing each target after seeing how the last one went.
    *
@@ -417,16 +558,10 @@ export function resolveAttacks(
     if (cached !== undefined) return cached;
     budget.nodes += 1;
 
-    const untappedBefore = untappedIn(entries);
     let best = -Infinity;
     for (const entry of pool) {
-      let value = 0;
-      for (const outcome of outcomesAgainst(entry, profile)) {
-        value += outcome.p * (
-          gainOf(outcome, entry.target, { untappedBefore })
-          + lookahead(applyOutcome(entries, entry, outcome), profile, strikesLeft - 1, memo, budget)
-        );
-      }
+      const value = aimedValue(entries, entry, profile,
+        next => lookahead(next, profile, strikesLeft - 1, memo, budget));
       if (value > best) best = value;
     }
     const result = best === -Infinity ? 0 : best;
@@ -454,18 +589,12 @@ export function resolveAttacks(
     const deep = attackerChoice === 'exhaustive' && strikesLeft > 1;
     const memo = new Map<string, number>();
     const budget = { nodes: 0 };
-    const untappedBefore = untappedIn(entries);
 
     let best: RosterEntry | undefined;
     let bestValue = -Infinity;
     for (const entry of pool) {
-      let value = 0;
-      for (const outcome of outcomesAgainst(entry, profile)) {
-        value += outcome.p * (
-          gainOf(outcome, entry.target, { untappedBefore })
-          + (deep ? lookahead(applyOutcome(entries, entry, outcome), profile, strikesLeft - 1, memo, budget) : 0)
-        );
-      }
+      const value = aimedValue(entries, entry, profile,
+        deep ? next => lookahead(next, profile, strikesLeft - 1, memo, budget) : () => 0);
       if (value > bestValue) {
         bestValue = value;
         best = entry;
@@ -505,6 +634,25 @@ export function resolveAttacks(
           e => !e.target.isAlly && e.target.status === CardStatus.Untapped,
         ).length;
         if (first && state === states[0] && opening.length === i) opening.push({ target: entry.target, need });
+
+        // Before any dice, the defence may tap a company-mate to cancel the
+        // strike outright (Fatty Bolger tw-495). One deterministic branch: the
+        // canceller taps, the target is untouched, the strike is spent — and
+        // the attack can no longer be wholly defeated, because a cancelled
+        // strike is never `'defeated'` (`combat-finalize.ts`), so its kill MP
+        // is off the table for good.
+        const canceller = cancellerFor(state.roster, entry, profile);
+        if (canceller && wouldCancel(entry, canceller, profile, untappedBefore, state.allDefeated)) {
+          const note = `${canceller.target.name} taps to cancel the strike on ${entry.target.name}`;
+          next.push({
+            roster: tapCanceller(state.roster, canceller),
+            p: state.p,
+            dtsd: state.dtsd + price(CANCEL_OUTCOME, canceller.target, { untappedBefore }),
+            allDefeated: false,
+            label: state.label === '' ? note : `${state.label}; ${note}`,
+          });
+          continue;
+        }
 
         for (const outcome of strikeOutcomes(
           { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },

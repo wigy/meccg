@@ -105,6 +105,11 @@ const ASSUMPTIONS: readonly string[] = [
   'the defender is assumed to answer each strike with its best available parrier and to spend no '
   + 'cards from hand — every strike event, dodge or cancel they hold makes the bundle worth less '
   + 'than this says',
+  'a tap-to-cancel-a-strike ability on a character in the company (Fatty Bolger tw-495) IS '
+  + 'modelled: the defence is assumed to spend the tap whenever facing the strike would cost it '
+  + 'more, cancelling forfeits the attack\'s kill MP, and a spent canceller protects nobody for '
+  + 'the rest of the bundle — what is not modelled is the defence assigning a protected character '
+  + 'deliberately to bait a cheap cancel',
   'the defender is assumed to tap to fight every strike, which is the common choice but not the '
   + 'only one: a character who stays untapped at -3 prowess denies this bundle the tap it counts',
   'the bundle is priced against the company as it stands now; a hazard the opponent answers by '
@@ -196,6 +201,7 @@ function creatureProfile(
       detainment,
       bodyCheckModifier: 0,
       name: def.name ?? definitionId,
+      race: def.race,
       attackerChooses: attackerChoosesDefenders(cardPool[definitionId]),
     },
   };
