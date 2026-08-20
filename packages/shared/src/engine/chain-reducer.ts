@@ -2445,7 +2445,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           const bounced = working.players[pi].cardsInPlay.filter(c => {
             if (c.setAsideHost !== undefined) return false;
             const fDef = defById(working, c.definitionId);
-            return !!fDef && isFactionCard(fDef) && isCardPlayableAtSiteDef(fDef, siteDef);
+            return !!fDef && isFactionCard(fDef) && isCardPlayableAtSiteDef(fDef, siteDef, working);
           });
           if (bounced.length === 0) continue;
           const bouncedIds = new Set(bounced.map(c => c.instanceId as string));

@@ -44,6 +44,7 @@ const MISTRESS_LOBELIA = 'dm-178' as CardDefinitionId;
 const LOBELIA_SB = 'dm-28' as CardDefinitionId;      // the agent manifestation
 const WOOD_ELVES = 'tw-367' as CardDefinitionId;     // faction NOT playable at Bree
 const NOBLE_HOUND = 'dm-179' as CardDefinitionId;    // ally playable via play-target filter (any Border-hold), not playableAt entries
+const PANOPLY_OF_WINGS = 'wh-37' as CardDefinitionId; // faction playable via a `when` condition keyed on region type
 
 const FETCH_ACTION = 'lobelia-fetch-playable';
 
@@ -264,6 +265,21 @@ describe('Mistress Lobelia (dm-178)', () => {
       .filter(ea => ea.viable && ea.action.type === 'fetch-from-pile');
     const houndInst = after.players[0].playDeck.find(c => c.definitionId === NOBLE_HOUND)!;
     const pick = fetchActions.find(a => (a.action as { cardInstanceId: string }).cardInstanceId === houndInst.instanceId as unknown as string);
+    expect(pick).toBeDefined();
+  });
+
+  test('a card playable at the site via a region-type `when` condition (A Panoply of Wings: non-Haven/Shadow-hold/Dark-hold site in a Wilderness region), not a printed named/site-type match, is offered', () => {
+    // Bree is a Border-hold in Arthedain, a Wilderness-type region — A Panoply
+    // of Wings' playableAt entry is `any` site gated by a `when` condition on
+    // `site.regionType`, which the fetch-gating path never populated, so it
+    // was silently excluded even though it qualifies.
+    const state = tapFixture({ deck: [PANOPLY_OF_WINGS, ...makePlayDeck()] });
+    const after = dispatch(state, fetchActionsOf(state)[0].action);
+
+    const fetchActions = computeLegalActions(after, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'fetch-from-pile');
+    const panoplyInst = after.players[0].playDeck.find(c => c.definitionId === PANOPLY_OF_WINGS)!;
+    const pick = fetchActions.find(a => (a.action as { cardInstanceId: string }).cardInstanceId === panoplyInst.instanceId as unknown as string);
     expect(pick).toBeDefined();
   });
 
