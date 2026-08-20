@@ -3984,9 +3984,9 @@ export interface CombatStrikeEffectEffect extends EffectBase {
  *   transferred".
  * - `no-store` — this item may never be offered by `storeItemActions` (CoE
  *   2.II.4, storing an item at a Haven for marshalling points), overriding
- *   the default "any regular/special item is storable at a Haven" rule the
- *   same way the hardcoded `the-one-ring` keyword exception does. Used by
- *   Ent-draughts (tw-227): "This item may not be … stored".
+ *   the default "any regular/special item is storable at a Haven" rule. Used
+ *   by Ent-draughts (tw-227): "This item may not be … stored" and The One
+ *   Ring (tw-347, le-326 — rule g.sto.1: "The One Ring cannot be stored").
  */
 export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store';
 

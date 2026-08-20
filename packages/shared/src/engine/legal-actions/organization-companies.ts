@@ -1195,24 +1195,14 @@ export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedA
 const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
 
 /**
- * Special items (Palantíri, named rings, unique treasures, etc.) are storable
- * at any Haven too — CoE rule 2.II.4 places no subtype restriction on storing.
- * The only blanket exception is The One Ring (rule g.sto.1: "The One Ring
- * cannot be stored").
- */
-function isStorableSpecialItem(itemDef: { subtype: string; keywords?: readonly string[] }): boolean {
-  return itemDef.subtype === 'special' && !(itemDef.keywords?.includes('the-one-ring') ?? false);
-}
-
-/**
  * Computes store-item actions during the organization phase.
  *
  * Two categories of items are storable (CoE rule 2.II.4):
  *
- * 1. **Regular and special items** (any subtype other than The One Ring)
- *    without an explicit `storable-at` restriction: storable at any Haven
- *    site. The One Ring is the sole blanket exception (rule g.sto.1: "The
- *    One Ring cannot be stored").
+ * 1. **Regular and special items** without an explicit `storable-at`
+ *    restriction: storable at any Haven site, unless the item carries the
+ *    `no-store` play-flag (Ent-draughts tw-227, The One Ring per rule
+ *    g.sto.1: "The One Ring cannot be stored").
  * 2. **Items with a `storable-at` effect**: storable only at sites whose name
  *    appears in the effect's `sites` list, or whose type appears in
  *    `siteTypes`. This covers special items (e.g. Rescue Prisoners) and
@@ -1314,13 +1304,16 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
           const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
           isStorable = siteNameMatch || siteTypeMatch;
         } else if (isItemCard(itemDef) && siteType === 'haven') {
-          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || isStorableSpecialItem(itemDef);
+          // Special items (Palantíri, named rings, unique treasures, etc.) are
+          // storable at any Haven too — CoE rule 2.II.4 places no subtype
+          // restriction on storing.
+          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || itemDef.subtype === 'special';
         }
 
-        // `no-store` play-flag: the item's own text forbids storage (e.g.
-        // Ent-draughts tw-227: "This item may not be … stored"), overriding
-        // any of the storability paths above the same way The One Ring's
-        // `the-one-ring` keyword exception does.
+        // `no-store` play-flag: the item's own text forbids storage,
+        // overriding any of the storability paths above. Ent-draughts tw-227
+        // ("This item may not be … stored") and The One Ring (rule g.sto.1:
+        // "The One Ring cannot be stored") carry it.
         if (isStorable && (effects?.some(e => e.type === 'play-flag' && (e as { flag?: string }).flag === 'no-store') ?? false)) {
           logDetail(`  → not storable: ${itemDef.name} on ${charName} carries the no-store play-flag`);
           isStorable = false;
