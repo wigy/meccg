@@ -19,7 +19,7 @@
  *                   to the discard pile (not eliminated to out-of-play).
  *
  * Veils Flung Away applies a −1 modifier to the mass body check in a wilderness,
- * so the effective threshold drops from 8 to 7: a roll of 6 (< 7) fails and
+ * so the effective threshold drops from 8 to 7: a roll of 8 (> 7) fails and
  * discards Lugdush; a roll of 7 (= 7) passes and he stays in play.
  *
  * Characters used:
@@ -85,7 +85,7 @@ describe('Lugdush (wh-6)', () => {
 
   test('discarded to discard pile when mass body check fails', () => {
     // Veils Flung Away applies modifier −1. discardBodyCheck [8] → threshold 7.
-    // Roll 6 (< 7) → fail → Lugdush discarded to the resource player's discard pile.
+    // Roll 8 (> 7) → fail → Lugdush discarded to the resource player's discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -114,7 +114,7 @@ describe('Lugdush (wh-6)', () => {
       expect(dc.kind.threshold).toBe(7);
     }
 
-    s = { ...s, cheatRollTotal: 6 };
+    s = { ...s, cheatRollTotal: 8 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -133,7 +133,7 @@ describe('Lugdush (wh-6)', () => {
   // ── discardBodyCheck [8]: pass → stays in play ────────────────────────────
 
   test('stays in play when mass body check passes', () => {
-    // discardBodyCheck [8], modifier −1 → threshold 7. Roll 7 (>= 7) → pass.
+    // discardBodyCheck [8], modifier −1 → threshold 7. Roll 7 (not > 7) → pass.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,

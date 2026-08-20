@@ -18,8 +18,8 @@
  * 1. Lagduf (orc, body 8, discardBodyCheck [8]) is discarded to the resource
  *    player's discard pile (not eliminated) when a mass body check fails.
  *    Veils Flung Away applies modifier -1, so effectiveThreshold = 7;
- *    a roll of 6 (< 7) triggers the discard.
- * 2. Lagduf stays in play when the body check passes (roll >= 7).
+ *    a roll of 8 (> 7) triggers the discard (CoE 3.I.1: fail = roll higher than threshold).
+ * 2. Lagduf stays in play when the body check passes (roll <= 7).
  *
  * Fixtures:
  *   LAGDUF (le-18)            — minion orc warrior, body 8, discardBodyCheck [8]
@@ -70,7 +70,7 @@ describe('Lagduf (le-18)', () => {
 
   test('Lagduf is discarded to discard pile when mass body check fails', () => {
     // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 6 (< 7) → fail → Lagduf discarded to resource player's discard pile.
+    // Roll 8 (> 7) → fail → Lagduf discarded to resource player's discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -103,8 +103,8 @@ describe('Lagduf (le-18)', () => {
       expect(dc.kind.threshold).toBe(7);
     }
 
-    // Force roll of 6 (< effectiveThreshold 7) → fail
-    s = { ...s, cheatRollTotal: 6 };
+    // Force roll of 8 (> effectiveThreshold 7) → fail
+    s = { ...s, cheatRollTotal: 8 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -125,7 +125,7 @@ describe('Lagduf (le-18)', () => {
 
   test('Lagduf stays in play when mass body check passes', () => {
     // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 7 (= threshold) → pass → Lagduf remains in play.
+    // Roll 7 (not > threshold) → pass → Lagduf remains in play.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -142,7 +142,7 @@ describe('Lagduf (le-18)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Force roll of 7 (= effectiveThreshold 7) → pass
+    // Force roll of 7 (not > effectiveThreshold 7) → pass
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');

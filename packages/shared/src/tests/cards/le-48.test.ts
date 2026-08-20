@@ -78,7 +78,7 @@ describe('Ufthak (le-48)', () => {
 
   test('discarded to discard pile when mass body check fails', () => {
     // Veils Flung Away applies modifier −1. discardBodyCheck [8] → threshold 7.
-    // Roll 6 (<7) → fail → Ufthak discarded to discard pile.
+    // Roll 8 (> 7) → fail → Ufthak discarded to discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -107,7 +107,7 @@ describe('Ufthak (le-48)', () => {
       expect(dc.kind.threshold).toBe(7);
     }
 
-    s = { ...s, cheatRollTotal: 6 };
+    s = { ...s, cheatRollTotal: 8 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -122,7 +122,7 @@ describe('Ufthak (le-48)', () => {
   });
 
   test('stays in play when mass body check passes', () => {
-    // discardBodyCheck [8], modifier −1 → threshold 7. Roll 7 (>=7) → pass.
+    // discardBodyCheck [8], modifier −1 → threshold 7. Roll 7 (not > 7) → pass.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
