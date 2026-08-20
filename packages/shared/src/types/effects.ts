@@ -5954,6 +5954,30 @@ export interface ModifyAttackEffect extends EffectBase {
    * character."
    */
   readonly attachCorruptionOnWound?: true;
+  /**
+   * When true (`fromHand` path, attacker-played only), playing the card grants
+   * "attacker chooses defending characters" for the current attack —
+   * {@link CombatState.attackerChoosesDefenders} is set. If strike assignment
+   * has not yet started (`CombatState.assignmentPhase === 'defender'`, the
+   * only phase reachable while this card is still playable), assignment
+   * control is handed straight to the attacker (`assignmentPhase: 'attacker'`)
+   * rather than waiting for a defender pass — there is no `'cancel-window'`
+   * step to unwind since the card itself resolves inside that same
+   * pre-assignment opportunity. The opposite of {@link removeAttackerChoosesDefenders}.
+   * Used by Adûnaphel Unleashed (le-161) Mode B: "playable on any attack by a
+   * lone Adûnaphel the Ringwraith. You choose defending characters."
+   */
+  readonly grantAttackerChoosesDefenders?: true;
+  /**
+   * When set (`fromHand` path), adds to {@link CombatState.bodyCheckModifier}
+   * for the rest of this combat — every body check the attack produces
+   * (creature and character alike) is modified by this amount, on top of the
+   * already-wounded +1 and any item/global modifiers. Distinct from
+   * {@link bodyModifier}, which changes the creature's own body *stat* rather
+   * than the body-check roll. Used by Adûnaphel Unleashed (le-161) Mode B:
+   * "Any resulting body checks for defending characters are modified by +2."
+   */
+  readonly bodyCheckModifier?: number;
 }
 
 /**
