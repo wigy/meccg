@@ -3046,10 +3046,11 @@ export function applyRingPlayOfferResolution(
  * resource at any point while an unlinked Crown of Flowers is in play.
  *
  * The paired resource is moved from hand into `cardsInPlay` with
- * `linkedInstanceId`, `assumeInPlay: ['Gates of Morning']`, and
- * `assumeNotInPlay: ['Doors of Night']`. Crown of Flowers is updated to record
- * the reciprocal link so the cascade discard (either card leaving play discards
- * the other) works in both directions.
+ * `linkedInstanceId` plus the `assumeInPlay` / `assumeNotInPlay` name lists
+ * declared by the pairing card's `offer-resource-play` effect (Crown of
+ * Flowers: Gates of Morning in, Doors of Night out). Crown of Flowers is
+ * updated to record the reciprocal link so the cascade discard (either card
+ * leaving play discards the other) works in both directions.
  */
 export function applyPairResourceWithCof(
   state: GameState,
@@ -3087,14 +3088,24 @@ export function applyPairResourceWithCof(
   // Remove the card from hand
   const newHand = player.hand.filter((_, i) => i !== handIdx);
 
+  // The environment reinterpretation the paired resource plays under comes
+  // from the pairing card's own `offer-resource-play` effect (Crown of
+  // Flowers dm-121 declares assumeInPlay: ["Gates of Morning"] and
+  // assumeNotInPlay: ["Doors of Night"]) rather than from engine hardcode.
+  const cofInPlay = state.players[cofPlayerIndex].cardsInPlay.find(c => c.instanceId === cofInstanceId);
+  const cofDef = cofInPlay ? defById(state, cofInPlay.definitionId) : undefined;
+  const offerEffect = getOnEventEffects(cofDef, 'self-enters-play')
+    .map(e => e.apply)
+    .find((a): a is Extract<typeof a, { type: 'offer-resource-play' }> => a.type === 'offer-resource-play');
+
   // Build the paired resource CardInPlay entry
   const pairedCard: CardInPlay = {
     instanceId: handCard.instanceId,
     definitionId: handCard.definitionId,
     status: CardStatus.Untapped,
     linkedInstanceId: cofInstanceId,
-    assumeInPlay: ['Gates of Morning'],
-    assumeNotInPlay: ['Doors of Night'],
+    ...(offerEffect?.assumeInPlay ? { assumeInPlay: offerEffect.assumeInPlay } : {}),
+    ...(offerEffect?.assumeNotInPlay ? { assumeNotInPlay: offerEffect.assumeNotInPlay } : {}),
   };
 
   // Apply state changes: remove from hand, add to cardsInPlay
