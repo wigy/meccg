@@ -438,3 +438,39 @@ describe('organizationEvaluator rebuilding after losing every character', () => 
     expect(organizationEvaluator.score(PASS, context)).toBe(5);
   });
 });
+
+// A combat-only short event with no play-target — never counts as
+// "playable at" any site (mirrors Dark Quarrels, tw-207).
+const COMBAT_ONLY_EVENT: CardDefinition = {
+  cardType: 'hero-resource-event',
+  eventType: 'short',
+} as unknown as CardDefinition;
+
+const DRAW_ONLY_POOL: Record<string, CardDefinition> = {
+  'tw-207': COMBAT_ONLY_EVENT,
+  'tw-408': LORIEN,
+};
+
+describe('organizationEvaluator plan-movement draw-only fallback', () => {
+  // Regression: game mt1hq0up-cuc6lz, stateSeq 144 — the AI's hand held only
+  // combat-only short events (no site-targeted resource cards), so every
+  // plan-movement candidate scored 0 (no direct play, and the haven-in-deck
+  // bonus needs a hand card playable somewhere in the deck too). pass's flat
+  // weight (5) then won every organization phase and the AI camped at
+  // Rivendell for three consecutive turns instead of taking the free
+  // resource draw at a perfectly safe haven.
+  test('a safe haven with a resource-draw box outscores pass even with nothing directly playable', () => {
+    const view = {
+      self: {
+        hand: [{ instanceId: 'h1', definitionId: 'tw-207' }],
+        siteDeck: [{ instanceId: 's2', definitionId: 'tw-408' }],
+        companies: [],
+      },
+    } as unknown as PlayerView;
+    const action = planMovement('s2');
+    const context: AiContext = { view, cardPool: DRAW_ONLY_POOL, legalActions: [action, PASS] };
+    const moveScore = organizationEvaluator.score(action, context)!;
+    const passScore = organizationEvaluator.score(PASS, context)!;
+    expect(moveScore).toBeGreaterThan(passScore);
+  });
+});
