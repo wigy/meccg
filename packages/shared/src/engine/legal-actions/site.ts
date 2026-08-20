@@ -182,6 +182,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
       base.push(...withoutCompanyTargetPermanentEvents(state, playPermanentEventActions(state, playerId)));
+      // Rule 2.1.1: resource player may activate any-phase grant-actions
+      // (e.g. Foul-smelling Paste le-310) at this earliest site-phase
+      // window too, not just once play-resources is reached.
+      base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -208,6 +212,9 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
       // before the company commits to facing them).
       base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
+      // Rule 2.1.1: resource player may also activate any-phase grant-actions
+      // (e.g. Foul-smelling Paste le-310) at this window.
+      base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
