@@ -1834,6 +1834,23 @@
         "filter": { "target.name": "Alatar" }
       },
       {
+        "type": "play-option",
+        "id": "no-alatar",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
         "type": "face-strike-on-tap",
         "bodyReductionOnParry": 1
       }
@@ -1902,6 +1919,23 @@
         "target": "character",
         "filter": {
           "target.name": "Alatar"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "no-alatar",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
         }
       },
       {
@@ -2533,6 +2567,23 @@
         }
       },
       {
+        "type": "play-option",
+        "id": "no-pallando",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
         "type": "grant-action",
         "action": "pallandos-hood-fetch",
         "cost": {
@@ -2632,6 +2683,23 @@
         "target": "character",
         "filter": {
           "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "no-pallando",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
         }
       },
       {
@@ -2788,6 +2856,23 @@
         }
       },
       {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
         "type": "grant-ally-play",
         "filter": {
           "$and": [
@@ -2822,6 +2907,23 @@
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
       },
       {
         "type": "return-to-hand",
@@ -2895,6 +2997,23 @@
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
       },
       {
         "type": "grant-action",
@@ -2984,6 +3103,23 @@
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
       },
       {
         "type": "return-to-hand",
