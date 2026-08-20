@@ -82,6 +82,54 @@ describe('Rule 3.29 — Move Between Companies', () => {
     expect(target.characters).toContain(aragornInstId);
   });
 
+  test('GI character can move between companies at two different physical instances of the same haven (rule g.site.1)', () => {
+    // Regression: a player who split a company (minting a fresh instance of
+    // the shared haven for the new company, per rule 2.II.3.6.2) could no
+    // longer move a character back into it before splitting again — the
+    // legal-action computer recognizes both instances as "the same site" via
+    // the site's definition (mirroring merge-companies' g.site.1 handling),
+    // but handleMoveToCompany compared raw currentSite.instanceId and
+    // rejected the otherwise-legal move with "Companies must be at the same
+    // site", silently dropping the action client-side.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: LORIEN, characters: [ARAGORN, FRODO] },
+            { site: LORIEN, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const sourceCompany = state.players[0].companies[0];
+    const targetCompany = state.players[0].companies[1];
+    // Each company minted its own distinct Lórien instance.
+    expect(sourceCompany.currentSite!.instanceId).not.toBe(targetCompany.currentSite!.instanceId);
+
+    const aragornInstId = sourceCompany.characters[0];
+    const moves = viableActions(state, PLAYER_1, 'move-to-company')
+      .map(ea => ea.action as MoveToCompanyAction);
+    const move = moves.find(a =>
+      a.characterInstanceId === aragornInstId
+      && a.sourceCompanyId === sourceCompany.id
+      && a.targetCompanyId === targetCompany.id,
+    );
+    expect(move).toBeDefined();
+
+    const after = dispatch(state, move!);
+    const source = after.players[0].companies.find(c => c.id === sourceCompany.id)!;
+    const target = after.players[0].companies.find(c => c.id === targetCompany.id)!;
+    expect(source.characters).not.toContain(aragornInstId);
+    expect(target.characters).toContain(aragornInstId);
+  });
+
   test('cannot move between companies at different sites', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
