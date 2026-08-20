@@ -2752,7 +2752,15 @@ function playResourcesActions(
 
       if (eddyTaxUnpaid) continue;
 
-      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site')) {
+      // A play-target effect with target "site" and `requireTapped: false`
+      // (e.g. Noble Hound: "any tapped or untapped Border-hold") lifts the
+      // tapped-site restriction just as it does for the hand-play loop above.
+      const discardSitePlayTarget = allyDef.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+      );
+      const discardAllyAllowsTappedSite = hasPlayFlag(allyDef, 'playable-at-tapped-site')
+        || discardSitePlayTarget?.requireTapped === false;
+      if (siteIsTapped && !discardAllyAllowsTappedSite) {
         logDetail(`Discard ally ${allyDef.name}: site is already tapped`);
         continue;
       }

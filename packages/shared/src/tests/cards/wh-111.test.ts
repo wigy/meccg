@@ -77,6 +77,11 @@ const RHOSGOBEL = 'wh-57' as CardDefinitionId;
 /** Noble Steed — non-unique, 1 mind. Normally playable only in six named
  *  regions (Moria is not one) → the grant is what makes it playable there. */
 const NOBLE_STEED = 'wh-33' as CardDefinitionId;
+/** Noble Hound — non-unique, 1 mind, printed "playable at any tapped or
+ *  untapped Border-hold" (`play-target` site `requireTapped: false`). Used to
+ *  verify the discard-pile grant path honors that flag, not just the
+ *  `playable-at-tapped-site` keyword. */
+const NOBLE_HOUND = 'dm-179' as CardDefinitionId;
 /** Goldberry — unique, 2 mind. Negative control for the grant's filter. */
 const GOLDBERRY = 'tw-245' as CardDefinitionId;
 
@@ -264,6 +269,20 @@ describe('Glove of Radagast (wh-111)', () => {
     expect(getCharacter(after, RESOURCE_PLAYER, BOROMIR).allies.some(a => a.definitionId === NOBLE_STEED)).toBe(true);
     // Playing an ally taps the site.
     expect(after.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Tapped);
+  });
+
+  test('with the Glove, a discard ally printed "playable at tapped or untapped" (Noble Hound) IS playable when the site is tapped', () => {
+    const base = radagastSiteAtMoria({ discard: [NOBLE_HOUND] });
+    const withGlove = attachItemToChar(base, RESOURCE_PLAYER, RADAGAST, GLOVE);
+    const state: GameState = {
+      ...withGlove,
+      players: withGlove.players.map((p, i) =>
+        i === RESOURCE_PLAYER
+          ? { ...p, companies: p.companies.map(c => ({ ...c, currentSite: { ...c.currentSite!, status: CardStatus.Tapped } })) }
+          : p,
+      ) as unknown as GameState['players'],
+    };
+    expect(playInstIdsFor(state, NOBLE_HOUND, 'discard').length).toBeGreaterThanOrEqual(1);
   });
 
   // ── The grant is company-scoped: only Radagast's company benefits ───────────
