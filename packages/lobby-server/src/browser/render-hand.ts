@@ -771,6 +771,15 @@ function reRenderItemDraft(): void {
  * Re-render hand and company views from a two-step selection flow's cached
  * render state (no-op when the flow has no cached state).
  */
+/**
+ * Re-render hand and company views after `allyPlayRenderCache`'s selection
+ * changed from outside the hand-click flow (the discard-pile browser, for a
+ * `grant-ally-play` `fromDiscard` grant such as Glove of Radagast wh-111).
+ */
+export function reRenderAllyPlaySelection(): void {
+  reRenderFromCache(allyPlayRenderCache);
+}
+
 function reRenderFromCache(slot: RenderCacheSlot): void {
   const cache = slot.get();
   if (!cache) return;

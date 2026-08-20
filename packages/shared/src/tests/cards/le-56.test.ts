@@ -87,7 +87,7 @@ describe('Ren the Ringwraith (le-56)', () => {
 
   // ── Per-mode stat changes ───────────────────────────────────────────────
 
-  test('-2 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('-2 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -99,8 +99,10 @@ describe('Ren the Ringwraith (le-56)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const ren = getCharacter(state, RESOURCE_PLAYER, REN);
-    expect(ren.effectiveStats.directInfluence).toBe(2); // 4 - 2
-    expect(ren.effectiveStats.prowess).toBe(8);          // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own -2 stacks on top of that.
+    expect(ren.effectiveStats.directInfluence).toBe(5); // 4 - 2 (his own) + 3 (mode card)
+    expect(ren.effectiveStats.prowess).toBe(6);         // 8 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
   test('+2 prowess in Fell Rider mode (direct influence unchanged)', () => {

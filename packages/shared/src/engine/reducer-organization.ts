@@ -16,7 +16,7 @@ import { CardStatus, SiteType, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { targetConditionalDIBonus } from './legal-actions/organization.js';
+import { directInfluenceLedgerFor } from './legal-actions/organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
@@ -28,7 +28,7 @@ import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpir
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { directInfluenceControlAllowed, controlCostOf } from './control-cost.js';
+import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
 import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
@@ -238,10 +238,10 @@ function enforceRingwraithReclaim(state: GameState, activeIndex: number): GameSt
  * overflow it may trigger, are deferred to the player's next organization
  * phase (reducer-untap.ts's `influenceUnsubtracted` sweep).
  *
- * When a controller can no longer afford all of its followers, the
- * most-expensive followers are released first — that clears the shortfall in
- * the fewest releases. The rules do not specify an order for multiple
- * followers becoming simultaneously unaffordable.
+ * The followers drawing the most on the controller's *unrestricted* influence
+ * are released first — that clears the shortfall in the fewest releases. The
+ * rules do not specify an order for multiple followers becoming
+ * simultaneously unaffordable.
  */
 function revertOverextendedDirectInfluenceFollowers(state: GameState, activePlayer: import('../index.js').PlayerId): GameState {
   const activeIndex = getPlayerIndex(state, activePlayer);
@@ -254,30 +254,25 @@ function revertOverextendedDirectInfluenceFollowers(state: GameState, activePlay
     if (!controller || controller.followers.length === 0) continue;
     const available = controller.effectiveStats.directInfluence;
 
-    const followerCosts = controller.followers
-      .map(followerId => {
-        const follower = characters[followerId];
-        const followerDef = follower ? resolveDef(state, follower.instanceId) : undefined;
-        if (!follower || !isCharacterCard(followerDef) || followerDef.mind === null) return null;
-        const baseCost = controlCostOf(state, follower, follower.effectiveStats.mind ?? followerDef.mind) ?? 0;
-        // Credit target-conditional DI (Glorfindel II "+1 DI against Elves")
-        // against this follower's cost — the same bonus `availableDI` applied
-        // when the follower was admitted, so admission and this release check
-        // agree (else a legal follower would be released the same phase).
-        const cost = Math.max(0, baseCost - targetConditionalDIBonus(state, controller, followerDef));
-        return { followerId, cost };
-      })
-      .filter((f): f is { followerId: CardInstanceId; cost: number } => f !== null)
-      .sort((a, b) => b.cost - a.cost);
+    // Pay for the followers the same way admission does: unrestricted
+    // influence first, then whatever restricted allotments (Glorfindel II's
+    // "+1 DI against Elves", Whip le-348) match each follower. Admission and
+    // this release check must agree, or a legally admitted follower would be
+    // released again at the end of the same phase. What is left over is each
+    // follower's charge against the controller's unrestricted influence.
+    const ledger = directInfluenceLedgerFor(state, controller, { characters });
+    let shortfall = -ledger.unrestricted;
+    if (shortfall <= 0) continue;
 
-    let used = followerCosts.reduce((sum, f) => sum + f.cost, 0);
-    if (used <= available) continue;
-
+    // Releasing the followers charging the most unrestricted influence clears
+    // the shortfall in the fewest releases. The rules do not specify an order
+    // for multiple followers becoming simultaneously unaffordable.
     const releasedFollowerIds: CardInstanceId[] = [];
-    for (const { followerId, cost } of followerCosts) {
-      if (used <= available) break;
+    for (const { followerId, charge } of ledger.charges) {
+      if (shortfall <= 0) break;
+      if (charge <= 0) continue;
       releasedFollowerIds.push(followerId);
-      used -= cost;
+      shortfall -= charge;
     }
     if (releasedFollowerIds.length === 0) continue;
 

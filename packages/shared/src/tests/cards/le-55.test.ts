@@ -97,7 +97,7 @@ describe('Khamûl the Ringwraith (le-55)', () => {
     expect(k.effectiveStats.directInfluence).toBe(4);
   });
 
-  test('-2 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('-2 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -109,8 +109,10 @@ describe('Khamûl the Ringwraith (le-55)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const k = getCharacter(state, RESOURCE_PLAYER, KHAMUL);
-    expect(k.effectiveStats.directInfluence).toBe(2); // 4 - 2
-    expect(k.effectiveStats.prowess).toBe(9); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own -2 stacks on top of that.
+    expect(k.effectiveStats.directInfluence).toBe(5); // 4 - 2 (his own) + 3 (mode card)
+    expect(k.effectiveStats.prowess).toBe(7); // 9 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
   test('+1 prowess in Fell Rider mode (direct influence unchanged)', () => {

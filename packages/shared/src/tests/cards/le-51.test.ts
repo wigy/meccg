@@ -144,15 +144,17 @@ describe('Akhôrahil the Ringwraith (le-51)', () => {
     expect(akh.effectiveStats.directInfluence).toBe(3);
   });
 
-  test('+3 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('+3 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = orgState(AKHORAHIL, []);
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
     state = addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyId);
     state = recomputeDerived(state);
 
     const akh = getCharacter(state, RESOURCE_PLAYER, AKHORAHIL);
-    expect(akh.effectiveStats.directInfluence).toBe(6); // 3 + 3
-    expect(akh.effectiveStats.prowess).toBe(8); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own +3 stacks on top of that.
+    expect(akh.effectiveStats.directInfluence).toBe(9); // 3 + 3 (his own) + 3 (mode card)
+    expect(akh.effectiveStats.prowess).toBe(6); // 8 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
   test('+1 prowess in Fell Rider mode (direct influence unchanged)', () => {

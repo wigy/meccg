@@ -3624,15 +3624,29 @@ function modifyAttackActions(
 
   for (const handCard of candidateCards) {
     const cardDef = defById(state, handCard.definitionId);
-    const effect = getCardEffects(cardDef).find(
+    // A card may declare multiple from-hand modify-attack effects — distinct
+    // modes gated by different `player`/`when` combinations (e.g. Adûnaphel
+    // Unleashed le-161: Mode A a defender play reducing an attack against her,
+    // Mode B an attacker play granting attacker-chooses-defenders on her own
+    // attack). Like the on-event "modes tried in order" pattern (Choking
+    // Shadows), the first effect whose player and `when` both match is the one
+    // offered — in practice each mode's `when` describes a mutually exclusive
+    // combat, so at most one ever matches at a time.
+    const modifyEffects = getCardEffects(cardDef).filter(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
     );
-    if (!effect) continue;
+    if (modifyEffects.length === 0) continue;
 
-    const expectedPlayerId = effect.player === 'attacker'
-      ? combat.attackingPlayerId
-      : combat.defendingPlayerId;
-    if (playerId !== expectedPlayerId) continue;
+    const ctx = buildPlayedModifyAttackContext(state, combat, inPlayNames);
+    const effect = modifyEffects.find(e => {
+      const expectedPlayerId = e.player === 'attacker'
+        ? combat.attackingPlayerId
+        : combat.defendingPlayerId;
+      if (playerId !== expectedPlayerId) return false;
+      if (e.when && !matchesCondition(e.when, ctx)) return false;
+      return true;
+    });
+    if (!effect) continue;
 
     // Attack-scoped duplication check.
     const attackDupLimit = findDuplicationLimitEffect(cardDef, 'attack');
@@ -3640,14 +3654,6 @@ function modifyAttackActions(
       const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= attackDupLimit.max) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
-        continue;
-      }
-    }
-
-    if (effect.when) {
-      const ctx = buildPlayedModifyAttackContext(state, combat, inPlayNames);
-      if (!matchesCondition(effect.when, ctx)) {
-        logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;
       }
     }
@@ -3697,7 +3703,7 @@ function modifyAttackActions(
  * `attack.*` (source discriminator, `automatic`, `detainment`, `keying`) and
  * `defender.*` (`covert`, `companyContainsBalrog`, `inPlay`, `minionCompany`).
  */
-function buildPlayedModifyAttackContext(
+export function buildPlayedModifyAttackContext(
   state: GameState,
   combat: CombatState,
   inPlayNames: readonly string[],
@@ -3742,6 +3748,26 @@ function buildPlayedModifyAttackContext(
   // FOES! as-29 Mode B): true when the defending (resource) player is a
   // Ringwraith (minion) player.
   const defenderMinionCompany = defendingPlayer?.alignment === Alignment.Ringwraith;
+  // `defender.companySize` / `defender.characterNames` let a card gate on the
+  // defending company's exact roster (e.g. "if she is the only character in
+  // her company") — Adûnaphel Unleashed (le-161) Mode A.
+  const defenderCharacterNames = defendingPlayer && defendingCompany
+    ? companyCharacterNames(state, defendingPlayer, defendingCompany.characters) : [];
+  // Attacking-company roster (CvCC only — hazard creatures have no company).
+  // Lets a card gate on "an attack by a lone <character>" (Adûnaphel Unleashed
+  // le-161 Mode B).
+  let attackerCtx: Record<string, unknown> | undefined;
+  if (combat.attackSource.type === 'company-attack') {
+    const attackingPlayer = playerById(state, combat.attackingPlayerId);
+    const attackingCompany = attackingPlayer
+      ? companyById(attackingPlayer.companies, combat.attackSource.attackingCompanyId) : undefined;
+    if (attackingPlayer && attackingCompany) {
+      attackerCtx = {
+        companySize: attackingCompany.characters.length,
+        characterNames: companyCharacterNames(state, attackingPlayer, attackingCompany.characters),
+      };
+    }
+  }
   return {
     inPlay: inPlayNames,
     enemy: enemyCtx,
@@ -3751,8 +3777,27 @@ function buildPlayedModifyAttackContext(
       companyContainsBalrog: defenderContainsBalrog,
       inPlay: defenderInPlay,
       minionCompany: defenderMinionCompany,
+      companySize: defendingCompany?.characters.length ?? 0,
+      characterNames: defenderCharacterNames,
     },
+    ...(attackerCtx ? { attacker: attackerCtx } : {}),
   };
+}
+
+/** Display names of a company's characters, resolved from their card definitions. */
+function companyCharacterNames(
+  state: GameState,
+  player: PlayerState,
+  characterIds: readonly CardInstanceId[],
+): string[] {
+  const names: string[] = [];
+  for (const charId of characterIds) {
+    const charData = player.characters[charId];
+    if (!charData) continue;
+    const def = defById(state, charData.definitionId);
+    if (def?.name) names.push(def.name);
+  }
+  return names;
 }
 
 /**
@@ -3930,6 +3975,37 @@ function companyCombatBoostActions(
     );
     if (eligibleBoosts.length === 0) {
       logDetail(`${(cardDef as { name?: string }).name}: attack (race=${attackWhenContext.enemy.race ?? 'none'}, name=${attackWhenContext.enemy.name || 'none'}) does not match when-condition — company-combat-boost not offered`);
+      continue;
+    }
+
+    // Cost-bearing single-target mode (Some Secret Art of Flame le-232): the
+    // card is played on ONE character — matching `requiredSkill` if set —
+    // who pays `cost` (skipped when the payer's race matches
+    // `costExemptRace`) and alone receives the boost. One action is offered
+    // per qualifying character, carrying `targetCharacterId` so the reducer
+    // knows who to charge and who to boost.
+    const costEffect = eligibleBoosts.find(e => e.cost);
+    if (costEffect?.cost) {
+      const cost = costEffect.cost;
+      for (const charId of company.characters) {
+        const charData = player.characters[charId];
+        if (!charData) continue;
+        const charDef = defById(state, charData.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+        const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
+        if (!exempt && !canPayCost(cost, charData)) continue;
+        logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
       continue;
     }
 

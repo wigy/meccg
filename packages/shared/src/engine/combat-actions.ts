@@ -31,7 +31,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { logDetail } from './legal-actions/log.js';
-import { findAllyInCompany } from './legal-actions/combat.js';
+import { findAllyInCompany, buildPlayedModifyAttackContext } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -1864,10 +1864,25 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     const handCard = sourceCard;
     const cardDef = defById(state, handCard.definitionId);
     if (!cardDef) return { state, error: 'Card definition not found' };
-    const effect = getCardEffects(cardDef).find(
+    // A card may declare multiple from-hand modify-attack effects (distinct
+    // modes gated by different `player`/`when` combinations — Adûnaphel
+    // Unleashed le-161). Pick the one matching the acting player and whose
+    // `when` (if any) matches, mirroring `modifyAttackActions`'s selection so
+    // the reducer applies exactly the effect that was offered as legal.
+    const candidateEffects = getCardEffects(cardDef).filter(
       (e): e is import('../types/effects.js').ModifyAttackEffect =>
         e.type === 'modify-attack' && (altPermanentEvent ? !!(e).fromAltPermanentEvent : !!(e).fromHand),
     );
+    const modifyCtx = candidateEffects.length > 1
+      ? buildPlayedModifyAttackContext(state, combat, buildInPlayNames(state))
+      : {};
+    const effect = candidateEffects.find(e => {
+      if (candidateEffects.length <= 1) return true;
+      const expected = e.player === 'attacker' ? combat.attackingPlayerId : combat.defendingPlayerId;
+      if (action.player !== expected) return false;
+      if (e.when && !matchesCondition(e.when, modifyCtx)) return false;
+      return true;
+    });
     if (!effect) return { state, error: `Card has no modify-attack (${altPermanentEvent ? 'fromAltPermanentEvent' : 'fromHand'}) effect` };
 
     if (altPermanentEvent) {
@@ -1994,6 +2009,27 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       }
     }
 
+    // Adûnaphel Unleashed (le-161) Mode B: "You choose defending characters."
+    // Grants attacker-chooses-defenders for this attack. Strike assignment
+    // has not started yet (checked above), so `assignmentPhase` is still
+    // either `'defender'` (the normal CvCC/creature start) or `'cancel-window'`
+    // (an attacker-chooses creature attack already pending the defender's
+    // cancel opportunity) — only the former needs to be redirected; the latter
+    // already routes to the attacker once the defender passes.
+    const grantsAttackerChooses = effect.grantAttackerChoosesDefenders === true;
+    const newAssignmentPhase = grantsAttackerChooses && combat.assignmentPhase === 'defender'
+      ? 'attacker' as const
+      : combat.assignmentPhase;
+    const newBodyCheckModifier = effect.bodyCheckModifier
+      ? (combat.bodyCheckModifier ?? 0) + effect.bodyCheckModifier
+      : combat.bodyCheckModifier;
+    if (grantsAttackerChooses) {
+      logDetail(`${cardLabel}: grants attacker-chooses-defenders — assignment phase ${combat.assignmentPhase} → ${newAssignmentPhase}`);
+    }
+    if (effect.bodyCheckModifier) {
+      logDetail(`${cardLabel}: body-check modifier ${combat.bodyCheckModifier ?? 0} → ${newBodyCheckModifier}`);
+    }
+
     let newState: GameState = {
       ...baseState,
       combat: {
@@ -2002,6 +2038,9 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         creatureBody: newCreatureBody,
         strikesTotal: newStrikesTotal,
         detainment: newDetainment,
+        assignmentPhase: newAssignmentPhase,
+        ...(grantsAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+        ...(newBodyCheckModifier !== undefined ? { bodyCheckModifier: newBodyCheckModifier } : {}),
         ...(cancelProtection ? { cancelProtection } : {}),
         ...(effect.postAttackMindRollSplit
           ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }

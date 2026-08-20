@@ -92,7 +92,7 @@ describe('The Witch-king (le-58)', () => {
     expect(wk.effectiveStats.directInfluence).toBe(3);
   });
 
-  test('+3 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('+3 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -104,8 +104,10 @@ describe('The Witch-king (le-58)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const wk = getCharacter(state, RESOURCE_PLAYER, THE_WITCH_KING);
-    expect(wk.effectiveStats.directInfluence).toBe(6); // 3 + 3
-    expect(wk.effectiveStats.prowess).toBe(9); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own +3 stacks on top of that.
+    expect(wk.effectiveStats.directInfluence).toBe(9); // 3 + 3 (his own) + 3 (mode card)
+    expect(wk.effectiveStats.prowess).toBe(7); // 9 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
   test('+1 prowess in Fell Rider mode (direct influence unchanged)', () => {
@@ -328,6 +330,6 @@ describe('The Witch-king (le-58)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const wk = getCharacter(state, RESOURCE_PLAYER, THE_WITCH_KING);
-    expect(wk.effectiveStats.directInfluence).toBe(6); // 3 + 3, still the revealed avatar
+    expect(wk.effectiveStats.directInfluence).toBe(9); // 3 + 3 (his own) + 3 (mode card), still the revealed avatar
   });
 });

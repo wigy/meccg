@@ -4441,6 +4441,29 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * factions discarded" — `minCount: 1, maxCount: 2`.
    */
   readonly costDiscard?: CompanyCombatBoostDiscardCost;
+  /**
+   * The skill required on the character who both pays `cost` and receives
+   * the boost. Only meaningful alongside `cost` — presence of `cost` (with
+   * or without `requiredSkill`) switches the effect to single-target mode:
+   * one action is offered per qualifying character in the defending
+   * company, and only the chosen character (not every `filter`-matching
+   * character) receives the boost. Used by Some Secret Art of Flame
+   * (le-232): "Playable on a sorcery-using character facing an attack. +4
+   * prowess for the character against the attack."
+   */
+  readonly requiredSkill?: string;
+  /**
+   * The cost the chosen character pays to receive the boost (e.g. a
+   * corruption check). Presence of `cost` switches the effect to
+   * single-target mode — see {@link requiredSkill}.
+   */
+  readonly cost?: ActionCost;
+  /**
+   * When set, a cost-paying character whose race matches this value pays no
+   * cost. Backs clauses like "Unless he is a Ringwraith, character makes a
+   * corruption check modified by -4" (Some Secret Art of Flame, le-232).
+   */
+  readonly costExemptRace?: Race;
 }
 
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */
@@ -5972,6 +5995,30 @@ export interface ModifyAttackEffect extends EffectBase {
    * character."
    */
   readonly attachCorruptionOnWound?: true;
+  /**
+   * When true (`fromHand` path, attacker-played only), playing the card grants
+   * "attacker chooses defending characters" for the current attack —
+   * {@link CombatState.attackerChoosesDefenders} is set. If strike assignment
+   * has not yet started (`CombatState.assignmentPhase === 'defender'`, the
+   * only phase reachable while this card is still playable), assignment
+   * control is handed straight to the attacker (`assignmentPhase: 'attacker'`)
+   * rather than waiting for a defender pass — there is no `'cancel-window'`
+   * step to unwind since the card itself resolves inside that same
+   * pre-assignment opportunity. The opposite of {@link removeAttackerChoosesDefenders}.
+   * Used by Adûnaphel Unleashed (le-161) Mode B: "playable on any attack by a
+   * lone Adûnaphel the Ringwraith. You choose defending characters."
+   */
+  readonly grantAttackerChoosesDefenders?: true;
+  /**
+   * When set (`fromHand` path), adds to {@link CombatState.bodyCheckModifier}
+   * for the rest of this combat — every body check the attack produces
+   * (creature and character alike) is modified by this amount, on top of the
+   * already-wounded +1 and any item/global modifiers. Distinct from
+   * {@link bodyModifier}, which changes the creature's own body *stat* rather
+   * than the body-check roll. Used by Adûnaphel Unleashed (le-161) Mode B:
+   * "Any resulting body checks for defending characters are modified by +2."
+   */
+  readonly bodyCheckModifier?: number;
 }
 
 /**

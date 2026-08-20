@@ -454,6 +454,64 @@ describe('The Great Hunt (wh-91) reveals every discard the engine has swept', ()
 });
 
 /**
+ * A bare two-player game whose player 1 (Bob) discard pile holds three cards.
+ * Two are stamped into `handRevealedInstances`, simulating what
+ * chain-reducer.ts's `revealInstances` call does when Aware of their Ways
+ * (dm-46) resolves and reveals a random subset of the opponent's discard pile
+ * to the card-player; the third card was never revealed and must stay hidden.
+ */
+function gameWithBobDiscardPileAndAwareOfTheirWaysReveal(): {
+  state: GameState;
+  revealedA: CardInstanceId;
+  revealedB: CardInstanceId;
+  unrevealed: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const revealedA = 'p2-discard-revealed-a' as CardInstanceId;
+  const revealedB = 'p2-discard-revealed-b' as CardInstanceId;
+  const unrevealed = 'p2-discard-unrevealed' as CardInstanceId;
+  const discardPile = [
+    { instanceId: unrevealed, definitionId: ARAGORN },
+    { instanceId: revealedA, definitionId: BALIN },
+    { instanceId: revealedB, definitionId: BALIN },
+  ];
+  const state: GameState = {
+    ...base,
+    handRevealedInstances: {
+      ...base.handRevealedInstances,
+      [revealedA]: BALIN,
+      [revealedB]: BALIN,
+    },
+    players: [
+      base.players[0],
+      { ...base.players[1], discardPile },
+    ],
+  };
+  return { state, revealedA, revealedB, unrevealed };
+}
+
+describe('Aware of their Ways (dm-46) reveals only the drawn discard cards (bug report 154f251aebe7e9f4)', () => {
+  test('the card-player sees the identity of the revealed discard-pile cards; the rest stay hidden', () => {
+    const { state, revealedA, revealedB, unrevealed } = gameWithBobDiscardPileAndAwareOfTheirWaysReveal();
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    expect(pileById(revealedA)?.definitionId).toBe(BALIN);
+    expect(pileById(revealedB)?.definitionId).toBe(BALIN);
+    expect(pileById(unrevealed)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+});
+
+/**
  * A bare two-player game whose player 0 (Alice) has two cards sitting on top
  * of her play deck: one recorded in `revealedInstances` (as Revealed to all
  * Watchers, dm-85, leaves the set-aside cards it places back on the deck top

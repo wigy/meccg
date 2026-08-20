@@ -63,6 +63,16 @@ export const combatEvaluator: ActionEvaluator = {
         return 8;
       }
 
+      case 'tap-item-for-strike': {
+        // Tapping the item to boost prowess for this strike costs nothing
+        // (unlike tap-to-fight, which taps the character). It only ever
+        // improves the roll need, so score it by the resulting success
+        // chance — the same scale used for strike-modifier events — which
+        // beats resolve-strike's fixed 5/8/20 scores whenever the boost
+        // actually helps.
+        return Math.max(1, diceSuccessPct(action.need));
+      }
+
       case 'play-strike-event': {
         // Dodge (and similar strike-modifier events) waive the tap penalty
         // for the *current* strike but apply a body penalty if the strike
