@@ -1,0 +1,5611 @@
+{
+  "combat/assign-two-strikes": [
+    {
+      "id": "resources/p2-27@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Carn Dûm",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 4.118530228543254,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Lossadan Cairn",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 5.113194444444445,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 4.118530228543254,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Mount Gundabad",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 5.113194444444445,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-375",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Barrow-downs",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-375"
+      },
+      "payoffTsd": 5.565277777777777,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-375",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Barrow-downs",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Carn Dûm",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 4.118530228543254,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 4.733832733196159,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Lossadan Cairn",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 5.113194444444445,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Moria",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 4.118530228543254,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-415",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Mount Gram",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-415"
+      },
+      "payoffTsd": 4.965277777777778,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-415",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gram",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Mount Gundabad",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 5.113194444444445,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@td-181",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Zarak Dûm",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "td-181"
+      },
+      "payoffTsd": 5.026388888888889,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "td-181",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Zarak Dûm",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-3@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Book of Mazarbul at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-3",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 2.1185302285432543,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Book of Mazarbul",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/attacker-assigns-excess": [
+    {
+      "id": "resources/p2-13@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 1.1,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Moria",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.7090277777777778,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-3@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Book of Mazarbul at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-3",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.7090277777777778,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Book of Mazarbul",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/choose-strike-order": [
+    {
+      "id": "resources/p2-13@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 1.1,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Moria",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.6610146604938272,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-3@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Book of Mazarbul at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-3",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.6610146604938272,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Book of Mazarbul",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/creature-with-body": [
+    {
+      "id": "resources/p2-27@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Carn Dûm",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 2.4172010517568814,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Lossadan Cairn",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 3.1131944444444444,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 2.4172010517568814,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Mount Gundabad",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 3.1131944444444444,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/first-strike-resolution": [
+    {
+      "id": "factions/p1-11@tw-400",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 8,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (7+ on 2d6)",
+          "p": 0.5833333333333334,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-11@tw-400",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 8,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/strike-event-in-hand": [
+    {
+      "id": "resources/p2-27@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Carn Dûm",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 10.749305555555555,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Lossadan Cairn",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 11.4,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 10.749305555555555,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Mount Gundabad",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 11.4,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-12@tw-417",
+      "module": "resources",
+      "goal": {
+        "label": "play Goldberry at Old Forest",
+        "source": "ally",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "tw-417"
+      },
+      "payoffTsd": 4,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-417",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Old Forest",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Goldberry",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/two-strike-attack": [
+    {
+      "id": "factions/p1-9@tw-419",
+      "module": "factions",
+      "goal": {
+        "label": "influence Men of Lebennin at Pelargir",
+        "source": "faction",
+        "mp": 2,
+        "cardInstanceId": "p1-9",
+        "siteDefinitionId": "tw-419"
+      },
+      "payoffTsd": 8,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-419",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Pelargir",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Men of Lebennin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (7+ on 2d6)",
+          "p": 0.5833333333333334,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-13@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p1-13",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 9.59189814814815,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-13@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Tolfalas",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p1-13",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 10.652314814814815,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Isle of the Ulond",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 7.2972222222222225,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "td-178",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Glittering Caves",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 7.7,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 6.652314814814814,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Moria",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 5.59189814814815,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Tolfalas",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 6.652314814814814,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-9@tw-419",
+      "module": "resources",
+      "goal": {
+        "label": "play Men of Lebennin at Pelargir",
+        "source": "faction",
+        "mp": 2,
+        "cardInstanceId": "p1-9",
+        "siteDefinitionId": "tw-419"
+      },
+      "payoffTsd": 8,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-419",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Pelargir",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Men of Lebennin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "combat/two-strikes-four-defenders": [],
+  "corruption/pending-check": [
+    {
+      "id": "factions/p1-11@tw-400",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 10,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (6+ on 2d6)",
+          "p": 0.7222222222222222,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "factions/p1-9@tw-419",
+      "module": "factions",
+      "goal": {
+        "label": "influence Men of Lebennin at Pelargir",
+        "source": "faction",
+        "mp": 2,
+        "cardInstanceId": "p1-9",
+        "siteDefinitionId": "tw-419"
+      },
+      "payoffTsd": 8,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-419",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Pelargir",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Men of Lebennin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (6+ on 2d6)",
+          "p": 0.7222222222222222,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "factions/p1-6@tw-386",
+      "module": "factions",
+      "goal": {
+        "label": "influence Knights of Dol Amroth at Dol Amroth",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-6",
+        "siteDefinitionId": "tw-386"
+      },
+      "payoffTsd": 10,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-386",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Dol Amroth",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Knights of Dol Amroth",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (6+ on 2d6)",
+          "p": 0.7222222222222222,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 2.3069444444444445,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Glittering Caves",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 3.7,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Isengard",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 2.876388888888889,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Isle of the Ulond",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 3.2972222222222225,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "td-178",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Tolfalas",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 2.876388888888889,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-11@tw-400",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 10,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Moria",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 6.3069444444444445,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Glittering Caves",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 7.7,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 6.876388888888889,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Isle of the Ulond",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 7.2972222222222225,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "td-178",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Tolfalas",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 6.876388888888889,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-9@tw-419",
+      "module": "resources",
+      "goal": {
+        "label": "play Men of Lebennin at Pelargir",
+        "source": "faction",
+        "mp": 2,
+        "cardInstanceId": "p1-9",
+        "siteDefinitionId": "tw-419"
+      },
+      "payoffTsd": 8,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-419",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Pelargir",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Men of Lebennin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-6@tw-386",
+      "module": "resources",
+      "goal": {
+        "label": "play Knights of Dol Amroth at Dol Amroth",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-6",
+        "siteDefinitionId": "tw-386"
+      },
+      "payoffTsd": 10,
+      "deadline": 8,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-386",
+          "byTurn": 8
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Dol Amroth",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Knights of Dol Amroth",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "corruption/risky-check": [
+    {
+      "id": "resources/p2-18@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Orcrist at Carn Dûm",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-18",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 8.8,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Orcrist",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-18@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Orcrist at Lossadan Cairn",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-18",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 9.4,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Orcrist",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-18@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Orcrist at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-18",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 8.8,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Orcrist",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-18@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Orcrist at Mount Gundabad",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-18",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 9.4,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Orcrist",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "fetching/deck-exhaust-exchange": [
+    {
+      "id": "resources/p1-14@tw-437",
+      "module": "resources",
+      "goal": {
+        "label": "play Treebeard at Wellinghall",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p1-14",
+        "siteDefinitionId": "tw-437"
+      },
+      "payoffTsd": 4,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-437",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Wellinghall",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Treebeard",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-3@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Glamdring at Glittering Caves",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-3",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 3.7,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Glamdring",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-3@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Glamdring at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-3",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 3.1,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Glamdring",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-3@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Glamdring at Isle of the Ulond",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-3",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 2.401388888888889,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "td-178",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Glamdring",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-3@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Glamdring at Tolfalas",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-3",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 3.1,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Glamdring",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-3@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Glamdring at Moria",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-3",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 2.3915517197581666,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-1",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Glamdring",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "hand/avatar-sideboard-access": [
+    {
+      "id": "factions/p1-11@tw-400",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 12,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (2+ on 2d6)",
+          "p": 1,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-11@tw-400",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 12,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "hand/hazard-sideboard-access": [
+    {
+      "id": "resources/p2-27@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Carn Dûm",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 3.902651686518923,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Lossadan Cairn",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 4.826388888888889,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 3.902651686518923,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Mount Gundabad",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 4.826388888888889,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-375",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Barrow-downs",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-375"
+      },
+      "payoffTsd": 5.430555555555555,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-375",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Barrow-downs",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 0,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Carn Dûm",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 3.902651686518923,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 4.539448302469136,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Lossadan Cairn",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 4.826388888888889,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Moria",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 3.902651686518923,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-415",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Mount Gram",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-415"
+      },
+      "payoffTsd": 4.869076324588478,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-415",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gram",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Mount Gundabad",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 4.826388888888889,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-28@td-181",
+      "module": "resources",
+      "goal": {
+        "label": "play Sword of Gondolin at Zarak Dûm",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p2-28",
+        "siteDefinitionId": "td-181"
+      },
+      "payoffTsd": 4.756944444444445,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "td-181",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Zarak Dûm",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sword of Gondolin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-3@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Book of Mazarbul at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-3",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 1.9026516865189231,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Book of Mazarbul",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "hazards/order-lone-wounded-defender": [
+    {
+      "id": "resources/p1-26@tw-437",
+      "module": "resources",
+      "goal": {
+        "label": "play Quickbeam at Wellinghall",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p1-26",
+        "siteDefinitionId": "tw-437"
+      },
+      "payoffTsd": 8,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-437",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Wellinghall",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Quickbeam",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "hazards/order-two-defenders": [
+    {
+      "id": "factions/p2-9@tw-419",
+      "module": "factions",
+      "goal": {
+        "label": "influence Men of Lebennin at Pelargir",
+        "source": "faction",
+        "mp": 2,
+        "cardInstanceId": "p2-9",
+        "siteDefinitionId": "tw-419"
+      },
+      "payoffTsd": 2,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "tw-419",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Pelargir",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Men of Lebennin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (7+ on 2d6)",
+          "p": 0.5833333333333334,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-9@tw-419",
+      "module": "resources",
+      "goal": {
+        "label": "play Men of Lebennin at Pelargir",
+        "source": "faction",
+        "mp": 2,
+        "cardInstanceId": "p2-9",
+        "siteDefinitionId": "tw-419"
+      },
+      "payoffTsd": 2,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "tw-419",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Pelargir",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Men of Lebennin",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-12@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Glittering Caves",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 1.3958333333333335,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "1 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-12@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Isle of the Ulond",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 0.1791666666666667,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "td-178",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "movement/hazard-bundle-choice": [],
+  "movement/support-event-boost": [
+    {
+      "id": "factions/p1-11@tw-400",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 12,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (5+ on 2d6)",
+          "p": 0.8333333333333334,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-11@tw-400",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 12,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "movement/turn6-hazard-play": [
+    {
+      "id": "resources/p2-13@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 4.1,
+      "deadline": 12,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 12
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "organization/replanned-movement": [
+    {
+      "id": "resources/p2-27@tw-380",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Carn Dûm",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-380"
+      },
+      "payoffTsd": 10.8,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-380",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Carn Dûm",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-409",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Lossadan Cairn",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-409"
+      },
+      "payoffTsd": 11.310185185185185,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-409",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Lossadan Cairn",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 10.8,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-27@tw-416",
+      "module": "resources",
+      "goal": {
+        "label": "play Scroll of Isildur at Mount Gundabad",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-27",
+        "siteDefinitionId": "tw-416"
+      },
+      "payoffTsd": 11.310185185185185,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-416",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Mount Gundabad",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Scroll of Isildur",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "organization/shed-corruption": [
+    {
+      "id": "factions/p1-11@tw-400",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 7,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (6+ on 2d6)",
+          "p": 0.7222222222222222,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "factions/p1-6@tw-386",
+      "module": "factions",
+      "goal": {
+        "label": "influence Knights of Dol Amroth at Dol Amroth",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-6",
+        "siteDefinitionId": "tw-386"
+      },
+      "payoffTsd": 7,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-386",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Dol Amroth",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Knights of Dol Amroth",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (6+ on 2d6)",
+          "p": 0.7222222222222222,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-11@tw-400",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of Ithilien at Henneth Annûn",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-11",
+        "siteDefinitionId": "tw-400"
+      },
+      "payoffTsd": 7,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-400",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Henneth Annûn",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of Ithilien",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-6@tw-386",
+      "module": "resources",
+      "goal": {
+        "label": "play Knights of Dol Amroth at Dol Amroth",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p1-6",
+        "siteDefinitionId": "tw-386"
+      },
+      "payoffTsd": 7,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-386",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Dol Amroth",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Knights of Dol Amroth",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "organization/turn14-company-planning": [
+    {
+      "id": "factions/p2-19@tw-378",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of the North at Bree",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-378"
+      },
+      "payoffTsd": 6,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-378",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Bree",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of the North",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (4+ on 2d6)",
+          "p": 0.9166666666666666,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-19@tw-378",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of the North at Bree",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-378"
+      },
+      "payoffTsd": 6,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-378",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Bree",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of the North",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 4.1,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Moria",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 3.8,
+      "deadline": 20,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 20
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "setup/draft-pick": [],
+  "site/enter-or-pass": [
+    {
+      "id": "resources/p2-13@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 1.1,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 0,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Moria",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.483883060058514,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-3@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Book of Mazarbul at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-3",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.483883060058514,
+      "deadline": 7,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 7
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Book of Mazarbul",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "site/faction-influence-attempt": [
+    {
+      "id": "factions/p2-19@tw-378",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of the North at Bree",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-378"
+      },
+      "payoffTsd": 6,
+      "deadline": 30,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-2",
+          "siteDefinitionId": "tw-378",
+          "byTurn": 30
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Bree",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Rangers of the North",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (8+ on 2d6)",
+          "p": 0.4166666666666667,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-19@tw-378",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of the North at Bree",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-378"
+      },
+      "payoffTsd": 6,
+      "deadline": 30,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-2",
+          "siteDefinitionId": "tw-378",
+          "byTurn": 30
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Bree",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Rangers of the North",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-12@tw-417",
+      "module": "resources",
+      "goal": {
+        "label": "play Goldberry at Old Forest",
+        "source": "ally",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "tw-417"
+      },
+      "payoffTsd": 4,
+      "deadline": 30,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-2",
+          "siteDefinitionId": "tw-417",
+          "byTurn": 30
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Old Forest",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Goldberry",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "site/resource-play-available": [
+    {
+      "id": "resources/p1-10@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Palantír of Orthanc at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-10",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 4.1,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Palantír of Orthanc",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Isengard",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 4.1,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Glittering Caves",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 4.7,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "1 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Isle of the Ulond",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 4.112037037037037,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "td-178",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Moria",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 3.741203703703704,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-5@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Hauberk of Bright Mail at Tolfalas",
+        "source": "item",
+        "mp": 2,
+        "cardInstanceId": "p1-5",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 4.1,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Hauberk of Bright Mail",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Isengard",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 2.1,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-397",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Glittering Caves",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-397"
+      },
+      "payoffTsd": 2.7,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-397",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Glittering Caves",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "1 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@td-178",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Isle of the Ulond",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "td-178"
+      },
+      "payoffTsd": 2.112037037037037,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "td-178",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isle of the Ulond",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 1.7412037037037038,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p1-12@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Tolfalas",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p1-12",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 2.1,
+      "deadline": 17,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p1-0",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 17
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "site/turn10-resource-plays": [
+    {
+      "id": "factions/p2-19@tw-378",
+      "module": "factions",
+      "goal": {
+        "label": "influence Rangers of the North at Bree",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-378"
+      },
+      "payoffTsd": 10,
+      "deadline": 16,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-378",
+          "byTurn": 16
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Bree",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of the North",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (4+ on 2d6)",
+          "p": 0.9166666666666666,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 7.1,
+      "deadline": 16,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 16
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-13@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Moria",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-13",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 6.637397119341564,
+      "deadline": 16,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 16
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 0.25,
+          "owner": "travel",
+          "tag": "route",
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-19@tw-378",
+      "module": "resources",
+      "goal": {
+        "label": "play Rangers of the North at Bree",
+        "source": "faction",
+        "mp": 3,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-378"
+      },
+      "payoffTsd": 10,
+      "deadline": 16,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-378",
+          "byTurn": 16
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Bree",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Rangers of the North",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ],
+  "travel/wounded-company-shadow-hold-vs-haven": [
+    {
+      "id": "factions/p2-19@tw-403",
+      "module": "factions",
+      "goal": {
+        "label": "influence Iron Hill Dwarves at Iron Hill Dwarf-hold",
+        "source": "faction",
+        "mp": 4,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-403"
+      },
+      "payoffTsd": 14,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-403",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Iron Hill Dwarf-hold",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Iron Hill Dwarves",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to attempt it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        },
+        {
+          "label": "pass the check (6+ on 2d6)",
+          "p": 0.7222222222222222,
+          "owner": "factions",
+          "tag": "influence-check",
+          "source": "printed target less the company's free direct influence"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-32@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Wormsbane at Moria",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-32",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 8.8,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Wormsbane",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-32@tw-381",
+      "module": "resources",
+      "goal": {
+        "label": "play Wormsbane at Caves of Ûlund",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-32",
+        "siteDefinitionId": "tw-381"
+      },
+      "payoffTsd": 9.250925925925927,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-381",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Caves of Ûlund",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Wormsbane",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-32@tw-384",
+      "module": "resources",
+      "goal": {
+        "label": "play Wormsbane at Dead Marshes",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-32",
+        "siteDefinitionId": "tw-384"
+      },
+      "payoffTsd": 9.355092592592593,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-384",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Dead Marshes",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Wormsbane",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-32@tw-428",
+      "module": "resources",
+      "goal": {
+        "label": "play Wormsbane at The Lonely Mountain",
+        "source": "item",
+        "mp": 4,
+        "cardInstanceId": "p2-32",
+        "siteDefinitionId": "tw-428"
+      },
+      "payoffTsd": 9.026388888888889,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-428",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to The Lonely Mountain",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Wormsbane",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-15@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Moria",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-15",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 4.8,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-15@tw-398",
+      "module": "resources",
+      "goal": {
+        "label": "play Gollum at Goblin-gate",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-15",
+        "siteDefinitionId": "tw-398"
+      },
+      "payoffTsd": 5.1,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-398",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Goblin-gate",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Gollum",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-19@tw-403",
+      "module": "resources",
+      "goal": {
+        "label": "play Iron Hill Dwarves at Iron Hill Dwarf-hold",
+        "source": "faction",
+        "mp": 4,
+        "cardInstanceId": "p2-19",
+        "siteDefinitionId": "tw-403"
+      },
+      "payoffTsd": 14,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-403",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Iron Hill Dwarf-hold",
+          "p": 0.0009765625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "6 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Iron Hill Dwarves",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-26@tw-437",
+      "module": "resources",
+      "goal": {
+        "label": "play Quickbeam at Wellinghall",
+        "source": "ally",
+        "mp": 2,
+        "cardInstanceId": "p2-26",
+        "siteDefinitionId": "tw-437"
+      },
+      "payoffTsd": 6,
+      "deadline": 10,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-0",
+          "siteDefinitionId": "tw-437",
+          "byTurn": 10
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Wellinghall",
+          "p": 0.0625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Quickbeam",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    }
+  ]
+}

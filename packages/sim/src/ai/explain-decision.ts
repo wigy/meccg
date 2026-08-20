@@ -146,12 +146,6 @@ export function analyzeH2Position(
   const standing = computeStanding(view, loadWinProbModel(), tunables, options.riskOverride);
   const modules = resolveModules(options.modules);
   const moduleContext = { view, cardPool, legalActions, tunables, standing };
-  const { modules: contributors, evaluations: tactical, uncovered }
-    = evaluateDecision(modules, moduleContext);
-
-  const fallback = contributors.length === 0
-    ? heuristicStrategy.weighActions({ view, cardPool, legalActions })
-    : undefined;
 
   // What the modules would commit to from this position, with no history behind
   // it. An explanation sees one position rather than a game, so there are no
@@ -160,9 +154,21 @@ export function analyzeH2Position(
   // agent that had been playing would still be carrying.
   const commitment = select(view.turnNumber, [], proposePlans(modules, moduleContext), tunables);
 
+  // Evaluated the way the agent evaluates: proposers saw the bare context, and
+  // the commitment reaches `evaluateDecision` and `rankWithPlans` — the same
+  // ordering `agent.decide` enforces, so this explains the decision that is
+  // actually made.
+  const evaluationContext = { ...moduleContext, commitment };
+  const { modules: contributors, evaluations: tactical, uncovered }
+    = evaluateDecision(modules, evaluationContext);
+
+  const fallback = contributors.length === 0
+    ? heuristicStrategy.weighActions({ view, cardPool, legalActions })
+    : undefined;
+
   // Ranked the way the agent ranks it: with the commitments folded in. Printing
   // the tactical order instead would explain a decision the agent does not make.
-  const evaluations = rankWithPlans(modules, tactical, commitment, moduleContext)
+  const evaluations = rankWithPlans(modules, tactical, commitment, evaluationContext)
     .map(p => p.evaluation);
 
   return {
