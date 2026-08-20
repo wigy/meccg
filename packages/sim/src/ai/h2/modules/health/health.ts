@@ -22,10 +22,12 @@
  * to a module that owns that concern. What *is* priced, for both actions, is
  * the corruption check CoE 2.II.4.1 and 2.II.5 enqueue unconditionally on the
  * bearer giving up the item — a real, unavoidable risk of losing the
- * character, not a reason to prefer one destination over another. Without it
- * every transfer and store tied at exactly 0 with `pass`, and the agent's
- * tie-break prefers to act over passing — so a chain of pointless transfers
- * scored identically to leaving the item alone, and always won.
+ * character, not a reason to prefer one destination over another. A transfer
+ * nothing needs therefore prices at zero or below, never above — and the
+ * agent's tie-break takes `pass` over any action no module needs, so an
+ * unneeded transfer is never played. When a module one day *wants* an item
+ * moved (corruption relief, arming the character who will face a strike), it
+ * will say so with a positive utility of its own.
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
