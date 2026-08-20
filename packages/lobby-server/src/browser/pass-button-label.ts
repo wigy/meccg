@@ -58,6 +58,20 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
     return 'Skip Ring';
   }
 
+  // Hall of Fire (dm-134) haven-restore-character resolution: `pass` here
+  // declines the optional untap/heal, not the ordinary phase-advance pass it
+  // would otherwise be read as. The resolution can become active mid-M/H
+  // (immediately after the company's own hazard sub-phase) or at the very
+  // start of the Site phase, while `phaseState` still reflects the step it
+  // was queued from (e.g. "play-hazards" or the Site phase's default
+  // "select-company") — without this the button read as an unrelated
+  // phase-advance action ("Pass Hazards" / "Continue") with no hint that
+  // skipping meant declining the untap/heal offer.
+  if (passAction.type === 'pass'
+    && view.legalActions.some(ea => ea.viable && ea.action.type === 'restore-character-by-effect')) {
+    return 'Skip Untap/Heal';
+  }
+
   if (view.phaseState.phase === Phase.Untap) return 'End Untap';
   if (view.phaseState.phase === Phase.Organization) return 'Long-event';
   if (view.phaseState.phase === Phase.LongEvent) return 'Movement/Hazard';

@@ -187,4 +187,29 @@ describe('passButtonLabel — other phases', () => {
     const view = viewWith({ phase: 'setup', setupStep: { step } });
     expect(passButtonLabel(passAction, view)).toBe(expected);
   });
+
+  // Bug report (game mt1gl5mw-l309to, seq 404): Hall of Fire's optional
+  // untap/heal offer became pending immediately after the company's own
+  // hazard sub-phase, while `phaseState.step` still read "play-hazards" —
+  // the pass button showed "Pass Hazards", giving no indication that a
+  // character could be untapped/healed instead, or that skipping declined
+  // that offer. Confirmed again at the Site phase's default "select-company"
+  // step, where it showed "Continue".
+  test('haven-restore-character pending during M/H play-hazards -> Skip Untap/Heal, not Pass Hazards', () => {
+    const restoreEval = {
+      action: { type: 'restore-character-by-effect', player: 'p1', characterInstanceId: 'p1-0' },
+      viable: true,
+    } as unknown as EvaluatedAction;
+    const view = playHazardsViewWith(4, 1);
+    expect(passButtonLabel(passAction, { ...view, legalActions: [restoreEval] })).toBe('Skip Untap/Heal');
+  });
+
+  test('haven-restore-character pending at Site select-company -> Skip Untap/Heal, not Continue', () => {
+    const restoreEval = {
+      action: { type: 'restore-character-by-effect', player: 'p1', characterInstanceId: 'p1-0' },
+      viable: true,
+    } as unknown as EvaluatedAction;
+    const view = viewWith({ phase: Phase.Site, step: 'select-company' }, [restoreEval]);
+    expect(passButtonLabel(passAction, view)).toBe('Skip Untap/Heal');
+  });
 });
