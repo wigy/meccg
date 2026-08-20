@@ -2788,6 +2788,23 @@
         }
       },
       {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
         "type": "grant-ally-play",
         "filter": {
           "$and": [

@@ -20,6 +20,7 @@
  * | 4 | Any non-unique 1-mind ally playable at Radagast's current site  | IMPLEMENTED |
  * | 5 | Grant excludes an ally the bearer already controls a copy of    | IMPLEMENTED |
  * | 6 | Granted ally may be sourced from the discard pile or the hand   | IMPLEMENTED |
+ * | 7 | Playable bare if Radagast not in play; auto-attaches on his entry | IMPLEMENTED |
  *
  * Modeling:
  *  - Rule 1: `radagast-specific` keyword gates play to a Radagast-avatar player
@@ -31,7 +32,19 @@
  *    `excludeBearerControlsCopy: true`, `fromDiscard: true`). The legal-action
  *    generator relaxes an ally's site-match at the bearer's company
  *    (`allyPlayGrantAllowsAlly`) and sources matching allies from the discard
- *    pile; the reducer removes a `fromDiscard` play from the discard pile.
+ *    pile; the reducer removes a `fromDiscard` play from the discard pile. Note
+ *    `findAllyPlayGrant` scans only characters' attached `items`, so the grant
+ *    is inert while the Glove sits bare in `cardsInPlay` (rule 7) — it only
+ *    takes effect once actually attached to Radagast, matching the card text
+ *    ("with Radagast at his site").
+ *  - Rule 7: an `untargeted: true` `play-option` (`when: player.avatarInPlay:
+ *    false`) lets the card be played with no target while Radagast is not yet
+ *    in play (bug fix: it was previously rejected as "has no valid target"
+ *    whenever Radagast wasn't in play, even during Organization phase). An
+ *    `on-event: avatar-enters-play` → `move self-location → in-play-on-character`
+ *    then attaches the bare card to Radagast the instant he enters play.
+ *    Mirrors Give Welcome to the Unexpected (wh-99) / Grey Embassy (wh-100)'s
+ *    identical Gandalf-specific fix and Bade to Rule (le-167).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -40,10 +53,10 @@ import {
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
   makeSitePhase,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
-  attachItemToChar, attachAllyToChar,
+  attachItemToChar, attachAllyToChar, addCardToHand,
   getCharacter,
   dispatch,
   MORIA, RIVENDELL, EDORAS,
@@ -63,6 +76,9 @@ const SARUMAN = 'wh-9' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId;
 /** Isengard — a Fallen-wizard Wizardhaven (haven site). */
 const ISENGARD = 'wh-56' as CardDefinitionId;
+/** Rhosgobel — Radagast's exact homesite (Fallen-wizard avatars are
+ *  home-site-only; no extra-haven entry like Wizard/Ringwraith avatars). */
+const RHOSGOBEL = 'wh-57' as CardDefinitionId;
 
 /** Noble Steed — non-unique, 1 mind. Normally playable only in six named
  *  regions (Moria is not one) → the grant is what makes it playable there. */
@@ -289,5 +305,101 @@ describe('Glove of Radagast (wh-111)', () => {
     // Active company is the Moria one (index 1), which lacks Radagast/the Glove.
     const state = { ...withGlove, phaseState: makeSitePhase({ activeCompanyIndex: 1 }) };
     expect(playInstIdsFor(state, NOBLE_STEED, 'hand')).toHaveLength(0);
+  });
+
+  // ── Playable bare (Radagast not yet in play), attaches to him on entry ─────
+  // Bug report: Glove of Radagast was marked `not-playable` ("has no valid
+  // target") during the organization phase whenever Radagast was not yet in
+  // play — even as a plain stage resource. "Place this card on Radagast if he
+  // is in play" means the card is always playable; it just sits bare in
+  // `cardsInPlay` (contributing its stage points) until Radagast enters play,
+  // at which point it auto-attaches. Mirrors Give Welcome to the Unexpected
+  // (wh-99) / Grey Embassy (wh-100)'s identical Gandalf-specific fix, which in
+  // turn mirrors Bade to Rule (le-167)'s untargeted `play-option` +
+  // `on-event: avatar-enters-play` auto-attach.
+
+  test('alternative mode: playable during the organization phase if Radagast is not in play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [BOROMIR] }],
+          hand: [GLOVE, RADAGAST],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as { targetCharacterId?: unknown };
+    expect(action.targetCharacterId).toBeUndefined();
+
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, GLOVE);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, cardId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GLOVE)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+  });
+
+  test('when played bare, attaches to Radagast the moment he enters play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          // Rhosgobel is Radagast's exact homesite — Fallen-wizard avatars are
+          // home-site-only (no extra-haven entry), so this is required for the
+          // subsequent play-character action to be legal.
+          companies: [{ site: RHOSGOBEL, characters: [] }],
+          hand: [GLOVE, RADAGAST],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, GLOVE);
+    const bare = playPermanentEventAndResolve(state, PLAYER_1, cardId);
+    expect(bare.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GLOVE)).toBe(true);
+
+    // A second copy must not be offered while the first sits bare in play.
+    const secondCopyActions = viableActions(addCardToHand(bare, RESOURCE_PLAYER, GLOVE), PLAYER_1, 'play-permanent-event');
+    expect(secondCopyActions.length).toBe(0);
+
+    // Bring Radagast into play — the card should attach to him and leave `cardsInPlay`.
+    const playRadagast = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, RADAGAST));
+    expect(playRadagast).toBeDefined();
+    const withRadagast = dispatch(bare, playRadagast!);
+
+    expect(withRadagast.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GLOVE)).toBe(false);
+    const radagast = getCharacter(withRadagast, RESOURCE_PLAYER, RADAGAST);
+    expect(radagast.items.some(i => i.definitionId === GLOVE)).toBe(true);
+    // 2 from the Glove + 1 from Rhosgobel's own "you receive the stage point
+    // if any of your companies are at this site" (wh-57) — Radagast's company
+    // is now occupying his homesite.
+    expect(withRadagast.players[RESOURCE_PLAYER].stagePoints).toBe(3);
   });
 });
