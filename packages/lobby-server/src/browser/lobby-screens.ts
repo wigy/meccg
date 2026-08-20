@@ -111,7 +111,7 @@ const LOBBY_BUTTON_LABELS: Readonly<Record<string, string>> = {
   'play-real-ai-btn': 'Play vs Real-AI (experimental)',
   'start-real-ai-btn': 'Start',
   'play-mc-ai-btn': 'Play vs MC-AI (experimental)',
-  'play-modular-ai-btn': 'Play vs Modular AI',
+  'play-modular-ai-btn': 'Play vs Modular AI (experimental)',
   'play-pseudo-ai-btn': 'Play vs Pseudo-AI',
   'stop-game-btn': 'Stop Existing Game',
 };
