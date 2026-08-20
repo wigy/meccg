@@ -4050,6 +4050,48 @@ is not "at" a site, so `destinationSite` must be null — and emits one
 `cancel-attack` action per eligible site left in the controller's location deck,
 each carrying its instance in `replacementSiteInstanceId`.
 
+**Cancel the rest of the site's attack sequence (`cancelsRemainingSiteAttacks`).**
+When true, cancelling this attack also abandons any not-yet-faced
+automatic-attacks in the site's sequence for this company's visit — "All
+automatic-attacks at the site are canceled." `applyEffect`'s `cancel-attack`
+branch (`apply-dispatcher.ts`), after calling `resolveCancelAttackEntry`, sets
+`SitePhaseState.autoAttacksSkipped = true` when `state.phaseState.phase ===
+Phase.Site` — the same "sequence abandoned" flag Farmer Maggot's site-swap and
+Burglary's success use (§9e); `handleSiteAutomaticAttacks` then treats the
+company's remaining automatic-attack steps as done with no further combat. A
+no-op outside the Site phase (i.e. for a card that only ever fires against a
+site automatic-attack, this is always in Site phase). Paired with
+`influenceAtSiteModifier` below and `costExemptRace`, this backs Riven Gate
+(as-98): "Magic. Sorcery. Playable on a sorcery-using character when facing the
+automatic-attack at a Border-hold. All automatic-attacks at the site are
+canceled, and any influence attempt against a faction at the site this turn is
+modified by +2. Unless he is a Ringwraith, he makes a corruption check modified
+by -4."
+
+```json
+{ "type": "cancel-attack",
+  "requiredSkill": "sorcery",
+  "cost": { "check": "corruption", "modifier": -4 },
+  "costExemptRace": "ringwraith",
+  "cancelsRemainingSiteAttacks": true,
+  "influenceAtSiteModifier": 2,
+  "when": { "$and": [
+    { "attack.source": "automatic-attack" },
+    { "site.type": "border-hold" } ] } }
+```
+
+**Site-wide influence bonus (`influenceAtSiteModifier`).** A numeric field that
+adds a turn-scoped `influence-at-site-modifier` {@link ActiveConstraint} (the
+same constraint kind Blasting Fire wh-51 installs via `add-constraint`) bonusing
+every faction-influence attempt against a faction at the defending company's
+current site for the rest of the turn (`legal-actions/site.ts` sums every
+matching constraint's `value` into the influence roll, keyed by
+`siteDefinitionId`, regardless of who is influencing). Resolved from the
+defending company captured before the cancel clears `state.combat` — a no-op if
+the site can't be resolved (defensive; never hit in practice since a
+`cancel-attack` `when` clause always requires an active combat with a defending
+company at a site).
+
 `handleCancelAttackBySiteSwap` (`combat-cancel.ts`) then, in order: disposes the
 replaced site exactly as a departure site (CoE 2.IV.viii — tapped non-haven to
 the site discard pile, otherwise back to the location deck; a site still occupied

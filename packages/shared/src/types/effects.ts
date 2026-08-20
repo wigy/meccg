@@ -5414,6 +5414,24 @@ export interface CancelAttackEffect extends EffectBase {
    * attack.
    */
   readonly siteSwap?: SiteSwapCancel;
+  /**
+   * When true, cancelling this attack also abandons any remaining
+   * automatic-attacks in the site's sequence for this company's visit —
+   * "All automatic-attacks at the site are canceled" (Riven Gate as-98).
+   * Sets `SitePhaseState.autoAttacksSkipped = true` (the same "sequence
+   * abandoned" flag Farmer Maggot's site-swap and Burglary's success use),
+   * so any automatic-attack not yet faced this slot is skipped once the
+   * player next passes at the automatic-attacks step. A no-op outside the
+   * Site phase.
+   */
+  readonly cancelsRemainingSiteAttacks?: true;
+  /**
+   * When set, cancelling this attack also adds a turn-scoped
+   * `influence-at-site-modifier` constraint bonusing every faction-influence
+   * attempt against a faction at the defending company's current site for
+   * the rest of the turn. Used by Riven Gate (as-98, value 2).
+   */
+  readonly influenceAtSiteModifier?: number;
 }
 
 /**
