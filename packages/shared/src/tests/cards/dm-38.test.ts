@@ -37,7 +37,7 @@
  * | 2 | First auto-attack (Balrog 2/16)              | IMPLEMENTED | passes through as data                             |
  * | 3 | Minor/major/greater/gold-ring playability    | IMPLEMENTED | playableResources gate                             |
  * | 4 | 2nd auto-attack (R&L keyed, dynamic)         | IMPLEMENTED | dynamic-auto-attack site-rule                      |
- * | 5 | Cancel 1st attack if Balrog in play          | IMPLEMENTED | cancel-first-attack-if-in-play site-rule (tw-12)   |
+ * | 5 | Cancel 1st attack if Balrog in play          | IMPLEMENTED | cancel-auto-attacks site-rule, scope "first"       |
  * | 6 | Under-deeps movement (adjacentSites)         | IMPLEMENTED | rule 3.45                                          |
  *
  * Playable: YES

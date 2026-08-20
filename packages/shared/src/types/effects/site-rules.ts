@@ -8,7 +8,7 @@
  * the public `types/effects.js` import path is unchanged.
  */
 
-import type { Alignment, CardDefinitionId, Race, RegionType, SiteType } from '../common.js';
+import type { Alignment, Race, RegionType, SiteType } from '../common.js';
 import type { EffectBase, Condition } from '../effects.js';
 
 /**
@@ -40,8 +40,7 @@ export type SiteRuleEffect =
   | AllowCreatureByKeyingSiteRule
   | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule
-  | CancelFirstAttackIfInPlaySiteRule
-  | CancelAttacksIfCharacterInPlaySiteRule
+  | CancelAutoAttacksSiteRule
   | StolenKnowledgeSiteRule
   | DeepMinesMovementSiteRule
   | NoStorageSiteRule
@@ -547,48 +546,40 @@ export interface AllowItemsWhenTappedSiteRule extends EffectBase {
 }
 
 /**
- * Cancels the first automatic attack at this site if the referenced card is
- * currently in any player's cardsInPlay as a permanent event.
+ * Cancels this site's automatic-attacks while the rule's `when` condition
+ * holds. The condition is evaluated against the card-name context
+ * `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same name lists the
+ * player-state context exposes: `inPlayAnywhere` holds the names of every
+ * card in either player's `cardsInPlay` (with name-aliases and environment
+ * overrides applied), and `charactersInPlayAnywhere` holds the names of every
+ * character in play for either player. Name matching means every printing of
+ * a card counts (Radagast is hero Wizard tw-178 and Fallen-wizard wh-8).
  *
- * Used by The Under-gates (dm-38): "If Balrog of Moria is in play [as a
- * permanent-event] ... the first automatic attack is canceled."
- *
- * ```json
- * { "type": "site-rule", "rule": "cancel-first-attack-if-in-play",
- *   "definitionId": "tw-12" }
- * ```
- */
-export interface CancelFirstAttackIfInPlaySiteRule extends EffectBase {
-  readonly type: 'site-rule';
-  readonly rule: 'cancel-first-attack-if-in-play';
-  /** Definition ID of the card that, when in play, causes the first attack to be canceled. */
-  readonly definitionId: CardDefinitionId;
-}
-
-/**
- * Declares that ALL of this site's printed automatic-attacks are removed
- * while a character with the given card name is in play for either player.
- * Matched by name rather than definition ID so every version of the card
- * counts (Wizard avatars exist in multiple sets).
- *
- * Used by Rhosgobel (as-159): "If the Wizard card Radagast is in play, the
- * automatic-attacks are removed." — Radagast may be in play as the hero
- * Wizard (tw-178) or the Fallen-wizard (wh-8).
- *
- * Only the site's own printed attacks are removed; attacks added to the
- * site by hazard effects (Spawn permanent-events, extra-automatic-attack
- * constraints) are separate hazard attacks and are unaffected.
+ * `scope` selects what is canceled, and thereby where in the attack pipeline
+ * the rule applies:
+ * - `'printed'` — ALL of the site's own printed automatic-attacks are
+ *   removed, before hazard augments, so attacks added to the site by hazard
+ *   effects (Spawn permanent-events, `extra-automatic-attack` constraints)
+ *   are unaffected. Rhosgobel (as-159): "If the Wizard card Radagast is in
+ *   play, the automatic-attacks are removed."
+ * - `'first'` — the first attack of the final combined list is removed.
+ *   The Under-gates (dm-38 / as-165): "If Balrog of Moria is in play ...
+ *   the first automatic attack is canceled."
  *
  * ```json
- * { "type": "site-rule", "rule": "cancel-attacks-if-character-in-play",
- *   "characterName": "Radagast" }
+ * { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "printed",
+ *   "when": { "charactersInPlayAnywhere": { "$includes": "Radagast" } } }
+ * { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "first",
+ *   "when": { "inPlayAnywhere": { "$includes": "Balrog of Moria" } } }
  * ```
  */
-export interface CancelAttacksIfCharacterInPlaySiteRule extends EffectBase {
+export interface CancelAutoAttacksSiteRule extends EffectBase {
   readonly type: 'site-rule';
-  readonly rule: 'cancel-attacks-if-character-in-play';
-  /** Card name of the character that, while in play, removes the site's printed automatic-attacks. */
-  readonly characterName: string;
+  readonly rule: 'cancel-auto-attacks';
+  /** What is canceled: all printed attacks (before hazard augments) or the first combined attack. */
+  readonly scope: 'printed' | 'first';
+  /** Condition evaluated against `{ inPlayAnywhere, charactersInPlayAnywhere }`. */
+  readonly when: Condition;
 }
 
 /**
