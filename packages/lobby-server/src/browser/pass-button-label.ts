@@ -50,7 +50,7 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
 
   // Rule 9.21's ring-play-offer: the plain `pass` here declines playing the
   // offered special ring, not the ordinary end-of-phase pass it would
-  // otherwise be read as (e.g. "Long-event" during Organization) — without
+  // otherwise be read as (e.g. "Continue" during Organization) — without
   // this the button read as an unrelated phase-advance action and the
   // player had no visible way to decline the ring.
   if (passAction.type === 'pass'

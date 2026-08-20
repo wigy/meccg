@@ -129,7 +129,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
       { term: 'Map', explanation: 'The minimap in the corner shows Middle-earth with a dot for every company: gold pulsing — the active company, grey — your other companies, red — your opponent’s.' },
     ],
     pointers: [{ anchor: 'map', label: 'The map — your companies and their journeys. Click it to open the full-size map.', side: 'left' }] },
-  { id: 'org-done', title: 'Organization done', body: 'We are done organizing. Let’s continue to the long-event phase — click [[Long-event]].' },
+  { id: 'org-done', title: 'Organization done', body: 'We are done organizing. Let’s continue to the long-event phase — click [[Continue]].' },
   { id: 'long-event-star', title: 'The long-event phase', body: 'Long-events last until your next long-event phase. Play Star of High Hope: an environment giving every Elf in your company +1 prowess.',
     concepts: [
       { term: 'Race', explanation: 'Every character belongs to a race — Elf, Dwarf, Man, Hobbit and others — printed after the character’s classes. Many cards care about it: Star of High Hope boosts only Elves, and Glorfindel’s +1 direct influence works only against Elves.' },
