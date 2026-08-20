@@ -39,6 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
+import { characterPossessions } from '../pending.js';
 import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
@@ -1398,9 +1399,7 @@ function corruptionCheckEntryActions(
   // on the new bearer but is counted on the original character for this check.
   const possessions: CardInstanceId[] = [
     ...(transferredItemId ? [transferredItemId] : []),
-    ...char.items.map(i => i.instanceId),
-    ...char.allies.map(a => a.instanceId),
-    ...char.hazards.map(h => h.instanceId),
+    ...characterPossessions(char),
   ];
 
   // For transfer checks, also count the transferred item's CP toward the total

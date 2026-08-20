@@ -33,7 +33,7 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWarded
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled, getEffectiveSiteType } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
-import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
+import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
@@ -1564,11 +1564,7 @@ function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameStat
     const isDeclarer = player.id === declarer;
     for (const charId of characterIds(player)) {
       const char = player.characters[charId];
-      const possessions = [
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
+      const possessions = characterPossessions(char);
       current = enqueueCorruptionCheck(current, {
         source: card.instanceId,
         actor: player.id,
@@ -5515,18 +5511,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         });
       } else if (apply.type === 'force-check' && apply.check === 'corruption') {
         const resourcePlayerId = current.activePlayer!;
-        let possessions: CardInstanceId[] = [];
-        for (const p of current.players) {
-          const charData = p.characters[targetCharId];
-          if (charData) {
-            possessions = [
-              ...charData.items.map(i => i.instanceId),
-              ...charData.allies.map(a => a.instanceId),
-              ...charData.hazards.map(h => h.instanceId),
-            ];
-            break;
-          }
-        }
+        const possessions = characterPossessionsById(current, targetCharId);
         logDetail(`${cardNm} option "${opt.id}": enqueuing corruption check (modifier ${apply.modifier ?? 0}) for character ${targetCharId as string}`);
         current = enqueueCorruptionCheck(current, {
           source: entry.card.instanceId,
@@ -5761,18 +5746,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const targetCharId = entry.payload.targetCharacterId;
       const modifier = playTargetWithCostCorruption.cost?.modifier ?? 0;
       const resourcePlayerId = current.activePlayer!;
-      let possessions: CardInstanceId[] = [];
-      for (const p of current.players) {
-        const charData = p.characters[targetCharId];
-        if (charData) {
-          possessions = [
-            ...charData.items.map(i => i.instanceId),
-            ...charData.allies.map(a => a.instanceId),
-            ...charData.hazards.map(h => h.instanceId),
-          ];
-          break;
-        }
-      }
+      const possessions = characterPossessionsById(current, targetCharId);
       const cardName = cardDef?.name ?? '';
       const failureMode = playTargetWithCostCorruption.cost?.failureMode;
       logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);

@@ -46,7 +46,7 @@ import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, enqueueResolution, hasCancelReturnAndSiteTap } from './pending.js';
+import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, characterPossessions, enqueueResolution, hasCancelReturnAndSiteTap } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1191,11 +1191,7 @@ export function fireEndOfCompanyMHCorruptionChecks(
         }
 
         logDetail(`end-of-company-mh: "${hDef?.name}" triggers ${regionIndices.length} corruption check(s) for character ${charId as string}`);
-        const possessions = [
-          ...char.items.map(i => i.instanceId),
-          ...char.allies.map(a => a.instanceId),
-          ...char.hazards.map(h => h.instanceId),
-        ];
+        const possessions = characterPossessions(char);
         const total = regionIndices.length;
         for (let k = 0; k < total; k++) {
           newState = enqueueCorruptionCheck(newState, {

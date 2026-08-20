@@ -33,7 +33,7 @@ import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { shuffle } from '../rng.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
+import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
@@ -3281,11 +3281,7 @@ function fireCharacterGainsItemChecks(
         if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
 
         logDetail(`character-gains-item: "${hDef?.name}" triggers corruption check for character ${charId as string}`);
-        const possessions = [
-          ...char.items.map(i => i.instanceId),
-          ...char.allies.map(a => a.instanceId),
-          ...char.hazards.map(h => h.instanceId),
-        ];
+        const possessions = characterPossessions(char);
         newState = enqueueCorruptionCheck(newState, {
           source: hazard.instanceId,
           actor: player.id,
@@ -3407,11 +3403,7 @@ function fireItemPlayCorruptionChecks(
         }
       }
       logDetail(`Greed: item "${itemName}" (cp ${cp}) played at site — ${charDef.name} makes a corruption check (modifier ${formatSignedNumber(modifier)})`);
-      const possessions = [
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
+      const possessions = characterPossessions(char);
       newState = enqueueCorruptionCheck(newState, {
         source: constraint.source,
         actor: player.id,
@@ -3566,11 +3558,7 @@ export function fireSuccessfulInfluenceTriggers(
               continue;
             }
             firedDefIds.add(card.definitionId as string);
-            const possessions = [
-              ...char.items.map(i => i.instanceId),
-              ...char.allies.map(a => a.instanceId),
-              ...char.hazards.map(h => h.instanceId),
-            ];
+            const possessions = characterPossessions(char);
             logDetail(`"${def?.name}": ${charDef.name} made a successful influence attempt — corruption check (modifier ${formatSignedNumber(step.modifier ?? 0)})`);
             next = enqueueCorruptionCheck(next, {
               source: card.instanceId,
@@ -4897,11 +4885,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
           }
 
           logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
-          const possessions = [
-            ...bearer.items.map(i => i.instanceId),
-            ...bearer.allies.map(a => a.instanceId),
-            ...bearer.hazards.map(h => h.instanceId),
-          ];
+          const possessions = characterPossessions(bearer);
           for (const item of otherItems) {
             const itemDef = defById(newState, item.definitionId);
             const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
