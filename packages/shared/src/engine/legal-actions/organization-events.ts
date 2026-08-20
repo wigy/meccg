@@ -31,7 +31,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, companyDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -500,28 +500,9 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             }
           }
 
-          const discardCandidates: { instanceId: CardInstanceId; source: string }[] = [];
-          for (const source of sources) {
-            if (source === 'character-items') {
-              for (const charId of company.characters) {
-                const ch = player.characters[charId];
-                if (!ch) continue;
-                for (const item of ch.items) {
-                  const itemDef = defById(state, item.definitionId);
-                  if (itemDef && itemDef.name === targetCardName) {
-                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
-                  }
-                }
-              }
-            } else if (source === 'kill-pile') {
-              for (const card of player.killPile) {
-                const cardDef = defById(state, card.definitionId);
-                if (cardDef && cardDef.name === targetCardName) {
-                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
-                }
-              }
-            }
-          }
+          const discardCandidates = companyDiscardCandidates(
+            state, player, company, sources, (d) => d.name === targetCardName,
+          );
           if (discardCandidates.length === 0) {
             logDetail(`Permanent event ${def.name}: no ${targetCardName} available to discard at ${siteDef.name}`);
             continue;

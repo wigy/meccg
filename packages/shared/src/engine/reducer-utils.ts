@@ -2551,15 +2551,70 @@ export function markPrisonersRescuedAtDolGuldur(
 
 /**
  * One card the playing company could discard to satisfy a
- * `discard-keyword-card` play-condition.
+ * `discard-keyword-card` or `discard-named-card` play-condition.
  */
-export interface KeywordDiscardCandidate {
+export interface CompanyDiscardCandidate {
   /** The instance that would be discarded — rides the play action's `discardCardInstanceId`. */
   readonly instanceId: CardInstanceId;
   /** Which zone it was found in, for logging. */
   readonly source: 'character-items' | 'cards-in-play' | 'kill-pile';
   /** The candidate's card name, for logging. */
   readonly name: string;
+}
+
+/**
+ * Enumerates every card the given company controls, in the given `sources`,
+ * whose definition satisfies `match` — the shared scan behind the
+ * `discard-keyword-card` and `discard-named-card` play-condition costs
+ * ({@link keywordDiscardCandidates} and the named-card checks in the
+ * organization and site legal-action computers).
+ *
+ * Source semantics ("a card it controls" scopes every zone to the company):
+ * - `'character-items'` — cards attached to the company's own characters
+ *   (permanent events played on a character live in `character.items`).
+ * - `'cards-in-play'` — bare company-bound permanent events in the player's
+ *   `cardsInPlay`, only those bound to this very company.
+ * - `'kill-pile'` — the player's marshalling point pile, e.g. an item
+ *   successfully stored per CoE rule 2.II.4.1 (a Sapling of the White Tree
+ *   stored at Minas Tirith for The White Tree tw-348).
+ */
+export function companyDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  sources: readonly CompanyDiscardCandidate['source'][],
+  match: (def: CardDefinition) => boolean,
+): CompanyDiscardCandidate[] {
+  const candidates: CompanyDiscardCandidate[] = [];
+  const check = (defId: CardDefinitionId): { ok: boolean; name: string } => {
+    const def = defById(state, defId);
+    return { ok: def != null && match(def), name: def?.name ?? (defId as string) };
+  };
+  for (const source of sources) {
+    if (source === 'character-items') {
+      for (const charId of company.characters) {
+        const ch = player.characters[charId];
+        if (!ch) continue;
+        for (const item of ch.items) {
+          const { ok, name } = check(item.definitionId);
+          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
+        }
+      }
+    } else if (source === 'cards-in-play') {
+      for (const card of player.cardsInPlay) {
+        // "a card it controls" — only cards bound to this very company.
+        if (card.companyId !== company.id) continue;
+        const { ok, name } = check(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    } else {
+      for (const card of player.killPile) {
+        const { ok, name } = check(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    }
+  }
+  return candidates;
 }
 
 /**
@@ -2584,41 +2639,14 @@ export function keywordDiscardCandidates(
   player: PlayerState,
   company: Company,
   condition: PlayConditionEffect,
-): KeywordDiscardCandidate[] {
+): CompanyDiscardCandidate[] {
   const keyword = condition.cardKeyword;
   if (!keyword) return [];
   const sources = condition.sources ?? ['character-items'];
-  const candidates: KeywordDiscardCandidate[] = [];
-  const hasKeyword = (defId: CardDefinitionId): { ok: boolean; name: string } => {
-    const def = defById(state, defId);
-    const keywords = (def as { keywords?: readonly string[] } | undefined)?.keywords ?? [];
-    return { ok: keywords.includes(keyword), name: def?.name ?? (defId as string) };
-  };
-  for (const source of sources) {
-    if (source === 'character-items') {
-      for (const charId of company.characters) {
-        const ch = player.characters[charId];
-        if (!ch) continue;
-        for (const item of ch.items) {
-          const { ok, name } = hasKeyword(item.definitionId);
-          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
-        }
-      }
-    } else if (source === 'cards-in-play') {
-      for (const card of player.cardsInPlay) {
-        // "a card it controls" — only cards bound to this very company.
-        if (card.companyId !== company.id) continue;
-        const { ok, name } = hasKeyword(card.definitionId);
-        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
-      }
-    } else {
-      for (const card of player.killPile) {
-        const { ok, name } = hasKeyword(card.definitionId);
-        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
-      }
-    }
-  }
-  return candidates;
+  return companyDiscardCandidates(state, player, company, sources, (def) => {
+    const keywords = (def as { keywords?: readonly string[] }).keywords ?? [];
+    return keywords.includes(keyword);
+  });
 }
 
 /**
