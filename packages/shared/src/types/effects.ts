@@ -6785,8 +6785,9 @@ export interface RemovalProtectionEffect extends EffectBase {
  * when this hazard short event resolves.
  *
  * For `check: "body"`:
- * Each character rolls 2d6. The check passes if roll >= (character.body +
- * modifier); it fails if roll < (character.body + modifier).
+ * Each character rolls 2d6. Per CoE 3.I.1, the check fails if roll >
+ * (character.body + modifier); it passes if roll <= (character.body +
+ * modifier).
  *
  * Outcomes depend on the character's race:
  * - Orc or Troll: a failed check discards the character (returns to hand,

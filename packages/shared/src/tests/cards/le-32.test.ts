@@ -79,7 +79,7 @@ describe('Orc Chieftain (le-32)', () => {
 
   test('Orc Chieftain is discarded to discard pile when mass body check fails', () => {
     // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 6 (< 7) → fail → Orc Chieftain discarded to resource player's discard pile.
+    // Roll 8 (> 7) → fail → Orc Chieftain discarded to resource player's discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -102,7 +102,7 @@ describe('Orc Chieftain (le-32)', () => {
       expect(dc.kind.threshold).toBe(7);
     }
 
-    s = { ...s, cheatRollTotal: 6 };
+    s = { ...s, cheatRollTotal: 8 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -117,7 +117,7 @@ describe('Orc Chieftain (le-32)', () => {
 
   test('Orc Chieftain stays in play when mass body check passes', () => {
     // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 7 (= threshold) → pass → Orc Chieftain remains in play.
+    // Roll 7 (not > threshold) → pass → Orc Chieftain remains in play.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
