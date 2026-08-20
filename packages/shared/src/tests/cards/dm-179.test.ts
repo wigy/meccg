@@ -19,17 +19,19 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardStatus, CardDefinitionId, CardInstanceId, Race } from '../../index.js';
+import { Phase, CardStatus, CardDefinitionId, CardInstanceId, Race, SiteType } from '../../index.js';
 import type { PlayerState } from '../../index.js';
 import {
-  ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MORIA, BREE,
+  ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MORIA, BREE, BANDIT_LAIR,
   buildTestState, findCharInstanceId, companyIdAt,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   resetMint, viableActions, attachAllyToChar, makeShadowMHState,
   buildSitePhaseState, viableActionsForHandCard,
 } from '../test-helpers.js';
+import { addConstraint } from '../../engine/pending.js';
 
 const NOBLE_HOUND = 'dm-179' as CardDefinitionId;
+const REBUILD_THE_TOWN = 'dm-155' as CardDefinitionId;
 
 describe('dm-179: Noble Hound', () => {
   beforeEach(() => resetMint());
@@ -357,6 +359,38 @@ describe('dm-179: Noble Hound', () => {
 
     const actions = viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, NOBLE_HOUND);
     expect(actions.length).toBe(0);
+  });
+
+  test('Noble Hound is playable at a Ruins & Lairs site converted to Border-hold by Rebuild the Town', () => {
+    // Bug report: Noble Hound was not offered at The Worthy Hills (printed
+    // Ruins & Lairs) after Rebuild the Town's site-type-override converted it
+    // to a Border-hold. The ally branch computed the site's effective type
+    // via getEffectiveSiteType but then checked the play-target filter
+    // against the site's raw (printed) definition instead of that effective
+    // type, so the override was silently ignored for ally playability.
+    const state = buildSitePhaseState({
+      site: BANDIT_LAIR,
+      characters: [ARAGORN],
+      hand: [NOBLE_HOUND],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withOverride = addConstraint(state, {
+      source: 'rebuild-src' as CardInstanceId,
+      sourceDefinitionId: REBUILD_THE_TOWN,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'company', companyId },
+      kind: {
+        type: 'attribute-modifier',
+        attribute: 'site.type',
+        op: 'override',
+        value: SiteType.BorderHold,
+        filter: { 'site.definitionId': BANDIT_LAIR as string },
+      },
+    });
+
+    const actions = viableActionsForHandCard(withOverride, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, NOBLE_HOUND);
+    expect(actions.length).toBeGreaterThan(0);
   });
 
   test('Noble Hound is playable at a tapped border-hold (requireTapped: false)', () => {

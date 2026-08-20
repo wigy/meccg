@@ -335,7 +335,7 @@
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-178 | Mistress Lobelia | — | 14 | ☑ |
-| dm-179 | Noble Hound | — | 9 | ☑ |
+| dm-179 | Noble Hound | — | 10 | ☑ |
 | dm-180 | Folco Boffin | — | 9 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
@@ -467,7 +467,7 @@
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-161 | Adûnaphel Unleashed | — | 10 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
-| le-165 | Awaiting the Call | — | 10 | ☑ |
+| le-165 | Awaiting the Call | — | 11 | ☑ |
 | le-167 | Bade to Rule | — | 14 | ☑ |
 | le-170 | Black Rider | — | 10 | ☑ |
 | le-171 | Blow Turned | — | 6 | ☑ |
@@ -1166,9 +1166,9 @@
 | wh-86 | Greater Half-orcs | — | 11 | ☑ |
 | wh-87 | Half-orcs | — | 10 | ☑ |
 | wh-89 | Keys to the White Towers | — | 10 | ☑ |
-| wh-90 | Bow of Alatar | — | 11 | ☑ |
+| wh-90 | Bow of Alatar | — | 13 | ☑ |
 | wh-91 | The Great Hunt | — | 14 | ☑ |
-| wh-92 | Huntsman’s Garb | — | 11 | ☑ |
+| wh-92 | Huntsman’s Garb | — | 14 | ☑ |
 | wh-93 | Join the Hunt | — | 14 | ☑ |
 | wh-94 | Oromë’s Warders | — | 20 | ☑ |
 | wh-95 | Squire of the Hunt | — | 10 | ☑ |
@@ -1179,17 +1179,17 @@
 | wh-100 | Grey Embassy | — | 17 | ☑ |
 | wh-103 | Arcane School | — | 9 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
-| wh-105 | Pallando’s Hood | — | 9 | ☑ |
+| wh-105 | Pallando’s Hood | — | 12 | ☑ |
 | wh-106 | Prophet of Doom | — | 15 | ☑ |
-| wh-107 | Stave of Pallando | — | 9 | ☑ |
+| wh-107 | Stave of Pallando | — | 12 | ☑ |
 | wh-108 | Truths of Doom | — | 9 | ☑ |
 | wh-109 | Friend of Secret Things | — | 11 | ☑ |
 | wh-110 | Girdle of Radagast | — | 19 | ☑ |
-| wh-111 | Glove of Radagast | — | 11 | ☑ |
-| wh-112 | Master of Shapes | — | 12 | ☑ |
-| wh-113 | Pocketed Robes | — | 11 | ☑ |
+| wh-111 | Glove of Radagast | — | 13 | ☑ |
+| wh-112 | Master of Shapes | — | 14 | ☑ |
+| wh-113 | Pocketed Robes | — | 14 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
-| wh-115 | Shifter of Hues | — | 21 | ☑ |
+| wh-115 | Shifter of Hues | — | 23 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 24 | ☑ |

@@ -19,6 +19,9 @@
  * | 4 | Tap the Robes during end-of-turn to fetch one of 3 named cards   | IMPLEMENTED |
  * | 5 | Only the three named cards are fetchable; only end-of-turn       | IMPLEMENTED |
  * | 6 | Cost taps the Robes themselves (not Radagast)                    | IMPLEMENTED |
+ * | 7 | Playable bare when Radagast is NOT in play ("if he is in play")  | IMPLEMENTED |
+ * | 8 | Attaches to Radagast the moment he enters play                   | IMPLEMENTED |
+ * | 9 | The fetch is unavailable while the card is not on Radagast       | IMPLEMENTED |
  *
  * Modeling: identical shape to Huntsman's Garb (wh-92) — see that card's test
  * for the general pattern this reuses verbatim.
@@ -40,6 +43,14 @@
  *    `tap: self` on an item-borne grant taps the *item* (via `applyCost`
  *    `tapAttachment`), so eligibility keys on the Robes' own status — not the
  *    bearer's — meaning the fetch works even while Radagast is tapped.
+ *  - Rules 7–9: "Place this card on Radagast **if he is in play**" — placement
+ *    is conditional, not a play requirement. An untargeted `play-option` gated
+ *    on `player.avatarInPlay: false` lets the card enter play bare in
+ *    `cardsInPlay`, and an `on-event: avatar-enters-play` move (self →
+ *    `in-play-on-character`) attaches it to Radagast the moment he is revealed
+ *    — the wh-92 / wh-99 / Bade to Rule (le-167) pattern. Rule 9 falls out of
+ *    the scanner: `endOfTurnGrantActions` walks characters and their attached
+ *    items only, so bare Robes in `cardsInPlay` are never a grant source.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -47,7 +58,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   addCardToDiscardPile,
@@ -56,7 +67,7 @@ import {
   dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameState, PlayerState } from '../../index.js';
-import { Phase, Alignment, CardStatus } from '../../index.js';
+import { Phase, Alignment, CardStatus, computeLegalActions } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
@@ -298,5 +309,101 @@ describe('Pocketed Robes (wh-113)', () => {
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
     } as GameState;
     expect(grantedActionsFor(org, radagastId, FETCH, PLAYER_1).length).toBe(0);
+  });
+
+  // ── Rules 7–9: playable without Radagast, not usable without Radagast ──────
+  // "Place this card on Radagast if he is in play" makes the placement
+  // conditional, not the play; the fetch clause is "If on Radagast". Mirrors
+  // Huntsman's Garb (wh-92) / Give Welcome to the Unexpected (wh-99).
+
+  /** Organization-phase state with Radagast NOT in play: he sits in hand
+   *  (still the declared avatar, so the radagast-specific gate passes) and his
+   *  home site Rhosgobel heads the site deck so he can be revealed. */
+  function radagastUnrevealedOrgState(): GameState {
+    return buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: RHOSGOBEL, characters: [BOROMIR] }],
+          hand: [POCKETED_ROBES, RADAGAST],
+          siteDeck: [RHOSGOBEL],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RHOSGOBEL, characters: [] }],
+          hand: [],
+          siteDeck: [RHOSGOBEL],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+  }
+
+  /** Every viable end-of-turn fetch offer, regardless of which character it is
+   *  keyed on — bare Robes have no bearer to ask `grantedActionsFor` about. */
+  const allFetchOffers = (state: GameState) =>
+    computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable)
+      .map(ea => ea.action)
+      .filter(a => a.type === 'activate-granted-action'
+        && (a as { actionId?: string }).actionId === FETCH);
+
+  test('playable bare during the organization phase when Radagast is not in play', () => {
+    const state = radagastUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const baseline = state.players[RESOURCE_PLAYER].stagePoints;
+    const robesId = findHandCardId(state, RESOURCE_PLAYER, POCKETED_ROBES);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, robesId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === POCKETED_ROBES)).toBe(true);
+    // The stage point is earned whether or not the card sits on Radagast.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(baseline + 1);
+  });
+
+  test('the fetch is NOT offered while the Robes sit in play unattached', () => {
+    const org = radagastUnrevealedOrgState();
+    const robesId = findHandCardId(org, RESOURCE_PLAYER, POCKETED_ROBES);
+    let state = playPermanentEventAndResolve(org, PLAYER_1, robesId);
+    for (const d of [CREPT_ALONG_CLEVERLY, WIZARDS_RIVER_HORSES, HERB_LORE]) state = addCardToDiscardPile(state, RESOURCE_PLAYER, d);
+    const eot = {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+
+    // Three fetchable cards in the discard pile, and still no offer: only
+    // Robes *on* Radagast can be tapped.
+    expect(allFetchOffers(eot).length).toBe(0);
+  });
+
+  test('attaches to Radagast the moment he enters play, and the fetch works from then on', () => {
+    const org = radagastUnrevealedOrgState();
+    const robesId = findHandCardId(org, RESOURCE_PLAYER, POCKETED_ROBES);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, robesId);
+
+    // Reveal Radagast at his home site — the Robes leave `cardsInPlay` for his items.
+    const playRadagast = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, RADAGAST));
+    expect(playRadagast).toBeDefined();
+    const revealed = dispatch(bare, playRadagast!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === POCKETED_ROBES)).toBe(false);
+    expect(getCharacter(revealed, RESOURCE_PLAYER, RADAGAST).items.some(i => i.definitionId === POCKETED_ROBES)).toBe(true);
+
+    // With the Robes on Radagast, the end-of-turn fetch is offered again.
+    let seeded = revealed;
+    for (const d of [CREPT_ALONG_CLEVERLY, WIZARDS_RIVER_HORSES, HERB_LORE]) seeded = addCardToDiscardPile(seeded, RESOURCE_PLAYER, d);
+    const eot = {
+      ...seeded,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+    expect(allFetchOffers(eot).length).toBe(3);
   });
 });

@@ -41,9 +41,10 @@ import type { Tunables } from '../core/tunables.js';
 import { conflicts, completionProbability, expectedValueTsd, planRationale } from '../core/plan.js';
 import { leaf, node } from '../core/rationale.js';
 
-// The commitment vocabulary moved to `core/plan` so `ModuleContext` can carry
-// it without `core` importing a service; re-exported so existing consumers
-// keep their import site.
+// The commitment vocabulary lives in `core/plan.ts` with the rest of the plan
+// types, so `ModuleContext` can carry a commitment without core depending on a
+// service. Re-exported here because this service is where a commitment is
+// *made*, and its consumers have always imported the types from it.
 export type { Commitment, DroppedPlan, DropReason } from '../core/plan.js';
 
 /** Per-game commitment state. One per agent, reset at the start of each game. */

@@ -2077,7 +2077,7 @@ function playResourcesActions(
       // card's printed resource list — so it survives the conversion.
       const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType, siteRegionTypeOf(state, siteDefForAlly), isUnderDeepsSurfaceSite(state, siteDefForAlly)));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
-        && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
+        && (!sitePlayTarget.filter || matchesDefinition({ ...siteDefForAlly, siteType: allyEffSiteType ?? siteDefForAlly.siteType }, sitePlayTarget.filter));
       // Glove of Radagast (wh-111): a `grant-ally-play` permission on a company
       // member makes any matching non-unique 1-mind ally playable at the
       // company's current site, bypassing the ally's printed `playableAt`.

@@ -24,7 +24,7 @@
 
 import './test-dom-bootstrap.js'; // must precede the render-piles import (load-time window access)
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { loadCardPool } from '@meccg/shared';
+import { loadCardPool, UNKNOWN_CARD } from '@meccg/shared';
 import type { PlayerView, EvaluatedAction, ViewCard, CardInstanceId, PlayerId } from '@meccg/shared';
 import { renderDeckPiles, prepareRevealRemoveFromDiscard } from './render-piles.js';
 
@@ -90,7 +90,19 @@ const OPPONENT_ID = 'p2' as PlayerId;
 const discardCard = (idx: number, instanceId: string): ViewCard =>
   ({ instanceId: instanceId as CardInstanceId, definitionId: DEF_IDS[idx % DEF_IDS.length] } as unknown as ViewCard);
 
-const oppDiscard: ViewCard[] = ['p2-29', 'p2-56', 'p2-4', 'p2-18', 'p2-99', 'p2-100'].map((id, i) => discardCard(i, id));
+const revealedRemovable: ViewCard[] = ['p2-29', 'p2-56', 'p2-4', 'p2-18'].map((id, i) => discardCard(i, id));
+
+// Aware of their Ways reveals a unique card too (its identity becomes known)
+// but only offers non-unique revealed cards as removable — this one should
+// still render in the pile browser, just dimmed rather than selectable.
+const uniqueRevealed: ViewCard = { instanceId: 'p2-101' as CardInstanceId, definitionId: 'tw-168' } as unknown as ViewCard; // Legolas
+
+// Still-hidden cards elsewhere in a (typically much larger) discard pile,
+// unrelated to this reveal — the pile browser must not show these.
+const hiddenPile: ViewCard[] = Array.from({ length: 6 }, (_, i) =>
+  ({ instanceId: `p2-hidden-${i}` as CardInstanceId, definitionId: UNKNOWN_CARD }) as unknown as ViewCard);
+
+const oppDiscard: ViewCard[] = [...hiddenPile, ...revealedRemovable, uniqueRevealed];
 
 const removeAction = (cardInstanceId: string): EvaluatedAction => ({
   action: { type: 'remove-revealed-card', player: 'p1' as PlayerId, cardInstanceId: cardInstanceId as CardInstanceId },
@@ -128,13 +140,29 @@ describe('reveal-remove-from-discard sub-flow (Aware of their Ways, dm-46)', () 
     // Open the pile browser the same way a player click on the highlighted pile would.
     byId['opponent-discard-pile'].click();
 
+    // Bug report f93a6484119cce2d (game mt18r3nn-awd825, seq 415): the real
+    // discard pile also held cards Aware of their Ways never revealed. The
+    // browser must show only the 5 currently-revealed cards (4 removable +
+    // the unique one), not the whole pile padded with hidden placeholders —
+    // reported as "showed 7 cards ... #4 was unique ... but it still should
+    // be visible" (the unique card was there, just buried among unrelated
+    // hidden cards).
     const gridImgs = byId['pile-browser-grid'].children;
-    expect(gridImgs.length).toBe(oppDiscard.length);
+    expect(gridImgs.length).toBe(5);
 
     const selectable = gridImgs.filter(img => img.classList.contains('site-selectable'));
     expect(selectable.map(img => img.dataset.instanceId)).toEqual(
       expect.arrayContaining(['browser:p2-29', 'browser:p2-56', 'browser:p2-4', 'browser:p2-18']),
     );
+
+    // The unique, non-removable card is revealed and rendered, just dimmed.
+    const uniqueImg = gridImgs.find(img => img.dataset.instanceId === 'browser:p2-101')!;
+    expect(uniqueImg).toBeDefined();
+    expect(uniqueImg.classList.contains('site-selectable')).toBe(false);
+    expect(uniqueImg.classList.contains('site-dimmed')).toBe(true);
+
+    // No still-hidden placeholder cards should appear at all.
+    expect(gridImgs.some(img => (img.dataset.instanceId ?? '').startsWith('browser:p2-hidden-'))).toBe(false);
 
     const chosen = selectable.find(img => img.dataset.instanceId === 'browser:p2-56')!;
     chosen.click();

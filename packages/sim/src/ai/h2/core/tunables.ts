@@ -445,8 +445,37 @@ export interface Tunables {
    * not have yet. A flat floor is the honest middle ground: without it, an
    * avatar with 0 marshalling points reads as worth exactly what a Hobbit is
    * worth, and is never played.
+   *
+   * Ships well above `eliminationTempoCost`, deliberately: an avatar is not
+   * one character among others but the card the deck is built around — the
+   * avatar-specific resources want it named, a Fallen-wizard's stage payoffs
+   * want it in play, and the sideboard fetch it alone provides is the deck's
+   * recovery valve. A floor that merely matched a good character kept losing
+   * the play to marginal alternatives, which is how the figure moved from its
+   * original 2.
    */
   readonly avatarInPlayTsd: number;
+  /**
+   * What one Fallen-wizard stage point is worth, in TSD, beyond the
+   * marshalling points the stage card happens to carry.
+   *
+   * Not a reading of the scoreboard — stage points score nothing directly. It
+   * is the price of *progression*: the deck's payoff cards are gated on the
+   * running total (Await the Onset wh-96, Prophet of Doom wh-106 and The White
+   * Hand wh-122 all demand 12 or more; A Strident Spawn wh-61 demands 6 and a
+   * protected Wizardhaven, which itself wants the total above 6), so a stage
+   * point banked now is a play unlocked later. Fallen-wizard decks in this
+   * project are built on the assumption that every stage card reaches the
+   * table, which is why the term exists at all: without it a stage card with
+   * no printed marshalling points prices at exactly zero and ties with `pass`
+   * forever.
+   *
+   * Charged through the *potential* channel, so `potentialDiscount` applies —
+   * progression is precisely "points a play unlocks but does not bank yet".
+   * The same figure prices the loss side when a `discard-stage-resource` is on
+   * offer, which is what keeps that action ranked below doing nothing.
+   */
+  readonly stagePointTsd: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -486,7 +515,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   planHorizonTurns: 6,
   heldCardFloor: 1,
   organizationGoalCap: 4,
-  avatarInPlayTsd: 2,
+  avatarInPlayTsd: 6,
+  stagePointTsd: 0.5,
 };
 
 /**

@@ -44,7 +44,8 @@
  * worth on elimination is `denial`'s `characterMp`, not an ability.
  */
 
-import type { CardDefinition } from '@meccg/shared';
+import type { CardDefinition, Condition } from '@meccg/shared';
+import { matchesCondition } from '@meccg/shared';
 
 /**
  * How an ability is taken away.
@@ -110,6 +111,78 @@ interface EffectShape {
   readonly check?: string;
   readonly action?: string;
   readonly scope?: string;
+  readonly target?: string;
+  readonly filter?: Condition;
+  readonly when?: Condition;
+}
+
+/**
+ * The guards on a tap-to-cancel-a-strike ability a character carries.
+ *
+ * `combatAbilitiesOf` classifies the ability as tap-gated so that *removing* it
+ * can be priced; this is the other half — the conditions under which the
+ * defence can *spend* it, which the sequence enumeration needs to model the
+ * defender tapping this character instead of rolling against a strike.
+ */
+export interface StrikeCancelGuard {
+  /** Which struck company-mates it protects, or undefined for any of them. */
+  readonly filter?: Condition;
+  /** Which attacks it works against (enemy race), or undefined for all. */
+  readonly when?: Condition;
+}
+
+/**
+ * The tap-to-cancel-a-strike ability of a character definition, or null.
+ *
+ * Recognised in exactly the shape the engine's legal-action scan accepts
+ * (`legal-actions/combat.ts`): a `cancel-strike` effect costing
+ * `{ tap: "self" }` and targeting `other-in-company` — Fatty Bolger (tw-495),
+ * who "can tap to cancel a strike against another Hobbit in his company". The
+ * self-protecting item/ally variants are deliberately not returned: they ride
+ * on the struck card itself and cancel only its own strike, which is a
+ * different decision than spending a company-mate's tap.
+ */
+export function strikeCancelGuardOf(def: CardDefinition | undefined): StrikeCancelGuard | null {
+  const effects = (def as unknown as { effects?: readonly EffectShape[] } | undefined)?.effects;
+  if (!effects) return null;
+  for (const effect of effects) {
+    if (effect.type !== 'cancel-strike') continue;
+    if (effect.cost?.tap !== 'self') continue;
+    if (effect.target !== 'other-in-company') continue;
+    return { filter: effect.filter, when: effect.when };
+  }
+  return null;
+}
+
+/**
+ * Whether a cancel ability could be spent on a strike against `targetDef`.
+ *
+ * Mirrors the engine's own eligibility test (`legal-actions/combat.ts`): the
+ * `when` condition is evaluated against the attack's race — only when one is
+ * known, exactly as the engine only builds the enemy context when the combat
+ * carries a creature race — and the `filter` against the struck character's
+ * printed race, skills and name.
+ */
+export function cancelProtects(
+  guard: StrikeCancelGuard,
+  targetDef: CardDefinition | undefined,
+  enemyRace?: string,
+): boolean {
+  if (guard.when) {
+    const ctx: Record<string, unknown> = {};
+    if (enemyRace !== undefined) ctx.enemy = { race: enemyRace };
+    if (!matchesCondition(guard.when, ctx)) return false;
+  }
+  if (guard.filter) {
+    if (!targetDef) return false;
+    const def = targetDef as unknown as { race?: string; skills?: readonly string[]; name?: string };
+    const target: Record<string, unknown> = {};
+    if (def.race !== undefined) target.race = def.race;
+    if (def.skills !== undefined) target.skills = def.skills;
+    if (def.name !== undefined) target.name = def.name;
+    if (!matchesCondition(guard.filter, { target })) return false;
+  }
+  return true;
 }
 
 /**

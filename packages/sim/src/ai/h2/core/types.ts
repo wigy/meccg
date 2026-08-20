@@ -180,16 +180,12 @@ export interface ModuleContext {
    */
   readonly visited?: Readonly<Record<string, readonly string[]>>;
   /**
-   * The plans the agent is committed to this turn — the destinations the
-   * organization phase arranges the companies around.
+   * The committed portfolio, when the agent has one.
    *
-   * Present only for *evaluation*: `agent.decide` builds the base context,
-   * runs `proposePlans` and `portfolio.commit` on it, and only then builds
-   * `{ ...context, commitment }` for `evaluateDecision` and `rankWithPlans`.
-   * A proposer that could read the commitment could propose what is already
-   * committed into a feedback loop; the ordering makes that structurally
-   * impossible. Also absent for tools that evaluate without a portfolio, so a
-   * reader must degrade to "no plans".
+   * Absent for proposers — they run *before* commitment, and a proposer that
+   * could read the commitment could propose what is already committed into a
+   * feedback loop — and for tools that evaluate without a portfolio. A module
+   * reading it must degrade gracefully to "no plans".
    */
   readonly commitment?: Commitment;
 }

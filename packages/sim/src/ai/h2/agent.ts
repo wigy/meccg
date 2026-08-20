@@ -263,20 +263,20 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         proposePlans(modules, moduleContext),
         tunables,
       );
-      // Evaluation sees the commitment; proposers deliberately did not. A
-      // proposer that read it could propose what is already committed into a
-      // feedback loop, and building the enriched context only after
-      // `portfolio.commit` makes that structurally impossible.
-      const evaluationContext: ModuleContext = { ...moduleContext, commitment };
+      // Evaluation sees what proposal must not: the committed portfolio.
+      // Proposers get the bare context above, so the ordering — propose,
+      // commit, then evaluate — is what makes a commitment feedback loop
+      // structurally impossible rather than merely discouraged.
+      const plannedContext: ModuleContext = { ...moduleContext, commitment };
       const { modules: contributors, evaluations: tactical, complete }
-        = evaluateDecision(modules, evaluationContext);
+        = evaluateDecision(modules, plannedContext);
       // The plan contributions are folded in here rather than inside
       // `evaluateDecision` because they are not a module's opinion about an
       // action — they are what the *commitment* says about it, and the registry
       // is the wrong place for a number no module owns. Re-ranking is the whole
       // point: a candidate that serves a commitment has to be able to outrank
       // one that looked better tactically.
-      const planned = rankWithPlans(modules, tactical, commitment, evaluationContext);
+      const planned = rankWithPlans(modules, tactical, commitment, plannedContext);
       const evaluations = planned.map(p => p.evaluation);
       const best = evaluations[0];
       // A ranking whose candidates all score the same is not an opinion, it is
