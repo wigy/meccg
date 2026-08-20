@@ -547,7 +547,8 @@ function installPileBrowserClickHandlers(): void {
   wirePile('opponent-mp-pile', 'MP Pile', () => cachedOppKillPile);
   wirePile('opponent-eliminated-pile', 'Eliminated', () => cachedOppOutOfPlay);
   wirePile('opponent-sideboard-pile', 'Sideboard', () => cachedOppSideboard);
-  wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
+  wirePile('opponent-discard-pile', 'Discard Pile', () =>
+    revealRemoveDiscardFilterActive ? cachedOppDiscard.filter(c => !isCardHidden(c.definitionId)) : cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
   wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck, '/images/site-back.jpg');
 }
@@ -713,6 +714,22 @@ export function prepareFetchFromPile(
 }
 
 /**
+ * Whether the reveal-remove-from-discard sub-flow is active. While true, the
+ * `opponent-discard-pile` click handler shows only the currently-revealed
+ * (non-hidden) cards instead of the whole pile.
+ *
+ * Aware of their Ways only reveals a handful of cards at random (four, minus
+ * any that were already public), but the opponent's discard pile can hold
+ * dozens of still-hidden cards from the rest of the game. Opening the pile
+ * browser with the raw, unfiltered pile buried the actual reveal in a wall of
+ * face-down placeholders, sorted with the removable candidates pushed to the
+ * end — reported as "showed 7 cards ... I assume #4 was unique ... but it
+ * still should be visible" (the unique, non-removable card was technically
+ * rendered, just lost among unrelated hidden cards).
+ */
+let revealRemoveDiscardFilterActive = false;
+
+/**
  * Prepare the reveal-remove-from-discard sub-flow UI (Aware of their Ways,
  * dm-46): highlights the opponent's discard pile and wires up the pile
  * browser so clicking one of the revealed cards sends the corresponding
@@ -734,6 +751,7 @@ export function prepareRevealRemoveFromDiscard(
   document.getElementById('opponent-discard-pile')?.classList.add('pile--fetch-active');
 
   pileSubFlowActive = true;
+  revealRemoveDiscardFilterActive = true;
   siteSelectionActions = removeActions;
   siteSelectionMatcher = (card) => removeActions.find(
     ea => ea.action.type === 'remove-revealed-card'
@@ -807,6 +825,7 @@ export function clearSelectionState(): void {
   siteSelectionMatcher = null;
   siteSelectionInPlayInstanceIds = new Set();
   pileSubFlowActive = false;
+  revealRemoveDiscardFilterActive = false;
   arrangeDeckTopBrowserOpened = false;
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
