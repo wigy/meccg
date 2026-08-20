@@ -6,8 +6,9 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, CompanyId, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
+import type { PlayerState } from '../types/state-player.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
@@ -2219,6 +2220,33 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
 }
 
 /**
+ * Resolve the source and target companies of a company-to-company action
+ * (move-to-company, merge-companies) and validate they stand at the same
+ * site. Rule g.site.1 lets a player hold multiple physical instances of the
+ * same haven in play at once, so "the same site" (rules 2.II.3.4–5) is
+ * judged by site definition, not raw card instance.
+ */
+function resolveSameSiteCompanies(
+  state: GameState,
+  player: PlayerState,
+  sourceCompanyId: CompanyId,
+  targetCompanyId: CompanyId,
+): { sourceCompany: Company; targetCompany: Company } | { error: string } {
+  const sourceCompany = companyById(player.companies, sourceCompanyId);
+  if (!sourceCompany) return { error: 'Source company not found' };
+
+  const targetCompany = companyById(player.companies, targetCompanyId);
+  if (!targetCompany) return { error: 'Target company not found' };
+
+  const sourceSiteDefId = sourceCompany.currentSite ? resolveInstanceId(state, sourceCompany.currentSite.instanceId) : undefined;
+  const targetSiteDefId = targetCompany.currentSite ? resolveInstanceId(state, targetCompany.currentSite.instanceId) : undefined;
+  if (!sourceSiteDefId || !targetSiteDefId || sourceSiteDefId !== targetSiteDefId) {
+    return { error: 'Companies must be at the same site' };
+  }
+  return { sourceCompany, targetCompany };
+}
+
+/**
  * Handle move-to-company during organization.
  *
  * Moves a GI character (and their followers) from one company to another
@@ -2231,21 +2259,9 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const sourceCompany = companyById(player.companies, action.sourceCompanyId);
-  if (!sourceCompany) return { state, error: 'Source company not found' };
-
-  const targetCompany = companyById(player.companies, action.targetCompanyId);
-  if (!targetCompany) return { state, error: 'Target company not found' };
-
-  // Validate same site. Rule g.site.1 lets a player hold multiple physical
-  // instances of the same haven in play at once, so "the same site" (rule
-  // 2.II.3.4) is judged by site definition, not raw card instance — mirror
-  // handleMergeCompanies below.
-  const sourceSiteDefId = sourceCompany.currentSite ? resolveInstanceId(state, sourceCompany.currentSite.instanceId) : undefined;
-  const targetSiteDefId = targetCompany.currentSite ? resolveInstanceId(state, targetCompany.currentSite.instanceId) : undefined;
-  if (!sourceSiteDefId || !targetSiteDefId || sourceSiteDefId !== targetSiteDefId) {
-    return { state, error: 'Companies must be at the same site' };
-  }
+  const resolved = resolveSameSiteCompanies(state, player, action.sourceCompanyId, action.targetCompanyId);
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { sourceCompany, targetCompany } = resolved;
 
   const charInstId = action.characterInstanceId;
   const char = player.characters[charInstId];
@@ -2435,20 +2451,9 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const sourceCompany = companyById(player.companies, action.sourceCompanyId);
-  if (!sourceCompany) return { state, error: 'Source company not found' };
-
-  const targetCompany = companyById(player.companies, action.targetCompanyId);
-  if (!targetCompany) return { state, error: 'Target company not found' };
-
-  // Validate same site. Rule g.site.1 lets a player hold multiple physical
-  // instances of the same haven in play at once, so "the same site" (rule
-  // 2.II.3.5) is judged by site definition, not raw card instance.
-  const sourceSiteDefId = sourceCompany.currentSite ? resolveInstanceId(state, sourceCompany.currentSite.instanceId) : undefined;
-  const targetSiteDefId = targetCompany.currentSite ? resolveInstanceId(state, targetCompany.currentSite.instanceId) : undefined;
-  if (!sourceSiteDefId || !targetSiteDefId || sourceSiteDefId !== targetSiteDefId) {
-    return { state, error: 'Companies must be at the same site' };
-  }
+  const resolved = resolveSameSiteCompanies(state, player, action.sourceCompanyId, action.targetCompanyId);
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { sourceCompany, targetCompany } = resolved;
 
   logDetail(`Merge companies: ${sourceCompany.id as string} into ${targetCompany.id as string} (${sourceCompany.characters.length} characters moving)`);
 
