@@ -1,9 +1,15 @@
 # H2 Organization Phase: One Potential for Company Shape and Follower Stacking
 
-*Status: design, 2026-08-20. Extends `2026-07-27-heuristics-2-ai.md` §3.2
-(the roster plan that "does not exist") and `2026-08-11-h2-plan-layer.md`
-§8 step 3 ("widen: `characters` — company shape for the trip"). Nothing here
-is implemented.*
+*Status: implemented through P4, 2026-08-20. Extends
+`2026-07-27-heuristics-2-ai.md` §3.2 (the roster plan that "does not exist")
+and `2026-08-11-h2-plan-layer.md` §8 step 3 ("widen: `characters` — company
+shape for the trip"). P5 (measurement: `calibrate`, the sweeps, the gate)
+runs in review per §9. One implementation deviation, forced by §5's own
+invariant: opportunity goals carry the partition-independent *gross* payoff
+and the site's toll is netted inside the matching weight against the serving
+company's roster — netting it into the goal list (§3 as written) would let
+the goal list drift between the two sides of an undo, and the potential
+property would fail exactly where the tests pin it.*
 
 ## 1. The requirement and the gap
 

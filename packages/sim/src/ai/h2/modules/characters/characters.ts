@@ -196,12 +196,6 @@ function evaluateDiscardCharacter(context: ModuleContext, action: GameAction): E
   };
 }
 
-/** The characters of a company, as strike targets from our own seat. */
-function rosterFor(context: ModuleContext, companyId: string): StrikeTarget[] {
-  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
-  return company ? rosterOf(company, context.view.self.characters, context.cardPool) : [];
-}
-
 /**
  * Who actually leaves when a character is split out: him and his followers.
  *
