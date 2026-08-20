@@ -412,6 +412,15 @@ function handHasPlayableSiteInDeck(
  * rather than zero — this nudges the AI toward productive movement instead
  * of staying idle every turn.
  *
+ * Draw-only bonus: even without either of the above, a site's printed
+ * resource-draw box (CoE 2.IV.v) is real card advantage the AI gets for free
+ * on arrival. When that draw more than offsets the site's danger, moving
+ * there beats sitting still — otherwise a hand made up entirely of
+ * non-site-targeted cards (e.g. combat-only short events) left every
+ * `plan-movement` candidate scoring 0, so `pass`'s flat weight (5) won every
+ * organization phase and the AI camped at its current site indefinitely
+ * (bug report: AI stalled at Rivendell for three consecutive turns).
+ *
  * Returns a non-negative integer; 0 means "do not move here".
  */
 export function scoreDestinationSite(
@@ -444,10 +453,12 @@ export function scoreDestinationSite(
     // No cards to play here directly. If the AI has cards playable somewhere
     // in the deck, score a haven move as an intermediate step toward those
     // sites. Havens are safe hubs that reset travel options for the next turn.
-    if (destSite.siteType === 'haven' && handHasPlayableSiteInDeck(view, pool)) {
-      return 15;
-    }
-    return 0;
+    const intermediateHavenScore = destSite.siteType === 'haven' && handHasPlayableSiteInDeck(view, pool) ? 15 : 0;
+    // Coefficient 5 puts a 2-card draw (10) clearly above the org-phase pass
+    // score (5) at zero danger, while a dangerous site's penalty still wins
+    // out — so the AI only takes the free cards when the trip is safe.
+    const drawOnlyScore = Math.max(0, resourceDraws * 5 - siteDanger - regionDanger);
+    return Math.max(intermediateHavenScore, drawOnlyScore);
   }
 
   return Math.max(0, playableScore + resourceDraws * 2 - siteDanger - regionDanger);
