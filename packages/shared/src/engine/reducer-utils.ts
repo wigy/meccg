@@ -3987,17 +3987,12 @@ export function influenceRegionPenalty(
 function playableAtEntryMatchesSite(
   entry: import('../types/cards-resources.js').PlayableAtEntry,
   siteDef: SiteCard,
+  state: GameState,
 ): boolean {
   if ('region' in entry) {
     if (siteDef.siteType === 'haven') return false;
     return siteDef.region === entry.region;
   }
-  // `any` entries match every site subject to the optional `when` condition.
-  // NOTE: this path (backing `isCardPlayableAtSiteDef`, e.g. Strider's
-  // discard-pile fetch) has no `state`, so `site.regionType` is not populated
-  // here — a `when` gating on region type under-approximates (safe: never a
-  // false positive). The primary faction-play path (`siteMatchesEntry` in
-  // `legal-actions/site.ts`) supplies `regionType` and evaluates it fully.
   const baseMatches = 'any' in entry
     ? true
     : 'site' in entry
@@ -4011,6 +4006,7 @@ function playableAtEntryMatchesSite(
       name: siteDef.name,
       siteType: siteDef.siteType,
       region: siteDef.region,
+      regionType: siteRegionTypeOf(state, siteDef),
       autoAttack: { race: autoAttackRaces },
     },
   });
@@ -4032,7 +4028,7 @@ function playableAtEntryMatchesSite(
  * `fetch-to-deck` pending effects (Strider ba-1: "search your discard pile
  * for any one item, ally, or faction playable at his current site").
  */
-export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard): boolean {
+export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, state: GameState): boolean {
   if (isItemCard(def)) {
     if ((siteDef.playableResources as readonly string[]).includes(def.subtype as string)) return true;
     const playSite = getCardEffects(def).find(
@@ -4046,7 +4042,7 @@ export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard):
     return false;
   }
   if (isAllyCard(def) || isFactionCard(def)) {
-    if (def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef))) return true;
+    if (def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef, state))) return true;
     const sitePlayTarget = getCardEffects(def).find(
       (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
     );
@@ -5561,7 +5557,7 @@ export function factionSiegeEligibleSites(
   const regionSet = new Set<string>();
   for (const def of Object.values(state.cardPool)) {
     if (!isSiteCard(def) || !def.region) continue;
-    if (isCardPlayableAtSiteDef(factionDef, def)) regionSet.add(def.region);
+    if (isCardPlayableAtSiteDef(factionDef, def, state)) regionSet.add(def.region);
   }
   // Expand with adjacent regions (region cards carry the adjacency graph).
   const adjacent = new Set<string>();
@@ -6273,7 +6269,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   // site") — the qualifying site was captured when the fetch was enqueued.
   if (current.effect.playableAtSite !== undefined) {
     const requiredSite = defById(state, current.effect.playableAtSite);
-    if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
+    if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite, state)) {
       return { state, error: `Card is not playable at ${requiredSite && 'name' in requiredSite ? requiredSite.name : 'the required site'}` };
     }
   }
