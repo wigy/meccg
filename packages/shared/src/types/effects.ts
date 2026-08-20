@@ -2543,6 +2543,15 @@ export interface AddConstraintAction extends TriggeredActionBase {
    */
   readonly onFailure?: 'shuffle-faction-into-deck';
   /**
+   * For an influence `check-modifier` payload: what happens when the boosted
+   * check succeeds. `'draw-card'` draws one card for the influencer's
+   * controller. Lordly Presence (tw-267): "+5 to an influence check against a
+   * faction. If the influence check is successful, draw a card." Carried onto
+   * the constraint kind and honoured by `resolveInfluenceAttemptRoll` when the
+   * consuming check succeeds.
+   */
+  readonly onSuccess?: 'draw-card';
+  /**
    * For an influence `check-modifier` payload: replace the influencer's unused
    * direct influence with `min(effective prowess, max)` when the constraint is
    * consumed by a faction-influence check. The prowess is read at resolution

@@ -664,6 +664,26 @@ play deck."
              "value": 3, "scope": "until-cleared", "onFailure": "shuffle-faction-into-deck" } }
 ```
 
+Symmetrically, a one-shot faction-influence booster may change the **fate of
+the influencer's controller on success**: `onSuccess: "draw-card"` on the
+`add-constraint check-modifier` apply is carried onto the constraint, and when
+the consuming faction-influence roll succeeds, the influencer's controller
+draws one card from the top of their play deck (`drawCardsExhausting`, the
+same exhaust-and-reshuffle helper used by `draw-cards`) before the
+`successful-influence-attempt` triggers fire. Used by the Muster shape (a
+skill-filtered `play-target`, not `target.isInfluencing`) by Lordly Presence
+(tw-267): "Diplomat only. +5 to an influence check against a faction. If the
+influence check is successful, draw a card."
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "target.skills": { "$includes": "diplomat" } } },
+{ "type": "play-option", "id": "lordly-presence-boost",
+  "when": { "player.hasFactionInHand": true },
+  "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
+             "value": 5, "scope": "until-cleared", "onSuccess": "draw-card" } }
+```
+
 A one-shot faction-influence constraint may instead carry a
 **`prowessSubstitution`** payload: `{ "max": N }` on the `add-constraint
 check-modifier` apply (no `value`/`valueExpr` needed). When the

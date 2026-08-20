@@ -3060,8 +3060,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Diplomat only. +5 to an influence check against a faction.If the influence check is successful, draw a card."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "diplomat"
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "lordly-presence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "value": 5,
+          "scope": "until-cleared",
+          "onSuccess": "draw-card"
+        }
+      }
+    ],
+    "text": "Diplomat only. +5 to an influence check against a faction.If the influence check is successful, draw a card.",
+    "certified": "2026-08-20"
   },
   {
     "cardType": "hero-resource-faction",
