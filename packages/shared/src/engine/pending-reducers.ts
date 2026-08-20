@@ -882,13 +882,8 @@ export function applyOpponentInfluenceDefendResolution(
     return applyCancelInfluence(state, action, top);
   }
 
-  if (action.type !== 'opponent-influence-defend') {
-    return { state, error: `Pending opponent-influence-defend requires that action, got '${action.type}'` };
-  }
-
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending opponent-influence-defend' };
-  }
+  const g = guardResolution(state, action, top, 'opponent-influence-defend', 'opponent-influence-defend');
+  if (!g.ok) return g.result;
 
   const result = resolveOpponentInfluenceDefend(state, top.kind.attempt);
   if (result.error) return result;
@@ -1083,6 +1078,43 @@ function guardResolution<K extends PendingResolution['kind']['type'], A extends 
     player: state.players[actorIndex],
     action: action as Extract<GameAction, { readonly type: A }>,
     kind: top.kind as Extract<PendingResolution['kind'], { readonly type: K }>,
+  };
+}
+
+/**
+ * {@link guardResolution} variant for the kinds whose actor may also decline
+ * with a generic `pass`: a pass logs `passMessage` (a string, or a function of
+ * the narrowed kind when the message needs its fields) and yields the dequeued
+ * state as the early-return `result`. All other checks and the `ok` payload
+ * match {@link guardResolution}.
+ */
+function guardResolutionOrPass<K extends PendingResolution['kind']['type'], A extends GameAction['type']>(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+  actionType: A,
+  kindType: K,
+  passMessage: string | ((kind: Extract<PendingResolution['kind'], { readonly type: K }>) => string),
+): ResolutionGuard<K, A> {
+  if (top.kind.type !== kindType) return { ok: false, result: null };
+  const kind = top.kind as Extract<PendingResolution['kind'], { readonly type: K }>;
+  if (action.type === 'pass') {
+    logDetail(typeof passMessage === 'string' ? passMessage : passMessage(kind));
+    return { ok: false, result: { state: dequeueResolution(state, top.id) } };
+  }
+  if (action.type !== actionType) {
+    return { ok: false, result: { state, error: `Pending ${kindType} requires '${actionType}' or pass, got '${action.type}'` } };
+  }
+  if (action.player !== top.actor) {
+    return { ok: false, result: { state, error: `Wrong player for pending ${kindType}` } };
+  }
+  const actorIndex = getPlayerIndex(state, action.player);
+  return {
+    ok: true,
+    actorIndex,
+    player: state.players[actorIndex],
+    action: action as Extract<GameAction, { readonly type: A }>,
+    kind,
   };
 }
 
@@ -1532,17 +1564,12 @@ export function applyDiceCheckResolution(
  */
 export function applyTransferReturnedItemResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'transfer-returned-item') {
-    return { state, error: `Pending transfer-returned-item requires 'transfer-returned-item', got '${action.type}'` };
-  }
-  if (top.kind.type !== 'transfer-returned-item') return null;
-  if (action.player !== top.actor) {
-    return { state, error: `Wrong player for pending transfer-returned-item` };
-  }
-  const kind = top.kind;
+  const g = guardResolution(state, rawAction, top, 'transfer-returned-item', 'transfer-returned-item');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
   const post = dequeueResolution(state, top.id);
 
   // Decline (either field omitted): remaining items stay discarded.
@@ -2944,29 +2971,16 @@ function finalizeGoldRingTest(
  */
 export function applyRingPlayOfferResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'ring-play-offer') return null;
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-ring-after-test', 'ring-play-offer',
+    'ring-play-offer: player passes — no replacement ring played');
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex: playerIndex, player } = g;
 
-  if (action.type === 'pass') {
-    logDetail(`ring-play-offer: player passes — no replacement ring played`);
-    return { state: dequeueResolution(state, top.id) };
-  }
-
-  if (action.type !== 'play-ring-after-test') {
-    return { state, error: `Pending ring-play-offer requires play-ring-after-test or pass, got '${action.type}'` };
-  }
-
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending ring-play-offer' };
-  }
-
-  const { characterInstanceId, storedPlacement } = top.kind;
+  const { characterInstanceId, storedPlacement } = kind;
   const { ringInstanceId, source = 'hand' } = action;
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
 
   // Locate ring in hand, play deck, or discard pile (ring-test-search support)
   let ringCard: typeof player.hand[0];
@@ -3128,31 +3142,25 @@ export function applyPairResourceWithCof(
  */
 export function applyWizardSearchOnStoreResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
   if (top.kind.type !== 'wizard-search-on-store') return null;
 
-  if (action.type === 'skip-wizard-search') {
-    if (action.player !== top.actor) {
+  if (rawAction.type === 'skip-wizard-search') {
+    if (rawAction.player !== top.actor) {
       return { state, error: 'Wrong player for wizard-search-on-store' };
     }
     logDetail('Wizard-search: skipped by player');
     return { state: dequeueResolution(state, top.id) };
   }
 
-  if (action.type !== 'play-wizard-from-search') {
-    return { state, error: `Pending wizard-search-on-store requires play-wizard-from-search or skip-wizard-search, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for wizard-search-on-store' };
-  }
+  const g = guardResolution(state, rawAction, top, 'play-wizard-from-search', 'wizard-search-on-store');
+  if (!g.ok) return g.result;
+  const { action, actorIndex, player } = g;
 
   const { companyId } = top.kind;
   const { wizardDefinitionId, source } = action;
-
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
 
   // Find the wizard instance in the specified pile
   let wizardInst: CardInstance | undefined;
@@ -3229,14 +3237,14 @@ export function applyWizardSearchOnStoreResolution(
  */
 export function applySelectCardBearerResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
   if (top.kind.type !== 'select-card-bearer') return null;
 
   const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions, returnFactionsAtSite: shouldReturnFactions, discardUniqueFactionsAtSite: shouldDiscardUniqueFactions } = top.kind;
 
-  if (action.type === 'pass') {
+  if (rawAction.type === 'pass') {
     // Player declines bearer assignment — discard the card
     const defIdx = state.players.findIndex(
       p => p.companies.some(co => co.id === companyId),
@@ -3269,12 +3277,9 @@ export function applySelectCardBearerResolution(
     return { state: dequeueResolution(s, top.id) };
   }
 
-  if (action.type !== 'select-card-bearer') {
-    return { state, error: `Pending select-card-bearer requires select-card-bearer or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for select-card-bearer' };
-  }
+  const g = guardResolution(state, rawAction, top, 'select-card-bearer', 'select-card-bearer');
+  if (!g.ok) return g.result;
+  const { action } = g;
 
   const { characterId } = action;
 
@@ -3897,26 +3902,17 @@ export function applyEventMaintenanceResolution(
  */
 export function applyTapOneCharacterResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'tap-one-character') return null;
-
   // pass: no untapped characters available (or player skips)
-  if (action.type === 'pass') {
-    logDetail('tap-one-character: pass (no untapped character tapped)');
-    return { state: dequeueResolution(state, top.id) };
-  }
-
-  if (action.type !== 'tap-character-by-effect') {
-    return { state, error: `Pending tap-one-character requires tap-character-by-effect or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for tap-one-character' };
-  }
+  const g = guardResolutionOrPass(state, rawAction, top, 'tap-character-by-effect', 'tap-one-character',
+    'tap-one-character: pass (no untapped character tapped)');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
 
   const { characterInstanceId } = action;
-  const { companyId } = top.kind;
+  const { companyId } = kind;
 
   const playerIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
   if (playerIdx < 0) return { state, error: `Company ${companyId as string} not found` };
@@ -3953,26 +3949,17 @@ export function applyTapOneCharacterResolution(
  */
 export function applyHavenRestoreCharacterResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'haven-restore-character') return null;
-
   // pass: the player declines the optional untap/heal.
-  if (action.type === 'pass') {
-    logDetail('haven-restore-character: pass (Hall of Fire benefit declined)');
-    return { state: dequeueResolution(state, top.id) };
-  }
-
-  if (action.type !== 'restore-character-by-effect') {
-    return { state, error: `Pending haven-restore-character requires restore-character-by-effect or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for haven-restore-character' };
-  }
+  const g = guardResolutionOrPass(state, rawAction, top, 'restore-character-by-effect', 'haven-restore-character',
+    'haven-restore-character: pass (Hall of Fire benefit declined)');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
 
   const { characterInstanceId } = action;
-  const { companyId } = top.kind;
+  const { companyId } = kind;
 
   const playerIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
   if (playerIdx < 0) return { state, error: `Company ${companyId as string} not found` };
@@ -4021,7 +4008,7 @@ export function applyHavenRestoreCharacterResolution(
  */
 export function applyLeftBehindRejoinResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
   if (top.kind.type !== 'left-behind-rejoin') return null;
@@ -4038,18 +4025,14 @@ export function applyLeftBehindRejoinResolution(
   }));
 
   // pass: keep the company separate, but clear its left-behind flags.
-  if (action.type === 'pass') {
+  if (rawAction.type === 'pass') {
     logDetail(`left-behind-rejoin: pass — company ${companyId as string} stays separate`);
     return { state: dequeueResolution(clearFlags(state), top.id) };
   }
 
-  if (action.type !== 'left-behind-rejoin') {
-    return { state, error: `Pending left-behind-rejoin requires left-behind-rejoin or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for left-behind-rejoin' };
-  }
-  if (action.companyId !== companyId) {
+  const g = guardResolution(state, rawAction, top, 'left-behind-rejoin', 'left-behind-rejoin');
+  if (!g.ok) return g.result;
+  if (g.action.companyId !== companyId) {
     return { state, error: 'left-behind-rejoin: company mismatch' };
   }
 
@@ -4096,21 +4079,14 @@ export function applyLeftBehindRejoinResolution(
  */
 export function applyArrangeDeckTopResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'arrange-deck-top') return null;
+  const g = guardResolution(state, rawAction, top, 'arrange-deck-top-card', 'arrange-deck-top');
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex: playerIdx, player } = g;
 
-  if (action.type !== 'arrange-deck-top-card') {
-    return { state, error: `Pending arrange-deck-top requires arrange-deck-top-card, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for arrange-deck-top' };
-  }
-
-  const { count, orderedInstanceIds } = top.kind;
-  const playerIdx = getPlayerIndex(state, action.player);
-  const player = state.players[playerIdx];
+  const { count, orderedInstanceIds } = kind;
   const topCards = player.playDeck.slice(0, count);
 
   // The chosen card must be one of the top cards and not already placed.
@@ -4127,7 +4103,7 @@ export function applyArrangeDeckTopResolution(
     logDetail(`arrange-deck-top: placed "${chosenName}" at position ${newOrdered.length}/${count}`);
     const updated = state.pendingResolutions.map(r =>
       r.id === top.id
-        ? { ...r, kind: { ...top.kind, orderedInstanceIds: newOrdered } }
+        ? { ...r, kind: { ...kind, orderedInstanceIds: newOrdered } }
         : r,
     );
     return { state: { ...state, pendingResolutions: updated } };
@@ -4153,25 +4129,18 @@ export function applyArrangeDeckTopResolution(
  */
 export function applyRevealChooseToHandResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'reveal-choose-to-hand') return null;
+  const g = guardResolution(state, rawAction, top, 'choose-revealed-card', 'reveal-choose-to-hand');
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex: playerIdx, player } = g;
 
-  if (action.type !== 'choose-revealed-card') {
-    return { state, error: `Pending reveal-choose-to-hand requires choose-revealed-card, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for reveal-choose-to-hand' };
-  }
-
-  const { revealedInstanceIds } = top.kind;
+  const { revealedInstanceIds } = kind;
   if (!revealedInstanceIds.includes(action.cardInstanceId)) {
     return { state, error: `Card ${action.cardInstanceId as string} was not among the revealed cards` };
   }
 
-  const playerIdx = getPlayerIndex(state, action.player);
-  const player = state.players[playerIdx];
   const chosen = player.playDeck.find(c => c.instanceId === action.cardInstanceId);
   if (!chosen) {
     return { state, error: `Revealed card ${action.cardInstanceId as string} not found in play deck` };
@@ -4206,26 +4175,15 @@ export function applyRevealChooseToHandResolution(
  */
 export function applyRevealRemoveFromDiscardResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'reveal-remove-from-discard') return null;
+  const g = guardResolutionOrPass(state, rawAction, top, 'remove-revealed-card', 'reveal-remove-from-discard',
+    'reveal-remove-from-discard: card-player declines — no card removed from play');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
 
-  if (action.type === 'pass') {
-    if (action.player !== top.actor) {
-      return { state, error: 'Wrong player for reveal-remove-from-discard' };
-    }
-    logDetail('reveal-remove-from-discard: card-player declines — no card removed from play');
-    return { state: dequeueResolution(state, top.id) };
-  }
-  if (action.type !== 'remove-revealed-card') {
-    return { state, error: `Pending reveal-remove-from-discard requires remove-revealed-card or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for reveal-remove-from-discard' };
-  }
-
-  const { removableInstanceIds, opponentId } = top.kind;
+  const { removableInstanceIds, opponentId } = kind;
   if (!removableInstanceIds.includes(action.cardInstanceId)) {
     return { state, error: `Card ${action.cardInstanceId as string} is not a removable revealed card` };
   }
@@ -4623,23 +4581,15 @@ export function applyTapOrRollChoiceResolution(
  */
 export function applyAgentPlayManifestationResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'agent-play-manifestation-offer') return null;
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-agent-manifestation', 'agent-play-manifestation-offer',
+    'agent-play-manifestation: defender declines — My Precious stays in play');
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex: defIdx, player: defPlayer } = g;
 
-  if (action.type === 'pass') {
-    logDetail('agent-play-manifestation: defender declines — My Precious stays in play');
-    return { state: dequeueResolution(state, top.id) };
-  }
-  if (action.type !== 'play-agent-manifestation') {
-    return { state, error: `Pending agent-play-manifestation-offer requires play-agent-manifestation or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) return { state, error: 'Wrong player for agent-play-manifestation' };
-
-  const { agentId, companyId } = top.kind;
-  const defIdx = getPlayerIndex(state, action.player);
-  const defPlayer = state.players[defIdx];
+  const { agentId, companyId } = kind;
   const company = defPlayer.companies.find(co => co.id === companyId);
   if (!company || !company.characters.some(id => id === action.characterId)) {
     return { state, error: `Character ${action.characterId as string} not in company ${companyId as string}` };
@@ -4791,24 +4741,18 @@ export function applyStayHerAppetiteRollResolution(
  */
 export function applyChoosePeekDeckResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'choose-peek-deck') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for choose-peek-deck' };
-  }
-  const { count, deckChoice, sourceDefinitionId } = top.kind;
+  const g = guardResolutionOrPass(state, rawAction, top, 'choose-peek-deck', 'choose-peek-deck',
+    k => `${cardName(state, k.sourceDefinitionId)}: ${rawAction.player as string} declines to look at any play deck`);
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex } = g;
+
+  const { count, deckChoice, sourceDefinitionId } = kind;
   const sourceName = cardName(state, sourceDefinitionId);
   const cleared = dequeueResolution(state, top.id);
 
-  if (action.type === 'pass') {
-    logDetail(`${sourceName}: ${action.player as string} declines to look at any play deck`);
-    return { state: cleared };
-  }
-  if (action.type !== 'choose-peek-deck') {
-    return { state, error: `Pending choose-peek-deck requires choose-peek-deck, got '${action.type}'` };
-  }
   if (deckChoice !== 'any' && deckChoice !== action.deckOwner) {
     return { state, error: `${sourceName}: deck choice '${action.deckOwner}' not allowed (deckChoice '${deckChoice}')` };
   }
@@ -4822,7 +4766,6 @@ export function applyChoosePeekDeckResolution(
     }
   }
 
-  const actorIndex = getPlayerIndex(state, action.player);
   const targetIndex = action.deckOwner === 'self' ? actorIndex : 1 - actorIndex;
   const targetPlayer = cleared.players[targetIndex];
   const sliceSize = Math.min(count, targetPlayer.playDeck.length);
@@ -4850,23 +4793,16 @@ export function applyChoosePeekDeckResolution(
  */
 export function applyGreatHuntSourceResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'great-hunt-source') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for great-hunt-source' };
-  }
-  const { greatHuntInstanceId, maxCreatures, opponentId, companyId } = top.kind;
-  const cleared = dequeueResolution(state, top.id);
+  const g = guardResolutionOrPass(state, rawAction, top, 'choose-great-hunt-source', 'great-hunt-source',
+    'great-hunt-source: nothing to reveal — passing');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
 
-  if (action.type === 'pass') {
-    logDetail(`great-hunt-source: nothing to reveal — passing`);
-    return { state: cleared };
-  }
-  if (action.type !== 'choose-great-hunt-source') {
-    return { state, error: `Pending great-hunt-source requires choose-great-hunt-source, got '${action.type}'` };
-  }
+  const { greatHuntInstanceId, maxCreatures, opponentId, companyId } = kind;
+  const cleared = dequeueResolution(state, top.id);
   const next = startGreatHuntReveal(cleared, greatHuntInstanceId, action.source, maxCreatures, opponentId, companyId, action.player);
   return { state: next };
 }
@@ -4879,23 +4815,17 @@ export function applyGreatHuntSourceResolution(
  */
 export function applyGreatHuntDiscardAttackResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'great-hunt-discard-attack') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for great-hunt-discard-attack' };
-  }
-  const { greatHuntInstanceId, creatureInstanceId, opponentId, companyId } = top.kind;
+  const g = guardResolutionOrPass(state, rawAction, top, 'great-hunt-attack-with-creature', 'great-hunt-discard-attack',
+    () => `great-hunt-discard-attack: ${rawAction.player as string} declines the attack`);
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
+
+  const { greatHuntInstanceId, creatureInstanceId, opponentId, companyId } = kind;
   const cleared = dequeueResolution(state, top.id);
 
-  if (action.type === 'pass') {
-    logDetail(`great-hunt-discard-attack: ${action.player as string} declines the attack`);
-    return { state: cleared };
-  }
-  if (action.type !== 'great-hunt-attack-with-creature') {
-    return { state, error: `Pending great-hunt-discard-attack requires great-hunt-attack-with-creature, got '${action.type}'` };
-  }
   if (action.creatureInstanceId !== creatureInstanceId) {
     return { state, error: 'Great Hunt: creature mismatch' };
   }
@@ -4917,23 +4847,16 @@ export function applyGreatHuntDiscardAttackResolution(
  */
 export function applyHuntTargetChoiceResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'hunt-target-choice') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for hunt-target-choice' };
-  }
-  const { huntInstanceId, bearerInstanceId, opponentId, companyId } = top.kind;
-  const cleared = dequeueResolution(state, top.id);
+  const g = guardResolutionOrPass(state, rawAction, top, 'choose-hunt-target', 'hunt-target-choice',
+    () => `hunt-target-choice: ${rawAction.player as string} has no hazard creature to name — The Hunt fizzles`);
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
 
-  if (action.type === 'pass') {
-    logDetail(`hunt-target-choice: ${action.player as string} has no hazard creature to name — The Hunt fizzles`);
-    return { state: cleared };
-  }
-  if (action.type !== 'choose-hunt-target') {
-    return { state, error: `Pending hunt-target-choice requires choose-hunt-target, got '${action.type}'` };
-  }
+  const { huntInstanceId, bearerInstanceId, opponentId, companyId } = kind;
+  const cleared = dequeueResolution(state, top.id);
   const candidate = findHuntCandidates(cleared, opponentId).find(c => c.instanceId === action.creatureInstanceId);
   if (!candidate) {
     return { state, error: 'The Hunt: named creature is no longer a valid candidate' };
@@ -4961,26 +4884,18 @@ export function applyHuntTargetChoiceResolution(
  */
 export function applyPostAttackPlayOfferResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'post-attack-play-offer') return null;
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-permanent-event', 'post-attack-play-offer',
+    'post-attack-play-offer: declined — after-attack window closes');
+  if (!g.ok) return g.result;
+  const { action, kind, player } = g;
 
-  if (action.type === 'pass') {
-    logDetail('post-attack-play-offer: declined — after-attack window closes');
-    return { state: dequeueResolution(state, top.id) };
-  }
-  if (action.type !== 'play-permanent-event') {
-    return { state, error: `Pending post-attack-play-offer requires play-permanent-event or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) return { state, error: 'Wrong player for post-attack-play-offer' };
-
-  const { companyId, cardInstanceIds } = top.kind;
+  const { companyId, cardInstanceIds } = kind;
   if (!cardInstanceIds.includes(action.cardInstanceId)) {
     return { state, error: 'Card was not offered by this after-attack window' };
   }
-  const playerIdx = getPlayerIndex(state, action.player);
-  const player = state.players[playerIdx];
   const company = player.companies.find(co => co.id === companyId);
   if (!company) return { state, error: `Company ${companyId as string} not found` };
   if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
@@ -5023,27 +4938,19 @@ export function applyPostAttackPlayOfferResolution(
  */
 export function applyInfluenceRevealPlayOfferResolution(
   state: GameState,
-  action: GameAction,
+  rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'influence-reveal-play-offer') return null;
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-revealed-card', 'influence-reveal-play-offer',
+    'influence-reveal-play-offer: declined — the revealed card stays in hand (CoE 10.13)');
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex: playerIdx, player } = g;
 
-  if (action.type === 'pass') {
-    logDetail('influence-reveal-play-offer: declined — the revealed card stays in hand (CoE 10.13)');
-    return { state: dequeueResolution(state, top.id) };
-  }
-  if (action.type !== 'play-revealed-card') {
-    return { state, error: `Pending influence-reveal-play-offer requires play-revealed-card or pass, got '${action.type}'` };
-  }
-  if (action.player !== top.actor) return { state, error: 'Wrong player for influence-reveal-play-offer' };
-
-  const { revealedInstanceId, influencerId } = top.kind;
+  const { revealedInstanceId, influencerId } = kind;
   if (action.cardInstanceId !== revealedInstanceId) {
     return { state, error: 'Only the revealed card may be played by this offer' };
   }
 
-  const playerIdx = getPlayerIndex(state, action.player);
-  const player = state.players[playerIdx];
   const handCard = findById(player.hand, revealedInstanceId);
   if (!handCard) return { state, error: 'Revealed card is not in hand' };
   const def = defById(state, handCard.definitionId);
