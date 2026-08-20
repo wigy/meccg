@@ -20,8 +20,8 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions } from '../reducer-utils.js';
-import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext } from '../reducer-utils.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -35,7 +35,7 @@ import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isUnderDeepsSurfaceSite, isDeepMinesSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
+import { buildControllerInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 import { grantedAction } from './granted-action-emit.js';
 
@@ -2423,7 +2423,7 @@ function playResourcesActions(
         if (fullCharacter && charDef && isCharacterCard(charDef)) {
           // DSL effects
           const resolverCtx: ResolverContext = {
-            reason: 'faction-influence-check',
+            ...buildFactionCheckContext(state, factionDef),
             bearer: {
               race: charDef.race, skills: getEffectiveSkills(state, fullCharacter, charDef),
               baseProwess: charDef.prowess, baseBody: charDef.body,
@@ -2439,18 +2439,7 @@ function playResourcesActions(
               // standard modifications keyed to home region (Wild Horses wh-39).
               homesiteRegions: characterHomeSiteRegions(state, charDef),
             },
-            faction: {
-              name: factionDef.name,
-              race: factionDef.race,
-              playableAt: buildFactionPlayableAt(factionDef),
-              playableRegions: buildFactionPlayableRegions(state, factionDef),
-            },
-            influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
-            controller: {
-              inPlay: buildControllerInPlayNames(state, playerId),
-              factionRaces: buildControllerFactionRaces(state, playerId),
-              wizard: playerWizardName(state, player),
-            },
+            controller: buildFactionControllerContext(state, playerId),
           };
           const ownEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
           const charEffects = [...ownEffects];
@@ -2627,16 +2616,7 @@ function playResourcesActions(
         // & Treachery (le-150) nullifies card-sourced modifications entirely.
         const globalInfMod = nullifyMods
           ? 0
-          : collectGlobalCheckModifier(state, 'influence', {
-            reason: 'faction-influence-check',
-            faction: {
-              name: factionDef.name,
-              race: factionDef.race,
-              playableAt: buildFactionPlayableAt(factionDef),
-              playableRegions: buildFactionPlayableRegions(state, factionDef),
-            },
-            influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
-          });
+          : collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, factionDef));
         if (globalInfMod !== 0) {
           infModifier += globalInfMod;
           infParts.push(`game-wide ${formatSignedNumber(globalInfMod)}`);

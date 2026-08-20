@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -20,9 +20,10 @@ import { Alignment, CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIF
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
-import { buildInPlayNames } from './recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
-import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills } from './effects/index.js';
+import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext } from './effects/index.js';
+import type { ResolverContext } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { evaluateRules } from '../rules/evaluator.js';
@@ -2788,6 +2789,49 @@ export function playerWizardName(
   if (!avatar) return undefined;
   const def = resolveDef(state, avatar.instanceId);
   return def && 'name' in def ? (def as { name: string }).name : undefined;
+}
+
+/**
+ * Builds the base {@link ResolverContext} of a faction-influence check: the
+ * check reason plus the faction being influenced (name, race, and the
+ * flattened `playableAt` / `playableRegions` a DSL condition can gate on —
+ * e.g. Lord of the Carrock as-14 race-gating a game-wide modifier, or Firiel
+ * dm-10 keying on playable regions) and the `influenceTarget` root.
+ *
+ * Callers needing the influencer fold in `bearer` / `controller` on top
+ * (spread this first). Also passed alone to `collectGlobalCheckModifier`,
+ * which evaluates game-wide modifiers with no influencer in context.
+ */
+export function buildFactionCheckContext(state: GameState, def: FactionCard): ResolverContext {
+  return {
+    reason: 'faction-influence-check',
+    faction: {
+      name: def.name,
+      race: def.race,
+      playableAt: buildFactionPlayableAt(def),
+      playableRegions: buildFactionPlayableRegions(state, def),
+    },
+    influenceTarget: buildInfluenceTargetContext(def, 'faction'),
+  };
+}
+
+/**
+ * Builds the `controller` sub-object of a faction-influence
+ * {@link ResolverContext}: what the influencing player has in play, the races
+ * of their factions already in play (Wain-easterlings le-141 "any *other*
+ * Orc faction"), and their avatar's name — Fallen-wizard faction standards
+ * (wh-37/38/40) condition their modifier on `controller.wizard`.
+ */
+export function buildFactionControllerContext(
+  state: GameState,
+  playerId: PlayerId,
+): NonNullable<ResolverContext['controller']> {
+  const player = playerById(state, playerId);
+  return {
+    inPlay: buildControllerInPlayNames(state, playerId),
+    factionRaces: buildControllerFactionRaces(state, playerId),
+    ...(player ? { wizard: playerWizardName(state, player) } : {}),
+  };
 }
 
 /**
