@@ -71,6 +71,22 @@ export function removeMapRadar(): void {
 }
 
 /**
+ * Shrink `--company-scale` on `el` (in 0.05 steps down to `minScale`) until
+ * the page fits the viewport height. Companies with many characters would
+ * otherwise wrap onto extra rows or run off the bottom of the screen at a
+ * fixed scale — this keeps them fully visible instead.
+ */
+function shrinkToFitViewport(el: HTMLElement, initialScale: number, minScale = 0.25): void {
+  requestAnimationFrame(() => {
+    let scale = initialScale;
+    while (scale > minScale && document.documentElement.scrollHeight > window.innerHeight + 2) {
+      scale = Math.max(minScale, Math.round((scale - 0.05) * 100) / 100);
+      el.style.setProperty('--company-scale', String(scale));
+    }
+  });
+}
+
+/**
  * Decide which side's companies the left/right navigation arrows cycle
  * through in single-company view: whichever side the focused company
  * actually belongs to, not whichever side's turn it currently is.
@@ -204,6 +220,10 @@ export function renderSingleView(
   }
 
   container.appendChild(single);
+
+  // Shrink to fit if a large company (e.g. 6+ characters) wraps onto extra
+  // rows and runs off the bottom of the screen at full scale.
+  shrinkToFitViewport(single, 1);
 }
 
 /** Render all companies (both players) at medium scale. */
@@ -457,13 +477,7 @@ export function renderAllCompaniesView(
   }
 
   // Shrink companies to fit the viewport if they overflow vertically
-  requestAnimationFrame(() => {
-    let scale = initialScale;
-    while (scale > 0.25 && document.documentElement.scrollHeight > window.innerHeight + 2) {
-      scale = Math.max(0.25, Math.round((scale - 0.05) * 100) / 100);
-      overview.style.setProperty('--company-scale', String(scale));
-    }
-  });
+  shrinkToFitViewport(overview, initialScale);
 }
 
 /**
