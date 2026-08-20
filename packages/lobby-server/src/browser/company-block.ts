@@ -45,7 +45,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, inPlayCardDefs } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs, actionsOfTypeFor } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
@@ -1197,13 +1197,11 @@ export function findCardsInPlayTapAction(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): GameAction | null {
-  return (
-    actions.find(
-      a =>
-        (a.type === 'tap-hazard-card-for-limit' || a.type === 'pay-hazard-limit-to-untap-card')
-        && a.cardInstanceId === cardInstanceId,
-    ) ?? null
-  );
+  return actionsOfTypeFor(
+    actions,
+    ['tap-hazard-card-for-limit', 'pay-hazard-limit-to-untap-card'] as const,
+    cardInstanceId,
+  )[0] ?? null;
 }
 
 /**
@@ -1223,11 +1221,7 @@ export function findDiscardForHazardLimitAction(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): GameAction | null {
-  return (
-    actions.find(
-      a => a.type === 'discard-card-for-hazard-limit' && a.cardInstanceId === cardInstanceId,
-    ) ?? null
-  );
+  return actionsOfTypeFor(actions, 'discard-card-for-hazard-limit', cardInstanceId)[0] ?? null;
 }
 
 /**
@@ -1248,12 +1242,7 @@ export function findOrgPhaseFetchAction(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): ActivateOrgFetchAction | null {
-  return (
-    actions.find(
-      (a): a is ActivateOrgFetchAction =>
-        a.type === 'activate-org-fetch' && a.cardInstanceId === cardInstanceId,
-    ) ?? null
-  );
+  return actionsOfTypeFor(actions, 'activate-org-fetch', cardInstanceId)[0] ?? null;
 }
 
 /**
@@ -1274,10 +1263,7 @@ export function findTapAltPermanentEventActions(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): TapAltPermanentEventAction[] {
-  return actions.filter(
-    (a): a is TapAltPermanentEventAction =>
-      a.type === 'tap-alt-permanent-event' && a.cardInstanceId === cardInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'tap-alt-permanent-event', cardInstanceId);
 }
 
 /**
@@ -1299,10 +1285,7 @@ export function findInPlayGrantedActions(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): ActivateGrantedAction[] {
-  return actions.filter(
-    (a): a is ActivateGrantedAction =>
-      a.type === 'activate-granted-action' && a.sourceCardId === cardInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'activate-granted-action', cardInstanceId, 'sourceCardId');
 }
 
 /**
@@ -1319,10 +1302,7 @@ export function findEventMaintenanceActions(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): PayEventMaintenanceAction[] {
-  return actions.filter(
-    (a): a is PayEventMaintenanceAction =>
-      a.type === 'pay-event-maintenance' && a.sourceInstanceId === cardInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'pay-event-maintenance', cardInstanceId, 'sourceInstanceId');
 }
 
 /**
@@ -1380,12 +1360,8 @@ export function findOpponentInfluenceTargetActions(
   selectedInfluencer: CardInstanceId,
   targetInstanceId: CardInstanceId,
 ): OpponentInfluenceAttemptAction[] {
-  return actions.filter(
-    (a): a is OpponentInfluenceAttemptAction =>
-      a.type === 'opponent-influence-attempt'
-      && a.influencingCharacterId === selectedInfluencer
-      && a.targetInstanceId === targetInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'opponent-influence-attempt', selectedInfluencer, 'influencingCharacterId')
+    .filter(a => a.targetInstanceId === targetInstanceId);
 }
 
 /**
