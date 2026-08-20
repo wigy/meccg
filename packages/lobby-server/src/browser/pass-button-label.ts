@@ -73,7 +73,11 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
   }
 
   if (view.phaseState.phase === Phase.Untap) return 'End Untap';
-  if (view.phaseState.phase === Phase.Organization) return 'Long-event';
+  // Deliberately not "Long-event" (naming the next phase, per the usual
+  // convention below): Organization is where long-event cards actually get
+  // played, so that label read as an instruction to play one rather than as
+  // the end-of-phase pass it is.
+  if (view.phaseState.phase === Phase.Organization) return 'Continue';
   if (view.phaseState.phase === Phase.LongEvent) return 'Movement/Hazard';
 
   if (view.phaseState.phase === Phase.MovementHazard) {
