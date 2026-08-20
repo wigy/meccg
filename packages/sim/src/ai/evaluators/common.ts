@@ -200,6 +200,41 @@ export function boostsCreatureAttack(
 }
 
 /**
+ * Whether attaching `itemDef` to `target` would apply a capped `stat-modifier`
+ * effect (body or prowess, with a numeric `max`) that is already maxed out —
+ * e.g. Hauberk of Bright Mail's "+2 body to a maximum of 9" (tw-254) does
+ * nothing for a character whose body is already 9. Non-numeric `max`
+ * expressions are skipped (treated as not wasted) since they can't be
+ * evaluated without the MathJS resolver.
+ *
+ * Used to steer `play-hero-resource` scoring away from attaching an item to a
+ * character who gets no benefit from it when a legal target with headroom is
+ * available (bug report: the AI attached Hauberk of Bright Mail to Glorfindel
+ * II, whose printed body is already 9, the item's own cap).
+ */
+export function itemStatBenefitWasted(
+  itemDef: CardDefinition,
+  target: CharacterInPlay,
+  targetDef: CardDefinition | undefined,
+): boolean {
+  const effects = (itemDef as { effects?: readonly Record<string, unknown>[] }).effects;
+  if (!effects) return false;
+  const skills = targetDef && isCharacterCard(targetDef) ? targetDef.skills : [];
+  for (const effect of effects) {
+    if (effect.type !== 'stat-modifier') continue;
+    const stat = effect.stat as string;
+    if (stat !== 'body' && stat !== 'prowess') continue;
+    const max = effect.max;
+    if (typeof max !== 'number') continue;
+    const when = effect.when as Condition | undefined;
+    if (when && !matchesCondition(when, { bearer: { skills } })) continue;
+    const current = stat === 'body' ? target.effectiveStats.body : target.effectiveStats.prowess;
+    if (current >= max) return true;
+  }
+  return false;
+}
+
+/**
  * Whether playing `eventDef` would satisfy an `{ inPlay: eventDef.name }`
  * condition gating a bonus effect on some *other* hazard-event card still in
  * hand — e.g. An Unexpected Outpost (dm-45) has a second `move` effect gated

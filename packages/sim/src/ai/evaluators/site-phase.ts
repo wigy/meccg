@@ -27,6 +27,7 @@ import {
   hasUntapSource,
   handHasNoTapPlayableAt,
   findCharacterInPlay,
+  itemStatBenefitWasted,
   type AnySiteCard,
 } from './common.js';
 
@@ -129,6 +130,15 @@ export const sitePhaseEvaluator: ActionEvaluator = {
 
         if (isItem(def)) {
           score += def.prowessModifier * 2 - def.corruptionPoints * 3;
+          if (action.attachToCharacterId) {
+            const target = findCharacterInPlay(view, action.attachToCharacterId);
+            if (target?.isSelf) {
+              const targetDef = lookupDef(pool, target.character.definitionId);
+              if (itemStatBenefitWasted(def, target.character, targetDef)) {
+                score -= 10;
+              }
+            }
+          }
         } else if (isFaction(def)) {
           // Factions are scored separately via faction-influence-roll, but
           // playing the card to start the chain is high value.

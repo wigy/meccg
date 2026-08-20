@@ -16,12 +16,24 @@ const ISENGARD: CardDefinition = {
 } as unknown as CardDefinition;
 
 // Hauberk of Bright Mail (tw-254): a major item playable at ruins-and-lairs —
-// but playing it needs an untapped character to tap.
+// but playing it needs an untapped character to tap. "+2 body to a maximum
+// of 9" for a warrior bearer.
 const HAUBERK: CardDefinition = {
   cardType: 'hero-resource-item',
   subtype: 'major',
   playableAt: ['ruins-and-lairs', 'shadow-hold', 'dark-hold'],
   marshallingPoints: 2,
+  prowessModifier: 0,
+  corruptionPoints: 0,
+  effects: [
+    {
+      type: 'stat-modifier',
+      stat: 'body',
+      value: 2,
+      max: 9,
+      when: { 'bearer.skills': { $includes: 'warrior' } },
+    },
+  ],
 } as unknown as CardDefinition;
 
 // Halfling Strength (tw-253): untaps a *tapped hobbit*. It is NOT an untap
@@ -281,6 +293,30 @@ function makeView(characterDefId: string): PlayerView {
 }
 
 /**
+ * Build a view with Hauberk of Bright Mail in hand and two warriors in the
+ * same company: 'maxed' already at body 9 (Hauberk's own cap, so attaching
+ * it there is wasted) and 'headroom' at body 6 (Hauberk's +2 still helps).
+ */
+function makeHauberkTargetView(): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'tw-254' }],
+      characters: {
+        maxed: { instanceId: 'maxed', definitionId: 'tw-182', status: 'untapped', items: [], effectiveStats: { body: 9 } },
+        headroom: { instanceId: 'headroom', definitionId: 'tw-182', status: 'untapped', items: [], effectiveStats: { body: 6 } },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'tw-404' },
+          characters: ['maxed', 'headroom'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+/**
  * Build a view for the Rescue Prisoners regression: a company of one
  * already-tapped character (Balin) at a shadow-hold site, holding only
  * Rescue Prisoners.
@@ -505,5 +541,31 @@ describe('sitePhaseEvaluator play-short-event', () => {
     } as unknown as GameAction;
     const context: AiContext = { view, cardPool: POOL, legalActions: [action] };
     expect(sitePhaseEvaluator.score(action, context)).toBeNull();
+  });
+});
+
+describe('sitePhaseEvaluator play-hero-resource', () => {
+  // Bug report (Fatty75, game mt0iyz6e-l57lms, seq 947): the AI attached
+  // Hauberk of Bright Mail ("+2 body to a maximum of 9") to Glorfindel II,
+  // whose printed body is already 9 — the item's own cap — instead of a
+  // warrior with headroom to actually benefit. Scoring ignored
+  // `attachToCharacterId` entirely, so every legal target scored the same.
+  test('scores attaching a maxed-out body item lower than attaching it to a warrior with headroom', () => {
+    const view = makeHauberkTargetView();
+    const wastedAction: GameAction = {
+      type: 'play-hero-resource',
+      player: 'p2',
+      cardInstanceId: 'h1',
+      companyId: 'company-p2-0',
+      attachToCharacterId: 'maxed',
+    } as unknown as GameAction;
+    const usefulAction: GameAction = {
+      ...wastedAction,
+      attachToCharacterId: 'headroom',
+    } as unknown as GameAction;
+    const context: AiContext = { view, cardPool: POOL, legalActions: [wastedAction, usefulAction] };
+    const wastedScore = sitePhaseEvaluator.score(wastedAction, context);
+    const usefulScore = sitePhaseEvaluator.score(usefulAction, context);
+    expect(usefulScore).toBeGreaterThan(wastedScore as number);
   });
 });
