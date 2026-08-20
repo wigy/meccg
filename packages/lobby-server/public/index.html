@@ -125,7 +125,12 @@
             <label class="lobby-select-label">AI Deck</label>
             <select id="ai-deck-select" class="lobby-deck-select"></select>
           </div>
-          <p class="lobby-ai-description"><strong>Heuristic-AI</strong> uses rules to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself. <strong>Real-AI</strong> is experimental: it plays with a trained neural network model, and its strength depends on the model you pick. <strong>MC-AI</strong> is experimental: it searches by simulating random continuations, thinks for about two seconds per move, and its strength is unproven. <strong>Modular AI</strong> is also experimental: it does not search at all, but every move it makes is one it can explain, in terms of how much the move changes its chances of winning.</p>
+          <p class="lobby-ai-description"><strong>Heuristic-AI</strong> uses rules to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself. <strong>Real-AI</strong> is experimental: it plays with a trained neural network model, and its strength depends on the model you pick. <strong>MC-AI</strong> is experimental: it searches by simulating random continuations, thinks for about two seconds per move, and its strength is unproven. <strong>Modular AI</strong> does not search at all, but every move it makes is one it can explain, in terms of how much the move changes its chances of winning.</p>
+          <!-- Heuristics 2: explainable, no search. -->
+          <button id="play-modular-ai-btn" class="lobby-play-btn">Play vs Modular AI</button>
+          <button id="play-heuristic-ai-btn" class="lobby-play-btn">Play vs Heuristic-AI</button>
+          <!-- TEMPORARY: flat Monte-Carlo search agent, strength unproven. -->
+          <button id="play-mc-ai-btn" class="lobby-play-btn">Play vs MC-AI (experimental)</button>
           <!-- TEMPORARY: trained-model agent, strength depends on the model. -->
           <button id="play-real-ai-btn" class="lobby-play-btn">Play vs Real-AI (experimental)</button>
           <div id="real-ai-options" class="lobby-ai-options hidden">
@@ -133,11 +138,6 @@
             <select id="ai-model-select" class="lobby-deck-select"></select>
             <button id="start-real-ai-btn" class="lobby-play-btn">Start</button>
           </div>
-          <button id="play-heuristic-ai-btn" class="lobby-play-btn">Play vs Heuristic-AI</button>
-          <!-- TEMPORARY: flat Monte-Carlo search agent, strength unproven. -->
-          <button id="play-mc-ai-btn" class="lobby-play-btn">Play vs MC-AI (experimental)</button>
-          <!-- TEMPORARY: Heuristics 2, strength unproven. -->
-          <button id="play-modular-ai-btn" class="lobby-play-btn">Play vs Modular AI (experimental)</button>
           <button id="play-pseudo-ai-btn" class="lobby-play-btn lobby-play-btn--secondary">Play vs Pseudo-AI</button>
           <button id="stop-game-btn" class="lobby-play-btn lobby-play-btn--danger hidden">Stop Existing Game</button>
         </section>
