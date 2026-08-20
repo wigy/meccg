@@ -21,7 +21,7 @@ import type { RiskPosture, ScoredOutcomes } from './risk.js';
 import type { MpDelta, MpSource } from './tsd.js';
 import type { WinProbModel } from './winprob.js';
 import type { Tunables } from './tunables.js';
-import type { Plan, PlanStep } from './plan.js';
+import type { Commitment, Plan, PlanStep } from './plan.js';
 
 /** Unit of a {@link Rationale} value, so renderers can format it correctly. */
 export type RationaleUnit =
@@ -179,6 +179,19 @@ export interface ModuleContext {
    * walk leaves no trace here.
    */
   readonly visited?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The plans the agent is committed to this turn — the destinations the
+   * organization phase arranges the companies around.
+   *
+   * Present only for *evaluation*: `agent.decide` builds the base context,
+   * runs `proposePlans` and `portfolio.commit` on it, and only then builds
+   * `{ ...context, commitment }` for `evaluateDecision` and `rankWithPlans`.
+   * A proposer that could read the commitment could propose what is already
+   * committed into a feedback loop; the ordering makes that structurally
+   * impossible. Also absent for tools that evaluate without a portfolio, so a
+   * reader must degrade to "no plans".
+   */
+  readonly commitment?: Commitment;
 }
 
 /**

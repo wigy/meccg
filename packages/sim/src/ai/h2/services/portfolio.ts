@@ -36,29 +36,15 @@
  */
 
 import type { Rationale } from '../core/types.js';
-import type { Plan, PlanId } from '../core/plan.js';
+import type { Commitment, DroppedPlan, Plan, PlanId } from '../core/plan.js';
 import type { Tunables } from '../core/tunables.js';
 import { conflicts, completionProbability, expectedValueTsd, planRationale } from '../core/plan.js';
 import { leaf, node } from '../core/rationale.js';
 
-/** Why a plan that was committed is no longer. */
-export type DropReason = 'deadline-passed' | 'withdrawn' | 'abandoned' | 'displaced';
-
-/** One plan that left the portfolio this turn, and why. */
-export interface DroppedPlan {
-  readonly plan: Plan;
-  readonly reason: DropReason;
-}
-
-/** The outcome of one turn's commitment. */
-export interface Commitment {
-  /** Turn the commitment was made for. */
-  readonly turn: number;
-  /** The committed plans, most valuable first. */
-  readonly plans: readonly Plan[];
-  /** Plans that left the portfolio this turn. */
-  readonly dropped: readonly DroppedPlan[];
-}
+// The commitment vocabulary moved to `core/plan` so `ModuleContext` can carry
+// it without `core` importing a service; re-exported so existing consumers
+// keep their import site.
+export type { Commitment, DroppedPlan, DropReason } from '../core/plan.js';
 
 /** Per-game commitment state. One per agent, reset at the start of each game. */
 export interface PlanPortfolio {
