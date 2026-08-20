@@ -7089,11 +7089,16 @@ Rules:
   `store-item` offer for a company whose current site carries this rule (both the
   organization-phase generator and any `allow-store-eot` end-of-turn window in
   `storeItemActions`), and the store-item reducer (`handleStoreItem`) rejects a
-  store attempt as a backstop. Used by *Geann a-Lisch* (le-374), a minion Haven
-  that would otherwise permit storing regular items.
+  store attempt as a backstop. The optional `when` condition scopes the ban to a
+  subset of players; it is evaluated against `{ player: { alignment } }`, and an
+  absent `when` means the ban is unconditional. Used by *Geann a-Lisch* (le-374),
+  a minion Haven that would otherwise permit storing regular items, and by
+  *Barad-dûr* (tw/le/ba) for the MEBA clause "A Balrog player may not store
+  anything at Barad-dûr".
 
   ```json
   { "type": "site-rule", "rule": "no-storage" }
+  { "type": "site-rule", "rule": "no-storage", "when": { "player.alignment": "balrog" } }
   ```
 
 - `hazard-site-type-override` — a site that "counts as a `<site type>` for the

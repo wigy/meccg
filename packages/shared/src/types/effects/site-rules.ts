@@ -652,11 +652,22 @@ export interface DeepMinesMovementSiteRule extends EffectBase {
  * phase or an `allow-store-eot` end-of-turn window), and the reducer rejects a
  * store attempt as a safety backstop.
  *
+ * The inherited optional `when` condition scopes the ban to a subset of
+ * players; it is evaluated against `{ player: { alignment } }`, and an absent
+ * `when` means the ban is unconditional.
+ *
  * Example — Geann a-Lisch (le-374): "Resources may never be stored at this
  * site." (a minion Haven that would otherwise permit storing regular items).
  *
  * ```json
  * { "type": "site-rule", "rule": "no-storage" }
+ * ```
+ *
+ * Example — Barad-dûr (tw/le/ba), MEBA: "A Balrog player may not store
+ * anything at Barad-dûr" (it is not one of the Balrog's Darkhavens):
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "no-storage", "when": { "player.alignment": "balrog" } }
  * ```
  */
 export interface NoStorageSiteRule extends EffectBase {
