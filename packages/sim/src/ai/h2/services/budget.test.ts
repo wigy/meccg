@@ -136,3 +136,43 @@ describe('taps', () => {
     expect(budget.untappedIn(COMPANY).map(c => c.instanceId as string)).toEqual(['ready']);
   });
 });
+
+describe('afterInfluenceMove', () => {
+  test('stacking a general-influence character frees the pool, spends the holder', () => {
+    const view = viewWith([
+      { id: 'holder', di: 5 },
+      { id: 'walker', definitionId: FOLLOWER },
+    ], 7); // both minds charged: 4 + 3
+    const budget = computeBudget(view, POOL);
+    const moved = budget.afterInfluenceMove(
+      'walker' as never, 'holder' as never);
+    expect(moved.freeGeneralInfluence).toBe(20 - 7 + 3);
+    expect(moved.freeDirectInfluence['holder']).toBe(5 - 3);
+    expect(budget.freeGeneralInfluence).toBe(13); // pure: the budget is unchanged
+  });
+
+  test('un-stacking charges the pool and returns the holder\'s influence', () => {
+    const view = viewWith([
+      { id: 'holder', di: 5, followers: ['walker'] },
+      { id: 'walker', definitionId: FOLLOWER },
+    ], 4); // only the holder's mind is charged
+    const budget = computeBudget(view, POOL);
+    expect(budget.characters['holder'].freeDirectInfluence).toBe(2);
+    const moved = budget.afterInfluenceMove('walker' as never, 'general' as never);
+    expect(moved.freeGeneralInfluence).toBe(20 - 4 - 3);
+    expect(moved.freeDirectInfluence['holder']).toBe(5);
+  });
+
+  test('a re-stack between holders moves nothing through the pool', () => {
+    const view = viewWith([
+      { id: 'holder', di: 5, followers: ['walker'] },
+      { id: 'other', di: 4 },
+      { id: 'walker', definitionId: FOLLOWER },
+    ], 8); // holder + other minds charged
+    const budget = computeBudget(view, POOL);
+    const moved = budget.afterInfluenceMove('walker' as never, 'other' as never);
+    expect(moved.freeGeneralInfluence).toBe(budget.freeGeneralInfluence);
+    expect(moved.freeDirectInfluence['holder']).toBe(5);
+    expect(moved.freeDirectInfluence['other']).toBe(4 - 3);
+  });
+});

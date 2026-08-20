@@ -12,6 +12,7 @@ import { describe, test, expect } from 'vitest';
 import { CardStatus, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
+import type { Commitment } from '../../core/plan.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
@@ -21,19 +22,28 @@ import { charactersModule } from './characters.js';
 
 const SCORER = 'tw-scorer';
 const CHEAP = 'tw-cheap';
-/** A faction an influence attempt could bring in — what freed influence is *for*. */
+/** A faction an influence attempt could bring in — what free influence is *for*. */
 const FACTION = 'tw-faction';
 /** An avatar: `mind: null` is what `isAvatarCharacter` keys on, MP left at zero on purpose. */
 const AVATAR = 'tw-avatar';
+/** A low-mind follower to stack and un-stack. */
+const FOLLOWER = 'tw-follower';
+/** The site the company stands on, where the faction is playable. */
+const SITE = 'tw-site';
 
 const POOL = {
-  [SCORER]: { name: 'Elrond', marshallingPoints: 3, marshallingCategory: 'character', mind: 8 },
-  [CHEAP]: { name: 'A Hobbit', marshallingPoints: 0, marshallingCategory: 'character', mind: 1 },
+  [SCORER]: { cardType: 'hero-character', name: 'Elrond', marshallingPoints: 3, marshallingCategory: 'character', mind: 8 },
+  [CHEAP]: { cardType: 'hero-character', name: 'A Hobbit', marshallingPoints: 0, marshallingCategory: 'character', mind: 1 },
+  [FOLLOWER]: { cardType: 'hero-character', name: 'Bilbo', marshallingPoints: 0, marshallingCategory: 'character', mind: 2 },
   [FACTION]: {
-    name: 'Rangers of the North', marshallingPoints: 3, marshallingCategory: 'faction', influenceNumber: 10,
+    name: 'Rangers of the North', cardType: 'hero-resource-faction', marshallingPoints: 3,
+    marshallingCategory: 'faction', influenceTarget: 10, playableAt: [{ site: 'Test Hold' }],
   },
   [AVATAR]: {
     name: 'Saruman', cardType: 'hero-character', marshallingPoints: 0, marshallingCategory: 'character', mind: null,
+  },
+  [SITE]: {
+    name: 'Test Hold', cardType: 'hero-site', siteType: 'border-hold', playableResources: [],
   },
 } as unknown as Readonly<Record<string, CardDefinition>>;
 
@@ -42,8 +52,17 @@ function play(definitionId: string): GameAction {
   return { type: 'play-character', cardInstanceId: `card-${definitionId}` } as unknown as GameAction;
 }
 
-/** A context with both characters in hand and one in play. */
-function contextWith(self: Record<string, number>, opponent: Record<string, number>, used = 4): ModuleContext {
+/**
+ * A context with three characters in hand, a two-character company in play at
+ * a site, and the follower either stacked under the influencer or held by
+ * general influence — the two starting points of a `move-to-influence`.
+ */
+function contextWith(
+  self: Record<string, number>,
+  opponent: Record<string, number>,
+  used = 4,
+  follower: 'stacked' | 'general' = 'stacked',
+): ModuleContext {
   const view = {
     self: {
       id: 'p1',
@@ -54,16 +73,32 @@ function contextWith(self: Record<string, number>, opponent: Record<string, numb
           instanceId: 'held-1',
           definitionId: SCORER,
           status: CardStatus.Untapped,
-          items: [], allies: [], hazards: [], followers: [],
+          items: [], allies: [], hazards: [],
+          followers: follower === 'stacked' ? ['held-2'] : [],
           effectiveStats: { prowess: 5, body: 7, directInfluence: 3, corruptionPoints: 0 },
         },
+        'held-2': {
+          instanceId: 'held-2',
+          definitionId: FOLLOWER,
+          status: CardStatus.Untapped,
+          items: [], allies: [], hazards: [], followers: [],
+          effectiveStats: { prowess: 1, body: 9, directInfluence: 0, corruptionPoints: 0 },
+        },
       },
-      companies: [{ id: 'company', characters: ['held-1'] }],
+      companies: [{
+        id: 'company',
+        characters: ['held-1', 'held-2'],
+        currentSite: { instanceId: 'site-1', definitionId: SITE },
+      }],
       cardsInPlay: [],
+      siteDeck: [],
       generalInfluence: 20,
       generalInfluenceUsed: used,
     },
-    opponent: { marshallingPoints: testMarshallingPoints(opponent), characters: {}, cardsInPlay: [] },
+    opponent: {
+      marshallingPoints: testMarshallingPoints(opponent),
+      characters: {}, cardsInPlay: [], discardPile: [], killPile: [], outOfPlayPile: [],
+    },
     turnNumber: 20,
   } as unknown as PlayerView;
   return {
@@ -101,7 +136,7 @@ describe('playing a character', () => {
     const text = JSON.stringify(evaluation.rationale);
     expect(text).toContain('7 of 20 general influence free');
     expect(text).toContain('reported, not priced');
-    expect(evaluation.assumptions.some(a => a.includes('roster plan'))).toBe(true);
+    expect(evaluation.assumptions.some(a => a.includes('reported but not priced'))).toBe(true);
   });
 
   // Bug report: an AI opponent never played their wizard (Saruman) across
@@ -132,31 +167,107 @@ describe('playing a character', () => {
 });
 
 describe('changing controller', () => {
-  const move = { type: 'move-to-influence', characterId: 'held-1' } as unknown as GameAction;
+  // Engine-shaped: `move-to-influence` names the character and the new
+  // controller (`'general'`, or the holder it becomes a follower of).
+  const unstack = {
+    type: 'move-to-influence', characterInstanceId: 'held-2', controlledBy: 'general',
+  } as unknown as GameAction;
+  const stack = {
+    type: 'move-to-influence', characterInstanceId: 'held-2', controlledBy: 'held-1',
+  } as unknown as GameAction;
 
-  test('moves no marshalling points', () => {
-    const evaluation = charactersModule.evaluate(move, contextWith(BALANCED, BALANCED))!;
-    expect(evaluation.expectedTsd).toBe(0);
-    expect(evaluation.outcomes[0].label).toContain('no marshalling points move');
+  /** The faction card, appended to the fixture hand. */
+  function withFactionInHand(context: ModuleContext): ModuleContext {
+    const hand = context.view.self.hand as unknown as { instanceId: string; definitionId: string }[];
+    hand.push({ instanceId: `card-${FACTION}`, definitionId: FACTION });
+    return context;
+  }
+
+  test('moves no marshalling points, and with nothing to spend influence on it is free', () => {
+    const evaluation = charactersModule.evaluate(unstack, contextWith(BALANCED, BALANCED))!;
+    expect(evaluation.expectedTsd).toBeCloseTo(0, 9);
+    expect(Math.abs(evaluation.utility)).toBeLessThan(1e-9);
+    expect(JSON.stringify(evaluation.rationale)).toContain('marshalling points moved');
+  });
+
+  test('declines an action without the engine\'s controlledBy field', () => {
+    const malformed = { type: 'move-to-influence', characterInstanceId: 'held-2' } as unknown as GameAction;
+    expect(charactersModule.evaluate(malformed, contextWith(BALANCED, BALANCED))).toBeNull();
   });
 
   test('reports the direct influence at stake, since that is what factions spend', () => {
-    const evaluation = charactersModule.evaluate(move, contextWith(BALANCED, BALANCED))!;
+    const evaluation = charactersModule.evaluate(unstack, contextWith(BALANCED, BALANCED))!;
     expect(JSON.stringify(evaluation.rationale)).toContain('reducer-site.ts');
   });
 
-  test('and prices it when the hand holds something to spend it on', () => {
-    // The move buys probability on an influence attempt and nothing else: a
-    // follower is held by direct influence equal to its mind, and only a
-    // character with free direct influence may attempt a faction. With a
-    // faction in hand that attempt gets easier, so the move is worth something.
-    const context = contextWith(BALANCED, BALANCED);
-    const hand = context.view.self.hand as unknown as { instanceId: string; definitionId: string }[];
-    hand.push({ instanceId: `card-${FACTION}`, definitionId: FACTION });
+  test('un-stacking toward a faction in hand prices positive', () => {
+    // The follower's mind returns to the holder's direct influence, the
+    // faction's check gets easier, and the matching's checkP pays for it.
+    const context = withFactionInHand(contextWith(BALANCED, BALANCED));
+    const evaluation = charactersModule.evaluate(unstack, context)!;
+    expect(evaluation.utility).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('Rangers of the North');
+  });
 
-    const evaluation = charactersModule.evaluate(move, context)!;
-    expect(evaluation.expectedTsd).toBeGreaterThan(0);
-    expect(evaluation.outcomes[0].label).toContain('Rangers of the North');
+  test('stacking below a committed faction\'s need prices negative', () => {
+    // "Leave direct influence free for factions" — priced, not hard-coded:
+    // no reservation rule exists, the stacking simply drops checkP on a
+    // committed plan's goal and loses more than the headroom it buys.
+    const base = withFactionInHand(contextWith(BALANCED, BALANCED, 4, 'general'));
+    const commitment: Commitment = {
+      turn: base.view.turnNumber,
+      plans: [{
+        id: `factions/card-${FACTION}@${SITE}`,
+        module: 'factions',
+        goal: {
+          label: 'influence Rangers of the North at Test Hold',
+          source: 'faction',
+          mp: 3,
+          cardInstanceId: `card-${FACTION}` as unknown as never,
+          siteDefinitionId: SITE,
+        },
+        payoffTsd: 3,
+        deadline: base.view.turnNumber + 6,
+        requirements: [],
+        steps: [],
+      }],
+      dropped: [],
+    };
+    const evaluation = charactersModule.evaluate(stack, { ...base, commitment })!;
+    expect(evaluation.utility).toBeLessThan(0);
+  });
+
+  test('stacking is credited when a blocked MP character waits in hand', () => {
+    // 7 of 20 general influence free: Elrond (mind 8) does not fit. Stacking
+    // the mind-2 follower under the influencer frees enough, and the
+    // headroom term credits the arrangement for it.
+    const context = contextWith(BALANCED, BALANCED, 13, 'general');
+    const evaluation = charactersModule.evaluate(stack, context)!;
+    expect(evaluation.utility).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('headroom');
+  });
+
+  test('stack and unstack are exactly free, at every posture', () => {
+    // The same undo property the shape actions carry, for `move-to-influence`
+    // pairs: the stack evaluated where the follower is general, the unstack
+    // where he is stacked (the position the stack produces — the pool has his
+    // mind back, the holder's direct influence is spent).
+    for (const riskOverride of [undefined, 0.8, -0.8]) {
+      const stackContext = withFactionInHand(contextWith(BALANCED, BALANCED, 6, 'general'));
+      const unstackContext = withFactionInHand(contextWith(BALANCED, BALANCED, 4, 'stacked'));
+      const stacked = charactersModule.evaluate(stack, {
+        ...stackContext,
+        standing: computeStanding(stackContext.view, testWinProbModel(), DEFAULT_TUNABLES, riskOverride),
+      })!;
+      const unstacked = charactersModule.evaluate(unstack, {
+        ...unstackContext,
+        standing: computeStanding(unstackContext.view, testWinProbModel(), DEFAULT_TUNABLES, riskOverride),
+      })!;
+      expect(Math.abs(stacked.utility + unstacked.utility),
+        `risk ${riskOverride ?? 'fitted'}`).toBeLessThan(1e-9);
+      expect(Math.abs(stacked.expectedTsd + unstacked.expectedTsd),
+        `risk ${riskOverride ?? 'fitted'}`).toBeLessThan(1e-9);
+    }
   });
 });
 
@@ -345,6 +456,20 @@ describe('the organization potential', () => {
   test('leading: the big company is kept', () => {
     expect(bestSplitUtility(scenarioContext('organization/leading-keeps-big-company')))
       .toBeLessThan(0);
+  });
+
+  test('reserve-di-for-faction: the offered stacking is refused by price', () => {
+    // Stacking Elrond under Alatar frees 10 general influence — and spends
+    // the direct influence the committed-to Rangers check needs. No
+    // reservation rule anywhere: the checkP term simply prices the loss.
+    const context = scenarioContext('organization/reserve-di-for-faction');
+    const offered = (context.view as unknown as {
+      legalActions: { viable: boolean; action: GameAction }[];
+    }).legalActions.filter(e => e.viable && e.action.type === 'move-to-influence');
+    expect(offered).toHaveLength(1);
+    const evaluation = charactersModule.evaluate(offered[0].action, context)!;
+    expect(evaluation.utility).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('Rangers of the North');
   });
 
   test('undo is exactly free, at every posture', () => {

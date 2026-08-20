@@ -74,10 +74,6 @@ import { computeOrganization } from '../../services/organization.js';
 import { namedCharacter } from '../../core/action-fields.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { CARRIER_STEP } from '../../core/plan.js';
-import { pAtLeast } from '../../core/dice.js';
-
-/** The printed influence target assumed when the engine publishes none. */
-const DEFAULT_INFLUENCE_TARGET = 8;
 import { rosterOf } from '../../services/strike/prowess.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 
@@ -110,76 +106,20 @@ function characterOf(
   };
 }
 
-/**
- * What freeing direct influence is actually worth: the influence attempt it
- * improves.
- *
- * `move-to-influence` was scored at exactly zero -- "marshalling-point neutral,
- * which it is" -- and `pass` is zero by definition, so H2 declined all 171
- * offers in the recorded corpus while the human took 41 of them. The rationale
- * even said what was missing: free direct influence was *reported, not priced*.
- *
- * The rules say what it is for. A follower is held by direct influence equal to
- * its mind, so moving it to the general pool releases exactly that much on its
- * controller; and only an untapped character with free direct influence may
- * attempt a faction, where the attempt is 2d6 against the faction's printed
- * `influenceNumber` reduced by the influence the company brings. The move buys
- * probability on an attempt, and nothing else.
- *
- * Which is why it is right that this is usually zero. A hand with no faction and
- * no ally has nothing to spend influence on, and the human declined three offers
- * in four. What this prices is the fourth.
- *
- * Priced through `standing`, so a source already at the half-total cap is
- * correctly worth nothing to chase.
- */
-function influenceUnlocked(
-  context: ModuleContext,
-  mindFreed: number,
-  budget: ReturnType<typeof computeBudget>,
-): { tsd: number; reason: string } {
-  if (mindFreed <= 0) return { tsd: 0, reason: 'no direct influence is freed' };
-  const { view, cardPool, standing, tunables } = context;
-  const free = Math.max(0, ...Object.values(budget.characters).map(c => c.freeDirectInfluence));
-
-  let best = { tsd: 0, reason: 'nothing in hand that an influence attempt could bring in' };
-  for (const card of view.self.hand) {
-    const def = cardPool[card.definitionId] as unknown as {
-      name?: string;
-      marshallingPoints?: number;
-      marshallingCategory?: string;
-      influenceNumber?: number;
-    } | undefined;
-    if (!def) continue;
-    const source = def.marshallingCategory;
-    if (source !== 'faction' && source !== 'ally') continue;
-    const mp = def.marshallingPoints ?? 0;
-    if (mp <= 0) continue;
-    const payoff = standing.tsdAfter({ [source]: mp } as never) - standing.tsd;
-    // Zero at the half-total cap: chasing points that cap straight back off is
-    // not a reason to move anybody.
-    if (payoff <= 0) continue;
-    const target = def.influenceNumber ?? DEFAULT_INFLUENCE_TARGET;
-    const before = pAtLeast(Math.max(2, target - free));
-    const after = pAtLeast(Math.max(2, target - (free + mindFreed)));
-    const gain = (after - before) * payoff * tunables.potentialDiscount;
-    if (gain > best.tsd) {
-      best = {
-        tsd: gain,
-        reason: `${mindFreed} more direct influence takes ${def.name ?? card.definitionId} `
-          + `from ${(before * 100).toFixed(0)}% to ${(after * 100).toFixed(0)}%`,
-      };
-    }
-  }
-  return best;
-}
+// `influenceUnlocked` used to live here: a private, one-direction price for
+// what freed direct influence buys. It is gone, subsumed by the organization
+// potential — the matching's faction `checkP` is recomputed from the
+// arrangement's free direct influence, so stacking and un-stacking are both
+// priced as the same potential difference, and the pricing now also fires
+// when the faction is a committed plan rather than a card in hand.
 
 /** Assumptions every characters evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
-  'the general influence a character consumes is reported but not priced — what it displaces is '
-  + 'the roster plan\'s to say (§3.2), and that strategic half does not exist yet',
-  'the prowess and direct influence a character brings are not counted as value here; `combat` '
-  + 'and `factions` price those where they are actually used',
+  'the general influence a character consumes when *played* is reported but not priced; what an '
+  + 'influence *move* does to the pool is priced, through the organization potential\'s '
+  + 'headroom and checkP terms',
+  'the prowess a character brings is not counted as value here; `combat` prices it where it is '
+  + 'actually used',
   'a change of controller is scored as marshalling-point neutral, which it is',
   'an avatar\'s sideboard access and draw eligibility are priced as one flat `avatarInPlayTsd`, not '
   + 'by what the sideboard actually holds or which companies currently need it',
@@ -555,43 +495,86 @@ export const charactersModule: H2Module = {
     const budget = computeBudget(context.view, context.cardPool);
 
     if (action.type === 'move-to-influence') {
-      const held = budget.characters[named as string];
-      const unlocked = influenceUnlocked(context, character.mind, budget);
-      const outcomes: Outcome[] = [{
-        p: 1,
-        label: unlocked.tsd > 0
-          ? `${character.name} changes controller — ${unlocked.reason}`
-          : `${character.name} changes controller — no marshalling points move`,
-        dtsd: unlocked.tsd,
-      }];
-      const scored = standing.score(outcomes);
+      // Both directions of the same potential difference. Stacking a
+      // follower frees general influence (the headroom term) but spends the
+      // holder's direct influence (the faction `checkP` term); un-stacking
+      // trades the other way. Which wins is the whole of "stack followers in
+      // the best possible manner, but leave direct influence free for
+      // factions" — priced, never hard-coded: no reservation rule exists
+      // anywhere.
+      const controlledBy = (action as unknown as {
+        controlledBy?: 'general' | CardInstanceId;
+      }).controlledBy;
+      if (controlledBy === undefined) return null;
+      const { view, cardPool } = context;
+      const organization = computeOrganization(view, cardPool, standing, tunables, context.commitment);
+      const current = organization.current();
+      const valueBefore = organization.valueOf(current);
+      const valueAfter = organization.valueOf({
+        ...current,
+        controllers: { [named as string]: controlledBy as string },
+      });
+      const utility = valueAfter.u - valueBefore.u;
+      const expectedTsd = valueAfter.expectedTsd - valueBefore.expectedTsd;
+      const outcomes: Outcome[] = valueAfter.outcomes.map(outcome => ({
+        ...outcome,
+        dtsd: outcome.dtsd - valueBefore.expectedTsd,
+      }));
+      const { sigma } = distributionStats(outcomes);
+
+      const moved = budget.afterInfluenceMove(named as CardInstanceId, controlledBy);
+      const stacking = controlledBy !== 'general';
+      const holderName = stacking
+        ? budget.characters[controlledBy as string]?.name ?? (controlledBy as string)
+        : null;
+      const headline = stacking
+        ? `stack ${character.name} under ${holderName}`
+        : `move ${character.name} to general influence`;
+
       return {
         action,
         module: 'characters',
         outcomes,
-        expectedTsd: scored.expectedTsd,
-        sigmaTsd: scored.sigmaTsd,
-        utility: scored.utility,
-        method: scored.method,
-        rationale: node(`move ${character.name}`, scored.utility, [
+        expectedTsd,
+        sigmaTsd: sigma,
+        utility,
+        method: 'integrated',
+        rationale: node(headline, utility, [
+          leaf('potential difference', utility, {
+            unit: 'winprob',
+            note: 'u(after) − u(before) of the whole arrangement — the same potential every '
+              + 'shape action is priced by (spec §5)',
+          }),
           node('control', 0, [
             leaf('marshalling points moved', 0, { unit: 'mp', note: 'control changes, score does not' }),
             leaf('mind', character.mind, {
-              note: 'charged against the general influence pool while held there',
+              note: stacking
+                ? `held by ${holderName}'s direct influence after the move`
+                : 'charged against the general influence pool after the move',
             }),
-            leaf('free direct influence it frees or consumes', held?.freeDirectInfluence ?? 0, {
-              note: 'only an untapped character with free direct influence may attempt a faction '
-                + '(reducer-site.ts)',
+            leaf('general influence free after the move', moved.freeGeneralInfluence, {
+              note: 'what stacking buys: room for the next character played',
             }),
-            leaf('what that influence buys', unlocked.tsd, {
-              unit: 'tsd',
-              tunable: 'potentialDiscount',
-              note: unlocked.reason,
-            }),
+            leaf('free direct influence after the move',
+              stacking ? moved.freeDirectInfluence[controlledBy as string] ?? 0
+                : Math.max(0, ...Object.values(moved.freeDirectInfluence)),
+              {
+                note: 'only an untapped character with free direct influence may attempt a faction '
+                  + '(reducer-site.ts) — the matching\'s checkP is recomputed from it',
+              }),
           ]),
-          scored.rationale,
+          node('after this move', valueAfter.u,
+            valueAfter.rationale.children ?? [], { unit: 'winprob' }),
+          node('before it', valueBefore.u,
+            valueBefore.rationale.children ?? [], { unit: 'winprob' }),
         ], { unit: 'winprob' }),
-        assumptions: ASSUMPTIONS,
+        assumptions: [
+          'utility is a difference of two scored arrangements, not standing.score of the reported '
+          + 'distribution — the reported outcomes are the after-arrangement re-centred on the change',
+          'control cost is taken as effective mind; the engine\'s control-cost overrides are not '
+          + 'in the view',
+          ...ASSUMPTIONS,
+        ],
       };
     }
 
