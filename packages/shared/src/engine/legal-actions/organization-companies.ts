@@ -828,6 +828,19 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // Check whether this company has a Ringwraith avatar.
     const hasRingwraithAvatar = player.alignment === 'ringwraith' && companyContainsRingwraithAvatar(state, player, company);
 
+    // Rule 3.07 (2.II.2.1.R3): a company mixing a Ringwraith with a
+    // non-Ringwraith character is legal only while sitting at a Darkhaven —
+    // moving takes it away from that Darkhaven for the whole trip, so no
+    // destination (Darkhaven or not) can be planned until the mix is
+    // resolved. Without this guard the game accepts a `plan-movement` that
+    // `declare-path` (movement-hazard.ts) is guaranteed to refuse later,
+    // silently stranding the company at its origin having wasted its
+    // movement/hazard phase.
+    if (hasRingwraithAvatar && wouldViolateRingwraithComposition(state, company.characters)) {
+      logDetail(`Company ${company.id as string}: mixes a Ringwraith with a non-Ringwraith character — rule 3.07 forbids any movement away from ${currentSiteDef.name} — no destination offered`);
+      continue;
+    }
+
     if (hasRingwraithAvatar) {
       const hasModeCard = ringwraithHasModeCard(state, company, player);
       const originIsDarkhaven = isDarkhavenSiteDef(currentSiteDef);
