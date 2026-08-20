@@ -5206,9 +5206,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             : [cBody];
           const cThreshold = Math.min(...cDiscardValues) + bodyModifier;
           const cName = cDef && isCharacterCard(cDef) ? cDef.name : (charId as string);
-          // onFail by race: Orc/Troll are discarded; others are tapped only if
-          // currently untapped (the `when` leaves wounded/inverted untouched).
-          const onFail = cOrcTroll
+          // CoE 3.I.1: a body check fails when the roll is HIGHER than the
+          // threshold (rolling low is good). The generic dice-check resolver's
+          // `comparison: 'gt'` reports "passed" when roll > threshold, so the
+          // bad outcome (discard for Orc/Troll, tap for others) goes on
+          // `onPass` and the good outcome (no effect) is `onFail` — mirroring
+          // the same body-check polarity used by Whip Discipline (le-159-style)
+          // in reducer-events.ts.
+          const onPass = cOrcTroll
             ? { type: 'discard-character' as const }
             : { type: 'set-character-status' as const, status: 'tapped' as const, when: { 'target.status': 'untapped' } };
           current = enqueueResolution(current, {
@@ -5220,8 +5225,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               label: `Body check (${bodyCheckSourceName}): ${cName}`,
               modifiers: [],
               threshold: cThreshold,
-              comparison: 'gte',
-              onFail,
+              comparison: 'gt',
+              onPass,
               continuation: { kind: 'chain-entry', match: 'source', drainSameSource: true },
               requireTargetPresent: true,
               targetCharacterId: charId,
