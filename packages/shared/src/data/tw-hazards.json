@@ -534,7 +534,12 @@
     "effects": [
       {
         "type": "play-target",
-        "target": "character"
+        "target": "character",
+        "filter": {
+          "target.race": {
+            "$ne": "ringwraith"
+          }
+        }
       },
       {
         "type": "duplication-limit",
