@@ -32,18 +32,24 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, resetMint, Phase, Alignment,
   attachHazardToChar,
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS,
   LURE_OF_THE_SENSES,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, viableFor, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER, HAZARD_PLAYER,
+  makeMHState, findCharInstanceId,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction, CorruptionCheckAction } from '../../index.js';
+import type { ActivateGrantedAction, CorruptionCheckAction, CardDefinitionId, PlayHazardAction } from '../../index.js';
 import { describeAction } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
+
+const WITCH_KING = 'le-58' as CardDefinitionId; // Ringwraith avatar, race "ringwraith"
+const GORBAG = 'le-11' as CardDefinitionId;     // Orc, race "orc" — legal target
+const DOL_GULDUR = 'le-367' as CardDefinitionId; // minion site
 
 describe('Lure of the Senses (tw-60)', () => {
   beforeEach(() => resetMint());
@@ -67,6 +73,40 @@ describe('Lure of the Senses (tw-60)', () => {
     // before checking the bearer's effective corruption points.
     const withLure = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES));
     expect(withLure.players[0].characters[aragornId].effectiveStats.corruptionPoints).toBe(2);
+  });
+
+  test('NOT playable on a Ringwraith character (bug: played on Akhôrahil the Ringwraith)', () => {
+    // Bug report: Lure of the Senses was allowed to target Akhôrahil the
+    // Ringwraith (le-51) during movement-hazard. Card text: "Playable on a
+    // non-Ringwraith character." — the play-target effect was missing the
+    // filter excluding race "ringwraith" that sibling cards (Alone and
+    // Unadvised, Seized by Terror) already carry.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [WITCH_KING, GORBAG] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [LURE_OF_THE_SENSES], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const stateAtPlayHazards = { ...base, phaseState: mhState };
+
+    const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction);
+
+    // Only Gorbag is a legal target — the Witch-king (a Ringwraith) is excluded.
+    expect(playActions).toHaveLength(1);
+    expect(playActions[0].targetCharacterId).toBe(findCharInstanceId(base, RESOURCE_PLAYER, GORBAG));
   });
 
   test('untap → org transition at a haven enqueues a corruption-check pending resolution', () => {
