@@ -16,6 +16,7 @@ import type {
   GameState,
   PlayerId,
   EvaluatedAction,
+  CardDefinition,
   CardInstanceId,
   CharacterCard,
   ResourceEventCard,
@@ -3021,6 +3022,25 @@ export function buildPlayerStateContext(
   };
 }
 
+/**
+ * True when `def`'s `play-condition: player-state` gate (if any) is satisfied
+ * for the player — the condition is matched against
+ * {@link buildPlayerStateContext}, and a card carrying no such play-condition
+ * passes. Shared by every from-hand event emitter so the
+ * avatar/alignment/stage-point gate (The Great Eye as-85 "Playable if you are
+ * Sauron", A Strident Spawn wh-61, The Fortress of Isen wh-68, Above the
+ * Abyss as-77) reads identically at each play window.
+ */
+export function playerStateGateMet(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  def: CardDefinition | null | undefined,
+): boolean {
+  const gate = findPlayConditionEffect(def, 'player-state');
+  return !gate?.condition || matchesCondition(gate.condition, buildPlayerStateContext(state, player, playerId));
+}
+
 /** Legacy alias retained for call sites inside this module. */
 function buildTargetContext(
   state: GameState,
@@ -3658,14 +3678,10 @@ export function playResourceShortEventActions(
     // ({ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }).
     // Used by Above the Abyss (as-77): "if your opponent is a Wizard and your
     // Ringwraith is in play".
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      const met = matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId));
-      if (!met) {
-        logDetail(`${def.name}: play-condition player-state not satisfied`);
-        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`${def.name}: play-condition player-state not satisfied`);
+      actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
+      continue;
     }
 
     // play-condition requires: "card-in-play" — a named card must be in play for

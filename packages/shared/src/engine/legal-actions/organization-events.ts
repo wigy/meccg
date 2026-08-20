@@ -33,7 +33,7 @@ import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { buildPlayerStateContext } from './organization.js';
+import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
@@ -315,14 +315,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // Loyalties (wh-70): "Playable if you have more than 3 stage points." and A
     // Strident Spawn (wh-61): "Playable if you are Pallando or Saruman and have
     // 6 or more stage points and a protected Wizardhaven."
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      const ctx = buildPlayerStateContext(state, player, playerId);
-      if (!matchesCondition(playerStateCondition.condition, ctx)) {
-        logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
+      continue;
     }
 
     // play-condition: card-in-play — one or more named cards must already be in

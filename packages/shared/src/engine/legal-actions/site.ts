@@ -25,7 +25,7 @@ import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAll
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
@@ -1306,14 +1306,10 @@ function playResourcesActions(
         // play-condition: player-state — avatar/alignment/stage-point gate.
         // The Fortress of Isen/Towers (wh-68/wh-69): "Playable if you are Alatar,
         // Pallando, or Saruman."
-        const playerStateCond = findPlayConditionEffect(eventDef, 'player-state');
-        if (playerStateCond?.condition) {
-          const ctx = buildPlayerStateContext(state, player, playerId);
-          if (!matchesCondition(playerStateCond.condition, ctx)) {
-            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
-            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
-            continue;
-          }
+        if (!playerStateGateMet(state, player, playerId, eventDef)) {
+          logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+          continue;
         }
 
         // play-condition: card-count-exceeds — the controller must hold more
