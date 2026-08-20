@@ -20,7 +20,7 @@ export { resolveThrallCharacterPairings, hasCharacterPlayTargetEffect, matchesCh
 export type { StageResourceCharacterRef, ThrallCharacterPairing } from './stage-resource-characters.js';
 export { buildMovementMap, getReachableSites, findRegionPaths, regionDistanceInclusive } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
-export { effectiveGeneralInfluence, generalInfluenceControlLimit, regionTypeCounts } from './engine/reducer-utils.js';
+export { effectiveGeneralInfluence, generalInfluenceControlLimit, regionTypeCounts, stagePointsOfCard } from './engine/reducer-utils.js';
 export type { RegionTypeCounts } from './engine/reducer-utils.js';
 // The draw-modifier arithmetic, for consumers that must predict a draw count
 // without a `GameState` to collect effects from — the AI reads a `PlayerView`
