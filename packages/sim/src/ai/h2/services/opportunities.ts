@@ -207,7 +207,7 @@ function buildEnumerateOpportunities(
         const siteDef = cardPool[site.definitionId];
         if (!siteDef || !isSiteDefinition(siteDef)) continue;
         // Playability is the engine's own rule, reused rather than restated.
-        if (!resourcePlayableAt(def, siteDef as never)) continue;
+        if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
 
         // A goal worth less than the trip is not a goal: the filter that
         // already dropped points capped to zero also drops the ones the
@@ -321,7 +321,7 @@ function buildEnumerateGoalCandidates(
     for (const siteDefinitionId of sites) {
       const siteDef = cardPool[siteDefinitionId];
       if (!siteDef || !isSiteDefinition(siteDef)) continue;
-      if (!resourcePlayableAt(def, siteDef as never)) continue;
+      if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
       const attacks = automaticAttacksOf(cardPool, siteDefinitionId);
       candidates.push({
         cardInstanceId: card.instanceId,
