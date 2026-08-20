@@ -2551,9 +2551,9 @@ export function markPrisonersRescuedAtDolGuldur(
 
 /**
  * One card the playing company could discard to satisfy a
- * `discard-keyword-card` play-condition.
+ * `discard-keyword-card` / `discard-named-card` play-condition.
  */
-export interface KeywordDiscardCandidate {
+export interface DiscardCandidate {
   /** The instance that would be discarded — rides the play action's `discardCardInstanceId`. */
   readonly instanceId: CardInstanceId;
   /** Which zone it was found in, for logging. */
@@ -2563,18 +2563,66 @@ export interface KeywordDiscardCandidate {
 }
 
 /**
- * Enumerates every card **the given company controls** that carries the
- * keyword named by a `discard-keyword-card` play-condition, so the player can
- * choose which one to discard as the play cost.
+ * Enumerates every card **the given company controls** that satisfies the
+ * given predicate, scanning the zones named by a discard play-condition's
+ * `sources`, so the player can choose which one to discard as the play cost.
+ *
+ * Zone semantics: `character-items` covers the items of the company's own
+ * characters (permanent events played on a character live in
+ * `character.items` too); `cards-in-play` covers bare company-bound permanent
+ * events in `PlayerState.cardsInPlay`, scoped to entries bound to this very
+ * company ("a card it controls"); `kill-pile` covers the marshalling point
+ * pile — successfully stored items live there per CoE rule 2.II.4.1 (e.g. a
+ * Sapling of the White Tree stored at Minas Tirith).
+ */
+function collectDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  sources: NonNullable<PlayConditionEffect['sources']>,
+  matchesDef: (def: CardDefinition) => boolean,
+): DiscardCandidate[] {
+  const candidates: DiscardCandidate[] = [];
+  const check = (defId: CardDefinitionId): { ok: boolean; name: string } => {
+    const def = defById(state, defId);
+    return { ok: def != null && matchesDef(def), name: def?.name ?? (defId as string) };
+  };
+  for (const source of sources) {
+    if (source === 'character-items') {
+      for (const charId of company.characters) {
+        const ch = player.characters[charId];
+        if (!ch) continue;
+        for (const item of ch.items) {
+          const { ok, name } = check(item.definitionId);
+          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
+        }
+      }
+    } else if (source === 'cards-in-play') {
+      for (const card of player.cardsInPlay) {
+        // "a card it controls" — only cards bound to this very company.
+        if (card.companyId !== company.id) continue;
+        const { ok, name } = check(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    } else {
+      for (const card of player.killPile) {
+        const { ok, name } = check(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Enumerates every card the given company controls that carries the keyword
+ * named by a `discard-keyword-card` play-condition.
  *
  * Pass the Doors of Dol Guldur (dm-154): "Playable on a company if the company
  * discards (for no effect) a Stolen Knowledge card it controls." A Stolen
  * Knowledge card may be attached to one of the company's characters (Dark
- * Numbers dm-123, Knowledge of the Enemy dm-147 — permanent events played on a
- * character live in `character.items`) or be a bare company-bound permanent
- * event in `cardsInPlay` (another copy of dm-154 itself). "It controls" is what
- * scopes the search: only the company's own characters and only `cardsInPlay`
- * entries bound to this company are offered.
+ * Numbers dm-123, Knowledge of the Enemy dm-147) or be a bare company-bound
+ * permanent event in `cardsInPlay` (another copy of dm-154 itself).
  *
  * Returns an empty list when the condition cannot be satisfied, in which case
  * the card is not playable.
@@ -2584,41 +2632,39 @@ export function keywordDiscardCandidates(
   player: PlayerState,
   company: Company,
   condition: PlayConditionEffect,
-): KeywordDiscardCandidate[] {
+): DiscardCandidate[] {
   const keyword = condition.cardKeyword;
   if (!keyword) return [];
-  const sources = condition.sources ?? ['character-items'];
-  const candidates: KeywordDiscardCandidate[] = [];
-  const hasKeyword = (defId: CardDefinitionId): { ok: boolean; name: string } => {
-    const def = defById(state, defId);
-    const keywords = (def as { keywords?: readonly string[] } | undefined)?.keywords ?? [];
-    return { ok: keywords.includes(keyword), name: def?.name ?? (defId as string) };
-  };
-  for (const source of sources) {
-    if (source === 'character-items') {
-      for (const charId of company.characters) {
-        const ch = player.characters[charId];
-        if (!ch) continue;
-        for (const item of ch.items) {
-          const { ok, name } = hasKeyword(item.definitionId);
-          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
-        }
-      }
-    } else if (source === 'cards-in-play') {
-      for (const card of player.cardsInPlay) {
-        // "a card it controls" — only cards bound to this very company.
-        if (card.companyId !== company.id) continue;
-        const { ok, name } = hasKeyword(card.definitionId);
-        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
-      }
-    } else {
-      for (const card of player.killPile) {
-        const { ok, name } = hasKeyword(card.definitionId);
-        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
-      }
-    }
-  }
-  return candidates;
+  return collectDiscardCandidates(
+    state, player, company, condition.sources ?? ['character-items'],
+    def => ((def as { keywords?: readonly string[] }).keywords ?? []).includes(keyword),
+  );
+}
+
+/**
+ * Enumerates every card the given company controls with the exact name given
+ * by a `discard-named-card` play-condition — the named sibling of
+ * {@link keywordDiscardCandidates}.
+ *
+ * The White Tree (tw-348): "Playable only if you discard a Sapling of the
+ * White Tree from your marshalling point pile or from a character's control
+ * at Minas Tirith."
+ *
+ * Returns an empty list when the condition cannot be satisfied, in which case
+ * the card is not playable.
+ */
+export function namedDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  condition: PlayConditionEffect,
+): DiscardCandidate[] {
+  const cardName = condition.cardName;
+  if (!cardName) return [];
+  return collectDiscardCandidates(
+    state, player, company, condition.sources ?? ['character-items'],
+    def => def.name === cardName,
+  );
 }
 
 /**

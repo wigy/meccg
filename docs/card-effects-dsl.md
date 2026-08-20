@@ -7587,19 +7587,23 @@ Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
 
 - `discard-named-card` — requires discarding a specific named card as a
   play prerequisite. The `cardName` field names the card, and `sources`
-  lists where to look: `character-items` (items on characters at the
-  current site) and/or `out-of-play-pile` (stored items in the player's
-  out-of-play pile). One legal action is generated per available discard
+  lists where to look, using the same vocabulary as `discard-keyword-card`
+  below: `character-items` (items on the company's characters),
+  `kill-pile` (the marshalling point pile — successfully stored items live
+  there per CoE rule 2.II.4.1), and/or `cards-in-play` (bare company-bound
+  permanent events). One legal action is generated per available discard
   candidate, carrying the `discardCardInstanceId` on the action.
 
 ```json
 { "type": "play-condition", "requires": "discard-named-card",
   "cardName": "Sapling of the White Tree",
-  "sources": ["character-items", "out-of-play-pile"] }
+  "sources": ["character-items", "kill-pile"] }
 ```
 
-Implemented in `legal-actions/site.ts` (permanent event play-condition
-check) and `reducer-events.ts` (discard execution).
+Implemented in `reducer-utils.ts` (`namedDiscardCandidates`),
+`legal-actions/site.ts` and `legal-actions/organization-events.ts`
+(permanent event play-condition checks), and `reducer-events.ts` (discard
+execution).
 
 - `discard-keyword-card` — the keyword-matched sibling of
   `discard-named-card`: instead of one printing, it matches a *family* of
