@@ -5580,6 +5580,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               // Carry the failure fate for the boosted faction (The Dark Power
               // as-79: failed check → shuffle the faction into the play deck).
               ...(apply.onFailure ? { onFailure: apply.onFailure } : {}),
+              // Carry the success bonus (Lordly Presence tw-267: successful
+              // check → draw a card).
+              ...(apply.onSuccess ? { onSuccess: apply.onSuccess } : {}),
               // Carry the prowess substitution (Threats le-244: unused DI
               // replaced by min(effective prowess, max) at resolution).
               ...(apply.prowessSubstitution ? { prowessSubstitution: apply.prowessSubstitution } : {}),

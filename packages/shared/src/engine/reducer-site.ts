@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -3654,6 +3654,9 @@ export function resolveInfluenceAttemptRoll(
   // The Dark Power (as-79): a consumed one-shot boost may flag that a failed
   // check shuffles the faction into the play deck instead of discarding it.
   let shuffleFactionOnFailure = false;
+  // Lordly Presence (tw-267): a consumed one-shot boost may flag that a
+  // successful check draws a card for the influencer's controller.
+  let drawCardOnSuccess = false;
   // Red Arrow (tw-312): an `auto-influence-faction` grant on the influencer (or
   // an item they bear) lets this faction be influenced with no 2d6 check.
   let autoInfluence = false;
@@ -3799,6 +3802,9 @@ export function resolveInfluenceAttemptRoll(
       consumedConstraintIds.push(constraint.id as string);
       if (constraint.kind.onFailure === 'shuffle-faction-into-deck') {
         shuffleFactionOnFailure = true;
+      }
+      if (constraint.kind.onSuccess === 'draw-card') {
+        drawCardOnSuccess = true;
       }
       logDetail(`Influence one-shot constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
     }
@@ -4020,13 +4026,22 @@ export function resolveInfluenceAttemptRoll(
         allyOrFactionPlayedAtSite: true,
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
+    // Lordly Presence (tw-267): the consumed boost draws a card for the
+    // influencer's controller when the boosted check succeeds.
+    let drawnState = successState;
+    if (drawCardOnSuccess) {
+      const { state: afterDraw, drawnCards } = drawCardsExhausting(successState, playerIndex, 1);
+      logDetail(`Influence: boosted check succeeded — drawing 1 card for ${player.name} (drew ${drawnCards.length})`);
+      drawnState = updatePlayer(afterDraw, playerIndex, p => ({ ...p, hand: [...p.hand, ...drawnCards] }));
+    }
+
     // Lure of Power (tw-59): a successful influence attempt by a matching
     // character fires `successful-influence-attempt` triggers on bare in-play
     // events (corruption check on the influencer, then self-discard). Only a
     // character influencer qualifies — an ally (wh-114) is not a "character".
     const triggeredState = charInPlay
-      ? fireSuccessfulInfluenceTriggers(successState, charId, entry.declaredBy)
-      : successState;
+      ? fireSuccessfulInfluenceTriggers(drawnState, charId, entry.declaredBy)
+      : drawnState;
     // Inner Rot (wh-23): a stage faction (Half-orcs wh-87, Greater Half-orcs
     // wh-86) influenced into play counts as "playing a stage card". A failed
     // influence attempt never puts the faction in play, so it does not trigger.

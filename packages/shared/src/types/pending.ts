@@ -1500,6 +1500,13 @@ export interface ActiveConstraint {
          */
         readonly onFailure?: 'shuffle-faction-into-deck';
         /**
+         * For an influence modifier: what happens when the boosted
+         * (consuming) check succeeds. `'draw-card'` draws one card for the
+         * influencer's controller. Lordly Presence (tw-267): "If the
+         * influence check is successful, draw a card."
+         */
+        readonly onSuccess?: 'draw-card';
+        /**
          * For a faction-influence modifier: substitute the influencer's
          * unused direct influence with his prowess. When the constraint is
          * consumed, the influencer's whole unused-DI contribution (free DI
