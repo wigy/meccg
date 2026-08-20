@@ -338,7 +338,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
 
   // ─── Rule #4: per-mode stat changes to the Ringwraith ─────────────────────────
 
-  test('+2 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('+2 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -350,8 +350,10 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const adunaphel = getCharacter(state, RESOURCE_PLAYER, ADUNAPHEL_RW);
-    expect(adunaphel.effectiveStats.directInfluence).toBe(6); // 4 + 2
-    expect(adunaphel.effectiveStats.prowess).toBe(8); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; her own +2 stacks on top of that.
+    expect(adunaphel.effectiveStats.directInfluence).toBe(9); // 4 + 2 (her own) + 3 (mode card)
+    expect(adunaphel.effectiveStats.prowess).toBe(6); // 8 - 2 (mode card); her Fell Rider penalty does not apply
   });
 
   test('-2 prowess in Fell Rider mode (direct influence unchanged)', () => {

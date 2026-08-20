@@ -68,7 +68,7 @@ describe('Indûr the Ringwraith (le-54)', () => {
 
   // ── Per-mode stat changes ───────────────────────────────────────────────
 
-  test('-1 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('-1 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -80,8 +80,10 @@ describe('Indûr the Ringwraith (le-54)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const indur = getCharacter(state, RESOURCE_PLAYER, INDUR);
-    expect(indur.effectiveStats.directInfluence).toBe(4); // 5 - 1
-    expect(indur.effectiveStats.prowess).toBe(9);          // Fell Rider penalty does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own -1 stacks on top of that.
+    expect(indur.effectiveStats.directInfluence).toBe(7); // 5 - 1 (his own) + 3 (mode card)
+    expect(indur.effectiveStats.prowess).toBe(7);         // 9 - 2 (mode card); his Fell Rider penalty does not apply
   });
 
   test('-3 prowess in Fell Rider mode (direct influence unchanged)', () => {

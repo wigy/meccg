@@ -1709,6 +1709,7 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-08-19",
     "effects": [
       {
         "type": "deck-restriction",
@@ -1719,18 +1720,45 @@
         "reason": "rule 1.23"
       },
       {
-        "type": "stat-modifier",
-        "stat": "prowess",
-        "value": -2
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
       },
       {
-        "type": "stat-modifier",
-        "stat": "direct-influence",
-        "value": 3
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.siteType": "haven",
+          "target.hasRingwraith": true
+        }
       },
       {
         "type": "ringwraith-mode",
         "mode": "heralded-lord"
+      },
+      {
+        "type": "company-modifier",
+        "stat": "prowess",
+        "value": -2
+      },
+      {
+        "type": "company-modifier",
+        "stat": "direct-influence",
+        "value": 3
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "company.atHaven": true
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard",
+          "alsoDiscardCompanyFollowers": true
+        }
       }
     ]
   },
