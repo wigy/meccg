@@ -21,7 +21,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -2167,6 +2167,22 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   );
   companies.push(newCompany);
 
+  // Rule 2.II.3.6.1: effects targeting "a specific character's company"
+  // (rather than the company as an entity) follow that character when the
+  // company splits. Ringwraith-mode cards (Black Rider, Fell Rider, Heralded
+  // Lord — le-170/183/190) are bound to "your Ringwraith's own company", so
+  // if the Ringwraith is the character splitting off, the mode card must
+  // move with them to the new company rather than staying behind with
+  // whichever characters remain.
+  const newCompanyHasRingwraith = companyHasRingwraith(state, player, newCompany);
+  const cardsInPlay = player.cardsInPlay.map(card => {
+    if (card.companyId !== sourceCompany.id || !newCompanyHasRingwraith) return card;
+    const cardDef = defById(state, card.definitionId);
+    if (!cardDef || !getCardEffects(cardDef).some(e => e.type === 'ringwraith-mode')) return card;
+    logDetail(`Split company: moving Ringwraith-mode card ${cardDef.name} to ${newCompany.id as string} (Ringwraith split off)`);
+    return { ...card, companyId: newCompany.id };
+  });
+
   // Reverse: merge the new company back into the source
   const reverseAction: GameAction = {
     type: 'merge-companies',
@@ -2194,7 +2210,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   };
 
   let result = sweepCompanyMembershipChangedEvents({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck: newSiteDeck })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, cardsInPlay, siteDeck: newSiteDeck })),
     reverseActions: [...state.reverseActions, reverseAction],
     phaseState: { ...orgState, splitLineage },
   }, [sourceCompany.id]);
