@@ -16,7 +16,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findCompanyAllies } from './legal-actions/combat.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
-import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, resolveDef } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -4467,10 +4467,6 @@ export function resolveOpponentInfluenceDefend(
   const rng = rolled ? rolled.rng : state.rng;
   const cheatRollTotal = rolled ? rolled.cheatRollTotal : state.cheatRollTotal;
 
-  const rollEffects = rolled
-    ? [diceRollEffect(opponent.name, rolled.roll, `Opponent influence: defense`)]
-    : [];
-
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll
   //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
@@ -4478,6 +4474,7 @@ export function resolveOpponentInfluenceDefend(
   const regionPenalty = attempt.regionPenalty ?? 0;
   const boostModifier = attempt.boostModifier ?? 0;
   const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty + boostModifier;
+  const succeeded = attempt.autoSuccess || finalResult > attempt.targetMind;
 
   if (attempt.autoSuccess) {
     logDetail(`Opponent influence resolution: automatically successful (no defence roll)`);
@@ -4485,9 +4482,29 @@ export function resolveOpponentInfluenceDefend(
     logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
   }
 
+  // The player-facing dice-roll toast is the only place the outcome of this
+  // check reaches the client — carry the full formula and verdict in the
+  // label so a player can verify the math from the log instead of having to
+  // infer success/failure from the resulting state diff.
+  const targetDef = resolveDef(state, attempt.targetInstanceId);
+  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef) || isFactionCard(targetDef) || isItemCard(targetDef))
+    ? targetDef.name : '?';
+  const influencerDef = resolveDef(state, attempt.influencerId);
+  const influencerName = influencerDef && isCharacterCard(influencerDef) ? influencerDef.name : '?';
+  const verdict = succeeded
+    ? `succeeded (${attempt.autoSuccess ? 'automatic' : `${finalResult} > ${attempt.targetMind}`})`
+    : `failed (${finalResult} <= ${attempt.targetMind})`;
+  const rollEffects = rolled
+    ? [diceRollEffect(
+        opponent.name,
+        rolled.roll,
+        `Opponent influence: ${influencerName} vs ${targetName} — ${attempt.attackerRoll} (attack) + ${attempt.influencerDI} (DI) - ${attempt.opponentGI} (GI) - ${defenderRoll} (defense) - ${attempt.controllerDI} (controller DI) = ${finalResult} vs mind ${attempt.targetMind} → ${verdict}`,
+      )]
+    : [];
+
   const newPlayers = clonePlayers(state);
 
-  if (attempt.autoSuccess || finalResult > attempt.targetMind) {
+  if (succeeded) {
     // Success — discard target and controlled non-follower cards
     logDetail(attempt.autoSuccess
       ? `Opponent influence succeeded (automatic)`
