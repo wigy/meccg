@@ -26,15 +26,6 @@
  * every transfer and store tied at exactly 0 with `pass`, and the agent's
  * tie-break prefers to act over passing — so a chain of pointless transfers
  * scored identically to leaving the item alone, and always won.
- *
- * That check genuinely cannot fail below corruption 2 — 2d6 cannot roll under
- * 2 — so on a company whose members mostly sit at corruption 0 or 1,
- * `checkRisk` correctly prices it at zero, and the tie it was meant to break
- * reopens: every next hop is free again. `repeatedTransferCost` (see
- * `ModuleContext.itemTransfers`) charges the second and later transfer of one
- * item this turn, so a company still tours it once for free but no longer
- * carries it round the whole roster one decision at a time (game
- * mt1j9m0i-5d4lze, turn 7).
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
@@ -142,23 +133,7 @@ export const healthModule: H2Module = {
     if (risk.tsd > 0) {
       detail.push(leaf('corruption check risked', risk.tsd, { unit: 'tsd', note: risk.reason }));
     }
-
-    // The first hop this turn is left to `checkRisk` alone — a defensible
-    // destination this module simply has no invented reason for. Every hop
-    // after that is charged, so a company that keeps handing an item on
-    // needs another module's reason to still be worth it, rather than riding
-    // a zero-risk tie with `pass` all the way round the roster.
-    let churn = 0;
-    if (action.type === 'transfer-item' && record.itemInstanceId) {
-      const priorHops = context.itemTransfers?.[record.itemInstanceId] ?? 0;
-      if (priorHops > 0) {
-        churn = tunables.repeatedTransferCost;
-        detail.push(leaf('already transferred this turn', priorHops, {
-          note: 'repeatedTransferCost charges every hop after the first so the item does not tour the company',
-        }));
-      }
-    }
-    const dtsd = netTsdDelta({ realized, tempo: risk.tsd + churn }, tunables);
+    const dtsd = netTsdDelta({ realized, tempo: risk.tsd }, tunables);
 
     const outcomes: Outcome[] = [{ p: 1, label, dtsd }];
     const scored = standing.score(outcomes);

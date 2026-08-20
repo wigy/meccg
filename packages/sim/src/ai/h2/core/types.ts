@@ -180,22 +180,6 @@ export interface ModuleContext {
    */
   readonly visited?: Readonly<Record<string, readonly string[]>>;
   /**
-   * How many times each item, by instance id, has already been transferred
-   * between characters this turn.
-   *
-   * Not in the game state, for the same reason `visited` is not: nothing in
-   * the rules records how many hops an item has taken this turn, so a fourth
-   * hop reads exactly like a first one unless the agent remembers. The health
-   * module reads it to charge `repeatedTransferCost` from the second hop
-   * onward, which is what stops a company-mate's item, priced at zero risk
-   * because the giving-up bearer's corruption is too low to ever fail the
-   * check (`checkRisk`), from touring the whole company one hop per decision.
-   *
-   * Empty when the agent has not been driving, the same honest-in-replay
-   * reading `visited` uses.
-   */
-  readonly itemTransfers?: Readonly<Record<string, number>>;
-  /**
    * The committed portfolio, when the agent has one.
    *
    * Absent for proposers — they run *before* commitment, and a proposer that
