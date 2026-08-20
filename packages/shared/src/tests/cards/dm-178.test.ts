@@ -43,6 +43,7 @@ import { computeLegalActions, BAG_END, OLD_FOREST, THE_WHITE_TOWERS_HERO } from 
 const MISTRESS_LOBELIA = 'dm-178' as CardDefinitionId;
 const LOBELIA_SB = 'dm-28' as CardDefinitionId;      // the agent manifestation
 const WOOD_ELVES = 'tw-367' as CardDefinitionId;     // faction NOT playable at Bree
+const NOBLE_HOUND = 'dm-179' as CardDefinitionId;    // ally playable via play-target filter (any Border-hold), not playableAt entries
 
 const FETCH_ACTION = 'lobelia-fetch-playable';
 
@@ -249,6 +250,21 @@ describe('Mistress Lobelia (dm-178)', () => {
     expect(afterFetch.players[0].discardPile.some(c => c.definitionId === RANGERS_OF_THE_NORTH)).toBe(false);
     expect(afterFetch.pendingEffects).toHaveLength(0);
     assertEveryInstanceReachable(afterFetch);
+  });
+
+  test('a card playable at the site via a play-target filter (Noble Hound: any Border-hold), not printed playableAt entries, is offered', () => {
+    // Bree is a Border-hold; Noble Hound's playability comes from a
+    // play-target/filter effect (siteType: border-hold), not a playableAt
+    // entry naming Bree — the same shape that made the fetch silently
+    // exclude it.
+    const state = tapFixture({ deck: [NOBLE_HOUND, ...makePlayDeck()] });
+    const after = dispatch(state, fetchActionsOf(state)[0].action);
+
+    const fetchActions = computeLegalActions(after, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'fetch-from-pile');
+    const houndInst = after.players[0].playDeck.find(c => c.definitionId === NOBLE_HOUND)!;
+    const pick = fetchActions.find(a => (a.action as { cardInstanceId: string }).cardInstanceId === houndInst.instanceId as unknown as string);
+    expect(pick).toBeDefined();
   });
 
   test('the tap ability is offered during the site phase, at the ally\'s own current site (CoE 2.1.1 / 9.1.3: resource/character actions on cards in play are available during any phase)', () => {
