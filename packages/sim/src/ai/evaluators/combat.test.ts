@@ -45,6 +45,7 @@ function makeContext(struckStatus: CardStatus, handDefIds: readonly string[]): A
   const view = {
     self: {
       hand: handDefIds.map((definitionId, i) => ({ instanceId: `h${i}`, definitionId })),
+      companies: [],
       characters: {
         'p2-107': {
           instanceId: 'p2-107',
@@ -147,6 +148,66 @@ describe('combatEvaluator convert-creature-to-ally', () => {
     const convertScore = combatEvaluator.score(convertAction, context)!;
     const assignScore = combatEvaluator.score(assignStrikeAction, context)!;
     expect(convertScore).toBeGreaterThan(assignScore);
+  });
+});
+
+describe('combatEvaluator resolve-strike', () => {
+  // Bug report: AI-Heuristic (auto-attack at a site) chose to stay untapped
+  // (tapToFight: false) for every character in a 3-member company, even
+  // after an earlier teammate had already resolved its strike and stayed
+  // untapped. Staying untapped applies a -3 prowess penalty (CoE 3.iv.3),
+  // so risking it for a second or third character is pure unnecessary
+  // danger once the company already has one untapped member — one of the
+  // characters (Saruman) died to the resulting body check as a result.
+  function makeCompanyContext(companionStatus: 'success-untapped' | 'wounded-tapped'): AiContext {
+    const companionResult = companionStatus === 'success-untapped' ? 'success' : 'wounded';
+    const companionCharStatus = companionStatus === 'success-untapped' ? CardStatus.Untapped : CardStatus.Inverted;
+    const view = {
+      self: {
+        hand: [],
+        companies: [{ id: 'company-p2-0', characters: ['p2-2', 'p2-108', 'p2-104'] }],
+        characters: {
+          'p2-2': {
+            instanceId: 'p2-2',
+            status: companionCharStatus,
+            effectiveStats: { prowess: 3, body: 9, directInfluence: 0, corruptionPoints: 0 },
+          },
+          'p2-104': {
+            instanceId: 'p2-104',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 1, body: 6, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      opponent: { companies: [], characters: {} },
+      combat: {
+        strikeAssignments: [
+          { characterId: 'p2-2', excessStrikes: 0, resolved: true, result: companionResult },
+          { characterId: 'p2-104', excessStrikes: 0, resolved: false },
+        ],
+        currentStrikeIndex: 1,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  const tapToFight = (need: number): GameAction =>
+    ({ type: 'resolve-strike', player: 'p2', tapToFight: true, need, explanation: '' } as unknown as GameAction);
+  const stayUntapped = (need: number): GameAction =>
+    ({ type: 'resolve-strike', player: 'p2', tapToFight: false, need, explanation: '' } as unknown as GameAction);
+
+  test('prefers tapping once a teammate already resolved untapped', () => {
+    const context = makeCompanyContext('success-untapped');
+    const tapScore = combatEvaluator.score(tapToFight(7), context)!;
+    const untapScore = combatEvaluator.score(stayUntapped(4), context)!;
+    expect(tapScore).toBeGreaterThan(untapScore);
+  });
+
+  test('falls back to need-based scoring when no teammate stayed untapped', () => {
+    const context = makeCompanyContext('wounded-tapped');
+    const tapScore = combatEvaluator.score(tapToFight(7), context)!;
+    const untapScore = combatEvaluator.score(stayUntapped(4), context)!;
+    expect(untapScore).toBeGreaterThan(tapScore);
   });
 });
 
