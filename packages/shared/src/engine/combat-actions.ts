@@ -29,7 +29,7 @@ import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, Comb
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
-import { currentHazardLimit } from './hazard-limit.js';
+import { chargeHazardLimit } from './hazard-limit.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, buildPlayedModifyAttackContext } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
@@ -1895,10 +1895,8 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         return { state, error: 'modify-attack: a creature-permanent-event may only be tapped during the opponent\'s movement/hazard phase' };
       }
       if (!('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
-        const limit = currentHazardLimit(state, state.phaseState, combat.companyId);
-        if ((state.phaseState.hazardsPlayedThisCompany ?? 0) >= limit) {
-          return { state, error: `modify-attack: hazard limit reached (${limit})` };
-        }
+        const charge = chargeHazardLimit(state, state.phaseState, combat.companyId, 'modify-attack');
+        if ('error' in charge) return { state, error: charge.error };
       }
     }
 
@@ -1916,10 +1914,8 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     // on-guard reveals (which reuse this same from-hand path) are unaffected.
     if (!altPermanentEvent && !onGuard && effect.player === 'attacker' && state.phaseState.phase === Phase.MovementHazard
       && !('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
-      const limit = currentHazardLimit(state, state.phaseState, combat.companyId);
-      if ((state.phaseState.hazardsPlayedThisCompany ?? 0) >= limit) {
-        return { state, error: `modify-attack: hazard limit reached (${limit})` };
-      }
+      const charge = chargeHazardLimit(state, state.phaseState, combat.companyId, 'modify-attack');
+      if ('error' in charge) return { state, error: charge.error };
     }
 
     const prowessModifier = effect.prowessModifier ?? 0;
