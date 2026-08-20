@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1164 | 1164 | 0 | 100.0% |
+| 1170 | 1170 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 109 | 109 | 100.0% |
+| AS | 110 | 110 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 108 | 108 | 100.0% |
-| LE | 304 | 304 | 100.0% |
+| LE | 308 | 308 | 100.0% |
 | TD | 96 | 96 | 100.0% |
-| TW | 357 | 357 | 100.0% |
+| TW | 358 | 358 | 100.0% |
 | WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
@@ -79,6 +79,7 @@
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 14 | ☑ |
+| as-98 | Riven Gate | — | 6 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-106 | The Under-roads | — | 7 | ☑ |
@@ -464,6 +465,7 @@
 | le-158 | The Warg-king | — | 12 | ☑ |
 | le-159 | A Malady Without Healing | — | 13 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
+| le-161 | Adûnaphel Unleashed | — | 10 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
 | le-167 | Bade to Rule | — | 14 | ☑ |
@@ -479,10 +481,11 @@
 | le-179 | Deeper Shadow | — | 14 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
-| le-183 | Fell Rider | — | 15 | ☑ |
+| le-183 | Fell Rider | — | 16 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-185 | Forced March | — | 7 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
+| le-190 | Heralded Lord | — | 10 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
@@ -502,6 +505,7 @@
 | le-228 | Skies of Fire | — | 9 | ☑ |
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
+| le-232 | Some Secret Art of Flame | — | 5 | ☑ |
 | le-235 | Sudden Call | — | 10 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
@@ -534,6 +538,7 @@
 | le-277 | Orcs of Mirkwood | — | 9 | ☑ |
 | le-278 | Orcs of Moria | — | 9 | ☑ |
 | le-279 | Orcs of the Ash Mountains | — | 6 | ☑ |
+| le-280 | Orcs of the Ephel Dúath | — | 9 | ☑ |
 | le-281 | Orcs of the Red Eye | — | 7 | ☑ |
 | le-282 | Orcs of Udûn | — | 14 | ☑ |
 | le-284 | Scorba Roused | — | 17 | ☑ |
@@ -570,7 +575,7 @@
 | le-344 | Shadow-cloak | — | 5 | ☑ |
 | le-345 | Strange Rations | — | 14 | ☑ |
 | le-346 | Trifling Ring | — | 13 | ☑ |
-| le-348 | Whip | — | 15 | ☑ |
+| le-348 | Whip | — | 16 | ☑ |
 | le-349 | Amon Hen | — | 10 | ☑ |
 | le-350 | Bag End | — | 12 | ☑ |
 | le-351 | Bandit Lair | — | 12 | ☑ |
@@ -780,7 +785,7 @@
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
 | tw-58 | Lure of Nature | — | 14 | ☑ |
 | tw-59 | Lure of Power | — | 7 | ☑ |
-| tw-060 | — | — | 8 | ☑ |
+| tw-060 | — | — | 9 | ☑ |
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
@@ -862,7 +867,7 @@
 | tw-152 | Frodo | — | 5 | ☑ |
 | tw-154 | Galva | — | 9 | ☑ |
 | tw-155 | Gamling the Old | — | 3 | ☑ |
-| tw-156 | Gandalf | — | 9 | ☑ |
+| tw-156 | Gandalf | — | 11 | ☑ |
 | tw-158 | Gildor Inglorion | — | 2 | ☑ |
 | tw-159 | Gimli | — | 8 | ☑ |
 | tw-160 | Glóin | — | 7 | ☑ |
@@ -947,6 +952,7 @@
 | tw-264 | Lapse of Will | — | 5 | ☑ |
 | tw-265 | Leaflock | — | 9 | ☑ |
 | tw-266 | Lesser Ring | — | 4 | ☑ |
+| tw-267-lordly-presence | Lordly Presence | — | 6 | ☑ |
 | tw-268 | Lossoth | — | 2 | ☑ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |

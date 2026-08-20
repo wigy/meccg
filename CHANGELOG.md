@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.119.0 — 2026-08-20
+
+Six new certified cards and a round of Ringwraith and targeting fixes
+
+### Game Engine
+
+- **Six cards certified:** Riven Gate (as-98), Some Secret Art of Flame
+  (le-232), Adûnaphel Unleashed (le-161), Heralded Lord (le-190), Orcs of
+  the Ephel Dúath (le-280) and Lordly Presence (tw-267). New DSL
+  primitives along the way: `cancel-attack` with
+  `cancelsRemainingSiteAttacks` + `influenceAtSiteModifier` (as-98),
+  multiple from-hand `modify-attack` effects on one card with
+  `grantAttackerChoosesDefenders`/`bodyCheckModifier` (le-161), and the
+  supporting shapes for le-232 and tw-267.
+- **Ringwraith mode cards follow the Ringwraith on a company split.**
+  Fell Rider and other mode cards no longer stay behind with the wrong
+  company (#2536).
+- **Lure of the Senses can no longer target Ringwraith characters**
+  (#2535).
+- **Gandalf's test-gold-ring action is now offered during the
+  end-of-turn phase** (#2533).
+- **Whip's direct-influence discount is credited against already-held
+  followers**, and restricted DI is accounted as a shared pool rather
+  than a per-follower discount (#2530).
+- **Aware of their Ways discard picks are revealed to the card-player**
+  instead of staying hidden in the projection (#2528).
+
+### Web Client
+
+- **Glove of Radagast's granted ally can now be played from the discard
+  pile** — the discard-pile ally click never worked (#2525).
+
+### AI
+
+- **Heuristic AI taps items for strike boosts** (Shield of Iron-bound
+  Ash) when facing strikes (#2524).
+- **Heuristic AI no longer wastes capped body/prowess items on
+  characters already at the cap** (#2534).
+
 ## 0.118.0 — 2026-08-19
 
 Cancel-window timing fixes, Wizardhaven targeting and an argmax AI
