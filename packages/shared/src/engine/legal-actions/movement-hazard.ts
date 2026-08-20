@@ -1118,25 +1118,37 @@ function companyTargetSiteName(state: GameState, company: Company, destSiteName:
   return destSiteName ?? currentSiteName;
 }
 
-function agentInfluenceActions(
+/**
+ * Resolves the shared context of the M/H agent-ability emitters: the hazard
+ * player owning the agents, the resource player, and the resource player's
+ * active company. Returns null when the active company no longer resolves.
+ */
+function mhAgentContext(
   state: GameState,
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
-): EvaluatedAction[] {
-  const actions: EvaluatedAction[] = [];
+): { hazardPlayer: PlayerState; resourcePlayer: PlayerState; company: Company } | null {
   const hazardPlayerIndex = getPlayerIndex(state, playerId);
   const hazardPlayer = state.players[hazardPlayerIndex];
-  const resourcePlayerIndex = 1 - hazardPlayerIndex;
-  const resourcePlayer = state.players[resourcePlayerIndex];
+  const resourcePlayer = state.players[1 - hazardPlayerIndex];
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
+  return company ? { hazardPlayer, resourcePlayer, company } : null;
+}
 
-  // Agent site lookups resolve by name; restrict to the agent owner's
-  // (hazard) alignment so a same-named hero site isn't picked by mistake.
-  const allSiteDefs = Object.values(state.cardPool).filter(
-    (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardPlayer.alignment,
-  );
-
+/**
+ * Iterates the hazard player's agents eligible to use an M/H agent ability
+ * declared by an `effectType` card effect: in play since turn start
+ * (`inPlayAtTurnStart`), not wounded (Inverted), with a resolvable character
+ * definition carrying the effect. Invokes `cb` with the agent, its
+ * definition, the matching effect, and the agent's current site name (null
+ * when unresolved) — the prologue every agent-ability emitter repeated.
+ */
+function forEachEligibleAgent<E extends { type: string }>(
+  state: GameState,
+  hazardPlayer: PlayerState,
+  effectType: E['type'],
+  cb: (agent: AgentInPlay, agentDef: CharacterCard, effect: E, agentSiteName: string | null) => void,
+): void {
   for (const agent of hazardPlayer.agents) {
     if (!agent.inPlayAtTurnStart) continue;
     if (agent.character.status === CardStatus.Inverted) continue; // wounded
@@ -1144,13 +1156,32 @@ function agentInfluenceActions(
     const agentDef = defById(state, agent.character.definitionId);
     if (!agentDef || !isCharacterCard(agentDef)) continue;
 
-    const tapInfluenceEff = (agentDef.effects ?? []).find(e => e.type === 'agent-tap-influence') as
-      | { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] }
-      | undefined;
-    if (!tapInfluenceEff) continue;
+    const effect = (agentDef.effects ?? []).find(e => e.type === effectType) as E | undefined;
+    if (!effect) continue;
 
-    // Determine the agent's current site name and the target company's site.
-    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+    cb(agent, agentDef, effect, agentCurrentSiteName(state, agent, agentDef));
+  }
+}
+
+function agentInfluenceActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const ctx = mhAgentContext(state, playerId, mhState);
+  if (!ctx) return [];
+  const { hazardPlayer, resourcePlayer, company } = ctx;
+
+  // Agent site lookups resolve by name; restrict to the agent owner's
+  // (hazard) alignment so a same-named hero site isn't picked by mistake.
+  const allSiteDefs = Object.values(state.cardPool).filter(
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardPlayer.alignment,
+  );
+
+  type TapInfluenceEffect = { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] };
+  forEachEligibleAgent<TapInfluenceEffect>(state, hazardPlayer, 'agent-tap-influence', (agent, agentDef, tapInfluenceEff, agentSiteName) => {
+    // The target company's site this turn.
     const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
     const isAgentAtCompanySite = agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
@@ -1244,7 +1275,7 @@ function agentInfluenceActions(
         }
       }
     }
-  }
+  });
 
   return actions;
 }
@@ -1267,35 +1298,18 @@ function agentTapAttackActions(
   mhState: MovementHazardPhaseState,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const hazardPlayerIndex = getPlayerIndex(state, playerId);
-  const hazardPlayer = state.players[hazardPlayerIndex];
-  const resourcePlayerIndex = 1 - hazardPlayerIndex;
-  const resourcePlayer = state.players[resourcePlayerIndex];
-  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
+  const ctx = mhAgentContext(state, playerId, mhState);
+  if (!ctx) return [];
+  const { hazardPlayer, company } = ctx;
 
   const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
-  for (const agent of hazardPlayer.agents) {
-    if (!agent.inPlayAtTurnStart) continue;
-    if (agent.character.status === CardStatus.Inverted) continue; // wounded
-
-    const agentDef = defById(state, agent.character.definitionId);
-    if (!agentDef || !isCharacterCard(agentDef)) continue;
-
-    const tapAttackEff = (agentDef.effects ?? []).find(
-      (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
-    );
-    if (!tapAttackEff) continue;
-
-    // Determine the agent's current site name.
-    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
-
+  forEachEligibleAgent<AgentTapAttackEffect>(state, hazardPlayer, 'agent-tap-attack', (agent, agentDef, _tapAttackEff, agentSiteName) => {
     const isAgentAtCompanySite =
       agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
     if (!isAgentAtCompanySite) {
       logDetail(`Agent tap-attack ${agentDef.name}: not at company's site (agent: ${agentSiteName ?? 'unknown'}, company: ${companySiteName ?? 'unknown'}) — skipping`);
-      continue;
+      return;
     }
 
     logDetail(`Agent tap-attack ${agentDef.name}: at company site "${companySiteName}" — offering attack`);
@@ -1338,7 +1352,7 @@ function agentTapAttackActions(
         viable: true,
       });
     }
-  }
+  });
 
   return actions;
 }
@@ -1363,12 +1377,9 @@ function agentDiscardReturnToOriginActions(
   mhState: MovementHazardPhaseState,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const hazardPlayerIndex = getPlayerIndex(state, playerId);
-  const hazardPlayer = state.players[hazardPlayerIndex];
-  const resourcePlayerIndex = 1 - hazardPlayerIndex;
-  const resourcePlayer = state.players[resourcePlayerIndex];
-  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
+  const ctx = mhAgentContext(state, playerId, mhState);
+  if (!ctx) return [];
+  const { hazardPlayer, company } = ctx;
 
   // The company must be moving to a new site (revealed) and not already returned.
   if (!company.destinationSite || !mhState.destinationSiteName) return [];
@@ -1382,22 +1393,10 @@ function agentDiscardReturnToOriginActions(
     return [];
   }
 
-  for (const agent of hazardPlayer.agents) {
-    if (!agent.inPlayAtTurnStart) continue;
-    if (agent.character.status === CardStatus.Inverted) continue; // wounded
-
-    const agentDef = defById(state, agent.character.definitionId);
-    if (!agentDef || !isCharacterCard(agentDef)) continue;
-
-    const discardEff = (agentDef.effects ?? []).find(
-      (e): e is AgentDiscardReturnToOriginEffect => e.type === 'agent-discard-return-to-origin',
-    );
-    if (!discardEff) continue;
-
-    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+  forEachEligibleAgent<AgentDiscardReturnToOriginEffect>(state, hazardPlayer, 'agent-discard-return-to-origin', (agent, agentDef, _discardEff, agentSiteName) => {
     if (agentSiteName === null || agentSiteName !== mhState.destinationSiteName) {
       logDetail(`Agent discard-return-to-origin ${agentDef.name}: not at company's new site (agent: ${agentSiteName ?? 'unknown'}, new site: ${mhState.destinationSiteName}) — skipping`);
-      continue;
+      return;
     }
 
     logDetail(`Agent discard-return-to-origin ${agentDef.name}: at company's new site "${mhState.destinationSiteName}" — offering discard`);
@@ -1405,7 +1404,7 @@ function agentDiscardReturnToOriginActions(
       action: { type: 'agent-discard-return-to-origin', player: playerId, agentId: agent.id } as AgentDiscardReturnToOriginAction,
       viable: true,
     });
-  }
+  });
 
   return actions;
 }
