@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.121.0 — 2026-08-20
+
+Whole-board organization planning and a round of AI-advice fixes
+
+### AI
+
+- **The organization phase is planned as one whole-board potential.**
+  The h2 modular agent's shape decisions — splits, merges, follower
+  stacking and un-stacking — are now priced as `u(after) − u(before)` of
+  a single scored arrangement: the harm each company's size invites plus
+  the goals the arrangement can serve, with committed plans reaching the
+  modules for the first time. The design is cycle-free at every risk
+  posture by construction (#2546, spec
+  `2026-08-20-h2-organization-phase.md`, P1–P4).
+- **Travel no longer prices cards the engine refuses at the
+  destination.** Ally/faction `playableAt` `when` gates (e.g. War-wolf's
+  "Ruins & Lairs with a Wolf automatic-attack") are honoured via the
+  engine's own `siteMatchesEntry`, and the MEWH §10 cross-alignment
+  site-tap rule is modelled for Fallen-wizard seats — the agent had
+  recommended walking a company to Zarak Dûm to face a Dragon for a
+  payoff the engine would refuse (#2551).
+- **Company splits pay for the hazard slots they create.** The defence
+  model now uses the engine's real hazard limit, `max(size, 2)` — the
+  min-2 floor is what makes fragmentation expensive, and without it the
+  arrangement scorer recommended one singleton spin-off per goal on the
+  board (#2551).
+- **A support-strike tap is priced by what the supporter forgoes**
+  rather than a flat constant (#2553).
+- **The heuristic AI no longer camps indefinitely** when its hand holds
+  no site-targeted cards: a safe site's printed resource draw now
+  outscores passing (#2548).
+
+### Game Engine
+
+- **Veils Flung Away body checks follow CoE 3.I.1 polarity.** The mass
+  body check tapped/discarded on a *low* roll and spared a *high* one —
+  exactly backwards; a roll at or below the (modified) body now passes.
+  The eight minion-character card tests that had encoded the inverted
+  polarity are flipped with it (#2549).
+- **Fetch-gating honours region-type `when` conditions.** Strider- and
+  Mistress Lobelia-style pile fetches now offer cards like A Panoply of
+  Wings whose playability is gated on the site's region type
+  (#2550).
+- **Fetch-to-deck playableAtSite respects play-target site filters**
+  (#2547).
+
+### Web Client
+
+- **The pass button no longer mislabels Hall of Fire's untap/heal
+  offer** (#2552).
+
 ## 0.120.0 — 2026-08-20
 
 Modular AI promoted in the lobby and the Fallen-wizard item family unblocked

@@ -334,7 +334,7 @@
 | dm-168 | Dwarven Light-stone | — | 13 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
-| dm-178 | Mistress Lobelia | — | 14 | ☑ |
+| dm-178 | Mistress Lobelia | — | 16 | ☑ |
 | dm-179 | Noble Hound | — | 10 | ☑ |
 | dm-180 | Folco Boffin | — | 9 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
@@ -452,7 +452,7 @@
 | le-141 | Stench of Mordor | — | 10 | ☑ |
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
-| le-146 | Veils Flung Away | — | 13 | ☑ |
+| le-146 | Veils Flung Away | — | 14 | ☑ |
 | le-148 | Wake of War | — | 7 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
