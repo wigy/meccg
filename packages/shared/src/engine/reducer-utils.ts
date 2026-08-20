@@ -4023,7 +4023,10 @@ function playableAtEntryMatchesSite(
  * - **Items**: the item's subtype must appear in the site's printed
  *   `playableResources` list, or an `item-play-site` effect on the item
  *   must name the site (`sites`) / match it (`filter`).
- * - **Allies / factions**: some `playableAt` entry must match the site.
+ * - **Allies / factions**: some `playableAt` entry must match the site, or
+ *   (when playability is expressed via a `play-target` DSL effect instead
+ *   of `playableAt` entries, e.g. Noble Hound dm-179: "any tapped or
+ *   untapped Border-hold") the effect's `filter` must match the site.
  *
  * Other card types return false. Backs the `playableAtSite` restriction of
  * `fetch-to-deck` pending effects (Strider ba-1: "search your discard pile
@@ -4042,11 +4045,15 @@ export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard):
     }
     return false;
   }
-  if (isAllyCard(def)) {
-    return def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef));
-  }
-  if (isFactionCard(def)) {
-    return def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef));
+  if (isAllyCard(def) || isFactionCard(def)) {
+    if (def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef))) return true;
+    const sitePlayTarget = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+    );
+    if (sitePlayTarget) {
+      return !sitePlayTarget.filter || matchesDefinition(siteDef, sitePlayTarget.filter);
+    }
+    return false;
   }
   return false;
 }
