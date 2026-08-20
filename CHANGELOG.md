@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.120.0 — 2026-08-20
+
+Modular AI promoted in the lobby and the Fallen-wizard item family unblocked
+
+### Game Engine
+
+- **"Place this card on X if he is in play" items are playable without
+  the wizard.** The whole eight-card Fallen-wizard item family (wh-90,
+  wh-92, wh-105, wh-107, wh-111, wh-112, wh-113, wh-115) can now be
+  played bare when its wizard is not yet in play — the card sits in play
+  contributing its stage points and auto-attaches the moment the wizard
+  is revealed, following the wh-99 / Bade to Rule pattern (#2545).
+- **Awaiting the Call (le-165) is restricted to the organization
+  phase** (#2538).
+- **Ally play-target site filters respect site-type overrides.** A
+  Noble Hound is playable at a site whose type has been overridden to
+  Border-hold (#2541).
+
+### Web Client
+
+- **The opponent's discard-pile browser shows only revealed cards**
+  when browsing under Aware of their Ways (#2540).
+
+### AI
+
+- **Modular AI (H2) is promoted in the lobby**, with a new stage module
+  that plays stage resources (#2544).
+- **H2 organization phase P1:** the turn plan's commitment now reaches
+  the modules, backed by a new organization-phase spec (#2543).
+- **Attack planning models visible tap-to-cancel-strike abilities**
+  (Fatty Bolger-style board cancels) in the attack enumeration (#2542).
+
 ## 0.119.0 — 2026-08-20
 
 Six new certified cards and a round of Ringwraith and targeting fixes
