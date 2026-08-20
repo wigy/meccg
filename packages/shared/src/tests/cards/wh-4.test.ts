@@ -15,10 +15,10 @@
  *     filter `target.skills $includes spirit-magic` accepts him, exactly as for
  *     the certified Pallando wh-7).
  *   - effects:
- *     1. fw-char-mp-full (player-wide, no filter) — every character the FW
+ *     1. fw-mp-full (cards: characters) (player-wide, no filter) — every character the FW
  *        controls scores its full printed character MP instead of the MEWH §4
  *        flat-1 clamp ("Your characters … worth full marshalling points").
- *     2. fw-ally-mp-full (player-wide, filter cardType hero-resource-ally) — the
+ *     2. fw-mp-full (cards: allies) (player-wide, filter cardType hero-resource-ally) — the
  *        FW's hero allies score full printed MP instead of the §4 1-MP clamp
  *        ("… and hero allies are each worth full marshalling points").
  *     3. grant-action untap-self — an organization-phase ability (cost-free,
@@ -206,7 +206,7 @@ describe('Gandalf (wh-4)', () => {
   });
 
   test('control: without Gandalf the same hero character is FW-clamped to 1', () => {
-    // Saruman avatar — no fw-char-mp-full → §4 clamp → Legolas worth 1.
+    // Saruman avatar — no fw-mp-full (cards: characters) → §4 clamp → Legolas worth 1.
     let state = fwState(SARUMAN_FW, [LEGOLAS]);
     state = recomputeDerived(state);
 
@@ -217,7 +217,7 @@ describe('Gandalf (wh-4)', () => {
 
   test('a hero ally scores full printed MP (2) while Gandalf is in play', () => {
     // Treebeard (hero-resource-ally, printed 2). MEWH §4 would clamp him to 1;
-    // Gandalf's fw-ally-mp-full lifts hero allies to full printed MP.
+    // Gandalf's fw-mp-full (cards: allies) lifts hero allies to full printed MP.
     let state = fwState(GANDALF_FW);
     state = attachAllyToChar(state, RESOURCE_PLAYER, GANDALF_FW, TREEBEARD);
     state = recomputeDerived(state);

@@ -483,58 +483,74 @@ export interface DisplaceStoredItemEffect extends EffectBase {
 }
 
 /**
- * Fallen-wizard item marshalling-point exemption (MEWH §4 exception).
+ * Fallen-wizard marshalling-point exemption (MEWH §4 exception).
  *
  * MEWH §4 normally clamps every non-stage card a Fallen-wizard controls to a
- * flat **1** marshalling point, regardless of its printed value. A Fallen-wizard
- * avatar may carry this effect to *exempt* a subset of the player's items from
- * that clamp, so they score their full printed MP instead. The {@link filter}
- * is matched against each item's card definition (via `matchesDefinition`);
- * every item the Fallen-wizard player controls — on any character — that matches
- * scores its printed MP while the card carrying this effect is in play. Items
- * that do not match remain clamped to 1.
+ * flat **1** marshalling point, regardless of its printed value — including
+ * his characters, which normally score their printed character MP. A card
+ * carrying this effect *exempts* a subset of the player's cards from that
+ * clamp, so they score their full printed MP instead. {@link cards} selects
+ * the kind of card the exemption reaches (characters, items, or allies); the
+ * optional {@link filter} is matched against each such card's definition (via
+ * `matchesDefinition`), and an absent filter exempts every card of the kind.
+ * Cards that do not match remain clamped to 1.
  *
- * Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
- * are each worth full marshalling points." His filter excludes items keyworded
- * `weapon`, `armor`, `shield`, or `helmet`.
+ * The effect may be carried by a character (Saruman wh-9 is a character) or
+ * by a stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
+ * {@link inAvatarCompany} is set, only cards borne by characters in the same
+ * company as the player's revealed avatar qualify ("items in Alatar's
+ * company").
  *
- * The effect may be carried by a character (Saruman is a character) or by a
- * stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
- * {@link inAvatarCompany} is set, only items borne by characters in the same
- * company as the player's revealed avatar qualify ("items in Alatar's company").
+ * Uses:
+ * - Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
+ *   are each worth full marshalling points." — `cards: "items"`, filter
+ *   excluding items keyworded `weapon`/`armor`/`shield`/`helmet`.
+ * - Fallen-wizard Gandalf (wh-4): "Your characters and hero allies are each
+ *   worth full marshalling points." — an unfiltered `cards: "characters"`
+ *   entry paired with a `cards: "allies"` entry filtered to
+ *   `hero-resource-ally`.
+ * - Join the Hunt (wh-93): weapon/armor/shield/helmet items and allies with a
+ *   prowess attribute, both restricted to Alatar's company
+ *   (`inAvatarCompany`). Oromë's Warders (wh-94) repeats both player-wide.
+ * - Radagast (wh-8): hero allies player-wide.
  *
  * ```json
- * { "type": "fw-item-mp-full",
+ * { "type": "fw-mp-full", "cards": "items",
  *   "filter": { "$not": { "$or": [
  *     { "keywords": { "$includes": "weapon" } },
  *     { "keywords": { "$includes": "armor" } },
  *     { "keywords": { "$includes": "shield" } },
  *     { "keywords": { "$includes": "helmet" } } ] } } }
+ * { "type": "fw-mp-full", "cards": "characters" }
  * ```
  */
-export interface FallenWizardItemMpEffect extends EffectBase {
-  readonly type: 'fw-item-mp-full';
+export interface FallenWizardMpFullEffect extends EffectBase {
+  readonly type: 'fw-mp-full';
+  /** Which kind of the player's cards the exemption reaches. */
+  readonly cards: 'characters' | 'items' | 'allies';
   /**
-   * Condition matched against an item's card definition. Items that match score
-   * full printed MP for the Fallen-wizard; omit to exempt every item.
+   * Condition matched against a card's definition. Cards of the {@link cards}
+   * kind that match score full printed MP for the Fallen-wizard; omit to
+   * exempt every card of the kind.
    */
   readonly filter?: Condition;
   /**
-   * When `true`, the exemption applies only to items borne by characters in the
-   * same company as the player's revealed avatar (e.g. "your … items in Alatar's
-   * company", Join the Hunt wh-93). Omit for a player-wide exemption (Saruman).
+   * When `true`, the exemption applies only to cards borne by characters in
+   * the same company as the player's revealed avatar (e.g. "your … items in
+   * Alatar's company", Join the Hunt wh-93). Omit for a player-wide exemption
+   * (Saruman wh-9, Gandalf wh-4).
    */
   readonly inAvatarCompany?: boolean;
 }
 
 /**
  * Fallen-wizard marshalling-point denial — the mirror of
- * {@link FallenWizardItemMpEffect}.
+ * {@link FallenWizardMpFullEffect}.
  *
  * A card carrying this effect gives its controller **no** marshalling points at
  * all while that controller is a Fallen-wizard, and no other card can change
  * that: the denial is checked before the MEWH §4 clamp, before any
- * `fw-item-mp-full` exemption, and before every MP override/pin
+ * `fw-mp-full` exemption, and before every MP override/pin
  * (`noncharacter-mp-override`, `nonhaven-company-mp-pin`, the global
  * `in-play-item-modifier` MP delta). Players of any other alignment score the
  * card normally.
@@ -549,79 +565,6 @@ export interface FallenWizardItemMpEffect extends EffectBase {
  */
 export interface FallenWizardNoMpEffect extends EffectBase {
   readonly type: 'fw-mp-none';
-}
-
-/**
- * Fallen-wizard ally marshalling-point exemption (MEWH §4 exception).
- *
- * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
- * marshalling point. A card carrying this effect lets the player's **allies**
- * matching {@link filter} each score their **full printed** MP instead of the
- * clamped 1 (unlike {@link FallenWizardCharacterAllyMpEffect}, which pins the
- * value to a fixed number). Allies that do not match remain clamped to 1.
- *
- * When {@link inAvatarCompany} is set, only allies borne by characters in the
- * same company as the player's revealed avatar qualify ("allies in Alatar's
- * company").
- *
- * Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in
- * Alatar's company are each worth full marshalling points." — `filter`
- * `{ prowess: { $exists: true } }`, `inAvatarCompany: true`. Oromë's Warders
- * (wh-94) reuses the same effect player-wide (no `inAvatarCompany`).
- *
- * ```json
- * { "type": "fw-ally-mp-full",
- *   "filter": { "prowess": { "$exists": true } },
- *   "inAvatarCompany": true }
- * ```
- */
-export interface FallenWizardAllyMpFullEffect extends EffectBase {
-  readonly type: 'fw-ally-mp-full';
-  /**
-   * Condition matched against an ally's card definition. Allies that match score
-   * full printed MP for the Fallen-wizard; omit to exempt every ally.
-   */
-  readonly filter?: Condition;
-  /**
-   * When `true`, the exemption applies only to allies borne by characters in the
-   * same company as the player's revealed avatar (Join the Hunt wh-93). Omit for
-   * a player-wide exemption (Oromë's Warders wh-94).
-   */
-  readonly inAvatarCompany?: boolean;
-}
-
-/**
- * Fallen-wizard character marshalling-point exemption (MEWH §4 exception).
- *
- * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
- * marshalling point — including his characters (which normally score their
- * printed character MP). A card carrying this effect lets the player's
- * **characters** matching {@link filter} each score their **full printed** MP
- * instead of the clamped 1. Characters that do not match remain clamped to 1.
- *
- * Used by the Fallen-wizard Gandalf (wh-4): "Your characters and hero allies are
- * each worth full marshalling points." — carried player-wide (no `filter`,
- * exempting every character), paired with a player-wide {@link
- * FallenWizardAllyMpFullEffect} filtered to `hero-resource-ally` for the ally
- * half of the clause.
- *
- * ```json
- * { "type": "fw-char-mp-full" }
- * ```
- */
-export interface FallenWizardCharacterMpFullEffect extends EffectBase {
-  readonly type: 'fw-char-mp-full';
-  /**
-   * Condition matched against a character's card definition. Characters that
-   * match score full printed MP for the Fallen-wizard; omit to exempt every
-   * character (the wh-4 Gandalf case).
-   */
-  readonly filter?: Condition;
-  /**
-   * When `true`, the exemption applies only to characters in the same company as
-   * the player's revealed avatar. Omit for a player-wide exemption (wh-4).
-   */
-  readonly inAvatarCompany?: boolean;
 }
 
 /**
@@ -8500,10 +8443,8 @@ export type CardEffect =
   | MpModifierEffect
   | InPlayItemModifierEffect
   | CorruptionSourceMultiplierEffect
-  | FallenWizardItemMpEffect
+  | FallenWizardMpFullEffect
   | FallenWizardNoMpEffect
-  | FallenWizardAllyMpFullEffect
-  | FallenWizardCharacterMpFullEffect
   | FallenWizardCharacterAllyMpEffect
   | FallenWizardKillMpEffect
   | DetainmentAttacksNormalEffect

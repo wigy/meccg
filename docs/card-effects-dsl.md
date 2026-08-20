@@ -1159,48 +1159,59 @@ Used by Neither so Ancient Nor so Potent (dm-73): "Return item to opponent's han
 (discarding all attached cards). Place this card in opponent's marshalling point
 pile."
 
-### 3b. `fw-item-mp-full`
+### 3b. `fw-mp-full`
 
-Fallen-wizard item marshalling-point exemption (MEWH §4 exception). MEWH §4
+Fallen-wizard marshalling-point exemption (MEWH §4 exception). MEWH §4
 normally clamps every non-stage card a Fallen-wizard controls to a flat **1**
-marshalling point. A Fallen-wizard avatar may carry this effect to exempt a
-subset of the player's items from that clamp, so they score their full printed
-MP instead. The `filter` is matched against each item's card definition (via
-`matchesDefinition`); every item the Fallen-wizard player controls — on any
-character — that matches scores its printed MP while the card carrying this
-effect is in play. Items that do not match remain clamped to 1. Collected once
-per player from the player's in-play characters, `cardsInPlay`, **and the cards
-attached to those characters** — a stage permanent-event played "on the avatar"
-lives in the avatar's `items` rather than in `cardsInPlay` (Oromë's Warders
-wh-94) — then consumed in `recompute-derived.ts` (`addItemMP`'s
-`fwItemMpExempt` path).
+marshalling point — including his characters, which normally score their
+printed character MP. A card carrying this effect exempts a subset of the
+player's cards from that clamp, so they score their full printed MP instead.
+`cards` selects the kind the exemption reaches — `"characters"`, `"items"`, or
+`"allies"` — and the optional `filter` is matched against each such card's
+definition (via `matchesDefinition`); omit `filter` to exempt every card of
+the kind. Cards that do not match remain clamped to 1. Collected once per
+player from the player's in-play characters, `cardsInPlay`, **and the cards
+attached to those characters** — a stage permanent-event played "on the
+avatar" lives in the avatar's `items` rather than in `cardsInPlay` (Oromë's
+Warders wh-94) — then consumed in `recompute-derived.ts`
+(`cardExemptFromFwClamp` at each of the three scoring loops); full-MP takes
+precedence over any `fw-character-ally-mp` cap and never applies to stage
+cards or non-Fallen-wizards.
 
-The optional `inAvatarCompany: true` restricts the exemption to items borne by
-characters in the same company as the player's revealed avatar ("your … items in
-Alatar's company"); omit it for a player-wide exemption.
+The optional `inAvatarCompany: true` restricts the exemption to cards borne by
+characters in the same company as the player's revealed avatar ("your … items
+in Alatar's company"); omit it for a player-wide exemption.
 
-Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
-are each worth full marshalling points." (player-wide). Join the Hunt (wh-93)
-uses the company-restricted form for its weapon/armor/shield/helmet items, and
-Oromë's Warders (wh-94) the player-wide form for the same filter.
+Uses: Saruman (wh-9) — "Your non-weapon/non-armor/non-shield/non-helmet items
+are each worth full marshalling points." (`cards: "items"`, player-wide). The
+Fallen-wizard Gandalf (wh-4) — "Your characters and hero allies are each worth
+full marshalling points." (an unfiltered `cards: "characters"` entry plus a
+`cards: "allies"` entry filtered to `hero-resource-ally`). Radagast (wh-8) —
+hero allies player-wide. Join the Hunt (wh-93) — weapon/armor/shield/helmet
+items and prowess-bearing allies, both `inAvatarCompany`; Oromë's Warders
+(wh-94) repeats both player-wide.
 
 ```json
-{ "type": "fw-item-mp-full",
+{ "type": "fw-mp-full", "cards": "items",
   "filter": { "$not": { "$or": [
     { "keywords": { "$includes": "weapon" } },
     { "keywords": { "$includes": "armor" } },
     { "keywords": { "$includes": "shield" } },
     { "keywords": { "$includes": "helmet" } } ] } } }
+{ "type": "fw-mp-full", "cards": "characters" }
+{ "type": "fw-mp-full", "cards": "allies",
+  "filter": { "prowess": { "$exists": true } },
+  "inAvatarCompany": true }
 ```
 
 ### 3b-i. `fw-mp-none`
 
-The mirror of `fw-item-mp-full`: a card carrying this marker gives its
+The mirror of `fw-mp-full`: a card carrying this marker gives its
 controller **no** marshalling points at all while that controller is a
 Fallen-wizard, and no other card can restore them. `deniesFallenWizardMp`
 (`recompute-derived.ts`) is consulted **before** every other MP rule — the
 Await-the-Onset pin, `noncharacter-mp-override`, the MEWH §4 clamp and its
-`fw-item-mp-full` exemptions, and the global `in-play-item-modifier` MP delta —
+`fw-mp-full` exemptions, and the global `in-play-item-modifier` MP delta —
 so the denial is absolute. Players of any other alignment score the card
 normally. The effect takes no fields.
 
@@ -1210,50 +1221,6 @@ regardless of other cards in play."
 
 ```json
 { "type": "fw-mp-none" }
-```
-
-### 3b-ii. `fw-ally-mp-full`
-
-Fallen-wizard **ally** marshalling-point exemption (MEWH §4 exception). Like
-`fw-item-mp-full` but for allies: each ally matching `filter` scores its **full
-printed** MP instead of the §4 flat-1 clamp (distinct from `fw-character-ally-mp`,
-which pins a fixed value). The optional `inAvatarCompany: true` restricts the
-exemption to allies borne by characters in the player's avatar company. Collected
-per player from in-play characters, `cardsInPlay`, and the cards attached to
-those characters, then consumed in `recompute-derived.ts` (`addMP`'s `fwFullMp`
-path); full-MP takes precedence over any `fw-character-ally-mp` cap and never
-applies to stage cards or non-Fallen-wizards.
-
-Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in Alatar's
-company are each worth full marshalling points." Oromë's Warders (wh-94) reuses
-the same effect player-wide (no `inAvatarCompany`): "Your allies with a prowess
-attribute are each worth full marshalling points."
-
-```json
-{ "type": "fw-ally-mp-full",
-  "filter": { "prowess": { "$exists": true } },
-  "inAvatarCompany": true }
-```
-
-### 3b-ii-b. `fw-char-mp-full`
-
-Fallen-wizard **character** marshalling-point exemption (MEWH §4 exception). Like
-`fw-ally-mp-full` but for characters: each character matching `filter` scores its
-**full printed** character MP instead of the §4 flat-1 clamp. Omit `filter` to
-exempt every character the FW controls. The optional `inAvatarCompany: true`
-restricts the exemption to characters in the player's avatar company. Collected
-per player from in-play characters and `cardsInPlay` and consumed in
-`recompute-derived.ts` (`addMP`'s `fwFullMp` path, at the character-scoring loop);
-full-MP takes precedence over any `fw-character-ally-mp` cap and never applies to
-stage cards or non-Fallen-wizards.
-
-Used by the Fallen-wizard Gandalf (wh-4): "Your characters … are each worth full
-marshalling points." — carried player-wide (no `filter`), paired with a
-player-wide `fw-ally-mp-full` filtered to `hero-resource-ally` for the "and hero
-allies" half of the same clause.
-
-```json
-{ "type": "fw-char-mp-full" }
 ```
 
 ### 3b-iii. `ally-movement-restriction-exemption`

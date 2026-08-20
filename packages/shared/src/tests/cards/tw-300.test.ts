@@ -15,7 +15,7 @@
  * The final clause is the `fw-mp-none` marker (added with the minion
  * Palantír of Elostirion le-332, which prints the same clause and carries its
  * coverage): a Fallen-wizard scores 0 MP for the item, ahead of the MEWH §4
- * clamp, Saruman's `fw-item-mp-full` exemption and every MP override.
+ * clamp, Saruman's `fw-mp-full (cards: items)` exemption and every MP override.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

@@ -23,7 +23,7 @@
  * | 5 | Bearer able to use a Palantír: tap to draw     | grant-action palantir-draw-card, cost { tap: "self" },           |
  * |   |                                               |   when bearer.canUsePalantir, apply draw-cards count 1           |
  * | 6 | Bearer then makes a corruption check           | enqueue-corruption-check in the same sequence apply               |
- * | 7 | No MPs to a Fallen-wizard, regardless of      | fw-mp-none — checked before the §4 clamp, its `fw-item-mp-full`  |
+ * | 7 | No MPs to a Fallen-wizard, regardless of      | fw-mp-none — checked before the §4 clamp, its `fw-mp-full (cards: items)`  |
  * |   |   other cards in play                         |   exemptions, and every MP override/pin                          |
  *
  * The `can-use-palantir` constraint is keyed to the card instance that placed
@@ -59,7 +59,7 @@ const LUITPRAND           = 'le-23'  as CardDefinitionId; // minion scout, not a
 const WHITE_TOWERS        = 'le-412' as CardDefinitionId; // minion ruins-and-lairs, Arthedain
 const DOL_GULDUR          = 'le-367' as CardDefinitionId; // minion dark-hold
 const MINAS_MORGUL        = 'le-390' as CardDefinitionId; // minion darkhaven
-const SARUMAN_FW          = 'wh-9'   as CardDefinitionId; // FW avatar with fw-item-mp-full
+const SARUMAN_FW          = 'wh-9'   as CardDefinitionId; // FW avatar with fw-mp-full (cards: items)
 const ARAGORN             = 'tw-11'  as CardDefinitionId; // hero character (FW company filler)
 const LEGOLAS             = 'tw-104' as CardDefinitionId;
 const RIVENDELL           = 'tw-419' as CardDefinitionId;
@@ -402,7 +402,7 @@ describe('Palantír of Elostirion (le-332)', () => {
   });
 
   test('a Fallen-wizard scores no MP for it, even with Saruman in play', () => {
-    // Saruman's `fw-item-mp-full` would otherwise exempt this (non-weapon)
+    // Saruman's `fw-mp-full (cards: items)` would otherwise exempt this (non-weapon)
     // item from the MEWH §4 clamp and score its full 3 MP.
     const state = buildTestState({
       activePlayer: PLAYER_1,

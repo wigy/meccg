@@ -156,10 +156,12 @@
     "homesite": "Any Free-hold",
     "effects": [
       {
-        "type": "fw-char-mp-full"
+        "type": "fw-mp-full",
+        "cards": "characters"
       },
       {
-        "type": "fw-ally-mp-full",
+        "type": "fw-mp-full",
+        "cards": "allies",
         "filter": {
           "cardType": "hero-resource-ally"
         }
@@ -281,7 +283,8 @@
         ]
       },
       {
-        "type": "fw-ally-mp-full",
+        "type": "fw-mp-full",
+        "cards": "allies",
         "filter": { "cardType": "hero-resource-ally" }
       },
       {
@@ -332,7 +335,8 @@
         "flag": "can-use-palantir"
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "filter": {
           "$not": {
             "$or": [
