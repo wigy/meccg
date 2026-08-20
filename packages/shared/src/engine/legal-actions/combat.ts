@@ -24,7 +24,7 @@ import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
-import { resolveDef, enemyRaceContext } from '../effects/index.js';
+import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
@@ -1479,7 +1479,7 @@ function resolveStrikeActions(
   // effect. Mode is determined by effect flags: cancel (outright, no roll),
   // dodge (no-tap), reroll (two rolls), or default (prowess/body accumulator).
   // All four emit `play-strike-event`.
-  const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
+  const struckSkills = charData && charDef && isCharacterCard(charDef) ? getEffectiveSkills(state, charData, charDef) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
     const strikeEffect = getCardEffects(cardDef).find(
