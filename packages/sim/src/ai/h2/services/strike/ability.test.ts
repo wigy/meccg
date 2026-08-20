@@ -9,12 +9,16 @@
 
 import { describe, test, expect } from 'vitest';
 import { loadCardPool } from '@meccg/shared';
-import { attackerChoosesDefenders, combatAbilitiesOf, NO_ABILITIES } from './ability.js';
+import { attackerChoosesDefenders, cancelProtects, combatAbilitiesOf, NO_ABILITIES, strikeCancelGuardOf } from './ability.js';
 
 const POOL = loadCardPool();
 
 /** Fatty Bolger — prowess 1, body 8, taps to cancel a strike against a Hobbit. */
 const FATTY = 'tw-495';
+/** Sam Gamgee — a Hobbit Fatty's cancel protects. */
+const SAM = 'tw-180';
+/** Glorfindel II — an Elf it does not. */
+const GLORFINDEL = 'tw-161';
 /** Cave-drake — two strikes, attacker chooses defending characters. */
 const CAVE_DRAKE = 'le-66';
 /** Cave Worm — one strike at prowess 16, defender assigns as usual. */
@@ -68,5 +72,28 @@ describe('which attacks let the attacker choose', () => {
     const choosing = creatures.filter(id => attackerChoosesDefenders(POOL[id]));
     expect(choosing.length).toBeGreaterThan(1);
     expect(choosing).toContain(CAVE_DRAKE);
+  });
+});
+
+describe('the tap-to-cancel-a-strike guard', () => {
+  test('is read off Fatty Bolger as shipped', () => {
+    const guard = strikeCancelGuardOf(POOL[FATTY]);
+    expect(guard).not.toBeNull();
+    // His filter is real data, so protection follows the printed races.
+    expect(cancelProtects(guard!, POOL[SAM])).toBe(true);
+    expect(cancelProtects(guard!, POOL[GLORFINDEL])).toBe(false);
+  });
+
+  test('a character without the ability carries none', () => {
+    expect(strikeCancelGuardOf(POOL[ARAGORN])).toBeNull();
+    expect(strikeCancelGuardOf(undefined)).toBeNull();
+  });
+
+  test('protects nobody the definition cannot be read for', () => {
+    const guard = strikeCancelGuardOf(POOL[FATTY]);
+    // A filtered guard with no target definition to evaluate it against must
+    // fail closed — claiming protection it cannot verify would let the walk
+    // cancel strikes the engine would never offer to cancel.
+    expect(cancelProtects(guard!, undefined)).toBe(false);
   });
 });
