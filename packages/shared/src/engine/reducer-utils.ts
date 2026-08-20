@@ -2878,6 +2878,37 @@ export function findCharacterCompany(
 }
 
 /**
+ * The company bonus of a riddling attempt (Riddling Talk-style contests):
+ * every sage and every Hobbit in the riddling character's company adds their
+ * per-head bonus. Shared by the legal-action preview
+ * (`legal-actions/pending.ts`) and the roll resolution
+ * (`pending-reducers.ts`) so the `need` shown to the player can never drift
+ * from the roll actually made.
+ */
+export function riddlingCompanyBonus(
+  state: GameState,
+  player: PlayerState,
+  characterInstanceId: CardInstanceId,
+  sageBonus: number,
+  hobbitBonus: number,
+): { sages: number; hobbits: number; bonus: number } {
+  const company = findCharacterCompany(player.companies, characterInstanceId);
+  let sages = 0;
+  let hobbits = 0;
+  if (company) {
+    for (const charId of company.characters) {
+      const c = player.characters[charId];
+      if (!c) continue;
+      const def = defById(state, c.definitionId);
+      if (!isCharacterCard(def)) continue;
+      if (def.skills.includes(Skill.Sage)) sages++;
+      if (def.race === Race.Hobbit) hobbits++;
+    }
+  }
+  return { sages, hobbits, bonus: sages * sageBonus + hobbits * hobbitBonus };
+}
+
+/**
  * Returns the company with the given id, or `undefined` if none matches.
  * Centralizes the ubiquitous `companies.find(c => c.id === companyId)` lookup
  * used across combat, organization, and pending-resolution handlers to locate a
