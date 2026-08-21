@@ -3085,13 +3085,26 @@ function opponentInfluenceActions(
     charInstanceId: import('../../types/common.js').CardInstanceId,
     target?: { readonly kind: string; readonly race?: Race; readonly name: string },
   ): number => {
-    if (!nullifyMods) return availableDI(state, charInstanceId, ownerPlayer);
     const fullChar = ownerPlayer.characters[charInstanceId];
-    if (!fullChar) return 0;
-    const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
-    const own = collectCharacterEffects(state, fullChar, ctx)
-      .filter(e => e.sourceInstance === charInstanceId);
-    return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+    if (nullifyMods) {
+      if (!fullChar) return 0;
+      const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
+      const own = collectCharacterEffects(state, fullChar, ctx)
+        .filter(e => e.sourceInstance === charInstanceId);
+      return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+    }
+    // Mirror `resolveOpponentInfluenceAttempt` (reducer-site.ts): the base
+    // unused DI (unconditional bonuses already folded into effective stats)
+    // plus any of the influencer's target-conditional `direct-influence`
+    // stat-modifiers gated on `reason: "opponent-influence-check"` (e.g.
+    // Beretar tw-128 "+2 direct influence against the Rangers of the North
+    // faction"). Without this, the previewed "Influencer DI" explanation
+    // undercounts exactly what the roll will actually use.
+    const base = availableDI(state, charInstanceId, ownerPlayer);
+    if (!target || !fullChar) return base;
+    const ctx: ResolverContext = { reason: 'opponent-influence-check', target };
+    const conditional = checkConditionalEffects(collectCharacterEffects(state, fullChar, ctx));
+    return base + resolveStatModifiers(conditional, 'direct-influence', 0, ctx);
   };
   const nullifySuffix = nullifyMods ? ', all other modifications nullified' : '';
 

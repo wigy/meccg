@@ -1237,6 +1237,15 @@
           "reason": "faction-influence-check",
           "faction.name": "Rangers of the North"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "opponent-influence-check",
+          "target.name": "Rangers of the North"
+        }
       }
     ],
     "certified": "2026-04-24"
