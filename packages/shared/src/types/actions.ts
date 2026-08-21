@@ -139,6 +139,7 @@ export type {
   ExtraMHMoveAction,
   AllyTapExtraMHPhaseAction,
   CharacterTapExtraMHPhaseAction,
+  TakeTrophyAction,
 } from './actions-movement-hazard.js';
 
 // ---- Site phase actions ----

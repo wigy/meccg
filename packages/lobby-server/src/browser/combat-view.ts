@@ -29,6 +29,7 @@ import type {
   TapItemForStrikeAction,
   FaceStrikeOnTapAction,
   SalvageItemAction,
+  TakeTrophyAction,
   EvaluatedAction,
   CardEffect,
 } from '@meccg/shared';
@@ -37,6 +38,7 @@ import { combatButtonLabel } from './combat-button-label.js';
 import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { withIsolatedSuffix } from './combat-isolated-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
+import { buildTakeTrophyMap, trophyOfferBannerText } from './trophy-offer-targets.js';
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
 import { resolveFaceStrikeOnTapAction } from './combat-face-strike-action.js';
@@ -145,6 +147,7 @@ export function renderCombatView(
   const tapItemForStrikeActions = viable.filter((a): a is TapItemForStrikeAction => a.type === 'tap-item-for-strike');
   const faceStrikeOnTapActions = viable.filter((a): a is FaceStrikeOnTapAction => a.type === 'face-strike-on-tap');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
+  const takeTrophyActions = viable.filter((a): a is TakeTrophyAction => a.type === 'take-trophy');
 
   // Two-step attacker selection is used in two CvCC sub-phases:
   // - 'attacker': the attacker pairs their untapped characters with defenders
@@ -170,7 +173,7 @@ export function renderCombatView(
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool, assignActions, selectedCvCCAttacker, selectedCvCCDefender, iAmDefender, onAction);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, faceStrikeOnTapActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, faceStrikeOnTapActions, takeTrophyActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -381,9 +384,13 @@ function renderPhaseBanner(
   } else if (combat.phase === 'item-salvage') {
     const itemCount = combat.salvageItems?.length ?? 0;
     phaseText = `Salvage Items \u2014 ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
-  } else {
+  } else if (combat.phase === 'trophy-offer') {
+    phaseText = trophyOfferBannerText(racePrefix, combat.trophyEligibleCharacters?.length ?? 0);
+  } else if (combat.phase === 'body-check') {
     const target = combat.bodyCheckTarget === 'creature' ? 'Creature' : 'Character';
     phaseText = `Body Check \u2014 ${target}`;
+  } else {
+    phaseText = `${racePrefix}${combat.phase}`;
   }
 
   const isolatedText = withIsolatedSuffix(
@@ -556,6 +563,7 @@ function renderDefenderRow(
   modifyAttackActions: ModifyAttackAction[],
   tapItemForStrikeActions: TapItemForStrikeAction[],
   faceStrikeOnTapActions: FaceStrikeOnTapAction[],
+  takeTrophyActions: TakeTrophyAction[],
   selectedCvCCAttacker: CardInstanceId | null,
   selectedCvCCDefender: CardInstanceId | null,
   onAction: (action: GameAction) => void,
@@ -661,6 +669,11 @@ function renderDefenderRow(
     tapItemForStrikeMap.set(a.cardInstanceId as string, a);
   }
 
+  // Build a map of character ID → take-trophy action (trophy-offer phase: the
+  // defender assigns the defeated creature to any eligible Orc/Troll character
+  // that faced its strikes, MELE §8.37).
+  const takeTrophyMap = buildTakeTrophyMap(takeTrophyActions);
+
   // Build a map of character ID → strike assignment info
   const strikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -675,7 +688,7 @@ function renderDefenderRow(
     const char = charMap[charId];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, faceStrikeOnTapActions, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, faceStrikeOnTapActions, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, takeTrophyMap, onAction);
     container.appendChild(col);
   }
 
@@ -715,6 +728,7 @@ function renderCombatCharacterColumn(
   isCvCCDefenderPhase: boolean,
   cvccDefenderPhaseEligibleIds: Set<string>,
   selectedCvCCDefender: CardInstanceId | null,
+  takeTrophyMap: Map<string, TakeTrophyAction>,
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const { col, parts } = buildCombatCharacterColumn(char, cardPool);
@@ -733,7 +747,18 @@ function renderCombatCharacterColumn(
 
   const cancelAttackInPlayAction = cancelAttackInPlayMap.get(charIdStr);
 
-  if (cancelAttackActionsForScout) {
+  const takeTrophyAction = takeTrophyMap.get(charIdStr);
+
+  if (takeTrophyAction) {
+    // Trophy-offer phase: click this eligible Orc/Troll character to assign
+    // the defeated creature to them as a trophy (MELE §8.37).
+    img.classList.add('combat-card--assignable');
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onAction(takeTrophyAction);
+    });
+  } else if (cancelAttackActionsForScout) {
     // Cancel-attack scout targeting: click this scout to play the selected cancel-attack card.
     // A dual-mode card (e.g. The Tormented Earth) offers more than one action for this
     // scout — open a menu so the player picks a mode instead of one being applied silently.
