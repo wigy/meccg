@@ -9,6 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PLAYERS_DIR, REVIEWER_PLAYERS, DECK_CATALOG_DIR } from '../config.js';
+import { readJson, readJsonDir, writeJson } from '../json-store.js';
 import type { PlayerRecord } from './types.js';
 import type { DeckList } from '@meccg/shared';
 
@@ -29,12 +30,7 @@ function ensureDir(): void {
 
 /** Look up a player by name (case-insensitive). Returns null if not found. */
 export function findPlayer(name: string): PlayerRecord | null {
-  try {
-    const data = fs.readFileSync(infoPath(name), 'utf-8');
-    return JSON.parse(data) as PlayerRecord;
-  } catch {
-    return null;
-  }
+  return readJson<PlayerRecord>(infoPath(name));
 }
 
 /** Look up a player by email. Scans all player directories. Returns null if not found. */
@@ -45,14 +41,8 @@ export function findPlayerByEmail(email: string): PlayerRecord | null {
     const entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      const filePath = path.join(PLAYERS_DIR, entry.name, 'info.json');
-      try {
-        const data = fs.readFileSync(filePath, 'utf-8');
-        const record = JSON.parse(data) as PlayerRecord;
-        if (record.email.toLowerCase() === lower) return record;
-      } catch {
-        continue;
-      }
+      const record = readJson<PlayerRecord>(path.join(PLAYERS_DIR, entry.name, 'info.json'));
+      if (record && record.email.toLowerCase() === lower) return record;
     }
   } catch {
     // Directory doesn't exist yet
@@ -69,13 +59,7 @@ function decksDir(name: string): string {
 
 /** List decks in a player's personal collection (excludes stock catalog decks). */
 export function listPlayerDecks(name: string): unknown[] {
-  const dir = decksDir(name);
-  try {
-    const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-    return files.map(f => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as unknown);
-  } catch {
-    return [];
-  }
+  return readJsonDir<unknown>(decksDir(name));
 }
 
 /**
@@ -87,36 +71,19 @@ export function findDeckById(playerName: string, deckId: string): DeckList | nul
   const dir = decksDir(playerName);
   const filename = deckId.replace(/[^a-z0-9-]/g, '-') + '.json';
   const playerPath = path.join(dir, filename);
-  try {
-    return JSON.parse(fs.readFileSync(playerPath, 'utf-8')) as DeckList;
-  } catch {
-    // Not in player collection
-  }
-  // Check stock catalog
-  const catalogPath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
-  try {
-    return JSON.parse(fs.readFileSync(catalogPath, 'utf-8')) as DeckList;
-  } catch {
-    return null;
-  }
+  return readJson<DeckList>(playerPath)
+    ?? readJson<DeckList>(path.join(DECK_CATALOG_DIR, `${deckId}.json`));
 }
 
 /** List all stock decks from the catalog directory. */
 export function listCatalogDecks(): DeckList[] {
-  try {
-    const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
-    return files.map(f => JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as DeckList);
-  } catch {
-    return [];
-  }
+  return readJsonDir<DeckList>(DECK_CATALOG_DIR);
 }
 
 /** Save a deck to a player's collection. Overwrites if same id exists. */
 export function savePlayerDeck(name: string, deck: { id: string; [key: string]: unknown }): void {
-  const dir = decksDir(name);
-  fs.mkdirSync(dir, { recursive: true });
   const filename = deck.id.replace(/[^a-z0-9-]/g, '-') + '.json';
-  fs.writeFileSync(path.join(dir, filename), JSON.stringify(deck, null, 2));
+  writeJson(path.join(decksDir(name), filename), deck);
 }
 
 /** Delete a deck from a player's collection. Returns true if the file existed. */
@@ -148,7 +115,7 @@ export function setCurrentDeck(name: string, deckId: string): void {
 
 /** Overwrite a player's info.json with an updated record. */
 function updatePlayer(name: string, record: PlayerRecord): void {
-  fs.writeFileSync(infoPath(name), JSON.stringify(record, null, 2));
+  writeJson(infoPath(name), record);
 }
 
 // ---- Display name ----
@@ -202,13 +169,8 @@ function creditsHistoryPath(name: string): string {
  * order (oldest first), or an empty array if no history exists yet.
  */
 export function readCreditHistory(name: string): CreditHistoryEntry[] {
-  try {
-    const data = fs.readFileSync(creditsHistoryPath(name), 'utf-8');
-    const parsed: unknown = JSON.parse(data);
-    return Array.isArray(parsed) ? (parsed as CreditHistoryEntry[]) : [];
-  } catch {
-    return [];
-  }
+  const parsed = readJson<unknown>(creditsHistoryPath(name));
+  return Array.isArray(parsed) ? (parsed as CreditHistoryEntry[]) : [];
 }
 
 /**
@@ -280,7 +242,7 @@ export function updateCredits(
   };
   const history = readCreditHistory(name);
   history.push(entry);
-  fs.writeFileSync(creditsHistoryPath(name), JSON.stringify(history, null, 2));
+  writeJson(creditsHistoryPath(name), history);
   return { previous, balance, delta };
 }
 
@@ -314,8 +276,6 @@ export function ensureSystemPlayers(): void {
   for (const { name, email, displayName } of SYSTEM_PLAYERS) {
     const existing = findPlayer(name);
     if (!existing) {
-      const playerDir = path.join(PLAYERS_DIR, toDirName(name));
-      fs.mkdirSync(playerDir, { recursive: true });
       const record: PlayerRecord = {
         name,
         email,
@@ -324,7 +284,7 @@ export function ensureSystemPlayers(): void {
         allowMasterKey: true,
         ...(displayName ? { displayName } : {}),
       };
-      fs.writeFileSync(path.join(playerDir, 'info.json'), JSON.stringify(record, null, 2));
+      writeJson(path.join(PLAYERS_DIR, toDirName(name), 'info.json'), record);
     } else if (displayName && existing.displayName !== displayName) {
       updatePlayer(name, { ...existing, displayName });
     }
@@ -366,12 +326,8 @@ export function listPlayers(): PlayerSummary[] {
   const rows: PlayerSummary[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    let record: PlayerRecord;
-    try {
-      record = JSON.parse(fs.readFileSync(path.join(PLAYERS_DIR, entry.name, 'info.json'), 'utf-8')) as PlayerRecord;
-    } catch {
-      continue;
-    }
+    const record = readJson<PlayerRecord>(path.join(PLAYERS_DIR, entry.name, 'info.json'));
+    if (!record) continue;
     rows.push({
       name: record.name,
       displayName: record.displayName ?? record.name,
@@ -410,6 +366,5 @@ export function createPlayer(record: PlayerRecord): void {
   if (fs.existsSync(filePath)) {
     throw new Error(`Player "${record.name}" already exists`);
   }
-  fs.mkdirSync(playerDir, { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(record, null, 2));
+  writeJson(filePath, record);
 }
