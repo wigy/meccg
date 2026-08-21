@@ -433,21 +433,25 @@ export function handleRevealNewSite(
     // Ringwraith-minion company. Collected from either player's `cardsInPlay`
     // (it is an environment) and applied only when the moving player is a
     // minion — same required-roll-reduction equivalence as above.
-    if (required > 0 && player.alignment === Alignment.Ringwraith) {
-      let minionEnvBonus = 0;
+    // Secret Ways (dm-157) is the same environment shape but names no side
+    // (`scope: 'all-companies'`), so it applies regardless of the moving
+    // player's alignment.
+    if (required > 0) {
+      let envBonus = 0;
       for (const p of state.players) {
         for (const cardInPlay of p.cardsInPlay) {
           const cDef = defById(state, cardInPlay.definitionId);
           for (const eff of getCardEffects(cDef)) {
-            if (eff.type === 'under-deeps-roll-modifier' && eff.scope === 'minion-companies') {
-              minionEnvBonus += eff.value;
+            if (eff.type !== 'under-deeps-roll-modifier') continue;
+            if (eff.scope === 'all-companies' || (eff.scope === 'minion-companies' && player.alignment === Alignment.Ringwraith)) {
+              envBonus += eff.value;
             }
           }
         }
       }
-      if (minionEnvBonus !== 0) {
-        const boosted = Math.max(0, required - minionEnvBonus);
-        logDetail(`under-deeps-roll-modifier (minion environment): +${minionEnvBonus} to roll — required ${required} → ${boosted}`);
+      if (envBonus !== 0) {
+        const boosted = Math.max(0, required - envBonus);
+        logDetail(`under-deeps-roll-modifier (environment): +${envBonus} to roll — required ${required} → ${boosted}`);
         required = boosted;
       }
     }

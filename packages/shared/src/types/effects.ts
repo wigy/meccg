@@ -9216,8 +9216,14 @@ export interface UnderDeepsRollModifierEffect extends EffectBase {
    *   either player's `cardsInPlay` in `mh-steps.ts`. Used by The Under-roads
    *   (as-106): "The roll required for minions to move between adjacent
    *   Under-deeps sites is decreased by 3."
+   * - `'all-companies'`: the effect is a game-wide environment applying to
+   *   *every* company's Under-deeps movement roll regardless of alignment —
+   *   unlike `'minion-companies'`, the card text names no side. Collected the
+   *   same way (either player's `cardsInPlay`), with no alignment gate. Used
+   *   by Secret Ways (dm-157): "The roll required to move between adjacent
+   *   Under-deeps sites is decreased by 4."
    */
-  readonly scope?: 'minion-companies';
+  readonly scope?: 'minion-companies' | 'all-companies';
 }
 
 /**
