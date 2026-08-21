@@ -1,5 +1,78 @@
 # Changelog
 
+## 0.123.0 — 2026-08-21
+
+Engine fix wave, three new certified cards, and a broad refactoring pass
+
+### Game Engine
+
+- **CvCC kills now award marshalling points.** A defending character
+  eliminated in company-versus-company combat never credited the
+  attacker's kill MP (#2602).
+- **Effective skills respected by strike modifiers.** The
+  `requiredSkill` check on strike modifiers used printed skills,
+  ignoring skill-granting effects (#2599).
+- **Store/transfer corruption checks keep bearer-conditional item CP.**
+  The corruption-check builder dropped an item's conditional CP bonus
+  (e.g. Dwarven Rings) when computing the store/transfer check (#2604).
+- **Creature keying keeps site-type overrides for mismatched-alignment
+  movers** (#2603), and **Incite duplication is limited per site, not
+  per turn** (#2601).
+- **Rule 2.V.5.1 bonus item is offered at Deep Mines** (#2592), and the
+  **Andúril/Narsil stored-combine action (tw-192) exists** (#2583).
+- **Glove of Radagast can play an ally from the discard pile at a
+  tapped site** (#2563), and **Dwarven Ring of Durin's Tribe grants its
+  +1 body bonus** (#2596).
+- **Ringwraith companies with an illegal mixed composition can no
+  longer plan movement** (rule 3.07, #2562).
+- **Beretar's Rangers of the North DI bonus applies on the
+  opponent-steal path** (#2586).
+- **anyPhase grant-actions (e.g. Foul-smelling Paste healing) are
+  offered during the site phase's select-company and enter-or-skip
+  steps** (#2561).
+- Barad-dûr's storage ban and the One Ring's storage exception moved
+  from engine hardcodes into data-driven site rules/play flags (#2573,
+  #2572); attack-cancel site rules unified into a generic
+  `cancel-auto-attacks` keyword (#2576).
+
+### Cards
+
+- **Certified: Wizard's Ring (tw-363), Rogrog (tw-85), and Tarcil
+  (le-42)** (#2611, #2605, #2578).
+- Crown of Flowers' environment reinterpretation now lives in its DSL
+  effect (#2585).
+
+### AI
+
+- **H2 combat prices a tap that empties the company's last untapped
+  body** by the resource plays it forfeits (#2575).
+- Shared opportunity-plan skeleton extracted for the h2 proposers, and
+  a common `scoredEvaluation` ending for the H2 modules (#2579, #2606).
+
+### Web Client
+
+- **The influence defend-roll toast shows the check formula and
+  verdict** (#2598).
+- **The Organization-phase pass button no longer says "Long-event"**
+  (#2564), with the tutorial token updated to match.
+- Deck browser deck-info block, generic action finder, and tutorial
+  panel DOM construction deduplicated (#2589, #2568, #2566).
+
+### Infrastructure & Refactoring
+
+- Large deduplication pass across the engine: `guardResolution` rolled
+  out to 18 pending-resolution reducers (#2577), shared
+  faction-influence-check context builders (#2582), the sideboard-fetch
+  family unified into one sub-flow builder (#2588), plus shared helpers
+  for corruption-check possessions, same-site company resolution,
+  attachment sweeps, end-of-turn dispatch, M/H agent abilities,
+  alt permanent-event scaffolding, and discard-candidate collection.
+- Lobby server: on-disk JSON idiom extracted into json-store helpers
+  (#2607), solo-game launch and page formatters shared (#2567, #2584).
+- Sim: `cliPreamble` shared by the 14 sim CLIs (#2595).
+- Deck validation and private-field redaction are table-driven (#2610,
+  #2609).
+
 ## 0.122.0 — 2026-08-20
 
 Pass wins AI ties, same-site company moves fixed, and combat corrections

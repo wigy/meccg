@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1170 | 1170 | 0 | 100.0% |
+| 1172 | 1172 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -15,9 +15,9 @@
 | AS | 110 | 110 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 108 | 108 | 100.0% |
-| LE | 308 | 308 | 100.0% |
+| LE | 309 | 309 | 100.0% |
 | TD | 96 | 96 | 100.0% |
-| TW | 358 | 358 | 100.0% |
+| TW | 359 | 359 | 100.0% |
 | WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
@@ -76,7 +76,7 @@
 | as-82-eye-never-sleeping | Eye Never Sleeping | — | 6 | ☑ |
 | as-83 | Faithless Steward | — | 14 | ☑ |
 | as-85-the-great-eye | The Great Eye | — | 13 | ☑ |
-| as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
+| as-88 | Hold Rebuilt and Repaired | — | 12 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 14 | ☑ |
 | as-98 | Riven Gate | — | 6 | ☑ |
@@ -375,6 +375,7 @@
 | le-37 | Pon Opar | — | 3 | ☑ |
 | le-38 | Radbug | — | 3 | ☑ |
 | le-39 | Shagrat | — | 5 | ☑ |
+| le-42 | Tarcil | — | 2 | ☑ |
 | le-43 | Threlin | — | 7 | ☑ |
 | le-44 | Troll Lout | — | 3 | ☑ |
 | le-45 | Troll-chief | — | 10 | ☑ |
@@ -433,7 +434,7 @@
 | le-113 | Greed | — | 11 | ☑ |
 | le-114 | Heedless Revelry | — | 11 | ☑ |
 | le-115 | Incite Defenders | — | 12 | ☑ |
-| le-116 | Incite Denizens | — | 9 | ☑ |
+| le-116 | Incite Denizens | — | 10 | ☑ |
 | le-117 | Long Winter | — | 8 | ☑ |
 | le-122 | Lure of Expedience | — | 12 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
@@ -556,7 +557,7 @@
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
 | le-303 | Bright Gold Ring | — | 18 | ☑ |
 | le-304 | Broad-headed Spear | — | 7 | ☑ |
-| le-310 | Foul-smelling Paste | — | 11 | ☑ |
+| le-310 | Foul-smelling Paste | — | 13 | ☑ |
 | le-311 | Gleaming Gold Ring | — | 24 | ☑ |
 | le-312 | Gold Ring that Sauron Fancies | — | 21 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
@@ -806,6 +807,7 @@
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
 | tw-084 | — | — | 13 | ☑ |
+| tw-85 | Rogrog | — | 6 | ☑ |
 | tw-86 | Shelob | — | 11 | ☑ |
 | tw-87 | Siege | — | 16 | ☑ |
 | tw-89 | Slayer | — | 7 | ☑ |
@@ -841,7 +843,7 @@
 | tw-125 | Barliman Butterbur | — | 2 | ☑ |
 | tw-126 | Beorn | — | 4 | ☑ |
 | tw-127 | Beregond | — | 3 | ☑ |
-| tw-128 | Beretar | — | 4 | ☑ |
+| tw-128 | Beretar | — | 6 | ☑ |
 | tw-129 | Bergil | — | 3 | ☑ |
 | tw-130 | Bifur | — | 5 | ☑ |
 | tw-131 | Bilbo | — | 6 | ☑ |
@@ -899,7 +901,7 @@
 | tw-188 | A Chance Meeting | — | 13 | ☑ |
 | tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 11 | ☑ |
-| tw-192 | Andúril, the Flame of the West | — | 11 | ☑ |
+| tw-192 | Andúril, the Flame of the West | — | 15 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
@@ -917,7 +919,7 @@
 | tw-210 | Dreams of Lore | — | 11 | ☑ |
 | tw-211 | Dunlendings | — | 4 | ☑ |
 | tw-212 | Durin’s Axe | — | 9 | ☑ |
-| tw-216 | Dwarven Ring of Durin’s Tribe | — | 13 | ☑ |
+| tw-216 | Dwarven Ring of Durin’s Tribe | — | 15 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
 | tw-223 | Elf-song | — | 6 | ☑ |
 | tw-224 | Elf-stone | — | 7 | ☑ |
@@ -985,7 +987,7 @@
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |
 | tw-316 | Return of the King | — | 9 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
-| tw-319 | Risky Blow | — | 7 | ☑ |
+| tw-319 | Risky Blow | — | 8 | ☑ |
 | tw-321 | Sacrifice of Form | — | 16 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
@@ -1007,7 +1009,7 @@
 | tw-344 | The Great Eagles | — | 5 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
-| tw-347 | The One Ring | — | 14 | ☑ |
+| tw-347 | The One Ring | — | 15 | ☑ |
 | tw-348 | The White Tree | — | 13 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
 | tw-350 | Tom Bombadil | — | 7 | ☑ |
@@ -1019,7 +1021,7 @@
 | tw-358 | Vilya | — | 10 | ☑ |
 | tw-361 | Wizard’s Flame | — | 7 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
-| tw-363 | Wizard’s Ring | — | 7 | ☑ |
+| tw-363 | Wizard’s Ring | — | 9 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
@@ -1185,7 +1187,7 @@
 | wh-108 | Truths of Doom | — | 9 | ☑ |
 | wh-109 | Friend of Secret Things | — | 11 | ☑ |
 | wh-110 | Girdle of Radagast | — | 19 | ☑ |
-| wh-111 | Glove of Radagast | — | 13 | ☑ |
+| wh-111 | Glove of Radagast | — | 14 | ☑ |
 | wh-112 | Master of Shapes | — | 14 | ☑ |
 | wh-113 | Pocketed Robes | — | 14 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
