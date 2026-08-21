@@ -1460,9 +1460,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       }
     ],
     "text": "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in these regions.May also be played (on the same turn and on the same company as Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.This card has no effect on a minion player."
