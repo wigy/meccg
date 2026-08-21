@@ -16,10 +16,10 @@ import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
-import { resolveDef, getEffectiveSkills } from './effects/index.js';
+import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, isCovertCompany, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -36,6 +36,7 @@ import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames, buildFactionPlayableRegions } from './recompute-derived.js';
 import { hazardLongEventsRetained } from './retain-hazard-long-events.js';
+import { pickActiveItemsForCharacter } from './item-slots.js';
 import { cvccSides } from './cvcc-sides.js';
 import { findHuntCandidates } from './hunt.js';
 
@@ -1000,10 +1001,20 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         // by `companyCombatBoostActions` in legal-actions/combat.ts.
         const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
         const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(newState, enemyCreatureInstanceId) : undefined;
+        // `overt` is only meaningful for a CvCC attack (Biter and Beater!
+        // as-46: "in combat with an overt company") — resolved from the
+        // attacking company.
+        const attackingCompanyForOvert = combat.isCvCC && combat.attackSource.type === 'company-attack'
+          ? companyById(newState.players.find(p => p.id === combat.attackingPlayerId)?.companies ?? [], combat.attackSource.attackingCompanyId)
+          : undefined;
+        const attackingPlayerForOvert = combat.isCvCC ? newState.players.find(p => p.id === combat.attackingPlayerId) : undefined;
         const attackWhenContext = {
           enemy: {
             race: combat.creatureRace,
             name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+            ...(attackingCompanyForOvert && attackingPlayerForOvert
+              ? { overt: !isCovertCompany(attackingCompanyForOvert, attackingPlayerForOvert, newState) }
+              : {}),
           },
         };
         for (const boostEffect of companyCombatBoosts) {
@@ -1051,7 +1062,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               target: { kind: 'character', characterId: targetId },
               kind: {
                 type: 'character-stat-modifier',
-                stat: boostEffect.stat,
+                stat: boostEffect.stat as 'prowess' | 'body',
                 value: boostEffect.value ?? 0,
                 characterId: targetId,
               },
@@ -1120,6 +1131,85 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             if (!char) continue;
             const charCardDef = defById(newState, char.definitionId);
             if (!charCardDef) continue;
+            if (boostEffect.itemFilter) {
+              // Biter and Beater! (as-46): stack the boost once per matching
+              // borne item — a bearer of two qualifying weapons receives the
+              // modifier twice. Rule 9.15: only the "in use" item per slot
+              // (e.g. one weapon) contributes — an unused second sword grants
+              // no bonus.
+              const activeItemIds = pickActiveItemsForCharacter(newState, char);
+              const matchingItems = char.items.filter(item => {
+                if (!activeItemIds.has(item.instanceId as string)) return false;
+                const itemDef = defById(newState, item.definitionId);
+                return itemDef && matchesCondition(boostEffect.itemFilter!, { item: {
+                  name: (itemDef as { name?: string }).name ?? '',
+                  keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+                  cardType: itemDef.cardType,
+                  subtype: (itemDef as { subtype?: string }).subtype,
+                } });
+              });
+              for (const item of matchingItems) {
+                const itemName = (defById(newState, item.definitionId) as { name?: string } | undefined)?.name ?? item.definitionId as string;
+                if (boostEffect.stat === 'creature-body') {
+                  logDetail(`${def.name}: adding attack-scoped -${boostValue < 0 ? -boostValue : boostValue} creature-body (strikes faced by ${charId as string}, via ${itemName})`);
+                  newState = addConstraint(newState, {
+                    source: handCard.instanceId,
+                    sourceDefinitionId: handCard.definitionId,
+                    scope: { kind: 'attack' },
+                    target: { kind: 'character', characterId: charId },
+                    kind: {
+                      type: 'character-creature-body-modifier',
+                      value: boostValue < 0 ? -boostValue : boostValue,
+                      characterId: charId,
+                    },
+                  });
+                  continue;
+                }
+                // For prowess, cap the extra bonus at the matching item's own
+                // currently-active printed maximum ("the maximum values
+                // indicated by the weapons still apply" — as-46 FR text).
+                // Resolved via the same combat-context effect collection the
+                // resolver itself uses, isolated to this one item instance's
+                // own stat-modifier(s) so overrides (e.g. Glamdring's higher
+                // max vs Orcs) are respected.
+                let itemMax: number | undefined;
+                if (boostEffect.stat === 'prowess' && isCharacterCard(charCardDef)) {
+                  const itemCombatContext = {
+                    reason: 'combat' as const,
+                    bearer: buildBearerContext(charCardDef),
+                    enemy: {
+                      race: combat.creatureRace ?? undefined,
+                      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+                      prowess: combat.strikeProwess,
+                      body: combat.creatureBody,
+                    },
+                    inPlay: buildInPlayNames(newState),
+                  };
+                  const itemProwessEffects = collectCharacterEffects(newState, char, itemCombatContext)
+                    .filter((r): r is typeof r & { effect: { type: 'stat-modifier'; stat: 'prowess'; max?: number; id?: string; overrides?: string } } =>
+                      r.sourceInstance === item.instanceId && r.effect.type === 'stat-modifier' && r.effect.stat === 'prowess');
+                  const active = itemProwessEffects.find(r => r.effect.overrides)
+                    ?? itemProwessEffects.find(r => r.effect.id)
+                    ?? itemProwessEffects[0];
+                  itemMax = active?.effect.max;
+                }
+                logDetail(`${def.name}: adding attack-scoped ${boostValue >= 0 ? '+' : ''}${boostValue} ${boostEffect.stat} to ${charId as string} (${itemName}${itemMax !== undefined ? `, capped at ${itemMax}` : ''})`);
+                newState = addConstraint(newState, {
+                  source: handCard.instanceId,
+                  sourceDefinitionId: handCard.definitionId,
+                  scope: { kind: 'attack' },
+                  target: { kind: 'character', characterId: charId },
+                  kind: {
+                    type: 'character-stat-modifier',
+                    stat: boostEffect.stat,
+                    value: boostValue,
+                    characterId: charId,
+                    ...(itemMax !== undefined ? { max: itemMax } : {}),
+                  },
+                });
+              }
+              continue;
+            }
             if (boostEffect.filter) {
               if (!matchesCondition(boostEffect.filter, charCtx(charCardDef))) continue;
             }
@@ -1131,7 +1221,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               target: { kind: 'character', characterId: charId },
               kind: {
                 type: 'character-stat-modifier',
-                stat: boostEffect.stat,
+                stat: boostEffect.stat as 'prowess' | 'body',
                 value: boostValue,
                 characterId: charId,
               },

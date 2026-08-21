@@ -4442,8 +4442,15 @@ export interface AgentMoveRestrictionEffect extends EffectBase {
  */
 export interface CompanyCombatBoostEffect extends EffectBase {
   readonly type: 'company-combat-boost';
-  /** The stat to modify (`"prowess"` or `"body"`). */
-  readonly stat: 'prowess' | 'body';
+  /**
+   * The stat to modify: `"prowess"` or `"body"` (the character's own —
+   * installs a `character-stat-modifier` constraint), or `"creature-body"`
+   * (installs a `character-creature-body-modifier` constraint reducing the
+   * *attacking creature's* body-check target for strikes the character
+   * faces — only meaningful for attacks against a body-checkable creature;
+   * see Biter and Beater! as-46).
+   */
+  readonly stat: 'prowess' | 'body' | 'creature-body';
   /**
    * The modifier value (positive to boost, negative to penalise). Ignored
    * (and may be omitted) when `costDiscard` is present — the boost value is
@@ -4474,19 +4481,37 @@ export interface CompanyCombatBoostEffect extends EffectBase {
   readonly companyFilter?: Condition;
   /**
    * Optional gate restricting which attack the card may be played against.
-   * Evaluated against `{ enemy: { race, name } }`, where `race` is the
+   * Evaluated against `{ enemy: { race, name, overt } }`, where `race` is the
    * current attack's creature race (set for hazard creatures, on-guard
-   * reveals, played-auto-attacks, and site automatic-attacks alike) and
-   * `name` is the specific creature card's printed name (empty string when
-   * the attack has no individual creature card, e.g. a generic
-   * automatic-attack). When absent, the card may be played against any
-   * attack.
+   * reveals, played-auto-attacks, and site automatic-attacks alike), `name`
+   * is the specific creature card's printed name (empty string when the
+   * attack has no individual creature card, e.g. a generic automatic-attack),
+   * and `overt` is the attacking company's overt status — present (`true`/
+   * `false`) only for a CvCC attack, absent for a creature/automatic-attack.
+   * When absent, the card may be played against any attack.
    *
    * Used by Alert the Folk (td-97): "Playable on a company facing a Dragon
    * or Drake attack (not Eärcaraxë)" — `{ "$and": [{ "enemy.race": { "$in":
    * ["dragon", "drake"] } }, { "enemy.name": { "$ne": "Eärcaraxë" } }] }`.
+   * Used by Biter and Beater! (as-46): "facing an Orc attack or in combat
+   * with an overt company" — `{ "$or": [{ "enemy.race": "orc" },
+   * { "enemy.overt": true }] }`.
    */
   readonly when?: Condition;
+  /**
+   * Optional per-item DSL condition evaluated against `{ item: { name,
+   * keywords, cardType, subtype } }` for every item borne by every character
+   * in the defending company (same context shape as {@link
+   * InPlayItemModifierEffect.itemFilter}). When present, the boost `value` is
+   * applied **once per matching item** — a character bearing two qualifying
+   * items receives the boost twice (stacking) — instead of once per matching
+   * character. `filter`/`companyFilter` are ignored when `itemFilter` is set.
+   *
+   * Used by Biter and Beater! (as-46): "Every Sword of Gondolin, Orcrist, and
+   * Glamdring in target company give an additional +2 prowess bonus …" —
+   * `{ "item.name": { "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"] } }`.
+   */
+  readonly itemFilter?: Condition;
   /**
    * Replaces the fixed `value` with a variable one, computed at play time
    * from cards the controller chooses to discard from `source` as part of
