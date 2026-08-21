@@ -20,12 +20,12 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
@@ -182,6 +182,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
       base.push(...withoutCompanyTargetPermanentEvents(state, playPermanentEventActions(state, playerId)));
+      // Rule 2.1.1: resource player may activate any-phase grant-actions
+      // (e.g. Foul-smelling Paste le-310) at this earliest site-phase
+      // window too, not just once play-resources is reached.
+      base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -208,6 +212,9 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
       // before the company commits to facing them).
       base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
+      // Rule 2.1.1: resource player may also activate any-phase grant-actions
+      // (e.g. Foul-smelling Paste le-310) at this window.
+      base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
@@ -1306,14 +1313,10 @@ function playResourcesActions(
         // play-condition: player-state — avatar/alignment/stage-point gate.
         // The Fortress of Isen/Towers (wh-68/wh-69): "Playable if you are Alatar,
         // Pallando, or Saruman."
-        const playerStateCond = findPlayConditionEffect(eventDef, 'player-state');
-        if (playerStateCond?.condition) {
-          const ctx = buildPlayerStateContext(state, player, playerId);
-          if (!matchesCondition(playerStateCond.condition, ctx)) {
-            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
-            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
-            continue;
-          }
+        if (!playerStateGateMet(state, player, playerId, eventDef)) {
+          logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+          continue;
         }
 
         // play-condition: card-count-exceeds — the controller must hold more
@@ -1662,39 +1665,13 @@ function playResourcesActions(
 
         // Check play-condition: discard-named-card
         const discardCondition = findPlayConditionEffect(eventDef, 'discard-named-card');
-        const discardCandidates: { instanceId: import('../../index.js').CardInstanceId; source: string }[] = [];
-        if (discardCondition && discardCondition.cardName) {
-          const targetCardName = discardCondition.cardName;
-          const sources = discardCondition.sources ?? ['character-items'];
-          for (const source of sources) {
-            if (source === 'character-items') {
-              for (const charId of company.characters) {
-                const ch = player.characters[charId];
-                if (!ch) continue;
-                for (const item of ch.items) {
-                  const itemDef = defById(state, item.definitionId);
-                  if (itemDef && itemDef.name === targetCardName) {
-                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
-                  }
-                }
-              }
-            } else if (source === 'kill-pile') {
-              // Successfully stored items live in the marshalling point pile
-              // (killPile) per CoE rule 2.II.4.1 — e.g. a Sapling of the White
-              // Tree stored at Minas Tirith.
-              for (const card of player.killPile) {
-                const cardDef = defById(state, card.definitionId);
-                if (cardDef && cardDef.name === targetCardName) {
-                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
-                }
-              }
-            }
-          }
-          if (discardCandidates.length === 0) {
-            logDetail(`Permanent event ${eventDef.name}: no ${targetCardName} available to discard`);
-            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${targetCardName} available to discard`));
-            continue;
-          }
+        const discardCandidates = discardCondition?.cardName
+          ? namedDiscardCandidates(state, player, company, discardCondition)
+          : [];
+        if (discardCondition?.cardName && discardCandidates.length === 0) {
+          logDetail(`Permanent event ${eventDef.name}: no ${discardCondition.cardName} available to discard`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${discardCondition.cardName} available to discard`));
+          continue;
         }
 
         // Generate actions — cross-product of discard candidates (or single if none)
@@ -1740,9 +1717,13 @@ function playResourcesActions(
 
       // MEAS §6(f): at an Under-deeps site the "one extra minor item" allowance
       // (rule 2.V.5) is widened — the extra character may play any item the site
-      // itself allows (minor, major, or gold ring), not only a minor item.
+      // itself allows (minor, major, or gold ring), not only a minor item. Deep
+      // Mines (wh-55) counts as an Under-deeps-style site (CRF errata: moving to
+      // it works "much like ... moving to an Under-deeps site"; g.sur.F1 treats
+      // its Wizardhaven as the site's surface site) even though it doesn't carry
+      // the literal `under-deeps` keyword.
       const siteIsUnderDeeps = siteDef && isSiteCard(siteDef)
-        && (siteDef.keywords ?? []).includes('under-deeps');
+        && ((siteDef.keywords ?? []).includes('under-deeps') || isDeepMinesSite(siteDef));
 
       // item-play-site allowTapped: the item itself permits play at a
       // tapped site (e.g. Blasting Fire wh-51, Vile Fumes wh-54 — "tapped or
@@ -2732,7 +2713,15 @@ function playResourcesActions(
 
       if (eddyTaxUnpaid) continue;
 
-      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site')) {
+      // A play-target effect with target "site" and `requireTapped: false`
+      // (e.g. Noble Hound: "any tapped or untapped Border-hold") lifts the
+      // tapped-site restriction just as it does for the hand-play loop above.
+      const discardSitePlayTarget = allyDef.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+      );
+      const discardAllyAllowsTappedSite = hasPlayFlag(allyDef, 'playable-at-tapped-site')
+        || discardSitePlayTarget?.requireTapped === false;
+      if (siteIsTapped && !discardAllyAllowsTappedSite) {
         logDetail(`Discard ally ${allyDef.name}: site is already tapped`);
         continue;
       }
@@ -3076,13 +3065,26 @@ function opponentInfluenceActions(
     charInstanceId: import('../../types/common.js').CardInstanceId,
     target?: { readonly kind: string; readonly race?: Race; readonly name: string },
   ): number => {
-    if (!nullifyMods) return availableDI(state, charInstanceId, ownerPlayer);
     const fullChar = ownerPlayer.characters[charInstanceId];
-    if (!fullChar) return 0;
-    const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
-    const own = collectCharacterEffects(state, fullChar, ctx)
-      .filter(e => e.sourceInstance === charInstanceId);
-    return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+    if (nullifyMods) {
+      if (!fullChar) return 0;
+      const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
+      const own = collectCharacterEffects(state, fullChar, ctx)
+        .filter(e => e.sourceInstance === charInstanceId);
+      return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+    }
+    // Mirror `resolveOpponentInfluenceAttempt` (reducer-site.ts): the base
+    // unused DI (unconditional bonuses already folded into effective stats)
+    // plus any of the influencer's target-conditional `direct-influence`
+    // stat-modifiers gated on `reason: "opponent-influence-check"` (e.g.
+    // Beretar tw-128 "+2 direct influence against the Rangers of the North
+    // faction"). Without this, the previewed "Influencer DI" explanation
+    // undercounts exactly what the roll will actually use.
+    const base = availableDI(state, charInstanceId, ownerPlayer);
+    if (!target || !fullChar) return base;
+    const ctx: ResolverContext = { reason: 'opponent-influence-check', target };
+    const conditional = checkConditionalEffects(collectCharacterEffects(state, fullChar, ctx));
+    return base + resolveStatModifiers(conditional, 'direct-influence', 0, ctx);
   };
   const nullifySuffix = nullifyMods ? ', all other modifications nullified' : '';
 

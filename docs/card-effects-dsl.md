@@ -1159,48 +1159,59 @@ Used by Neither so Ancient Nor so Potent (dm-73): "Return item to opponent's han
 (discarding all attached cards). Place this card in opponent's marshalling point
 pile."
 
-### 3b. `fw-item-mp-full`
+### 3b. `fw-mp-full`
 
-Fallen-wizard item marshalling-point exemption (MEWH §4 exception). MEWH §4
+Fallen-wizard marshalling-point exemption (MEWH §4 exception). MEWH §4
 normally clamps every non-stage card a Fallen-wizard controls to a flat **1**
-marshalling point. A Fallen-wizard avatar may carry this effect to exempt a
-subset of the player's items from that clamp, so they score their full printed
-MP instead. The `filter` is matched against each item's card definition (via
-`matchesDefinition`); every item the Fallen-wizard player controls — on any
-character — that matches scores its printed MP while the card carrying this
-effect is in play. Items that do not match remain clamped to 1. Collected once
-per player from the player's in-play characters, `cardsInPlay`, **and the cards
-attached to those characters** — a stage permanent-event played "on the avatar"
-lives in the avatar's `items` rather than in `cardsInPlay` (Oromë's Warders
-wh-94) — then consumed in `recompute-derived.ts` (`addItemMP`'s
-`fwItemMpExempt` path).
+marshalling point — including his characters, which normally score their
+printed character MP. A card carrying this effect exempts a subset of the
+player's cards from that clamp, so they score their full printed MP instead.
+`cards` selects the kind the exemption reaches — `"characters"`, `"items"`, or
+`"allies"` — and the optional `filter` is matched against each such card's
+definition (via `matchesDefinition`); omit `filter` to exempt every card of
+the kind. Cards that do not match remain clamped to 1. Collected once per
+player from the player's in-play characters, `cardsInPlay`, **and the cards
+attached to those characters** — a stage permanent-event played "on the
+avatar" lives in the avatar's `items` rather than in `cardsInPlay` (Oromë's
+Warders wh-94) — then consumed in `recompute-derived.ts`
+(`cardExemptFromFwClamp` at each of the three scoring loops); full-MP takes
+precedence over any `fw-character-ally-mp` cap and never applies to stage
+cards or non-Fallen-wizards.
 
-The optional `inAvatarCompany: true` restricts the exemption to items borne by
-characters in the same company as the player's revealed avatar ("your … items in
-Alatar's company"); omit it for a player-wide exemption.
+The optional `inAvatarCompany: true` restricts the exemption to cards borne by
+characters in the same company as the player's revealed avatar ("your … items
+in Alatar's company"); omit it for a player-wide exemption.
 
-Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
-are each worth full marshalling points." (player-wide). Join the Hunt (wh-93)
-uses the company-restricted form for its weapon/armor/shield/helmet items, and
-Oromë's Warders (wh-94) the player-wide form for the same filter.
+Uses: Saruman (wh-9) — "Your non-weapon/non-armor/non-shield/non-helmet items
+are each worth full marshalling points." (`cards: "items"`, player-wide). The
+Fallen-wizard Gandalf (wh-4) — "Your characters and hero allies are each worth
+full marshalling points." (an unfiltered `cards: "characters"` entry plus a
+`cards: "allies"` entry filtered to `hero-resource-ally`). Radagast (wh-8) —
+hero allies player-wide. Join the Hunt (wh-93) — weapon/armor/shield/helmet
+items and prowess-bearing allies, both `inAvatarCompany`; Oromë's Warders
+(wh-94) repeats both player-wide.
 
 ```json
-{ "type": "fw-item-mp-full",
+{ "type": "fw-mp-full", "cards": "items",
   "filter": { "$not": { "$or": [
     { "keywords": { "$includes": "weapon" } },
     { "keywords": { "$includes": "armor" } },
     { "keywords": { "$includes": "shield" } },
     { "keywords": { "$includes": "helmet" } } ] } } }
+{ "type": "fw-mp-full", "cards": "characters" }
+{ "type": "fw-mp-full", "cards": "allies",
+  "filter": { "prowess": { "$exists": true } },
+  "inAvatarCompany": true }
 ```
 
 ### 3b-i. `fw-mp-none`
 
-The mirror of `fw-item-mp-full`: a card carrying this marker gives its
+The mirror of `fw-mp-full`: a card carrying this marker gives its
 controller **no** marshalling points at all while that controller is a
 Fallen-wizard, and no other card can restore them. `deniesFallenWizardMp`
 (`recompute-derived.ts`) is consulted **before** every other MP rule — the
 Await-the-Onset pin, `noncharacter-mp-override`, the MEWH §4 clamp and its
-`fw-item-mp-full` exemptions, and the global `in-play-item-modifier` MP delta —
+`fw-mp-full` exemptions, and the global `in-play-item-modifier` MP delta —
 so the denial is absolute. Players of any other alignment score the card
 normally. The effect takes no fields.
 
@@ -1210,50 +1221,6 @@ regardless of other cards in play."
 
 ```json
 { "type": "fw-mp-none" }
-```
-
-### 3b-ii. `fw-ally-mp-full`
-
-Fallen-wizard **ally** marshalling-point exemption (MEWH §4 exception). Like
-`fw-item-mp-full` but for allies: each ally matching `filter` scores its **full
-printed** MP instead of the §4 flat-1 clamp (distinct from `fw-character-ally-mp`,
-which pins a fixed value). The optional `inAvatarCompany: true` restricts the
-exemption to allies borne by characters in the player's avatar company. Collected
-per player from in-play characters, `cardsInPlay`, and the cards attached to
-those characters, then consumed in `recompute-derived.ts` (`addMP`'s `fwFullMp`
-path); full-MP takes precedence over any `fw-character-ally-mp` cap and never
-applies to stage cards or non-Fallen-wizards.
-
-Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in Alatar's
-company are each worth full marshalling points." Oromë's Warders (wh-94) reuses
-the same effect player-wide (no `inAvatarCompany`): "Your allies with a prowess
-attribute are each worth full marshalling points."
-
-```json
-{ "type": "fw-ally-mp-full",
-  "filter": { "prowess": { "$exists": true } },
-  "inAvatarCompany": true }
-```
-
-### 3b-ii-b. `fw-char-mp-full`
-
-Fallen-wizard **character** marshalling-point exemption (MEWH §4 exception). Like
-`fw-ally-mp-full` but for characters: each character matching `filter` scores its
-**full printed** character MP instead of the §4 flat-1 clamp. Omit `filter` to
-exempt every character the FW controls. The optional `inAvatarCompany: true`
-restricts the exemption to characters in the player's avatar company. Collected
-per player from in-play characters and `cardsInPlay` and consumed in
-`recompute-derived.ts` (`addMP`'s `fwFullMp` path, at the character-scoring loop);
-full-MP takes precedence over any `fw-character-ally-mp` cap and never applies to
-stage cards or non-Fallen-wizards.
-
-Used by the Fallen-wizard Gandalf (wh-4): "Your characters … are each worth full
-marshalling points." — carried player-wide (no `filter`), paired with a
-player-wide `fw-ally-mp-full` filtered to `hero-resource-ally` for the "and hero
-allies" half of the same clause.
-
-```json
-{ "type": "fw-char-mp-full" }
 ```
 
 ### 3b-iii. `ally-movement-restriction-exemption`
@@ -3153,6 +3120,39 @@ exclusion, and this path bypasses the ordinary site-based `item-play-site`
 gate entirely (there is no site check here), which is exactly what "even a
 hoard item" needs — the item is placed directly, not played at a hoard site.
 
+**`cost.discard: "named-stored-card"` + `place-source-with-item` apply — a
+no-tap `fromStored` combine.** Some `fromStored` abilities need neither a tap
+nor a bearer at all: the cost is simply discarding a *different* stored card
+by name, and the effect relocates the source itself (not a fetched item) onto
+whichever character already bears a named item. `cost.discard:
+"named-stored-card"` reads `discardCardName` and finds a match among the
+player's own other `killPile` entries (also `storedAtSite`) — unlike
+`discard: "self"`'s `killPile` fallback, this never touches the source. The
+`place-source-with-item` apply then moves the source card out of `killPile`
+and onto the chosen recipient's `items`, untapped, alongside the item named
+`itemName` (which must already be attached to that character — both items
+end up on the same bearer). Scanned by a dedicated emitter,
+`storedCombineGrantActions` (`legal-actions/organization.ts`), which offers
+one `activate-granted-action` per (discard candidate × recipient) pair;
+`characterId` self-references the source's own instance ID (the bearer-less
+convention), so `handleGrantActionApply` routes activation to
+`handleStoredCardGrantAction` (`grant-action-apply.ts`) rather than the
+generic bearer-relative cost/apply dispatch.
+
+```json
+{ "type": "grant-action", "action": "anduril-combine-with-narsil",
+  "fromStored": true,
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "place-source-with-item", "itemName": "Narsil" } }
+```
+
+Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
+discard a stored Reforging and place Andúril with Narsil." Andúril's
+post-combine stat bonuses (+4 marshalling points, +4 prowess, +1 direct
+influence, +1 corruption point) and its tap-to-untap-a-Dúnadan ability are not
+yet certified — only the combine action itself (moving the card out of
+storage and onto Narsil's bearer) is implemented here.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.
@@ -3728,8 +3728,9 @@ Apply types:
 
   When paired, the chosen resource is moved from hand directly into
   `cardsInPlay` with three extra fields: `linkedInstanceId` (pointing to the
-  source card), `assumeInPlay: ['Gates of Morning']`, and
-  `assumeNotInPlay: ['Doors of Night']`. The source card's `cardsInPlay` entry
+  source card) plus the `assumeInPlay` / `assumeNotInPlay` card-name lists the
+  effect declares (Crown of Flowers: `["Gates of Morning"]` in,
+  `["Doors of Night"]` out). The source card's `cardsInPlay` entry
   is also updated with `linkedInstanceId` pointing back to the paired resource
   (which is also what marks the Crown as "paired" so no further pairing action
   is offered). Both links enable a cascade discard: when either linked card
@@ -3741,7 +3742,9 @@ Apply types:
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
-    "apply": { "type": "offer-resource-play" } }
+    "apply": { "type": "offer-resource-play",
+      "assumeInPlay": ["Gates of Morning"],
+      "assumeNotInPlay": ["Doors of Night"] } }
   ```
 
   Implemented in `chain-reducer.ts` (`resolvePermanentEvent` — enters play
@@ -7032,33 +7035,32 @@ Rules:
   { "type": "site-rule", "rule": "allow-items-when-tapped" }
   ```
 
-- `cancel-first-attack-if-in-play` — cancels the first automatic attack
-  at this site when the permanent-event card identified by `definitionId`
-  is currently in any player's `cardsInPlay`. If the referenced card is
-  not in play, all attacks are resolved normally. Consumed by
-  `getActiveAutoAttacks()` in `engine/manifestations.ts`, which slices off
-  the first element from the combined auto-attack list. Used by
-  *The Under-gates* (dm-38) — "If Balrog of Moria is in play ... the first
-  automatic attack is canceled."
+- `cancel-auto-attacks` — cancels this site's automatic-attacks while the
+  rule's `when` condition holds. The condition is evaluated against the
+  card-name context `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same
+  name lists the player-state context exposes (`inPlayAnywhere`: names of
+  every card in either player's `cardsInPlay`, with name-aliases and
+  environment overrides applied; `charactersInPlayAnywhere`: names of every
+  character in play for either player). Name matching means every printing of
+  a card counts (Radagast is tw-178 as a hero Wizard and wh-8 as a
+  Fallen-wizard). `scope` selects what is canceled, and thereby where in the
+  attack pipeline the rule applies. Consumed by `getActiveAutoAttacks()` in
+  `engine/manifestations.ts`.
+
+  - `"scope": "printed"` — removes ALL of the site's own printed
+    automatic-attacks, before hazard augments, so attacks added to the site
+    by hazard effects (Spawn permanent-events, `extra-automatic-attack`
+    constraints) are unaffected. Used by *Rhosgobel* (as-159) — "If the
+    Wizard card Radagast is in play, the automatic-attacks are removed."
+  - `"scope": "first"` — removes the first attack of the final combined
+    list. Used by *The Under-gates* (dm-38 / as-165) — "If Balrog of Moria
+    is in play ... the first automatic attack is canceled."
 
   ```json
-  { "type": "site-rule", "rule": "cancel-first-attack-if-in-play", "definitionId": "tw-12" }
-  ```
-
-- `cancel-attacks-if-character-in-play` — removes ALL of this site's
-  *printed* automatic-attacks while a character whose card name equals
-  `characterName` is in play for either player (present in a player's
-  `characters` record). Matched by name rather than definition ID so every
-  version of the card counts (Wizard avatars exist in multiple sets — e.g.
-  Radagast is tw-178 as a hero Wizard and wh-8 as a Fallen-wizard). Only the
-  printed attacks are removed; attacks added to the site by hazard effects
-  (Spawn permanent-events, `extra-automatic-attack` constraints) are separate
-  hazard attacks and are unaffected. Consumed by `getActiveAutoAttacks()` in
-  `engine/manifestations.ts`. Used by *Rhosgobel* (as-159) — "If the Wizard
-  card Radagast is in play, the automatic-attacks are removed."
-
-  ```json
-  { "type": "site-rule", "rule": "cancel-attacks-if-character-in-play", "characterName": "Radagast" }
+  { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "printed",
+    "when": { "charactersInPlayAnywhere": { "$includes": "Radagast" } } }
+  { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "first",
+    "when": { "inPlayAnywhere": { "$includes": "Balrog of Moria" } } }
   ```
 
 - `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
@@ -7089,11 +7091,16 @@ Rules:
   `store-item` offer for a company whose current site carries this rule (both the
   organization-phase generator and any `allow-store-eot` end-of-turn window in
   `storeItemActions`), and the store-item reducer (`handleStoreItem`) rejects a
-  store attempt as a backstop. Used by *Geann a-Lisch* (le-374), a minion Haven
-  that would otherwise permit storing regular items.
+  store attempt as a backstop. The optional `when` condition scopes the ban to a
+  subset of players; it is evaluated against `{ player: { alignment } }`, and an
+  absent `when` means the ban is unconditional. Used by *Geann a-Lisch* (le-374),
+  a minion Haven that would otherwise permit storing regular items, and by
+  *Barad-dûr* (tw/le/ba) for the MEBA clause "A Balrog player may not store
+  anything at Barad-dûr".
 
   ```json
   { "type": "site-rule", "rule": "no-storage" }
+  { "type": "site-rule", "rule": "no-storage", "when": { "player.alignment": "balrog" } }
   ```
 
 - `hazard-site-type-override` — a site that "counts as a `<site type>` for the
@@ -7587,19 +7594,23 @@ Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
 
 - `discard-named-card` — requires discarding a specific named card as a
   play prerequisite. The `cardName` field names the card, and `sources`
-  lists where to look: `character-items` (items on characters at the
-  current site) and/or `out-of-play-pile` (stored items in the player's
-  out-of-play pile). One legal action is generated per available discard
+  lists where to look, using the same vocabulary as `discard-keyword-card`
+  below: `character-items` (items on the company's characters),
+  `kill-pile` (the marshalling point pile — successfully stored items live
+  there per CoE rule 2.II.4.1), and/or `cards-in-play` (bare company-bound
+  permanent events). One legal action is generated per available discard
   candidate, carrying the `discardCardInstanceId` on the action.
 
 ```json
 { "type": "play-condition", "requires": "discard-named-card",
   "cardName": "Sapling of the White Tree",
-  "sources": ["character-items", "out-of-play-pile"] }
+  "sources": ["character-items", "kill-pile"] }
 ```
 
-Implemented in `legal-actions/site.ts` (permanent event play-condition
-check) and `reducer-events.ts` (discard execution).
+Implemented in `reducer-utils.ts` (`namedDiscardCandidates`),
+`legal-actions/site.ts` and `legal-actions/organization-events.ts`
+(permanent event play-condition checks), and `reducer-events.ts` (discard
+execution).
 
 - `discard-keyword-card` — the keyword-matched sibling of
   `discard-named-card`: instead of one printing, it matches a *family* of

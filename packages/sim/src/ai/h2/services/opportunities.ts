@@ -28,7 +28,8 @@ import { memoizeOnFirst } from '../core/memo.js';
 import type { Standing } from '../core/types.js';
 import type { Tunables } from '../core/tunables.js';
 import type { MpSource } from '../core/tsd.js';
-import { reachProbability } from '../core/plan.js';
+import type { Plan, PlanStep } from '../core/plan.js';
+import { CARD_STEP, CARRIER_STEP, ROUTE_STEP, reachProbability } from '../core/plan.js';
 import { automaticAttacksOf, computeDefence } from './defence.js';
 import type { Reach } from './reach.js';
 import { computeReach } from './reach.js';
@@ -129,6 +130,91 @@ export interface Opportunity {
   readonly netPayoffTsd: number;
   /** How the company relates to the site. */
   readonly route: RouteEstimate;
+}
+
+/**
+ * Build the plan skeleton every opportunity-driven proposer shares: the
+ * stable `module/card@site` identity the portfolio recognises an incumbent
+ * by, the MP goal, the payoff and deadline stamped from the opportunity and
+ * plan horizon, the company-at-site requirement, and the three steps common
+ * to any "take this card there and act" plan — route to the site, still
+ * holding the card, and someone left untapped to act. Module-specific steps
+ * (e.g. the factions module's influence check) are appended via `extraSteps`.
+ *
+ * The deadline: the site deck is walked in order and a site is spent when it
+ * is reached, so a plan that has not happened within the horizon has been
+ * overtaken by the game rather than merely delayed.
+ */
+export function opportunityPlan(
+  opportunity: Opportunity,
+  opts: {
+    /** Proposing module — the plan id reads `module/card@site`. */
+    readonly module: string;
+    /** Goal verb: the label reads `"<verb> <card> at <site>"`. */
+    readonly goalVerb: string;
+    /** MP source the goal scores in (factions pins `'faction'`). */
+    readonly goalSource: MpSource;
+    /** Verb for the untapped-character step: `"someone left untapped to <verb> it"`. */
+    readonly carrierVerb: string;
+    /** Untapped characters in the company right now. */
+    readonly untappedInCompany: number;
+    readonly turnNumber: number;
+    readonly planHorizonTurns: number;
+    /** Module-specific steps appended after the shared three. */
+    readonly extraSteps?: readonly PlanStep[];
+  },
+): Plan {
+  const { here, heading, distance, routeProbability } = opportunity.route;
+  const deadline = opts.turnNumber + opts.planHorizonTurns;
+  return {
+    id: `${opts.module}/${opportunity.cardInstanceId as string}@${opportunity.siteDefinitionId}`,
+    module: opts.module,
+    goal: {
+      label: `${opts.goalVerb} ${opportunity.cardName} at ${opportunity.siteName}`,
+      source: opts.goalSource,
+      mp: opportunity.mp,
+      cardInstanceId: opportunity.cardInstanceId,
+      siteDefinitionId: opportunity.siteDefinitionId,
+    },
+    payoffTsd: opportunity.netPayoffTsd,
+    deadline,
+    requirements: [{
+      kind: 'company-at-site',
+      companyId: opportunity.companyId,
+      siteDefinitionId: opportunity.siteDefinitionId,
+      byTurn: deadline,
+    }],
+    steps: [
+      {
+        label: `route to ${opportunity.siteName}`,
+        p: routeProbability,
+        owner: 'travel',
+        tag: ROUTE_STEP,
+        source: heading || here
+          ? 'already there or already headed there'
+          : `${distance ?? '?'} region(s) away, at planUnroutedReachProbability per region`,
+      },
+      {
+        label: `still hold ${opportunity.cardName}`,
+        p: 1,
+        owner: 'hand',
+        tag: CARD_STEP,
+      },
+      {
+        label: `someone left untapped to ${opts.carrierVerb} it`,
+        // Present tense, and only where the play is imminent. Asked three
+        // turns out it is not a probability at all: an untap phase stands
+        // between here and the goal, and reading "everyone is tapped right
+        // now" as "this plan is impossible" abandoned every commitment
+        // during the site phase — which is exactly when the companies are
+        // tapped.
+        p: !here || opts.untappedInCompany > 0 ? 1 : 0,
+        owner: 'characters',
+        tag: CARRIER_STEP,
+      },
+      ...(opts.extraSteps ?? []),
+    ],
+  };
 }
 
 /**

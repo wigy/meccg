@@ -49,6 +49,7 @@ import { GENERAL_INFLUENCE, printedMind } from '@meccg/shared';
 import type { CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { namedCard, namedCharacter, namedGivenUpCard } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 
@@ -250,8 +251,6 @@ function evaluateExchange(action: GameAction, context: ModuleContext): Evaluatio
     label: `swap ${outgoing.name} out of the new deck for ${incoming.name}`,
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-
   const detail: Rationale[] = [
     leaf('into the new deck', incoming.tsd, {
       unit: 'tsd',
@@ -265,20 +264,15 @@ function evaluateExchange(action: GameAction, context: ModuleContext): Evaluatio
     }),
   ];
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'fetching',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`swap ${outgoing.name} for ${incoming.name}`, scored.utility, [
-      node('the exchange', dtsd, detail, { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline: `swap ${outgoing.name} for ${incoming.name}`,
+    detail: [node('the exchange', dtsd, detail, { unit: 'tsd' })],
     assumptions: ASSUMPTIONS,
-  };
+  });
 }
 
 /**
@@ -312,8 +306,6 @@ export const fetchingModule: H2Module = {
         : `take ${quote.name} from the ${chosen.where} — ${quote.reason}`,
       dtsd: total,
     }];
-    const scored = standing.score(outcomes);
-
     const detail: Rationale[] = [
       leaf('card', quote.name),
       leaf('from', chosen.where),
@@ -338,19 +330,14 @@ export const fetchingModule: H2Module = {
       }));
     }
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'fetching',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node(`take ${quote.name}`, scored.utility, [
-        node('the card', total, detail),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: `take ${quote.name}`,
+      detail: [node('the card', total, detail)],
       assumptions: ASSUMPTIONS,
-    };
+    });
   },
 };

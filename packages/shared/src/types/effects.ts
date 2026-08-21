@@ -483,58 +483,74 @@ export interface DisplaceStoredItemEffect extends EffectBase {
 }
 
 /**
- * Fallen-wizard item marshalling-point exemption (MEWH §4 exception).
+ * Fallen-wizard marshalling-point exemption (MEWH §4 exception).
  *
  * MEWH §4 normally clamps every non-stage card a Fallen-wizard controls to a
- * flat **1** marshalling point, regardless of its printed value. A Fallen-wizard
- * avatar may carry this effect to *exempt* a subset of the player's items from
- * that clamp, so they score their full printed MP instead. The {@link filter}
- * is matched against each item's card definition (via `matchesDefinition`);
- * every item the Fallen-wizard player controls — on any character — that matches
- * scores its printed MP while the card carrying this effect is in play. Items
- * that do not match remain clamped to 1.
+ * flat **1** marshalling point, regardless of its printed value — including
+ * his characters, which normally score their printed character MP. A card
+ * carrying this effect *exempts* a subset of the player's cards from that
+ * clamp, so they score their full printed MP instead. {@link cards} selects
+ * the kind of card the exemption reaches (characters, items, or allies); the
+ * optional {@link filter} is matched against each such card's definition (via
+ * `matchesDefinition`), and an absent filter exempts every card of the kind.
+ * Cards that do not match remain clamped to 1.
  *
- * Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
- * are each worth full marshalling points." His filter excludes items keyworded
- * `weapon`, `armor`, `shield`, or `helmet`.
+ * The effect may be carried by a character (Saruman wh-9 is a character) or
+ * by a stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
+ * {@link inAvatarCompany} is set, only cards borne by characters in the same
+ * company as the player's revealed avatar qualify ("items in Alatar's
+ * company").
  *
- * The effect may be carried by a character (Saruman is a character) or by a
- * stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
- * {@link inAvatarCompany} is set, only items borne by characters in the same
- * company as the player's revealed avatar qualify ("items in Alatar's company").
+ * Uses:
+ * - Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
+ *   are each worth full marshalling points." — `cards: "items"`, filter
+ *   excluding items keyworded `weapon`/`armor`/`shield`/`helmet`.
+ * - Fallen-wizard Gandalf (wh-4): "Your characters and hero allies are each
+ *   worth full marshalling points." — an unfiltered `cards: "characters"`
+ *   entry paired with a `cards: "allies"` entry filtered to
+ *   `hero-resource-ally`.
+ * - Join the Hunt (wh-93): weapon/armor/shield/helmet items and allies with a
+ *   prowess attribute, both restricted to Alatar's company
+ *   (`inAvatarCompany`). Oromë's Warders (wh-94) repeats both player-wide.
+ * - Radagast (wh-8): hero allies player-wide.
  *
  * ```json
- * { "type": "fw-item-mp-full",
+ * { "type": "fw-mp-full", "cards": "items",
  *   "filter": { "$not": { "$or": [
  *     { "keywords": { "$includes": "weapon" } },
  *     { "keywords": { "$includes": "armor" } },
  *     { "keywords": { "$includes": "shield" } },
  *     { "keywords": { "$includes": "helmet" } } ] } } }
+ * { "type": "fw-mp-full", "cards": "characters" }
  * ```
  */
-export interface FallenWizardItemMpEffect extends EffectBase {
-  readonly type: 'fw-item-mp-full';
+export interface FallenWizardMpFullEffect extends EffectBase {
+  readonly type: 'fw-mp-full';
+  /** Which kind of the player's cards the exemption reaches. */
+  readonly cards: 'characters' | 'items' | 'allies';
   /**
-   * Condition matched against an item's card definition. Items that match score
-   * full printed MP for the Fallen-wizard; omit to exempt every item.
+   * Condition matched against a card's definition. Cards of the {@link cards}
+   * kind that match score full printed MP for the Fallen-wizard; omit to
+   * exempt every card of the kind.
    */
   readonly filter?: Condition;
   /**
-   * When `true`, the exemption applies only to items borne by characters in the
-   * same company as the player's revealed avatar (e.g. "your … items in Alatar's
-   * company", Join the Hunt wh-93). Omit for a player-wide exemption (Saruman).
+   * When `true`, the exemption applies only to cards borne by characters in
+   * the same company as the player's revealed avatar (e.g. "your … items in
+   * Alatar's company", Join the Hunt wh-93). Omit for a player-wide exemption
+   * (Saruman wh-9, Gandalf wh-4).
    */
   readonly inAvatarCompany?: boolean;
 }
 
 /**
  * Fallen-wizard marshalling-point denial — the mirror of
- * {@link FallenWizardItemMpEffect}.
+ * {@link FallenWizardMpFullEffect}.
  *
  * A card carrying this effect gives its controller **no** marshalling points at
  * all while that controller is a Fallen-wizard, and no other card can change
  * that: the denial is checked before the MEWH §4 clamp, before any
- * `fw-item-mp-full` exemption, and before every MP override/pin
+ * `fw-mp-full` exemption, and before every MP override/pin
  * (`noncharacter-mp-override`, `nonhaven-company-mp-pin`, the global
  * `in-play-item-modifier` MP delta). Players of any other alignment score the
  * card normally.
@@ -549,79 +565,6 @@ export interface FallenWizardItemMpEffect extends EffectBase {
  */
 export interface FallenWizardNoMpEffect extends EffectBase {
   readonly type: 'fw-mp-none';
-}
-
-/**
- * Fallen-wizard ally marshalling-point exemption (MEWH §4 exception).
- *
- * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
- * marshalling point. A card carrying this effect lets the player's **allies**
- * matching {@link filter} each score their **full printed** MP instead of the
- * clamped 1 (unlike {@link FallenWizardCharacterAllyMpEffect}, which pins the
- * value to a fixed number). Allies that do not match remain clamped to 1.
- *
- * When {@link inAvatarCompany} is set, only allies borne by characters in the
- * same company as the player's revealed avatar qualify ("allies in Alatar's
- * company").
- *
- * Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in
- * Alatar's company are each worth full marshalling points." — `filter`
- * `{ prowess: { $exists: true } }`, `inAvatarCompany: true`. Oromë's Warders
- * (wh-94) reuses the same effect player-wide (no `inAvatarCompany`).
- *
- * ```json
- * { "type": "fw-ally-mp-full",
- *   "filter": { "prowess": { "$exists": true } },
- *   "inAvatarCompany": true }
- * ```
- */
-export interface FallenWizardAllyMpFullEffect extends EffectBase {
-  readonly type: 'fw-ally-mp-full';
-  /**
-   * Condition matched against an ally's card definition. Allies that match score
-   * full printed MP for the Fallen-wizard; omit to exempt every ally.
-   */
-  readonly filter?: Condition;
-  /**
-   * When `true`, the exemption applies only to allies borne by characters in the
-   * same company as the player's revealed avatar (Join the Hunt wh-93). Omit for
-   * a player-wide exemption (Oromë's Warders wh-94).
-   */
-  readonly inAvatarCompany?: boolean;
-}
-
-/**
- * Fallen-wizard character marshalling-point exemption (MEWH §4 exception).
- *
- * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
- * marshalling point — including his characters (which normally score their
- * printed character MP). A card carrying this effect lets the player's
- * **characters** matching {@link filter} each score their **full printed** MP
- * instead of the clamped 1. Characters that do not match remain clamped to 1.
- *
- * Used by the Fallen-wizard Gandalf (wh-4): "Your characters and hero allies are
- * each worth full marshalling points." — carried player-wide (no `filter`,
- * exempting every character), paired with a player-wide {@link
- * FallenWizardAllyMpFullEffect} filtered to `hero-resource-ally` for the ally
- * half of the clause.
- *
- * ```json
- * { "type": "fw-char-mp-full" }
- * ```
- */
-export interface FallenWizardCharacterMpFullEffect extends EffectBase {
-  readonly type: 'fw-char-mp-full';
-  /**
-   * Condition matched against a character's card definition. Characters that
-   * match score full printed MP for the Fallen-wizard; omit to exempt every
-   * character (the wh-4 Gandalf case).
-   */
-  readonly filter?: Condition;
-  /**
-   * When `true`, the exemption applies only to characters in the same company as
-   * the player's revealed avatar. Omit for a player-wide exemption (wh-4).
-   */
-  readonly inAvatarCompany?: boolean;
 }
 
 /**
@@ -2055,12 +1998,20 @@ export interface ActionCost {
    * discards a card matching {@link discardCardName} from the acting
    * player's hand — no character actor is tapped or otherwise required
    * (Fifteen Birds in Five Firtrees dm-129: "or you discard Eagle-mounts
-   * from your hand").
+   * from your hand"). "named-stored-card" is the `fromStored` counterpart:
+   * discards a *different* card matching {@link discardCardName} out of the
+   * acting player's own marshalling-point pile (`killPile`, a `storedAtSite`
+   * entry) — unlike `discard: "self"`'s `killPile` fallback (which discards
+   * the source card itself), this leaves the source in place so it can be
+   * relocated by the effect's `apply` instead. Used by Andúril, the Flame of
+   * the West (tw-192): "you may discard a stored Reforging and place Andúril
+   * with Narsil."
    */
-  readonly discard?: 'self' | 'bearer' | 'character' | 'named-card';
+  readonly discard?: 'self' | 'bearer' | 'character' | 'named-card' | 'named-stored-card';
   /**
-   * For `discard: "named-card"` — the card definition name to find and
-   * discard from the acting player's hand.
+   * For `discard: "named-card"` / `discard: "named-stored-card"` — the card
+   * definition name to find and discard from the acting player's hand (or,
+   * for the stored variant, their `killPile`).
    */
   readonly discardCardName?: string;
   /**
@@ -2167,6 +2118,7 @@ export type TriggeredActionType =
   | 'modify-current-strike-prowess'
   | 'move'
   | 'place-item-on-character'
+  | 'place-source-with-item'
   | 'discard-named-in-play'
   | 'discard-target-in-play'
   | 'discard-bearer-corruption'
@@ -2866,6 +2818,28 @@ export interface PlaceItemOnCharacterAction extends TriggeredActionBase {
 }
 
 /**
+ * `place-source-with-item` — a `fromStored` grant-action apply that relocates
+ * the *source* card itself (not a fetched item) out of the marshalling-point
+ * pile (`killPile`) onto whichever of the controller's characters currently
+ * bears an item named {@link itemName}, untapped, alongside that item. Unlike
+ * `place-item-on-character` (which fetches a *different* card into play),
+ * this moves the grant-action's own source. Scanned by the dedicated
+ * `storedCombineGrantActions` legal-action emitter, which enumerates one
+ * activation per (eligible `discard: "named-stored-card"` cost card ×
+ * qualifying recipient) pair, and applied by
+ * `handleStoredCardGrantAction` — the source has no bearer, so it is routed
+ * there rather than through the generic attached-card apply dispatch. Used
+ * by Andúril, the Flame of the West (tw-192): "Once stored, you may discard
+ * a stored Reforging and place Andúril with Narsil." Narsil's stat bonuses
+ * once combined are not yet certified — see the card's data comment.
+ */
+export interface PlaceSourceWithItemAction extends TriggeredActionBase {
+  readonly type: 'place-source-with-item';
+  /** Exact name of the item the source is placed alongside on its bearer. */
+  readonly itemName: string;
+}
+
+/**
  * `discard-named-in-play` — on `self-enters-play`, find every in-play card with
  * the given name (scanning both players' `cardsInPlay` plus every character's
  * attached `items`/`hazards`) and move each instance to its owner's discard
@@ -2998,9 +2972,28 @@ export interface OfferCharJoinAttackAction extends TriggeredActionBase {
   };
 }
 
-/** `offer-resource-play` — enqueue a resource-play offer linked to the entering card; type-only marker. */
+/**
+ * `offer-resource-play` — enqueue a resource-play offer linked to the entering
+ * card (Crown of Flowers dm-121: "You can play one resource from your hand
+ * with this card"). The paired resource enters `cardsInPlay` with
+ * `linkedInstanceId` back-references in both directions, so either card
+ * leaving play cascade-discards the other.
+ */
 export interface OfferResourcePlayAction extends TriggeredActionBase {
   readonly type: 'offer-resource-play';
+  /**
+   * Card names the paired resource is interpreted under as though they were
+   * in play, copied onto the paired `CardInPlay.assumeInPlay`. Crown of
+   * Flowers: `["Gates of Morning"]` — "The resource is considered to be
+   * played and to be in play as though Gates of Morning were in play…".
+   */
+  readonly assumeInPlay?: readonly string[];
+  /**
+   * Card names the paired resource is interpreted under as though they were
+   * NOT in play, copied onto the paired `CardInPlay.assumeNotInPlay`. Crown
+   * of Flowers: `["Doors of Night"]` — "…and Doors of Night were not".
+   */
+  readonly assumeNotInPlay?: readonly string[];
 }
 
 /** `offer-restore-character` — offer to untap/heal one company character at a haven; type-only marker. */
@@ -3370,6 +3363,7 @@ export type TriggeredAction =
   | ReturnCharacterToHandAction
   | TapOneCharacterAction
   | PlaceItemOnCharacterAction
+  | PlaceSourceWithItemAction
   | DiscardNamedInPlayAction
   | DiscardTargetInPlayAction
   | DiscardBearerCorruptionAction
@@ -3984,9 +3978,9 @@ export interface CombatStrikeEffectEffect extends EffectBase {
  *   transferred".
  * - `no-store` — this item may never be offered by `storeItemActions` (CoE
  *   2.II.4, storing an item at a Haven for marshalling points), overriding
- *   the default "any regular/special item is storable at a Haven" rule the
- *   same way the hardcoded `the-one-ring` keyword exception does. Used by
- *   Ent-draughts (tw-227): "This item may not be … stored".
+ *   the default "any regular/special item is storable at a Haven" rule. Used
+ *   by Ent-draughts (tw-227): "This item may not be … stored" and The One
+ *   Ring (tw-347, le-326 — rule g.sto.1: "The One Ring cannot be stored").
  */
 export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store';
 
@@ -8500,10 +8494,8 @@ export type CardEffect =
   | MpModifierEffect
   | InPlayItemModifierEffect
   | CorruptionSourceMultiplierEffect
-  | FallenWizardItemMpEffect
+  | FallenWizardMpFullEffect
   | FallenWizardNoMpEffect
-  | FallenWizardAllyMpFullEffect
-  | FallenWizardCharacterMpFullEffect
   | FallenWizardCharacterAllyMpEffect
   | FallenWizardKillMpEffect
   | DetainmentAttacksNormalEffect

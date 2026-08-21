@@ -37,6 +37,7 @@ import {
   permanentEventLongEventTargetRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
+import { actionsOfTypeFor } from './render-utils.js';
 import { combatButtonLabel } from './combat-button-label.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getFocusedCompanyId } from './company-view-state.js';
@@ -106,9 +107,7 @@ function findShortEventActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-short-event' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-short-event', instanceId);
 }
 
 /** Card types that represent allies. */
@@ -137,11 +136,8 @@ function findAllyPlayActions(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-hero-resource'
-      && a.cardInstanceId === instanceId
-      && isAllyAction(a, cardPool),
-  );
+  return actionsOfTypeFor(legalActions, 'play-hero-resource', instanceId)
+    .filter(a => isAllyAction(a, cardPool));
 }
 
 /**
@@ -154,11 +150,8 @@ function findResourcePlayActions(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
-      && a.cardInstanceId === instanceId
-      && !isAllyAction(a, cardPool),
-  );
+  return actionsOfTypeFor(legalActions, ['play-hero-resource', 'play-minor-item'] as const, instanceId)
+    .filter(a => !isAllyAction(a, cardPool));
 }
 
 /**
@@ -170,12 +163,8 @@ function findPermanentEventCharTargetActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-permanent-event'
-      && a.cardInstanceId === instanceId
-      && 'targetCharacterId' in a
-      && !!a.targetCharacterId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-permanent-event', instanceId)
+    .filter(a => 'targetCharacterId' in a && !!a.targetCharacterId);
 }
 
 /**
@@ -188,12 +177,8 @@ export function findPermanentEventLongEventTargetActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-permanent-event'
-      && a.cardInstanceId === instanceId
-      && 'targetLongEventInstanceId' in a
-      && !!a.targetLongEventInstanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-permanent-event', instanceId)
+    .filter(a => 'targetLongEventInstanceId' in a && !!a.targetLongEventInstanceId);
 }
 
 /**
@@ -205,9 +190,7 @@ function findInfluenceActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'influence-attempt' && a.factionInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'influence-attempt', instanceId, 'factionInstanceId');
 }
 
 /**
@@ -219,9 +202,7 @@ function findHazardActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-hazard' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-hazard', instanceId);
 }
 
 /**
@@ -235,9 +216,7 @@ function findCreatureFromDiscardActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-creature-from-discard' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-creature-from-discard', instanceId);
 }
 
 /**
@@ -249,9 +228,7 @@ function findBalrogSwapActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'swap-banned-vs-balrog' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'swap-banned-vs-balrog', instanceId);
 }
 
 /**
@@ -292,9 +269,7 @@ function findAgentHazardAction(
   legalActions: readonly GameAction[],
 ): GameAction | null {
   if (!instanceId) return null;
-  return legalActions.find(
-    a => a.type === 'play-agent-hazard' && a.agentCardInstanceId === instanceId,
-  ) ?? null;
+  return actionsOfTypeFor(legalActions, 'play-agent-hazard', instanceId, 'agentCardInstanceId')[0] ?? null;
 }
 
 /**
@@ -317,9 +292,7 @@ function findStartingCompanyEventActions(
   defId: CardDefinitionId,
   legalActions: readonly GameAction[],
 ): GameAction[] {
-  return legalActions.filter(
-    a => a.type === 'place-starting-company-event' && a.cardDefId === defId,
-  );
+  return actionsOfTypeFor(legalActions, 'place-starting-company-event', defId, 'cardDefId');
 }
 
 /**
@@ -345,9 +318,7 @@ function findCancelAttackActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'cancel-attack' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'cancel-attack', instanceId);
 }
 
 /**
@@ -359,9 +330,7 @@ function findStrikeEventActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-strike-event' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-strike-event', instanceId);
 }
 
 /**
@@ -376,9 +345,7 @@ export function findRingAfterTestAction(
   legalActions: readonly GameAction[],
 ): GameAction | null {
   if (!instanceId) return null;
-  return legalActions.find(
-    a => a.type === 'play-ring-after-test' && a.ringInstanceId === instanceId,
-  ) ?? null;
+  return actionsOfTypeFor(legalActions, 'play-ring-after-test', instanceId, 'ringInstanceId')[0] ?? null;
 }
 
 /**

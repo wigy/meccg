@@ -13,7 +13,7 @@
  *
  * Engine support:
  * - play-target site with filter for ruins-and-lairs with auto-attacks
- * - duplication-limit scope:turn max:1
+ * - duplication-limit scope:site max:1 ("Cannot be duplicated on a given site")
  * - on-event company-arrives-at-site → auto-attack-duplicate constraint
  * - reducer-site handles the duplicate attack during automatic-attacks step
  */

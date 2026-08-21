@@ -1115,7 +1115,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-store"
+      }
+    ],
     "text": "Unique. The One Ring. Playable only with a gold ring and after a non-storing test indicates The One Ring. +5 prowess (to a maximum of double the bearer’s normal prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a non-Undead, non-Nazgûl strike against himself. If the bearer is not a Ringwraith, +1 corruption point to every character in the bearer’s company."
   },
   {

@@ -46,7 +46,7 @@ import { createRandomStream } from '../random-stream.js';
 import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { forwardActions } from '../ai/regress.js';
 import type { Agent, AgentContext, AgentDecision } from '../types.js';
-import { parseCliArgs, numberFlag, stringFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, stringFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 
 /** Flag reference, printed by `--help`. */
 const USAGE = `mc-horizon-probe — what does a longer playout horizon buy the estimator?
@@ -76,11 +76,7 @@ Options:
   --help               this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const games = numberFlag(args, 'games', 2);

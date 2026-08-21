@@ -10,7 +10,7 @@
 import { formatGameState, formatPlayerView, loadCardPool, setEngineConsoleLog, stripCardMarkers } from '@meccg/shared';
 import type { GameState, PlayerId, PlayerView } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
-import { parseCliArgs, numberFlag, stringFlag } from './common.js';
+import { cliPreamble, numberFlag, stringFlag } from './common.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { renderExplanation } from '../ai/h2/explain.js';
 import { analyzeH2Position, decisionCandidates } from '../ai/explain-decision.js';
@@ -50,11 +50,7 @@ Output:
   --help              this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 // Projecting a view recomputes legal actions, and the engine narrates that at
 // length. The explanation is the output here, so the trace is off unless asked
 // for — a reader who wanted the engine's reasoning would pass --engine-log.

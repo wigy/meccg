@@ -63,6 +63,42 @@ export function enqueueResolution(
 }
 
 /**
+ * Instance IDs of everything a character carries — items, allies, and
+ * attached (corruption) hazards. This is the `possessions` list a
+ * corruption-check resolution names, so a failed check knows what the
+ * character would drop with them.
+ */
+export function characterPossessions(
+  char: {
+    readonly items: readonly { readonly instanceId: CardInstanceId }[];
+    readonly allies: readonly { readonly instanceId: CardInstanceId }[];
+    readonly hazards: readonly { readonly instanceId: CardInstanceId }[];
+  },
+): CardInstanceId[] {
+  return [
+    ...char.items.map(i => i.instanceId),
+    ...char.allies.map(a => a.instanceId),
+    ...char.hazards.map(h => h.instanceId),
+  ];
+}
+
+/**
+ * {@link characterPossessions} for a character known only by instance ID:
+ * looks the character up on whichever player holds them. Empty when the
+ * character is no longer in play.
+ */
+export function characterPossessionsById(
+  state: GameState,
+  characterId: CardInstanceId,
+): CardInstanceId[] {
+  for (const p of state.players) {
+    const char = p.characters[characterId];
+    if (char) return characterPossessions(char);
+  }
+  return [];
+}
+
+/**
  * Convenience wrapper around {@link enqueueResolution} for the most common
  * case: enqueuing a `corruption-check` kind. Fills in `possessions: []`,
  * `modifier: 0`, and `transferredItemId: null` by default, which matches

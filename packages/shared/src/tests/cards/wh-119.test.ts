@@ -202,7 +202,7 @@ describe('Man of Skill (wh-119)', () => {
   });
 
   test('without Man of Skill, a character-borne Information-site permanent-event is clamped to 1 MP (control)', () => {
-    // No Saruman here (unlike the test above): his own `fw-item-mp-full`
+    // No Saruman here (unlike the test above): his own `fw-mp-full (cards: items)`
     // ability would otherwise exempt this non-combat item from the §4 clamp
     // and score its full printed MP, muddying this as a clamp-only control.
     const state = buildTestState({

@@ -1424,6 +1424,13 @@
             "$includes": "The One Ring"
           }
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "no-storage",
+        "when": {
+          "player.alignment": "balrog"
+        }
       }
     ],
     "unique": true,

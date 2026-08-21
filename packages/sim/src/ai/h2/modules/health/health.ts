@@ -35,6 +35,7 @@ import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '..
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { storeItemMpGain } from '../../../evaluators/common.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
@@ -138,18 +139,15 @@ export const healthModule: H2Module = {
     const dtsd = netTsdDelta({ realized, tempo: risk.tsd }, tunables);
 
     const outcomes: Outcome[] = [{ p: 1, label, dtsd }];
-    const scored = standing.score(outcomes);
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'health',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node(label, scored.utility, [node('item', dtsd, detail), scored.rationale], { unit: 'winprob' }),
+      standing,
+      headline: label,
+      detail: [node('item', dtsd, detail)],
       assumptions: ASSUMPTIONS,
-    };
+    });
   },
 };

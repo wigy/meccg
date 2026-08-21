@@ -22,7 +22,7 @@
  *        (same modelling as Calendal le-4, which has the identical printed
  *        clause). Makes `bearer.canUsePalantir` true so any Palantír Saruman
  *        bears offers its grant-action.
- *     3. fw-item-mp-full (filter: not weapon/armor/shield/helmet) — exempts
+ *     3. fw-mp-full (cards: items) (filter: not weapon/armor/shield/helmet) — exempts
  *        Saruman-player items from the MEWH §4 1-MP clamp so non-combat items
  *        score their full printed MP.
  *     4. grant-action saruman-fetch-spell — end-of-turn: tap Saruman, move one

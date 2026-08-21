@@ -31,9 +31,9 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { buildPlayerStateContext } from './organization.js';
+import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
@@ -315,14 +315,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // Loyalties (wh-70): "Playable if you have more than 3 stage points." and A
     // Strident Spawn (wh-61): "Playable if you are Pallando or Saruman and have
     // 6 or more stage points and a protected Wizardhaven."
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      const ctx = buildPlayerStateContext(state, player, playerId);
-      if (!matchesCondition(playerStateCondition.condition, ctx)) {
-        logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
+      continue;
     }
 
     // play-condition: card-in-play — one or more named cards must already be in
@@ -479,7 +475,6 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const discardNamedCardCond = findPlayConditionEffect(def, 'discard-named-card');
       if (!orgPhaseSiteTiming && discardNamedCardCond?.cardName) {
         const targetCardName = discardNamedCardCond.cardName;
-        const sources = discardNamedCardCond.sources ?? ['character-items'];
         const charPlayTarget = def.effects?.find(
           (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
@@ -500,28 +495,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             }
           }
 
-          const discardCandidates: { instanceId: CardInstanceId; source: string }[] = [];
-          for (const source of sources) {
-            if (source === 'character-items') {
-              for (const charId of company.characters) {
-                const ch = player.characters[charId];
-                if (!ch) continue;
-                for (const item of ch.items) {
-                  const itemDef = defById(state, item.definitionId);
-                  if (itemDef && itemDef.name === targetCardName) {
-                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
-                  }
-                }
-              }
-            } else if (source === 'kill-pile') {
-              for (const card of player.killPile) {
-                const cardDef = defById(state, card.definitionId);
-                if (cardDef && cardDef.name === targetCardName) {
-                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
-                }
-              }
-            }
-          }
+          const discardCandidates = namedDiscardCandidates(state, player, company, discardNamedCardCond);
           if (discardCandidates.length === 0) {
             logDetail(`Permanent event ${def.name}: no ${targetCardName} available to discard at ${siteDef.name}`);
             continue;

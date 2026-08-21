@@ -19,7 +19,7 @@ import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { GameState, PlayerId } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
 import { playGame } from '../runner.js';
-import { parseCliArgs, numberFlag, stringFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, stringFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 import type { GameObserver } from '../types.js';
 import type { Scenario, ScenarioSource } from '../ai/h2/scenario-store.js';
 import { hashState, listScenarioIds, loadScenario, saveScenario, scenarioView, withStandardCardPool } from '../ai/h2/scenario-store.js';
@@ -64,11 +64,7 @@ Other:
   --help              this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(args.flags['engine-log'] === true);
 const command = args.positional[0] ?? 'list';
 

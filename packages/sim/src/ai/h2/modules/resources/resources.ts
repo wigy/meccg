@@ -25,13 +25,12 @@
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan } from '../../core/plan.js';
-import { CARD_STEP, CARRIER_STEP, ROUTE_STEP } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeBudget } from '../../services/budget.js';
-import { enumerateOpportunities } from '../../services/opportunities.js';
+import { enumerateOpportunities, opportunityPlan } from '../../services/opportunities.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-hero-resource', 'play-minor-item'] as const;
@@ -109,62 +108,20 @@ export const resourcesModule: H2Module = {
 
     // The enumeration — candidate sites, playability, the marginal payoff net
     // of the site's automatic attacks, the distance-graded route probability —
-    // is the shared service's. This proposer's own judgement is only what it
-    // stamps on top: the plan identity, the deadline, and the steps.
+    // and the plan skeleton are the shared service's. This proposer's own
+    // judgement is only the wording it stamps on top: "play" the card, with
+    // no steps beyond the shared three.
     for (const opportunity of enumerateOpportunities(view, cardPool, standing, tunables)) {
       const untappedInCompany = budget.untappedIn(opportunity.companyId).length;
-      const { here, heading, distance, routeProbability } = opportunity.route;
-      plans.push({
-        // Stable across turns: the card and the site are what the
-        // commitment is about, and the portfolio recognises an incumbent
-        // by this string alone.
-        id: `resources/${opportunity.cardInstanceId as string}@${opportunity.siteDefinitionId}`,
+      plans.push(opportunityPlan(opportunity, {
         module: 'resources',
-        goal: {
-          label: `play ${opportunity.cardName} at ${opportunity.siteName}`,
-          source: opportunity.source,
-          mp: opportunity.mp,
-          cardInstanceId: opportunity.cardInstanceId,
-          siteDefinitionId: opportunity.siteDefinitionId,
-        },
-        payoffTsd: opportunity.netPayoffTsd,
-        // The site deck is walked in order and a site is spent when it is
-        // reached, so a plan that has not happened within the horizon has
-        // been overtaken by the game rather than merely delayed.
-        deadline: view.turnNumber + tunables.planHorizonTurns,
-        requirements: [{
-          kind: 'company-at-site',
-          companyId: opportunity.companyId,
-          siteDefinitionId: opportunity.siteDefinitionId,
-          byTurn: view.turnNumber + tunables.planHorizonTurns,
-        }],
-        steps: [
-          {
-            label: `route to ${opportunity.siteName}`,
-            p: routeProbability,
-            owner: 'travel',
-            tag: ROUTE_STEP,
-            source: heading || here
-              ? 'already there or already headed there'
-              : `${distance ?? '?'} region(s) away, at planUnroutedReachProbability per region`,
-          },
-          {
-            label: `still hold ${opportunity.cardName}`,
-            p: 1,
-            owner: 'hand',
-            tag: CARD_STEP,
-          },
-          {
-            label: 'someone left untapped to play it',
-            // Present tense, and only where the play is imminent — see
-            // the note in `factions`: three turns out an untap phase
-            // stands between here and the goal.
-            p: !here || untappedInCompany > 0 ? 1 : 0,
-            owner: 'characters',
-            tag: CARRIER_STEP,
-          },
-        ],
-      });
+        goalVerb: 'play',
+        goalSource: opportunity.source,
+        carrierVerb: 'play',
+        untappedInCompany,
+        turnNumber: view.turnNumber,
+        planHorizonTurns: tunables.planHorizonTurns,
+      }));
     }
     return plans;
   },
