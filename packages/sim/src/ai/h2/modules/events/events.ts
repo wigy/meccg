@@ -66,6 +66,7 @@ import type { CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { declaresAnEffect, gainOf } from '../../services/event-value.js';
 import type { Effect } from '../../services/event-value.js';
 
@@ -136,7 +137,6 @@ export const eventsModule: H2Module = {
 
     const dtsd = netTsdDelta({ realized: gain.tsd, tempo: spent }, tunables);
     const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
-    const scored = standing.score(outcomes);
 
     const detail: Rationale[] = [
       leaf('event', name),
@@ -148,18 +148,13 @@ export const eventsModule: H2Module = {
       }),
     ];
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'events',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node(`play ${name}`, scored.utility, [
-        node('the event', gain.tsd - spent, detail, { unit: 'tsd' }),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: `play ${name}`,
+      detail: [node('the event', gain.tsd - spent, detail, { unit: 'tsd' })],
       assumptions: [
         'an event is priced by the *family* of effect it declares, not by its text: a card that '
         + 'also restricts, cancels or enables something is under-valued here',
@@ -178,6 +173,6 @@ export const eventsModule: H2Module = {
         + 'difference between this hand and an average one — which is `card-price`\'s question, and '
         + 'asking it from here would be a cycle',
       ],
-    };
+    });
   },
 };
