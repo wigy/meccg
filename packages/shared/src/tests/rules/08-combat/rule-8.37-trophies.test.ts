@@ -32,6 +32,7 @@ import {
   assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { CombatState } from '../../../index.js';
+import { addConstraint } from '../../../engine/pending.js';
 
 // Orc character (minion, race: orc, mind has a value)
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;   // orc warrior, mind 5, prowess 6, DI 2
@@ -258,5 +259,71 @@ describe('Rule 8.37 — Trophies', () => {
       const baseDef = base.cardPool['le-31' as CardDefinitionId] as { directInfluence: number };
       expect(char?.effectiveStats.directInfluence).toBeGreaterThan(baseDef.directInfluence);
     }
+  });
+
+  test('3.IV.3 — trophy prowess bonus caps at 9 but never REDUCES prowess already above 9', () => {
+    // Regression: the cap was applied as `prowess = min(prowess + N, 9)`,
+    // which clamped a character whose prowess other effects had already
+    // pushed above 9 DOWN to 9 — taking a trophy made him weaker. The rule
+    // caps the bonus, it never reduces.
+    const SLAYER = 'tw-89' as CardDefinitionId; // 2 kill-MP creature
+    const buildWithTrophies = (trophyCount: number, prowessBoost: number) => {
+      const base = buildTestState({
+        phase: Phase.Organization,
+        activePlayer: PLAYER_1,
+        recompute: true,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN] }],
+            hand: [],
+            siteDeck: [MINAS_MORGUL],
+          },
+          {
+            id: PLAYER_2,
+            alignment: Alignment.Wizard,
+            companies: [{ site: DOL_GULDUR, characters: ['tw-168' as CardDefinitionId] }],
+            // Keep the trophy creature in the card pool so the MP lookup resolves.
+            hand: [SLAYER],
+            siteDeck: [MINAS_MORGUL],
+          },
+        ],
+      });
+      const orcId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
+      // Slayer prints 2 kill-MP; N copies give 2N total trophy MP.
+      const trophies = Array.from({ length: trophyCount }, (_, i) => ({
+        instanceId: `trophy-inst-${i}` as never,
+        definitionId: SLAYER,
+      }));
+      let state = {
+        ...base,
+        players: base.players.map((p, i) => {
+          if (i !== RESOURCE_PLAYER) return p;
+          const char = p.characters[orcId];
+          return {
+            ...p,
+            characters: { ...p.characters, [orcId as string]: { ...char, trophies } },
+          };
+        }) as unknown as typeof base.players,
+      };
+      if (prowessBoost > 0) {
+        state = addConstraint(state, {
+          source: 'boost-1' as never,
+          sourceDefinitionId: 'le-207' as CardDefinitionId,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'character', characterId: orcId },
+          kind: { type: 'character-stat-modifier', stat: 'prowess', value: prowessBoost, characterId: orcId },
+        });
+      }
+      return recomputeDerived(state).players[RESOURCE_PLAYER].characters[orcId].effectiveStats.prowess;
+    };
+
+    // Orc Captain printed prowess 5. One 2-MP trophy: +1 → 6.
+    expect(buildWithTrophies(1, 0)).toBe(6);
+    // Two trophies (4 MP, +2) on top of a +3 boost: 5 + 3 = 8, +2 capped → 9.
+    expect(buildWithTrophies(2, 3)).toBe(9);
+    // Prowess already 10 via a +5 modifier: the trophy bonus must not clamp it down to 9.
+    expect(buildWithTrophies(1, 5)).toBe(10);
   });
 });
