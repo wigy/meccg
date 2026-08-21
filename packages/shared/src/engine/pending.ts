@@ -247,9 +247,29 @@ export function hasCancelReturnAndSiteTap(state: GameState, companyId: CompanyId
 }
 
 /**
- * Count active constraints sourced from the given card definition. Used to
- * enforce `duplication-limit` effects: each play of the card leaves a
- * constraint behind, so the active count is how many copies are "in force".
+ * True when the constraint was left by the given card, compared by NAME:
+ * duplication limits apply per card name, and the same card may exist as
+ * several printings across sets (Greed le-113 / tw-42, Incite Denizens
+ * le-116 / td-34). Matching only the definition id would let a mixed-set
+ * deck evade the limit by playing one printing of each — chain entries and
+ * in-play copies are already counted by name. Falls back to definition-id
+ * equality when either definition is missing from the pool.
+ */
+export function constraintFromCard(
+  state: GameState,
+  constraint: ActiveConstraint,
+  definitionId: CardDefinitionId,
+): boolean {
+  if (constraint.sourceDefinitionId === definitionId) return true;
+  const name = state.cardPool[definitionId]?.name;
+  return name !== undefined && state.cardPool[constraint.sourceDefinitionId]?.name === name;
+}
+
+/**
+ * Count active constraints sourced from the given card — any printing of it,
+ * see {@link constraintFromCard}. Used to enforce `duplication-limit` effects:
+ * each play of the card leaves a constraint behind, so the active count is how
+ * many copies are "in force".
  *
  * Pass `scopeKind` to count only constraints with a matching scope (e.g.
  * `'attack'` for attack-scoped duplication limits); omit it to count every
@@ -262,7 +282,7 @@ export function countConstraintsFromDefinition(
 ): number {
   return state.activeConstraints.filter(
     c =>
-      c.sourceDefinitionId === definitionId &&
+      constraintFromCard(state, c, definitionId) &&
       (scopeKind === undefined || c.scope.kind === scopeKind),
   ).length;
 }
