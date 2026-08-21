@@ -15,7 +15,7 @@
  * | 2 | Heal a wounded character in the bearer's company       | IMPLEMENTED | apply set-character-status target target-character status untapped    |
  * | 3 | One activation per wounded candidate (target choice)   | IMPLEMENTED | legal-actions/organization scans inverted company members             |
  * | 4 | Not offered when no one in the company is wounded      | IMPLEMENTED | scanner returns no action when wounded list is empty                  |
- * | 5 | Activate during any phase of the player's turn (2.1.1) | IMPLEMENTED | grant-action carries `anyPhase: true` in JSON                         |
+ * | 5 | Activate during any phase of the player's turn (2.1.1) | IMPLEMENTED | grant-action carries `anyPhase: true`; site.ts offers it at every step |
  *
  * Playable: YES
  *
@@ -314,6 +314,58 @@ describe('Foul-smelling Paste (le-310)', () => {
       ],
     });
     const ready = { ...state, phaseState: makeSitePhase() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'heal-company-character');
+    expect(actions.length).toBe(1);
+  });
+
+  test('grant-action available during site phase select-company step', () => {
+    // Regression: game mt1qbzuy-3xhg56 seq 129/135 — Doeth (Durthak) was
+    // wounded and bearing the paste, but the select-company step (reached
+    // before any company enters a site) never offered heal-company-character,
+    // contradicting rule 2.1.1's "any phase of their turn" carve-out.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [
+            { defId: GORBAG, items: [FOUL_SMELLING_PASTE] },
+            { defId: GRISHNAKH, status: CardStatus.Inverted },
+          ] }],
+          hand: [], siteDeck: [MORIA_MINION],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeSitePhase({ step: 'select-company' }) };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'heal-company-character');
+    expect(actions.length).toBe(1);
+  });
+
+  test('grant-action available during site phase enter-or-skip step', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [
+            { defId: GORBAG, items: [FOUL_SMELLING_PASTE] },
+            { defId: GRISHNAKH, status: CardStatus.Inverted },
+          ] }],
+          hand: [], siteDeck: [MORIA_MINION],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeSitePhase({ step: 'enter-or-skip', siteEntered: false }) };
 
     const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'heal-company-character');
