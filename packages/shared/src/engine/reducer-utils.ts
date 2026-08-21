@@ -1923,6 +1923,21 @@ export function companyShadowMagicUsers(
 }
 
 /**
+ * True when `siteDef` carries a `no-storage` site-rule that applies to a
+ * player of `alignment` — resources may never be stored at the site by that
+ * player. The rule's optional `when` condition is evaluated against
+ * `{ player: { alignment } }`; absent `when`, the ban is unconditional
+ * (Geann a-Lisch le-374: "Resources may never be stored at this site").
+ * Barad-dûr declares `when: { "player.alignment": "balrog" }` for the MEBA
+ * clause "A Balrog player may not store anything at Barad-dûr".
+ */
+export function siteForbidsStorage(siteDef: SiteCard, alignment: Alignment): boolean {
+  return (siteDef.effects ?? []).some(e =>
+    e.type === 'site-rule' && e.rule === 'no-storage'
+    && (!e.when || matchesContext(e.when, { player: { alignment } })));
+}
+
+/**
  * True if the site is a **Darkhaven** [{DH}] — a Haven controlled by a minion
  * side (Ringwraith: Minas Morgul / Dol Guldur / Carn Dûm / Geann a-Lisch;
  * Balrog: Moria / The Under-gates), as opposed to a hero Haven or a
@@ -2551,9 +2566,9 @@ export function markPrisonersRescuedAtDolGuldur(
 
 /**
  * One card the playing company could discard to satisfy a
- * `discard-keyword-card` play-condition.
+ * `discard-keyword-card` / `discard-named-card` play-condition.
  */
-export interface KeywordDiscardCandidate {
+export interface DiscardCandidate {
   /** The instance that would be discarded — rides the play action's `discardCardInstanceId`. */
   readonly instanceId: CardInstanceId;
   /** Which zone it was found in, for logging. */
@@ -2563,18 +2578,66 @@ export interface KeywordDiscardCandidate {
 }
 
 /**
- * Enumerates every card **the given company controls** that carries the
- * keyword named by a `discard-keyword-card` play-condition, so the player can
- * choose which one to discard as the play cost.
+ * Enumerates every card **the given company controls** that satisfies the
+ * given predicate, scanning the zones named by a discard play-condition's
+ * `sources`, so the player can choose which one to discard as the play cost.
+ *
+ * Zone semantics: `character-items` covers the items of the company's own
+ * characters (permanent events played on a character live in
+ * `character.items` too); `cards-in-play` covers bare company-bound permanent
+ * events in `PlayerState.cardsInPlay`, scoped to entries bound to this very
+ * company ("a card it controls"); `kill-pile` covers the marshalling point
+ * pile — successfully stored items live there per CoE rule 2.II.4.1 (e.g. a
+ * Sapling of the White Tree stored at Minas Tirith).
+ */
+function collectDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  sources: NonNullable<PlayConditionEffect['sources']>,
+  matchesDef: (def: CardDefinition) => boolean,
+): DiscardCandidate[] {
+  const candidates: DiscardCandidate[] = [];
+  const check = (defId: CardDefinitionId): { ok: boolean; name: string } => {
+    const def = defById(state, defId);
+    return { ok: def != null && matchesDef(def), name: def?.name ?? (defId as string) };
+  };
+  for (const source of sources) {
+    if (source === 'character-items') {
+      for (const charId of company.characters) {
+        const ch = player.characters[charId];
+        if (!ch) continue;
+        for (const item of ch.items) {
+          const { ok, name } = check(item.definitionId);
+          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
+        }
+      }
+    } else if (source === 'cards-in-play') {
+      for (const card of player.cardsInPlay) {
+        // "a card it controls" — only cards bound to this very company.
+        if (card.companyId !== company.id) continue;
+        const { ok, name } = check(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    } else {
+      for (const card of player.killPile) {
+        const { ok, name } = check(card.definitionId);
+        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
+      }
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Enumerates every card the given company controls that carries the keyword
+ * named by a `discard-keyword-card` play-condition.
  *
  * Pass the Doors of Dol Guldur (dm-154): "Playable on a company if the company
  * discards (for no effect) a Stolen Knowledge card it controls." A Stolen
  * Knowledge card may be attached to one of the company's characters (Dark
- * Numbers dm-123, Knowledge of the Enemy dm-147 — permanent events played on a
- * character live in `character.items`) or be a bare company-bound permanent
- * event in `cardsInPlay` (another copy of dm-154 itself). "It controls" is what
- * scopes the search: only the company's own characters and only `cardsInPlay`
- * entries bound to this company are offered.
+ * Numbers dm-123, Knowledge of the Enemy dm-147) or be a bare company-bound
+ * permanent event in `cardsInPlay` (another copy of dm-154 itself).
  *
  * Returns an empty list when the condition cannot be satisfied, in which case
  * the card is not playable.
@@ -2584,41 +2647,39 @@ export function keywordDiscardCandidates(
   player: PlayerState,
   company: Company,
   condition: PlayConditionEffect,
-): KeywordDiscardCandidate[] {
+): DiscardCandidate[] {
   const keyword = condition.cardKeyword;
   if (!keyword) return [];
-  const sources = condition.sources ?? ['character-items'];
-  const candidates: KeywordDiscardCandidate[] = [];
-  const hasKeyword = (defId: CardDefinitionId): { ok: boolean; name: string } => {
-    const def = defById(state, defId);
-    const keywords = (def as { keywords?: readonly string[] } | undefined)?.keywords ?? [];
-    return { ok: keywords.includes(keyword), name: def?.name ?? (defId as string) };
-  };
-  for (const source of sources) {
-    if (source === 'character-items') {
-      for (const charId of company.characters) {
-        const ch = player.characters[charId];
-        if (!ch) continue;
-        for (const item of ch.items) {
-          const { ok, name } = hasKeyword(item.definitionId);
-          if (ok) candidates.push({ instanceId: item.instanceId, source, name });
-        }
-      }
-    } else if (source === 'cards-in-play') {
-      for (const card of player.cardsInPlay) {
-        // "a card it controls" — only cards bound to this very company.
-        if (card.companyId !== company.id) continue;
-        const { ok, name } = hasKeyword(card.definitionId);
-        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
-      }
-    } else {
-      for (const card of player.killPile) {
-        const { ok, name } = hasKeyword(card.definitionId);
-        if (ok) candidates.push({ instanceId: card.instanceId, source, name });
-      }
-    }
-  }
-  return candidates;
+  return collectDiscardCandidates(
+    state, player, company, condition.sources ?? ['character-items'],
+    def => ((def as { keywords?: readonly string[] }).keywords ?? []).includes(keyword),
+  );
+}
+
+/**
+ * Enumerates every card the given company controls with the exact name given
+ * by a `discard-named-card` play-condition — the named sibling of
+ * {@link keywordDiscardCandidates}.
+ *
+ * The White Tree (tw-348): "Playable only if you discard a Sapling of the
+ * White Tree from your marshalling point pile or from a character's control
+ * at Minas Tirith."
+ *
+ * Returns an empty list when the condition cannot be satisfied, in which case
+ * the card is not playable.
+ */
+export function namedDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  condition: PlayConditionEffect,
+): DiscardCandidate[] {
+  const cardName = condition.cardName;
+  if (!cardName) return [];
+  return collectDiscardCandidates(
+    state, player, company, condition.sources ?? ['character-items'],
+    def => def.name === cardName,
+  );
 }
 
 /**
@@ -2878,6 +2939,37 @@ export function findCharacterCompany(
 }
 
 /**
+ * The company bonus of a riddling attempt (Riddling Talk-style contests):
+ * every sage and every Hobbit in the riddling character's company adds their
+ * per-head bonus. Shared by the legal-action preview
+ * (`legal-actions/pending.ts`) and the roll resolution
+ * (`pending-reducers.ts`) so the `need` shown to the player can never drift
+ * from the roll actually made.
+ */
+export function riddlingCompanyBonus(
+  state: GameState,
+  player: PlayerState,
+  characterInstanceId: CardInstanceId,
+  sageBonus: number,
+  hobbitBonus: number,
+): { sages: number; hobbits: number; bonus: number } {
+  const company = findCharacterCompany(player.companies, characterInstanceId);
+  let sages = 0;
+  let hobbits = 0;
+  if (company) {
+    for (const charId of company.characters) {
+      const c = player.characters[charId];
+      if (!c) continue;
+      const def = defById(state, c.definitionId);
+      if (!isCharacterCard(def)) continue;
+      if (def.skills.includes(Skill.Sage)) sages++;
+      if (def.race === Race.Hobbit) hobbits++;
+    }
+  }
+  return { sages, hobbits, bonus: sages * sageBonus + hobbits * hobbitBonus };
+}
+
+/**
  * Returns the company with the given id, or `undefined` if none matches.
  * Centralizes the ubiquitous `companies.find(c => c.id === companyId)` lookup
  * used across combat, organization, and pending-resolution handlers to locate a
@@ -3079,6 +3171,37 @@ export function moveSideboardCard(
       rng: nextRng,
     },
   };
+}
+
+/**
+ * Collects the instance ids of every item card sitting in the given fetch
+ * `zones` of the player's piles (`discard-pile` → discardPile, `sideboard` →
+ * sideboard, `hand` → hand; any other zone contributes nothing), optionally
+ * restricted by a definition-level `filter` condition. Zone order is
+ * preserved. Used by the `place-item-on-character` grant-action scans (The
+ * Forge-master wh-117, Reforging tw-314); each call site supplies its own
+ * zone default.
+ */
+export function fetchZoneItemInstanceIds(
+  state: GameState,
+  player: PlayerState,
+  zones: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[],
+  filter?: Condition,
+): CardInstanceId[] {
+  const ids: CardInstanceId[] = [];
+  for (const zone of zones) {
+    const pile = zone === 'discard-pile' ? player.discardPile
+      : zone === 'sideboard' ? player.sideboard
+        : zone === 'hand' ? player.hand
+          : [];
+    for (const c of pile) {
+      const cdef = defById(state, c.definitionId);
+      if (!cdef || !isItemCard(cdef)) continue;
+      if (filter && !matchesDefinition(cdef, filter)) continue;
+      ids.push(c.instanceId);
+    }
+  }
+  return ids;
 }
 
 /**
@@ -4596,6 +4719,93 @@ function reindexActiveCompanyAfterCleanup(before: GameState, after: GameState): 
 }
 
 /**
+ * Outcome applied by {@link sweepCharacterAttachments} to each selected
+ * attachment: discard it to the bearer's owner's discard pile
+ * (`'discard-own'`), discard it to the opponent's discard pile
+ * (`'discard-opponent'` — attached hazards are owned by the hazard player),
+ * or tap it in place (`'tap'`).
+ */
+type SweepAttachmentOutcome = 'discard-own' | 'discard-opponent' | 'tap';
+
+/**
+ * Shared skeleton for the player × company × character × attachment sweeps
+ * ({@link sweepAutoDiscardHazards}, {@link sweepAutoDiscardResourceEvents},
+ * {@link sweepTapAtSiteItems}). Walks both players' companies and each
+ * company member's `slot` attachments, collecting the attachments the
+ * selector accepts, then applies `outcome` to them.
+ *
+ * `selectFor` is a curried per-company factory: it receives the company (and
+ * its player) and returns a per-character factory — or `null` to skip the
+ * company entirely — which in turn yields the per-attachment predicate. The
+ * currying lets callers hoist per-company pre-passes (e.g. company mind
+ * totals, current-site lookup) and per-character context (e.g. the bearer's
+ * own mind) out of the innermost attachment loop.
+ *
+ * The no-card-may-disappear invariant is upheld: a discarded attachment is
+ * removed from the character and appended to exactly one discard pile
+ * (chosen by `outcome`); a tapped attachment stays on the character. When
+ * nothing matches, the input `state` is returned by reference (no
+ * allocation).
+ */
+function sweepCharacterAttachments(
+  state: GameState,
+  slot: 'hazards' | 'items',
+  outcome: SweepAttachmentOutcome,
+  selectFor: (
+    company: Company,
+    player: PlayerState,
+  ) => ((char: CharacterInPlay, charId: CardInstanceId) => (attachment: CardInPlay | ItemInPlay) => boolean) | null,
+): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    for (const company of player.companies) {
+      const selectorFor = selectFor(company, player);
+      if (!selectorFor) continue;
+      for (const charId of company.characters) {
+        const char = player.characters[charId];
+        if (!char) continue;
+        const select = selectorFor(char, charId);
+        const attachments = char[slot] as readonly (CardInPlay | ItemInPlay)[];
+        const selected = new Set<string>();
+        for (const attachment of attachments) {
+          if (select(attachment)) selected.add(attachment.instanceId as string);
+        }
+        if (selected.size === 0) continue;
+        changed = true;
+
+        const newList = outcome === 'tap'
+          ? attachments.map(a => selected.has(a.instanceId as string) ? { ...a, status: CardStatus.Tapped } : a)
+          : attachments.filter(a => !selected.has(a.instanceId as string));
+        const updatedChar: CharacterInPlay = slot === 'hazards'
+          ? { ...char, hazards: newList as readonly CardInPlay[] }
+          : { ...char, items: newList as readonly ItemInPlay[] };
+        newPlayers[pi] = {
+          ...newPlayers[pi],
+          characters: { ...newPlayers[pi].characters, [charId]: updatedChar },
+        };
+
+        if (outcome !== 'tap') {
+          const discarded = attachments.filter(a => selected.has(a.instanceId as string));
+          // 'discard-opponent': hazards are owned by the opponent
+          // (hazard player = 1 - pi); resource events go to their own
+          // player's pile.
+          const pileIdx = outcome === 'discard-own' ? pi : 1 - pi;
+          newPlayers[pileIdx] = {
+            ...newPlayers[pileIdx],
+            discardPile: [...newPlayers[pileIdx].discardPile, ...discarded.map(toCardInstance)],
+          };
+        }
+      }
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
  * Fires the `company-composition-changed` event against every attached
  * hazard carrying an `on-event` + self-discard `move` effect for that event.
  * When the effect's `when` condition is met, the hazard is discarded to
@@ -4604,55 +4814,21 @@ function reindexActiveCompanyAfterCleanup(before: GameState, after: GameState): 
  * company size (e.g. Alone and Unadvised).
  */
 export function sweepAutoDiscardHazards(state: GameState): GameState {
-  let changed = false;
-  const newPlayers = clonePlayers(state);
-
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    for (const company of player.companies) {
-      const companyCharCount = company.characters.length;
-      for (const charId of company.characters) {
-        const char = player.characters[charId];
-        if (!char) continue;
-        const toDiscard: CardInstanceId[] = [];
-        for (const hazard of char.hazards) {
-          const hDef = defById(state, hazard.definitionId);
-          // Match a self-discard `move` (the hazard discards itself to its
-          // owner's discard pile) gated on the company-size `when` condition.
-          const ctx = { company: { characterCount: companyCharCount } };
-          const trigger = getOnEventEffects(hDef, 'company-composition-changed').find(
-            e => isSelfDiscardMove(e.apply) && !!e.when && matchesCondition(e.when, ctx),
-          );
-          if (trigger) {
-            logDetail(`self-discard move: "${hDef?.name}" on ${charId as string} (company size ${companyCharCount})`);
-            toDiscard.push(hazard.instanceId);
-          }
-        }
-        if (toDiscard.length > 0) {
-          changed = true;
-          const discardSet = new Set(toDiscard as string[]);
-          const discarded = char.hazards.filter(h => discardSet.has(h.instanceId as string));
-          const remaining = char.hazards.filter(h => !discardSet.has(h.instanceId as string));
-          // Remove hazards from the character
-          newPlayers[pi] = {
-            ...newPlayers[pi],
-            characters: {
-              ...newPlayers[pi].characters,
-              [charId]: { ...newPlayers[pi].characters[charId], hazards: remaining },
-            },
-          };
-          // Hazards are owned by the opponent (hazard player = 1 - pi)
-          const hazOwnerIdx = 1 - pi;
-          newPlayers[hazOwnerIdx] = {
-            ...newPlayers[hazOwnerIdx],
-            discardPile: [...newPlayers[hazOwnerIdx].discardPile, ...discarded.map(toCardInstance)],
-          };
-        }
-      }
-    }
-  }
-
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+  return sweepCharacterAttachments(state, 'hazards', 'discard-opponent', company => {
+    const companyCharCount = company.characters.length;
+    return (_char, charId) => hazard => {
+      const hDef = defById(state, hazard.definitionId);
+      // Match a self-discard `move` (the hazard discards itself to its
+      // owner's discard pile) gated on the company-size `when` condition.
+      const ctx = { company: { characterCount: companyCharCount } };
+      const trigger = getOnEventEffects(hDef, 'company-composition-changed').find(
+        e => isSelfDiscardMove(e.apply) && !!e.when && matchesCondition(e.when, ctx),
+      );
+      if (!trigger) return false;
+      logDetail(`self-discard move: "${hDef?.name}" on ${charId as string} (company size ${companyCharCount})`);
+      return true;
+    };
+  });
 }
 
 /**
@@ -4671,71 +4847,43 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
  * Call after any action that changes a company's character roster.
  */
 export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
-  let changed = false;
-  const newPlayers = clonePlayers(state);
+  return sweepCharacterAttachments(state, 'items', 'discard-own', (company, player) => {
+    const companyCharCount = company.characters.length;
 
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    for (const company of player.companies) {
-      const companyCharCount = company.characters.length;
-
-      // Pre-compute mind values for all characters in this company
-      const companyMinds: number[] = [];
-      for (const chId of company.characters) {
-        const ch = player.characters[chId];
-        if (!ch) continue;
-        const chDef = state.cardPool[ch.definitionId];
-        const mind = chDef && 'mind' in chDef && typeof (chDef as { mind: unknown }).mind === 'number'
-          ? (chDef as { mind: number }).mind
-          : null;
-        if (mind !== null) companyMinds.push(mind);
-      }
-
-      for (const charId of company.characters) {
-        const char = player.characters[charId];
-        if (!char) continue;
-
-        // Determine bearer's mind for higher-mind comparison
-        const bearerDef = state.cardPool[char.definitionId];
-        const bearerMind = bearerDef && 'mind' in bearerDef && typeof (bearerDef as { mind: unknown }).mind === 'number'
-          ? (bearerDef as { mind: number }).mind
-          : null;
-        const hasHigherMindThanBearer = bearerMind !== null
-          && companyMinds.some(m => m > bearerMind);
-
-        const ctx = { company: { characterCount: companyCharCount, hasHigherMindThanBearer } };
-
-        const toDiscard: string[] = [];
-        for (const item of char.items) {
-          const itemDef = defById(state, item.definitionId);
-          const trigger = getOnEventEffects(itemDef, 'company-composition-changed').find(
-            e => isSelfDiscardMove(e.apply) && !!e.when && matchesCondition(e.when, ctx),
-          );
-          if (trigger) {
-            logDetail(`sweepAutoDiscardResourceEvents: "${itemDef?.name}" on ${charId as string} (hasHigherMind=${hasHigherMindThanBearer})`);
-            toDiscard.push(item.instanceId as string);
-          }
-        }
-
-        if (toDiscard.length > 0) {
-          changed = true;
-          const discardSet = new Set(toDiscard);
-          const discarded = char.items.filter(i => discardSet.has(i.instanceId as string));
-          const remaining = char.items.filter(i => !discardSet.has(i.instanceId as string));
-          newPlayers[pi] = {
-            ...newPlayers[pi],
-            characters: {
-              ...newPlayers[pi].characters,
-              [charId]: { ...newPlayers[pi].characters[charId], items: remaining },
-            },
-            discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
-          };
-        }
-      }
+    // Pre-compute mind values for all characters in this company
+    const companyMinds: number[] = [];
+    for (const chId of company.characters) {
+      const ch = player.characters[chId];
+      if (!ch) continue;
+      const chDef = state.cardPool[ch.definitionId];
+      const mind = chDef && 'mind' in chDef && typeof (chDef as { mind: unknown }).mind === 'number'
+        ? (chDef as { mind: number }).mind
+        : null;
+      if (mind !== null) companyMinds.push(mind);
     }
-  }
 
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+    return (char, charId) => {
+      // Determine bearer's mind for higher-mind comparison
+      const bearerDef = state.cardPool[char.definitionId];
+      const bearerMind = bearerDef && 'mind' in bearerDef && typeof (bearerDef as { mind: unknown }).mind === 'number'
+        ? (bearerDef as { mind: number }).mind
+        : null;
+      const hasHigherMindThanBearer = bearerMind !== null
+        && companyMinds.some(m => m > bearerMind);
+
+      const ctx = { company: { characterCount: companyCharCount, hasHigherMindThanBearer } };
+
+      return item => {
+        const itemDef = defById(state, item.definitionId);
+        const trigger = getOnEventEffects(itemDef, 'company-composition-changed').find(
+          e => isSelfDiscardMove(e.apply) && !!e.when && matchesCondition(e.when, ctx),
+        );
+        if (!trigger) return false;
+        logDetail(`sweepAutoDiscardResourceEvents: "${itemDef?.name}" on ${charId as string} (hasHigherMind=${hasHigherMindThanBearer})`);
+        return true;
+      };
+    };
+  });
 }
 
 /**
@@ -4752,52 +4900,24 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
  * Moria; this card never untaps."
  */
 export function sweepTapAtSiteItems(state: GameState): GameState {
-  let changed = false;
-  const newPlayers = clonePlayers(state);
+  return sweepCharacterAttachments(state, 'items', 'tap', company => {
+    if (!company.currentSite) return null;
+    const siteDef = defById(state, company.currentSite.definitionId);
+    const siteName = siteDef?.name;
+    if (!siteName) return null;
 
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    for (const company of player.companies) {
-      if (!company.currentSite) continue;
-      const siteDef = defById(state, company.currentSite.definitionId);
-      const siteName = siteDef?.name;
-      if (!siteName) continue;
-
-      for (const charId of company.characters) {
-        const char = player.characters[charId];
-        if (!char) continue;
-
-        const toTap: string[] = [];
-        for (const item of char.items) {
-          if (item.status !== CardStatus.Untapped) continue;
-          const itemDef = defById(state, item.definitionId);
-          const trigger = (getCardEffects(itemDef) as CardEffect[]).find(
-            (e): e is import('../types/effects.js').TapAtSiteEffect =>
-              e.type === 'tap-at-site' && e.siteNames.includes(siteName),
-          );
-          if (trigger) {
-            logDetail(`sweepTapAtSiteItems: tapping "${itemDef?.name}" on ${charId as string} — bearer at ${siteName}`);
-            toTap.push(item.instanceId as string);
-          }
-        }
-
-        if (toTap.length > 0) {
-          changed = true;
-          const tapSet = new Set(toTap);
-          const newItems = char.items.map(i => tapSet.has(i.instanceId as string) ? { ...i, status: CardStatus.Tapped } : i);
-          newPlayers[pi] = {
-            ...newPlayers[pi],
-            characters: {
-              ...newPlayers[pi].characters,
-              [charId]: { ...newPlayers[pi].characters[charId], items: newItems },
-            },
-          };
-        }
-      }
-    }
-  }
-
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+    return (_char, charId) => item => {
+      if (item.status !== CardStatus.Untapped) return false;
+      const itemDef = defById(state, item.definitionId);
+      const trigger = (getCardEffects(itemDef) as CardEffect[]).find(
+        (e): e is import('../types/effects.js').TapAtSiteEffect =>
+          e.type === 'tap-at-site' && e.siteNames.includes(siteName),
+      );
+      if (!trigger) return false;
+      logDetail(`sweepTapAtSiteItems: tapping "${itemDef?.name}" on ${charId as string} — bearer at ${siteName}`);
+      return true;
+    };
+  });
 }
 
 /**

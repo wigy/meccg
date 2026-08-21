@@ -2935,7 +2935,7 @@ export function buildAnUnexpectedOutpostMH(opts?: {
  * ready for strike assignment. Used by tw-209 (Dodge) etc.
  */
 export function setupCombatWithCaveDrake(opts: {
-  heroChars: readonly CardDefinitionId[];
+  heroChars: readonly CharacterEntry[];
   heroHand?: readonly CardDefinitionId[];
   creatureDefId: CardDefinitionId;
   hazardCharacter?: CardDefinitionId;

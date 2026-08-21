@@ -11,8 +11,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type WebSocket from 'ws';
-import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
+import type { GameStartingMessage, LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { killGame, launchGame } from '../games/launcher.js';
+import type { LaunchOptions, LaunchResult } from '../games/launcher.js';
 import { resolveModelFile } from '../games/models.js';
 import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -697,6 +698,78 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
   }
 }
 
+/** Per-variant details for a solo-game launch (see {@link launchSoloGame}). */
+interface SoloGameLaunchDetails {
+  /**
+   * Extra fields for the `game-start` log entry (inserted between the player
+   * names and the port) and the `game-end` log entry.
+   */
+  logFields: Record<string, boolean>;
+  /** `context` value for the error log entry when the launch fails. */
+  errorContext: string;
+  /** Extra {@link ActiveGameInfo} fields remembered for rejoin (e.g. the AI deck). */
+  gameInfoExtra?: Partial<ActiveGameInfo>;
+  /** Extra fields for the `game-starting` message (e.g. the pseudo-AI token). */
+  startingExtra?: (result: LaunchResult) => Partial<Omit<GameStartingMessage, 'type'>>;
+}
+
+/**
+ * Shared skeleton for launching a solo game: one human player against a
+ * server-managed opponent seat (AI, Mentor, or pseudo-AI). Marks the player
+ * busy, launches the game server, records the active/watchable game, and
+ * wires up the end-of-game cleanup. Two-seat human games use {@link startGame},
+ * which is asymmetric (two tokens, two active-game records) on purpose.
+ */
+async function launchSoloGame(
+  player: OnlinePlayer,
+  opponentName: string,
+  launchOptions: LaunchOptions,
+  { logFields, errorContext, gameInfoExtra, startingExtra }: SoloGameLaunchDetails,
+): Promise<void> {
+  player.inGame = true;
+  // Entering a game withdraws any challenges involving this player.
+  cancelChallengesInvolving(player.name);
+
+  try {
+    const result = await launchGame(player.name, opponentName, launchOptions);
+    lobbyLog.log('game-start', { player1: player.name, player2: opponentName, ...logFields, port: result.port });
+
+    const gameInfo: ActiveGameInfo = {
+      port: result.port,
+      token: result.tokens[0],
+      opponent: opponentName,
+      opponentDisplayName: opponentName,
+      ...gameInfoExtra,
+    };
+    setActiveGame(player, gameInfo);
+    // Register the game so others see this player as busy — shown as a
+    // "player vs. <opponent>" row they can watch instead of a Challenge button.
+    watchableGames.set(result.port, {
+      port: result.port,
+      player1: player.name,
+      player2: opponentName,
+      gameId: result.gameId,
+      launchedAt: new Date().toISOString(),
+    });
+
+    send(player.ws, { type: 'game-starting', ...gameInfo, ...startingExtra?.(result) });
+    broadcastPlayerList();
+
+    result.onEnd(() => {
+      clearPlayerGame(player.name, result.port);
+      watchableGames.delete(result.port);
+      broadcastPlayerList();
+      lobbyLog.log('game-end', { player1: player.name, player2: opponentName, ...logFields });
+    });
+  } catch (err) {
+    lobbyLog.log('error', { context: errorContext, error: String(err) });
+    player.inGame = false;
+    player.activeGame = null;
+    send(player.ws, { type: 'error', message: 'Failed to start game server' });
+    broadcastPlayerList();
+  }
+}
+
 /**
  * Launch a game against an AI opponent: the Heuristic-AI (rule-based
  * strategy) by default, a Real-AI when `modelFile` names a trained model
@@ -724,9 +797,6 @@ async function startAiGame(
     }
     aiModelPath = resolved;
   }
-  player.inGame = true;
-  // Entering a game withdraws any challenges involving this player.
-  cancelChallengesInvolving(player.name);
   // The name is the save key and the rejoin key, so each agent spec needs its
   // own. Deriving it from "an agent spec was supplied" was fine while there was
   // one such agent; a second would have made both share MC's saves.
@@ -735,47 +805,13 @@ async function startAiGame(
       : modelFile !== undefined ? 'AI-Real'
         : 'AI-Heuristic';
 
-  try {
-    const result = await launchGame(player.name, aiName, {
-      ai: true, aiDeckId: deckId, aiModelPath, aiAgentSpec: agentSpec,
-    });
-    lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
-
-    const gameInfo: ActiveGameInfo = {
-      port: result.port,
-      token: result.tokens[0],
-      opponent: aiName,
-      opponentDisplayName: aiName,
-      aiDeckId: deckId,
-      aiModelFile: modelFile,
-    };
-    setActiveGame(player, gameInfo);
-    // Register the game so others see this player as busy — shown as a
-    // "player vs. AI-*" row they can watch instead of a Challenge button.
-    watchableGames.set(result.port, {
-      port: result.port,
-      player1: player.name,
-      player2: aiName,
-      gameId: result.gameId,
-      launchedAt: new Date().toISOString(),
-    });
-
-    send(player.ws, { type: 'game-starting', ...gameInfo });
-    broadcastPlayerList();
-
-    result.onEnd(() => {
-      clearPlayerGame(player.name, result.port);
-      watchableGames.delete(result.port);
-      broadcastPlayerList();
-      lobbyLog.log('game-end', { player1: player.name, player2: aiName, ai: true });
-    });
-  } catch (err) {
-    lobbyLog.log('error', { context: 'ai-game-start', error: String(err) });
-    player.inGame = false;
-    player.activeGame = null;
-    send(player.ws, { type: 'error', message: 'Failed to start game server' });
-    broadcastPlayerList();
-  }
+  await launchSoloGame(player, aiName, {
+    ai: true, aiDeckId: deckId, aiModelPath, aiAgentSpec: agentSpec,
+  }, {
+    logFields: { ai: true },
+    errorContext: 'ai-game-start',
+    gameInfoExtra: { aiDeckId: deckId, aiModelFile: modelFile },
+  });
 }
 
 /** Save directory shared with the game servers (same default as game-session). */
@@ -803,96 +839,21 @@ function deleteTutorialSaves(playerName: string): void {
  * plays the Mentor itself). Decks are fixed by the shared tutorial module.
  */
 async function startTutorialGame(player: OnlinePlayer): Promise<void> {
-  player.inGame = true;
-  cancelChallengesInvolving(player.name);
-  const mentorName = 'Mentor';
-
-  try {
-    const result = await launchGame(player.name, mentorName, { tutorial: true });
-    lobbyLog.log('game-start', { player1: player.name, player2: mentorName, tutorial: true, port: result.port });
-
-    const gameInfo: ActiveGameInfo = {
-      port: result.port,
-      token: result.tokens[0],
-      opponent: mentorName,
-      opponentDisplayName: mentorName,
-    };
-    setActiveGame(player, gameInfo);
-    watchableGames.set(result.port, {
-      port: result.port,
-      player1: player.name,
-      player2: mentorName,
-      gameId: result.gameId,
-      launchedAt: new Date().toISOString(),
-    });
-
-    send(player.ws, { type: 'game-starting', ...gameInfo });
-    broadcastPlayerList();
-
-    result.onEnd(() => {
-      clearPlayerGame(player.name, result.port);
-      watchableGames.delete(result.port);
-      broadcastPlayerList();
-      lobbyLog.log('game-end', { player1: player.name, player2: mentorName, tutorial: true });
-    });
-  } catch (err) {
-    lobbyLog.log('error', { context: 'tutorial-game-start', error: String(err) });
-    player.inGame = false;
-    player.activeGame = null;
-    send(player.ws, { type: 'error', message: 'Failed to start game server' });
-    broadcastPlayerList();
-  }
+  await launchSoloGame(player, 'Mentor', { tutorial: true }, {
+    logFields: { tutorial: true },
+    errorContext: 'tutorial-game-start',
+  });
 }
 
 /** Launch a pseudo-AI game where the human controls both sides via two WS connections. */
 async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
-  player.inGame = true;
-  // Entering a game withdraws any challenges involving this player.
-  cancelChallengesInvolving(player.name);
-  const aiName = 'AI-Pseudo';
-
-  try {
-    // No AI client process — the web client connects twice (as human + AI)
-    const result = await launchGame(player.name, aiName, { aiDeckId: deckId });
-    lobbyLog.log('game-start', { player1: player.name, player2: aiName, pseudoAi: true, port: result.port });
-
-    const gameInfo: ActiveGameInfo = {
-      port: result.port,
-      token: result.tokens[0],
-      opponent: aiName,
-      opponentDisplayName: aiName,
-    };
-    setActiveGame(player, gameInfo);
-    // Like real AI games, a pseudo-AI game shows up as a watchable "vs. AI-Pseudo"
-    // row; the spectator projection hides both hands, so it is safe to watch even
-    // though one human controls both seats.
-    watchableGames.set(result.port, {
-      port: result.port,
-      player1: player.name,
-      player2: aiName,
-      gameId: result.gameId,
-      launchedAt: new Date().toISOString(),
-    });
-
-    send(player.ws, {
-      type: 'game-starting',
-      ...gameInfo,
-      pseudoAi: true,
-      aiToken: result.tokens[1],
-    });
-    broadcastPlayerList();
-
-    result.onEnd(() => {
-      clearPlayerGame(player.name, result.port);
-      watchableGames.delete(result.port);
-      broadcastPlayerList();
-      lobbyLog.log('game-end', { player1: player.name, player2: aiName, pseudoAi: true });
-    });
-  } catch (err) {
-    lobbyLog.log('error', { context: 'pseudo-ai-game-start', error: String(err) });
-    player.inGame = false;
-    player.activeGame = null;
-    send(player.ws, { type: 'error', message: 'Failed to start game server' });
-    broadcastPlayerList();
-  }
+  // No AI client process — the web client connects twice (as human + AI), so
+  // the game-starting message also carries the AI seat's token. The spectator
+  // projection hides both hands, so the game is safe to watch even though one
+  // human controls both seats.
+  await launchSoloGame(player, 'AI-Pseudo', { aiDeckId: deckId }, {
+    logFields: { pseudoAi: true },
+    errorContext: 'pseudo-ai-game-start',
+    startingExtra: (result) => ({ pseudoAi: true, aiToken: result.tokens[1] }),
+  });
 }

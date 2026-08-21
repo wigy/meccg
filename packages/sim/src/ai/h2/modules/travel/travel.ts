@@ -48,6 +48,7 @@ import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeBeliefs } from '../../services/beliefs.js';
@@ -217,16 +218,13 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
   }
 
   const outcomes: Outcome[] = [{ p: 1, label, dtsd }];
-  const scored = standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(label, scored.utility, [node('sequencing', dtsd, detail), scored.rationale], { unit: 'winprob' }),
+    standing,
+    headline: label,
+    detail: [node('sequencing', dtsd, detail)],
     assumptions: [
       inMovement
         ? 'companies are ordered to see the most cards, which the hand is reset to hand size after '
@@ -238,7 +236,7 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
           + 'credited for what it might do then',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /** The definition ID of the site a company stands on or is heading to. */
@@ -475,22 +473,16 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
   const { standing } = context;
   const value = destinationValue(context, destination);
   const outcomes: Outcome[] = [{ p: 1, label: value.label, dtsd: value.dtsd }];
-  const scored = standing.score(outcomes);
 
-  return {
+  return scoredEvaluation({
     action: destination.action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`travel to ${destination.site.name}`, scored.utility, [
-      node('destination', value.playableCount, [...value.detail]),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline: `travel to ${destination.site.name}`,
+    detail: [node('destination', value.playableCount, [...value.detail])],
     assumptions: ASSUMPTIONS,
-  };
+  });
 }
 
 
@@ -554,8 +546,6 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
       : `enter ${site.name} with nothing to play`,
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-
   const detail: Rationale[] = [
     leaf('site', `${site.name} (${site.siteType})`),
     leaf('automatic attacks', automatic.length, {
@@ -578,18 +568,13 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
     }));
   }
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`enter ${site.name}`, scored.utility, [
-      node('what entering buys and costs', dtsd, detail),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline: `enter ${site.name}`,
+    detail: [node('what entering buys and costs', dtsd, detail)],
     assumptions: [
       'the automatic attacks are priced as printed; a card that suppresses them — a defeated '
       + 'Dragon at its lair, a site effect — is not modelled',
@@ -597,7 +582,7 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
       + 'creature: which creature, and whether it is playable here, is not known',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -638,28 +623,24 @@ function evaluateCancelMovement(context: ModuleContext, action: GameAction): Eva
     label: `stay at the current site instead of ${site.name}`,
     dtsd,
   }];
-  const scored = context.standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`cancel the move to ${site.name}`, scored.utility, [
+    standing: context.standing,
+    headline: `cancel the move to ${site.name}`,
+    detail: [
       node('what travelling was worth', value.dtsd, [...value.detail], {
         unit: 'tsd',
         note: 'cancelling gives up exactly this — the same number, with the sign flipped',
       }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'cancelling is priced as forgoing the destination; a company kept home because it is safer '
       + 'there is not credited for the hazards it avoids beyond the travel cost already counted',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -689,16 +670,13 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
       : `move by ${declared.movementType ?? 'movement'} with no region crossed`,
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node('declare the path', scored.utility, [
+    standing,
+    headline: 'declare the path',
+    detail: [
       node('exposure of the route', dtsd, [
         leaf('movement type', declared.movementType ?? 'unknown'),
         leaf('regions crossed', regions.length, {
@@ -710,8 +688,7 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
           note: `scaled by a ${(threat * 100).toFixed(0)}% chance the opponent holds a creature`,
         }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'the destination is already fixed by this point, so only the route is priced — what differs '
       + 'between movement types beyond the regions they cross is not modelled',
@@ -720,7 +697,7 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
       + 'design removed',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -829,21 +806,15 @@ export const travelModule: H2Module = {
       // Staying put banks nothing and costs nothing — the baseline every
       // destination is measured against.
       const outcomes: Outcome[] = [{ p: 1, label: 'stay where the company stands', dtsd: 0 }];
-      const scored = context.standing.score(outcomes);
-      return {
+      return scoredEvaluation({
         action,
         module: 'travel',
         outcomes,
-        expectedTsd: scored.expectedTsd,
-        sigmaTsd: scored.sigmaTsd,
-        utility: scored.utility,
-        method: scored.method,
-        rationale: node('stay put', scored.utility, [
-          leaf('moved', 0, { note: 'no travel tempo spent, nothing unlocked' }),
-          scored.rationale,
-        ], { unit: 'winprob' }),
+        standing: context.standing,
+        headline: 'stay put',
+        detail: [leaf('moved', 0, { note: 'no travel tempo spent, nothing unlocked' })],
         assumptions: ASSUMPTIONS,
-      };
+      });
     }
 
     const destination = destinationOf(context.view, action);

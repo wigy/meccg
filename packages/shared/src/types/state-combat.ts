@@ -1011,6 +1011,15 @@ export type ChainEntryPayload =
        */
       readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
       /**
+       * For company-targeted hazard short-events: the company the play was
+       * declared against. Lets a site-scoped `duplication-limit` attribute an
+       * unresolved on-chain copy to a site (via the company's destination /
+       * current site) when the payload carries no `targetSiteDefinitionId` —
+       * e.g. Incite Defenders/Denizens ("Cannot be duplicated on a given
+       * site") played against a moving company.
+       */
+      readonly targetCompanyId?: import('./common.js').CompanyId;
+      /**
        * For hazard short-events with `play-option` effects (e.g. Weariness of
        * the Heart le-149), the id of the option the hazard player chose at
        * play time. The chain resolver dispatches that option's `apply`.

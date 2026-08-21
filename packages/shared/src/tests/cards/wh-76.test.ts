@@ -17,7 +17,7 @@
  *     2. play-condition player-state — "Playable if you have more than 6 stage
  *        points" (`player.stagePoints > 6`), gating the play-permanent-event
  *        legal action.
- *     3. fw-item-mp-full — filter `$not keywords $includes "ring"` (player-wide,
+ *     3. fw-mp-full (cards: items) — filter `$not keywords $includes "ring"` (player-wide,
  *        NOT company-restricted). Lifts the MEWH §4 1-MP clamp to full printed
  *        MP for every non-ring item the Fallen-wizard controls.
  *     4. duplication-limit (scope player, max 1) — "Cannot be duplicated by a

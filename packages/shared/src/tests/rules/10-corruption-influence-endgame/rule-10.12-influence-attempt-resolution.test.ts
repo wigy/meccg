@@ -90,6 +90,26 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect(effects!.some(e => e.effect === 'dice-roll')).toBe(true);
   });
 
+  test('defender roll dice-roll effect carries the full formula and verdict so the outcome can be verified from the log', () => {
+    // Regression: the resolution's dice-roll toast used to say only
+    // "Opponent influence: defense" — a player watching the log had no way
+    // to check the attacker roll, DI/GI/mind values, or whether the attempt
+    // actually succeeded or failed (bug report: Iron-Hill Dwarves influence,
+    // game mt2260ne-7k9i02 seq 1217-1218).
+    // Force failure: low attacker roll (2), high defender roll (12).
+    const state = buildResolutionState({ attackerCheatRoll: 2 });
+    const { state: afterAttempt } = attemptInfluence(state, LEGOLAS);
+    const defState = { ...afterAttempt, cheatRollTotal: 12 };
+    const { effects } = defendInfluence(defState);
+    const rollEffect = effects!.find(e => e.effect === 'dice-roll');
+    expect(rollEffect).toBeDefined();
+    if (rollEffect?.effect !== 'dice-roll') return;
+    expect(rollEffect.label).toContain('Aragorn');
+    expect(rollEffect.label).toContain('Legolas');
+    expect(rollEffect.label).toContain('vs mind');
+    expect(rollEffect.label).toContain('failed');
+  });
+
   test('successful influence discards target character', () => {
     // Force high attacker roll (12), low defender roll (2)
     // Result: 12 + 3(DI) - 3(GI) - 2(def) - 0(ctrl) = 10 > 6(mind) → success

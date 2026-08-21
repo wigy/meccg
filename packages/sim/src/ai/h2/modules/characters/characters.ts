@@ -67,6 +67,7 @@ import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '..
 import type { MpSource } from '../../core/tsd.js';
 import { distributionStats, netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import type { ArrangedCompany } from '../../services/organization.js';
@@ -162,17 +163,13 @@ function evaluateDiscardCharacter(context: ModuleContext, action: GameAction): E
       : `discard ${character?.name ?? (instanceId as string)} — ${loss.reason}`,
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-
-  return {
+  return scoredEvaluation({
     action,
     module: 'characters',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`discard ${character?.name ?? (instanceId as string)}`, scored.utility, [
+    standing,
+    headline: `discard ${character?.name ?? (instanceId as string)}`,
+    detail: [
       node('what leaves with him', dtsd, [
         leaf('marshalling points he was scoring', mpLoss, {
           unit: 'tsd',
@@ -186,14 +183,13 @@ function evaluateDiscardCharacter(context: ModuleContext, action: GameAction): E
             + 'reported, not priced',
         }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'the influence a discard frees is reported but not priced — the same gap as playing him, and '
       + 'for the same reason: what it would be spent on is the roster plan\'s to say',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -592,8 +588,6 @@ export const charactersModule: H2Module = {
         + (character.avatar ? ', avatar' : ''),
       dtsd,
     }];
-    const scored = standing.score(outcomes);
-
     const detail: Rationale[] = [
       leaf('character', character.name),
       leaf('marshalling points', character.marshallingPoints, { unit: 'mp', note: `${character.source} source` }),
@@ -617,19 +611,14 @@ export const charactersModule: H2Module = {
       }),
     ];
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'characters',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node(`play ${character.name}`, scored.utility, [
-        node('character', character.marshallingPoints, detail),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: `play ${character.name}`,
+      detail: [node('character', character.marshallingPoints, detail)],
       assumptions: ASSUMPTIONS,
-    };
+    });
   },
 };

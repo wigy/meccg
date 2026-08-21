@@ -47,6 +47,21 @@ export function parseCliArgs(argv: readonly string[]): CliArgs {
   return { positional, flags };
 }
 
+/**
+ * Standard sim-CLI opening: parse `argv` and honor `--help` / `-h` by
+ * printing `usage` and exiting. Returns the parsed args otherwise. Engine
+ * console-log toggling deliberately stays with each CLI — a few re-set it
+ * from their own flags (`--engine-log`).
+ */
+export function cliPreamble(usage: string, argv: readonly string[] = process.argv.slice(2)): CliArgs {
+  const args = parseCliArgs(argv);
+  if (args.flags['help'] === true || args.flags['h'] === true) {
+    console.log(usage);
+    process.exit(0);
+  }
+  return args;
+}
+
 /** Read a numeric flag with a default. */
 export function numberFlag(args: CliArgs, name: string, defaultValue: number): number {
   const raw = args.flags[name];

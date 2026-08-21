@@ -25,10 +25,10 @@ import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFla
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
-import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
+import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
@@ -828,6 +828,19 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // Check whether this company has a Ringwraith avatar.
     const hasRingwraithAvatar = player.alignment === 'ringwraith' && companyContainsRingwraithAvatar(state, player, company);
 
+    // Rule 3.07 (2.II.2.1.R3): a company mixing a Ringwraith with a
+    // non-Ringwraith character is legal only while sitting at a Darkhaven —
+    // moving takes it away from that Darkhaven for the whole trip, so no
+    // destination (Darkhaven or not) can be planned until the mix is
+    // resolved. Without this guard the game accepts a `plan-movement` that
+    // `declare-path` (movement-hazard.ts) is guaranteed to refuse later,
+    // silently stranding the company at its origin having wasted its
+    // movement/hazard phase.
+    if (hasRingwraithAvatar && wouldViolateRingwraithComposition(state, company.characters)) {
+      logDetail(`Company ${company.id as string}: mixes a Ringwraith with a non-Ringwraith character — rule 3.07 forbids any movement away from ${currentSiteDef.name} — no destination offered`);
+      continue;
+    }
+
     if (hasRingwraithAvatar) {
       const hasModeCard = ringwraithHasModeCard(state, company, player);
       const originIsDarkhaven = isDarkhavenSiteDef(currentSiteDef);
@@ -1195,24 +1208,14 @@ export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedA
 const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
 
 /**
- * Special items (Palantíri, named rings, unique treasures, etc.) are storable
- * at any Haven too — CoE rule 2.II.4 places no subtype restriction on storing.
- * The only blanket exception is The One Ring (rule g.sto.1: "The One Ring
- * cannot be stored").
- */
-function isStorableSpecialItem(itemDef: { subtype: string; keywords?: readonly string[] }): boolean {
-  return itemDef.subtype === 'special' && !(itemDef.keywords?.includes('the-one-ring') ?? false);
-}
-
-/**
  * Computes store-item actions during the organization phase.
  *
  * Two categories of items are storable (CoE rule 2.II.4):
  *
- * 1. **Regular and special items** (any subtype other than The One Ring)
- *    without an explicit `storable-at` restriction: storable at any Haven
- *    site. The One Ring is the sole blanket exception (rule g.sto.1: "The
- *    One Ring cannot be stored").
+ * 1. **Regular and special items** without an explicit `storable-at`
+ *    restriction: storable at any Haven site, unless the item carries the
+ *    `no-store` play-flag (Ent-draughts tw-227, The One Ring per rule
+ *    g.sto.1: "The One Ring cannot be stored").
  * 2. **Items with a `storable-at` effect**: storable only at sites whose name
  *    appears in the effect's `sites` list, or whose type appears in
  *    `siteTypes`. This covers special items (e.g. Rescue Prisoners) and
@@ -1250,17 +1253,11 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       company.currentSite.instanceId,
     );
 
-    // MEBA: "A Balrog player may not store anything at Barad-dûr" — it is not one
-    // of the Balrog's Darkhavens (only Moria and The Under-gates are).
-    if (player.alignment === Alignment.Balrog && siteName === 'Barad-dûr') {
-      logDetail(`Store-item: Balrog player may not store at ${siteName} — skipping company`);
-      continue;
-    }
-
-    // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
-    // stored at this site." Suppress every store-item offer for a company here.
-    if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
-      logDetail(`Store-item: ${siteName} carries no-storage site-rule — skipping company`);
+    // `no-storage` site-rule: "Resources may never be stored at this site"
+    // (Geann a-Lisch le-374 unconditionally; Barad-dûr for a Balrog player via
+    // the rule's `when` gate). Suppress every store-item offer for a company here.
+    if (siteForbidsStorage(siteDef, player.alignment)) {
+      logDetail(`Store-item: ${siteName} carries no-storage site-rule for ${player.alignment} — skipping company`);
       continue;
     }
 
@@ -1314,13 +1311,16 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
           const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
           isStorable = siteNameMatch || siteTypeMatch;
         } else if (isItemCard(itemDef) && siteType === 'haven') {
-          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || isStorableSpecialItem(itemDef);
+          // Special items (Palantíri, named rings, unique treasures, etc.) are
+          // storable at any Haven too — CoE rule 2.II.4 places no subtype
+          // restriction on storing.
+          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || itemDef.subtype === 'special';
         }
 
-        // `no-store` play-flag: the item's own text forbids storage (e.g.
-        // Ent-draughts tw-227: "This item may not be … stored"), overriding
-        // any of the storability paths above the same way The One Ring's
-        // `the-one-ring` keyword exception does.
+        // `no-store` play-flag: the item's own text forbids storage,
+        // overriding any of the storability paths above. Ent-draughts tw-227
+        // ("This item may not be … stored") and The One Ring (rule g.sto.1:
+        // "The One Ring cannot be stored") carry it.
         if (isStorable && (effects?.some(e => e.type === 'play-flag' && (e as { flag?: string }).flag === 'no-store') ?? false)) {
           logDetail(`  → not storable: ${itemDef.name} on ${charName} carries the no-store play-flag`);
           isStorable = false;

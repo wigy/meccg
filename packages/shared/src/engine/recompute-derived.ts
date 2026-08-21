@@ -112,7 +112,7 @@ function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignme
  * players are never affected.
  *
  * `fwFullMp` requests the full printed MP for a Fallen-wizard ally that matches
- * an in-play `fw-ally-mp-full` exemption (Join the Hunt wh-93 / Oromë's Warders
+ * an in-play `fw-mp-full (cards: allies)` exemption (Join the Hunt wh-93 / Oromë's Warders
  * wh-94). It takes precedence over both the §4 clamp and any `fwCharAllyCaps`.
  */
 /**
@@ -331,7 +331,7 @@ function deniesFallenWizardMp(
  *
  * `fwItemMpExempt` overrides the §4 clamp for a Fallen-wizard: when `true`, the
  * item scores its full printed MP. Used by Saruman (wh-9), whose
- * `fw-item-mp-full` effect exempts his non-combat items.
+ * `fw-mp-full (cards: items)` effect exempts his non-combat items.
  */
 function addItemMP(
   totals: MarshallingPointTotals,
@@ -427,13 +427,13 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
  *
  * - the player's `cardsInPlay` (permanent-events, factions, stage cards, …),
  * - their in-play characters — character-carried player-wide effects (e.g.
- *   Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
+ *   Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-mp-full (cards: items)`)
  *   are collected the same way as ones carried by a stage permanent-event,
  * - the cards **attached to those characters** (`items`): a stage
  *   permanent-event played "on the avatar" lives in the avatar's `items`
  *   rather than in `cardsInPlay`, so its player-wide effects must be picked up
  *   from there too (Oromë's Warders wh-94, placed on Alatar, carries
- *   `fw-item-mp-full` / `fw-ally-mp-full` / `faction-mp-override`) — the same
+ *   `fw-mp-full` / `faction-mp-override`) — the same
  *   place {@link mpOverrideRules} already scans for Give Welcome to the
  *   Unexpected (wh-99).
  */
@@ -1104,16 +1104,17 @@ function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
 }
 
 /**
- * A single Fallen-wizard full-MP exemption entry (from a `fw-item-mp-full` or
- * `fw-ally-mp-full` effect): the card-definition `filter` (a `null` filter means
- * "every card"), and whether the exemption is restricted to the avatar's company.
+ * A single Fallen-wizard full-MP exemption entry (from a `fw-mp-full` effect):
+ * the card-definition `filter` (a `null` filter means "every card of the
+ * effect's kind"), and whether the exemption is restricted to the avatar's
+ * company.
  */
 type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompany: boolean };
 
 /**
  * Resolves the card definitions of every source a Fallen-wizard's MP-exemption
  * effects can live on: the player's in-play characters (Saruman wh-9 carries
- * `fw-item-mp-full` as a character), their `cardsInPlay` permanent-events (Join
+ * `fw-mp-full (cards: items)` as a character), their `cardsInPlay` permanent-events (Join
  * the Hunt wh-93 carries the effects as a bare stage permanent-event), and the
  * cards attached to their characters (Oromë's Warders wh-94 is placed *on
  * Alatar*, so it lives in his `items`).
@@ -1123,58 +1124,26 @@ function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefin
 }
 
 /**
- * Collects the item marshalling-point exemption entries a Fallen-wizard player
- * currently has in play (MEWH §4 exception, e.g. Saruman wh-9, Join the Hunt
- * wh-93). Returns each `fw-item-mp-full` effect's `filter` (absent → `null`,
- * "every item") together with its `inAvatarCompany` flag. Empty for any
- * non-Fallen-wizard player.
+ * Collects the marshalling-point exemption entries of one kind a
+ * Fallen-wizard player currently has in play (MEWH §4 exception — `fw-mp-full`
+ * effects with the given `cards` scope; e.g. Saruman wh-9 items, the wh-4
+ * Gandalf characters, Join the Hunt wh-93 items + allies). Returns each
+ * effect's `filter` (absent → `null`, "every card of the kind") together with
+ * its `inAvatarCompany` flag. Empty for any non-Fallen-wizard player.
  *
- * The list is consumed by {@link itemExemptFromFwClamp} when scoring each item.
+ * The list is consumed by {@link cardExemptFromFwClamp} when scoring each
+ * card of that kind.
  */
-function fwItemMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+function fwMpFullEntries(
+  state: GameState,
+  player: PlayerState,
+  cards: 'characters' | 'items' | 'allies',
+): FwMpFullEntry[] {
   if (player.alignment !== 'fallen-wizard') return [];
   const entries: FwMpFullEntry[] = [];
   for (const def of fwExemptionSourceDefs(state, player)) {
     for (const effect of getCardEffects(def)) {
-      if (effect.type === 'fw-item-mp-full') {
-        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
-      }
-    }
-  }
-  return entries;
-}
-
-/**
- * Collects the ally marshalling-point exemption entries a Fallen-wizard player
- * currently has in play (`fw-ally-mp-full`, e.g. Join the Hunt wh-93). Each
- * matching ally scores its full printed MP instead of the §4 1-MP clamp. Empty
- * for any non-Fallen-wizard player.
- */
-function fwAllyMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
-  if (player.alignment !== 'fallen-wizard') return [];
-  const entries: FwMpFullEntry[] = [];
-  for (const def of fwExemptionSourceDefs(state, player)) {
-    for (const effect of getCardEffects(def)) {
-      if (effect.type === 'fw-ally-mp-full') {
-        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
-      }
-    }
-  }
-  return entries;
-}
-
-/**
- * Collects the character marshalling-point exemption entries a Fallen-wizard
- * player currently has in play (`fw-char-mp-full`, e.g. the wh-4 Gandalf). Each
- * matching character scores its full printed character MP instead of the §4
- * 1-MP clamp. Empty for any non-Fallen-wizard player.
- */
-function fwCharMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
-  if (player.alignment !== 'fallen-wizard') return [];
-  const entries: FwMpFullEntry[] = [];
-  for (const def of fwExemptionSourceDefs(state, player)) {
-    for (const effect of getCardEffects(def)) {
-      if (effect.type === 'fw-char-mp-full') {
+      if (effect.type === 'fw-mp-full' && effect.cards === cards) {
         entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
       }
     }
@@ -1439,17 +1408,14 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
 }
 
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
-  // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
-  // filter (e.g. Saruman's non-combat items, or Join the Hunt's weapon/armor/
-  // shield/helmet items in Alatar's company) score full printed MP instead of
-  // being clamped to 1. Computed once per player; empty for non-Fallen-wizards.
-  const fwItemExemptions = fwItemMpFullEntries(state, player);
-  // Join the Hunt (wh-93) / Oromë's Warders (wh-94): allies matching a
-  // `fw-ally-mp-full` filter score full printed MP instead of the §4 1-MP clamp.
-  const fwAllyExemptions = fwAllyMpFullEntries(state, player);
-  // Fallen-wizard Gandalf (wh-4): characters matching a `fw-char-mp-full` filter
-  // score their full printed character MP instead of the §4 1-MP clamp.
-  const fwCharExemptions = fwCharMpFullEntries(state, player);
+  // MEWH §4 exception: cards matching an in-play `fw-mp-full` effect of their
+  // kind score full printed MP instead of being clamped to 1 — items for
+  // Saruman wh-9 / Join the Hunt wh-93, allies for Join the Hunt / Oromë's
+  // Warders wh-94, characters for the Fallen-wizard Gandalf wh-4. Computed
+  // once per player; empty for non-Fallen-wizards.
+  const fwItemExemptions = fwMpFullEntries(state, player, 'items');
+  const fwAllyExemptions = fwMpFullEntries(state, player, 'allies');
+  const fwCharExemptions = fwMpFullEntries(state, player, 'characters');
   // Great Patron (wh-72): in-play overrides letting the Fallen-wizard's
   // characters/allies that normally give >= threshold MP score `value` instead
   // of the §4 1-MP clamp. Empty for non-Fallen-wizards.

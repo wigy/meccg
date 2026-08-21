@@ -16,7 +16,7 @@
 
 import { type ScreenId } from './app-state.js';
 import { apiGet } from './api.js';
-import { escapeHtml } from './html-utils.js';
+import { escapeHtml, formatDateTime, formatDuration, orDash } from './html-utils.js';
 import { loadGameBundle } from './lazy-load.js';
 import { gameIdCell } from './scoreboard-game-id-cell.js';
 import { MP_SOURCES } from '@meccg/shared';
@@ -94,30 +94,6 @@ function formatDate(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString();
-}
-
-/** Format an ISO datetime with the time of day, for the game detail list. */
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-/** Format a duration in seconds as `1h 04m` / `12m 30s` / `45s`. */
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return '—';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
-  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
-  return `${s}s`;
-}
-
-/** Fall back to an em dash for missing values. */
-function orDash(value: string | number | null): string {
-  return value == null || value === '' ? '—' : String(value);
 }
 
 /**

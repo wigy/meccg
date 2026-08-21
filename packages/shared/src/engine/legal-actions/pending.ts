@@ -39,14 +39,16 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
+import { characterPossessions } from '../pending.js';
 import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
+import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
@@ -775,20 +777,7 @@ export function riddlingAttemptRollActions(
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
 
-  const company = findCharacterCompany(player.companies, characterInstanceId);
-  let sages = 0;
-  let hobbits = 0;
-  if (company) {
-    for (const charId of company.characters) {
-      const c = player.characters[charId];
-      if (!c) continue;
-      const def = defById(state, c.definitionId);
-      if (!isCharacterCard(def)) continue;
-      if (def.skills.includes(Skill.Sage)) sages++;
-      if (def.race === Race.Hobbit) hobbits++;
-    }
-  }
-  const bonus = sages * sageBonus + hobbits * hobbitBonus;
+  const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
   // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
   const need = threshold - bonus + 1;
@@ -1398,16 +1387,26 @@ function corruptionCheckEntryActions(
   // on the new bearer but is counted on the original character for this check.
   const possessions: CardInstanceId[] = [
     ...(transferredItemId ? [transferredItemId] : []),
-    ...char.items.map(i => i.instanceId),
-    ...char.allies.map(a => a.instanceId),
-    ...char.hazards.map(h => h.instanceId),
+    ...characterPossessions(char),
   ];
 
-  // For transfer checks, also count the transferred item's CP toward the total
+  // For transfer/store checks, also count the transferred item's CP toward
+  // the total. Uses `effectiveItemCorruptionPoints` (not the raw printed
+  // field) so bearer-conditional bonuses declared on the item itself — e.g.
+  // Dwarven Ring of Durin's Tribe tw-216's +2 CP on a Dwarf bearer — and any
+  // in-play `in-play-item-modifier` deltas are counted, matching the total
+  // `char.effectiveStats.corruptionPoints` carried while the item was still
+  // borne.
   if (transferredItemId) {
     const transferredDef = resolveDef(state, transferredItemId);
-    if (transferredDef && 'corruptionPoints' in transferredDef) {
-      cp += (transferredDef as { corruptionPoints: number }).corruptionPoints;
+    if (transferredDef) {
+      const inPlayDefs = state.players.flatMap(p => p.cardsInPlay.map(c => resolveDef(state, c.instanceId)));
+      cp += effectiveItemCorruptionPoints(
+        transferredDef,
+        inPlayDefs,
+        player.alignment,
+        isCharacterCard(charDef) ? charDef.race : undefined,
+      );
     }
   }
 

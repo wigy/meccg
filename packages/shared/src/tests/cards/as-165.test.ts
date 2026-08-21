@@ -20,7 +20,8 @@
  * The Under-gates (dm-38) and the Balrog haven (ba-100). The three printed rules
  * map to the same engine primitives already certified on dm-38, plus one that
  * only matters for a minion defender:
- *   - `site-rule: cancel-first-attack-if-in-play` (definitionId tw-12) — the
+ *   - `site-rule: cancel-auto-attacks` scope `first` (when "Balrog of Moria"
+ *     is in play) — the
  *     Balrog-of-Moria manifestation cancel. The Balrog *avatar* in-play/defeated
  *     case is covered by the MEBA rule in manifestations.ts (it strips
  *     Balrog-typed automatic-attacks); tw-12 in play cancels the 1st attack.

@@ -32,9 +32,9 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
-import { enumerateOpportunities } from '../../services/opportunities.js';
+import { enumerateOpportunities, opportunityPlan } from '../../services/opportunities.js';
 import type { Plan } from '../../core/plan.js';
-import { CARD_STEP, CARRIER_STEP, CHECK_STEP, ROUTE_STEP } from '../../core/plan.js';
+import { CHECK_STEP } from '../../core/plan.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['influence-attempt'] as const;
@@ -131,62 +131,22 @@ export const factionsModule: H2Module = {
       const pCheck = pAtLeast(need);
       if (pCheck <= 0) continue;
 
-      const { here, heading, distance, routeProbability } = opportunity.route;
-      plans.push({
-        id: `factions/${opportunity.cardInstanceId as string}@${opportunity.siteDefinitionId}`,
+      plans.push(opportunityPlan(opportunity, {
         module: 'factions',
-        goal: {
-          label: `influence ${opportunity.cardName} at ${opportunity.siteName}`,
-          source: 'faction',
-          mp: opportunity.mp,
-          cardInstanceId: opportunity.cardInstanceId,
-          siteDefinitionId: opportunity.siteDefinitionId,
-        },
-        payoffTsd: opportunity.netPayoffTsd,
-        deadline: view.turnNumber + tunables.planHorizonTurns,
-        requirements: [{
-          kind: 'company-at-site',
-          companyId: opportunity.companyId,
-          siteDefinitionId: opportunity.siteDefinitionId,
-          byTurn: view.turnNumber + tunables.planHorizonTurns,
+        goalVerb: 'influence',
+        goalSource: 'faction',
+        carrierVerb: 'attempt',
+        untappedInCompany: untapped,
+        turnNumber: view.turnNumber,
+        planHorizonTurns: tunables.planHorizonTurns,
+        extraSteps: [{
+          label: `pass the check (${need}+ on 2d6)`,
+          p: pCheck,
+          owner: 'factions',
+          tag: CHECK_STEP,
+          source: 'printed target less the company\'s free direct influence',
         }],
-        steps: [
-          {
-            label: `route to ${opportunity.siteName}`,
-            p: routeProbability,
-            owner: 'travel',
-            tag: ROUTE_STEP,
-            source: heading || here
-              ? 'already there or already headed there'
-              : `${distance ?? '?'} region(s) away, at planUnroutedReachProbability per region`,
-          },
-          {
-            label: `still hold ${opportunity.cardName}`,
-            p: 1,
-            owner: 'hand',
-            tag: CARD_STEP,
-          },
-          {
-            label: 'someone left untapped to attempt it',
-            // Present tense, and only where the play is imminent. Asked
-            // three turns out it is not a probability at all: an untap
-            // phase stands between here and the goal, and reading "everyone
-            // is tapped right now" as "this plan is impossible" abandoned
-            // every commitment during the site phase — which is exactly
-            // when the companies are tapped.
-            p: !here || untapped > 0 ? 1 : 0,
-            owner: 'characters',
-            tag: CARRIER_STEP,
-          },
-          {
-            label: `pass the check (${need}+ on 2d6)`,
-            p: pCheck,
-            owner: 'factions',
-            tag: CHECK_STEP,
-            source: 'printed target less the company\'s free direct influence',
-          },
-        ],
-      });
+      }));
     }
     return plans;
   },

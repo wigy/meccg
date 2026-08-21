@@ -284,4 +284,48 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     expect(afterDeclare.combat).not.toBeNull();
     expect(afterDeclare.combat?.isCvCC).toBe(true);
   });
+
+  test('CvCC: defending character eliminated by a strike awards its MP to the attacker as kill MP', () => {
+    // Rule bullet above: "Company vs. Company Combat - Each character defeated
+    // by a strike is wounded and must make a body check. If the character is
+    // eliminated, it counts as kill MPs for the opposing player."
+    // Regression: game mt21uvpn-8if830 — PLAYER_1 (attacker) eliminated a
+    // defending character in CvCC but received no kill MP; eliminateCombatantFromStrike
+    // unconditionally sent the eliminated character to the defender's own
+    // outOfPlayPile instead of the attacker's killPile.
+    const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN], p2Characters: [PERCHEN] });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender passes without assigning — leaves Perchen for the attacker to pair with.
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+    // Attacker assigns Aragorn to strike Perchen.
+    const atkAssign = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssign[0].action);
+
+    const perchenId = s.players[1].companies[0].characters[0];
+
+    // Attacker taps to fight at full prowess; force the roll to the max so
+    // Aragorn (prowess 6) beats Perchen (prowess 3) regardless of RNG.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 12 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(s.combat?.phase).toBe('body-check');
+    expect(s.combat?.bodyCheckTarget).toBe('character');
+
+    // Force the body check roll high enough to eliminate Perchen (body 9).
+    s = { ...s, cheatRollTotal: 12 };
+    const bodyCheckActions = viableActions(s, PLAYER_1, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    s = dispatch(s, bodyCheckActions[0].action);
+
+    expect(s.combat).toBeNull();
+    expect(s.players[0].killPile.some(c => c.instanceId === perchenId)).toBe(true);
+    expect(s.players[1].outOfPlayPile.some(c => c.instanceId === perchenId)).toBe(false);
+  });
 });

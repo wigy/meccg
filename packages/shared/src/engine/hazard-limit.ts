@@ -72,6 +72,32 @@ export function currentHazardLimit(
 }
 
 /**
+ * The hazard-limit "charge" idiom shared by every reducer that plays a
+ * limit-counted hazard action during the M/H phase: compute the live limit for
+ * the target company, refuse the action when the limit is already reached, and
+ * otherwise hand back the limit together with the incremented
+ * `hazardsPlayedThisCompany` count for the caller to store (and log).
+ *
+ * `actionName` prefixes the refusal message so each reducer keeps its
+ * action-specific error text (`"<action>: hazard limit reached (<limit>)"`).
+ * Callers that only need the check (e.g. a validation pass whose increment
+ * happens later after other state updates) simply ignore the returned count.
+ */
+export function chargeHazardLimit(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  companyId: CompanyId,
+  actionName: string,
+): { error: string } | { limit: number; newHazardCount: number } {
+  const limit = currentHazardLimit(state, mhState, companyId);
+  const played = mhState.hazardsPlayedThisCompany ?? 0;
+  if (played >= limit) {
+    return { error: `${actionName}: hazard limit reached (${limit})` };
+  }
+  return { limit, newHazardCount: played + 1 };
+}
+
+/**
  * How the company stands against its hazard limit right now, or undefined when
  * there is no limit to stand against.
  *

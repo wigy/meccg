@@ -13,6 +13,10 @@
  * points 4(6), prowess +2(4), direct influence +2(7) — the bracketed value
  * applying to a Dwarf bearer, matching the same "values in parentheses apply
  * to a Dwarf bearer" pattern already certified on Durin's Axe (tw-212).
+ * The remaster card image (and the CRF 22 erratum for the Dwarven Ring of
+ * Thélor's/Thrár's Tribe, which calls out "+2(4)/+1" as the standard
+ * prowess/body line shared by the whole Dwarven Ring cycle) additionally
+ * shows a flat +1 body bonus that applies to any bearer, dwarf or not.
  *
  * Engine Support:
  * | # | Rule                                              | Status      | Notes                                            |
@@ -23,6 +27,7 @@
  * | 4 | 4 marshalling points (Dwarf bearer 6)                | IMPLEMENTED | mp-modifier +2 when bearer.race dwarf              |
  * | 5 | Tap a Dwarf bearer to untap his company's site       | IMPLEMENTED | grant-action untap-site, cost tap:bearer           |
  * | 6 | Bearer then makes a corruption check modified by +2 | IMPLEMENTED | sequence [untap-site, enqueue-corruption-check +2] |
+ * | 7 | +1 body (any bearer)                                | IMPLEMENTED | stat-modifier body +1, unconditional               |
  *
  * Characters used:
  *   GIMLI   (tw-159): dwarf,   prowess 5, body 8
@@ -91,6 +96,20 @@ describe("Dwarven Ring of Durin's Tribe (tw-216)", () => {
     const gimliDef = pool[GIMLI as string] as CharacterCard;
     const state = stateWithRing(GIMLI);
     expect(getCharacter(state, RESOURCE_PLAYER, GIMLI).effectiveStats.directInfluence).toBe(gimliDef.directInfluence + 7);
+  });
+
+  // ── Rule 7: +1 body regardless of bearer race ──────────────────────────────
+
+  test('non-dwarf bearer gets +1 body', () => {
+    const aragornDef = pool[ARAGORN as string] as CharacterCard;
+    const state = stateWithRing(ARAGORN);
+    expect(getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats.body).toBe(aragornDef.body + 1);
+  });
+
+  test('dwarf bearer gets +1 body', () => {
+    const gimliDef = pool[GIMLI as string] as CharacterCard;
+    const state = stateWithRing(GIMLI);
+    expect(getCharacter(state, RESOURCE_PLAYER, GIMLI).effectiveStats.body).toBe(gimliDef.body + 1);
   });
 
   // ── Rule 3: Corruption points 3 base, 5 for a Dwarf bearer ─────────────────

@@ -26,6 +26,7 @@ import type { CombatState, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { killMpOnOffer } from '../../services/attack-value.js';
 
 /**
@@ -98,8 +99,6 @@ export const killModule: H2Module = {
         : `refuse the attack — ${killMp} kill MP given up`,
       dtsd,
     }];
-    const scored = standing.score(outcomes);
-
     const detail: Rationale[] = [
       leaf('kill marshalling points on offer', killMp, { unit: 'mp' }),
       leaf('worth of one kill point here', standing.marginal.kill, {
@@ -115,19 +114,14 @@ export const killModule: H2Module = {
       }),
     ];
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'kill',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node('refuse the attack', scored.utility, [
-        node('kill points', killMp, detail),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: 'refuse the attack',
+      detail: [node('kill points', killMp, detail)],
       assumptions: ASSUMPTIONS,
-    };
+    });
   },
 };
