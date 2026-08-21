@@ -114,6 +114,46 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     expect(passActions.length).toBeGreaterThan(0);
   });
 
+  test('CvCC: declare-company-attack NOT offered when the active company has no characters left', () => {
+    // Regression (random self-play, seed 661001): a solo attacker eliminated
+    // by the site's automatic-attack body check leaves an empty company that
+    // the site-phase machine still walks through its steps. The
+    // declare-company-attack emitter offered an attack from that empty
+    // company, which the reducer is guaranteed to reject ("Attacking company
+    // has no characters") — an offered-then-rejected action that halts
+    // engine-driven play. Only the pass may be offered.
+    const state = buildCvCCState({ siteEntered: true });
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const ps = afterPass.phaseState as SitePhaseState;
+    expect(ps.step).toBe('declare-company-attack');
+
+    // The active company's characters are wiped out (moved to the
+    // out-of-play pile, keeping every instance reachable in state).
+    const p1 = afterPass.players[0];
+    const company = p1.companies[0];
+    const removedChars = company.characters.map(id => {
+      const ch = p1.characters[id];
+      return { instanceId: ch.instanceId, definitionId: ch.definitionId };
+    });
+    const remainingCharacters = { ...p1.characters };
+    for (const id of company.characters) delete remainingCharacters[id];
+    const wiped = {
+      ...afterPass,
+      players: [
+        {
+          ...p1,
+          characters: remainingCharacters,
+          companies: [{ ...company, characters: [] }],
+          outOfPlayPile: [...p1.outOfPlayPile, ...removedChars],
+        },
+        afterPass.players[1],
+      ] as typeof afterPass.players,
+    };
+
+    expect(viableActions(wiped, PLAYER_1, 'declare-company-attack')).toHaveLength(0);
+    expect(viableActions(wiped, PLAYER_1, 'pass').length).toBeGreaterThan(0);
+  });
+
   test('CvCC: one strike per attacking character (strikesTotal = company size)', () => {
     // Aragorn + Bilbo = 2 attackers → 2 strikes
     const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN, DENETHOR] });
