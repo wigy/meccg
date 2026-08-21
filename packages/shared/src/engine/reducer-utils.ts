@@ -3169,6 +3169,55 @@ export function filterSideboardByDef(
 }
 
 /**
+ * Moves one card from a player's sideboard to the destination locked in by
+ * an active sideboard-fetch sub-flow: appended to the discard pile, or
+ * shuffled into the play deck. Shared move core of the organization-phase
+ * avatar-tap access (CoE 2.II.6), the untap-phase hazard sideboard access
+ * (CoE 2.I), and the Nazgûl sideboarding of rule 5.24 — each caller layers
+ * its own phase-state bookkeeping (fetch counter, sub-flow exit, hazard-limit
+ * flags) on top of the returned state.
+ *
+ * Returns an error result when the card is not in the player's sideboard;
+ * otherwise the updated state (players and rng only — phase state untouched).
+ */
+export function moveSideboardCard(
+  state: GameState,
+  playerIndex: number,
+  sideboardCardInstanceId: CardInstanceId,
+  destination: 'deck' | 'discard',
+  logPrefix: string,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const cardIdx = player.sideboard.findIndex(c => c.instanceId === sideboardCardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
+  const sideboardCard = player.sideboard[cardIdx];
+  const def = defById(state, sideboardCard.definitionId)!;
+
+  const newSideboard = [...player.sideboard];
+  newSideboard.splice(cardIdx, 1);
+
+  if (destination === 'discard') {
+    logDetail(`${logPrefix} → discard: ${def.name} (${sideboardCardInstanceId as string})`);
+    return {
+      state: updatePlayer(state, playerIndex, p => ({
+        ...p,
+        sideboard: newSideboard,
+        discardPile: [...p.discardPile, sideboardCard],
+      })),
+    };
+  }
+
+  logDetail(`${logPrefix} → play deck: ${def.name} (${sideboardCardInstanceId as string}), shuffling`);
+  const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
+  return {
+    state: {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, sideboard: newSideboard, playDeck: shuffledDeck })),
+      rng: nextRng,
+    },
+  };
+}
+
+/**
  * Collects the instance ids of every item card sitting in the given fetch
  * `zones` of the player's piles (`discard-pile` → discardPile, `sideboard` →
  * sideboard, `hand` → hand; any other zone contributes nothing), optionally

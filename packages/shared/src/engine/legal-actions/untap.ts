@@ -11,11 +11,12 @@
  * movement/hazard phase.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState, CardDefinition } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
+import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
 import { grantedActionActivations } from './organization.js';
 
@@ -36,11 +37,16 @@ function activePlayerHasAvatar(state: GameState): boolean {
   return avatar !== undefined && avatar.status !== CardStatus.Inverted;
 }
 
+/** Eligibility predicate for the CoE 2.I hazard sideboard fetch: hazards only. */
+function isHazardDef(def: CardDefinition): boolean {
+  return def.cardType.includes('hazard');
+}
+
 /**
  * Returns eligible hazard cards from the sideboard per CoE rule 2.I.
  */
 function getEligibleHazardCards(state: GameState, player: PlayerState) {
-  return filterSideboardByDef(state, player.sideboard, def => def.cardType.includes('hazard'));
+  return filterSideboardByDef(state, player.sideboard, isHazardDef);
 }
 
 export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -132,43 +138,14 @@ function hazardSideboardFetchActions(
   playerId: PlayerId,
   untapState: UntapPhaseState,
 ): EvaluatedAction[] {
-  const player = playerById(state, playerId)!;
-  const actions: EvaluatedAction[] = [];
-
-  if (untapState.hazardSideboardDestination === 'deck') {
-    if (untapState.hazardSideboardFetched >= 1) {
-      logDetail('Hazard sideboard: already fetched 1 card to deck — sub-flow auto-exits');
-      return actions;
-    }
-    // Must pick exactly 1 — no pass
-    const eligible = getEligibleHazardCards(state, player);
-    for (const card of eligible) {
-      logDetail(`Hazard sideboard: ${card.name} → play deck (viable)`);
-      actions.push({
-        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-    return actions;
-  }
-
-  if (untapState.hazardSideboardDestination === 'discard') {
-    if (untapState.hazardSideboardFetched < MAX_HAZARD_SIDEBOARD_TO_DISCARD) {
-      const eligible = getEligibleHazardCards(state, player);
-      for (const card of eligible) {
-        logDetail(`Hazard sideboard: ${card.name} → discard pile (viable)`);
-        actions.push({
-          action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-          viable: true,
-        });
-      }
-    }
-    // Pass available after at least 1 card fetched, or when limit reached
-    if (untapState.hazardSideboardFetched >= 1) {
-      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-    }
-    return actions;
-  }
-
-  return actions;
+  if (untapState.hazardSideboardDestination === null) return [];
+  return sideboardFetchSubflowActions(state, playerId, {
+    destination: untapState.hazardSideboardDestination,
+    fetched: untapState.hazardSideboardFetched,
+    maxToDiscard: MAX_HAZARD_SIDEBOARD_TO_DISCARD,
+    fetchActionType: 'fetch-hazard-from-sideboard',
+    isEligible: isHazardDef,
+    logPrefix: 'Hazard sideboard',
+    guardWithPass: false,
+  });
 }

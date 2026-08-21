@@ -32,6 +32,7 @@ import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pe
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
+import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations, buildPlayOptionContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -4160,41 +4161,24 @@ function sideboardWithNazgulActions(
 
 /**
  * Rule 5.24 follow-up: generate fetch/pass actions during the active Nazgûl
- * sideboard sub-flow. Mirrors `hazardSideboardFetchActions` (untap.ts).
+ * sideboard sub-flow. Same flow as `hazardSideboardFetchActions` (untap.ts);
+ * both delegate to the shared builder in sideboard-subflow.ts.
  */
 function nazgulSideboardFetchActions(
   state: GameState,
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
 ): EvaluatedAction[] {
-  const player = playerById(state, playerId)!;
-  const actions: EvaluatedAction[] = [];
-  const eligible = filterSideboardByDef(state, player.sideboard, def => def.cardType.includes('hazard'));
-
-  if (mhState.nazgulSideboardDestination === 'deck') {
-    if (mhState.nazgulSideboardFetched >= 1) return actions;
-    for (const card of eligible) {
-      actions.push({
-        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-    return actions;
-  }
-
-  // 'discard'
-  if (mhState.nazgulSideboardFetched < MAX_NAZGUL_SIDEBOARD_TO_DISCARD) {
-    for (const card of eligible) {
-      actions.push({
-        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-  }
-  if (mhState.nazgulSideboardFetched >= 1) {
-    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-  }
-  return actions;
+  if (mhState.nazgulSideboardDestination === null) return [];
+  return sideboardFetchSubflowActions(state, playerId, {
+    destination: mhState.nazgulSideboardDestination,
+    fetched: mhState.nazgulSideboardFetched,
+    maxToDiscard: MAX_NAZGUL_SIDEBOARD_TO_DISCARD,
+    fetchActionType: 'fetch-hazard-from-sideboard',
+    isEligible: def => def.cardType.includes('hazard'),
+    logPrefix: 'Nazgûl sideboard',
+    guardWithPass: false,
+  });
 }
 
 /**
