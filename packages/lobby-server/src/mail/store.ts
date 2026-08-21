@@ -86,7 +86,10 @@ export function isRecipientList(value: unknown): value is readonly string[] {
  * @returns The generated message ID (shared across all recipients).
  */
 export function sendMail(recipients: readonly string[], options: SendMailOptions): string {
-  if (!Array.isArray(recipients)) {
+  // Typed as unknown for the check so Array.isArray's `any[]` narrowing does
+  // not degrade `recipients`' own type for the rest of the function.
+  const recipientsValue: unknown = recipients;
+  if (!Array.isArray(recipientsValue)) {
     throw new Error('sendMail: recipients must be an array of player names, got ' + typeof recipients);
   }
   const id = crypto.randomBytes(8).toString('hex');
