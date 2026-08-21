@@ -121,6 +121,25 @@ describe('Great Shadow (ba-62)', () => {
     expect(actions.length).toBe(1);
   });
 
+  test('NOT playable outside the organization phase, e.g. during end-of-turn', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{ site: BARAD_DUR_BA, characters: [THE_BALROG] }],
+          hand: [GREAT_SHADOW],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [], hand: [], siteDeck: [] },
+      ],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
   // ── Rule 2: On-play bounce of another Demon fána card ────────────────────
 
   test('entering play does not bounce anything when the Balrog has no other Demon fána card', () => {
