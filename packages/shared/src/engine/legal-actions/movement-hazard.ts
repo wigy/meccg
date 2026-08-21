@@ -4288,6 +4288,7 @@ function findCreatureKeyingMatches(
   const whenContext: Record<string, unknown> = {
     inPlay: inPlayNames,
     destinationSite: { sitePath: destSitePathCounts },
+    hazardsEncountered: mhState.hazardsEncountered,
   };
   // Derive the keyable region paths — name-scoped overrides (Choking
   // Shadows, Deeper Shadow), class remaps (Fell Winter), name conversions

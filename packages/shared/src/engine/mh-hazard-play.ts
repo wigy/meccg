@@ -2941,6 +2941,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   const whenCtxBase: Record<string, unknown> = {
     inPlay: inPlayNames,
     destinationSite: { sitePath: destPathCounts },
+    hazardsEncountered: mhState.hazardsEncountered,
   };
 
   // Rule 5.09: derive the keyable region paths — name-scoped overrides
