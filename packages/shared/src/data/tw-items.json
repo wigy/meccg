@@ -1173,7 +1173,7 @@
     "marshallingCategory": "item",
     "corruptionPoints": 3,
     "prowessModifier": 2,
-    "bodyModifier": 0,
+    "bodyModifier": 1,
     "playableAt": [],
     "effects": [
       {
@@ -1190,6 +1190,11 @@
         "when": {
           "bearer.race": "dwarf"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1
       },
       {
         "type": "stat-modifier",
