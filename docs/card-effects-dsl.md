@@ -3120,6 +3120,39 @@ exclusion, and this path bypasses the ordinary site-based `item-play-site`
 gate entirely (there is no site check here), which is exactly what "even a
 hoard item" needs — the item is placed directly, not played at a hoard site.
 
+**`cost.discard: "named-stored-card"` + `place-source-with-item` apply — a
+no-tap `fromStored` combine.** Some `fromStored` abilities need neither a tap
+nor a bearer at all: the cost is simply discarding a *different* stored card
+by name, and the effect relocates the source itself (not a fetched item) onto
+whichever character already bears a named item. `cost.discard:
+"named-stored-card"` reads `discardCardName` and finds a match among the
+player's own other `killPile` entries (also `storedAtSite`) — unlike
+`discard: "self"`'s `killPile` fallback, this never touches the source. The
+`place-source-with-item` apply then moves the source card out of `killPile`
+and onto the chosen recipient's `items`, untapped, alongside the item named
+`itemName` (which must already be attached to that character — both items
+end up on the same bearer). Scanned by a dedicated emitter,
+`storedCombineGrantActions` (`legal-actions/organization.ts`), which offers
+one `activate-granted-action` per (discard candidate × recipient) pair;
+`characterId` self-references the source's own instance ID (the bearer-less
+convention), so `handleGrantActionApply` routes activation to
+`handleStoredCardGrantAction` (`grant-action-apply.ts`) rather than the
+generic bearer-relative cost/apply dispatch.
+
+```json
+{ "type": "grant-action", "action": "anduril-combine-with-narsil",
+  "fromStored": true,
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "place-source-with-item", "itemName": "Narsil" } }
+```
+
+Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
+discard a stored Reforging and place Andúril with Narsil." Andúril's
+post-combine stat bonuses (+4 marshalling points, +4 prowess, +1 direct
+influence, +1 corruption point) and its tap-to-untap-a-Dúnadan ability are not
+yet certified — only the combine action itself (moving the card out of
+storage and onto Narsil's bearer) is implemented here.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.
