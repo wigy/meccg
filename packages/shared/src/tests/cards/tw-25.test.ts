@@ -55,8 +55,6 @@ import type { CardDefinitionId, GameState } from '../../index.js';
 const CREBAIN = 'tw-25' as CardDefinitionId;
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: RegionType.Wilderness };
-const BORDER_KEYING = { method: 'region-type' as const, value: RegionType.Border };
-const SHADOW_KEYING = { method: 'region-type' as const, value: RegionType.Shadow };
 const DARK_KEYING = { method: 'region-type' as const, value: RegionType.Dark };
 
 /** Defending company at Moria facing the hazard player holding Crebain. */
