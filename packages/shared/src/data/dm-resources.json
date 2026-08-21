@@ -1384,8 +1384,12 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "The roll required to move between adjacent Under-deeps sites is decreased by 4. Cannot be duplicated."
+    "effects": [
+      { "type": "under-deeps-roll-modifier", "value": 4, "scope": "all-companies" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "text": "The roll required to move between adjacent Under-deeps sites is decreased by 4. Cannot be duplicated.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
