@@ -1366,9 +1366,25 @@
         "regionTypes": [
           "wilderness"
         ]
+      },
+      {
+        "siteNames": [
+          "Drúadan Forest",
+          "Old Forest",
+          "Wellinghall"
+        ]
+      },
+      {
+        "regionNames": [
+          "Heart of Mirkwood",
+          "Southern Mirkwood",
+          "Western Mirkwood",
+          "Woodland Realm"
+        ]
       }
     ],
     "effects": [],
+    "certified": "2026-08-21",
     "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions."
   },
   {
