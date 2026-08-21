@@ -21,7 +21,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -2373,8 +2373,7 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
   }
 
   const companies = newPlayers[playerIndex].companies
-    .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c)
-    .filter(c => c.characters.length > 0);
+    .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c);
 
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
   newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
@@ -2391,6 +2390,11 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
       : {}),
   };
   if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
+
+  // CoE rule 2.3: if the discard empties the company, its site must return
+  // to the player's location deck (untapped) or site discard pile (tapped)
+  // instead of just vanishing along with the dissolved company.
+  afterRemoval = cleanupEmptyCompanies(afterRemoval);
 
   let result = sweepCompanyMembershipChangedEvents(
     sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(afterRemoval)),
