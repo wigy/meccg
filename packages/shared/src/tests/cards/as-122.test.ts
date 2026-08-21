@@ -235,6 +235,7 @@ describe('Ancient Black Axe (as-122)', () => {
     const [bodyCheck] = viableActions(ready, PLAYER_1, 'body-check-roll');
     const after = dispatch(ready, bodyCheck.action);
     const aragornId = findCharInstanceId(base, HAZARD_PLAYER, ARAGORN);
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === aragornId)).toBe(false);
     expect(after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
   });
 
@@ -245,7 +246,10 @@ describe('Ancient Black Axe (as-122)', () => {
     const [bodyCheck] = viableActions(ready, PLAYER_1, 'body-check-roll');
     const after = dispatch(ready, bodyCheck.action);
     const aragornId = findCharInstanceId(withItem, HAZARD_PLAYER, ARAGORN);
-    expect(after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(true);
+    // CoE 3.v: the eliminated CvCC defender counts as kill MPs for the
+    // attacking player, so it goes to the attacker's kill pile.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === aragornId)).toBe(true);
+    expect(after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
   });
 
   test('with the Axe on a NON-warrior bearer, the same roll of 9 leaves Aragorn alive (no body reduction)', () => {
@@ -255,6 +259,7 @@ describe('Ancient Black Axe (as-122)', () => {
     const [bodyCheck] = viableActions(ready, PLAYER_1, 'body-check-roll');
     const after = dispatch(ready, bodyCheck.action);
     const aragornId = findCharInstanceId(withItem, HAZARD_PLAYER, ARAGORN);
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === aragornId)).toBe(false);
     expect(after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
   });
 
