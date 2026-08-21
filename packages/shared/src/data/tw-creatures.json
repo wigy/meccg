@@ -518,10 +518,28 @@
     "body": 8,
     "killMarshallingPoints": 4,
     "race": "dragon",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "siteNames": [
+          "Irerock"
+        ]
+      },
+      {
+        "regionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
+    ],
     "effects": [],
     "text": "Unique. May be played at Irerock. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
-    "manifestId": "tw-48"
+    "manifestId": "tw-48",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
