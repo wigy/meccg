@@ -2156,6 +2156,7 @@ export type TriggeredActionType =
   | 'remove-constraint'
   | 'cancel-chain-entry'
   | 'company-tap-characters'
+  | 'reveal-hand-cards-per-character'
   | 'company-return-to-origin'
   | 'counter-cancel-attack'
   | 'discard-character'
@@ -3196,6 +3197,22 @@ export interface CompanyTapCharactersTriggeredAction extends TriggeredActionBase
 }
 
 /**
+ * `reveal-hand-cards-per-character` — `on-event: "attack-not-canceled"` apply
+ * verb (Crebain tw-25). At combat finalization, `min(defending company's
+ * character count, defender's hand size)` random cards are picked from the
+ * defending player's hand (seeded shuffle, same pattern as
+ * `reveal-remove-from-discard`) and revealed via `revealInstances` — the
+ * cards stay in the defender's hand, only their identity becomes public.
+ * Zero defending characters (a lone-avatar company already eliminated, or
+ * some other edge case) reveals nothing. Used by Crebain (tw-25): "After the
+ * attack, the defender must reveal one random card from his hand for each
+ * character in the defending company."
+ */
+export interface RevealHandCardsPerCharacterAction extends TriggeredActionBase {
+  readonly type: 'reveal-hand-cards-per-character';
+}
+
+/**
  * `company-return-to-origin` — `on-event: "attack-strike-successful"` apply
  * verb (Fell Turtle tw-34). Fires in `finalizeCombat` when at least one of
  * this creature's own strikes wounded or eliminated a defender during the
@@ -3444,6 +3461,7 @@ export type TriggeredAction =
   | SequenceAction
   | CancelChainEntryAction
   | CompanyTapCharactersTriggeredAction
+  | RevealHandCardsPerCharacterAction
   | CompanyReturnToOriginTriggeredAction
   | CounterCancelAttackTriggeredAction
   | SiteEntryAttackAction
