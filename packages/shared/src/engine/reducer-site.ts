@@ -26,13 +26,13 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { shuffle } from '../rng.js';
-import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
+import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
@@ -3654,24 +3654,13 @@ export function resolveInfluenceAttemptRoll(
   const nullifyMods = influenceModificationsNullified(state);
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
-      reason: 'faction-influence-check',
+      ...buildFactionCheckContext(state, def),
       bearer: {
         ...buildBearerContext(charDef),
         stagePoints: player.stagePoints,
         homesiteRegions: characterHomeSiteRegions(state, charDef),
       },
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-      controller: {
-        inPlay: buildControllerInPlayNames(state, entry.declaredBy),
-        factionRaces: buildControllerFactionRaces(state, entry.declaredBy),
-        wizard: playerWizardName(state, player),
-      },
+      controller: buildFactionControllerContext(state, entry.declaredBy),
     };
 
     const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
@@ -3851,16 +3840,7 @@ export function resolveInfluenceAttemptRoll(
   // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', {
-      reason: 'faction-influence-check',
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-    });
+    : collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, def));
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     logDetail(`Game-wide influence check-modifier: ${formatSignedNumber(globalInfluenceMod)}`);

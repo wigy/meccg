@@ -40,13 +40,12 @@ import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffec
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { characterPossessions } from '../pending.js';
-import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
@@ -530,23 +529,18 @@ export function factionInfluenceRollActions(
 
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
-      reason: 'faction-influence-check',
+      ...buildFactionCheckContext(state, def),
       bearer: {
         ...buildBearerContext(charDef),
         stagePoints: player.stagePoints,
         homesiteRegions: characterHomeSiteRegions(state, charDef),
       },
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-      controller: {
-        inPlay: buildControllerInPlayNames(state, playerId),
-        factionRaces: buildControllerFactionRaces(state, playerId),
-      },
+      // Includes `controller.wizard`, which this pending-roll path previously
+      // omitted — the declare-time `need` computation (legal-actions/site.ts)
+      // and the resolution (reducer-site.ts) both carry it, so a
+      // wizard-conditioned faction standard (wh-37/38/40) now prices the
+      // pending roll identically instead of drifting from the declared need.
+      controller: buildFactionControllerContext(state, playerId),
     };
 
     const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
@@ -633,16 +627,7 @@ export function factionInfluenceRollActions(
   // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', {
-      reason: 'faction-influence-check',
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-    });
+    : collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, def));
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
