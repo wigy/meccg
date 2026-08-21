@@ -9,6 +9,31 @@
 import type { CardDefinition, CardEffect, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, Alignment } from '@meccg/shared';
 import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard, isCharacterCard, hasPlayFlag } from '@meccg/shared';
 
+/**
+ * All legal actions of the given `type` (or any of the given types) whose
+ * `key` field equals `id`. Folds the "scan the legal-actions array for
+ * entries of one action type keyed to a specific card instance" idiom
+ * repeated by the finder functions in render-hand.ts and company-block.ts.
+ *
+ * `key` defaults to `cardInstanceId` — the id field most action shapes use —
+ * and can name any other id field (`factionInstanceId`, `sourceCardId`, ...).
+ * The result is narrowed to the action variant(s) selected by `type`, so call
+ * sites keep their typed returns without casting; the single internal cast is
+ * needed because `key` is not statically tied to each variant's fields.
+ */
+export function actionsOfTypeFor<K extends GameAction['type']>(
+  actions: readonly GameAction[],
+  type: K | readonly K[],
+  id: string,
+  key = 'cardInstanceId',
+): Extract<GameAction, { type: K }>[] {
+  const types: readonly string[] = typeof type === 'string' ? [type] : type;
+  return actions.filter(
+    (a): a is Extract<GameAction, { type: K }> =>
+      types.includes(a.type) && (a as unknown as Record<string, unknown>)[key] === id,
+  );
+}
+
 /** Get an element by ID, throwing if not found. */
 export function $(id: string): HTMLElement {
   const el = document.getElementById(id);
