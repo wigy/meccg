@@ -40,7 +40,7 @@ import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1490,20 +1490,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           const siteDefId = company.currentSite.definitionId as string;
           const zones = effect.apply.fetchFrom ?? ['discard-pile', 'sideboard', 'hand'];
-          const itemFilter = effect.apply.filter;
-          const zoneItemIds: CardInstanceId[] = [];
-          for (const zone of zones) {
-            const pile = zone === 'discard-pile' ? player.discardPile
-              : zone === 'sideboard' ? player.sideboard
-                : zone === 'hand' ? player.hand
-                  : [];
-            for (const c of pile) {
-              const cdef = defById(state, c.definitionId);
-              if (!cdef || !isItemCard(cdef)) continue;
-              if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
-              zoneItemIds.push(c.instanceId);
-            }
-          }
+          const zoneItemIds = fetchZoneItemInstanceIds(state, player, zones, effect.apply.filter);
           if (zoneItemIds.length === 0) {
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no qualifying item in discard/sideboard/hand`);
             continue;
@@ -1934,20 +1921,7 @@ export function storedCardGrantActions(state: GameState, playerId: PlayerId): Ev
         if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== 'haven') continue;
 
         const zones = effect.apply.fetchFrom ?? ['discard-pile'];
-        const itemFilter = effect.apply.filter;
-        const zoneItemIds: CardInstanceId[] = [];
-        for (const zone of zones) {
-          const pile = zone === 'discard-pile' ? player.discardPile
-            : zone === 'sideboard' ? player.sideboard
-              : zone === 'hand' ? player.hand
-                : [];
-          for (const c of pile) {
-            const cdef = defById(state, c.definitionId);
-            if (!cdef || !isItemCard(cdef)) continue;
-            if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
-            zoneItemIds.push(c.instanceId);
-          }
-        }
+        const zoneItemIds = fetchZoneItemInstanceIds(state, player, zones, effect.apply.filter);
         if (zoneItemIds.length === 0) {
           logDetail(`Stored grant-action ${effect.action} on ${def.name}: no qualifying item to retrieve (via ${charDef.name})`);
           continue;

@@ -3033,6 +3033,37 @@ export function filterSideboardByDef(
 }
 
 /**
+ * Collects the instance ids of every item card sitting in the given fetch
+ * `zones` of the player's piles (`discard-pile` → discardPile, `sideboard` →
+ * sideboard, `hand` → hand; any other zone contributes nothing), optionally
+ * restricted by a definition-level `filter` condition. Zone order is
+ * preserved. Used by the `place-item-on-character` grant-action scans (The
+ * Forge-master wh-117, Reforging tw-314); each call site supplies its own
+ * zone default.
+ */
+export function fetchZoneItemInstanceIds(
+  state: GameState,
+  player: PlayerState,
+  zones: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[],
+  filter?: Condition,
+): CardInstanceId[] {
+  const ids: CardInstanceId[] = [];
+  for (const zone of zones) {
+    const pile = zone === 'discard-pile' ? player.discardPile
+      : zone === 'sideboard' ? player.sideboard
+        : zone === 'hand' ? player.hand
+          : [];
+    for (const c of pile) {
+      const cdef = defById(state, c.definitionId);
+      if (!cdef || !isItemCard(cdef)) continue;
+      if (filter && !matchesDefinition(cdef, filter)) continue;
+      ids.push(c.instanceId);
+    }
+  }
+  return ids;
+}
+
+/**
  * Counts how many cards with the given name are currently in any player's
  * `cardsInPlay`. Used when checking `duplication-limit` constraints with
  * `scope: "game"` to prevent more than the allowed number of copies being
