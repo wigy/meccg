@@ -2053,9 +2053,18 @@
         "type": "on-event",
         "event": "self-enters-play",
         "apply": { "type": "enqueue-corruption-check" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-transfer"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-store"
       }
     ],
-    "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played."
+    "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-item",
