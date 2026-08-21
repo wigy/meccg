@@ -1717,9 +1717,13 @@ function playResourcesActions(
 
       // MEAS §6(f): at an Under-deeps site the "one extra minor item" allowance
       // (rule 2.V.5) is widened — the extra character may play any item the site
-      // itself allows (minor, major, or gold ring), not only a minor item.
+      // itself allows (minor, major, or gold ring), not only a minor item. Deep
+      // Mines (wh-55) counts as an Under-deeps-style site (CRF errata: moving to
+      // it works "much like ... moving to an Under-deeps site"; g.sur.F1 treats
+      // its Wizardhaven as the site's surface site) even though it doesn't carry
+      // the literal `under-deeps` keyword.
       const siteIsUnderDeeps = siteDef && isSiteCard(siteDef)
-        && (siteDef.keywords ?? []).includes('under-deeps');
+        && ((siteDef.keywords ?? []).includes('under-deeps') || isDeepMinesSite(siteDef));
 
       // item-play-site allowTapped: the item itself permits play at a
       // tapped site (e.g. Blasting Fire wh-51, Vile Fumes wh-54 — "tapped or
