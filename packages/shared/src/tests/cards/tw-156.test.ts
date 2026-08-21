@@ -271,6 +271,52 @@ describe('Gandalf (tw-156)', () => {
     expect(actions.length).toBe(1);
   });
 
+  test('activating test-gold-ring during untap phase resolves the grant, not a hazard pass', () => {
+    // Regression: handleUntap treated every action other than the sideboard
+    // flow and 'untap' as the hazard player's pass, so dispatching the
+    // activate-granted-action offered during untap was silently consumed —
+    // Gandalf never tapped, no gold-ring test was enqueued, and the
+    // resource player's action was recorded as the hazard player passing.
+    const state = buildTestState({
+      phase: Phase.Untap,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'test-gold-ring');
+    expect(actions.length).toBe(1);
+
+    const afterActivate = dispatch(state, actions[0].action);
+
+    // The grant resolves: Gandalf taps and the shared gold-ring test is pending.
+    expectCharStatus(afterActivate, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+    const pending = afterActivate.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].kind.type).toBe('gold-ring-test');
+
+    // The action must not have been consumed as the hazard player's pass:
+    // still in the untap phase with the opponent's window open.
+    expect(afterActivate.phaseState.phase).toBe(Phase.Untap);
+    expect((afterActivate.phaseState as { hazardPlayerPassed: boolean }).hazardPlayerPassed).toBe(false);
+
+    // The pending test resolves as in any other phase: the ring is tested
+    // and discarded on an ordinary roll.
+    const rolls = viableActions({ ...afterActivate, cheatRollTotal: 7 }, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+    const nextState = dispatch({ ...afterActivate, cheatRollTotal: 7 }, rolls[0].action);
+    expectCharItemCount(nextState, RESOURCE_PLAYER, FRODO, 0);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
+  });
+
   test('test-gold-ring available during end-of-turn phase (discard step)', () => {
     // Bug report: end-of-turn's legal-action handler had its own bespoke
     // grant-action scanner (discard-pile fetches only, e.g. Saruman) and

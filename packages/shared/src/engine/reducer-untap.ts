@@ -19,6 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import { countExtraAgentActions } from './mh-agents.js';
 import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
@@ -55,6 +56,20 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
     }
     return { state: { ...untappedState, phaseState: newUntapState } };
   }
+
+  // Rule 2.1.1: the resource player may activate any-phase grant-actions
+  // (Gandalf tw-156 tapping to test a gold ring, td untap-bearer items)
+  // during their own untap phase — untapActions offers them, so they must
+  // be routed here like every other phase reducer does, or they'd fall
+  // through to the hazard-pass branch below and be silently consumed.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
+  // Everything below treats the action as the hazard player's pass; any
+  // unhandled action type reaching it would be silently recorded as that
+  // pass, so reject non-pass actions explicitly.
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
 
   // 'pass' from the hazard player — either exits the sideboard sub-flow
   // or signals the hazard player is done. The resource player never has
