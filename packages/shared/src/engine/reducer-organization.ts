@@ -21,7 +21,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1557,7 +1557,7 @@ function storeCompanyBoundCard(
 
   const siteDef = companySiteDef(state, company);
   if (!siteDef) return { state, error: 'Company is not at a site' };
-  if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+  if (siteForbidsStorage(siteDef, player.alignment)) {
     logDetail(`Store rejected: ${siteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${siteDef.name}` };
   }
@@ -1613,7 +1613,8 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   if (charId === undefined) return { state, error: 'store-item requires a bearer or a company' };
   if (!player.characters[charId]) return { state, error: 'Character not found' };
 
-  // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
+  // `no-storage` site-rule (Geann a-Lisch le-374 unconditionally; Barad-dûr
+  // for a Balrog player via the rule's `when` gate): "Resources may never be
   // stored at this site." Reject a store attempt as a backstop to the
   // legal-action suppression in storeItemActions.
   const storeCompany = findCharacterCompany(player.companies, charId);
@@ -1621,7 +1622,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     ? defById(state, storeCompany.currentSite.definitionId)
     : undefined;
   if (storeSiteDef && isSiteCard(storeSiteDef)
-    && storeSiteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+    && siteForbidsStorage(storeSiteDef, player.alignment)) {
     logDetail(`Store item rejected: ${storeSiteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${storeSiteDef.name}` };
   }

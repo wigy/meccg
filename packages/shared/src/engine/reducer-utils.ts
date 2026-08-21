@@ -1923,6 +1923,21 @@ export function companyShadowMagicUsers(
 }
 
 /**
+ * True when `siteDef` carries a `no-storage` site-rule that applies to a
+ * player of `alignment` — resources may never be stored at the site by that
+ * player. The rule's optional `when` condition is evaluated against
+ * `{ player: { alignment } }`; absent `when`, the ban is unconditional
+ * (Geann a-Lisch le-374: "Resources may never be stored at this site").
+ * Barad-dûr declares `when: { "player.alignment": "balrog" }` for the MEBA
+ * clause "A Balrog player may not store anything at Barad-dûr".
+ */
+export function siteForbidsStorage(siteDef: SiteCard, alignment: Alignment): boolean {
+  return (siteDef.effects ?? []).some(e =>
+    e.type === 'site-rule' && e.rule === 'no-storage'
+    && (!e.when || matchesContext(e.when, { player: { alignment } })));
+}
+
+/**
  * True if the site is a **Darkhaven** [{DH}] — a Haven controlled by a minion
  * side (Ringwraith: Minas Morgul / Dol Guldur / Carn Dûm / Geann a-Lisch;
  * Balrog: Moria / The Under-gates), as opposed to a hero Haven or a

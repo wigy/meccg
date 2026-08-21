@@ -25,10 +25,10 @@ import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFla
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
-import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
+import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
@@ -1253,17 +1253,11 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       company.currentSite.instanceId,
     );
 
-    // MEBA: "A Balrog player may not store anything at Barad-dûr" — it is not one
-    // of the Balrog's Darkhavens (only Moria and The Under-gates are).
-    if (player.alignment === Alignment.Balrog && siteName === 'Barad-dûr') {
-      logDetail(`Store-item: Balrog player may not store at ${siteName} — skipping company`);
-      continue;
-    }
-
-    // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
-    // stored at this site." Suppress every store-item offer for a company here.
-    if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
-      logDetail(`Store-item: ${siteName} carries no-storage site-rule — skipping company`);
+    // `no-storage` site-rule: "Resources may never be stored at this site"
+    // (Geann a-Lisch le-374 unconditionally; Barad-dûr for a Balrog player via
+    // the rule's `when` gate). Suppress every store-item offer for a company here.
+    if (siteForbidsStorage(siteDef, player.alignment)) {
+      logDetail(`Store-item: ${siteName} carries no-storage site-rule for ${player.alignment} — skipping company`);
       continue;
     }
 
