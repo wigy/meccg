@@ -31,7 +31,7 @@
       },
       {
         "type": "duplication-limit",
-        "scope": "turn",
+        "scope": "site",
         "max": 1
       },
       {
@@ -1562,7 +1562,7 @@
       },
       {
         "type": "duplication-limit",
-        "scope": "turn",
+        "scope": "site",
         "max": 1
       },
       {
