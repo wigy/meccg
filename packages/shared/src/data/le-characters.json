@@ -2195,7 +2195,8 @@
     "corruptionModifier": 0,
     "homesite": "Minas Morgul",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-08-20"
   },
   {
     "cardType": "minion-character",
