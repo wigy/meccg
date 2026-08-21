@@ -858,6 +858,7 @@ export function resolveStrikeCvCC(
   if (!defenderTapToFight) defProwess -= computeStayUntappedPenalty(state, defCharData, defCharDef);
   if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
   if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
+  if (strike.excessStrikes > 0) defProwess -= strike.excessStrikes;
   defProwess += (strike.supportCount ?? 0);
   defProwess += (strike.strikeProwessBonus ?? 0);
 
