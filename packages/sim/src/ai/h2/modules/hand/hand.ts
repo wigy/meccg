@@ -52,6 +52,7 @@
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 import { computeCharacterValue } from '../../services/character-value.js';
@@ -190,16 +191,13 @@ export const handModule: H2Module = {
           : 'draw to refill the hand',
         dtsd,
       }];
-      const scored = standing.score(outcomes);
-      return {
+      return scoredEvaluation({
         action,
         module: 'hand',
         outcomes,
-        expectedTsd: scored.expectedTsd,
-        sigmaTsd: scored.sigmaTsd,
-        utility: scored.utility,
-        method: scored.method,
-        rationale: node(discarding ? 'discard' : 'draw', scored.utility, [
+        standing,
+        headline: discarding ? 'discard' : 'draw',
+        detail: [
           node('hand economy', dtsd, [
             leaf(discarding ? `${discarded?.name ?? 'card'} given up` : 'card gained', Math.abs(dtsd), {
               unit: 'tsd',
@@ -209,8 +207,7 @@ export const handModule: H2Module = {
             leaf('hand size', view.self.hand.length),
             leaf('deck remaining', view.self.playDeck.length),
           ]),
-          scored.rationale,
-        ], { unit: 'winprob' }),
+        ],
         assumptions: [
           discarding
             ? 'a card is priced by what it would be worth if it could be played, discounted by '
@@ -219,7 +216,7 @@ export const handModule: H2Module = {
             : 'a drawn card is priced at the average worth of a draw, not at what is actually drawn',
           ...ASSUMPTIONS,
         ],
-      };
+      });
     }
 
     const access = SIDEBOARD_ACCESS[action.type];
@@ -272,8 +269,6 @@ export const handModule: H2Module = {
       label: `reach into the sideboard for up to ${access.cards} card(s) into the ${access.where}`,
       dtsd,
     }];
-    const scored = standing.score(outcomes);
-
     const detail: Rationale[] = [
       leaf('what it fetches', gain, {
         unit: 'tsd',
@@ -291,19 +286,14 @@ export const handModule: H2Module = {
       }),
     ];
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'hand',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node('sideboard access', scored.utility, [
-        node('the fetch', dtsd, detail, { unit: 'tsd' }),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: 'sideboard access',
+      detail: [node('the fetch', dtsd, detail, { unit: 'tsd' })],
       assumptions: [...SIDEBOARD_ASSUMPTIONS, ...ASSUMPTIONS],
-    };
+    });
   },
 };

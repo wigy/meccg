@@ -44,6 +44,7 @@ import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '..
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-permanent-event', 'discard-stage-resource'] as const;
@@ -148,8 +149,6 @@ export const stageModule: H2Module = {
           + (card.marshallingPoints > 0 ? `, ${card.marshallingPoints} ${card.source} MP` : ''),
         dtsd,
       }];
-      const scored = standing.score(outcomes);
-
       const detail: Rationale[] = [
         leaf('card', card.name),
         leaf('stage points', card.stagePoints, { note: 'MEWH §1, the engine\'s own tally' }),
@@ -169,20 +168,15 @@ export const stageModule: H2Module = {
         leaf('gain', gain, { unit: 'tsd' }),
       ];
 
-      return {
+      return scoredEvaluation({
         action,
         module: 'stage',
         outcomes,
-        expectedTsd: scored.expectedTsd,
-        sigmaTsd: scored.sigmaTsd,
-        utility: scored.utility,
-        method: scored.method,
-        rationale: node(`play stage resource ${card.name}`, scored.utility, [
-          node('the stage card', dtsd, detail, { unit: 'tsd' }),
-          scored.rationale,
-        ], { unit: 'winprob' }),
+        standing,
+        headline: `play stage resource ${card.name}`,
+        detail: [node('the stage card', dtsd, detail, { unit: 'tsd' })],
         assumptions: ASSUMPTIONS,
-      };
+      });
     }
 
     if (action.type === 'discard-stage-resource') {
@@ -205,17 +199,13 @@ export const stageModule: H2Module = {
         label: `discard ${card.name} — ${card.stagePoints} stage point(s) surrendered`,
         dtsd,
       }];
-      const scored = standing.score(outcomes);
-
-      return {
+      return scoredEvaluation({
         action,
         module: 'stage',
         outcomes,
-        expectedTsd: scored.expectedTsd,
-        sigmaTsd: scored.sigmaTsd,
-        utility: scored.utility,
-        method: scored.method,
-        rationale: node(`discard stage resource ${card.name}`, scored.utility, [
+        standing,
+        headline: `discard stage resource ${card.name}`,
+        detail: [
           node('the surrender', dtsd, [
             leaf('card', card.name),
             leaf('stage points given up', card.stagePoints, { note: 'MEWH §1' }),
@@ -227,10 +217,9 @@ export const stageModule: H2Module = {
             }),
             leaf('loss', loss, { unit: 'tsd' }),
           ], { unit: 'tsd' }),
-          scored.rationale,
-        ], { unit: 'winprob' }),
+        ],
         assumptions: ASSUMPTIONS,
-      };
+      });
     }
 
     return null;
