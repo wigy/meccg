@@ -1692,7 +1692,11 @@ export function applyFlateryAttemptResolution(
 
   const charInPlay = player.characters[characterInstanceId];
   if (!charInPlay) {
-    return { state, error: `Flattery-attempt: character ${characterInstanceId as string} not found` };
+    // The character left play before the roll (e.g. eliminated by a chain
+    // response) — the attempt fails without a roll and the chain resumes.
+    logDetail(`Flattery attempt: character no longer in play — the attempt fails, combat continues`);
+    const fizzled = dequeueResolution(state, top.id);
+    return resolveChainEntryAndContinue(fizzled, e => e.card?.instanceId === top.source, []);
   }
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -1762,7 +1766,11 @@ export function applyBurglaryAttemptResolution(
 
   const charInPlay = player.characters[characterInstanceId];
   if (!charInPlay) {
-    return { state, error: `Burglary attempt: character ${characterInstanceId as string} not found` };
+    // The character left play before the roll — the attempt fizzles: no
+    // auto-attack skip, no solo-defender mark, automatic-attacks proceed
+    // normally.
+    logDetail(`Burglary attempt: character no longer in play — the attempt fails with no further effect`);
+    return { state: dequeueResolution(state, top.id) };
   }
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
@@ -1825,7 +1833,11 @@ export function applyRiddlingAttemptResolution(
 
   const charInPlay = player.characters[characterInstanceId];
   if (!charInPlay) {
-    return { state, error: `Riddling-attempt: character ${characterInstanceId as string} not found` };
+    // The character left play before the roll — the attempt fails without a
+    // roll and the chain resumes.
+    logDetail(`Riddling attempt: character no longer in play — the attempt fails, combat continues`);
+    const fizzled = dequeueResolution(state, top.id);
+    return resolveChainEntryAndContinue(fizzled, e => e.card?.instanceId === top.source, []);
   }
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
@@ -1932,16 +1944,19 @@ export function applyGoodwillAttemptResolution(
   const { characterInstanceId, companyId, itemSubtype, threshold } = kind;
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) {
-    return { state, error: `Goodwill-attempt: character ${characterInstanceId as string} not found` };
+  const company = charInPlay ? companyById(player.companies, companyId) : null;
+  const { itemInstanceId } = action;
+  if (!charInPlay || !company || !itemInstanceId) {
+    // The diplomat left play, the company disbanded, or no qualifying item
+    // remained to pay the cost (the emitter offers a cost-less fizzle action
+    // without `itemInstanceId` in that case) — the attempt fails without a
+    // roll, and the originating chain entry is resolved so the chain resumes.
+    logDetail(`Goodwill attempt: character/company/item no longer available — the attempt fails with no further effect`);
+    const fizzled = dequeueResolution(state, top.id);
+    return resolveChainEntryAndContinue(fizzled, e => e.card?.instanceId === top.source, []);
   }
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
-
-  const company = companyById(player.companies, companyId);
-  if (!company) return { state, error: `Goodwill-attempt: company ${companyId as string} not found` };
-
-  const { itemInstanceId } = action;
   let bearerCharId: CardInstanceId | null = null;
   let removedItem: CardInstance | null = null;
   for (const charId of company.characters) {
@@ -2021,7 +2036,11 @@ export function applyGoodwillAttemptResolution(
     logDetail(`Goodwill attempt failed: combat continues`);
   }
 
-  return { state: postRoll, effects: [rollEffect] };
+  // The goodwill-attempt resolution paused the chain (needsInput) without
+  // marking the originating Token of Goodwill entry resolved — mirror the
+  // flattery-attempt path so the chain actually resumes instead of being
+  // left stuck in 'resolving' mode with no legal actions for either player.
+  return resolveChainEntryAndContinue(postRoll, e => e.card?.instanceId === top.source, [rollEffect]);
 }
 
 /**
@@ -2363,7 +2382,16 @@ export function applySeizedByTerrorRollResolution(
   const { targetCharacterId, threshold, originSiteInstanceId } = kind;
   const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) {
-    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
+    // The target left play before the roll — nothing to seize. Resolve the
+    // source chain entry so the chain resumes instead of erroring out (an
+    // error result is a rejection: the dequeue would never commit and the
+    // game would deadlock on the unresolvable pending roll).
+    logDetail(`Seized by Terror: target character no longer in play — no effect`);
+    return resolveChainEntryAndContinue(
+      dequeueResolution(state, top.id),
+      e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
+      [],
+    );
   }
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -2412,7 +2440,28 @@ export function applyCompanyTapRollResolution(
 
   const charInPlay = player.characters[next.characterId];
   if (!charInPlay) {
-    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
+    // The next roller left play (e.g. eliminated by an earlier resolution of
+    // the same hazard chain) — skip their roll and advance to the rest of the
+    // list, or resolve the source chain entry if they were the last. An error
+    // result here would be a rejection and deadlock the pending queue.
+    logDetail(`${defById(state, kind.hazardDefinitionId)?.name ?? '?'}: character no longer in play — skipping their roll`);
+    const skippedRest = kind.remaining.slice(1);
+    const dequeued = dequeueResolution(state, top.id);
+    if (skippedRest.length > 0) {
+      return {
+        state: enqueueResolution(dequeued, {
+          source: top.source,
+          actor: top.actor,
+          scope: top.scope,
+          kind: { ...kind, remaining: skippedRest },
+        }),
+      };
+    }
+    return resolveChainEntryAndContinue(
+      dequeued,
+      e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
+      [],
+    );
   }
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? (next.characterId as string);
