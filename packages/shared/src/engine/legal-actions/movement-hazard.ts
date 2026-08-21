@@ -28,7 +28,7 @@ import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
-import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
+import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
@@ -2425,7 +2425,7 @@ function playHazardsActions(
                 return null;
               };
               const constraintCopies = state.activeConstraints.filter(
-                c => c.sourceDefinitionId === def.id
+                c => constraintFromCard(state, c, def.id)
                   && ((c.kind.type === 'item-play-corruption-check' && c.kind.siteDefinitionId === siteDefId)
                     // Arouse Defenders (le-101): count resolved boosts still
                     // bound to this destination site.

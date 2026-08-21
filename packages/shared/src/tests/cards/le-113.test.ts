@@ -51,6 +51,7 @@ import type {
 } from '../../index.js';
 
 const GREED = 'le-113' as CardDefinitionId;
+const GREED_TW = 'tw-42' as CardDefinitionId;        // The Wizards printing of the same card
 
 // Minion fixtures for the Ringwraith-exemption test (declared locally per the
 // card-ids.ts single-use policy).
@@ -257,6 +258,34 @@ describe('Greed (le-113)', () => {
     expect(afterFirst.activeConstraints.some(c => c.kind.type === 'item-play-corruption-check')).toBe(true);
 
     // The second Greed targets the same site (Rivendell) → no viable play-hazard.
+    const second = viableActions(afterFirst, PLAYER_2, 'play-hazard');
+    expect(second).toHaveLength(0);
+  });
+
+  test('cannot be duplicated across printings — a resolved tw-42 Greed blocks le-113 at the same site', () => {
+    // Duplication is by card NAME: Greed exists as both le-113 and tw-42, and
+    // a mixed-set deck must not evade the site limit by playing one printing
+    // of each. The resolved tw-42 copy leaves its constraint stamped with the
+    // tw-42 definition id; the le-113 copy must still see it.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, GIMLI] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [GREED_TW, GREED], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const mhState: GameState = { ...state, phaseState: makeMHState() };
+
+    // Play + resolve the tw-42 printing at Rivendell.
+    const twInstanceId = mhState.players[1].hand.find(c => c.definitionId === GREED_TW)!.instanceId;
+    const play1 = viableActions(mhState, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction)
+      .find(a => a.cardInstanceId === twInstanceId)!;
+    const afterFirst = resolveChain(dispatch(mhState, play1));
+    expect(afterFirst.activeConstraints.some(c => c.kind.type === 'item-play-corruption-check')).toBe(true);
+
+    // The le-113 printing targets the same site (Rivendell) → no viable play.
     const second = viableActions(afterFirst, PLAYER_2, 'play-hazard');
     expect(second).toHaveLength(0);
   });
