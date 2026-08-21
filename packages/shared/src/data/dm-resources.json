@@ -1389,7 +1389,7 @@
       { "type": "duplication-limit", "scope": "game", "max": 1 }
     ],
     "text": "The roll required to move between adjacent Under-deeps sites is decreased by 4. Cannot be duplicated.",
-    "certified": "2026-08-21"
+    "certified": "2025-08-21"
   },
   {
     "cardType": "hero-resource-event",

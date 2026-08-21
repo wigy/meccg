@@ -437,21 +437,29 @@ export function handleRevealNewSite(
     // (`scope: 'all-companies'`), so it applies regardless of the moving
     // player's alignment.
     if (required > 0) {
-      let envBonus = 0;
+      let allCompaniesBonus = 0;
+      let minionCompaniesBonus = 0;
       for (const p of state.players) {
         for (const cardInPlay of p.cardsInPlay) {
           const cDef = defById(state, cardInPlay.definitionId);
           for (const eff of getCardEffects(cDef)) {
             if (eff.type !== 'under-deeps-roll-modifier') continue;
-            if (eff.scope === 'all-companies' || (eff.scope === 'minion-companies' && player.alignment === Alignment.Ringwraith)) {
-              envBonus += eff.value;
+            if (eff.scope === 'all-companies') {
+              allCompaniesBonus += eff.value;
+            } else if (eff.scope === 'minion-companies' && player.alignment === Alignment.Ringwraith) {
+              minionCompaniesBonus += eff.value;
             }
           }
         }
       }
+      const envBonus = allCompaniesBonus + minionCompaniesBonus;
       if (envBonus !== 0) {
         const boosted = Math.max(0, required - envBonus);
-        logDetail(`under-deeps-roll-modifier (environment): +${envBonus} to roll — required ${required} → ${boosted}`);
+        const sources = [
+          allCompaniesBonus !== 0 ? `all-companies +${allCompaniesBonus}` : null,
+          minionCompaniesBonus !== 0 ? `minion-companies +${minionCompaniesBonus}` : null,
+        ].filter(Boolean).join(', ');
+        logDetail(`under-deeps-roll-modifier (environment: ${sources}): +${envBonus} to roll — required ${required} → ${boosted}`);
         required = boosted;
       }
     }
