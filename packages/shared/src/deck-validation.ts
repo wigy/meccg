@@ -75,6 +75,53 @@ const MINION_RESOURCE_TYPES = new Set([
   'minion-resource-event',
 ]);
 
+/** One alignment's rule for the play deck's resources section. */
+interface ResourceSectionRule {
+  /** Resource cardTypes natively allowed for the alignment. */
+  readonly types: ReadonlySet<string>;
+  /** Cross-side item cardType also allowed (hero/minion only — not balrog). */
+  readonly crossSideItem?: string;
+  /** The expectation quoted in the error message. */
+  readonly requirement: string;
+}
+
+/**
+ * Per-alignment resource section rules (rule 1.10 hero, 1.13 minion, 1.21
+ * balrog). Each alignment allows its own resource types plus — for hero and
+ * minion only — the opposite side's item type, and every alignment additionally
+ * accepts a hazard flagged `playable-as-resource` (rule 1.06 / CoE 1.3.3; for
+ * balrog, CoE 1.3.B3: "minion resources and/or hazards that may be played as
+ * resources"). Fallen-wizard decks have no entry: they may mix hero, minion,
+ * and stage resources freely.
+ */
+const RESOURCE_RULES: Partial<Record<DeckList['alignment'], ResourceSectionRule>> = {
+  hero: {
+    types: HERO_RESOURCE_TYPES,
+    crossSideItem: 'minion-resource-item',
+    requirement: 'hero-resource-* or minion-resource-item',
+  },
+  minion: {
+    types: MINION_RESOURCE_TYPES,
+    crossSideItem: 'hero-resource-item',
+    requirement: 'minion-resource-* or hero-resource-item',
+  },
+  balrog: {
+    types: MINION_RESOURCE_TYPES,
+    requirement: 'minion-resource-*',
+  },
+};
+
+/**
+ * The site cardType each alignment's location deck must use (rule 1.26 hero,
+ * 1.27 minion), plus (rule 1.25 / CoE 1.4.1) the designated Balrog sites
+ * carrying an `any-location-deck` deck restriction. Fallen-wizard and balrog
+ * location decks have their own rules (1.28 / 1.29) and no entry here.
+ */
+const LOCATION_DECK_SITE_TYPES: Partial<Record<DeckList['alignment'], string>> = {
+  hero: 'hero-site',
+  minion: 'minion-site',
+};
+
 /**
  * `hasPlayFlag`, narrowed for {@link CardDefinition}: `RegionCard` carries no
  * `effects` field at all, so the union as a whole fails `hasPlayFlag`'s weak
@@ -89,6 +136,47 @@ type DeckEntries = readonly { card: CardDefinitionId | null; qty: number }[];
 
 /** A deck section paired with the {@link DeckSection} key its errors report under. */
 type KeyedSection = readonly [DeckEntries, DeckSection];
+
+/** One filled deck-section slot together with its resolved card definition. */
+interface EntryDef {
+  /** The entry's card definition id. */
+  readonly card: CardDefinitionId;
+  /** Number of copies of the card in this section. */
+  readonly qty: number;
+  /** The card's definition, or `undefined` when the id is not in the pool. */
+  readonly def: CardDefinition | undefined;
+}
+
+/**
+ * Iterate a deck section's filled slots, skipping blank slots (`card === null`)
+ * and resolving each card id against the card pool. Nearly every rule loops
+ * over sections this way; callers that require a known definition still guard
+ * on `def` themselves.
+ */
+function* entryDefs(
+  section: DeckEntries,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): Generator<EntryDef> {
+  for (const entry of section) {
+    if (entry.card === null) continue;
+    yield { card: entry.card, qty: entry.qty, def: cardPool[entry.card] };
+  }
+}
+
+/**
+ * {@link entryDefs} across several sections, tagging each yielded entry with
+ * the {@link DeckSection} key its errors report under.
+ */
+function* keyedEntryDefs(
+  sections: readonly KeyedSection[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): Generator<EntryDef & { readonly sectionKey: DeckSection }> {
+  for (const [section, sectionKey] of sections) {
+    for (const item of entryDefs(section, cardPool)) {
+      yield { ...item, sectionKey };
+    }
+  }
+}
 
 /**
  * Total copies of each card id across the given sections.
@@ -149,19 +237,15 @@ function checkBannedCards(
 ): DeckValidationError[] {
   const errors: DeckValidationError[] = [];
   const context = { deck: { alignment } };
-  for (const [section, sectionKey] of sections) {
-    for (const entry of section) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card as string];
-      for (const restriction of deckRestrictions(def, 'excluded-from-deck')) {
-        if (restriction.when && !matchesCondition(restriction.when, context)) continue;
-        const name = def ? (def as { name: string }).name : (entry.card as string);
-        errors.push({
-          section: sectionKey,
-          message: `${alignment} deck: "${name}" is not allowed (${restriction.reason ?? 'deck restriction'})`,
-          card: entry.card,
-        });
-      }
+  for (const { card, def, sectionKey } of keyedEntryDefs(sections, cardPool)) {
+    for (const restriction of deckRestrictions(def, 'excluded-from-deck')) {
+      if (restriction.when && !matchesCondition(restriction.when, context)) continue;
+      const name = def ? (def as { name: string }).name : (card as string);
+      errors.push({
+        section: sectionKey,
+        message: `${alignment} deck: "${name}" is not allowed (${restriction.reason ?? 'deck restriction'})`,
+        card,
+      });
     }
   }
   return errors;
@@ -287,32 +371,24 @@ export function validateDeck(
   // Section typing — the location deck holds sites and nothing else.
   // Site cards may not appear in any other section, and no other card
   // type may appear in the sites section.
-  for (const entry of sites) {
-    if (entry.card === null) continue;
-    const def = cardPool[entry.card];
+  for (const { card, def } of entryDefs(sites, cardPool)) {
     if (!def) continue;
     if (!isSiteCard(def)) {
       const defTyped = def as { name: string; cardType: string };
       errors.push({
         section: 'sites',
         message: `location deck: "${defTyped.name}" has cardType "${defTyped.cardType}" — only sites are allowed in the location deck`,
-        card: entry.card,
+        card,
       });
     }
   }
-  {
-    for (const [section, sectionKey] of nonSiteSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const def = cardPool[entry.card];
-        if (!def || !isSiteCard(def)) continue;
-        errors.push({
-          section: sectionKey,
-          message: `site "${def.name}" may only appear in the location deck (sites section)`,
-          card: entry.card,
-        });
-      }
-    }
+  for (const { card, def, sectionKey } of keyedEntryDefs(nonSiteSections, cardPool)) {
+    if (!isSiteCard(def)) continue;
+    errors.push({
+      section: sectionKey,
+      message: `site "${def.name}" may only appear in the location deck (sites section)`,
+      card,
+    });
   }
 
   // Rule 1.04 — unique card limits (across entire deck except haven sites)
@@ -354,12 +430,10 @@ export function validateDeck(
     let totalAgentMind = 0;
     const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
     for (const section of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const def = cardPool[entry.card];
+      for (const { qty, def } of entryDefs(section, cardPool)) {
         if (!isCharacterCard(def)) continue;
         if (!def.keywords?.includes('agent')) continue;
-        if (def.mind !== null) totalAgentMind += def.mind * entry.qty;
+        if (def.mind !== null) totalAgentMind += def.mind * qty;
       }
     }
     if (totalAgentMind > 36) {
@@ -414,11 +488,9 @@ export function validateDeck(
   // counted as a hazard instead.
   if (deck.alignment === 'fallen-wizard') {
     const dualHazardResourceCounts = new Map<string, number>();
-    for (const entry of resources) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { card, qty, def } of entryDefs(resources, cardPool)) {
       if (!def || !defHasPlayFlag(def, 'playable-as-resource')) continue;
-      dualHazardResourceCounts.set(entry.card as string, (dualHazardResourceCounts.get(entry.card as string) ?? 0) + entry.qty);
+      dualHazardResourceCounts.set(card as string, (dualHazardResourceCounts.get(card as string) ?? 0) + qty);
     }
     for (const [cardId, count] of dualHazardResourceCounts) {
       if (count <= 2) continue;
@@ -436,63 +508,55 @@ export function validateDeck(
   // (e.g. "Saruman") appears as an avatar character in the play deck.
   {
     const declaredAvatarNames = new Set<string>();
-    for (const entry of characters) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { def } of entryDefs(characters, cardPool)) {
       if (isCharacterCard(def) && isAvatarCharacter(def)) declaredAvatarNames.add(def.name);
     }
     // The location deck too: a `<wizard>-specific` site (Rhosgobel wh-57,
     // `radagast-specific`: "Only Radagast's companies may use this card") may
     // only be included when that wizard is the declared avatar.
     const allSections: readonly KeyedSection[] = [...nonSiteSections, [sites, 'sites']];
-    for (const [section, sectionKey] of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const def = cardPool[entry.card];
-        if (!def || !('keywords' in def)) continue;
-        const specificName = (def.keywords ?? []).map(k => WIZARD_SPECIFIC_KEYWORD_NAMES[k]).find(n => n !== undefined);
-        if (specificName && !declaredAvatarNames.has(specificName)) {
-          errors.push({
-            section: sectionKey,
-            message: `"${def.name}" is specific to ${specificName} — the ${specificName} avatar must be declared to include it (rule 1.07)`,
-            card: entry.card,
-          });
-        }
+    for (const { card, def, sectionKey } of keyedEntryDefs(allSections, cardPool)) {
+      if (!def || !('keywords' in def)) continue;
+      const specificName = (def.keywords ?? []).map(k => WIZARD_SPECIFIC_KEYWORD_NAMES[k]).find(n => n !== undefined);
+      if (specificName && !declaredAvatarNames.has(specificName)) {
+        errors.push({
+          section: sectionKey,
+          message: `"${def.name}" is specific to ${specificName} — the ${specificName} avatar must be declared to include it (rule 1.07)`,
+          card,
+        });
       }
     }
   }
 
   // Rule 1.08 / 1.11 / 1.16 / 1.19 — avatar characters match alignment
-  for (const entry of characters) {
-    if (entry.card === null) continue;
-    const def = cardPool[entry.card];
+  for (const { card, def } of entryDefs(characters, cardPool)) {
     if (!isCharacterCard(def) || !isAvatarCharacter(def)) continue;
     if (deck.alignment === 'hero' && def.race !== Race.Wizard) {
       errors.push({
         section: 'characters',
         message: `hero deck: avatar "${def.name}" must be a Wizard (race is "${def.race}")`,
-        card: entry.card,
+        card,
       });
     }
     if (deck.alignment === 'minion' && def.race !== Race.Ringwraith) {
       errors.push({
         section: 'characters',
         message: `minion deck: avatar "${def.name}" must be a Ringwraith (race is "${def.race}")`,
-        card: entry.card,
+        card,
       });
     }
     if (deck.alignment === 'fallen-wizard' && def.alignment !== 'fallen-wizard') {
       errors.push({
         section: 'characters',
         message: `fallen-wizard deck: avatar "${def.name}" must be a Fallen-wizard avatar (alignment is "${def.alignment}")`,
-        card: entry.card,
+        card,
       });
     }
     if (deck.alignment === 'balrog' && def.alignment !== 'balrog') {
       errors.push({
         section: 'characters',
         message: `balrog deck: avatar "${def.name}" must be a Balrog avatar (alignment is "${def.alignment}")`,
-        card: entry.card,
+        card,
       });
     }
   }
@@ -503,9 +567,7 @@ export function validateDeck(
   // exactly one distinct Fallen-wizard avatar name (in any number of copies).
   if (deck.alignment === 'fallen-wizard') {
     const fwAvatarNames = new Set<string>();
-    for (const entry of [...characters, ...poolCards, ...sideboard]) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { def } of entryDefs([...characters, ...poolCards, ...sideboard], cardPool)) {
       if (isCharacterCard(def) && isAvatarCharacter(def) && def.alignment === 'fallen-wizard') {
         fwAvatarNames.add(def.name);
       }
@@ -523,139 +585,94 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.09 / 1.12 — non-avatar characters match alignment
-  for (const [section, sectionKey] of [
+  // Rule 1.09 / 1.12 — non-avatar characters match alignment.
+  // Note: the pool's characters deliberately report under the 'characters'
+  // section key here (the deck editor routes character-legality errors to the
+  // characters panel), while rules 1.20/1.22 below report the same array under
+  // 'pool'.
+  for (const { card, def, sectionKey } of keyedEntryDefs([
     [poolCards, 'characters'],
     [characters, 'characters'],
-  ] as const) {
-    for (const entry of section) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
-      if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
-      if (deck.alignment === 'hero') {
-        // Agents count as hazards for hero decks — allowed in hero decks
-        if ('keywords' in def && Array.isArray(def.keywords) && def.keywords.includes('agent')) {
-          continue;
-        }
-        if (def.cardType !== 'hero-character') {
-          errors.push({
-            section: sectionKey,
-            message: `hero deck: non-avatar character "${def.name}" has cardType "${def.cardType}" — must be hero-character`,
-            card: entry.card,
-          });
-        }
+  ], cardPool)) {
+    if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
+    if (deck.alignment === 'hero') {
+      // Agents count as hazards for hero decks — allowed in hero decks
+      if ('keywords' in def && Array.isArray(def.keywords) && def.keywords.includes('agent')) {
+        continue;
       }
-      if (deck.alignment === 'minion' && def.cardType !== 'minion-character') {
+      if (def.cardType !== 'hero-character') {
         errors.push({
           section: sectionKey,
-          message: `minion deck: character "${def.name}" has cardType "${def.cardType}" — must be minion-character`,
-          card: entry.card,
+          message: `hero deck: non-avatar character "${def.name}" has cardType "${def.cardType}" — must be hero-character`,
+          card,
         });
       }
     }
+    if (deck.alignment === 'minion' && def.cardType !== 'minion-character') {
+      errors.push({
+        section: sectionKey,
+        message: `minion deck: character "${def.name}" has cardType "${def.cardType}" — must be minion-character`,
+        card,
+      });
+    }
   }
 
-  // Rule 1.10 — hero resources. Rule 1.06 (CoE 1.3.3): a hazard card flagged
+  // Rule 1.20 — balrog non-avatar characters must be minion, and rule 1.22 —
+  // balrog character additional restrictions (race, mind). Both scan the same
+  // pool + play-deck characters (reporting the pool under 'pool', unlike rule
+  // 1.09/1.12 above), so one pass checks both — buffering so every rule 1.20
+  // error still precedes the rule 1.22 errors in the result.
+  if (deck.alignment === 'balrog') {
+    const cardTypeErrors: DeckValidationError[] = [];
+    const restrictionErrors: DeckValidationError[] = [];
+    for (const { card, def, sectionKey } of keyedEntryDefs([
+      [poolCards, 'pool'],
+      [characters, 'characters'],
+    ], cardPool)) {
+      if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
+      if (def.cardType !== 'minion-character') {
+        cardTypeErrors.push({
+          section: sectionKey,
+          message: `balrog deck: character "${def.name}" has cardType "${def.cardType}" — must be minion-character`,
+          card,
+        });
+      }
+      const race = def.race;
+      if (race !== Race.Orc && race !== Race.Troll) {
+        restrictionErrors.push({
+          section: sectionKey,
+          message: `balrog deck: character "${def.name}" has race "${race}" — must be orc or troll`,
+          card,
+        });
+      }
+      if (def.mind !== null && def.mind >= 9 && !(card as string).startsWith('ba-')) {
+        restrictionErrors.push({
+          section: sectionKey,
+          message: `balrog deck: character "${def.name}" has mind ${def.mind} ≥ 9 and is not Balrog-specific`,
+          card,
+        });
+      }
+    }
+    errors.push(...cardTypeErrors, ...restrictionErrors);
+  }
+
+  // Rule 1.10 (hero) / 1.13 (minion) / 1.21 (balrog) — the resources section
+  // may only hold the alignment's allowed resource types (see
+  // {@link RESOURCE_RULES}). Rule 1.06 (CoE 1.3.3): a hazard card flagged
   // `playable-as-resource` (e.g. Twilight tw-106) may be considered a resource
   // for deck construction regardless of its own cardType.
-  if (deck.alignment === 'hero') {
-    for (const entry of resources) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+  const resourceRule = RESOURCE_RULES[deck.alignment];
+  if (resourceRule) {
+    for (const { card, def } of entryDefs(resources, cardPool)) {
       if (!def) continue;
-      const allowed = HERO_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'minion-resource-item' || defHasPlayFlag(def, 'playable-as-resource');
+      const allowed = resourceRule.types.has(def.cardType)
+        || def.cardType === resourceRule.crossSideItem
+        || defHasPlayFlag(def, 'playable-as-resource');
       if (!allowed) {
         errors.push({
           section: 'resources',
-          message: `hero deck: resource "${def.name}" has cardType "${def.cardType}" — must be hero-resource-* or minion-resource-item`,
-          card: entry.card,
-        });
-      }
-    }
-  }
-
-  // Rule 1.20 — balrog non-avatar characters must be minion
-  if (deck.alignment === 'balrog') {
-    for (const [section, sectionKey] of [
-      [poolCards, 'pool'],
-      [characters, 'characters'],
-    ] as const) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const def = cardPool[entry.card];
-        if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
-        if (def.cardType !== 'minion-character') {
-          errors.push({
-            section: sectionKey,
-            message: `balrog deck: character "${def.name}" has cardType "${def.cardType}" — must be minion-character`,
-            card: entry.card,
-          });
-        }
-      }
-    }
-  }
-
-  // Rule 1.22 — balrog character additional restrictions
-  if (deck.alignment === 'balrog') {
-    for (const [section, sectionKey] of [
-      [poolCards, 'pool'],
-      [characters, 'characters'],
-    ] as const) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const def = cardPool[entry.card];
-        if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
-        const race = def.race;
-        if (race !== Race.Orc && race !== Race.Troll) {
-          errors.push({
-            section: sectionKey,
-            message: `balrog deck: character "${def.name}" has race "${race}" — must be orc or troll`,
-            card: entry.card,
-          });
-        }
-        if (def.mind !== null && def.mind >= 9 && !(entry.card as string).startsWith('ba-')) {
-          errors.push({
-            section: sectionKey,
-            message: `balrog deck: character "${def.name}" has mind ${def.mind} ≥ 9 and is not Balrog-specific`,
-            card: entry.card,
-          });
-        }
-      }
-    }
-  }
-
-  // Rule 1.13 — minion resources. Rule 1.06 (CoE 1.3.3): a hazard card flagged
-  // `playable-as-resource` may be considered a resource for deck construction
-  // regardless of its own cardType.
-  if (deck.alignment === 'minion') {
-    for (const entry of resources) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
-      if (!def) continue;
-      const allowed = MINION_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'hero-resource-item' || defHasPlayFlag(def, 'playable-as-resource');
-      if (!allowed) {
-        errors.push({
-          section: 'resources',
-          message: `minion deck: resource "${def.name}" has cardType "${def.cardType}" — must be minion-resource-* or hero-resource-item`,
-          card: entry.card,
-        });
-      }
-    }
-  }
-
-  // Rule 1.21 — balrog resources must be minion, or a hazard flagged
-  // `playable-as-resource` (CoE 1.3.B3: "minion resources and/or hazards that
-  // may be played as resources").
-  if (deck.alignment === 'balrog') {
-    for (const entry of resources) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
-      if (!def) continue;
-      if (!MINION_RESOURCE_TYPES.has(def.cardType) && !defHasPlayFlag(def, 'playable-as-resource')) {
-        errors.push({
-          section: 'resources',
-          message: `balrog deck: resource "${def.name}" has cardType "${def.cardType}" — must be minion-resource-*`,
-          card: entry.card,
+          message: `${deck.alignment} deck: resource "${def.name}" has cardType "${def.cardType}" — must be ${resourceRule.requirement}`,
+          card,
         });
       }
     }
@@ -666,60 +683,41 @@ export function validateDeck(
   // multiple copies of the Fallen-wizard site cards (Isengard, The White Towers,
   // Rhosgobel, Deep Mines).
   const nonHavenSeen = new Set<string>();
-  for (const entry of sites) {
-    if (entry.card === null) continue;
-    const def = cardPool[entry.card];
+  for (const { card, qty, def } of entryDefs(sites, cardPool)) {
     if (!isSiteCard(def)) continue;
     if (def.siteType === SiteType.Haven) continue;
     if (deck.alignment === 'fallen-wizard' && def.cardType === 'fallen-wizard-site') continue;
-    const cardId = entry.card as string;
-    if (entry.qty > 1) {
+    const cardId = card as string;
+    if (qty > 1) {
       errors.push({
         section: 'sites',
-        message: `location deck: non-haven site "${def.name}" has qty ${entry.qty} — max is 1`,
-        card: entry.card,
+        message: `location deck: non-haven site "${def.name}" has qty ${qty} — max is 1`,
+        card,
       });
     } else if (nonHavenSeen.has(cardId)) {
       errors.push({
         section: 'sites',
         message: `location deck: non-haven site "${def.name}" appears more than once`,
-        card: entry.card,
+        card,
       });
     }
     nonHavenSeen.add(cardId);
   }
 
-  // Rule 1.26 — hero location deck uses hero sites, plus (rule 1.25 / CoE
-  // 1.4.1) the designated Balrog sites that have no hero/minion equivalent.
-  if (deck.alignment === 'hero') {
-    for (const entry of sites) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+  // Rule 1.26 (hero) / 1.27 (minion) — the location deck uses the alignment's
+  // own site type (see {@link LOCATION_DECK_SITE_TYPES}), plus (rule 1.25 /
+  // CoE 1.4.1) the designated Balrog sites that have no hero/minion
+  // equivalent.
+  const requiredSiteType = LOCATION_DECK_SITE_TYPES[deck.alignment];
+  if (requiredSiteType) {
+    for (const { card, def } of entryDefs(sites, cardPool)) {
       if (!isSiteCard(def)) continue;
       const allowedBalrogSite = def.cardType === 'balrog-site' && hasDeckRestriction(def, 'any-location-deck');
-      if (def.cardType !== 'hero-site' && !allowedBalrogSite) {
+      if (def.cardType !== requiredSiteType && !allowedBalrogSite) {
         errors.push({
           section: 'sites',
-          message: `hero deck: site "${def.name}" has cardType "${def.cardType}" — must be hero-site or a designated Balrog site (rule 1.25)`,
-          card: entry.card,
-        });
-      }
-    }
-  }
-
-  // Rule 1.27 — minion location deck uses minion sites, plus (rule 1.25 / CoE
-  // 1.4.1) the designated Balrog sites that have no hero/minion equivalent.
-  if (deck.alignment === 'minion') {
-    for (const entry of sites) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
-      if (!isSiteCard(def)) continue;
-      const allowedBalrogSite = def.cardType === 'balrog-site' && hasDeckRestriction(def, 'any-location-deck');
-      if (def.cardType !== 'minion-site' && !allowedBalrogSite) {
-        errors.push({
-          section: 'sites',
-          message: `minion deck: site "${def.name}" has cardType "${def.cardType}" — must be minion-site or a designated Balrog site (rule 1.25)`,
-          card: entry.card,
+          message: `${deck.alignment} deck: site "${def.name}" has cardType "${def.cardType}" — must be ${requiredSiteType} or a designated Balrog site (rule 1.25)`,
+          card,
         });
       }
     }
@@ -756,9 +754,8 @@ export function validateDeck(
   // "At Home" manifestations, and Spawn permanent-events each count as half a
   // creature; the total is rounded down for the purpose of the requirement.
   let creatureCount = 0;
-  for (const entry of hazards) {
-    if (entry.card === null) continue;
-    creatureCount += creatureEquivalent(cardPool[entry.card], deck.alignment) * entry.qty;
+  for (const { qty, def } of entryDefs(hazards, cardPool)) {
+    creatureCount += creatureEquivalent(def, deck.alignment) * qty;
   }
   const effectiveCreatures = Math.floor(creatureCount);
   if (effectiveCreatures < 12) {
@@ -769,10 +766,8 @@ export function validateDeck(
   }
 
   let nonAvatarCharCount = 0;
-  for (const entry of characters) {
-    if (entry.card === null) continue;
-    const def = cardPool[entry.card];
-    if (isCharacterCard(def) && !isAvatarCharacter(def)) nonAvatarCharCount += entry.qty;
+  for (const { qty, def } of entryDefs(characters, cardPool)) {
+    if (isCharacterCard(def) && !isAvatarCharacter(def)) nonAvatarCharCount += qty;
   }
   if (nonAvatarCharCount > 10) {
     errors.push({
@@ -807,32 +802,30 @@ export function validateDeck(
   // Rule 1.28 — fallen-wizard location deck
   if (deck.alignment === 'fallen-wizard') {
     const fwNonHavenSeen = new Set<string>();
-    for (const entry of sites) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { card, qty, def } of entryDefs(sites, cardPool)) {
       if (!isSiteCard(def)) continue;
       if (def.cardType === 'balrog-site') {
         errors.push({
           section: 'sites',
           message: `fallen-wizard deck: site "${def.name}" has cardType "balrog-site" — not allowed`,
-          card: entry.card,
+          card,
         });
         continue;
       }
       // FW sites may appear multiple times; hero and minion sites: 1 copy each
       if (def.cardType !== 'fallen-wizard-site') {
-        const cardId = entry.card as string;
-        if (entry.qty > 1) {
+        const cardId = card as string;
+        if (qty > 1) {
           errors.push({
             section: 'sites',
-            message: `fallen-wizard deck: site "${def.name}" has qty ${entry.qty} — hero/minion sites may appear at most once`,
-            card: entry.card,
+            message: `fallen-wizard deck: site "${def.name}" has qty ${qty} — hero/minion sites may appear at most once`,
+            card,
           });
         } else if (fwNonHavenSeen.has(cardId)) {
           errors.push({
             section: 'sites',
             message: `fallen-wizard deck: site "${def.name}" appears more than once — hero/minion sites allowed at most once`,
-            card: entry.card,
+            card,
           });
         }
         fwNonHavenSeen.add(cardId);
@@ -842,28 +835,26 @@ export function validateDeck(
 
   // Rule 1.29 — balrog location deck
   if (deck.alignment === 'balrog') {
-    for (const entry of sites) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { card, def } of entryDefs(sites, cardPool)) {
       if (!isSiteCard(def)) continue;
       if (def.cardType === 'hero-site' || def.cardType === 'fallen-wizard-site') {
         errors.push({
           section: 'sites',
           message: `balrog deck: site "${def.name}" has cardType "${def.cardType}" — not allowed`,
-          card: entry.card,
+          card,
         });
       } else if (def.cardType === 'minion-site') {
         if (hasDeckRestriction(def, 'superseded-by-balrog-site')) {
           errors.push({
             section: 'sites',
             message: `balrog deck: site "${def.name}" requires the Balrog-specific version`,
-            card: entry.card,
+            card,
           });
         } else if (def.siteType === SiteType.DarkHold) {
           errors.push({
             section: 'sites',
             message: `balrog deck: dark-hold site "${def.name}" requires a Balrog-specific version`,
-            card: entry.card,
+            card,
           });
         }
       }
@@ -877,15 +868,13 @@ export function validateDeck(
 
   // Rule 1.22 — balrog faction race restriction
   if (deck.alignment === 'balrog') {
-    for (const entry of resources) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { card, def } of entryDefs(resources, cardPool)) {
       if (!isFactionCard(def)) continue;
       if (!BALROG_ALLOWED_FACTION_RACES.has(def.race)) {
         errors.push({
           section: 'resources',
           message: `balrog deck: faction "${def.name}" has race "${def.race}" — must be orc, troll, wolf, animal, or dragon`,
-          card: entry.card,
+          card,
         });
       }
     }
@@ -899,13 +888,11 @@ export function validateDeck(
   // Rule 1.32 — pool limits
   let poolNonAvatarCharCount = 0;
   let poolMinorItemCount = 0;
-  for (const entry of poolCards) {
-    if (entry.card === null) continue;
-    const def = cardPool[entry.card];
+  for (const { qty, def } of entryDefs(poolCards, cardPool)) {
     if (isCharacterCard(def) && !isAvatarCharacter(def)) {
-      poolNonAvatarCharCount += entry.qty;
+      poolNonAvatarCharCount += qty;
     } else if (isItemCard(def) && def.subtype === 'minor' && !def.unique) {
-      poolMinorItemCount += entry.qty;
+      poolMinorItemCount += qty;
     }
   }
   if (poolNonAvatarCharCount > 10) {
@@ -930,9 +917,7 @@ export function validateDeck(
   // Fram Framson) and minor items flagged `no-starting-company` (e.g. Records
   // Unread, Secret Book). The draft/item-draft steps already refuse to place
   // them; this check keeps them out of the pool at deck-construction time.
-  for (const entry of poolCards) {
-    if (entry.card === null) continue;
-    const def = cardPool[entry.card];
+  for (const { card, def } of entryDefs(poolCards, cardPool)) {
     if (!def) continue;
     const cannotStart =
       (isCharacterCard(def) && defHasPlayFlag(def, 'not-starting-character')) ||
@@ -941,7 +926,7 @@ export function validateDeck(
       errors.push({
         section: 'pool',
         message: `pool: "${(def as { name: string }).name}" may not be included with a starting company — it belongs in the play deck, not the pool (rule 1.7)`,
-        card: entry.card,
+        card,
       });
     }
   }
@@ -952,12 +937,11 @@ export function validateDeck(
   if (deck.alignment === 'fallen-wizard') {
     let totalStagePoints = 0;
     let hasNonUniqueStageResource = false;
-    for (const entry of poolCards) {
-      if (entry.card === null) continue;
-      const def = cardPool[entry.card];
+    for (const { qty, def } of entryDefs(poolCards, cardPool)) {
       const points = stagePointsOfCard(def);
-      if (points === 0) continue;
-      totalStagePoints += points * entry.qty;
+      // An unknown card id yields 0 points, so the `!def` guard only narrows.
+      if (!def || points === 0) continue;
+      totalStagePoints += points * qty;
       if (!('unique' in def) || !def.unique) hasNonUniqueStageResource = true;
     }
     if (totalStagePoints !== 3) {
