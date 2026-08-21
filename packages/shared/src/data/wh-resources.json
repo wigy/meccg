@@ -413,7 +413,13 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      }
+    ],
     "text": "Playable during your organization phase in your marshalling point pile if your Wizard is in a Haven [{H}] and you have more marshalling points than your opponent. Your opponent must be a Fallen-wizard or a Wizard. Cannot be duplicated on a given turn."
   },
   {
@@ -695,6 +701,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "deck-restriction",
         "rule": "excluded-from-deck",

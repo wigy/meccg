@@ -68,7 +68,15 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
   switch (step) {
     case 'discard': {
       const base = viable(discardStepActions(state, playerId));
-      if (state.activePlayer === playerId) {
+      // The rule 2.1.1 / CRF extras are offered only while the player's
+      // step-1 window is still open (`discardDone` not yet set) —
+      // discardStepActions then guarantees a `pass` alongside them. Once the
+      // player has acted, the step offers nothing; appending plays here
+      // without that pass made any playable permanent event a FORCED play,
+      // which livelocked the game with the Demon fána swap pair (playing
+      // Flame of Udûn returns Great Shadow to hand and vice versa, forever).
+      const playerIndex = getPlayerIndex(state, playerId);
+      if (state.activePlayer === playerId && !eotState.discardDone[playerIndex]) {
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
