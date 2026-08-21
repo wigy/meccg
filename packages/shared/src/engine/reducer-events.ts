@@ -2115,10 +2115,12 @@ function applyShortEventOnEntersPlay(
     // Where There's a Whip (le-254): the target (an untapped Orc/Troll bearing
     // a Whip) disciplines his own company. Every other tapped character with a
     // mind and lower prowess makes a body check (modifier added to the roll);
-    // per CoE 3.I.3 a failing Orc/Troll is discarded instead of wounded, every
-    // other race is wounded instead of eliminated. Members excluded from the
-    // check (untapped, no mind, or prowess not lower than the bearer's) are
-    // untapped immediately since their outcome never depended on a roll.
+    // a failing character of any race is wounded instead of eliminated (the
+    // card's own override), and an Orc/Troll is discarded when the modified
+    // total matches a printed discard number ("according to its card", CoE
+    // 3.I.3/3.I.4). Members excluded from the check (untapped, no mind, or
+    // prowess not lower than the bearer's) are untapped immediately since
+    // their outcome never depended on a roll.
     if (onEvent.apply.type === 'whip-discipline') {
       const bearerId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
       const bearer = bearerId ? state.players[playerIndex].characters[bearerId] : undefined;
@@ -2152,12 +2154,21 @@ function applyShortEventOnEntersPlay(
         const char = state.players[playerIndex].characters[charId];
         const charDef = defById(state, char.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
+        // "Failing the body check wounds, but does not eliminate the
+        // character. An Orc or Troll is discarded according to its card." —
+        // the check fails when the modified total exceeds body (CoE 3.I.1)
+        // and wounds EVERY race; an Orc/Troll whose modified total lands
+        // exactly on a printed discard number is discarded instead
+        // (`matchOutcome`, checked before the pass/fail comparison). Per CoE
+        // 3.I.4 the discard numbers track body's delta from its printed
+        // value.
         const isOrcTroll = charDef.race === Race.Orc || charDef.race === Race.Troll;
+        const body = char.effectiveStats.body;
+        const bodyDelta = charDef.body != null ? body - charDef.body : 0;
         const discardValues = isOrcTroll && charDef.cardType === 'minion-character' && charDef.discardBodyCheck != null
-          ? charDef.discardBodyCheck
+          ? charDef.discardBodyCheck.map(v => v + bodyDelta)
           : [];
-        const threshold = discardValues.length > 0 ? Math.min(...discardValues) : char.effectiveStats.body;
-        logDetail(`"${def.name}": ${charDef.name} makes a body check (threshold ${threshold}, roll modifier ${modifier})`);
+        logDetail(`"${def.name}": ${charDef.name} makes a body check (threshold ${body}, roll modifier ${modifier}${discardValues.length > 0 ? `, discard on ${discardValues.join(',')}` : ''})`);
         state = enqueueResolution(state, {
           source: handCard.instanceId,
           actor: state.players[playerIndex].id,
@@ -2166,9 +2177,12 @@ function applyShortEventOnEntersPlay(
             type: 'dice-check',
             label: `Body check (${def.name}): ${charDef.name}`,
             modifiers: [{ kind: 'constant', value: modifier }],
-            threshold,
+            threshold: body,
             comparison: 'gt',
-            onPass: isOrcTroll ? { type: 'discard-character' } : { type: 'set-character-status', status: 'inverted' },
+            ...(discardValues.length > 0
+              ? { matchOutcome: { values: discardValues, action: { type: 'discard-character' as const } } }
+              : {}),
+            onPass: { type: 'set-character-status', status: 'inverted' },
             onFail: { type: 'set-character-status', status: 'untapped' },
             continuation: { kind: 'dequeue-only' },
             requireTargetPresent: true,
