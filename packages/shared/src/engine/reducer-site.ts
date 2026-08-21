@@ -16,7 +16,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findCompanyAllies } from './legal-actions/combat.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
-import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, resolveDef } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -33,7 +33,7 @@ import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { shuffle } from '../rng.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
+import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
@@ -3281,11 +3281,7 @@ function fireCharacterGainsItemChecks(
         if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
 
         logDetail(`character-gains-item: "${hDef?.name}" triggers corruption check for character ${charId as string}`);
-        const possessions = [
-          ...char.items.map(i => i.instanceId),
-          ...char.allies.map(a => a.instanceId),
-          ...char.hazards.map(h => h.instanceId),
-        ];
+        const possessions = characterPossessions(char);
         newState = enqueueCorruptionCheck(newState, {
           source: hazard.instanceId,
           actor: player.id,
@@ -3407,11 +3403,7 @@ function fireItemPlayCorruptionChecks(
         }
       }
       logDetail(`Greed: item "${itemName}" (cp ${cp}) played at site — ${charDef.name} makes a corruption check (modifier ${formatSignedNumber(modifier)})`);
-      const possessions = [
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
+      const possessions = characterPossessions(char);
       newState = enqueueCorruptionCheck(newState, {
         source: constraint.source,
         actor: player.id,
@@ -3566,11 +3558,7 @@ export function fireSuccessfulInfluenceTriggers(
               continue;
             }
             firedDefIds.add(card.definitionId as string);
-            const possessions = [
-              ...char.items.map(i => i.instanceId),
-              ...char.allies.map(a => a.instanceId),
-              ...char.hazards.map(h => h.instanceId),
-            ];
+            const possessions = characterPossessions(char);
             logDetail(`"${def?.name}": ${charDef.name} made a successful influence attempt — corruption check (modifier ${formatSignedNumber(step.modifier ?? 0)})`);
             next = enqueueCorruptionCheck(next, {
               source: card.instanceId,
@@ -4467,10 +4455,6 @@ export function resolveOpponentInfluenceDefend(
   const rng = rolled ? rolled.rng : state.rng;
   const cheatRollTotal = rolled ? rolled.cheatRollTotal : state.cheatRollTotal;
 
-  const rollEffects = rolled
-    ? [diceRollEffect(opponent.name, rolled.roll, `Opponent influence: defense`)]
-    : [];
-
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll
   //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
@@ -4478,6 +4462,7 @@ export function resolveOpponentInfluenceDefend(
   const regionPenalty = attempt.regionPenalty ?? 0;
   const boostModifier = attempt.boostModifier ?? 0;
   const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty + boostModifier;
+  const succeeded = attempt.autoSuccess || finalResult > attempt.targetMind;
 
   if (attempt.autoSuccess) {
     logDetail(`Opponent influence resolution: automatically successful (no defence roll)`);
@@ -4485,9 +4470,29 @@ export function resolveOpponentInfluenceDefend(
     logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
   }
 
+  // The player-facing dice-roll toast is the only place the outcome of this
+  // check reaches the client — carry the full formula and verdict in the
+  // label so a player can verify the math from the log instead of having to
+  // infer success/failure from the resulting state diff.
+  const targetDef = resolveDef(state, attempt.targetInstanceId);
+  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef) || isFactionCard(targetDef) || isItemCard(targetDef))
+    ? targetDef.name : '?';
+  const influencerDef = resolveDef(state, attempt.influencerId);
+  const influencerName = influencerDef && isCharacterCard(influencerDef) ? influencerDef.name : '?';
+  const verdict = succeeded
+    ? `succeeded (${attempt.autoSuccess ? 'automatic' : `${finalResult} > ${attempt.targetMind}`})`
+    : `failed (${finalResult} <= ${attempt.targetMind})`;
+  const rollEffects = rolled
+    ? [diceRollEffect(
+        opponent.name,
+        rolled.roll,
+        `Opponent influence: ${influencerName} vs ${targetName} — ${attempt.attackerRoll} (attack) + ${attempt.influencerDI} (DI) - ${attempt.opponentGI} (GI) - ${defenderRoll} (defense) - ${attempt.controllerDI} (controller DI) = ${finalResult} vs mind ${attempt.targetMind} → ${verdict}`,
+      )]
+    : [];
+
   const newPlayers = clonePlayers(state);
 
-  if (attempt.autoSuccess || finalResult > attempt.targetMind) {
+  if (succeeded) {
     // Success — discard target and controlled non-follower cards
     logDetail(attempt.autoSuccess
       ? `Opponent influence succeeded (automatic)`
@@ -4897,11 +4902,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
           }
 
           logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
-          const possessions = [
-            ...bearer.items.map(i => i.instanceId),
-            ...bearer.allies.map(a => a.instanceId),
-            ...bearer.hazards.map(h => h.instanceId),
-          ];
+          const possessions = characterPossessions(bearer);
           for (const item of otherItems) {
             const itemDef = defById(newState, item.definitionId);
             const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;

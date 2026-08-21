@@ -21,10 +21,17 @@
  * covers the play-time half of the card: the sage/site play conditions, the
  * tap costs, the corruption check on entering play, and the
  * bearer-cannot-untap-until-stored lock (same primitives as the sibling
- * Reforging tw-314, itself fixed for an identical empty-effects bug). The
- * "once stored, combine with Narsil into a single bearer-boosting item"
- * clause is a separate, much larger mechanic (no reforging/combination
- * primitive exists in the engine at all) and is left for a follow-up pass.
+ * Reforging tw-314, itself fixed for an identical empty-effects bug).
+ *
+ * Regression: a second bug report (msg 33fc9d48b98a2470) showed a stored
+ * Andúril offering no way to discard a stored Reforging and combine with
+ * Narsil — the "once stored, combine with Narsil" clause had no DSL
+ * primitive at all (see `place-source-with-item` / `storedCombineGrantActions`
+ * / `handleStoredCardGrantAction`). The combine action itself — moving
+ * Andúril out of storage and onto Narsil's bearer — is covered below.
+ * Andúril's post-combine stat bonuses (+4 marshalling points, +4 prowess,
+ * +1 direct influence, +1 corruption point) and its tap-to-untap-a-Dúnadan
+ * ability are not yet certified and remain a follow-up.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -34,17 +41,19 @@ import {
   resetMint,
   buildSitePhaseState,
   buildTestState, makePlayDeck,
-  findCharInstanceId,
+  findCharInstanceId, findInPile,
   viableActions, viableFor, dispatch, resolveChain,
   GALADRIEL, ARAGORN, RIVENDELL, LORIEN, LEGOLAS,
   mint, addToPile,
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction, GameAction } from '../../index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const ANDURIL = 'tw-192' as CardDefinitionId;
+const NARSIL = 'tw-289' as CardDefinitionId;
+const REFORGING = 'tw-314' as CardDefinitionId;
 const AMON_HEN = 'tw-371' as CardDefinitionId; // ruins-and-lairs, Information playable
 const TOLFALAS = 'tw-433' as CardDefinitionId; // ruins-and-lairs, NO Information
 
@@ -254,5 +263,93 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
     );
     const state = recomputeDerived(stored);
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+  });
+
+  // ── Organization-phase combine: discard a stored Reforging, place Andúril
+  //    with Narsil (bug report msg 33fc9d48b98a2470) ──
+
+  function combineState(opts: { withReforging?: boolean; narsilBearer?: boolean }) {
+    const site = RIVENDELL;
+    const withReforging = opts.withReforging ?? true;
+    const bearNarsil = opts.narsilBearer ?? true;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site, characters: [bearNarsil ? { defId: ARAGORN, items: [NARSIL] } : ARAGORN] }],
+          hand: [],
+          siteDeck: [AMON_HEN],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+    let stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: ANDURIL, storedAtSite: site },
+    );
+    if (withReforging) {
+      stored = addToPile(
+        stored, RESOURCE_PLAYER, 'killPile',
+        { instanceId: mint(), definitionId: REFORGING, storedAtSite: site },
+      );
+    }
+    return recomputeDerived(stored);
+  }
+
+  test('offers discard-stored-Reforging + combine when a stored Reforging and a Narsil bearer are both present', () => {
+    const state = combineState({});
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const matches = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .filter(a => a.actionId === 'anduril-combine-with-narsil');
+
+    expect(matches.some(a => a.targetCardId === reforgingId && a.recipientCharacterId === aragornId)).toBe(true);
+  });
+
+  test('activating it discards the stored Reforging and places Andúril with Narsil on the bearer', () => {
+    const state = combineState({});
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const act = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .find(a => a.actionId === 'anduril-combine-with-narsil' && a.targetCardId === reforgingId && a.recipientCharacterId === aragornId);
+    expect(act).toBeDefined();
+
+    const after = dispatch(state, act as GameAction);
+
+    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId];
+    expect(aragorn.items.some(i => i.definitionId === NARSIL)).toBe(true);
+    const placed = aragorn.items.find(i => i.definitionId === ANDURIL);
+    expect(placed).toBeDefined();
+    expect(placed!.status).toBe(CardStatus.Untapped);
+
+    // Andúril leaves the marshalling-point pile; the stored Reforging is
+    // discarded (not returned to storage).
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === ANDURIL)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === REFORGING)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === REFORGING)).toBe(true);
+  });
+
+  test('NOT offered when there is no stored Reforging', () => {
+    const state = combineState({ withReforging: false });
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'anduril-combine-with-narsil');
+    expect(offered).toBe(false);
+  });
+
+  test('NOT offered when no character bears Narsil', () => {
+    const state = combineState({ narsilBearer: false });
+    const offered = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as { actionId?: string })
+      .some(a => a.actionId === 'anduril-combine-with-narsil');
+    expect(offered).toBe(false);
   });
 });

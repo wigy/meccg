@@ -17,7 +17,7 @@
  *     1. faction-mp-override — the player's *unique* factions whose race is NOT
  *        one of Man/Dwarf/Dúnadan/Hobbit/Orc/Troll are each worth 2 MP, replacing
  *        both the printed value and the MEWH §4 flat-1 Fallen-wizard clamp.
- *     2. fw-ally-mp-full (player-wide, filter cardType hero-resource-ally) — the
+ *     2. fw-mp-full (cards: allies) (player-wide, filter cardType hero-resource-ally) — the
  *        player's hero allies score full printed MP instead of the §4 1-MP clamp.
  *     3. ally-movement-restriction-exemption (filter cardType hero-resource-ally)
  *        — the player's hero allies are exempt from their printed "Discard if the
@@ -128,7 +128,7 @@ describe('Radagast (wh-8)', () => {
 
   test('a hero ally scores full printed MP (2) while Radagast is in play', () => {
     // Treebeard (hero-resource-ally, printed 2). MEWH §4 would clamp him to 1;
-    // Radagast's fw-ally-mp-full lifts hero allies to full printed MP.
+    // Radagast's fw-mp-full (cards: allies) lifts hero allies to full printed MP.
     let state = fwState(RADAGAST_FW);
     state = attachAllyToChar(state, RESOURCE_PLAYER, RADAGAST_FW, TREEBEARD);
     state = recomputeDerived(state);

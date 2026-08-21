@@ -43,6 +43,7 @@ import type { MpDelta, MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
 /** Action types this module scores. */
@@ -199,17 +200,13 @@ function evaluateSupport(action: GameAction, context: ModuleContext): Evaluation
       + 'less chance of losing them',
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-
-  return {
+  return scoredEvaluation({
     action,
     module: 'corruption',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node('support a corruption check', scored.utility, [
+    standing,
+    headline: 'support a corruption check',
+    detail: [
       node('what the +1 buys', averted, [
         leaf('need on 2d6', check.need, { note: 'published by the engine on the check itself' }),
         leaf('P(the check holds)', pWithout, { unit: 'p' }),
@@ -222,14 +219,13 @@ function evaluateSupport(action: GameAction, context: ModuleContext): Evaluation
         }),
       ], { unit: 'tsd' }),
       leaf('the tap it spends', tap.tsd, { unit: 'tsd', note: tap.reason }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       ...ASSUMPTIONS,
       'only one supporter is priced at a time; several characters tapping for +1 each are scored '
       + 'as separate decisions, so the second is valued against a check the first already helped',
     ],
-  };
+  });
 }
 
 export const corruptionModule: H2Module = {
@@ -294,7 +290,6 @@ export const corruptionModule: H2Module = {
       dtsd: o.dtsd - unavoidable + tunables.gatingResolutionTsd,
     }));
 
-    const scored = standing.score(decided);
     const detail: Rationale[] = [
       leaf('the roll is coming either way', -unavoidable, {
         unit: 'tsd',
@@ -319,19 +314,14 @@ export const corruptionModule: H2Module = {
       leaf('what else is lost', lossCost.tsd, { unit: 'tsd', note: lossCost.reason }),
     ];
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'corruption',
       outcomes: decided,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node('corruption check', scored.utility, [
-        node('check', fields.need, detail),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: 'corruption check',
+      detail: [node('check', fields.need, detail)],
       assumptions: ASSUMPTIONS,
-    };
+    });
   },
 };

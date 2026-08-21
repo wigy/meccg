@@ -24,10 +24,10 @@ import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
-import { resolveDef, enemyRaceContext } from '../effects/index.js';
+import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
+import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
@@ -1479,7 +1479,7 @@ function resolveStrikeActions(
   // effect. Mode is determined by effect flags: cancel (outright, no roll),
   // dodge (no-tap), reroll (two rolls), or default (prowess/body accumulator).
   // All four emit `play-strike-event`.
-  const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
+  const struckSkills = charData && charDef && isCharacterCard(charDef) ? getEffectiveSkills(state, charData, charDef) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
     const strikeEffect = getCardEffects(cardDef).find(
@@ -2744,9 +2744,7 @@ function cancelAttackActions(
     // "Playable if …" gates on the player's own state (e.g. Eye Never
     // Sleeping as-82: playable only while the player counts as Sauron) apply
     // whenever the card is played from hand.
-    const covertModePlayerState = findPlayConditionEffect(def, 'player-state');
-    if (covertModePlayerState?.condition
-      && !matchesCondition(covertModePlayerState.condition, buildPlayerStateContext(state, player, playerId))) {
+    if (!playerStateGateMet(state, player, playerId, def)) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: play-condition player-state not satisfied`);
       continue;
     }
@@ -2796,9 +2794,7 @@ function cancelAttackActions(
     // player's own state, evaluated against the same context as the
     // organization-phase and any-phase short-event paths. Eye Never Sleeping
     // (as-82): "Playable if you are Sauron" via player.playsAsSauron.
-    const playerStateCondition = findPlayConditionEffect(cardDef, 'player-state');
-    if (playerStateCondition?.condition
-      && !matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+    if (!playerStateGateMet(state, player, playerId, cardDef)) {
       logDetail(`Cancel-attack ${handCard.definitionId as string}: play-condition player-state not satisfied`);
       continue;
     }

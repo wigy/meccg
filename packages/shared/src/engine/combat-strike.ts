@@ -676,7 +676,18 @@ export function eliminateCombatantFromStrike(
     );
   }
   const elimCharDefId = resolveInstanceId(state, strike.characterId);
-  newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+  const elimCharInstance = { instanceId: strike.characterId, definitionId: elimCharDefId! };
+  // CoE rule 3.v: in company vs. company combat, a defending character
+  // eliminated by the attacker's strike awards its MP value to the attacker
+  // as kill MP (killPile), mirroring the `attacker-character` body-check-target
+  // path in combat-actions.ts. Outside CvCC (e.g. a hazard creature killing a
+  // hero character), the eliminated character simply leaves play.
+  if (combat.isCvCC) {
+    const atkPlayerIdx = getPlayerIndex(state, combat.attackingPlayerId);
+    newPlayers2[atkPlayerIdx] = { ...newPlayers2[atkPlayerIdx], killPile: [...newPlayers2[atkPlayerIdx].killPile, elimCharInstance] };
+  } else {
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, elimCharInstance];
+  }
 
   // Discard allies on the eliminated character immediately (an ally that returns
   // to hand when its controller leaves play — Radagast's Black Bird wh-114 —

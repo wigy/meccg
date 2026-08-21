@@ -807,7 +807,7 @@
       },
       {
         "type": "duplication-limit",
-        "scope": "turn",
+        "scope": "site",
         "max": 1
       },
       {

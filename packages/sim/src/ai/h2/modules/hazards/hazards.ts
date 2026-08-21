@@ -72,6 +72,7 @@ import type {
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { computeExposure } from '../../services/exposure.js';
@@ -377,7 +378,6 @@ function evaluateBundle(
   const outcomes = forgoneTsd === 0
     ? scaled
     : scaled.map(o => ({ ...o, dtsd: o.dtsd - forgoneTsd }));
-  const scored = standing.score(outcomes);
   const plannedWith = bundle.cards.slice(1);
 
   const detail: Rationale[] = [...plan.detail];
@@ -409,23 +409,18 @@ function evaluateBundle(
     }));
   }
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'hazards',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(headline, scored.utility, [
-      node('bundle', bundle.cards.map(c => c.name).join(' + '), detail),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline,
+    detail: [node('bundle', bundle.cards.map(c => c.name).join(' + '), detail)],
     assumptions: bundle.merged
       ? [...ASSUMPTIONS, 'the strike enumeration merged states to stay inside its cap, so the '
         + 'outcome list is a summary of the distribution rather than the whole of it']
       : ASSUMPTIONS,
-  };
+  });
 }
 
 /**
@@ -695,17 +690,14 @@ function evaluateHazardEvent(
 
   const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.provisionalCardPrice }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
-  const scored = standing.score(outcomes);
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'hazards',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`play ${name}`, scored.utility, [
+    standing,
+    headline: `play ${name}`,
+    detail: [
       node('the event', gain.tsd, [
         leaf('event', name),
         leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
@@ -714,8 +706,7 @@ function evaluateHazardEvent(
           tunable: 'provisionalCardPrice',
         }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'a hazard event is priced by what the action targets or by the family its effects declare, '
       + 'never by its text: an event that also restricts or enables something is under-valued',
@@ -728,7 +719,7 @@ function evaluateHazardEvent(
       + 'event gated on something unmodelled is under-valued rather than over-valued',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /** What taking a named card out of the opponent's play is worth. */
@@ -875,16 +866,13 @@ function freeOption(
     label: `place ${name} face down — it returns to hand unless it is revealed`,
     dtsd: 0,
   }];
-  const scored = context.standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'hazards',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`place ${name} on guard`, scored.utility, [
+    standing: context.standing,
+    headline: `place ${name} on guard`,
+    detail: [
       node('a free option', 0, [
         leaf('card', name),
         leaf('cost of placing it', 0, {
@@ -893,8 +881,7 @@ function freeOption(
         }),
         leaf('worth of revealing it', 0, { unit: 'tsd', note: why }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'a placement is priced as costing nothing, because an unrevealed on-guard card returns to '
       + 'hand; what placing it gives away by being there at all is not modelled',
@@ -902,7 +889,7 @@ function freeOption(
       + 'than nothing — which is why the floor is zero rather than the reveal\'s value',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /** Score a lone card for on-guard when the hazard limit left no slot to plan it. */

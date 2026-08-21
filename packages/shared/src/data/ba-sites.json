@@ -909,6 +909,13 @@
       {
         "type": "site-rule",
         "rule": "attacks-not-detainment"
+      },
+      {
+        "type": "site-rule",
+        "rule": "no-storage",
+        "when": {
+          "player.alignment": "balrog"
+        }
       }
     ],
     "resourceDraws": 2,

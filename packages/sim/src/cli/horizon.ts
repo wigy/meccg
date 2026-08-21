@@ -25,7 +25,7 @@
 
 import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import { playGame } from '../runner.js';
-import { parseCliArgs, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 import type { Agent, AgentContext, GameObserver } from '../types.js';
 import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
@@ -53,11 +53,7 @@ Options:
   --help            this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const games = numberFlag(args, 'games', 8);

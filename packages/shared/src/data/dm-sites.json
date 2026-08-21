@@ -293,8 +293,13 @@
     "effects": [
       {
         "type": "site-rule",
-        "rule": "cancel-first-attack-if-in-play",
-        "definitionId": "tw-12"
+        "rule": "cancel-auto-attacks",
+        "scope": "first",
+        "when": {
+          "inPlayAnywhere": {
+            "$includes": "Balrog of Moria"
+          }
+        }
       },
       {
         "type": "site-rule",

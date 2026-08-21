@@ -24,7 +24,7 @@
  * The "does not give MPs to a Fallen-wizard" line is the `fw-mp-none` marker
  * (added with Palantír of Elostirion le-332, which prints the same clause and
  * carries its coverage): a Fallen-wizard scores 0 MP for the item, ahead of the
- * MEWH §4 clamp, Saruman's `fw-item-mp-full` exemption and every MP override.
+ * MEWH §4 clamp, Saruman's `fw-mp-full (cards: items)` exemption and every MP override.
  * The hero twin tw-300 carries the same marker.
  *
  * This is the minion (Ringwraith) twin of Palantír of Orthanc (tw-300); the

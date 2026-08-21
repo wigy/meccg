@@ -21,7 +21,7 @@ import { computeLegalActions } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getEffectiveSiteType } from '../../engine/effective.js';
 import {
-  buildTestState, buildSitePhaseState, resetMint, viableActions,
+  buildTestState, buildSitePhaseState, buildFallenWizardSitePhaseState, resetMint, viableActions,
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   HAUBERK_OF_BRIGHT_MAIL,
@@ -30,6 +30,8 @@ import {
 
 const THE_UNDER_GATES = 'dm-38' as CardDefinitionId; // under-deeps, shadow-hold, adj Moria(0)
 const DWARVEN_LIGHT_STONE = 'dm-168' as CardDefinitionId; // special subtype; playable at any Under-deeps site
+const DEEP_MINES = 'wh-55' as CardDefinitionId; // Fallen-wizard Ruins & Lairs, Under-deeps analog (no printed keyword)
+const SARUMAN_FW = 'wh-9' as CardDefinitionId; // Fallen-wizard avatar (company character)
 
 /** Set a company's specialMovement (no CompanySetup field exposes it). */
 function withGwaihir(state: GameState): GameState {
@@ -175,6 +177,22 @@ describe('MEAS §6 — Under-deeps site sub-rules', () => {
     const base = buildSitePhaseState({
       site: THE_UNDER_GATES,
       characters: [ARAGORN],
+      hand: [DWARVEN_LIGHT_STONE],
+      siteStatus: CardStatus.Tapped,
+    });
+    const state: GameState = { ...base, phaseState: { ...base.phaseState, minorItemAvailable: true } as typeof base.phaseState };
+    expect(viableActions(state, PLAYER_1, 'play-hero-resource').length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('(f) Deep Mines (wh-55) counts as an Under-deeps site for the bonus item, though it carries no printed keyword', () => {
+    // Regression: a second Dwarven Light-stone was rejected with "site is
+    // already tapped" at Deep Mines, because the bonus-item widening only
+    // checked the literal `under-deeps` keyword. CoE g.sur.F1 and the Deep
+    // Mines CRF errata both treat Deep Mines as an Under-deeps-style site
+    // (isDeepMinesSite), so the rule 2.V.5.1 bonus must widen here too.
+    const base = buildFallenWizardSitePhaseState({
+      site: DEEP_MINES,
+      characters: [SARUMAN_FW],
       hand: [DWARVEN_LIGHT_STONE],
       siteStatus: CardStatus.Tapped,
     });

@@ -43,6 +43,54 @@ function discardOrBecomePlayDeck(player: PlayerState, card: CardInstance): Pick<
 }
 
 /**
+ * Dispatch the actions that both interactive end-of-turn steps (discard and
+ * signal-end) accept identically, per the rules that make them
+ * phase/step-independent:
+ *
+ * - `activate-granted-action` — end-of-turn-phase grant-actions (e.g.
+ *   Saruman's/Huntsman's Garb's spell/card fetch, wh-92). CRF 22: these may
+ *   be activated both in the discard step and after hand size has been
+ *   reconciled during signal-end (see `legal-actions/end-of-turn.ts`).
+ * - `store-item` — Safe from the Shadow / Tokens to Show: storing allowed
+ *   during EOT.
+ * - `play-short-event` / `play-permanent-event` — Rule 2.1.1 / CoE 2.VI:
+ *   resource events may be played during any phase, including between
+ *   end-of-turn steps. Playing one does NOT mark the player done for the
+ *   discard step.
+ * - `play-character` — CRF 22 (A Chance Meeting tw-188): "may be played on
+ *   your turn during any phase the company is at a site" — the recruit is
+ *   offered as a `play-character` carrying `viaEventInstanceId` (see
+ *   `legal-actions/end-of-turn.ts`'s `recruitViaEventActions` call). Shared
+ *   with the organization/M-H/site phases; guarded there on not being the
+ *   organization phase for the one-character-per-turn bookkeeping.
+ * - `haven-return` / `run-home` — company relocation options that stay open
+ *   through the end-of-turn phase.
+ *
+ * Returns null when the action is none of these, so the caller can fall
+ * through to its step-specific error.
+ */
+function handleSharedEndOfTurnAction(state: GameState, action: GameAction): ReducerResult | null {
+  switch (action.type) {
+    case 'activate-granted-action':
+      return handleGrantActionApply(state, action);
+    case 'store-item':
+      return handleStoreItem(state, action);
+    case 'play-short-event':
+      return handlePlayResourceShortEvent(state, action);
+    case 'play-permanent-event':
+      return handlePlayPermanentEvent(state, action);
+    case 'play-character':
+      return handlePlayCharacter(state, action);
+    case 'haven-return':
+      return handleHavenReturn(state, action);
+    case 'run-home':
+      return handleRunHome(state, action);
+    default:
+      return null;
+  }
+}
+
+/**
  * End-of-turn phase handler (CoE 2.VI).
  *
  * Dispatches to sub-step handlers:
@@ -66,14 +114,6 @@ export function handleEndOfTurn(state: GameState, action: GameAction): ReducerRe
     }
   }
 }
-
-/**
- * Step 1 (discard): Either player may discard a card from hand.
- *
- * Both players act independently. Each may discard one card or pass.
- * Once both have acted (discard or pass), advance to reset-hand.
- */
-
 
 /**
  * Step 1 (discard): Either player may discard a card from hand.
@@ -133,48 +173,8 @@ function handleEndOfTurnDiscard(
     return markDone(updatedState, eotState);
   }
 
-  if (action.type === 'activate-granted-action') {
-    // End-of-turn-phase grant-actions (e.g. Saruman's/Huntsman's Garb's
-    // spell/card fetch) offered in the discard step (see
-    // `legal-actions/end-of-turn.ts`). Delegate to the shared apply dispatcher.
-    return handleGrantActionApply(state, action);
-  }
-
-  if (action.type === 'store-item') {
-    // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
-    return handleStoreItem(state, action);
-  }
-
-  // Rule 2.1.1 / CoE 2.VI: resource short-events may be played during any
-  // phase, including between end-of-turn steps. Playing a short event does
-  // NOT mark the player done for the discard step.
-  if (action.type === 'play-short-event') {
-    return handlePlayResourceShortEvent(state, action);
-  }
-
-  // Rule 2.1.1: resource permanent-events may likewise be played during the
-  // discard step (see `legal-actions/end-of-turn.ts`'s `playPermanentEventActions`).
-  if (action.type === 'play-permanent-event') {
-    return handlePlayPermanentEvent(state, action);
-  }
-
-  // CRF 22 (A Chance Meeting tw-188): "may be played on your turn during any
-  // phase the company is at a site" — the recruit is offered here as a
-  // `play-character` carrying `viaEventInstanceId` (see
-  // `legal-actions/end-of-turn.ts`'s `recruitViaEventActions` call). Shared
-  // with the organization/M-H/site phases; guarded there on not being the
-  // organization phase for the one-character-per-turn bookkeeping.
-  if (action.type === 'play-character') {
-    return handlePlayCharacter(state, action);
-  }
-
-  if (action.type === 'haven-return') {
-    return handleHavenReturn(state, action);
-  }
-
-  if (action.type === 'run-home') {
-    return handleRunHome(state, action);
-  }
+  const shared = handleSharedEndOfTurnAction(state, action);
+  if (shared) return shared;
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
 }
@@ -364,12 +364,6 @@ function checkEndOfTurnSiteWin(state: GameState): PlayerId | null {
  * Step 3 (signal-end): Resource player signals end of turn.
  * Pass switches the active player and advances to the next turn's Untap phase.
  */
-
-
-/**
- * Step 3 (signal-end): Resource player signals end of turn.
- * Pass switches the active player and advances to the next turn's Untap phase.
- */
 function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): ReducerResult {
   if (action.type === 'pass' && action.player !== state.activePlayer) {
     // Non-active player declining their optional allow-store-eot storing
@@ -448,43 +442,8 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     return { state: triggerCouncilCall(state, action.player, 'opponent') };
   }
 
-  if (action.type === 'store-item') {
-    // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
-    return handleStoreItem(state, action);
-  }
-
-  if (action.type === 'activate-granted-action') {
-    // CRF 22: end-of-turn-phase grant-actions (e.g. Huntsman's Garb wh-92)
-    // may be activated after hand size has been reconciled — i.e. during
-    // signal-end too, not just the discard step (see `legal-actions/end-of-turn.ts`).
-    return handleGrantActionApply(state, action);
-  }
-
-  // Rule 2.1.1 / CoE 2.VI: resource short-events may be played during any
-  // phase, including at the signal-end step before passing to end the turn.
-  if (action.type === 'play-short-event') {
-    return handlePlayResourceShortEvent(state, action);
-  }
-
-  // Rule 2.1.1: resource permanent-events may likewise be played during the
-  // signal-end step (see `legal-actions/end-of-turn.ts`'s `playPermanentEventActions`).
-  if (action.type === 'play-permanent-event') {
-    return handlePlayPermanentEvent(state, action);
-  }
-
-  // CRF 22 (A Chance Meeting tw-188): recruit offered via `recruitViaEventActions`
-  // during the signal-end step too — see the discard-step handler above.
-  if (action.type === 'play-character') {
-    return handlePlayCharacter(state, action);
-  }
-
-  if (action.type === 'haven-return') {
-    return handleHavenReturn(state, action);
-  }
-
-  if (action.type === 'run-home') {
-    return handleRunHome(state, action);
-  }
+  const shared = handleSharedEndOfTurnAction(state, action);
+  if (shared) return shared;
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };
 }

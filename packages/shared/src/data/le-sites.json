@@ -403,6 +403,13 @@
             "$includes": "The One Ring"
           }
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "no-storage",
+        "when": {
+          "player.alignment": "balrog"
+        }
       }
     ],
     "certified": "2026-06-02",

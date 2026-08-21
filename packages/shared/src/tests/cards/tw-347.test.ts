@@ -47,10 +47,12 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   computeLegalActions, RegionType, SiteType,
 } from '../../index.js';
-import type { CardDefinitionId, CharacterCard, GameState, CancelStrikeAction, CorruptionCheckAction } from '../../index.js';
+import type { CardDefinitionId, CharacterCard, GameState, CancelStrikeAction, CorruptionCheckAction, StoreItemAction } from '../../index.js';
 
 /** Precious Gold Ring (tw-306) — its test table indicates The One Ring on a total of 10+. */
 const PRECIOUS_GOLD_RING = 'tw-306' as CardDefinitionId;
+/** Glamdring (tw-244) — an ordinary major item, storable at any Haven. */
+const GLAMDRING = 'tw-244' as CardDefinitionId;
 /** Ûvatha the Horseman (tw-107) — a Nazgûl (race `ringwraith`) hazard creature. */
 const UVATHA = 'tw-107' as CardDefinitionId;
 
@@ -379,5 +381,24 @@ describe('The One Ring (tw-347)', () => {
     const cancelActions = computeLegalActions(r, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'cancel-strike');
     expect(cancelActions).toHaveLength(0);
+  });
+
+  // ── Rule g.sto.1: The One Ring cannot be stored ──
+
+  test('is NOT offered by store-item at a Haven, unlike an ordinary item on the same bearer', () => {
+    // `play-flag: no-store` — rule g.sto.1: "The One Ring cannot be stored".
+    // Glamdring on the same bearer at the same Haven IS storable, proving the
+    // suppression is the Ring's flag rather than the site or the bearer.
+    const base = stateWithRing(ARAGORN);
+    const state = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, GLAMDRING);
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const items = state.players[RESOURCE_PLAYER].characters[aragornId].items;
+    const ringId = items.find(i => i.definitionId === THE_ONE_RING)!.instanceId;
+    const glamdringId = items.find(i => i.definitionId === GLAMDRING)!.instanceId;
+
+    const stores = viableActions(state, PLAYER_1, 'store-item').map(ea => ea.action as StoreItemAction);
+    expect(stores.some(a => a.itemInstanceId === glamdringId)).toBe(true);
+    expect(stores.some(a => a.itemInstanceId === ringId)).toBe(false);
   });
 });

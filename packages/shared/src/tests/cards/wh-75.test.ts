@@ -106,8 +106,9 @@ const TROLL_CHIEF = 'le-45' as CardDefinitionId;
 // A hazard creature, used as a revealed on-guard attack for the cancellation test.
 const STOUT_MEN = 'as-21' as CardDefinitionId;
 
-// A creature keyed to Ruins & Lairs (site type), used for the movement/hazard
-// keyed-creature cancellation test.
+// A creature keyed to two Wildernesses (region types) or a Ruins & Lairs (site
+// type), used for the movement/hazard keyed-creature cancellation test. Only its
+// region keying survives the conversion — see that test for why.
 const CAVE_DRAKE = 'tw-020' as CardDefinitionId;
 
 function hiddenHavenInstanceId(state: GameState): CardInstanceId {
@@ -392,8 +393,18 @@ describe('Hidden Haven (wh-75)', () => {
     // The staying company has no destination — it is at the Wizardhaven.
     expect(company.destinationSite).toBeNull();
 
-    // Give the hazard player a Cave-drake (keyed to Ruins & Lairs) and put the
-    // active FW company into its play-hazards step against the Ruins & Lairs site.
+    // Give the hazard player a Cave-drake and put the active FW company into its
+    // play-hazards step. The drake is keyed *by region type* (wilderness ×2), not
+    // by site type: converting the site installs a `site.type` → haven override,
+    // and creature keying applies overrides with replacement semantics (see
+    // `resolveCreatureKeyingSiteType`), so the site no longer presents its printed
+    // Ruins & Lairs type to keying at all. Region keying is what still reaches a
+    // company at the converted site — and a staying company can legitimately carry
+    // a resolved site path (a `hazard-site-type-override` site rule, Geann a-Lisch
+    // le-374, re-exposes a non-moving company to path-keyed hazards).
+    //
+    // `destinationSiteName` mirrors what the engine records for a non-moving
+    // company (`handleRevealNewSite`: current site's name and printed type).
     const drakeId = 'wh75-mh-cave-drake' as CardInstanceId;
     const mhReady: GameState = {
       ...after,
@@ -407,16 +418,28 @@ describe('Hidden Haven (wh-75)', () => {
       ] as GameState['players'],
       phaseState: makeMHState({
         activeCompanyIndex: 0,
-        resolvedSitePath: [RegionType.Shadow],
-        resolvedSitePathNames: ['Brown Lands'],
+        resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+        resolvedSitePathNames: ['Rhudaur', 'Angmar'],
         destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Bandit Lair',
       }),
     };
     expect(mhReady.phaseState.phase).toBe(Phase.MovementHazard);
 
+    // The engine must actually offer this play — the reducer's validation and the
+    // legal-action list resolve the site the same way, so a keying the offer marks
+    // non-viable must never be dispatched here (that divergence is what let this
+    // test pass against a site-type keying the offer had already rejected).
+    const offered = computeLegalActions(mhReady, PLAYER_2).find(
+      a => a.action.type === 'play-hazard'
+        && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === drakeId,
+    );
+    expect(offered?.viable).toBe(true);
+    expect((offered?.action as { keyedBy?: { method?: string } }).keyedBy?.method).toBe('region-type');
+
     const resolved = playCreatureHazardAndResolve(
       mhReady, PLAYER_2, drakeId, company.id,
-      { method: 'site-type' as const, value: 'ruins-and-lairs' },
+      { method: 'region-type' as const, value: 'wilderness' },
     );
 
     // No combat was initiated…

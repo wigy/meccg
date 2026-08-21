@@ -53,11 +53,12 @@ export function updatePlayControls(): void {
   if (acceptBtn) acceptBtn.disabled = !hasDeck;
 }
 
-/** Render a deck item row for "My Decks" -- click to select as current. */
-function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
-  const missing = missingCards(deck);
-  const item = document.createElement('div');
-  item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
+/**
+ * Build the deck-info block shared by the "My Decks" and catalog rows: the
+ * deck name, a meta line, and warning chips for missing and uncertified
+ * cards.
+ */
+function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
   const info = document.createElement('div');
   info.className = 'lobby-deck-info';
   const nameEl = document.createElement('span');
@@ -65,25 +66,27 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
   nameEl.textContent = deck.name;
   const meta = document.createElement('span');
   meta.className = 'lobby-deck-meta';
-  meta.textContent = deck.alignment + (isCurrent ? ' \u2014 selected' : '');
+  meta.textContent = metaText;
   info.appendChild(nameEl);
   info.appendChild(meta);
-  if (missing.length > 0) {
+  const addWarning = (cards: readonly string[], label: string, extraClass: string): void => {
+    if (cards.length === 0) return;
     const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning';
-    warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
-    warn.title = missing.join(', ');
+    warn.className = 'lobby-deck-warning' + extraClass;
+    warn.textContent = `\u26A0 ${cards.length} ${label} card${cards.length > 1 ? 's' : ''}`;
+    warn.title = cards.join(', ');
     info.appendChild(warn);
-  }
-  const uncertified = uncertifiedCards(deck);
-  if (uncertified.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning lobby-deck-warning--uncertified';
-    warn.textContent = `\u26A0 ${uncertified.length} uncertified card${uncertified.length > 1 ? 's' : ''}`;
-    warn.title = uncertified.join(', ');
-    info.appendChild(warn);
-  }
-  item.appendChild(info);
+  };
+  addWarning(missingCards(deck), 'missing', '');
+  addWarning(uncertifiedCards(deck), 'uncertified', ' lobby-deck-warning--uncertified');
+  return info;
+}
+
+/** Render a deck item row for "My Decks" -- click to select as current. */
+function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
+  item.appendChild(buildDeckInfo(deck, deck.alignment + (isCurrent ? ' \u2014 selected' : '')));
   const btns = document.createElement('div');
   btns.style.display = 'flex';
   btns.style.gap = '0.4rem';
@@ -117,35 +120,9 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
 
 /** Render a deck item row for the catalog -- "Add" or "Owned". */
 function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void): HTMLElement {
-  const missing = missingCards(deck);
   const item = document.createElement('div');
   item.className = 'lobby-deck-item';
-  const info = document.createElement('div');
-  info.className = 'lobby-deck-info';
-  const nameEl = document.createElement('span');
-  nameEl.className = 'lobby-deck-name';
-  nameEl.textContent = deck.name;
-  const meta = document.createElement('span');
-  meta.className = 'lobby-deck-meta';
-  meta.textContent = deck.alignment;
-  info.appendChild(nameEl);
-  info.appendChild(meta);
-  if (missing.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning';
-    warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
-    warn.title = missing.join(', ');
-    info.appendChild(warn);
-  }
-  const uncertified = uncertifiedCards(deck);
-  if (uncertified.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning lobby-deck-warning--uncertified';
-    warn.textContent = `\u26A0 ${uncertified.length} uncertified card${uncertified.length > 1 ? 's' : ''}`;
-    warn.title = uncertified.join(', ');
-    info.appendChild(warn);
-  }
-  item.appendChild(info);
+  item.appendChild(buildDeckInfo(deck, deck.alignment));
   const btn = document.createElement('button');
   if (owned) {
     btn.textContent = 'Owned';

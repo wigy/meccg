@@ -25,7 +25,7 @@ import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -96,9 +96,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
       // evaluated against the player's avatar/alignment context, mirroring
       // the short-event path below (The Great Eye as-85: "Playable if you
       // are Sauron" via player.playsAsSauron).
-      const longPlayerStateCondition = findPlayConditionEffect(def, 'player-state');
-      if (longPlayerStateCondition?.condition
-          && !matchesCondition(longPlayerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+      if (!playerStateGateMet(state, player, playerId, def)) {
         logDetail(`${def.name}: play-condition player-state not satisfied`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
         continue;
@@ -320,13 +318,10 @@ export function heroResourceShortEventActions(
     // organization-phase path so any-phase and chain-window plays honour the
     // same gate (The Dark Power as-79: "Playable if you are Sauron" via
     // player.playsAsSauron).
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      if (!matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
-        logDetail(`${def.name}: play-condition player-state not satisfied`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`${def.name}: play-condition player-state not satisfied`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
+      continue;
     }
 
     // Skip short events whose effects are only usable during combat

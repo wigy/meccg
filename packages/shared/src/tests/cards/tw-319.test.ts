@@ -37,6 +37,7 @@ import type {
 } from '../../index.js';
 
 const RISKY_BLOW = 'tw-319' as CardDefinitionId;
+const TO_FEALTY_SWORN = 'ba-33' as CardDefinitionId;
 
 describe('Risky Blow (tw-319)', () => {
   beforeEach(() => resetMint());
@@ -181,6 +182,22 @@ describe('Risky Blow (tw-319)', () => {
     const actions = computeLegalActions(s1, PLAYER_1);
     const rbActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(rbActions.length).toBe(0);
+  });
+
+  test('play-strike-event available for a defender granted warrior by an attached item (To Fealty Sworn ba-33)', () => {
+    const s0 = setupCombatWithCaveDrake({
+      heroChars: [{ defId: BILBO, items: [TO_FEALTY_SWORN] }, LEGOLAS],
+      creatureDefId: CAVE_DRAKE,
+      heroHand: [RISKY_BLOW],
+    });
+    const s1 = assignBothStrikesTo(s0, BILBO);
+
+    const actions = computeLegalActions(s1, PLAYER_1);
+    const rbActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
+    expect(rbActions.length).toBe(1);
+    expect(actionAs<PlayStrikeEventAction>(rbActions[0].action).cardInstanceId).toBe(
+      handCardId(s1, RESOURCE_PLAYER),
+    );
   });
 
   test('Risky Blow is not playable as a short event during organization', () => {

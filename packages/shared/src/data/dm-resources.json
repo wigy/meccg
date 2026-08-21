@@ -97,7 +97,9 @@
         "type": "on-event",
         "event": "self-enters-play",
         "apply": {
-          "type": "offer-resource-play"
+          "type": "offer-resource-play",
+          "assumeInPlay": ["Gates of Morning"],
+          "assumeNotInPlay": ["Doors of Night"]
         }
       }
     ]

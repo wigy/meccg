@@ -292,6 +292,50 @@ describe('Rule 3.07 — Ringwraith Company Composition', () => {
     expect(soloRingwraithPaths.length).toBeGreaterThan(0);
   });
 
+  test('[MINION] a company mixing a Ringwraith with a non-Ringwraith character cannot plan movement anywhere, even to a Darkhaven', () => {
+    // Reproduces a reported bug: a Fell Rider-moded Ringwraith whose company
+    // still holds a non-Ringwraith character (e.g. Old Troll) was offered
+    // `plan-movement` toward a non-Darkhaven destination, which the
+    // movement-hazard phase's `declare-path` step then silently refused
+    // (rule 5.04), stranding the company at its origin having wasted the
+    // whole movement/hazard phase. `plan-movement` must not offer a
+    // destination it can never legally reach.
+    const mixed = recomputeDerived(buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [AKHORAHIL, ORC_CAPTAIN] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    }));
+    const moves = viableActions(mixed, PLAYER_1, 'plan-movement');
+    expect(moves).toHaveLength(0);
+
+    // A Ringwraith-only company at the same origin can plan the identical move.
+    const ringwraithOnly = recomputeDerived(buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [AKHORAHIL] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    }));
+    const soloMoves = viableActions(ringwraithOnly, PLAYER_1, 'plan-movement');
+    expect(soloMoves.length).toBeGreaterThan(0);
+  });
+
   test('[MINION] the forced-combine discard leaves companies without a Ringwraith alone', () => {
     const built = buildTestState({
       activePlayer: PLAYER_1,

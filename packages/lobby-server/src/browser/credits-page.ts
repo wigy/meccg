@@ -10,7 +10,7 @@
 
 import { appState, type ScreenId } from './app-state.js';
 import { apiGet } from './api.js';
-import { escapeHtml } from './html-utils.js';
+import { escapeHtml, formatDateTime } from './html-utils.js';
 
 // Forward-declared showScreen, set by the lobby module at startup to
 // avoid a circular dependency with lobby-screens.ts.
@@ -33,13 +33,6 @@ interface CreditHistoryEntry {
   readonly amount: number;
   readonly balance: number;
   readonly explanation: string;
-}
-
-/** Format an ISO datetime as a locale-friendly date+time. */
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
 }
 
 /** Show the credits page and load the history from the server. */
