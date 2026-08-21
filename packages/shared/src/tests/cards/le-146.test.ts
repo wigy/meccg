@@ -27,10 +27,10 @@
  * | 1 | play-restriction no-hazard-limit                  | OK     |
  * | 2 | play-condition site-path (wilderness/border/free)  | OK     |
  * | 3 | play-condition: blocked if Doors of Night in play  | OK     |
- * | 4 | mass-body-check modifier -1 for each character    | OK     |
- * | 5 | Orc/Troll fail → discarded (returned to hand)     | OK     |
- * | 6 | Non-Orc untapped fail → tapped                    | OK     |
- * | 7 | Non-Orc tapped fail → no effect                   | OK     |
+ * | 4 | mass-body-check, -1 roll modifier (CoE 3.I.1)     | OK     |
+ * | 5 | Orc/Troll discarded on printed discard number     | OK     |
+ * | 6 | Untapped fail → tapped (Orc/Troll included)       | OK     |
+ * | 7 | Tapped fail → no effect                           | OK     |
  * | 8 | All characters pass → no effect                   | OK     |
  *
  * Playable: YES
@@ -194,10 +194,11 @@ describe('Veils Flung Away (le-146)', () => {
 
   // ── Body check: Orc/Troll discard ─────────────────────────────────────────
 
-  test('Orc character is discarded (to discard pile) when body check fails', () => {
-    // Orc Captain: discardBodyCheck [8], modifier -1, effective threshold 7.
-    // Per CoE 3.I.1, a body check fails when the roll is HIGHER than the
-    // threshold. Force roll of 10 (> 7) to trigger failure.
+  test('Orc character is discarded (to discard pile) when the modified total matches his printed discard number', () => {
+    // Orc Captain: body 8, discardBodyCheck [8], roll modifier -1 (CoE 3.I.1:
+    // modifiers apply to the roll). "Discarded as indicated on their cards" —
+    // the modified total must MATCH a printed discard number. Force a roll of
+    // 9: total 9 - 1 = 8 ∈ [8] → discarded.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -224,16 +225,19 @@ describe('Veils Flung Away (le-146)', () => {
     expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
 
-    // Orc Captain: discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7.
+    // Orc Captain: threshold = body 8; the -1 rides the roll as a modifier;
+    // discard band [8] carried as matchOutcome values.
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === orcId);
     expect(dc).toBeDefined();
     if (dc?.kind.type === 'dice-check') {
       expect(dc.kind.targetCharacterId).toBe(orcId);
-      expect(dc.kind.threshold).toBe(7);
+      expect(dc.kind.threshold).toBe(8);
+      expect(dc.kind.modifiers).toEqual([{ kind: 'constant', value: -1 }]);
+      expect(dc.kind.matchOutcome?.values).toEqual([8]);
     }
 
-    // Force roll of 10 (> 7 effective body) → fail
-    s = { ...s, cheatRollTotal: 10 };
+    // Force roll of 9 → modified total 8 matches the discard number
+    s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -247,9 +251,38 @@ describe('Veils Flung Away (le-146)', () => {
     expect(discardDefIds).toContain(ORC_CAPTAIN);
   });
 
+  test('Orc character failing above his discard number is tapped, not discarded', () => {
+    // Orc Captain: body 8, discard [8]. Force a roll of 10: total 10 - 1 = 9
+    // misses the discard band and exceeds body → an ordinary failed check,
+    // which per the card text merely taps an untapped character.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [ORC_CAPTAIN] }], hand: [], siteDeck: [EDORAS_LE] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [ASTERNAK] }], hand: [VEILS_FLUNG_AWAY], siteDeck: [MORIA_LE] },
+      ],
+    });
+    let s: GameState = { ...state, phaseState: makeWildernessMH() };
+    const orcId = findCharInstanceId(s, RESOURCE_PLAYER, ORC_CAPTAIN);
+    const veilId = handCardId(s, HAZARD_PLAYER);
+
+    s = dispatch(s, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: veilId, targetCompanyId: P1_COMPANY });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    s = { ...s, cheatRollTotal: 10 };
+    const rollActions = computeLegalActions(s, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
+    s = dispatch(s, rollActions[0].action);
+
+    expectCharInPlay(s, RESOURCE_PLAYER, orcId);
+    expectCharStatus(s, RESOURCE_PLAYER, ORC_CAPTAIN, CardStatus.Tapped);
+  });
+
   test('Orc character stays when body check passes', () => {
-    // Orc Captain: body 8, effective threshold 7.
-    // Force roll of 7 (= effective body) → passes.
+    // Orc Captain: body 8, discard [8]. Force roll of 7: total 6 misses the
+    // band and does not exceed body → no effect.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -267,21 +300,22 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
     expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
 
-    // Force roll of 7 (= effective body) → passes
+    // Force roll of 7 → total 6, misses band, ≤ body → passes
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
-    // Orc Captain should still be in play
+    // Orc Captain should still be in play and untouched
     expectCharInPlay(s, RESOURCE_PLAYER, orcId);
+    expectCharStatus(s, RESOURCE_PLAYER, ORC_CAPTAIN, CardStatus.Untapped);
   });
 
   // ── Body check: non-Orc/Troll tap ─────────────────────────────────────────
 
   test('untapped non-Orc character becomes tapped when body check fails', () => {
-    // Asternak: body 7, modifier -1, effective threshold 6.
-    // Force roll of 9 (> 6) → fail. Character is untapped → should be tapped.
+    // Asternak: body 7, roll modifier -1. Force roll of 9: total 8 > 7 →
+    // fail. Character is untapped → should be tapped.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -298,7 +332,7 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Force roll of 9 (> 6 effective body) → fail
+    // Force roll of 9 → total 8 > body 7 → fail
     s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
@@ -312,7 +346,7 @@ describe('Veils Flung Away (le-146)', () => {
   });
 
   test('already-tapped non-Orc character has no effect when body check fails', () => {
-    // Asternak: body 7, effective threshold 6.
+    // Asternak: body 7, roll modifier -1 (roll 9 → total 8 > 7 fails).
     // Character is tapped already — even a failed check has no further effect.
     const state = buildTestState({
       phase: Phase.MovementHazard,
@@ -333,7 +367,7 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Force roll of 9 (clearly > 6) → fail
+    // Force roll of 9 → total 8 > 7 → fail
     s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
@@ -345,8 +379,8 @@ describe('Veils Flung Away (le-146)', () => {
   });
 
   test('non-Orc character stays untapped when body check passes', () => {
-    // Asternak: body 7, effective threshold 6.
-    // Force roll of 3 (<= 6) → passes. Character stays untapped.
+    // Asternak: body 7, roll modifier -1.
+    // Force roll of 3 → total 2 ≤ 7 → passes. Character stays untapped.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -363,7 +397,7 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Force roll of 3 (<= 6 effective body) → passes
+    // Force roll of 3 → total 2 ≤ 7 → passes
     s = { ...s, cheatRollTotal: 3 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
@@ -373,11 +407,11 @@ describe('Veils Flung Away (le-146)', () => {
     expectCharStatus(s, RESOURCE_PLAYER, ASTERNAK, CardStatus.Untapped);
   });
 
-  test('regression: a roll well below effective body is a PASS, not a tap (bug report, game mt1enwfu-cvg959 seq 1897)', () => {
-    // Reported bug: Glorfindel II (body 9) rolled a 6 against an effective
-    // threshold of 8 (9 - 1) and was tapped. Per CoE 3.I.1 a body check only
-    // fails when the roll is HIGHER than the threshold, so 6 (<= 8) must pass
-    // and leave the character untapped.
+  test('regression: a roll well below body is a PASS, not a tap (bug report, game mt1enwfu-cvg959 seq 1897)', () => {
+    // Reported bug: Glorfindel II (body 9) rolled a 6 and was tapped. Per CoE
+    // 3.I.1 a body check only fails when the modified total is HIGHER than
+    // the body, so 6 - 1 = 5 (≤ 9) must pass and leave the character
+    // untapped.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -397,10 +431,11 @@ describe('Veils Flung Away (le-146)', () => {
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === glorId);
     expect(dc).toBeDefined();
     if (dc?.kind.type === 'dice-check') {
-      expect(dc.kind.threshold).toBe(8);
+      expect(dc.kind.threshold).toBe(9);
+      expect(dc.kind.modifiers).toEqual([{ kind: 'constant', value: -1 }]);
     }
 
-    // Force roll of 6 (<= 8 effective body) — matches the reported roll.
+    // Force roll of 6 (total 5 ≤ body 9) — matches the reported roll.
     s = { ...s, cheatRollTotal: 6 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
@@ -450,8 +485,8 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Resolve the body check with a passing roll
-    s = { ...s, cheatRollTotal: 12 };
+    // Resolve the body check with a passing roll (total 4 ≤ body 8)
+    s = { ...s, cheatRollTotal: 5 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);

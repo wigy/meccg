@@ -351,6 +351,20 @@ export interface PendingResolution {
          * modified total).
          */
         readonly alwaysFailRolls?: readonly number[];
+        /**
+         * Modified-total values that trigger `action` INSTEAD of the pass/fail
+         * branch — the Orc/Troll printed discard numbers (CoE 3.I.3/3.I.4):
+         * Veils Flung Away (le-146) discards an Orc/Troll whose modified
+         * body-check total matches a printed discard number, while any other
+         * total falls through to the threshold comparison (a failed check
+         * merely taps). Unlike `alwaysFailRolls` (raw roll), `values` are
+         * compared against the modified total, since body modifiers shift the
+         * discard numbers by the same amount.
+         */
+        readonly matchOutcome?: {
+          readonly values: readonly number[];
+          readonly action: TriggeredAction;
+        };
         /** Run when the check passes. */
         readonly onPass?: TriggeredAction;
         /** Run when the check fails. */

@@ -5247,27 +5247,30 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         for (const charId of targetCompany.characters) {
           const cChar = current.players[activeIndex].characters[charId];
           const cDef = cChar ? defById(current, cChar.definitionId) : undefined;
-          // Race-derived discard threshold, computed at enqueue (the card def is
-          // static): Orc/Troll minions use their stated discardBodyCheck array
-          // (min value), others use body. Pre-resolved into the dice-check.
-          const cBody = cDef && isCharacterCard(cDef) && cDef.body != null ? cDef.body : 9;
+          // CoE 3.I.1: the check's modifier applies to the ROLL, and the check
+          // fails when the modified total is HIGHER than the character's body
+          // (rolling low is good) — the card's -1 makes survival easier.
+          // CoE 3.I.4: effects modifying body shift the printed Orc/Troll
+          // discard numbers by the same amount, so both the threshold and the
+          // discard values track effectiveStats.body's delta from print.
+          const cPrintedBody = cDef && isCharacterCard(cDef) && cDef.body != null ? cDef.body : 9;
+          const cBody = cChar?.effectiveStats.body ?? cPrintedBody;
+          const cBodyDelta = cBody - cPrintedBody;
           const cRace = cDef && isCharacterCard(cDef) ? cDef.race : '';
           const cOrcTroll = cRace === 'orc' || cRace === 'troll';
           const cDiscardValues = cOrcTroll && cDef && isCharacterCard(cDef) && cDef.cardType === 'minion-character' && cDef.discardBodyCheck != null
-            ? cDef.discardBodyCheck
-            : [cBody];
-          const cThreshold = Math.min(...cDiscardValues) + bodyModifier;
+            ? cDef.discardBodyCheck.map(v => v + cBodyDelta)
+            : [];
           const cName = cDef && isCharacterCard(cDef) ? cDef.name : (charId as string);
-          // CoE 3.I.1: a body check fails when the roll is HIGHER than the
-          // threshold (rolling low is good). The generic dice-check resolver's
-          // `comparison: 'gt'` reports "passed" when roll > threshold, so the
-          // bad outcome (discard for Orc/Troll, tap for others) goes on
-          // `onPass` and the good outcome (no effect) is `onFail` — mirroring
-          // the same body-check polarity used by Whip Discipline (le-159-style)
-          // in reducer-events.ts.
-          const onPass = cOrcTroll
-            ? { type: 'discard-character' as const }
-            : { type: 'set-character-status' as const, status: 'tapped' as const, when: { 'target.status': 'untapped' } };
+          // "Determine if each Orc or Troll character is discarded as
+          // indicated on their cards": a modified total landing exactly on a
+          // printed discard number discards (`matchOutcome`). "Otherwise, the
+          // body checks have no effect unless an untapped character fails his
+          // check, in which case he becomes tapped": every other failed check
+          // — Orc/Troll included — merely taps. The `comparison: 'gt'`
+          // resolver reports "passed" when total > threshold, so the bad
+          // outcome (tap) goes on `onPass` and the good outcome (no effect)
+          // is `onFail`.
           current = enqueueResolution(current, {
             source: entry.card.instanceId,
             actor: activePlayerId,
@@ -5275,10 +5278,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             kind: {
               type: 'dice-check',
               label: `Body check (${bodyCheckSourceName}): ${cName}`,
-              modifiers: [],
-              threshold: cThreshold,
+              modifiers: [{ kind: 'constant', value: bodyModifier }],
+              threshold: cBody,
               comparison: 'gt',
-              onPass,
+              ...(cDiscardValues.length > 0
+                ? { matchOutcome: { values: cDiscardValues, action: { type: 'discard-character' as const } } }
+                : {}),
+              onPass: { type: 'set-character-status' as const, status: 'tapped' as const, when: { 'target.status': 'untapped' } },
               continuation: { kind: 'chain-entry', match: 'source', drainSameSource: true },
               requireTargetPresent: true,
               targetCharacterId: charId,
