@@ -3270,6 +3270,37 @@ export function desireBellyChoosePenaltyActions(
 }
 
 /**
+ * Legal actions while a `reveal-deck-choose-attacker` resolution is pending
+ * (Long Dark Reach, dm-70): the card-player must name one of the eligible
+ * revealed creatures to immediately attack the target company. One
+ * `choose-long-dark-reach-attacker` action per eligible candidate; the choice
+ * is mandatory (no pass — the resolution is only enqueued when at least one
+ * candidate is eligible).
+ */
+export function revealDeckChooseAttackerActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-deck-choose-attacker') return [];
+  const { eligibleInstanceIds, cardPlayerId } = top.kind;
+  const cardPlayer = playerById(state, cardPlayerId);
+  if (!cardPlayer) return [];
+  const inDeck = new Map(cardPlayer.playDeck.map(c => [c.instanceId as string, c.definitionId]));
+  const actions: EvaluatedAction[] = [];
+  for (const id of eligibleInstanceIds) {
+    const definitionId = inDeck.get(id as string);
+    if (!definitionId) continue;
+    logDetail(`Long Dark Reach: offering to attack with "${cardName(state, definitionId)}"`);
+    actions.push({
+      action: { type: 'choose-long-dark-reach-attacker' as const, player: actor, cardInstanceId: id, definitionId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Legal actions while a `great-secrets-choose-item` resolution is pending
  * (Great Secrets Buried There, dm-63): the deck owner must choose one of the
  * revealed eligible items to place off to the side under the host card. One

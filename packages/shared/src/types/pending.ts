@@ -1232,6 +1232,32 @@ export interface PendingResolution {
         readonly rollingPlayer: PlayerId;
         /** Added to the character's effective mind to form the discard threshold. */
         readonly rollAddend: number;
+      }
+    | {
+        /**
+         * Long Dark Reach (dm-70): the card-player has revealed the top cards
+         * of their own play deck and at least one is an eligible attacker
+         * candidate (Nazgûl, Dragon, or non-unique creature, playable outside
+         * Coastal Sea). They must choose exactly one
+         * (`choose-long-dark-reach-attacker`) to immediately attack the target
+         * company. The choice is mandatory (no pass — the resolution is only
+         * enqueued when {@link eligibleInstanceIds} is non-empty). On
+         * resolution the unused revealed cards are shuffled among themselves
+         * and returned to the top of the card-player's play deck.
+         */
+        readonly type: 'reveal-deck-choose-attacker';
+        /** Instance ids of ALL revealed top-of-deck cards (top-first). */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** Instance ids of the eligible-attacker subset. */
+        readonly eligibleInstanceIds: readonly CardInstanceId[];
+        /** The card-player whose own deck was revealed and who is choosing. */
+        readonly cardPlayerId: PlayerId;
+        /** The company the chosen creature will attack. */
+        readonly targetCompanyId: CompanyId;
+        /** The company's owner (defending player). */
+        readonly defendingPlayerId: PlayerId;
+        /** The Long Dark Reach event instance (for logging / attackSource attribution). */
+        readonly sourceInstanceId: CardInstanceId;
       };
 }
 
