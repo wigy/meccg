@@ -1617,8 +1617,28 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       movementPath: [],
       siteOfOrigin: null,
     };
+    // The destination site card was pulled from the site deck when
+    // plan-movement was executed; the movement never happened, so return it —
+    // exactly as the rule 5.04 negation and failed Under-deeps roll paths do.
+    // Skip when another company still references the instance (rule 2.II.7.2
+    // shared destination: the sibling holds the physical card and the deck was
+    // never touched) — returning it then would duplicate the instance.
+    let returnedSiteDeck = resourcePlayer.siteDeck;
+    if (company.destinationSite) {
+      const destId = company.destinationSite.instanceId;
+      const anotherCompanyHasIt = resourcePlayer.companies.some(
+        (c, idx) => idx !== mhState.activeCompanyIndex
+          && (c.currentSite?.instanceId === destId || c.destinationSite?.instanceId === destId),
+      );
+      if (anotherCompanyHasIt) {
+        logDetail(`Step 8: destination ${destId as string} is still in play at another company — not returning to site deck`);
+      } else {
+        logDetail(`Step 8: returning unreached destination ${destId as string} to the location deck`);
+        returnedSiteDeck = [...resourcePlayer.siteDeck, toCardInstance(company.destinationSite)];
+      }
+    }
     logDetail(`Step 8: company was returned to origin — staying at current site (Rule 5.31)`);
-    newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
+    newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies, siteDeck: returnedSiteDeck };
   } else {
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
