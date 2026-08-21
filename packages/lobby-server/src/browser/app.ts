@@ -17,9 +17,9 @@
  */
 
 import {
-  appState, cardPool, LOBBY_MODE,
+  appState, cardPool, LOBBY_MODE, switchLobbyView,
   VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY, VIEWING_SCOREBOARD_KEY,
-  VIEWING_CHANGELOG_KEY, VIEWING_ADMIN_KEY, EDITING_DECK_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
+  VIEWING_CHANGELOG_KEY, VIEWING_ADMIN_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { savePlayerName, loadPlayerName } from './session.js';
 import { openInbox, openSent } from './inbox.js';
@@ -144,15 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await apiSend('/api/logout', 'POST');
       appState.lobbyPlayerName = null;
       appState.lobbyPlayerIsAdmin = false;
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
+      switchLobbyView();
       if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
       selectRandomAuthHero();
       showAuthTab('login');
@@ -409,86 +401,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Nav bar buttons
     document.getElementById('nav-lobby')!.addEventListener('click', () => {
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
+      switchLobbyView();
       showScreen('lobby-screen');
     });
     document.getElementById('nav-decks')!.addEventListener('click', () => {
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
-      sessionStorage.setItem(VIEWING_DECKS_KEY, '1');
+      switchLobbyView(VIEWING_DECKS_KEY);
       showScreen('decks-screen');
     });
     document.getElementById('nav-mail')!.addEventListener('click', () => {
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
+      switchLobbyView(undefined, [VIEWING_INBOX_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY]);
       void openInbox();
     });
     document.getElementById('lobby-credits-badge')!.addEventListener('click', () => {
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
-      sessionStorage.setItem(VIEWING_CREDITS_KEY, '1');
+      switchLobbyView(VIEWING_CREDITS_KEY);
       void openCreditsPage();
     });
     document.getElementById('nav-scoreboard')!.addEventListener('click', () => {
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
-      sessionStorage.setItem(VIEWING_SCOREBOARD_KEY, '1');
+      switchLobbyView(VIEWING_SCOREBOARD_KEY);
       void openScoreboardPage();
     });
     const goToChangelog = () => {
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_ADMIN_KEY);
-      sessionStorage.setItem(VIEWING_CHANGELOG_KEY, '1');
+      switchLobbyView(VIEWING_CHANGELOG_KEY);
       void openChangelogPage();
     };
     document.getElementById('nav-changelog')!.addEventListener('click', goToChangelog);
     document.getElementById('lobby-nav-version')!.addEventListener('click', goToChangelog);
     document.getElementById('nav-admin')!.addEventListener('click', () => {
-      sessionStorage.removeItem(VIEWING_INBOX_KEY);
-      sessionStorage.removeItem(MAIL_TAB_KEY);
-      sessionStorage.removeItem(MAIL_MSG_KEY);
-      sessionStorage.removeItem(EDITING_DECK_KEY);
-      sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
-      sessionStorage.removeItem(VIEWING_SCOREBOARD_KEY);
-      sessionStorage.removeItem(VIEWING_CHANGELOG_KEY);
-      sessionStorage.setItem(VIEWING_ADMIN_KEY, '1');
+      switchLobbyView(VIEWING_ADMIN_KEY);
       void openAdminPage();
     });
 

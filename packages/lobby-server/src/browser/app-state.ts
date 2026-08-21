@@ -324,6 +324,39 @@ export const MAIL_TAB_KEY = 'meccg-mail-tab';
 export const ADMIN_TAB_KEY = 'meccg-admin-tab';
 export const MAIL_MSG_KEY = 'meccg-mail-msg';
 
+/**
+ * Every sessionStorage key that marks "which lobby view is open" (or holds
+ * per-view restore state: the open mail tab/message, the deck being edited).
+ * `ADMIN_TAB_KEY` is deliberately absent — like the mail tab it survives
+ * leaving the view so the admin page reopens on the tab it was left on.
+ */
+export const LOBBY_VIEW_KEYS = [
+  VIEWING_INBOX_KEY,
+  MAIL_TAB_KEY,
+  MAIL_MSG_KEY,
+  EDITING_DECK_KEY,
+  VIEWING_DECKS_KEY,
+  VIEWING_CREDITS_KEY,
+  VIEWING_SCOREBOARD_KEY,
+  VIEWING_CHANGELOG_KEY,
+  VIEWING_ADMIN_KEY,
+] as const;
+
+/**
+ * Switch the lobby to one view: clear every {@link LOBBY_VIEW_KEYS} entry
+ * except those in `keep`, then mark `active` (when given) as the current
+ * view. The nav-mail handler passes the three mail keys as `keep` so
+ * `openInbox()` can restore the previously open tab and message; plain
+ * "back to the lobby" calls pass nothing and clear everything.
+ */
+export function switchLobbyView(active?: string, keep: readonly string[] = []): void {
+  for (const key of LOBBY_VIEW_KEYS) {
+    if (key === active || keep.includes(key)) continue;
+    sessionStorage.removeItem(key);
+  }
+  if (active !== undefined) sessionStorage.setItem(active, '1');
+}
+
 /** Maximum reconnect attempts before giving up and returning to the lobby. */
 export const MAX_RECONNECT_ATTEMPTS = 5;
 
