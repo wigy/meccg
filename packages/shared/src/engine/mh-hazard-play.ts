@@ -17,12 +17,12 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
-import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../types/effects.js';
+import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, CreatureAltEventEffect } from '../types/effects.js';
 import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
-import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/common.js';
+import type { CompanyId, CardDefinitionId, CardInstanceId, PlayerId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
@@ -37,7 +37,7 @@ import { getEffectiveSkills } from './effects/resolver.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
-import { currentHazardLimit } from './hazard-limit.js';
+import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -3106,6 +3106,49 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
 
 
 /**
+ * Shared resolution scaffolding for playing an in-play dual-mode
+ * creature-permanent-event during the opponent's movement/hazard phase
+ * (`tap-alt-permanent-event` / `attack-alt-permanent-event`): locate the
+ * untapped card in the hazard player's `cardsInPlay`, resolve its definition
+ * and `creature-alt-event` effect, and precompute the pieces both handlers
+ * feed into the hazard-limit charge (the active company and the
+ * `no-hazard-limit` bypass flag).
+ *
+ * Mode-specific validation (event mode, persistence, targeting, the charge
+ * itself) stays with each caller so error messages and their ordering are
+ * unchanged; `actionName` prefixes the shared lookup errors.
+ */
+function resolveAltPermanentEventPlay(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  actionName: string,
+): { error: string } | {
+  hazardIndex: number;
+  hazardPlayer: PlayerState;
+  card: PlayerState['cardsInPlay'][number];
+  def: CardDefinition | undefined;
+  altEvent: CreatureAltEventEffect | undefined;
+  activeCompany: Company | undefined;
+  bypassesLimit: boolean;
+} {
+  const hazardIndex = getPlayerIndex(state, player);
+  const hazardPlayer = state.players[hazardIndex];
+  const card = hazardPlayer.cardsInPlay.find(c => c.instanceId === cardInstanceId);
+  if (!card) return { error: `${actionName}: card not found in cardsInPlay` };
+  if (card.status === CardStatus.Tapped) return { error: `${actionName}: card is already tapped` };
+  const def = defById(state, card.definitionId);
+  const altEvent = getCardEffects(def).find(
+    (e): e is CreatureAltEventEffect => e.type === 'creature-alt-event',
+  );
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
+  const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  return { hazardIndex, hazardPlayer, card, def, altEvent, activeCompany, bypassesLimit };
+}
+
+/**
  * Handle tap-alt-permanent-event: the hazard player taps an in-play dual-mode
  * creature that was played as a permanent-event (`creature-alt-event` mode
  * `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the opponent's
@@ -3121,13 +3164,9 @@ function handleTapAltPermanentEvent(
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
   if (action.type !== 'tap-alt-permanent-event') return wrongActionType(state, action, 'tap-alt-permanent-event');
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const card = hazardPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
-  if (!card) return { state, error: 'tap-alt-permanent-event: card not found in cardsInPlay' };
-  if (card.status === CardStatus.Tapped) return { state, error: 'tap-alt-permanent-event: card is already tapped' };
-  const def = defById(state, card.definitionId);
-  const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+  const resolved = resolveAltPermanentEventPlay(state, mhState, action.player, action.cardInstanceId, 'tap-alt-permanent-event');
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { hazardIndex, hazardPlayer, card, def, altEvent, activeCompany, bypassesLimit } = resolved;
   if (!altEvent || altEvent.mode !== 'permanent-event') {
     return { state, error: 'tap-alt-permanent-event: not a creature-permanent-event' };
   }
@@ -3147,15 +3186,11 @@ function handleTapAltPermanentEvent(
     return { state, error: 'tap-alt-permanent-event: cannot target your own character' };
   }
 
-  // Tapping counts one against the hazard limit (per the card text).
-  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
-  const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
-  const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  // Tapping counts one against the hazard limit (per the card text); the
+  // limit check itself is skipped when no company is active.
   if (activeCompany && !bypassesLimit) {
-    const limit = currentHazardLimit(state, mhState, activeCompany.id);
-    if (mhState.hazardsPlayedThisCompany >= limit) {
-      return { state, error: `tap-alt-permanent-event: hazard limit reached (${limit})` };
-    }
+    const charge = chargeHazardLimit(state, mhState, activeCompany.id, 'tap-alt-permanent-event');
+    if ('error' in charge) return { state, error: charge.error };
   }
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
@@ -3228,29 +3263,20 @@ function handleAttackFromAltPermanentEvent(
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
   if (action.type !== 'attack-alt-permanent-event') return wrongActionType(state, action, 'attack-alt-permanent-event');
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const card = hazardPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
-  if (!card) return { state, error: 'attack-alt-permanent-event: card not found in cardsInPlay' };
-  if (card.status === CardStatus.Tapped) return { state, error: 'attack-alt-permanent-event: card is already tapped' };
-  const def = defById(state, card.definitionId);
-  const altEvent = def && getCardEffects(def).find(e => e.type === 'creature-alt-event');
+  const resolved = resolveAltPermanentEventPlay(state, mhState, action.player, action.cardInstanceId, 'attack-alt-permanent-event');
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { card, def, altEvent, activeCompany, bypassesLimit } = resolved;
   if (!altEvent || altEvent.mode !== 'permanent-event' || !altEvent.attacksAsCreature) {
     return { state, error: 'attack-alt-permanent-event: this permanent-event does not attack as a creature' };
   }
 
-  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
-  const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
   if (!activeCompany || activeCompany.id !== action.targetCompanyId) {
     return { state, error: 'attack-alt-permanent-event: not the active company' };
   }
 
-  const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
   if (!bypassesLimit) {
-    const limit = currentHazardLimit(state, mhState, activeCompany.id);
-    if (mhState.hazardsPlayedThisCompany >= limit) {
-      return { state, error: `attack-alt-permanent-event: hazard limit reached (${limit})` };
-    }
+    const charge = chargeHazardLimit(state, mhState, activeCompany.id, 'attack-alt-permanent-event');
+    if ('error' in charge) return { state, error: charge.error };
   }
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
@@ -3491,17 +3517,15 @@ export function handlePlayReservedCreature(
   }
 
   // Check hazard limit
-  const liveLimit = currentHazardLimit(state, mhState, action.targetCompanyId);
-  if (mhState.hazardsPlayedThisCompany >= liveLimit) {
-    return { state, error: `play-reserved-creature: hazard limit reached (${liveLimit})` };
-  }
+  const charge = chargeHazardLimit(state, mhState, action.targetCompanyId, 'play-reserved-creature');
+  if ('error' in charge) return { state, error: charge.error };
 
   // Validate chain is null (creatures must initiate new chain)
   if (state.chain !== null) {
     return { state, error: `play-reserved-creature: creatures must initiate a new chain` };
   }
 
-  logDetail(`Summons from Long Sleep: playing reserved creature "${(def).name}" (+2 prowess) against company ${action.targetCompanyId as string} (${mhState.hazardsPlayedThisCompany + 1}/${liveLimit})`);
+  logDetail(`Summons from Long Sleep: playing reserved creature "${(def).name}" (+2 prowess) against company ${action.targetCompanyId as string} (${charge.newHazardCount}/${charge.limit})`);
 
   // Remove creature from reservation slot
   let newState = updatePlayer(state, hazardIdx, p => ({
@@ -3516,7 +3540,7 @@ export function handlePlayReservedCreature(
     ...newState,
     phaseState: {
       ...mhState,
-      hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+      hazardsPlayedThisCompany: charge.newHazardCount,
       resourcePlayerPassed: false,
     },
   };
@@ -3686,14 +3710,11 @@ export function handleSpawnReplayCreature(
   }
 
   // This replay counts one against the hazard limit.
-  const limit = currentHazardLimit(state, mhState, action.targetCompanyId);
-  if (mhState.hazardsPlayedThisCompany >= limit) {
-    return { state, error: `spawn-replay-creature: hazard limit reached (${limit})` };
-  }
-  const newHazardCount = mhState.hazardsPlayedThisCompany + 1;
+  const charge = chargeHazardLimit(state, mhState, action.targetCompanyId, 'spawn-replay-creature');
+  if ('error' in charge) return { state, error: charge.error };
 
   logDetail(
-    `Monstrosity of Diverse Shape: replaying "${creatureName}" from discard pile against company ${action.targetCompanyId as string} (${newHazardCount}/${limit} hazards)`,
+    `Monstrosity of Diverse Shape: replaying "${creatureName}" from discard pile against company ${action.targetCompanyId as string} (${charge.newHazardCount}/${charge.limit} hazards)`,
   );
 
   // Remove the creature from the discard pile; mark the source used; count the
@@ -3706,7 +3727,7 @@ export function handleSpawnReplayCreature(
     ...newState,
     phaseState: {
       ...mhState,
-      hazardsPlayedThisCompany: newHazardCount,
+      hazardsPlayedThisCompany: charge.newHazardCount,
       spawnReplayUsedSources: [...usedSources, action.sourceInstanceId],
       resourcePlayerPassed: false,
     },
