@@ -7993,6 +7993,19 @@ Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
 { "type": "play-condition", "requires": "active-player-deck-size", "minDeckSize": 10 }
 ```
 
+- `card-player-deck-size` — gates on the deck size of whichever player is
+  actually **declaring this play**, always "you" in the card text regardless
+  of side. Diverges from `active-player-deck-size` whenever a hazard
+  short-event is played by the *non*-active (hazard) player and gates on
+  their own deck rather than the active company owner's. Checked in
+  `legal-actions/movement-hazard.ts` alongside `active-player-deck-size`, via
+  the `cardPlayerDeckSize` helper (`reducer-utils.ts`). Used by *Long Dark
+  Reach* (dm-70): "if you have at least 10 cards in your play deck" (see §35c).
+
+```json
+{ "type": "play-condition", "requires": "card-player-deck-size", "minDeckSize": 10 }
+```
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.
@@ -9504,6 +9517,92 @@ chosen instance is still a candidate, then calls `buildHuntCombat`:
 ```
 
 Used by The Hunt (dm-143).
+
+### 35c. `reveal-deck-choose-attacker`
+
+Carried by a **hazard** short-event. When the event resolves un-negated on the
+chain, the card-player reveals the top `count` cards of **their own** play
+deck — unlike `reveal-deck-choose-penalty` (ba-16), which reveals the
+*opponent's* deck:
+
+1. The reveal count is capped by the deck length; `revealInstances` records
+   the top `min(count, deckSize)` cards. They remain physically at the top of
+   the deck (no instance ever floats).
+2. A revealed card is an **eligible candidate** when it is a hazard-creature
+   whose race is one of `alwaysEligibleRaces`, or any non-unique creature of
+   any race — AND (when `requireNonCoastalKeying` is set) its printed
+   `keyedTo` offers at least one non-Coastal-Sea region
+   (`creatureHasNonCoastalRegionKeying`, exported from
+   `legal-actions/movement-hazard.ts` — the same helper A Pack at the Door
+   tw-497 uses for its own "must be playable in a non-Coastal Sea region"
+   clause).
+3. With at least one eligible candidate, a `reveal-deck-choose-attacker`
+   pending resolution is enqueued (actor = the card-player). The choice is
+   **mandatory** (no pass — "must immediately attack"): one
+   `choose-long-dark-reach-attacker` action per eligible candidate.
+4. With none eligible, the reveal fizzles: every revealed card is immediately
+   shuffled among itself and returned to the top of the deck (no pending
+   resolution) — mirrors `reveal-deck-choose-set-aside`'s no-eligible
+   fallthrough.
+5. On resolution, the chosen creature immediately attacks the target company
+   (the M/H company the event was played on) — a normal (non-solo-defender)
+   attack, bypassing the creature's own keying/playability check entirely for
+   *legality*. Whether the creature *could* normally have been played on the
+   company is still evaluated purely to decide `unplayableProwessPenalty`
+   (added to its printed prowess): via `creatureIsNormallyPlayableOnCompany`
+   (also exported from `movement-hazard.ts`), which wraps the same
+   `findCreatureKeyingMatches` the ordinary M/H hazard-creature-play path
+   uses. The attack does **not** count against the hazard limit — it is
+   spawned directly by chain resolution, never through the `play-hazard`
+   action that charges the limit.
+6. The unused revealed cards (every revealed card except the chosen one) are
+   shuffled among themselves and returned to the top of the card-player's
+   deck as part of building the combat. The chosen card is left resting
+   directly beneath them — still in the deck, still reachable — rather than
+   being extracted; it attacks "in place", exactly like The Hunt (dm-143) /
+   The Great Hunt (wh-91).
+
+Fields:
+
+- `count: number` — how many top cards of the card-player's own deck are revealed.
+- `alwaysEligibleRaces: Race[]` — races eligible regardless of uniqueness (e.g. `["ringwraith", "dragon"]` for Nazgûl/Dragon).
+- `requireNonCoastalKeying: boolean` — when true, a candidate must be playable in a non-Coastal-Sea region.
+- `unplayableProwessPenalty: number` — prowess modifier applied when the chosen creature could not normally have been played on the company (e.g. `-4`).
+
+Implementation: `engine/long-dark-reach.ts` (`findLongDarkReachCandidates`,
+`fizzleLongDarkReach`, `buildLongDarkReachCombat`); the reveal + first enqueue
+is in `chain-reducer.ts` (`resolveEntry`); the choice resolves via
+`legal-actions/pending.ts` (`revealDeckChooseAttackerActions`) and
+`pending-reducers.ts` (`applyRevealDeckChooseAttackerResolution`). The
+`long-dark-reach-attack` `AttackSource` variant is finalize-safe: a defeated
+attack moves the creature into the defending player's kill pile for
+marshalling points (or the card-player's discard pile under detainment, CoE
+3.II.3) — see `combat-finalize.ts`'s block alongside `hunt-attack`'s.
+
+```json
+{
+  "type": "reveal-deck-choose-attacker",
+  "count": 7,
+  "alwaysEligibleRaces": ["ringwraith", "dragon"],
+  "requireNonCoastalKeying": true,
+  "unplayableProwessPenalty": -4
+}
+```
+
+Used by Long Dark Reach (dm-70): "Playable on a moving company with at least
+one Wilderness [{w}] in its site path if you have at least 10 cards in your
+play deck. Reveal the top seven cards of your play deck. One revealed Nazgûl,
+Dragon, or a non-unique creature of your choice must immediately attack the
+company regardless of its playability requirements (not count against the
+hazard limit). The creature must be playable in a region besides Coastal Sea
+[{c}]. If the creature could not normally be played on the company, modify its
+prowess by -4. Shuffle all unused cards and return them to the top of your
+play deck." Paired with a `play-condition` `requires: "site-path"`
+(`sitePath.wildernessCount >= 1`) for the Wilderness requirement, and a
+`play-condition` `requires: "card-player-deck-size"` (`minDeckSize: 10`, see
+§23) for the "if you have at least 10 cards in your play deck" gate — "you" is
+the hazard player actually declaring the play, not the moving company's owner,
+so this diverges from `active-player-deck-size` (dm-63).
 
 ### 36. `force-return-to-origin`
 

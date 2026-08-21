@@ -511,6 +511,22 @@ export interface DesireChoosePenaltyAction {
 }
 
 /**
+ * Choose one of the eligible revealed cards from the top of the card-player's
+ * own play deck to immediately attack the target company (Long Dark Reach,
+ * dm-70). Resolves a `reveal-deck-choose-attacker` pending resolution; the
+ * choice is mandatory ("must immediately attack").
+ */
+export interface ChooseLongDarkReachAttackerAction {
+  readonly type: 'choose-long-dark-reach-attacker';
+  /** The card-player choosing which revealed creature attacks. */
+  readonly player: PlayerId;
+  /** The instance ID of the chosen creature. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Definition ID of the chosen creature (mirrors `ChooseHuntTargetAction`, keeping the choice legible under redaction). */
+  readonly definitionId: CardDefinitionId;
+}
+
+/**
  * The defending player's forced choice in response to A Lie in Your Eyes
  * (as-23): tap the targeted character, tap one of its untapped allies, or let
  * the card-player roll for a chance to discard the character. Resolves a

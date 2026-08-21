@@ -199,6 +199,22 @@ export type AttackSource =
       readonly eventInstanceId: CardInstanceId;
       /** Definition of the character who became the traitor (name/race for display). */
       readonly traitorDefinitionId: CardDefinitionId;
+    }
+  /**
+   * Triggered by Long Dark Reach (dm-70) via the `reveal-deck-choose-attacker`
+   * DSL effect: a creature the card-player named from the top of their own
+   * play deck immediately attacks the targeted company normally (no
+   * solo-defender restriction) — "regardless of its playability
+   * requirements". The creature card is never moved out of the deck before
+   * the attack — it sits in place, exactly like a `hunt-attack` — but a
+   * defeated attack still moves it into the defending player's kill pile for
+   * marshalling points (CoE rule 964), same as any other creature attack; see
+   * `combat-finalize.ts`.
+   */
+  | {
+      readonly type: 'long-dark-reach-attack';
+      readonly sourceInstanceId: CardInstanceId;
+      readonly creatureInstanceId: CardInstanceId;
     };
 
 /**
