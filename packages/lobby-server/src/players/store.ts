@@ -18,6 +18,21 @@ export function toDirName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 }
 
+/**
+ * The character set a player name may contain — letters, digits, spaces,
+ * hyphens, and underscores. This is the rule the registration route enforces,
+ * hoisted here so any code that builds a filesystem path from a name (e.g. the
+ * save-file key, `<a>_vs_<b>.json`) can reject anything else BEFORE it reaches
+ * `path.join`. Notably excludes `.` and `/`, so a name can never carry a
+ * `../` path-traversal segment into a file path.
+ */
+const PLAYER_NAME_RE = /^[a-zA-Z0-9 _-]+$/;
+
+/** True when `name` is a syntactically valid player name (see {@link PLAYER_NAME_RE}). */
+export function isValidPlayerName(name: string): boolean {
+  return PLAYER_NAME_RE.test(name);
+}
+
 /** Path to a player's info.json file. */
 function infoPath(name: string): string {
   return path.join(PLAYERS_DIR, toDirName(name), 'info.json');
