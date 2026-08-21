@@ -1745,8 +1745,13 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Pûkel-creature. Each character in the company faces one strike."
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      }
+    ],
+    "text": "Pûkel-creature. Each character in the company faces one strike.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
