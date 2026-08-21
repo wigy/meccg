@@ -3728,8 +3728,9 @@ Apply types:
 
   When paired, the chosen resource is moved from hand directly into
   `cardsInPlay` with three extra fields: `linkedInstanceId` (pointing to the
-  source card), `assumeInPlay: ['Gates of Morning']`, and
-  `assumeNotInPlay: ['Doors of Night']`. The source card's `cardsInPlay` entry
+  source card) plus the `assumeInPlay` / `assumeNotInPlay` card-name lists the
+  effect declares (Crown of Flowers: `["Gates of Morning"]` in,
+  `["Doors of Night"]` out). The source card's `cardsInPlay` entry
   is also updated with `linkedInstanceId` pointing back to the paired resource
   (which is also what marks the Crown as "paired" so no further pairing action
   is offered). Both links enable a cascade discard: when either linked card
@@ -3741,7 +3742,9 @@ Apply types:
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
-    "apply": { "type": "offer-resource-play" } }
+    "apply": { "type": "offer-resource-play",
+      "assumeInPlay": ["Gates of Morning"],
+      "assumeNotInPlay": ["Doors of Night"] } }
   ```
 
   Implemented in `chain-reducer.ts` (`resolvePermanentEvent` — enters play

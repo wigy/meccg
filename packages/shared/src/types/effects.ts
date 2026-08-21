@@ -2972,9 +2972,28 @@ export interface OfferCharJoinAttackAction extends TriggeredActionBase {
   };
 }
 
-/** `offer-resource-play` — enqueue a resource-play offer linked to the entering card; type-only marker. */
+/**
+ * `offer-resource-play` — enqueue a resource-play offer linked to the entering
+ * card (Crown of Flowers dm-121: "You can play one resource from your hand
+ * with this card"). The paired resource enters `cardsInPlay` with
+ * `linkedInstanceId` back-references in both directions, so either card
+ * leaving play cascade-discards the other.
+ */
 export interface OfferResourcePlayAction extends TriggeredActionBase {
   readonly type: 'offer-resource-play';
+  /**
+   * Card names the paired resource is interpreted under as though they were
+   * in play, copied onto the paired `CardInPlay.assumeInPlay`. Crown of
+   * Flowers: `["Gates of Morning"]` — "The resource is considered to be
+   * played and to be in play as though Gates of Morning were in play…".
+   */
+  readonly assumeInPlay?: readonly string[];
+  /**
+   * Card names the paired resource is interpreted under as though they were
+   * NOT in play, copied onto the paired `CardInPlay.assumeNotInPlay`. Crown
+   * of Flowers: `["Doors of Night"]` — "…and Doors of Night were not".
+   */
+  readonly assumeNotInPlay?: readonly string[];
 }
 
 /** `offer-restore-character` — offer to untap/heal one company character at a haven; type-only marker. */
