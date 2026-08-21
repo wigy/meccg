@@ -2931,7 +2931,19 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // by-name lookup to that player's alignment — the same physical location
   // has a separate site card per side (e.g. The Under-gates exists as hero,
   // minion, and balrog versions with different keywords/types).
-  const moverAlignment = state.players[getPlayerIndex(state, state.activePlayer ?? state.players[0].id)]?.alignment;
+  const moverIndex = getPlayerIndex(state, state.activePlayer ?? state.players[0].id);
+  const moverAlignment = state.players[moverIndex]?.alignment;
+  // The active company itself, instance references included — passed to
+  // `resolveCreatureKeyingSiteType` below so it can resolve the site by
+  // instance the same way the offering side (`findCreatureKeyingMatches`)
+  // does. Without it, a site-type override (Hold Rebuilt and Repaired as-88,
+  // Rebuild the Town dm-155, …) is only found via the alignment-restricted
+  // by-name fallback, which fails whenever the moving player's own alignment
+  // (e.g. balrog) differs from the printed site card's alignment (e.g. a
+  // minion-published site with no balrog-specific printing) — silently
+  // losing the override and rejecting a play the legal-action list had
+  // offered as legal.
+  const targetCompany = state.players[moverIndex]?.companies[mhState.activeCompanyIndex];
   const destSiteDef = mhState.destinationSiteName
     ? Object.values(state.cardPool).find(
         c => isSiteCard(c) && c.name === mhState.destinationSiteName
@@ -2968,7 +2980,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // dm-155, Choking Shadows tw-21, …) replaces the printed type, it does not
   // add to it. Mirror of the offering side in findCreatureKeyingMatches.
   const effectiveSiteTypes = resolveCreatureKeyingSiteType(
-    state, {}, mhState.destinationSiteName, mhState.destinationSiteType, moverAlignment,
+    state, targetCompany ?? {}, mhState.destinationSiteName, mhState.destinationSiteType, moverAlignment,
   );
 
   for (const key of def.keyedTo) {
