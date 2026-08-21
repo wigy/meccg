@@ -7032,33 +7032,32 @@ Rules:
   { "type": "site-rule", "rule": "allow-items-when-tapped" }
   ```
 
-- `cancel-first-attack-if-in-play` — cancels the first automatic attack
-  at this site when the permanent-event card identified by `definitionId`
-  is currently in any player's `cardsInPlay`. If the referenced card is
-  not in play, all attacks are resolved normally. Consumed by
-  `getActiveAutoAttacks()` in `engine/manifestations.ts`, which slices off
-  the first element from the combined auto-attack list. Used by
-  *The Under-gates* (dm-38) — "If Balrog of Moria is in play ... the first
-  automatic attack is canceled."
+- `cancel-auto-attacks` — cancels this site's automatic-attacks while the
+  rule's `when` condition holds. The condition is evaluated against the
+  card-name context `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same
+  name lists the player-state context exposes (`inPlayAnywhere`: names of
+  every card in either player's `cardsInPlay`, with name-aliases and
+  environment overrides applied; `charactersInPlayAnywhere`: names of every
+  character in play for either player). Name matching means every printing of
+  a card counts (Radagast is tw-178 as a hero Wizard and wh-8 as a
+  Fallen-wizard). `scope` selects what is canceled, and thereby where in the
+  attack pipeline the rule applies. Consumed by `getActiveAutoAttacks()` in
+  `engine/manifestations.ts`.
+
+  - `"scope": "printed"` — removes ALL of the site's own printed
+    automatic-attacks, before hazard augments, so attacks added to the site
+    by hazard effects (Spawn permanent-events, `extra-automatic-attack`
+    constraints) are unaffected. Used by *Rhosgobel* (as-159) — "If the
+    Wizard card Radagast is in play, the automatic-attacks are removed."
+  - `"scope": "first"` — removes the first attack of the final combined
+    list. Used by *The Under-gates* (dm-38 / as-165) — "If Balrog of Moria
+    is in play ... the first automatic attack is canceled."
 
   ```json
-  { "type": "site-rule", "rule": "cancel-first-attack-if-in-play", "definitionId": "tw-12" }
-  ```
-
-- `cancel-attacks-if-character-in-play` — removes ALL of this site's
-  *printed* automatic-attacks while a character whose card name equals
-  `characterName` is in play for either player (present in a player's
-  `characters` record). Matched by name rather than definition ID so every
-  version of the card counts (Wizard avatars exist in multiple sets — e.g.
-  Radagast is tw-178 as a hero Wizard and wh-8 as a Fallen-wizard). Only the
-  printed attacks are removed; attacks added to the site by hazard effects
-  (Spawn permanent-events, `extra-automatic-attack` constraints) are separate
-  hazard attacks and are unaffected. Consumed by `getActiveAutoAttacks()` in
-  `engine/manifestations.ts`. Used by *Rhosgobel* (as-159) — "If the Wizard
-  card Radagast is in play, the automatic-attacks are removed."
-
-  ```json
-  { "type": "site-rule", "rule": "cancel-attacks-if-character-in-play", "characterName": "Radagast" }
+  { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "printed",
+    "when": { "charactersInPlayAnywhere": { "$includes": "Radagast" } } }
+  { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "first",
+    "when": { "inPlayAnywhere": { "$includes": "Balrog of Moria" } } }
   ```
 
 - `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
