@@ -1116,7 +1116,13 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     if (!charData) return { state, error: 'CvCC body check: attacking character not found' };
 
     const charDef = defById(stateWithRoll, charData.definitionId);
-    const body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    // Like the defending-character branch above, check against the *effective*
+    // body: item body modifiers (The Mithril-coat tw-345) and
+    // `character-stat-modifier` constraints are folded into
+    // `effectiveStats.body` by recomputeDerived; the printed value ignores
+    // them, so the two sides of one CvCC would be checked under different
+    // rules.
+    const body = charData.effectiveStats.body;
     const charName = (charDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
 
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) apply to the
