@@ -85,7 +85,11 @@ const EVIDENCE_HALF_LIFE = 12;
 /** The kind of a card definition. */
 export function kindOf(def: CardDefinition | undefined): CardKind | null {
   if (!def) return null;
-  const type = def.cardType;
+  // A definition without a `cardType` is as unclassifiable as a missing one:
+  // the pool a consumer hands in is not always the full card database, and a
+  // partial entry must fall through rather than throw on the string tests.
+  const type: string | undefined = def.cardType;
+  if (!type) return null;
   if (type === 'hazard-creature') return 'creature';
   if (type === 'hazard-event') return 'hazard-event';
   if (type === 'hazard-corruption') return 'corruption';
