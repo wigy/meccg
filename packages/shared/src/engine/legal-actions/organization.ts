@@ -40,7 +40,7 @@ import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPla
 import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
-import { countConstraintsFromDefinition } from '../pending.js';
+import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
@@ -3230,7 +3230,7 @@ function playOptionActionsForCard(
     // definition already exists for it (enforces "Cannot be duplicated on a given check").
     if (activeCheckLimit && sourceDefId) {
       const alreadyApplied = state.activeConstraints.some(
-        c => c.sourceDefinitionId === sourceDefId
+        c => constraintFromCard(state, c, sourceDefId)
           && c.target.kind === 'character'
           && c.target.characterId === targetId,
       );
@@ -3505,7 +3505,7 @@ export function playResourceShortEventActions(
           if (companyDupLimit) {
             const copiesOnCompany = state.activeConstraints.filter(
               c =>
-                c.sourceDefinitionId === def.id &&
+                constraintFromCard(state, c, def.id) &&
                 c.target.kind === 'company' &&
                 c.target.companyId === company.id,
             ).length;
@@ -4048,7 +4048,7 @@ export function playResourceShortEventActions(
           if (charDupLimit) {
             const copiesOnChar = state.activeConstraints.filter(
               c =>
-                c.sourceDefinitionId === def.id &&
+                constraintFromCard(state, c, def.id) &&
                 c.target.kind === 'character' &&
                 c.target.characterId === targetId,
             ).length;

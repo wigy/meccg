@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { characterPossessions } from '../pending.js';
+import { characterPossessions, constraintFromCard } from '../pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
@@ -1519,7 +1519,7 @@ export function reactiveCorruptionCheckPlays(
     const activeCheckLimit = findDuplicationLimitEffect(shortDef, 'active-check');
     if (activeCheckLimit) {
       const alreadyApplied = state.activeConstraints.some(
-        c => c.sourceDefinitionId === handCard.definitionId
+        c => constraintFromCard(state, c, handCard.definitionId)
           && c.target.kind === 'character'
           && c.target.characterId === targetChar.instanceId,
       );
