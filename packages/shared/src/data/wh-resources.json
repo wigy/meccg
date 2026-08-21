@@ -1451,7 +1451,8 @@
         }
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "filter": {
           "$not": {
             "keywords": {
@@ -1978,7 +1979,8 @@
         "value": 2
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "inAvatarCompany": true,
         "filter": {
           "$or": [
@@ -1990,7 +1992,8 @@
         }
       },
       {
-        "type": "fw-ally-mp-full",
+        "type": "fw-mp-full",
+        "cards": "allies",
         "inAvatarCompany": true,
         "filter": { "prowess": { "$exists": true } }
       }
@@ -2027,7 +2030,8 @@
         }
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "filter": {
           "$or": [
             { "keywords": { "$includes": "weapon" } },
@@ -2038,7 +2042,8 @@
         }
       },
       {
-        "type": "fw-ally-mp-full",
+        "type": "fw-mp-full",
+        "cards": "allies",
         "filter": { "prowess": { "$exists": true } }
       },
       {
