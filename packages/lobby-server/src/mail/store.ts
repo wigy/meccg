@@ -62,13 +62,33 @@ export interface SendMailOptions {
 }
 
 /**
+ * True when `value` is a usable mail recipient list: a non-empty array of
+ * non-empty strings. The HTTP routes validate request bodies with this
+ * before calling {@link sendMail} — a plain string must be rejected, not
+ * iterated: strings pass a bare `.length` truthiness check and spread into
+ * single characters, silently creating one inbox per character (a real
+ * incident; see the Mail System API note in CLAUDE.md).
+ */
+export function isRecipientList(value: unknown): value is readonly string[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every(r => typeof r === 'string' && r.length > 0);
+}
+
+/**
  * Single entry point for sending mail. Generates a unique ID, writes an
  * inbox file for each recipient, and pushes a WebSocket notification to
  * online recipients.
  *
+ * Throws when `recipients` is not an array — a string would otherwise be
+ * spread character-by-character into bogus single-letter inboxes.
+ *
  * @returns The generated message ID (shared across all recipients).
  */
 export function sendMail(recipients: readonly string[], options: SendMailOptions): string {
+  if (!Array.isArray(recipients)) {
+    throw new Error('sendMail: recipients must be an array of player names, got ' + typeof recipients);
+  }
   const id = crypto.randomBytes(8).toString('hex');
   const timestamp = new Date().toISOString();
 

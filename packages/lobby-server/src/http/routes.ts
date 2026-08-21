@@ -60,7 +60,7 @@ import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
-import { sendMail, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
+import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
@@ -1004,8 +1004,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         topic?: MailTopic;
         body?: string;
       };
-      if (!body.recipients?.length || !body.subject || !body.topic || !body.body) {
-        sendJson(res, 400, { error: 'recipients, subject, topic, and body are required' });
+      if (!isRecipientList(body.recipients) || !body.subject || !body.topic || !body.body) {
+        sendJson(res, 400, { error: 'recipients (a non-empty array of player names), subject, topic, and body are required' });
         return;
       }
       const id = sendMail(body.recipients, {
@@ -1081,8 +1081,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           sentBy?: string;
           replyTo?: string;
         };
-        if (!body.recipients?.length || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
-          sendJson(res, 400, { error: 'recipients, from, sender, topic, body, and subject are required' });
+        if (!isRecipientList(body.recipients) || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
+          sendJson(res, 400, { error: 'recipients (a non-empty array of player names), from, sender, topic, body, and subject are required' });
           return;
         }
         const id = sendMail(body.recipients, {
