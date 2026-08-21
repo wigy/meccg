@@ -19,11 +19,12 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  runActions, makePlayDeck, pool, draftInstId,
-  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FARAMIR, GIMLI, RIVENDELL, Alignment,
-  createGame,
+  runActions, makePlayDeck, makeDraftConfig, pool, draftInstId,
+  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FRODO, FARAMIR, GIMLI, RIVENDELL, Alignment,
+  createGame, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { GameConfig } from '../../test-helpers.js';
+import { Phase } from '../../../index.js';
 
 describe('Rule 1.38 — Character Draft', () => {
   test('Players draft characters from pool simultaneously; set aside duplicates; stop at 5 characters or 20 mind', () => {
@@ -147,5 +148,60 @@ describe('Rule 1.38 — Character Draft', () => {
     // P1's starting company should have exactly 3 characters (Aragorn, Legolas, Faramir)
     const mindP1Company = mindState.players[0].companies[0];
     expect(mindP1Company.characters).toHaveLength(3);
+  });
+
+  test('passing item draft and deck draft removes leftover pool cards to out-of-play, not into nothing', () => {
+    // Rule 1.9: "All other unused or duplicated cards in each player's pool
+    // are removed from the game." Regression: the pass handlers only cleared
+    // the phase-state arrays (unassignedItems / remainingPool), leaving the
+    // undrafted instances unreachable — deleted from the game state instead
+    // of removed-from-game (out-of-play pile).
+    let state = createGame(makeDraftConfig(), pool);
+
+    // Capture the instance IDs of the cards that will remain undrafted.
+    const p1Bilbo = draftInstId(state, 0, BILBO);
+    const p1Frodo = draftInstId(state, 0, FRODO);
+    const p2Gimli = draftInstId(state, 1, GIMLI);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ARAGORN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, LEGOLAS) },
+      { type: 'draft-stop', player: PLAYER_1 },
+      { type: 'draft-stop', player: PLAYER_2 },
+    ]);
+
+    // Item draft: both pass without assigning — the pool daggers are removed
+    // from the game.
+    expect(state.phaseState.phase).toBe(Phase.Setup);
+    let itemLeftovers1 = 0;
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
+      itemLeftovers1 = state.phaseState.setupStep.itemDraftState[0].unassignedItems.length;
+      state = runActions(state, [
+        { type: 'pass', player: PLAYER_1 },
+        { type: 'pass', player: PLAYER_2 },
+      ]);
+    }
+    expect(itemLeftovers1).toBeGreaterThan(0);
+
+    // Character deck draft: both pass without adding — the undrafted
+    // characters are removed from the game.
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-deck-draft') {
+      state = runActions(state, [
+        { type: 'pass', player: PLAYER_1 },
+        { type: 'pass', player: PLAYER_2 },
+      ]);
+    }
+
+    // Every leftover lands in its owner's out-of-play pile...
+    const p1Out = state.players[0].outOfPlayPile.map(c => c.instanceId as string);
+    const p2Out = state.players[1].outOfPlayPile.map(c => c.instanceId as string);
+    expect(p1Out).toContain(p1Bilbo as string);
+    expect(p1Out).toContain(p1Frodo as string);
+    expect(p2Out).toContain(p2Gimli as string);
+    // ...and P1's two unassigned daggers went there at the item-draft pass.
+    expect(state.players[0].outOfPlayPile.length).toBeGreaterThanOrEqual(2 + itemLeftovers1);
+
+    // The no-card-disappears invariant holds across the whole state.
+    assertEveryInstanceReachable(state);
   });
 });
