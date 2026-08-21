@@ -55,7 +55,7 @@
 import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { MarshallingPointTotals, PlayerId } from '@meccg/shared';
 import { playGame } from '../runner.js';
-import { parseCliArgs, numberFlag, resolvePair, resolveAgent, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, resolvePair, resolveAgent, resolveDecks } from './common.js';
 import { ScoringFunnel } from './scoring-funnel.js';
 import type { DecisionRecord, GameObserver, GameResultRecord, TransitionRecord } from '../types.js';
 
@@ -135,11 +135,7 @@ interface AgentReport {
   scoringGames: number;
 }
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const games = numberFlag(args, 'games', 4);

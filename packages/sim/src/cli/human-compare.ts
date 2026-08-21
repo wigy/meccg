@@ -54,7 +54,7 @@ import * as path from 'path';
 import { loadCardPool, reduce, setEngineConsoleLog } from '@meccg/shared';
 import type { GameAction, GameState, PlayerId } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
-import { parseCliArgs, numberFlag, resolveAgent, stringFlag } from './common.js';
+import { cliPreamble, numberFlag, resolveAgent, stringFlag } from './common.js';
 import { hashState, withStandardCardPool } from '../ai/h2/scenario-store.js';
 import { readGameLog } from '../ai/h2/game-log.js';
 import { forwardActions } from '../ai/regress.js';
@@ -103,11 +103,7 @@ interface HumanDecision {
 /** Why a record produced no attributable decision. */
 type SkipReason = 'forced' | 'opponent-acted' | 'no-match' | 'ambiguous' | 'reducer-error';
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const corpusDir = stringFlag(args, 'dir');
