@@ -3300,8 +3300,51 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Diplomat only. +5 to an influence check against a character by a diplomat. Alternatively, +4 to a corruption check by a character in a diplomat's company."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.containsDiplomat": true
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-check-boost",
+        "when": {
+          "target.skills": {
+            "$includes": "diplomat"
+          }
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 5,
+          "constraintWhen": {
+            "reason": "opponent-influence-check",
+            "target.kind": "character"
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption-check-boost",
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "scope": "until-cleared",
+          "value": 4
+        }
+      }
+    ],
+    "text": "Diplomat only. +5 to an influence check against a character by a diplomat. Alternatively, +4 to a corruption check by a character in a diplomat's company.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
