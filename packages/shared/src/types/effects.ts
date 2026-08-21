@@ -1984,12 +1984,18 @@ export interface GrantActionEffect extends EffectBase {
  *   data — what varies card to card is who they're attached to). Backs
  *   "remove one corruption card from an Elf or a Wizard under your control"
  *   (Palantír of Amon Sûl tw-296, borrowing Palantír of Elostirion's ability).
+ * - `"company-hazard-corruption-cards"` — the company-scoped counterpart of
+ *   `"own-hazard-corruption-cards"`: every `hazard-corruption` card attached
+ *   to a character in the bearer's own company only. `filter` is likewise
+ *   matched against the bearer character's definition. Backs "remove a
+ *   corruption card from a character in his company" (Athelas tw-195,
+ *   Aragorn II's ability).
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards';
+  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];

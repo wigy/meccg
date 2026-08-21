@@ -1091,7 +1091,38 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "heal-company-character",
+        "anyPhase": true,
+        "when": { "bearer.race": "dunadan" },
+        "cost": {
+          "tap": "bearer",
+          "discard": "self"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "target-character",
+          "status": "tapped"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "athelas-remove-corruption",
+        "anyPhase": true,
+        "when": { "bearer.name": "Aragorn II" },
+        "cost": {
+          "tap": "bearer",
+          "discard": "self"
+        },
+        "targets": { "scope": "company-hazard-corruption-cards" },
+        "apply": {
+          "type": "discard-target-corruption-card"
+        }
+      }
+    ],
+    "certified": "2026-08-21",
     "text": "A Dúnadan can tap and use this item to heal a character in his company (change from wounded to well, character remains tapped).Aragorn II can also tap and use this item to remove a corruption card from a character in his company.Discard after use."
   },
   {
