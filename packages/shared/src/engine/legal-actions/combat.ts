@@ -4381,9 +4381,11 @@ function itemSalvageActions(
 /**
  * Actions during the discard-item-from-company sub-phase (An Article Missing, dm-43).
  *
- * After a successful agent strike with strikeEffect 'discard-item', the defending
- * player must discard one item from any character in the company. One action per
- * available item is generated; the defender chooses which item to lose.
+ * After a successful strike with a `strikeEffect`, the defending player must
+ * discard one item from `combat.discardItemOptions` — pooled from the whole
+ * company for `'discard-item'`, or scoped to the struck character alone for
+ * `'discard-item-character'` (Pick-pocket tw-79). One action per available
+ * item is generated; the defender chooses which item to lose.
  */
 function discardItemFromCompanyActions(
   state: GameState,

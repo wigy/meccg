@@ -2306,9 +2306,11 @@ export function finishSalvage(state: GameState, combat: CombatState): ReducerRes
 }
 
 /**
- * Defender discards one item from the company after a successful agent strike
- * with strikeEffect: 'discard-item' (An Article Missing, dm-43).
- * Once the item is discarded, combat advances to the next strike or finalizes.
+ * Defender discards one item from the offered pool after a successful strike
+ * with a `strikeEffect` (An Article Missing dm-43, Thief tw-102, Pick-pocket
+ * tw-79) — `combat.discardItemOptions` was already scoped to the company or
+ * to the struck character alone when the phase was entered. Once the item is
+ * discarded, combat advances to the next strike or finalizes.
  */
 export function handleDiscardItemFromCompany(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'discard-item-from-company') return wrongActionType(state, action, 'discard-item-from-company');
@@ -2328,7 +2330,7 @@ export function handleDiscardItemFromCompany(state: GameState, action: GameActio
   const removed = removeAttachment(state.players[defIdx], 'items', item.instanceId);
   if (!removed) return { state, error: 'Item not found on any character in company' };
 
-  logDetail(`An Article Missing: discarding item ${item.instanceId as string} from company`);
+  logDetail(`discard-item strike effect: discarding item ${item.instanceId as string}`);
   const newPlayers = clonePlayers(state);
   newPlayers[defIdx] = {
     ...removed.player,
