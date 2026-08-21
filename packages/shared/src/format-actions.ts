@@ -144,56 +144,50 @@ export function extractActionCardDefs(
       for (const v of Object.values(value)) visit(v);
     }
   };
-  // fetch-from-pile moves a card from a private pile (discard or sideboard)
-  // into the private play deck. Even if the card was previously revealed
-  // (e.g. played as a hazard earlier), broadcasting its identity here would
-  // tell the opponent which specific card was chosen — private information.
-  // Exclude cardInstanceId so the opponent's toast shows "Fetch a card from …".
-  if (action.type === 'fetch-from-pile') {
-    const { cardInstanceId: _excluded, ...rest } = action;
-    visit(rest);
-    return defs;
-  }
-  // exchange-sideboard swaps one card between discard pile and sideboard —
-  // both are private locations (opponent sees neither). Even if either card
-  // was previously revealed (e.g. played as a hazard), broadcasting its
-  // identity would tell the opponent exactly which cards the player exchanged,
-  // which is hidden information. Exclude both instance IDs.
-  if (action.type === 'exchange-sideboard') {
-    const { discardCardInstanceId: _d, sideboardCardInstanceId: _s, ...rest } = action;
-    visit(rest);
-    return defs;
-  }
-  // arrange-deck-top-card places a set-aside card face-down on top of the
-  // acting player's own play deck "in any order you choose" (Revealed to all
-  // Watchers, dm-85). Although the identities were made public a moment earlier
-  // when the card revealed the player's hand (revealHand), the *ordering* the
-  // player picks is private — the cards go face-down. Broadcasting which card
-  // is placed at each step would leak the exact deck-top order to the opponent
-  // and every spectator, defeating the face-down placement. Exclude the card
-  // instance ID so the audience only sees "Place a card … on top of the play
-  // deck"; the acting player still names their choices via the legal actions.
-  if (action.type === 'arrange-deck-top-card') {
-    const { cardInstanceId: _excluded, ...rest } = action;
-    visit(rest);
-    return defs;
-  }
-  // plan-movement places the destination site face-down (CoE 2.II.7) — it
-  // stays secret from the opponent until revealed during the company's
-  // Movement/Hazard sub-phase. If this exact site instance was already
-  // public earlier in the game (e.g. it was a company's currentSite before
-  // cycling back into the location deck), `revealedInstances` never forgets
-  // that — but re-selecting it as a new destination must not leak its
-  // identity again through the toast. Exclude destinationSite so the
-  // opponent's toast reads "Move company to a site".
-  if (action.type === 'plan-movement') {
-    const { destinationSite: _excluded, ...rest } = action;
-    visit(rest);
+  const hidden = PRIVATE_ACTION_FIELDS[action.type];
+  if (hidden) {
+    visit(Object.fromEntries(Object.entries(action).filter(([k]) => !hidden.includes(k))));
     return defs;
   }
   visit(action);
   return defs;
 }
+
+/**
+ * Action fields that must never be resolved to a public card identity, per
+ * action type — {@link extractActionCardDefs} drops them before visiting the
+ * action. Each entry hides *private information* an otherwise-revealed
+ * instance id would leak through the opponent's toast:
+ *
+ * - `fetch-from-pile` `cardInstanceId` — the fetch moves a card from a
+ *   private pile (discard or sideboard) into the private play deck. Even if
+ *   the card was previously revealed (e.g. played as a hazard earlier),
+ *   broadcasting its identity would tell the opponent which specific card
+ *   was chosen. The toast shows "Fetch a card from …".
+ * - `exchange-sideboard` both instance ids — the swap is between two private
+ *   locations (opponent sees neither), so which cards were exchanged is
+ *   hidden information even when either card was revealed before.
+ * - `arrange-deck-top-card` `cardInstanceId` — the set-aside cards go
+ *   face-down on top of the acting player's own play deck "in any order you
+ *   choose" (Revealed to all Watchers, dm-85). The identities were public a
+ *   moment earlier via revealHand, but the *ordering* the player picks is
+ *   private; per-step broadcasts would leak the exact deck-top order to the
+ *   opponent and every spectator. The audience only sees "Place a card … on
+ *   top of the play deck"; the acting player still names their choices via
+ *   the legal actions.
+ * - `plan-movement` `destinationSite` — the destination is placed face-down
+ *   (CoE 2.II.7) and stays secret until revealed during the company's M/H
+ *   sub-phase. If this exact site instance was public earlier in the game,
+ *   `revealedInstances` never forgets that — but re-selecting it as a new
+ *   destination must not leak its identity again. The opponent's toast
+ *   reads "Move company to a site".
+ */
+const PRIVATE_ACTION_FIELDS: Partial<Record<GameAction['type'], readonly string[]>> = {
+  'fetch-from-pile': ['cardInstanceId'],
+  'exchange-sideboard': ['discardCardInstanceId', 'sideboardCardInstanceId'],
+  'arrange-deck-top-card': ['cardInstanceId'],
+  'plan-movement': ['destinationSite'],
+};
 
 // ---- Action description ----
 
