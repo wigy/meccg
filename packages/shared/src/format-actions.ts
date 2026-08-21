@@ -686,6 +686,8 @@ export function describeAction(
       // deck/discard, which the acting player's own view may still redact —
       // the action itself carries the definition so the choice stays legible.
       return `${playerName(action.player)} names ${defName(action.definitionId)} to attack (The Hunt)`;
+    case 'choose-long-dark-reach-attacker':
+      return `${playerName(action.player)} names ${defName(action.definitionId)} to attack (Long Dark Reach)`;
     case 'gangways-extra-move':
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'extra-mh-move':

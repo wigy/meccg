@@ -2528,6 +2528,20 @@ export function activePlayerDeckSize(state: GameState): number {
 }
 
 /**
+ * Number of cards in `playerId`'s own play deck. Backs the `play-condition`
+ * `requires: 'card-player-deck-size'` gate (Long Dark Reach, dm-70: "if you
+ * have at least ten cards in your play deck") — unlike
+ * {@link activePlayerDeckSize}, which always checks the *active* (moving)
+ * player regardless of who is playing the card, this checks whichever player
+ * is actually declaring the play. For a hazard short-event that is the hazard
+ * player, not the active player, so the two helpers diverge whenever "you" in
+ * the card text refers to the card-player rather than "your opponent".
+ */
+export function cardPlayerDeckSize(state: GameState, playerId: PlayerId): number {
+  return state.players[getPlayerIndex(state, playerId)]?.playDeck.length ?? 0;
+}
+
+/**
  * The site name whose rescues Pass the Doors of Dol Guldur (dm-154) keys on.
  * Matched by name so that any printing of the site counts.
  */

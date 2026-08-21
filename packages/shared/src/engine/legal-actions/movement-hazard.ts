@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -2149,6 +2149,22 @@ function playHazardsActions(
         }
       }
 
+      // play-condition: card-player-deck-size (Long Dark Reach dm-70: "if you
+      // have at least 10 cards in your play deck"). "You" is the hazard
+      // player actually declaring this play — the opposite of
+      // active-player-deck-size above.
+      {
+        const ownDeckSizeCond = findPlayConditionEffect(def, 'card-player-deck-size');
+        if (ownDeckSizeCond?.minDeckSize !== undefined) {
+          const ownDeckSize = cardPlayerDeckSize(state, playerId);
+          if (ownDeckSize < ownDeckSizeCond.minDeckSize) {
+            logDetail(`Hazard "${def.name}": requires at least ${ownDeckSizeCond.minDeckSize} cards in ${player.name}'s own play deck (has ${ownDeckSize})`);
+            actions.push({ action, viable: false, reason: `${def.name}: you need at least ${ownDeckSizeCond.minDeckSize} cards in your play deck` });
+            continue;
+          }
+        }
+      }
+
       // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
       // a card named by any in-play `prohibit-card-play` effect may not be
       // played while that source remains in play.
@@ -2587,25 +2603,32 @@ function playHazardsActions(
         }
 
         // Play-condition check (e.g. Two or Three Tribes Present site-path requirement)
+        //
+        // Each `requires` variant is looked up on its own (rather than taking
+        // the first `play-condition` effect on the card, regardless of kind)
+        // so a card carrying more than one play-condition — e.g. Long Dark
+        // Reach dm-70's `site-path` + `card-player-deck-size` pair — has both
+        // checked instead of only whichever happens to be listed first.
         {
-          const playCondition = getCardEffects(def).find(
-            (e): e is PlayConditionEffect => e.type === 'play-condition',
-          );
-          if (playCondition && playCondition.requires === 'site-path') {
-            if (!checkSitePathCondition(mhState, playCondition, state, targetCompany)) {
+          const sitePathCondition = findPlayConditionEffect(def, 'site-path');
+          const regionThroughCondition = findPlayConditionEffect(def, 'region-through-or-leave');
+          const companySiteCondition = findPlayConditionEffect(def, 'company-site');
+          if (sitePathCondition) {
+            if (!checkSitePathCondition(mhState, sitePathCondition, state, targetCompany)) {
               logDetail(`Hazard short-event "${def.name}": site path condition not met`);
               actions.push({ action, viable: false, reason: 'Site path condition not met' });
               continue;
             }
-          } else if (playCondition && playCondition.requires === 'region-through-or-leave') {
+          } else if (regionThroughCondition) {
             // Cruel Caradhras (td-9): playable on a company using region movement
             // to move through (not stopping at a site) or leave a named region.
-            if (!checkRegionThroughOrLeave(mhState, playCondition.regionNames ?? [])) {
+            if (!checkRegionThroughOrLeave(mhState, regionThroughCondition.regionNames ?? [])) {
               logDetail(`Hazard short-event "${def.name}": company is not moving through or leaving a required region`);
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
               continue;
             }
-          } else if (playCondition && playCondition.requires === 'company-site' && playCondition.condition) {
+          } else if (companySiteCondition?.condition) {
+            const companySiteConditionExpr = companySiteCondition.condition;
             // Glance of Arien (ba-19): gate on the active company's relevant
             // site — its destination when moving, else its current site.
             const relevantSite = targetCompany.destinationSite ?? targetCompany.currentSite;
@@ -2613,7 +2636,7 @@ function playHazardsActions(
             const siteCtx = siteDef && isSiteCard(siteDef)
               ? { site: { name: siteDef.name, siteType: siteDef.siteType, cardType: siteDef.cardType, region: siteDef.region, keywords: siteDef.keywords ?? [] } }
               : { site: {} };
-            if (!matchesCondition(playCondition.condition, siteCtx as unknown as Record<string, unknown>)) {
+            if (!matchesCondition(companySiteConditionExpr, siteCtx as unknown as Record<string, unknown>)) {
               logDetail(`Hazard short-event "${def.name}": company-site condition not met (site ${siteDef && isSiteCard(siteDef) ? siteDef.name : 'none'})`);
               actions.push({ action, viable: false, reason: `${def.name}: company's site does not satisfy play condition` });
               continue;
@@ -4426,6 +4449,28 @@ function findCreatureKeyingMatches(
 }
 
 /**
+ * True when `def` has at least one keying match against `targetCompany`'s
+ * travel path / destination site — i.e. the creature "could normally be
+ * played on the company". Used by Long Dark Reach (dm-70) to decide its -4
+ * prowess penalty for a creature forced to attack "regardless of its
+ * playability requirements": the bypass means the attack always proceeds,
+ * but whether it *would* have been legally playable is still evaluated,
+ * purely for the penalty. Delegates to {@link findCreatureKeyingMatches}, the
+ * same keying-match logic the ordinary M/H hazard-creature-play path uses.
+ */
+export function creatureIsNormallyPlayableOnCompany(
+  def: CreatureCard,
+  mhState: MovementHazardPhaseState,
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+): boolean {
+  return findCreatureKeyingMatches(def, mhState, state, targetCompany).length > 0;
+}
+
+/**
  * If the target company is stationary at a site carrying a `cancel-attacks`
  * site-rule, return the site's name so callers can mark creature plays
  * non-viable and surface a reason. Returns null when no such rule applies.
@@ -4657,9 +4702,11 @@ function grantsCreatureKeying(
  * True if the creature's printed `keyedTo` offers at least one non-Coastal-Sea
  * region keying — a region type other than Coastal, or a named region. Used to
  * evaluate A Pack at the Door's (tw-497) "must be playable in a non-Coastal Sea
- * [{c}] region" clause, which excludes Coastal-Sea-only creatures (e.g. tw-34).
+ * [{c}] region" clause, which excludes Coastal-Sea-only creatures (e.g. tw-34),
+ * and Long Dark Reach's (dm-70) identical "must be playable in a region besides
+ * Coastal Sea" eligibility filter (`engine/long-dark-reach.ts`).
  */
-function creatureHasNonCoastalRegionKeying(def: CreatureCard): boolean {
+export function creatureHasNonCoastalRegionKeying(def: CreatureCard): boolean {
   for (const key of def.keyedTo) {
     if (key.regionNames && key.regionNames.length > 0) return true;
     for (const rt of key.regionTypes ?? []) {

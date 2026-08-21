@@ -921,8 +921,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LongDarkReach.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path if you have at least 10 cards in your play deck. Reveal the top seven cards of your play deck. One revealed Nazgûl, Dragon, or a non-unique creature of your choice must immediately attack the company regardless of its playability requirements (not count against the hazard limit). The creature must be playable in a region besides Coastal Sea [{c}]. If the creature could not normally be played on the company, modify its prowess by -4. Shuffle all unused cards and return them to the top of your play deck."
+    "effects": [
+      { "type": "play-condition", "requires": "site-path", "condition": { "sitePath.wildernessCount": { "$gte": 1 } } },
+      { "type": "play-condition", "requires": "card-player-deck-size", "minDeckSize": 10 },
+      {
+        "type": "reveal-deck-choose-attacker",
+        "count": 7,
+        "alwaysEligibleRaces": ["ringwraith", "dragon"],
+        "requireNonCoastalKeying": true,
+        "unplayableProwessPenalty": -4
+      }
+    ],
+    "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path if you have at least 10 cards in your play deck. Reveal the top seven cards of your play deck. One revealed Nazgûl, Dragon, or a non-unique creature of your choice must immediately attack the company regardless of its playability requirements (not count against the hazard limit). The creature must be playable in a region besides Coastal Sea [{c}]. If the creature could not normally be played on the company, modify its prowess by -4. Shuffle all unused cards and return them to the top of your play deck.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-event",
