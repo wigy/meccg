@@ -183,7 +183,10 @@ describe('Khamûl the Ringwraith (le-55)', () => {
     const [bodyCheck] = viableActions(ready, PLAYER_1, 'body-check-roll');
     const after = dispatch(ready, bodyCheck.action);
     const defenderId = findCharInstanceId(state, HAZARD_PLAYER, defenderDefId);
-    const eliminated = after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === defenderId);
+    // CoE 3.v: a defending character eliminated in CvCC counts as kill MPs for
+    // the opposing player, so the card lands in the attacker's kill pile — not
+    // in its own player's out-of-play pile.
+    const eliminated = after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === defenderId);
     return { after, eliminated };
   }
 

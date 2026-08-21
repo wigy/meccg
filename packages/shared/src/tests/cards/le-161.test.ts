@@ -313,7 +313,10 @@ describe('Adûnaphel Unleashed (le-161)', () => {
     const ready = { ...state, combat: bodyCheckCombat, cheatRollTotal: 8 };
     const [bodyCheck] = viableActions(ready, PLAYER_1, 'body-check-roll');
     const after = dispatch(ready, bodyCheck.action);
-    expect(after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(true);
+    // CoE 3.v: the eliminated CvCC defender counts as kill MPs for the
+    // attacking player, so it goes to the attacker's kill pile.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === aragornId)).toBe(true);
+    expect(after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
   });
 
   // ─── Cannot be duplicated on a given attack ────────────────────────────────
