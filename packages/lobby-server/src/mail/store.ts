@@ -12,6 +12,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PLAYERS_DIR } from '../config.js';
+import { writeJson } from '../json-store.js';
 import { notifyPlayer } from '../lobby/lobby.js';
 import { toDirName } from '../players/store.js';
 import type { MailMessage, MailSender, MailStatus, MailTopic } from './types.js';
@@ -88,8 +89,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
 
   for (const recipient of recipients) {
     const dir = inboxDir(recipient);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(message, null, 2));
+    writeJson(path.join(dir, `${id}.json`), message);
 
     const unread = countUnread(recipient);
     notifyPlayer(recipient, { type: 'mail-notification', unreadCount: unread });
@@ -105,8 +105,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
 /** Write a copy of a message to a player's sent folder. */
 export function writeSentCopy(playerName: string, message: MailMessage): void {
   const dir = sentDir(playerName);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, `${message.id}.json`), JSON.stringify(message, null, 2));
+  writeJson(path.join(dir, `${message.id}.json`), message);
 }
 
 /** List all messages in a player's sent folder, sorted by timestamp descending (newest first). */
@@ -146,7 +145,7 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
     if (message.status === 'new' && message.topic !== 'review-request' && message.topic !== 'feature-request' && message.topic !== 'bug-report') {
       const updatedAt = new Date().toISOString();
       const updated: MailMessage = { ...message, status: 'read', updatedAt };
-      fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+      writeJson(filePath, updated);
       updateSentCopies(msgId, 'read', updatedAt);
       return updated;
     }
@@ -183,7 +182,7 @@ export function updateMessageStatus(
       ...(success !== undefined ? { success } : {}),
       ...(keywordsPatch ? { keywords: { ...message.keywords, ...keywordsPatch } } : {}),
     };
-    fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+    writeJson(filePath, updated);
     updateSentCopies(msgId, status, updatedAt, success, keywordsPatch);
     notifyPlayer(playerName, { type: 'mail-notification', unreadCount: countUnread(playerName) });
     return updated;
@@ -214,7 +213,7 @@ function updateSentCopies(
           ...(success !== undefined ? { success } : {}),
           ...(keywordsPatch ? { keywords: { ...message.keywords, ...keywordsPatch } } : {}),
         };
-        fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+        writeJson(filePath, updated);
       } catch { /* file doesn't exist for this player */ }
     }
   } catch { /* players dir doesn't exist */ }
@@ -231,9 +230,9 @@ export function deleteMessage(playerName: string, msgId: string): boolean {
   try {
     const message = loadMail(srcPath);
     const destDir = deletedDir(playerName);
-    fs.mkdirSync(destDir, { recursive: true });
+
     const updated: MailMessage = { ...message, status: 'deleted', updatedAt: new Date().toISOString() };
-    fs.writeFileSync(path.join(destDir, `${msgId}.json`), JSON.stringify(updated, null, 2));
+    writeJson(path.join(destDir, `${msgId}.json`), updated);
     fs.unlinkSync(srcPath);
     return true;
   } catch {

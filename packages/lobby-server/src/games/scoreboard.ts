@@ -9,9 +9,9 @@
  * game-server maintains alongside the records.
  */
 
-import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { readJsonDir } from '../json-store.js';
 import { loadRatingHistory, loadRatings } from './ratings.js';
 import type { PlayerRatingSummary, StoredRatingHistoryEntry } from './ratings.js';
 
@@ -258,22 +258,7 @@ export function playerGames(
  * games yet).
  */
 function readGameRecords(): ScoreboardGameRecord[] {
-  const dir = gameRecordsDir();
-  let files: string[];
-  try {
-    files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-  } catch {
-    return [];
-  }
-  const records: ScoreboardGameRecord[] = [];
-  for (const file of files) {
-    try {
-      records.push(JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8')) as ScoreboardGameRecord);
-    } catch {
-      // Skip malformed records.
-    }
-  }
-  return records;
+  return readJsonDir<ScoreboardGameRecord>(gameRecordsDir());
 }
 
 /** Aggregate every record on disk into scoreboard rows, rated and ranked. */
