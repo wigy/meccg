@@ -3720,6 +3720,28 @@ export function itemKeywordsOf(state: GameState, items: readonly { readonly defi
 }
 
 /**
+ * Returns the item instances among `items` whose own card definition
+ * matches `filter` (e.g. a play-target's `itemFilter`). Evaluated per-item
+ * against the item's full definition via {@link matchesDefinition} — unlike
+ * {@link itemKeywordsOf}, which aggregates keywords across every item for a
+ * character-level eligibility check, this identifies *which* individual
+ * item(s) qualify so a card can designate one (Use Palantír tw-355: "enable
+ * him to use one Palantír he bears" — a bearer of several must pick one).
+ */
+export function itemsMatchingFilter(
+  state: GameState,
+  items: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+  filter: Condition,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const item of items) {
+    const itemDef = defById(state, item.definitionId);
+    if (itemDef && matchesDefinition(itemDef, filter)) out.push(item.instanceId);
+  }
+  return out;
+}
+
+/**
  * Collect the `subtype` of all given item instances that declare one. Used to
  * build the `itemSubtypes` field of condition-matcher contexts.
  */
