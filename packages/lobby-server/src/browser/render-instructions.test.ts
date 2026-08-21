@@ -368,6 +368,56 @@ describe('renderPassButton — choose-great-hunt-source (The Great Hunt)', () =>
 });
 
 /**
+ * Regression test for bug report 648f4980dacb0e76 (game mt2ppg50-l6cytw, seq
+ * 428): "Im stuck after named a creature." Playing The Hunt (dm-143) enqueues
+ * a `hunt-target-choice` pending resolution offering one viable
+ * `choose-hunt-target` action per hazard creature found in the opponent's
+ * play deck/discard pile. `choose-hunt-target` was not in
+ * {@link renderPassButton}'s pass-like whitelist and had no dedicated
+ * branch, so once the choice was pending, the pass button hid and (since
+ * viable actions did exist) the "Waiting…" indicator was suppressed too — no
+ * control on screen let the player name a creature, the same class of bug as
+ * `choose-great-hunt-source` above. There is no safe default creature to name
+ * silently, so it renders one button per candidate instead of joining the
+ * generic whitelist.
+ */
+const chooseHuntTarget = (creatureInstanceId: CardInstanceId, definitionId: CardDefinitionId): EvaluatedAction => ({
+  action: {
+    type: 'choose-hunt-target',
+    player: 'p1',
+    creatureInstanceId,
+    definitionId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — choose-hunt-target (The Hunt)', () => {
+  // le-77 (Hobgoblins) and tw-078 (Orc-watch) are real hazard-creature card
+  // ids — the button label is resolved from `cardPool` by the definitionId
+  // the action itself carries, no instance lookup needed.
+  const hobgoblins = chooseHuntTarget('p2-35' as CardInstanceId, 'le-77' as CardDefinitionId);
+  const orcWatch = chooseHuntTarget('p2-46' as CardInstanceId, 'tw-078' as CardDefinitionId);
+
+  test('renders one button per named candidate instead of hiding the panel', () => {
+    renderPassButton(viewWith([hobgoblins, orcWatch]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(visualPanel.children).toHaveLength(2);
+    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Name Hobgoblins', 'Name Orc-watch']);
+  });
+
+  test('clicking a choice button sends that creature\'s action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([hobgoblins, orcWatch]), action => { sent = action; });
+
+    visualPanel.children[1].onclick?.();
+
+    expect(sent).toEqual(orcWatch.action);
+  });
+});
+
+/**
  * Regression test for bug report underlying feature request "change 'pass'
  * button name and place": Movement/Hazard's `draw-cards` and `play-hazards`
  * steps are two separate engine steps with independent pass semantics, but
