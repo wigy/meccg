@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1172 | 1172 | 0 | 100.0% |
+| 1175 | 1175 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 110 | 110 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 108 | 108 | 100.0% |
+| DM | 110 | 110 | 100.0% |
 | LE | 309 | 309 | 100.0% |
 | TD | 96 | 96 | 100.0% |
-| TW | 359 | 359 | 100.0% |
+| TW | 360 | 360 | 100.0% |
 | WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
@@ -277,6 +277,7 @@
 | dm-63 | Great Secrets Buried There | — | 9 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
+| dm-70 | Long Dark Reach | — | 12 | ☑ |
 | dm-71 | The Moon Is Dead | — | 9 | ☑ |
 | dm-72 | Mordor in Arms | — | 10 | ☑ |
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
@@ -323,6 +324,7 @@
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
+| dm-157 | Secret Ways | — | 7 | ☑ |
 | dm-159 | Smoke Rings | — | 13 | ☑ |
 | dm-160 | Token of Goodwill | — | 11 | ☑ |
 | dm-162 | Vein of Arda | — | 15 | ☑ |
@@ -431,7 +433,7 @@
 | le-110 | Doors of Night | — | 7 | ☑ |
 | le-111 | Fell Winter | — | 11 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
-| le-113 | Greed | — | 11 | ☑ |
+| le-113 | Greed | — | 12 | ☑ |
 | le-114 | Heedless Revelry | — | 11 | ☑ |
 | le-115 | Incite Defenders | — | 12 | ☑ |
 | le-116 | Incite Denizens | — | 10 | ☑ |
@@ -453,7 +455,7 @@
 | le-141 | Stench of Mordor | — | 10 | ☑ |
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
-| le-146 | Veils Flung Away | — | 14 | ☑ |
+| le-146 | Veils Flung Away | — | 15 | ☑ |
 | le-148 | Wake of War | — | 7 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
 | le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
@@ -869,7 +871,7 @@
 | tw-152 | Frodo | — | 5 | ☑ |
 | tw-154 | Galva | — | 9 | ☑ |
 | tw-155 | Gamling the Old | — | 3 | ☑ |
-| tw-156 | Gandalf | — | 11 | ☑ |
+| tw-156 | Gandalf | — | 12 | ☑ |
 | tw-158 | Gildor Inglorion | — | 2 | ☑ |
 | tw-159 | Gimli | — | 8 | ☑ |
 | tw-160 | Glóin | — | 7 | ☑ |
@@ -972,6 +974,7 @@
 | tw-292 | New Friendship | — | 13 | ☑ |
 | tw-295 | Orcrist | — | 5 | ☑ |
 | tw-296 | Palantír of Amon Sûl | — | 17 | ☑ |
+| tw-297 | Palantír of Annúminas | — | 6 | ☑ |
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
 | tw-302 | Paths of the Dead | — | 6 | ☑ |

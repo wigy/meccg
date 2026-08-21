@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.124.0 — 2026-08-21
+
+CvCC combat corrections and three new certified cards
+
+### Game Engine
+
+- **CvCC body checks use effective body.** The attacker body check in
+  company-versus-company combat compared against printed body, ignoring
+  body-modifying effects (#2618); excess strikes beyond the defenders
+  now correctly reduce defender prowess (#2613).
+- **Veils Flung Away body-check semantics fixed** (le-146): the
+  Ringwraith reveal now follows the correct body-check flow, with the
+  pending shape shared across the Nazgûl unleashed family (#2621).
+- **Duplication limits can no longer be evaded across printings.**
+  Playing two printings of the same-named unique/limited card counted
+  as different cards for duplication checks (#2617).
+- **Discarding a character no longer makes its site vanish** when the
+  discard empties the company during the organization phase (#2615).
+- **Untap-phase granted actions are offered again.** An
+  activate-granted-action available during the untap phase was
+  swallowed and treated as a hazard pass (#2622).
+- **Trophy-offer step fixed:** take-trophy had no click target and the
+  banner incorrectly said Body Check (#2612).
+
+### Cards
+
+- **Certified: Long Dark Reach (dm-70)** — new chain-reducer support
+  for the reveal-and-attack flow (#2620), **Palantír of Annúminas
+  (tw-297)** (#2619), and **Secret Ways (dm-157)** (#2614).
+
+### Web Client
+
+- **The Hunt (dm-143) choose-hunt-target buttons render**, so the
+  hazard player can actually pick the target (#2616).
+
 ## 0.123.0 — 2026-08-21
 
 Engine fix wave, three new certified cards, and a broad refactoring pass
