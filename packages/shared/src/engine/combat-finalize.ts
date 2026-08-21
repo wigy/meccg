@@ -436,6 +436,42 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // Long Dark Reach (dm-70): the named creature attacks "in place" out of the
+  // card-player's own play deck — never moved into the attacker's
+  // cardsInPlay, so the generic creature-attack disposal above never finds
+  // it. CoE rule 964 still governs a defeated attack: it belongs in the
+  // defending player's kill pile for marshalling points (unless detainment —
+  // CoE 3.II.3 — in which case it's discarded with no kill-MP). An undefeated
+  // attack leaves the creature exactly where `buildLongDarkReachCombat`'s
+  // reshuffle left it.
+  if (allDefeated && combat.attackSource.type === 'long-dark-reach-attack') {
+    const ldrCreatureId = combat.attackSource.creatureInstanceId;
+    const atkIdxL = getPlayerIndex(state, combat.attackingPlayerId);
+    const defIdxL = getPlayerIndex(state, combat.defendingPlayerId);
+    const ldrCreatureCard = findById(newPlayers[atkIdxL].playDeck, ldrCreatureId)
+      ?? findById(newPlayers[atkIdxL].discardPile, ldrCreatureId);
+    if (ldrCreatureCard) {
+      newPlayers[atkIdxL] = {
+        ...newPlayers[atkIdxL],
+        playDeck: newPlayers[atkIdxL].playDeck.filter(c => c.instanceId !== ldrCreatureId),
+        discardPile: newPlayers[atkIdxL].discardPile.filter(c => c.instanceId !== ldrCreatureId),
+      };
+      if (combat.detainment && !playerHasKillMpExemption(state, state.players[defIdxL])) {
+        newPlayers[atkIdxL] = {
+          ...newPlayers[atkIdxL],
+          discardPile: [...newPlayers[atkIdxL].discardPile, ldrCreatureCard],
+        };
+        logDetail(`Long Dark Reach: all strikes defeated (detainment) — creature discarded instead of kill pile (§3.II.3)`);
+      } else {
+        newPlayers[defIdxL] = {
+          ...newPlayers[defIdxL],
+          killPile: [...newPlayers[defIdxL].killPile, ldrCreatureCard],
+        };
+        logDetail(`Long Dark Reach: all strikes defeated — creature moved to defender's kill pile`);
+      }
+    }
+  }
+
   // AS-39 Summons from Long Sleep: if the attacking creature was played from a
   // reserved slot (reservingCardInstanceId present), discard the AS-39 card after combat.
   if (combat.attackSource.type === 'creature' && combat.attackSource.reservingCardInstanceId) {

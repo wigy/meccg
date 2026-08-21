@@ -71,6 +71,7 @@ import { handleRevealAgent } from './mh-hazard-play.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 import { findHuntCandidates, buildHuntCombat } from './hunt.js';
+import { findLongDarkReachCandidates, buildLongDarkReachCombat } from './long-dark-reach.js';
 import { afterAttackPlayTargets } from './post-attack-play.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 
@@ -4869,6 +4870,42 @@ export function applyHuntTargetChoiceResolution(
   );
   if (!combat) {
     logDetail(`hunt-target-choice: named creature could not attack (missing definition/company)`);
+    return { state: withReshuffle };
+  }
+  return { state: { ...withReshuffle, combat } };
+}
+
+/**
+ * Resolve a `reveal-deck-choose-attacker` pending resolution (Long Dark
+ * Reach, dm-70): the card-player names one of the eligible revealed
+ * creatures to immediately attack the target company. The choice is
+ * mandatory. Builds the `long-dark-reach-attack` combat (which also shuffles
+ * the unused revealed cards back to the top of the card-player's deck).
+ */
+export function applyRevealDeckChooseAttackerResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolution(state, rawAction, top, 'choose-long-dark-reach-attacker', 'reveal-deck-choose-attacker');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
+  const { revealedInstanceIds, eligibleInstanceIds, cardPlayerId, targetCompanyId, defendingPlayerId, sourceInstanceId } = kind;
+  if (!eligibleInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} is not an eligible Long Dark Reach candidate` };
+  }
+
+  const cleared = dequeueResolution(state, top.id);
+  const candidate = findLongDarkReachCandidates(cleared, revealedInstanceIds, cardPlayerId)
+    .find(c => c.instanceId === action.cardInstanceId);
+  if (!candidate) {
+    return { state, error: `Card ${action.cardInstanceId as string} is no longer a valid Long Dark Reach candidate` };
+  }
+  const { state: withReshuffle, combat } = buildLongDarkReachCombat(
+    cleared, sourceInstanceId, candidate, revealedInstanceIds, cardPlayerId, defendingPlayerId, targetCompanyId,
+  );
+  if (!combat) {
+    logDetail(`Long Dark Reach: named creature could not attack (missing definition/company)`);
     return { state: withReshuffle };
   }
   return { state: { ...withReshuffle, combat } };

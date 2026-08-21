@@ -47,6 +47,7 @@ import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
+import { findLongDarkReachCandidates, fizzleLongDarkReach } from './long-dark-reach.js';
 import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
@@ -4540,6 +4541,61 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             sourceDefinitionId: entry.card.definitionId,
           },
         });
+      }
+    }
+  }
+
+  // Long Dark Reach (dm-70): a hazard short-event carrying a
+  // `reveal-deck-choose-attacker` effect. When it resolves un-negated, the
+  // card-player reveals the top N cards of THEIR OWN play deck (unlike
+  // reveal-deck-choose-penalty's opponent-deck reveal). If at least one
+  // revealed card is an eligible attacker (Nazgûl, Dragon, or non-unique
+  // creature, playable outside Coastal Sea), enqueue a mandatory
+  // reveal-deck-choose-attacker pending resolution so the card-player names
+  // one to immediately attack the targeted company. With none eligible, every
+  // revealed card is shuffled straight back to the top of the deck (no
+  // pending resolution — see `engine/long-dark-reach.ts`).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const attackerEff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').RevealDeckChooseAttackerEffect =>
+        e.type === 'reveal-deck-choose-attacker',
+    );
+    if (attackerEff) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardPlayerId = entry.declaredBy;
+      const targetCompanyId = entry.payload.targetCompanyId;
+      const defendingPlayerId = current.activePlayer;
+      const deck = current.players[getPlayerIndex(current, cardPlayerId)].playDeck;
+      const revealCount = Math.min(attackerEff.count, deck.length);
+
+      if (revealCount === 0 || !targetCompanyId || !defendingPlayerId) {
+        logDetail(`${cardName}: nothing to reveal — the event fizzles`);
+      } else {
+        const revealed = deck.slice(0, revealCount);
+        current = revealInstances(current, revealed);
+        const revealedInstanceIds = revealed.map(c => c.instanceId);
+        logDetail(`${cardName}: ${cardPlayerId as string} reveals the top ${revealCount} card(s) of their own play deck`);
+
+        const eligible = findLongDarkReachCandidates(current, revealedInstanceIds, cardPlayerId);
+        if (eligible.length === 0) {
+          current = fizzleLongDarkReach(current, cardPlayerId, revealedInstanceIds);
+        } else {
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: cardPlayerId,
+            scope: { kind: 'phase', phase: Phase.MovementHazard },
+            kind: {
+              type: 'reveal-deck-choose-attacker',
+              revealedInstanceIds,
+              eligibleInstanceIds: eligible.map(c => c.instanceId),
+              cardPlayerId,
+              targetCompanyId,
+              defendingPlayerId,
+              sourceInstanceId: entry.card.instanceId,
+            },
+          });
+        }
       }
     }
   }

@@ -14,15 +14,17 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardDefinitionId, Alignment, CompanyId } from '../../../index.js';
+import { Phase, CardDefinitionId, Alignment, CompanyId, CardStatus, THE_MITHRIL_COAT } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
   dispatch, viableActions,
 } from '../../test-helpers.js';
+import type { CharacterEntry } from '../../test-helpers.js';
 import type { SitePhaseState } from '../../../index.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
-const BILBO = 'tw-140' as CardDefinitionId;
+const DENETHOR = 'tw-140' as CardDefinitionId;  // Denethor II: prowess 3, body 6
+const MAUHUR = 'as-2' as CardDefinitionId;      // Mauhúr: prowess 6, body 9 (minion)
 const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;  // Weathertop ruins-and-lairs (minion site)
@@ -34,8 +36,8 @@ const EAGLES_EYRIE_MINION = 'as-144' as CardDefinitionId;
 function buildCvCCState(opts: {
   siteEntered?: boolean;
   opponentInteraction?: 'influence' | 'attack' | null;
-  p1Characters?: CardDefinitionId[];
-  p2Characters?: CardDefinitionId[];
+  p1Characters?: CharacterEntry[];
+  p2Characters?: CharacterEntry[];
   p2Alignment?: Alignment;
   sameSite?: boolean;
 }) {
@@ -49,7 +51,7 @@ function buildCvCCState(opts: {
       {
         id: PLAYER_1,
         alignment: Alignment.Wizard,
-        companies: [{ site: p1Site, characters: opts.p1Characters ?? [ARAGORN, BILBO] }],
+        companies: [{ site: p1Site, characters: opts.p1Characters ?? [ARAGORN, DENETHOR] }],
         hand: [],
         siteDeck: [RIVENDELL],
       },
@@ -114,7 +116,7 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
 
   test('CvCC: one strike per attacking character (strikesTotal = company size)', () => {
     // Aragorn + Bilbo = 2 attackers → 2 strikes
-    const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN, BILBO] });
+    const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN, DENETHOR] });
     const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
     const declareActions = viableActions(afterPass, PLAYER_1, 'declare-company-attack');
     expect(declareActions.length).toBe(1);
@@ -327,5 +329,56 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     expect(s.combat).toBeNull();
     expect(s.players[0].killPile.some(c => c.instanceId === perchenId)).toBe(true);
     expect(s.players[1].outOfPlayPile.some(c => c.instanceId === perchenId)).toBe(false);
+  });
+
+  test('CvCC: attacking character body check uses effective body, not printed body', () => {
+    // Regression: handleBodyCheckRoll's attacker-character branch read the
+    // printed body from the card definition, while the defending-character
+    // branch checks effectiveStats.body — so a body modifier (The Mithril-coat
+    // +3, Akhôrahil tw-4's -1) protected/exposed a character when defending
+    // but was silently ignored when the same character attacked in CvCC.
+    const state = buildCvCCState({
+      siteEntered: true,
+      p1Characters: [{ defId: DENETHOR, items: [THE_MITHRIL_COAT] }],
+      p2Characters: [MAUHUR],
+    });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender passes without assigning — leaves Mauhúr for the attacker to pair with.
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+    const atkAssign = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssign[0].action);
+
+    const denethorId = s.players[0].companies[0].characters[0];
+    // Denethor II: printed body 6, +3 from The Mithril-coat → effective body 9.
+    expect(s.players[0].characters[denethorId].effectiveStats.body).toBe(9);
+
+    // The cheat total is consumed by the first (attacker's) roll, so force it
+    // to the minimum: Denethor II totals 2 + prowess 3 = 5, while Mauhúr's
+    // worst case is 2 + prowess 6 = 8 — the defender wins regardless of RNG
+    // and the attacker is wounded and must make a body check.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 2 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(s.combat?.phase).toBe('body-check');
+    expect(s.combat?.bodyCheckTarget).toBe('attacker-character');
+
+    // The defender rolls the attacker's body check; the quoted need must be
+    // computed from effective body 9 (need 10+), not printed body 6.
+    s = { ...s, cheatRollTotal: 8 };
+    const bodyCheckActions = viableActions(s, PLAYER_2, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    expect((bodyCheckActions[0].action as { need: number }).need).toBe(10);
+
+    // Roll 8: above printed body 6, at or below effective body 9 → survives.
+    s = dispatch(s, bodyCheckActions[0].action);
+    expect(s.players[0].characters[denethorId]).toBeDefined();
+    expect(s.players[0].characters[denethorId].status).toBe(CardStatus.Inverted);
+    expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(false);
   });
 });

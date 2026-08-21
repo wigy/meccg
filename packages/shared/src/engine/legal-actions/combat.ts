@@ -2049,7 +2049,10 @@ function bodyCheckActions(
     const atkPlayer = playerById(state, combat.attackingPlayerId);
     const charData = atkPlayer?.characters[strike?.attackingCharacterId as CardInstanceId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
-    body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    // Effective body, not printed: the reducer's handleBodyCheckRoll checks
+    // against `effectiveStats.body` (item body modifiers, character-stat-modifier
+    // constraints), so the quoted `need` must be computed from the same value.
+    body = charData?.effectiveStats.body ?? 9;
     targetLabel = charDef?.name ?? 'attacker';
   } else {
     // The strike target may be a character or an ally (CoE rule 2.V.2.2) —
@@ -2067,9 +2070,13 @@ function bodyCheckActions(
       : undefined;
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     const allyDef = allyMatch ? defById(state, allyMatch.ally.definitionId) : undefined;
+    // Characters check against `effectiveStats.body` (item body modifiers,
+    // character-stat-modifier constraints) to match the reducer's
+    // handleBodyCheckRoll — the printed value would quote a wrong `need`
+    // whenever a body modifier applies.
     body = allyMatch
       ? allyEffectiveBody(state, allyMatch.ally) ?? 9
-      : (charDef as { body?: number } | undefined)?.body ?? 9;
+      : charData?.effectiveStats.body ?? 9;
     // Dodge body penalty
     if (strike?.dodged && strike.dodgeBodyPenalty) {
       body = body + strike.dodgeBodyPenalty;

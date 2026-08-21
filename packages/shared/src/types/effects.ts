@@ -1684,6 +1684,66 @@ export interface RevealDeckChooseSetAsideEffect extends EffectBase {
 }
 
 /**
+ * Carried by a hazard short-event. When the event resolves un-negated on the
+ * chain, the card-player reveals the top `count` cards of **their own** play
+ * deck (unlike `reveal-deck-choose-penalty`, which reveals the *opponent's*
+ * deck) and, if at least one revealed card is an eligible hazard-creature,
+ * must immediately name one to attack the target company — bypassing the
+ * creature's normal keying/playability check entirely, and without counting
+ * against the hazard limit (the attack is spawned directly by chain
+ * resolution, never through the ordinary hazard-limit-charging play path).
+ *
+ * A revealed card is eligible when it is a hazard-creature whose race is one
+ * of `alwaysEligibleRaces`, or any non-unique creature of any race, AND (when
+ * `requireNonCoastalKeying` is set) its printed `keyedTo` offers at least one
+ * non-Coastal-Sea region (`creatureHasNonCoastalRegionKeying`, the same
+ * helper A Pack at the Door tw-497 uses for its own "must be playable in a
+ * non-Coastal Sea region" clause).
+ *
+ * The choice is mandatory once at least one candidate exists ("must
+ * immediately attack") — mirrors `reveal-deck-choose-penalty`'s
+ * `desire-belly-choose-card` mandatory, no-pass shape. With no eligible
+ * candidate the reveal fizzles and every revealed card is immediately
+ * shuffled back to the top of the deck (no pending resolution).
+ *
+ * Whether the chosen creature *could* normally have been played on the
+ * company (its printed keying actually matches the company's site path/
+ * destination) is still evaluated — via `creatureIsNormallyPlayableOnCompany`,
+ * the same keying-match logic the ordinary M/H hazard-play path uses — purely
+ * to decide `unplayableProwessPenalty`; legality itself is never gated on it.
+ *
+ * The chosen creature attacks in place — never moved out of the deck before
+ * combat, exactly like The Hunt (dm-143) / The Great Hunt (wh-91) — so no
+ * instance ever floats; see `engine/long-dark-reach.ts`. The unused revealed
+ * cards are shuffled among themselves and returned to the top of the deck
+ * once the choice resolves; the chosen card is left resting directly beneath
+ * them until combat disposes of it.
+ *
+ * Used by *Long Dark Reach* (dm-70): "Playable on a moving company with at
+ * least one Wilderness [{w}] in its site path if you have at least 10 cards
+ * in your play deck. Reveal the top seven cards of your play deck. One
+ * revealed Nazgûl, Dragon, or a non-unique creature of your choice must
+ * immediately attack the company regardless of its playability requirements
+ * (not count against the hazard limit). The creature must be playable in a
+ * region besides Coastal Sea [{c}]. If the creature could not normally be
+ * played on the company, modify its prowess by -4. Shuffle all unused cards
+ * and return them to the top of your play deck." (Paired with a
+ * `play-condition` `site-path` for the Wilderness requirement and a
+ * `play-condition` `card-player-deck-size` for the 10-card gate.)
+ */
+export interface RevealDeckChooseAttackerEffect extends EffectBase {
+  readonly type: 'reveal-deck-choose-attacker';
+  /** Number of cards revealed from the top of the card-player's own play deck. */
+  readonly count: number;
+  /** Races always eligible regardless of uniqueness (e.g. Nazgûl, Dragon). */
+  readonly alwaysEligibleRaces: readonly Race[];
+  /** When true, a candidate must be playable in a non-Coastal-Sea region. */
+  readonly requireNonCoastalKeying: boolean;
+  /** Prowess modifier applied when the chosen creature could not normally have been played on the company. */
+  readonly unplayableProwessPenalty: number;
+}
+
+/**
  * Carried by a hazard short-event playable on an untapped character. When the
  * event resolves un-negated on the chain, the **defending** player (the
  * targeted character's controller — "your opponent" from the card-player's
@@ -6461,7 +6521,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size' | 'card-count-exceeds';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -6682,6 +6742,15 @@ export interface PlayConditionEffect extends EffectBase {
    * Secrets Buried There (dm-63): "Playable if opponent has at least ten cards
    * in his play deck" / "you may play this card as a resource on yourself if
    * you have at least ten cards in your play deck."
+   *
+   * For `requires: 'card-player-deck-size'`: the minimum number of cards the
+   * player actually declaring this play must hold in their own play deck —
+   * always "you" in the card text, regardless of side. Diverges from
+   * `active-player-deck-size` whenever the card is played by the *non*-active
+   * player against their own deck size rather than the active player's: Long
+   * Dark Reach (dm-70), a hazard short-event, "if you have at least ten cards
+   * in your play deck" gates on the hazard player's own deck, not the moving
+   * (active) company owner's.
    */
   readonly minDeckSize?: number;
 }
@@ -8514,6 +8583,7 @@ export type CardEffect =
   | RevealRemoveFromDiscardEffect
   | RevealDeckChoosePenaltyEffect
   | RevealDeckChooseSetAsideEffect
+  | RevealDeckChooseAttackerEffect
   | OpponentChooseTapOrRollEffect
   | WithdrawAgentEffect
   | GrantActionEffect

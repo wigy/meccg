@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { characterPossessions } from '../pending.js';
+import { characterPossessions, constraintFromCard } from '../pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
@@ -1519,7 +1519,7 @@ export function reactiveCorruptionCheckPlays(
     const activeCheckLimit = findDuplicationLimitEffect(shortDef, 'active-check');
     if (activeCheckLimit) {
       const alreadyApplied = state.activeConstraints.some(
-        c => c.sourceDefinitionId === handCard.definitionId
+        c => constraintFromCard(state, c, handCard.definitionId)
           && c.target.kind === 'character'
           && c.target.characterId === targetChar.instanceId,
       );
@@ -3267,6 +3267,37 @@ export function desireBellyChoosePenaltyActions(
       viable: true,
     },
   ];
+}
+
+/**
+ * Legal actions while a `reveal-deck-choose-attacker` resolution is pending
+ * (Long Dark Reach, dm-70): the card-player must name one of the eligible
+ * revealed creatures to immediately attack the target company. One
+ * `choose-long-dark-reach-attacker` action per eligible candidate; the choice
+ * is mandatory (no pass — the resolution is only enqueued when at least one
+ * candidate is eligible).
+ */
+export function revealDeckChooseAttackerActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-deck-choose-attacker') return [];
+  const { eligibleInstanceIds, cardPlayerId } = top.kind;
+  const cardPlayer = playerById(state, cardPlayerId);
+  if (!cardPlayer) return [];
+  const inDeck = new Map(cardPlayer.playDeck.map(c => [c.instanceId as string, c.definitionId]));
+  const actions: EvaluatedAction[] = [];
+  for (const id of eligibleInstanceIds) {
+    const definitionId = inDeck.get(id as string);
+    if (!definitionId) continue;
+    logDetail(`Long Dark Reach: offering to attack with "${cardName(state, definitionId)}"`);
+    actions.push({
+      action: { type: 'choose-long-dark-reach-attacker' as const, player: actor, cardInstanceId: id, definitionId },
+      viable: true,
+    });
+  }
+  return actions;
 }
 
 /**

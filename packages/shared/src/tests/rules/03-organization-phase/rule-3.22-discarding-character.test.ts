@@ -129,4 +129,26 @@ describe('Rule 3.22 — Discarding a Character', () => {
     expect(legolas.controlledBy).toBe('general');
     expect(legolas.influenceUnsubtracted).toBeUndefined();
   });
+
+  test('discarding the last character in a company returns its untapped site to the location deck (rule 2.3)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BREE, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const discardAragorn = viableActions(state, PLAYER_1, 'discard-character')
+      .find(ea => (ea.action as DiscardCharacterOrgAction).characterInstanceId === aragornId);
+    expect(discardAragorn).toBeDefined();
+    const after = dispatch(state, discardAragorn!.action);
+
+    // The now-empty company is dropped, and Bree — never tapped for a
+    // resource — returns to the player's location deck instead of vanishing.
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].siteDeck.some(c => c.definitionId === BREE)).toBe(true);
+  });
 });
