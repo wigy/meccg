@@ -2997,6 +2997,14 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
         return undefined;
       }
     }
+    // Check site-in-region — the destination site's own region is listed
+    // (the dragons' "may also be played at sites in these regions" clause)
+    if (key.siteInRegionNames && key.siteInRegionNames.length > 0 && destSiteCard) {
+      if (key.siteInRegionNames.includes(destSiteCard.region)) {
+        logDetail(`Creature "${def.name}" keyable to site in region: ${destSiteCard.region}`);
+        return undefined;
+      }
+    }
     // Check site keywords against destination site's keywords
     if (key.siteKeywords && key.siteKeywords.length > 0 && destSiteCard) {
       const kws = destSiteCard.keywords ?? [];

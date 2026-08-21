@@ -41,6 +41,20 @@ export interface CreatureKeyRestriction {
    */
   readonly siteNames?: readonly string[];
   /**
+   * Region names whose SITES this creature can be played at. The destination
+   * site's own `region` field must be one of the listed names — the "may
+   * also be played at sites in these regions" clause the dragon cycle prints
+   * alongside its Doors-of-Night region keying (Smaug tw-90, Agburanar tw-3,
+   * Daelomin tw-26, Bairanax td-3, Eärcaraxë td-20, Itangast td-36, Scatha
+   * td-60). Distinct from {@link regionNames}, which matches the company's
+   * movement path: this keys to the site itself, so it also holds for a
+   * company that reached the site without moving through the region this
+   * turn. Evaluated in `findCreatureKeyingMatches` (offer side) and
+   * `checkCreatureKeying` (validation side); the recorded `keyedBy.method`
+   * is `"site-in-region"`.
+   */
+  readonly siteInRegionNames?: readonly string[];
+  /**
    * Site keyword tags where this creature can be played. The destination
    * site must carry at least one of the listed keywords. Used for creatures
    * whose playability is tied to a site category rather than a single type

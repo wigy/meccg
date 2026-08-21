@@ -86,7 +86,7 @@ export interface CreatureKeyingMatch {
    * the creature play without satisfying any path-based keying — the
    * `value` records the race that was whitelisted.
    */
-  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
+  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-in-region' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
   /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain", "Rivendell to Lórien"). */
   readonly value: string;
 }

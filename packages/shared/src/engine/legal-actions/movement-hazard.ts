@@ -4340,6 +4340,21 @@ function findCreatureKeyingMatches(
         }
       }
     }
+    // Site-in-region matches — the destination site's own `region` field is
+    // one of the listed names (the dragons' "may also be played at sites in
+    // these regions" DoN clause). Resolved like the site-keyword branch below.
+    if (key.siteInRegionNames && key.siteInRegionNames.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined);
+      if (resolvedDest && key.siteInRegionNames.includes(resolvedDest.region)) {
+        const k = `site-in-region:${resolvedDest.region}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-in-region', value: resolvedDest.region }); }
+      }
+    }
     // Site keyword matches — destination site must carry at least one of the keywords.
     // Resolved from the destination site definition by name (consistent with how siteTypes
     // uses mhState.destinationSiteType). Falls back to the instance-based destSiteDef when
@@ -4724,6 +4739,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.regionNames?.length) parts.push(k.regionNames.join('/'));
     if (k.siteTypes?.length) parts.push(k.siteTypes.join('/'));
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
+    if (k.siteInRegionNames?.length) parts.push(`site-in-region:${k.siteInRegionNames.join('/')}`);
     if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
     if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to:${k.adjacentToSiteNames.join('/')}`);
