@@ -1766,8 +1766,29 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. With its bearer able to use a Palantír, tap Palantír of Annúminas to search through your play deck and discard pile for a “sage only” card. Put this card in your hand. Reshuffle your play deck. Bearer makes a corruption check."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "annuminas-fetch-sage-only",
+        "cost": { "tap": "self" },
+        "when": {
+          "bearer.canUsePalantir": true
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck", "discard-pile"],
+          "fetchTo": "hand",
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true,
+          "filter": {
+            "keywords": { "$includes": "sage-only" }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Palantír. With its bearer able to use a Palantír, tap Palantír of Annúminas to search through your play deck and discard pile for a “sage only” card. Put this card in your hand. Reshuffle your play deck. Bearer makes a corruption check.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-item",
