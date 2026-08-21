@@ -2087,9 +2087,14 @@ function bodyCheckActions(
     }
     targetLabel = allyDef?.name ?? charDef?.name ?? 'character';
   }
-  // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)
-  const isWounded = combat.bodyCheckTarget === 'character' &&
-    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true;
+  // +1 to body check roll if the character was already wounded before this
+  // strike (CoE rule 3.I) — for a defending character via `wasAlreadyWounded`,
+  // for the CvCC attacking character via `attackerWasAlreadyWounded` (both
+  // recorded pre-strike, since the lost strike itself inverts the character).
+  const isWounded = (combat.bodyCheckTarget === 'character' &&
+    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true)
+    || (combat.bodyCheckTarget === 'attacker-character' &&
+      combat.strikeAssignments[combat.currentStrikeIndex]?.attackerWasAlreadyWounded === true);
   const woundedBonus = isWounded ? 1 : 0;
   // Attack-level body-check modifier (Traitor tw-105 +1, Cruel Caradhras td-9
   // +1, ...). The resolver adds it to the roll, so it lowers the roll needed to
