@@ -1201,7 +1201,106 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$or": [
+            {
+              "destinationSiteType": { "$in": ["shadow-hold", "dark-hold"] }
+            },
+            {
+              "$and": [
+                {
+                  "inPlay": {
+                    "$includes": "Doors of Night"
+                  }
+                },
+                {
+                  "destinationRegionType": "shadow"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "shadow-hold"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "dark-hold",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "shadow"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "dark",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "company.destinationSiteType": "shadow-hold"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "value": 2,
+          "siteType": "shadow-hold",
+          "scope": "company-site-phase"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "company.destinationSiteType": "dark-hold"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "value": 2,
+          "siteType": "dark-hold",
+          "scope": "company-site-phase"
+        }
+      }
+    ],
+    "certified": "2026-08-23",
     "text": "Environment. Modify the prowess of one automatic-attack at a Shadow-hold [{S}] or Dark-hold [{D}] site by +2.Alternatively, if Doors of Night is in play, treat one Shadow-land [{s}] as a Dark-domain [{d}] or one Shadow-hold [{S}] as a Dark-hold [{D}] until the end of the turn.Cannot be duplicated."
   },
   {
