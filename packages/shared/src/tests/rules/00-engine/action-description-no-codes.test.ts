@@ -14,7 +14,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, P1_COMPANY,
   ARAGORN, LEGOLAS,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
@@ -24,7 +24,7 @@ import {
 } from '../../test-helpers.js';
 import { Phase, Alignment, describeAction, buildCompanyNames } from '../../../index.js';
 import { resolveInstanceId } from '../../../types/state.js';
-import type { CardDefinitionId } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameAction } from '../../../index.js';
 
 // Daelomin at Home — a hazard permanent the hazard player may discard from
 // play during the opponent's M/H phase to raise the hazard limit by two.
@@ -69,4 +69,39 @@ describe('legal-action descriptions never leak raw ids (bug: "p1 in legal action
     expect(bare).not.toMatch(/\bp[12]\b/);
     expect(bare).not.toContain('company-');
   });
+});
+
+describe('movement/attack action descriptions resolve the company id (no raw "company-…" code)', () => {
+  // These describeAction branches interpolated the raw CompanyId
+  // ("company-p1-0" — which also embeds the internal player code "p1")
+  // instead of routing it through the company-name map, the same contract the
+  // test above enforces for discard-card-for-hazard-limit. Reaching each of
+  // these actions through the engine needs an elaborate, card-specific setup;
+  // describeAction is a pure function, so the shared invariant is covered here
+  // by constructing each action directly with a real internal company id.
+  const inst = 'x1' as CardInstanceId;
+  const companyNames = { [P1_COMPANY as string]: "Aragorn's company" };
+  const playerNames = { [PLAYER_1 as string]: 'Frodo' };
+
+  const actions: readonly GameAction[] = [
+    { type: 'run-home', player: PLAYER_1, companyId: P1_COMPANY, allyInstanceId: inst },
+    { type: 'attack-alt-permanent-event', player: PLAYER_1, cardInstanceId: inst, targetCompanyId: P1_COMPANY },
+    { type: 'gangways-extra-move', player: PLAYER_1, companyId: P1_COMPANY, destinationSite: inst },
+    { type: 'extra-mh-move', player: PLAYER_1, companyId: P1_COMPANY, destinationSite: inst },
+    { type: 'ally-tap-extra-mh-phase', player: PLAYER_1, companyId: P1_COMPANY, allyInstanceId: inst },
+    { type: 'character-tap-extra-mh-phase', player: PLAYER_1, companyId: P1_COMPANY, characterInstanceId: inst },
+    { type: 'discard-for-evil-hour-movement', player: PLAYER_1, cardInstanceId: inst, companyId: P1_COMPANY },
+    { type: 'left-behind-rejoin', player: PLAYER_1, companyId: P1_COMPANY },
+    { type: 'pay-movement-tax', player: PLAYER_1, companyId: P1_COMPANY, characterId: inst },
+  ].map(a => a as unknown as GameAction);
+
+  test.each(actions.map(a => [a.type, a] as const))(
+    '%s renders the company name and leaks no raw code',
+    (_type, action) => {
+      const desc = describeAction(action, pool, {}, companyNames, playerNames);
+      expect(desc).toContain("Aragorn's company");
+      expect(desc).not.toContain('company-');
+      expect(desc).not.toMatch(/\bp[12]\b/);
+    },
+  );
 });
