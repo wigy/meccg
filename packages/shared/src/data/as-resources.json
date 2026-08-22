@@ -1001,8 +1001,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company facing an Orc attack or in combat with an overt company. Also playable during opponent’s site phase. Every Sword of Gondolin, Orcrist, and Glamdring in target company give an additional +2 prowess bonus and lower the body of strikes their bearers face by 1."
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 2,
+        "itemFilter": {
+          "item.name": {
+            "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"]
+          }
+        },
+        "when": {
+          "$or": [
+            { "enemy.race": "orc" },
+            { "enemy.overt": true }
+          ]
+        }
+      },
+      {
+        "type": "company-combat-boost",
+        "stat": "creature-body",
+        "value": 1,
+        "itemFilter": {
+          "item.name": {
+            "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"]
+          }
+        },
+        "when": {
+          "$or": [
+            { "enemy.race": "orc" },
+            { "enemy.overt": true }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on a company facing an Orc attack or in combat with an overt company. Also playable during opponent’s site phase. Every Sword of Gondolin, Orcrist, and Glamdring in target company give an additional +2 prowess bonus and lower the body of strikes their bearers face by 1.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",

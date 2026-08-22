@@ -572,9 +572,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       }
     ],
     "text": "Each Under-deeps site, Dark-hold [{D}], and Shadow-hold [{S}] has an additional automatic-attack (cannot be canceled): Lava Flows — 1 strike against each character with 6 prowess (weapons do not modify prowess against these strikes). The penalty for an untapped character not tapping against one of these strikes is -5.This card has no effect on a minion player. Cannot be duplicated."
@@ -851,9 +856,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       },
       {
         "type": "draw-modifier",
@@ -947,9 +957,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },

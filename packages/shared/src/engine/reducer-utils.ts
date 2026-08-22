@@ -3720,6 +3720,28 @@ export function itemKeywordsOf(state: GameState, items: readonly { readonly defi
 }
 
 /**
+ * Returns the item instances among `items` whose own card definition
+ * matches `filter` (e.g. a play-target's `itemFilter`). Evaluated per-item
+ * against the item's full definition via {@link matchesDefinition} — unlike
+ * {@link itemKeywordsOf}, which aggregates keywords across every item for a
+ * character-level eligibility check, this identifies *which* individual
+ * item(s) qualify so a card can designate one (Use Palantír tw-355: "enable
+ * him to use one Palantír he bears" — a bearer of several must pick one).
+ */
+export function itemsMatchingFilter(
+  state: GameState,
+  items: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+  filter: Condition,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const item of items) {
+    const itemDef = defById(state, item.definitionId);
+    if (itemDef && matchesDefinition(itemDef, filter)) out.push(item.instanceId);
+  }
+  return out;
+}
+
+/**
  * Collect the `subtype` of all given item instances that declare one. Used to
  * build the `itemSubtypes` field of condition-matcher contexts.
  */
@@ -4248,7 +4270,9 @@ function playableAtEntryMatchesSite(
  *
  * - **Items**: the item's subtype must appear in the site's printed
  *   `playableResources` list, or an `item-play-site` effect on the item
- *   must name the site (`sites`) / match it (`filter`).
+ *   must name the site (`sites`) / match it (`filter`) — except for hoard
+ *   items, whose `filter` (matching a hoard site) is an addition to the
+ *   `playableResources` tier gate, not a replacement for it.
  * - **Allies / factions**: some `playableAt` entry must match the site, or
  *   (when playability is expressed via a `play-target` DSL effect instead
  *   of `playableAt` entries, e.g. Noble Hound dm-179: "any tapped or
@@ -4265,7 +4289,12 @@ export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, 
       (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site',
     );
     if (playSite?.sites?.includes(siteDef.name)) return true;
-    if (playSite?.filter) {
+    // A hoard item's own subtype must still appear in the site's printed
+    // playableResources list (already checked above and failed at this point) —
+    // the "hoard" keyword adds the requirement that the site contain a hoard,
+    // it doesn't waive the site's minor/major/greater/gold-ring tier gate.
+    const isHoardItem = (def.keywords as readonly string[] | undefined)?.includes('hoard') === true;
+    if (playSite?.filter && !isHoardItem) {
       const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
       return matchesContext(playSite.filter, { site: { ...siteDef, autoAttackRaces } });
     }

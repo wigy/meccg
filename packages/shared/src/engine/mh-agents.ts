@@ -624,6 +624,24 @@ function revealAgentForAttack(
     ? agent.siteStack[agent.siteStack.length - 1]
     : destSiteInst;
   const emptyStack = agent.siteStack.length === 0;
+  // Traveled agent (non-empty stack): its current site card already sits on
+  // top of its own stack — no deck card is needed, and the rule 4.2.2 / 9.04
+  // reveal penalty ("discard at end of turn if revealed without a site") is
+  // scoped to reveals AT A HOME SITE, so it never applies here. The earlier
+  // code conflated the two cases: with a homeSiteInstanceId it deleted the
+  // home-site deck card into nothing; without one it wrongly doomed the agent.
+  if (!emptyStack) {
+    const priorStackSites = agent.siteStack.slice(0, -1);
+    const newSiteStack = [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+    return updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+        ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack, ...acted }
+        : a,
+      ),
+      siteDeck: [...p.siteDeck, ...priorStackSites],
+    }));
+  }
   if (homeSiteInstanceId) {
     const homeSiteCard = findById(hazardPlayer.siteDeck, homeSiteInstanceId);
     if (!homeSiteCard) {

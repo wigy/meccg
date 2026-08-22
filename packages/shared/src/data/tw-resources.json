@@ -3366,8 +3366,67 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Gandalf. +4 prowess, +1 body, +2 direct influence for the rest of the turn.Immediately untap all unwounded characters in Gandalf’s company. Gandalf makes a corruption check modified by -5."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Gandalf"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": 4,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "body",
+          "value": 1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 2,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-character-status",
+          "target": "company",
+          "status": "untapped"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -5
+        }
+      }
+    ],
+    "text": "Playable on Gandalf. +4 prowess, +1 body, +2 direct influence for the rest of the turn.Immediately untap all unwounded characters in Gandalf’s company. Gandalf makes a corruption check modified by -5.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
@@ -4162,8 +4221,27 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "sage" } },
+            { "target.itemKeywords": { "$includes": "palantir" } }
+          ]
+        },
+        "itemFilter": { "keywords": { "$includes": "palantir" } },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "can-use-palantir", "scope": "turn" }
+      }
+    ],
+    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-faction",
