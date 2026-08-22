@@ -132,6 +132,16 @@ export interface CreatureKeyRestriction {
    *   too) restricted to those four regions —
    *   `{ siteTypes: ["ruins-and-lairs", "shadow-hold"], when: {
    *   "destinationSite.region": { "$in": ["Heart of Mirkwood", ...] } } }`.
+   * - `hazardsEncountered` — the names of hazard-creature cards that have
+   *   already attacked the target company this M/H sub-phase (the same
+   *   list backing `followsAttackRaces`/`deriveFacedRaces`, but exposed
+   *   here by exact card name for a companion-creature clause). Used by
+   *   *Mûmak (Oliphant)* (tw-66): "May also be played (on the same turn
+   *   and on the same company as *Corsairs of Umbar*) keyed to [regions];
+   *   and at Ruins & Lairs and Shadow-holds in these regions" —
+   *   `{ regionNames: [...], when: { "hazardsEncountered": { "$includes":
+   *   "Corsairs of Umbar" } } }` gates the alt-keying on Corsairs of Umbar
+   *   having already attacked the same company earlier this turn.
    *
    * Evaluated in `findCreatureKeyingMatches` in
    * `legal-actions/movement-hazard.ts`.
