@@ -7313,11 +7313,22 @@ export interface LeftBehindSplitEffect extends EffectBase {
  * Used by Faces of the Dead (dm-57): "…if you discard any Undead hazard creature
  * from your hand (show opponent)." (`source: 'hand'`,
  * `filter: { cardType: 'hazard-creature', race: 'undead' }`, `revealToOpponent: true`).
+ *
+ * `source: 'cards-in-play'` sources the candidate from the playing player's own
+ * `cardsInPlay` instead of their hand — used for a **hazard long/permanent
+ * event** whose text both requires and spends an existing in-play card, e.g.
+ * Scimitars of Steel (dm-86): "Playable only if you have a Nazgûl
+ * permanent-event in play. Discard the Nazgûl when this card is brought into
+ * play." (`source: 'cards-in-play'`, `filter: { keywords: { $includes:
+ * 'Nazgûl' } }`). Absence of a matching candidate makes the card unplayable,
+ * which doubles as the "playable only if" gate. Paid at declaration time
+ * (`playHazardsActions` / `mh-hazard-play.ts`), matching the short-event cost
+ * timing.
  */
 export interface PlayDiscardCostEffect extends EffectBase {
   readonly type: 'play-discard-cost';
-  /** Source pile from which the cost card is discarded. Currently only `'hand'`. */
-  readonly source: 'hand';
+  /** Source pile from which the cost card is discarded. */
+  readonly source: 'hand' | 'cards-in-play';
   /** DSL condition matched against candidate card definitions in the source pile. */
   readonly filter: Condition;
   /** When true, the discarded card's identity is revealed to the opponent. */
