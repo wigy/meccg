@@ -121,6 +121,16 @@ export interface CreatureKeyRestriction {
    *   inspects site structure rather than the company's movement path,
    *   e.g. *Rain-drake* ("may also be played at a R&L that has two
    *   Wildernesses or one Coastal Sea in its site path").
+   * - `hazardsEncountered` — the names of creature-sourced hazard attacks
+   *   already faced by the target company during its *current* M/H
+   *   sub-phase (the same list `followsAttackRaces` derives races from).
+   *   Lets a regionally-keyed entry additionally require a companion
+   *   creature to have already attacked, via `{ "hazardsEncountered":
+   *   { "$includes": "<creature name>" } }` — e.g. *Mûmak* (tw-66): "May
+   *   also be played (on the same turn and on the same company as
+   *   Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin…"
+   *   (`{ "regionNames": [...], "when": { "hazardsEncountered": {
+   *   "$includes": "Corsairs of Umbar" } } }`).
    * - `destinationSite.region` — the destination site card's own printed
    *   `region` name. Used to scope a `siteTypes` entry to sites located
    *   in specific named regions (as opposed to `regionNames`, which
@@ -134,7 +144,8 @@ export interface CreatureKeyRestriction {
    *   "destinationSite.region": { "$in": ["Heart of Mirkwood", ...] } } }`.
    *
    * Evaluated in `findCreatureKeyingMatches` in
-   * `legal-actions/movement-hazard.ts`.
+   * `legal-actions/movement-hazard.ts` and `checkCreatureKeying` in
+   * `mh-hazard-play.ts`.
    */
   readonly when?: Condition;
 }
