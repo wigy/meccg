@@ -56,16 +56,28 @@ function sign(payload: Record<string, unknown>): string {
 
 /** Verify and decode a JWT. Returns null if invalid or expired. */
 function verify<T>(token: string): T | null {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [header, body, sig] = parts;
-  const expected = crypto.createHmac('sha256', JWT_SECRET)
-    .update(`${header}.${body}`)
-    .digest('base64url');
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as T & { exp: number };
-  if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-  return payload;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [header, body, sig] = parts;
+    const expected = crypto.createHmac('sha256', JWT_SECRET)
+      .update(`${header}.${body}`)
+      .digest('base64url');
+    // The signature segment is attacker-controlled: guard the length before
+    // timingSafeEqual, which throws RangeError on mismatched buffer lengths.
+    // A malformed token must return null (the documented contract), never
+    // throw — an unguarded throw here crashes the WS-upgrade handler (no
+    // try/catch around it) and takes down the whole lobby process.
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as T & { exp: number };
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    // Malformed base64url / JSON / any other decoding failure → not authenticated.
+    return null;
+  }
 }
 
 /** Sign a lobby session token for the given player name. */
