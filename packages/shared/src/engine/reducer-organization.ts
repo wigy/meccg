@@ -2457,6 +2457,17 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
 
   let siteDeck = player.siteDeck;
 
+  // The source company is dissolved, so every in-play card bound to it by
+  // `companyId` (Ringwraith-mode cards Fell Rider le-183 etc., An Unexpected
+  // Party dm-114, extra-leader-slot cards, company-bound storables) must
+  // rebind to the surviving target — otherwise it points at a company that no
+  // longer exists and is silently disabled (e.g. `ringwraithHasModeCard`
+  // stops finding the mode). Mirrors the split path's rule 2.II.3.6.1 rebind,
+  // which the inverse operation omitted.
+  const cardsInPlay = player.cardsInPlay.map(card =>
+    card.companyId === action.sourceCompanyId ? { ...card, companyId: action.targetCompanyId } : card,
+  );
+
   // Rule 2.II.3.5.2: if the source and target each held their own physical
   // instance of the same haven, only one instance stays in play — the
   // now-redundant source instance returns to the site deck (unless another
@@ -2513,7 +2524,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   });
 
   let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck, cardsInPlay })),
     reverseActions: [...state.reverseActions, ...reverses],
   })), [action.sourceCompanyId, action.targetCompanyId]);
 
