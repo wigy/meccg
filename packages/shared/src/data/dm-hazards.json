@@ -821,8 +821,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/HelmsofIron.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Man attacks with body have their body modified by +1; and all Orc, Troll, and Man attacks with no body have 4 body."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "nazgul-permanent-event"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "in-play",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "op": "set",
+        "value": 4,
+        "target": "all-attacks",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+      }
+    ],
+    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Man attacks with body have their body modified by +1; and all Orc, Troll, and Man attacks with no body have 4 body.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",

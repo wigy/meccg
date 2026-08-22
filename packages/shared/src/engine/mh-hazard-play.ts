@@ -1102,6 +1102,8 @@ export function handlePlayHazardCard(
         targetStoredItemInstanceId: action.type === 'play-hazard' ? action.targetStoredItemInstanceId : undefined,
         // Inner Cunning (dm-68) mode 1: bind to a face-down agent.
         targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,
+        // Helms of Iron (dm-64): the Nazgûl permanent-event chosen to discard.
+        targetNazgulInstanceId: action.type === 'play-hazard' ? action.targetNazgulInstanceId : undefined,
       }
     : { type: 'long-event' };
   newState = initiateOrPushChain(newState, action.player, handCard, payload, true);

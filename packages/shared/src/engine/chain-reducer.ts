@@ -2313,6 +2313,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // sources it with `from: 'chain'` (ctx.chainCard, no-op removal).
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
   const targetItemId = entry.payload.type === 'permanent-event' ? entry.payload.targetItemInstanceId : undefined;
+  // Helms of Iron (dm-64): the Nazgûl permanent-event chosen at declaration
+  // to discard via this card's self-enters-play move.
+  const targetNazgulId = entry.payload.type === 'permanent-event' ? entry.payload.targetNazgulInstanceId : undefined;
   const moveCtx: import('./reducer-move.js').MoveContext = {
     sourceCardId: card.instanceId,
     sourcePlayerIndex: playerIndex,
@@ -2744,6 +2747,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           sourceCardId: entry.card!.instanceId,
           sourcePlayerIndex: playerIndex,
           ...(targetCharId ? { targetCharacterId: targetCharId } : {}),
+          ...(targetNazgulId ? { targetCardId: targetNazgulId } : {}),
         };
         const stateBefore = newState;
         const r = applyMove(newState, moveEffect, ctx);
