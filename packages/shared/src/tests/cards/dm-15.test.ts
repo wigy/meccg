@@ -112,6 +112,9 @@ describe('dm-15 — The Grimburgoth', () => {
 
     // Prowess: 7 (base) + 2 (at-home face-up) + 2 (effect) = 11
     expect(after.combat!.strikeProwess).toBe(11);
+    // Rule 3.iv.6.1: at home the agent also gets +1 body — 9 (base) + 1 = 10.
+    // Regression: the M/H helper applied only the prowess half of the rule.
+    expect(after.combat!.creatureBody).toBe(10);
 
     // Agent is tapped
     const agentAfter = after.players[1].agents.find(a => a.character.instanceId === AGENT_CHAR_ID);
@@ -184,6 +187,8 @@ describe('dm-15 — The Grimburgoth', () => {
 
     // Prowess: 7 + 5 (face-down at-home) + 2 (bonus) = 14
     expect(after.combat!.strikeProwess).toBe(14);
+    // Rule 3.iv.6.1: face-down at home also gets +1 body — 9 (base) + 1 = 10.
+    expect(after.combat!.creatureBody).toBe(10);
   });
 
   test('action not offered when agent is at a different site than company destination', () => {

@@ -580,12 +580,16 @@ function computeAgentAttackProwess(
   const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
 
   let prowess = agentDef.prowess;
+  let body = agentDef.body;
   if (isWounded) prowess -= 2;
   if (isFaceDown && !isAtHome) prowess += 2;
-  if (isFaceDown && isAtHome) prowess += 5;
-  if (!isFaceDown && isAtHome) prowess += 2;
+  // Rule 3.iv.6.1: at its home site the agent also gets +1 body (both
+  // face-down +5 and face-up +2 prowess tiers carry it) — mirrors the
+  // site-phase declare-agent-attack path in reducer-site.ts.
+  if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
+  if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
   prowess += prowessBonus;
-  return { prowess, body: agentDef.body, isFaceDown, isAtHome, destSiteInst, company };
+  return { prowess, body, isFaceDown, isAtHome, destSiteInst, company };
 }
 
 /**
