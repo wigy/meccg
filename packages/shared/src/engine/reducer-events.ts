@@ -2473,6 +2473,37 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
+      // can-use-palantir: Use Palantír (tw-355) taps a sage to enable him to
+      // use ONE Palantír he bears (chosen up front by the legal-action
+      // emitter when he bears more than one — see `itemFilter` on the
+      // card's play-target). Unlike Palantír of Elostirion's own grant-action
+      // (which sources the constraint from itself), this event's `source` is
+      // the *chosen item's* instance, not the event card's — so
+      // `buildGrantActionContext`'s `c.source === sourceInstanceId` match
+      // scopes the ability to that one Palantír, exactly as the printed text
+      // requires ("this Palantír"/"one Palantír he bears").
+      if (constraintKind === 'can-use-palantir') {
+        const characterId = action.type === 'play-short-event'
+          ? (action.targetCharacterId ?? action.targetScoutInstanceId)
+          : undefined;
+        const itemInstanceId = action.type === 'play-short-event' ? action.targetItemInstanceId : undefined;
+        const char = characterId ? state.players[playerIndex].characters[characterId] : undefined;
+        const item = char?.items.find(i => i.instanceId === itemInstanceId);
+        if (!characterId || !itemInstanceId || !char || !item) {
+          logDetail(`add-constraint(can-use-palantir): missing target character or item — fizzle`);
+          continue;
+        }
+        logDetail(`"${def.name}" played — ${characterId as string} may use Palantír ${itemInstanceId as string} for the rest of the turn`);
+        state = addConstraint(state, {
+          source: itemInstanceId,
+          sourceDefinitionId: item.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'character', characterId },
+          kind: { type: 'can-use-palantir' },
+        });
+        continue;
+      }
+
       // Player-scoped company-stat-modifier (Praise to Elbereth tw-305: "if
       // Doors of Night is in play, characters gain +1 prowess until the end
       // of the turn") — applies to every character the declaring player

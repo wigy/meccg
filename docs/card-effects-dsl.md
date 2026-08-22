@@ -6623,6 +6623,21 @@ Optional fields:
     non-follower possessions (The Roving Eye le-135).
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
+- `itemFilter` — restricts a `target: "character"` play-target to a
+  character bearing at least one item matching this condition, evaluated
+  per-item against the item's own card definition (`matchesDefinition`) —
+  distinct from `filter`, which is evaluated against the candidate
+  character's aggregate context (`target.itemKeywords`). Also designates
+  *which* of that character's items the played card resolves against: the
+  legal-action emitter (`long-event.ts` for the long-event phase,
+  `organization.ts`'s `playResourceShortEventActions` for every other
+  phase per CoE 2.1.1) crosses each eligible character with every item
+  matching `itemFilter`, emitting one `play-short-event` action per pair
+  and carrying the chosen item's instance as `targetItemInstanceId`. Used
+  by Use Palantír (tw-355): "Tap sage to enable him to use **one** Palantír
+  he bears" — a sage bearing two Palantíri is offered one action per item
+  instead of enabling both at once. `itemFilter: { "keywords": {
+  "$includes": "palantir" } }`.
 
 ### 16. `on-guard-reveal`
 
