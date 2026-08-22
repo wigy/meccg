@@ -431,9 +431,17 @@ export class GameSession {
     for (const [playerId, player] of this.players.entries()) {
       if (player.name.toLowerCase() === normalizedName) {
         this.serverLog.log('reconnect-replace', { name: msg.name, playerId });
-        player.ws.close();
+        // Repoint the seat at the new socket BEFORE closing the old one. If
+        // close() fired the old socket's disconnect handler synchronously
+        // (an already-closing socket) while the seat still held the old ws,
+        // handleDisconnect would match it, write a spurious autosave, delete
+        // the seat, and arm the idle timer against a player who is in fact
+        // reconnecting. Repointing first makes handleDisconnect's ws match
+        // fail for the old socket, so none of that runs.
+        const oldWs = player.ws;
         this.players.set(playerId, { ws, playerId: playerId as PlayerId, name: player.name });
         ws.on('close', () => this.handleDisconnect(ws));
+        oldWs.close();
         this.send(ws, { type: 'assigned', playerId: playerId as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
         this.broadcastSpectators();
         if (this.state) this.broadcastState();
@@ -554,11 +562,20 @@ export class GameSession {
       // Replacing rather than refusing: the common case is a restarted
       // observer whose predecessor's socket has not been reaped yet.
       this.serverLog.log('observer-replace', { was: this.observer.agents, now: agents });
-      this.send(this.observer.ws, { type: 'error', message: 'Replaced by another observer.' });
-      this.observer.ws.close();
+      const oldWs = this.observer.ws;
+      this.send(oldWs, { type: 'error', message: 'Replaced by another observer.' });
+      // Repoint the observer at the new socket BEFORE closing the old one and
+      // failing the pending asks. If close() ran the old socket's disconnect
+      // handler synchronously while `this.observer` still held the old ws,
+      // handleDisconnect would null the observer (undoing the replacement)
+      // and fail the pending asks with the wrong "detached" message. Setting
+      // the new observer first makes handleDisconnect's ws match fail.
+      this.observer = { ws, agents };
       this.failPendingAsks('unavailable', 'The observer was replaced before answering.');
+      oldWs.close();
+    } else {
+      this.observer = { ws, agents };
     }
-    this.observer = { ws, agents };
     this.serverLog.log('join', { name, role: 'observer', agents });
     this.send(ws, { type: 'assigned', playerId: 'observer' as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
     this.broadcastObserver();
