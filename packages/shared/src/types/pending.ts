@@ -2150,6 +2150,16 @@ export interface ActiveConstraint {
         /** The character instance to which the bonus applies. */
         readonly characterId: CardInstanceId;
         /**
+         * Optional ceiling applied to the running stat total immediately after
+         * this bonus is added (mirrors a JSON `stat-modifier`'s `max` field —
+         * see {@link resolveStatModifiers}). Used by Biter and Beater! (as-46):
+         * "the maximum values indicated by the weapons still apply" — the +2
+         * bonus it grants a named-weapon bearer is capped at that weapon's own
+         * printed maximum, so it cannot push the total past a ceiling the
+         * weapon's own bonus alone would already respect.
+         */
+        readonly max?: number;
+        /**
          * Optional name of a card that must remain in play for the bonus to
          * apply (Heart of Dark Fire ba-63: "+5 direct influence this turn while
          * Strangling Coils is in play"). Re-checked by the effect resolver on
@@ -2167,6 +2177,28 @@ export interface ActiveConstraint {
          * Without it an `until-cleared` constraint would outlive its source.
          */
         readonly requiresSourceBorne?: boolean;
+      }
+    | {
+        /**
+         * Attack-scoped reduction of the attacking creature's body-check
+         * target for strikes faced by one named character — the short-event
+         * counterpart of an item's `enemy-modifier` (stat "body", op
+         * "subtract"), which normally only reaches a bearer through their own
+         * borne items. Consulted in `handleBodyCheckRoll`'s `bodyCheckTarget
+         * === 'creature'` branch alongside `resolveEnemyBody`'s item-sourced
+         * reduction; `Math.max(0, ...)` mirrors the `subtract` op's floor.
+         * Scoped to `{ kind: 'attack' }` so it is swept when combat finalizes.
+         *
+         * Used by Biter and Beater! (as-46): "Every Sword of Gondolin,
+         * Orcrist, and Glamdring in target company … lower the body of
+         * strikes their bearers face by 1" — one constraint per matching
+         * borne weapon, targeting that weapon's bearer.
+         */
+        readonly type: 'character-creature-body-modifier';
+        /** Amount subtracted from the creature's body-check target. */
+        readonly value: number;
+        /** The character instance whose faced strikes are reduced. */
+        readonly characterId: CardInstanceId;
       }
     | {
         /**

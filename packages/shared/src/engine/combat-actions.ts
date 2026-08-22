@@ -816,6 +816,24 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         }
       }
     }
+    // Biter and Beater! (as-46): "lower the body of strikes their bearers
+    // face by 1" — a short-event counterpart to an item's `enemy-modifier`,
+    // reaching the bearer without requiring the bonus to live on a borne item.
+    // One `character-creature-body-modifier` constraint per matching weapon
+    // (see `handlePlayResourceShortEvent`'s `company-combat-boost` block).
+    if (strike2) {
+      const creatureBodyMods = stateWithRoll.activeConstraints.filter(
+        c => c.kind.type === 'character-creature-body-modifier' && c.kind.characterId === strike2.characterId,
+      );
+      for (const mod of creatureBodyMods) {
+        if (mod.kind.type !== 'character-creature-body-modifier') continue;
+        const reduced = Math.max(0, body - mod.kind.value);
+        if (reduced !== body) {
+          logDetail(`Creature body modified by character-creature-body-modifier constraint: ${body} → ${reduced}`);
+          body = reduced;
+        }
+      }
+    }
     // Agent hazard attacks (CoE 3.v): when a character defeats an agent's
     // strike, the agent is *wounded* and must make a body check — unlike an
     // ordinary hazard creature, which is never wounded and simply survives or

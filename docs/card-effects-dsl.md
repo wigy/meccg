@@ -11212,15 +11212,59 @@ character with `scope: { kind: 'attack' }`, swept when the attack finalizes.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `stat` | yes | `"prowess"` or `"body"`. |
-| `value` | no | Fixed modifier value (positive boosts, negative penalises). Ignored (and may be omitted) when `costDiscard` is present. |
-| `filter` | no | Per-character grant filter, matched against `{ target: { race, name, skills, keywords } }`. Only matching characters receive the boost; the card is offered when at least one member matches. When absent (and no `companyFilter`), every member is boosted. |
-| `companyFilter` | no | Company-level eligibility gate. When present, the event may be played only if at least one member satisfies it — and then **every** character in the company is boosted (the per-character `filter` is not used). Distinguishes "boost characters that are X" (`filter`) from "boost the whole company if it contains an X" (`companyFilter`). |
-| `when` | no | Gate restricting which attack the card may be played against, evaluated against `{ enemy: { race, name } }`. `race` is the current attack's creature race (populated for hazard creatures, on-guard reveals, played-auto-attacks, and site automatic-attacks alike); `name` is the specific creature card's printed name, empty when the attack has no individual creature card. Absent means any attack. |
+| `stat` | yes | `"prowess"`, `"body"` (both install a `character-stat-modifier` constraint on the character's own stat), or `"creature-body"` (installs a `character-creature-body-modifier` constraint that reduces the *attacking creature's* body-check target for strikes the character faces — see below). |
+| `value` | no | Fixed modifier value (positive boosts, negative penalises; for `"creature-body"`, the magnitude subtracted). Ignored (and may be omitted) when `costDiscard` is present. |
+| `filter` | no | Per-character grant filter, matched against `{ target: { race, name, skills, keywords } }`. Only matching characters receive the boost; the card is offered when at least one member matches. When absent (and no `companyFilter`/`itemFilter`), every member is boosted. Ignored when `itemFilter` is set. |
+| `companyFilter` | no | Company-level eligibility gate. When present, the event may be played only if at least one member satisfies it — and then **every** character in the company is boosted (the per-character `filter` is not used). Distinguishes "boost characters that are X" (`filter`) from "boost the whole company if it contains an X" (`companyFilter`). Ignored when `itemFilter` is set. |
+| `itemFilter` | no | Per-item condition matched against `{ item: { name, keywords, cardType, subtype } }` (same shape as `in-play-item-modifier`'s `itemFilter`) for every item borne by every company member. Switches the boost from "once per matching character" to **once per matching borne item** — a bearer of two qualifying items receives it twice. The card is offered when any member bears a matching item; `filter`/`companyFilter` are ignored. |
+| `when` | no | Gate restricting which attack the card may be played against, evaluated against `{ enemy: { race, name, overt } }`. `race` is the current attack's creature race (populated for hazard creatures, on-guard reveals, played-auto-attacks, and site automatic-attacks alike); `name` is the specific creature card's printed name, empty when the attack has no individual creature card; `overt` is the attacking company's overt status, present (`true`/`false`) only for a CvCC attack (resolved via `isCovertCompany`), absent for a creature/automatic-attack. Absent `when` means any attack. |
 | `costDiscard` | no | `{ source: "hand", filter, minCount, maxCount }` — replaces the fixed `value` with a variable one. The player picks between `minCount` and `maxCount` matching cards from `source` to discard as payment; the boost `value` becomes the sum of their printed `marshallingPoints`. `filter` is matched against each candidate's card definition, extended with `faction.playableRegions` (via `buildFactionPlayableRegions`) for faction candidates. One `play-short-event` action is offered per eligible combination, carrying the chosen instances as `costDiscardInstanceIds`. |
 | `requiredSkill` | no | Switches to cost-bearing single-target mode (see below) — the skill the chosen/paying character must have. Only meaningful alongside `cost`. |
 | `cost` | no | Switches to cost-bearing single-target mode — an {@link ActionCost} (e.g. a corruption check) the chosen character pays; only that character receives the boost, `filter`/`companyFilter` are ignored. |
 | `costExemptRace` | no | Waives `cost` for a cost-payer of this race. |
+
+**`itemFilter` + `stat: "creature-body"` (Biter and Beater! as-46):** "Playable
+on a company facing an Orc attack or in combat with an overt company. Also
+playable during opponent's site phase. Every Sword of Gondolin, Orcrist, and
+Glamdring in target company give an additional +2 prowess bonus and lower the
+body of strikes their bearers face by 1."
+
+```json
+{ "type": "company-combat-boost", "stat": "prowess", "value": 2,
+  "itemFilter": { "item.name": { "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"] } },
+  "when": { "$or": [{ "enemy.race": "orc" }, { "enemy.overt": true }] } }
+{ "type": "company-combat-boost", "stat": "creature-body", "value": 1,
+  "itemFilter": { "item.name": { "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"] } },
+  "when": { "$or": [{ "enemy.race": "orc" }, { "enemy.overt": true }] } }
+```
+
+The reducer loops every matching item on every company member, adding one
+constraint per item (stacking). For `stat: "prowess"`, the constraint carries
+an optional `max` (a new field on the `character-stat-modifier` constraint
+kind, threaded into the synthesized `stat-modifier` effect by
+`effects/resolver.ts` so it clamps the running total exactly like a JSON
+`stat-modifier`'s own `max`) — resolved by re-collecting that one matching
+item's own `stat-modifier(prowess)` effects through the shared resolver
+(`collectCharacterEffects` + `buildBearerContext`, the same `reason: "combat"`
+/ `enemy.race` context used elsewhere) and picking its override entry over its
+base entry, the same selection `resolveStatModifiers` itself performs. This
+matches the card's French reference text: "the maximum values indicated by
+the weapons still apply" — the extra +2 cannot push a named weapon's prowess
+contribution past that weapon's own printed ceiling (e.g. Glamdring's max 9
+vs Orcs still caps Glamdring + Biter and Beater! combined).
+
+For `stat: "creature-body"`, the reducer instead adds a
+`character-creature-body-modifier` constraint (`characterId`, `value`) —
+consumed in `combat-actions.ts` `handleBodyCheckRoll`'s `bodyCheckTarget ===
+'creature'` branch alongside `resolveEnemyBody`'s item-sourced reduction
+(`Math.max(0, body - value)`). This is the short-event counterpart of an
+item's `enemy-modifier` (stat `"body"`, op `"subtract"` — see §5 below), which
+normally only reaches a bearer through their own borne items; it only matters
+for attacks against a body-checkable creature (`combat.creatureBody !==
+null`), a no-op otherwise. "Also playable during opponent's site phase"
+needed no engine change: `company-combat-boost` is offered whenever
+`state.combat` exists and `playerId === combat.defendingPlayerId`, independent
+of whose site-phase turn is active.
 
 ```json
 { "type": "company-combat-boost", "stat": "prowess", "value": 1,
