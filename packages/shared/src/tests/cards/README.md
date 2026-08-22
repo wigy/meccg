@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1175 | 1175 | 0 | 100.0% |
+| 1196 | 1196 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 110 | 110 | 100.0% |
+| AS | 112 | 112 | 100.0% |
 | BA | 97 | 97 | 100.0% |
 | DM | 110 | 110 | 100.0% |
 | LE | 309 | 309 | 100.0% |
-| TD | 96 | 96 | 100.0% |
-| TW | 360 | 360 | 100.0% |
+| TD | 99 | 99 | 100.0% |
+| TW | 376 | 376 | 100.0% |
 | WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
@@ -52,7 +52,9 @@
 | as-35 | Returned Beyond All Hope | — | 17 | ☑ |
 | as-39 | Summons from Long Sleep | — | 9 | ☑ |
 | as-41 | Turning Hope to Despair | — | 12 | ☑ |
+| as-44 | All the Bells Ringing | — | 6 | ☑ |
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
+| as-46 | Biter and Beater! | — | 12 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-51 | No Strangers at this Time | — | 17 | ☑ |
@@ -78,7 +80,7 @@
 | as-85-the-great-eye | The Great Eye | — | 13 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 12 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
-| as-94 | Orders from Lugbúrz | — | 14 | ☑ |
+| as-94 | Orders from Lugbúrz | — | 15 | ☑ |
 | as-98 | Riven Gate | — | 6 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-102 | The Tormented Earth | — | 9 | ☑ |
@@ -96,10 +98,10 @@
 | as-126 | Helm of Fear | — | 15 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 12 | ☑ |
-| as-131 | Secret Book | — | 12 | ☑ |
+| as-131 | Secret Book | — | 13 | ☑ |
 | as-132 | Thong of Fire | — | 15 | ☑ |
 | as-133 | Thrall-ring | — | 6 | ☑ |
-| as-134 | Thrór’s Map | — | 5 | ☑ |
+| as-134 | Thrór’s Map | — | 6 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
@@ -144,7 +146,7 @@
 | ba-8 | Mountain-maggot | — | 3 | ☑ |
 | ba-9 | Umagaur | — | 8 | ☑ |
 | ba-10 | Beorning Skin-changers | — | 8 | ☑ |
-| ba-11 | Carrion Feeders | — | 8 | ☑ |
+| ba-11 | Carrion Feeders | — | 9 | ☑ |
 | ba-12 | Olog Warlords | — | 5 | ☑ |
 | ba-13 | Shelob’s Brood | — | 7 | ☑ |
 | ba-14 | Black Vapour | — | 10 | ☑ |
@@ -158,7 +160,7 @@
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
-| ba-26 | Unabated in Malice | — | 11 | ☑ |
+| ba-26 | Unabated in Malice | — | 12 | ☑ |
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-29 | Crept Along Carefully | — | 17 | ☑ |
@@ -166,7 +168,7 @@
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
 | ba-35 | Cave Troll | — | 9 | ☑ |
 | ba-36 | Ancient Secrets | — | 13 | ☑ |
-| ba-37 | Going Ever Under Dark | — | 15 | ☑ |
+| ba-37 | Going Ever Under Dark | — | 16 | ☑ |
 | ba-38 | Great Army of the North | — | 10 | ☑ |
 | ba-40 | Long Grievous Siege | — | 12 | ☑ |
 | ba-42 | Prone to Violence | — | 8 | ☑ |
@@ -188,14 +190,14 @@
 | ba-59 | Foe Dismayed | — | 10 | ☑ |
 | ba-60 | Gangways over the Fire | — | 3 | ☑ |
 | ba-61 | Great Fissure | — | 12 | ☑ |
-| ba-62 | Great Shadow | — | 22 | ☑ |
+| ba-62 | Great Shadow | — | 23 | ☑ |
 | ba-63 | Heart of Dark Fire | — | 10 | ☑ |
 | ba-64 | Invade Their Domain | — | 15 | ☑ |
 | ba-65 | Lord and Usurper | — | 12 | ☑ |
 | ba-66 | Maker’s Map | — | 9 | ☑ |
 | ba-67 | Memories of Old Torture | — | 6 | ☑ |
 | ba-68 | Mine or No One’s | — | 10 | ☑ |
-| ba-69 | Obey Him or Die | — | 12 | ☑ |
+| ba-69 | Obey Him or Die | — | 13 | ☑ |
 | ba-70 | Orders from the Great Demon | — | 9 | ☑ |
 | ba-71 | Out He Sprang | — | 8 | ☑ |
 | ba-72 | People Diminished | — | 18 | ☑ |
@@ -240,7 +242,7 @@
 | dm-10 | Firiel | — | 3 | ☑ |
 | dm-11 | Fori the Beardless | — | 5 | ☑ |
 | dm-14 | Golodhros | — | 10 | ☑ |
-| dm-15 | The Grimburgoth | — | 5 | ☑ |
+| dm-15 | The Grimburgoth | — | 6 | ☑ |
 | dm-16 | Herion | — | 4 | ☑ |
 | dm-17 | Ivic | — | 4 | ☑ |
 | dm-22 | Pôn-ora-Pôn | — | 3 | ☑ |
@@ -272,7 +274,7 @@
 | dm-55 | Exhalation of Decay | — | 7 | ☑ |
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
 | dm-57 | Faces of the Dead | — | 8 | ☑ |
-| dm-58 | Flies and Spiders | — | 5 | ☑ |
+| dm-58 | Flies and Spiders | — | 6 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-63 | Great Secrets Buried There | — | 9 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
@@ -288,7 +290,7 @@
 | dm-80 | Rank upon Rank | — | 11 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
-| dm-88 | Seized by Terror | — | 8 | ☑ |
+| dm-88 | Seized by Terror | — | 9 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 15 | ☑ |
@@ -326,7 +328,7 @@
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-157 | Secret Ways | — | 7 | ☑ |
 | dm-159 | Smoke Rings | — | 13 | ☑ |
-| dm-160 | Token of Goodwill | — | 11 | ☑ |
+| dm-160 | Token of Goodwill | — | 13 | ☑ |
 | dm-162 | Vein of Arda | — | 15 | ☑ |
 | dm-163 | When You Know More | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 21 | ☑ |
@@ -338,7 +340,7 @@
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-178 | Mistress Lobelia | — | 16 | ☑ |
 | dm-179 | Noble Hound | — | 10 | ☑ |
-| dm-180 | Folco Boffin | — | 9 | ☑ |
+| dm-180 | Folco Boffin | — | 11 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
@@ -434,7 +436,7 @@
 | le-111 | Fell Winter | — | 11 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
 | le-113 | Greed | — | 12 | ☑ |
-| le-114 | Heedless Revelry | — | 11 | ☑ |
+| le-114 | Heedless Revelry | — | 12 | ☑ |
 | le-115 | Incite Defenders | — | 12 | ☑ |
 | le-116 | Incite Denizens | — | 10 | ☑ |
 | le-117 | Long Winter | — | 8 | ☑ |
@@ -458,7 +460,7 @@
 | le-146 | Veils Flung Away | — | 15 | ☑ |
 | le-148 | Wake of War | — | 7 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
-| le-150 | Webs of Fear & Treachery | — | 12 | ☑ |
+| le-150 | Webs of Fear & Treachery | — | 13 | ☑ |
 | le-151 | Wrath of the West | — | 5 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 12 | ☑ |
@@ -475,8 +477,8 @@
 | le-170 | Black Rider | — | 10 | ☑ |
 | le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
-| le-173 | Burning Rick, Cot, and Tree | — | 14 | ☑ |
-| le-174 | By the Ringwraith’s Word | — | 19 | ☑ |
+| le-173 | Burning Rick, Cot, and Tree | — | 15 | ☑ |
+| le-174 | By the Ringwraith’s Word | — | 20 | ☑ |
 | le-175 | Catch an Elusive Scent | — | 15 | ☑ |
 | le-176 | Come By Night Upon Them | — | 10 | ☑ |
 | le-177 | Crack in the Wall | — | 7 | ☑ |
@@ -521,7 +523,7 @@
 | le-250 | Voices of Malice | — | 21 | ☑ |
 | le-252 | We Have Come to Kill | — | 17 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
-| le-254 | Where There’s a Whip | — | 10 | ☑ |
+| le-254 | Where There’s a Whip | — | 11 | ☑ |
 | le-255 | While the Yellow Face Sleeps | — | 13 | ☑ |
 | le-258 | Words of Menace and Deceit | — | 7 | ☑ |
 | le-260 | Balchoth | — | 8 | ☑ |
@@ -676,7 +678,7 @@
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-49 | Morgul-rats | — | 8 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
-| td-57 | Rain-drake | — | 11 | ☑ |
+| td-57 | Rain-drake | — | 13 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
 | td-60 | Scatha | — | 8 | ☑ |
 | td-61 | Scatha Ahunt | — | 16 | ☑ |
@@ -698,7 +700,7 @@
 | td-87 | Wolf-riders | — | 4 | ☑ |
 | td-89 | Worn and Famished | — | 11 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
-| td-91 | Fram Framson | — | 2 | ☑ |
+| td-91 | Fram Framson | — | 4 | ☑ |
 | td-92 | Galdor | — | 6 | ☑ |
 | td-93 | Ioreth | — | 4 | ☑ |
 | td-94 | Thráin II | — | 4 | ☑ |
@@ -707,15 +709,17 @@
 | td-97 | Alert the Folk | — | 11 | ☑ |
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-99 | Arrows Shorn of Ebony | — | 13 | ☑ |
+| td-100 | Belegaer  | — | 7 | ☑ |
 | td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
-| td-103 | Burglary  | — | 13 | ☑ |
+| td-103 | Burglary  | — | 14 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
 | td-108 | Dragon-lore | — | 15 | ☑ |
 | td-109 | Dwarven Hoard | — | 11 | ☑ |
+| td-111 | Elf-path | — | 8 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
-| td-116 | Flatter a Foe | — | 21 | ☑ |
+| td-116 | Flatter a Foe | — | 22 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
@@ -727,10 +731,11 @@
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
 | td-144 | Pledge of Conduct | — | 8 | ☑ |
-| td-148 | Riddling Talk | — | 15 | ☑ |
+| td-148 | Riddling Talk | — | 16 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
-| td-158 | Thrór’s Map | — | 5 | ☑ |
+| td-158 | Thrór’s Map | — | 6 | ☑ |
+| td-159 | Trickery | — | 6 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
 | td-165 | Waybread | — | 14 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |
@@ -766,6 +771,7 @@
 | tw-22 | Clouds | — | 7 | ☑ |
 | tw-23 | Corpse-candle | — | 13 | ☑ |
 | tw-024 | — | — | 2 | ☑ |
+| tw-25 | Crebain | — | 13 | ☑ |
 | tw-26 | Daelomin | — | 7 | ☑ |
 | tw-27 | Despair of the Heart | — | 9 | ☑ |
 | tw-028 | — | — | 7 | ☑ |
@@ -774,15 +780,17 @@
 | tw-032 | — | — | 6 | ☑ |
 | tw-34 | Fell Turtle | — | 5 | ☑ |
 | tw-35 | Fell Winter | — | 3 | ☑ |
-| tw-36 | Foul Fumes | — | 9 | ☑ |
+| tw-36 | Foul Fumes | — | 10 | ☑ |
 | tw-37 | Ghosts | — | 6 | ☑ |
 | tw-38 | Ghouls | — | 9 | ☑ |
 | tw-40 | Giant Spiders | — | 8 | ☑ |
 | tw-42 | Greed | — | 11 | ☑ |
 | tw-43 | Half-trolls of Far Harad | — | 4 | ☑ |
 | tw-44 | Hoarmûrath of Dír | — | 11 | ☑ |
+| tw-45 | Huorn | — | 10 | ☑ |
 | tw-46 | Indûr Dawndeath | — | 15 | ☑ |
 | tw-47 | Khamûl the Easterling | — | 11 | ☑ |
+| tw-48 | Leucaruth | — | 6 | ☑ |
 | tw-050 | — | — | 7 | ☑ |
 | tw-053 | — | — | 7 | ☑ |
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
@@ -793,6 +801,7 @@
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
+| tw-66 | Mûmak (Oliphant) | — | 6 | ☑ |
 | tw-067 | — | — | 7 | ☑ |
 | tw-67 | Muster Disperses | — | 1 | ☑ |
 | tw-068 | — | — | 8 | ☑ |
@@ -805,6 +814,7 @@
 | tw-076 | Orc-warband | — | 3 | ☑ |
 | tw-77 | Orc-warriors | — | 6 | ☑ |
 | tw-078 | Orc-watch | — | 3 | ☑ |
+| tw-79 | Pick-pocket | — | 11 | ☑ |
 | tw-81 | Plague of Wights | — | 7 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
@@ -812,8 +822,9 @@
 | tw-85 | Rogrog | — | 6 | ☑ |
 | tw-86 | Shelob | — | 11 | ☑ |
 | tw-87 | Siege | — | 16 | ☑ |
+| tw-88 | Silent Watcher | — | 7 | ☑ |
 | tw-89 | Slayer | — | 7 | ☑ |
-| tw-90 | Smaug | — | 7 | ☑ |
+| tw-90 | Smaug | — | 9 | ☑ |
 | tw-91 | Snowstorm | — | 5 | ☑ |
 | tw-93 | The Balance of Things | — | 6 | ☑ |
 | tw-94 | The Burden of Time | — | 11 | ☑ |
@@ -903,11 +914,14 @@
 | tw-188 | A Chance Meeting | — | 13 | ☑ |
 | tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 11 | ☑ |
+| tw-191 | Anduin River | — | 14 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 15 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |
+| tw-194 | Ash Mountains | — | 13 | ☑ |
+| tw-195 | Athelas | — | 11 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 4 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
-| tw-198 | Bill the Pony | — | 11 | ☑ |
+| tw-198 | Bill the Pony | — | 13 | ☑ |
 | tw-199 | Block | — | 7 | ☑ |
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
@@ -932,6 +946,7 @@
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-231 | Fair Gold Ring | — | 22 | ☑ |
 | tw-232 | Fair Sailing | — | 10 | ☑ |
+| tw-237 | Fair Travels in Wilderness | — | 11 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
 | tw-240 | Fellowship | — | 15 | ☑ |
@@ -945,11 +960,13 @@
 | tw-249 | Great-road | — | 8 | ☑ |
 | tw-250 | Great-shield of Rohan | — | 11 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
+| tw-252 | Halfling Stealth | — | 4 | ☑ |
 | tw-253 | Halfling Strength | — | 14 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
 | tw-255 | Healing Herbs | — | 12 | ☑ |
 | tw-256 | Hiding | — | 9 | ☑ |
 | tw-257 | Hillmen | — | 2 | ☑ |
+| tw-258 | Hobbits | — | 2 | ☑ |
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
@@ -971,10 +988,13 @@
 | tw-282 | Mirror of Galadriel | — | 14 | ☑ |
 | tw-288 | Muster | — | 11 | ☑ |
 | tw-289 | Narsil | — | 6 | ☑ |
+| tw-290 | Narya | — | 7 | ☑ |
 | tw-292 | New Friendship | — | 13 | ☑ |
+| tw-293 | Old Friendship | — | 10 | ☑ |
 | tw-295 | Orcrist | — | 5 | ☑ |
 | tw-296 | Palantír of Amon Sûl | — | 17 | ☑ |
 | tw-297 | Palantír of Annúminas | — | 6 | ☑ |
+| tw-298 | Palantír of Elostirion | — | 12 | ☑ |
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
 | tw-302 | Paths of the Dead | — | 6 | ☑ |
@@ -999,7 +1019,7 @@
 | tw-327 | Shield of Iron-bound Ash | — | 7 | ☑ |
 | tw-328 | Skinbark | — | 5 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
-| tw-330 | Star-glass | — | 14 | ☑ |
+| tw-330 | Star-glass | — | 15 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
 | tw-334 | Stone of Erech | — | 6 | ☑ |
@@ -1015,16 +1035,17 @@
 | tw-347 | The One Ring | — | 15 | ☑ |
 | tw-348 | The White Tree | — | 13 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
-| tw-350 | Tom Bombadil | — | 7 | ☑ |
+| tw-350 | Tom Bombadil | — | 8 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |
 | tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
 | tw-353 | Treebeard | — | 5 | ☑ |
+| tw-355 | Use Palantír | — | 8 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-357 | Variags of Khand | — | 5 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
 | tw-361 | Wizard’s Flame | — | 7 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
-| tw-363 | Wizard’s Ring | — | 9 | ☑ |
+| tw-363 | Wizard’s Ring | — | 10 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 19 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
@@ -1139,7 +1160,7 @@
 | wh-43 | Crept Along Cleverly | — | 6 | ☑ |
 | wh-45 | Govern the Storms | — | 9 | ☑ |
 | wh-46 | Open to the Summons | — | 11 | ☑ |
-| wh-47 | Piercing All Shadows | — | 7 | ☑ |
+| wh-47 | Piercing All Shadows | — | 8 | ☑ |
 | wh-49 | Sojourn in Shadows | — | 8 | ☑ |
 | wh-51 | Blasting Fire | — | 10 | ☑ |
 | wh-52 | Liquid Fire | — | 10 | ☑ |
@@ -1150,7 +1171,7 @@
 | wh-57 | Rhosgobel | — | 10 | ☑ |
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-59 | A Merrier World | — | 8 | ☑ |
-| wh-60 | A New Ringlord | — | 4 | ☑ |
+| wh-60 | A New Ringlord | — | 5 | ☑ |
 | wh-61 | A Strident Spawn | — | 11 | ☑ |
 | wh-62 | An Untimely Brood | — | 15 | ☑ |
 | wh-63 | Bad Company | — | 11 | ☑ |
