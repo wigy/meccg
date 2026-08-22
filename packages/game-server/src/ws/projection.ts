@@ -285,6 +285,17 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const p1 = state.players[0];
   const p2 = state.players[1];
 
+  // The bottom player's companies are shown raw below (public info: sites,
+  // characters, planned movement), but their on-guard cards are the OPPONENT's
+  // face-down hazards — hidden information no one but that opponent may see.
+  // buildSelfView redacts these; the spectator "self" slot must too, or a
+  // watcher sees the face-down bluffs on p1's companies.
+  const p1Companies = p1.companies.map(c =>
+    c.onGuardCards.length > 0
+      ? { ...c, onGuardCards: c.onGuardCards.map(og => (og.revealed ? og : { ...og, definitionId: UNKNOWN_CARD })) }
+      : c,
+  );
+
   const _self = buildOpponentView(state, p1);
   // Reveal the opponent-side player's planned movement to spectators. The
   // bottom player (p1, projected as "self" from raw companies) already carries
@@ -315,7 +326,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       sideboard: [],
       killPile: [],
       outOfPlayPile: [],
-      companies: p1.companies,
+      companies: p1Companies,
       agents: p1.agents,
     },
     opponent,

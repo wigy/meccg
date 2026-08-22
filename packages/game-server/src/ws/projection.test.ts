@@ -681,3 +681,58 @@ describe('Game ID exposed in the player view (for locating a save when filing a 
     expect(spectatorView.gameId).toBe(state.gameId);
   });
 });
+
+/**
+ * A spectator watches a live game. On-guard cards sitting on the bottom
+ * player's (p1's) companies were placed face-down by the OPPONENT — hidden
+ * information no watcher may see the identity of until it is revealed. The
+ * spectator "self" view is built from p1's raw companies, so without
+ * redaction it leaks those face-down cards.
+ */
+describe('spectator on-guard redaction', () => {
+  const ON_GUARD_HIDDEN = 'og-hidden' as CardInstanceId;
+  const ON_GUARD_SHOWN = 'og-shown' as CardInstanceId;
+
+  function gameWithOnGuardOnAlice(): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const base = createGame(config, pool);
+    // A minimal company on Alice bearing one unrevealed and one revealed
+    // on-guard card. Only the fields the projection reads are populated.
+    const company = {
+      id: 'alice-co' as unknown,
+      characters: [],
+      currentSite: null,
+      siteCardOwned: false,
+      destinationSite: null,
+      movementPath: [],
+      moved: false,
+      onGuardCards: [
+        { instanceId: ON_GUARD_HIDDEN, definitionId: BALIN, revealed: false },
+        { instanceId: ON_GUARD_SHOWN, definitionId: ARAGORN, revealed: true },
+      ],
+    };
+    return {
+      ...base,
+      players: [
+        { ...base.players[0], companies: [company] },
+        base.players[1],
+      ],
+    } as unknown as GameState;
+  }
+
+  test('a spectator sees a face-down on-guard card as UNKNOWN_CARD, not its identity', () => {
+    const spec = projectSpectatorView(gameWithOnGuardOnAlice());
+    const og = spec.self.companies[0].onGuardCards;
+    const hidden = og.find(c => c.instanceId === ON_GUARD_HIDDEN);
+    const shown = og.find(c => c.instanceId === ON_GUARD_SHOWN);
+    expect(hidden?.definitionId).toBe(UNKNOWN_CARD);
+    // A revealed on-guard card is public and keeps its identity.
+    expect(shown?.definitionId).toBe(ARAGORN);
+  });
+});
