@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardEffect, SiteCard } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -32,7 +32,8 @@ import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { isUnderDeepsSurfaceSite, isDeepMinesSite } from './organization-companies.js';
+import { isUnderDeepsSurfaceSite, isDeepMinesSite, isUnderDeepsAdjacent } from './organization-companies.js';
+import { buildInPlayNames } from '../recompute-derived.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
 import { buildControllerInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -384,11 +385,22 @@ function revealOnGuardAttacksActions(
       if (!hasAutoAttacks) continue;
 
       // Check creature keying against the site (rule 2.V.i: "keyed to the site").
-      // Only site-type and site-name keying apply here; region-type keying is for
-      // movement (company moving through regions) and does not apply at the site phase.
+      // Only the site-based key methods apply here (site-type, site-name,
+      // site-keyword, adjacent-to); region keying is for movement (company
+      // moving through regions) and does not apply at the site phase. Each
+      // entry's `when` gate is evaluated against the same context shape the
+      // M/H matcher uses (`inPlay` names + the site's own path counts), so a
+      // conditional entry — Rain-drake td-57's "Ruins & Lairs that has two
+      // Wildernesses or one Coastal Sea in its site path", or a Doors-of-Night
+      // gate — holds on-guard exactly when it would hold from hand.
       if (siteDef && isSiteCard(siteDef)) {
+        const keyCtx: Record<string, unknown> = {
+          inPlay: buildInPlayNames(state),
+          destinationSite: { sitePath: regionTypeCounts(siteDef.sitePath) },
+        };
         let keyable = false;
         for (const key of def.keyedTo) {
+          if (key.when && !matchesCondition(key.when, keyCtx)) continue;
           if (key.siteTypes && key.siteTypes.includes(siteDef.siteType)) {
             logDetail(`On-guard creature "${def.name}" keyable by site-type: ${siteDef.siteType}`);
             keyable = true;
@@ -396,6 +408,33 @@ function revealOnGuardAttacksActions(
           }
           if (key.siteNames && key.siteNames.includes(siteDef.name)) {
             logDetail(`On-guard creature "${def.name}" keyable by site-name: ${siteDef.name}`);
+            keyable = true;
+            break;
+          }
+          // Site-keyword and adjacent-to keying (Durin's Bane dm-107: "at The
+          // Under-gates and at all of its adjacent sites", under-deeps sites
+          // while Doors of Night is in play) — mirror the M/H matcher so an
+          // on-guard copy can be revealed anywhere the card is playable.
+          if (key.siteKeywords && key.siteKeywords.some(kw => (siteDef.keywords ?? []).includes(kw))) {
+            logDetail(`On-guard creature "${def.name}" keyable by site-keyword`);
+            keyable = true;
+            break;
+          }
+          if (key.adjacentToSiteNames && key.adjacentToSiteNames.some(sn => {
+            const named = Object.values(state.cardPool).filter(c => isSiteCard(c) && c.name === sn) as SiteCard[];
+            return named.some(nSite => isUnderDeepsAdjacent(state, nSite, siteDef));
+          })) {
+            logDetail(`On-guard creature "${def.name}" keyable by adjacent-to-site-name`);
+            keyable = true;
+            break;
+          }
+          if (key.adjacentToSiteKeywords && key.adjacentToSiteKeywords.some(kw => {
+            const kwSites = Object.values(state.cardPool).filter(
+              c => isSiteCard(c) && (c.keywords ?? []).includes(kw),
+            ) as SiteCard[];
+            return kwSites.some(kwSite => isUnderDeepsAdjacent(state, kwSite, siteDef));
+          })) {
+            logDetail(`On-guard creature "${def.name}" keyable by adjacent-to-site-keyword`);
             keyable = true;
             break;
           }
