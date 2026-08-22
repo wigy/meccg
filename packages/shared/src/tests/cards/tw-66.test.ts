@@ -2,10 +2,9 @@
  * @module tw-66.test
  *
  * Card test: Mûmak (Oliphant) (tw-66)
- * Type: hazard-creature, non-unique
- * Race: Animals. Two strikes at prowess 12.
+ * Type: hazard-creature (Animal), non-unique
  *
- * Card text:
+ * Text:
  *   "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse
  *    Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in
  *    these regions. May also be played (on the same turn and on the same
@@ -13,34 +12,35 @@
  *    Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these
  *    regions. This card has no effect on a minion player."
  *
- * Keying:
- *   - Base: named regions Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand,
- *     Nûrn, Ûdun (covers any site in those regions too — as-13/as-21/tw-40
- *     precedent: region-name matching already spans every site type).
- *   - Alt: named regions Andrast, Anfalas, Belfalas, Lebennin, gated by a new
- *     `when` context field `hazardsEncountered` — playable only against a
- *     company that has already faced a Corsairs of Umbar (tw-24) attack this
- *     M/H sub-phase ("on the same turn and on the same company as Corsairs
- *     of Umbar").
+ * Base stats: 2 strikes, 12 prowess, no body check, race animal, 1 kill MP.
  *
- * CRF 22 "Card Effect Limitations": Mûmak may not be played if the opponent
- * is a Ringwraith/Sauron player ("has no effect on a minion player").
+ * keyedTo:
+ * | # | Entry                                                     | When                                            |
+ * |---|-----------------------------------------------------------|--------------------------------------------------|
+ * | 1 | regionNames + siteInRegionNames: the 7 base regions       | always — path OR destination site's own region    |
+ * | 2 | regionNames: the 4 Corsairs regions                       | Corsairs of Umbar already attacked this company    |
+ * | 3 | siteTypes: [ruins-and-lairs, shadow-hold]                 | destinationSite.region ∈ the 4 Corsairs regions   |
+ * |   |                                                             AND Corsairs of Umbar already attacked          |
  *
- * Engine support:
- * | # | Feature                                        | Status      | Notes                                              |
- * |---|-------------------------------------------------|-------------|-----------------------------------------------------|
- * | 1 | Two strikes, prowess 12                        | IMPLEMENTED | structural data                                    |
- * | 2 | Keying: base named regions                     | IMPLEMENTED | regionNames in keyedTo                             |
- * | 3 | Keying: alt regions gated on Corsairs of Umbar | IMPLEMENTED | new `when.hazardsEncountered` `$includes` context  |
- * | 4 | No effect on a minion player                   | IMPLEMENTED | play-restriction unplayable-when opponent.alignment|
+ * The "on the same turn and on the same company as Corsairs of Umbar" clause
+ * is modeled with the generic `when` condition gate on a keyedTo entry,
+ * exposing `hazardsEncountered` (the target company's already-faced
+ * creature-attack names this M/H sub-phase — the same list backing
+ * `followsAttackRaces`) so entries 2/3 only fire once Corsairs of Umbar
+ * (tw-24) has already attacked the target company earlier this turn.
  *
- * Playable: YES.
+ * "This card has no effect on a minion player" is modeled as a
+ * `play-restriction unplayable-when opponent.alignment $in [ringwraith,
+ * balrog]` (the standard convention for hazard cards that fizzle entirely
+ * against a minion opponent — the card is simply never offered).
+ *
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
   playCreatureHazardAndResolve,
@@ -48,12 +48,26 @@ import {
   viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, Phase } from '../../index.js';
-import type { CardDefinitionId, PlayHazardAction } from '../../index.js';
+import {
+  Phase, SiteType, Alignment,
+  computeLegalActions,
+} from '../../index.js';
+import type { CardDefinitionId, GameState } from '../../index.js';
 
 const MUMAK = 'tw-66' as CardDefinitionId;
 
-function twoPlayerState(alignment?: Alignment) {
+/** Shadow-hold whose own `region` field is Gorgoroth (base "sites in these regions" clause). */
+const MOUNT_DOOM = 'tw-414' as CardDefinitionId;
+/** Ruins & Lairs whose own `region` field is Andrast (Corsairs alt-keying site-type entry). */
+const THE_STONES = 'tw-429' as CardDefinitionId;
+/** Haven in Andrast, wrong site type for the Corsairs alt-keying site-type entry. */
+const EDHELLOND = 'tw-393' as CardDefinitionId;
+
+/** Minion fixtures for the "no effect on a minion player" tests. */
+const CROOK_LEGGED_ORC = 'ba-6' as CardDefinitionId;
+const MORIA_BALROG = 'ba-93' as CardDefinitionId;
+
+function baseTwoPlayerState() {
   return buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
@@ -61,8 +75,7 @@ function twoPlayerState(alignment?: Alignment) {
     players: [
       {
         id: PLAYER_1,
-        alignment: alignment ?? Alignment.Wizard,
-        companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
+        companies: [{ site: MORIA, characters: [ARAGORN, GIMLI] }],
         hand: [],
         siteDeck: [MINAS_TIRITH],
       },
@@ -79,87 +92,336 @@ function twoPlayerState(alignment?: Alignment) {
 describe('Mûmak (Oliphant) (tw-66)', () => {
   beforeEach(() => resetMint());
 
-  // ─── Base keying: named regions ────────────────────────────────────────
+  // ─── Combat: 2 strikes, 12 prowess, no body, race animal ──────────────
 
-  test('playable keyed to a base named region (Ithilien) with no Corsairs of Umbar attack faced', () => {
-    const state = twoPlayerState();
-    const mhState = makeMHState({ resolvedSitePathNames: ['Ithilien'], hazardsEncountered: [] });
-    const ready = { ...state, phaseState: mhState };
+  test('combat initiates with 2 strikes at 12 prowess, no body, race animal', () => {
+    const state = baseTwoPlayerState();
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: ['Dagorlad'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
     const mumakId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
-    const viable = viableActions(ready, PLAYER_2, 'play-hazard')
-      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === mumakId && a.viable);
-    expect(viable.length).toBeGreaterThan(0);
-    expect((viable[0].action as PlayHazardAction).keyedBy).toEqual({ method: 'region-name', value: 'Ithilien' });
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, mumakId, companyId,
+      { method: 'region-name' as const, value: 'Dagorlad' },
+    );
 
-    const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, mumakId, companyId, { method: 'region-name', value: 'Ithilien' });
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(2);
     expect(afterChain.combat!.strikeProwess).toBe(12);
+    expect(afterChain.combat!.creatureBody).toBe(null);
     expect(afterChain.combat!.creatureRace).toBe('animal');
   });
 
-  test('NOT playable in a region unrelated to either keying set', () => {
-    const state = twoPlayerState();
-    const mhState = makeMHState({ resolvedSitePathNames: ['Rhudaur'], hazardsEncountered: [] });
-    const ready = { ...state, phaseState: mhState };
-    const mumakId = handCardId(ready, HAZARD_PLAYER);
+  // ─── Base keying: the 7 named regions (path) ──────────────────────────
 
-    const viable = viableActions(ready, PLAYER_2, 'play-hazard')
-      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === mumakId && a.viable);
-    expect(viable).toHaveLength(0);
+  test('keyable via region-name when moving through Dagorlad', () => {
+    const state = baseTwoPlayerState();
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: ['Dagorlad'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'region-name' && a.keyedBy?.value === 'Dagorlad';
+    })).toBe(true);
   });
 
-  // ─── Alt keying: gated on a Corsairs of Umbar attack faced this turn ──────
+  // ─── Base keying: "sites in these regions" (site-in-region, any type) ──
 
-  test('NOT playable in an alt region (Andrast) when Corsairs of Umbar has not attacked this company', () => {
-    const state = twoPlayerState();
-    const mhState = makeMHState({ resolvedSitePathNames: ['Andrast'], hazardsEncountered: [] });
-    const ready = { ...state, phaseState: mhState };
-    const mumakId = handCardId(ready, HAZARD_PLAYER);
+  test('keyable via site-in-region at Mount Doom (Shadow-hold in Gorgoroth) with no matching path', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MOUNT_DOOM }],
+          hand: [],
+          siteDeck: [MOUNT_DOOM],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Mount Doom',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
 
-    const viable = viableActions(ready, PLAYER_2, 'play-hazard')
-      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === mumakId && a.viable);
-    expect(viable).toHaveLength(0);
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-in-region' && a.keyedBy?.value === 'Gorgoroth';
+    })).toBe(true);
   });
 
-  test('NOT playable in an alt region (Andrast) when a different creature (not Corsairs of Umbar) attacked', () => {
-    const state = twoPlayerState();
-    const mhState = makeMHState({ resolvedSitePathNames: ['Andrast'], hazardsEncountered: ['Wolves'] });
-    const ready = { ...state, phaseState: mhState };
-    const mumakId = handCardId(ready, HAZARD_PLAYER);
-
-    const viable = viableActions(ready, PLAYER_2, 'play-hazard')
-      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === mumakId && a.viable);
-    expect(viable).toHaveLength(0);
-  });
-
-  test('playable in an alt region (Andrast) once Corsairs of Umbar has attacked this company this sub-phase', () => {
-    const state = twoPlayerState();
-    const mhState = makeMHState({ resolvedSitePathNames: ['Andrast'], hazardsEncountered: ['Corsairs of Umbar'] });
-    const ready = { ...state, phaseState: mhState };
-    const mumakId = handCardId(ready, HAZARD_PLAYER);
-    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
-
-    const viable = viableActions(ready, PLAYER_2, 'play-hazard')
-      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === mumakId && a.viable);
-    expect(viable.length).toBeGreaterThan(0);
-    expect((viable[0].action as PlayHazardAction).keyedBy).toEqual({ method: 'region-name', value: 'Andrast' });
-
-    const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, mumakId, companyId, { method: 'region-name', value: 'Andrast' });
-    expect(afterChain.combat).not.toBeNull();
-    expect(afterChain.combat!.strikesTotal).toBe(2);
-    expect(afterChain.combat!.strikeProwess).toBe(12);
-  });
-
-  // ─── Play restriction: no effect on a minion (Ringwraith) player ──────────
-
-  test('NOT playable against a Ringwraith opponent, even keyed to a base region', () => {
-    const state = twoPlayerState(Alignment.Ringwraith);
-    const mhState = makeMHState({ resolvedSitePathNames: ['Ithilien'], hazardsEncountered: [] });
-    const ready = { ...state, phaseState: mhState };
+  test('NOT keyable outside the base 7 regions with no path and no Corsairs of Umbar attack faced', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+      hazardsEncountered: [],
+    });
+    const ready: GameState = { ...state, phaseState: mh };
 
     expect(viableActions(ready, PLAYER_2, 'play-hazard')).toHaveLength(0);
+  });
+
+  // ─── Corsairs of Umbar alt-keying: regionNames gate ───────────────────
+
+  test('NOT keyable via Andrast region-name without Corsairs of Umbar having attacked this company', () => {
+    const state = baseTwoPlayerState();
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: ['Andrast'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+      hazardsEncountered: [],
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    expect(viableActions(ready, PLAYER_2, 'play-hazard')).toHaveLength(0);
+  });
+
+  test('keyable via Andrast region-name once Corsairs of Umbar has already attacked this company', () => {
+    const state = baseTwoPlayerState();
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: ['Andrast'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+      hazardsEncountered: ['Corsairs of Umbar'],
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'region-name' && a.keyedBy?.value === 'Andrast';
+    })).toBe(true);
+  });
+
+  // ─── Corsairs of Umbar alt-keying: region-scoped site-type gate ───────
+
+  test('keyable via site-type at The Stones (R&L in Andrast) once Corsairs of Umbar has already attacked', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: THE_STONES }],
+          hand: [],
+          siteDeck: [THE_STONES],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'The Stones',
+      hazardsEncountered: ['Corsairs of Umbar'],
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-type' && a.keyedBy?.value === SiteType.RuinsAndLairs;
+    })).toBe(true);
+  });
+
+  test('NOT keyable at The Stones without Corsairs of Umbar having attacked', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: THE_STONES }],
+          hand: [],
+          siteDeck: [THE_STONES],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'The Stones',
+      hazardsEncountered: [],
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    expect(viableActions(ready, PLAYER_2, 'play-hazard')).toHaveLength(0);
+  });
+
+  test('NOT keyable at Edhellond (Haven in Andrast) even with Corsairs of Umbar already attacked — wrong site type', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: EDHELLOND }],
+          hand: [],
+          siteDeck: [EDHELLOND],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.Haven,
+      destinationSiteName: 'Edhellond',
+      hazardsEncountered: ['Corsairs of Umbar'],
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    expect(viableActions(ready, PLAYER_2, 'play-hazard')).toHaveLength(0);
+  });
+
+  // ─── "This card has no effect on a minion player" ─────────────────────
+
+  test('NOT playable at all against a Ringwraith opponent, even when otherwise keyable', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA_BALROG, characters: [CROOK_LEGGED_ORC] }],
+          hand: [],
+          siteDeck: [MORIA_BALROG],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: ['Dagorlad'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const mumakId = handCardId(ready, HAZARD_PLAYER);
+    const notPlayable = computeLegalActions(ready, PLAYER_2).find(
+      ea => ea.action.type === 'not-playable' && (ea.action as { cardInstanceId: string }).cardInstanceId === mumakId,
+    );
+    expect(notPlayable).toBeDefined();
+    expect(notPlayable!.reason).toMatch(/cannot be played against a minion player/);
+    expect(viableActions(ready, PLAYER_2, 'play-hazard').some(
+      p => (p.action as { cardInstanceId?: string }).cardInstanceId === mumakId,
+    )).toBe(false);
+  });
+
+  test('NOT playable at all against a Balrog opponent, even when otherwise keyable', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{ site: MORIA_BALROG, characters: [CROOK_LEGGED_ORC] }],
+          hand: [],
+          siteDeck: [MORIA_BALROG],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [MUMAK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: ['Dagorlad'],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const mumakId = handCardId(ready, HAZARD_PLAYER);
+    const notPlayable = computeLegalActions(ready, PLAYER_2).find(
+      ea => ea.action.type === 'not-playable' && (ea.action as { cardInstanceId: string }).cardInstanceId === mumakId,
+    );
+    expect(notPlayable).toBeDefined();
+    expect(notPlayable!.reason).toMatch(/cannot be played against a minion player/);
+    expect(viableActions(ready, PLAYER_2, 'play-hazard').some(
+      p => (p.action as { cardInstanceId?: string }).cardInstanceId === mumakId,
+    )).toBe(false);
   });
 });

@@ -1542,8 +1542,17 @@
           "Horse Plains",
           "Ithilien",
           "Khand",
-          "Nûrn",
-          "Ûdun"
+          "Nurn",
+          "Udûn"
+        ],
+        "siteInRegionNames": [
+          "Dagorlad",
+          "Gorgoroth",
+          "Horse Plains",
+          "Ithilien",
+          "Khand",
+          "Nurn",
+          "Udûn"
         ]
       },
       {
@@ -1557,6 +1566,31 @@
           "hazardsEncountered": {
             "$includes": "Corsairs of Umbar"
           }
+        }
+      },
+      {
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ],
+        "when": {
+          "$and": [
+            {
+              "destinationSite.region": {
+                "$in": [
+                  "Andrast",
+                  "Anfalas",
+                  "Belfalas",
+                  "Lebennin"
+                ]
+              }
+            },
+            {
+              "hazardsEncountered": {
+                "$includes": "Corsairs of Umbar"
+              }
+            }
+          ]
         }
       }
     ],
