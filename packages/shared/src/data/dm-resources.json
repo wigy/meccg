@@ -332,8 +332,7 @@
         "type": "cancel-prisoner-taking",
         "scope": "controlling-character"
       }
-    ],
-    "certified": "2026-05-18"
+    ]
   },
   {
     "cardType": "hero-resource-event",
