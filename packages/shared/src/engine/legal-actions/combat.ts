@@ -3713,18 +3713,18 @@ export function buildPlayedModifyAttackContext(
 ): Record<string, unknown> {
   let baseProwess = combat.strikeProwess;
   let creatureName: string | undefined;
-  if (combat.attackSource.type === 'creature') {
-    const atkPlayer = playerById(state, combat.attackingPlayerId);
-    if (atkPlayer) {
-      const creatureCard = atkPlayer.cardsInPlay.find(
-        c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: CardInstanceId }).instanceId,
-      );
-      if (creatureCard) {
-        const cDef = defById(state, creatureCard.definitionId);
-        if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
-        if (cDef) creatureName = cDef.name;
-      }
-    }
+  // Resolve the attacking creature's card via the general source helper so
+  // `enemy.name`/`enemy.prowess` are populated for every creature-backed
+  // source — `creature`, `on-guard-creature`, and `played-auto-attack` —
+  // not just an in-play `creature`. Matches the sibling td-97 path
+  // (companyCombatBoostActions). Without this, a played modify-attack gated
+  // on `enemy.name` (Unabated in Malice ba-26: "an attack from Shelob") was
+  // never offered against an on-guard-revealed creature.
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
+  if (creatureInstanceId) {
+    const cDef = resolveDef(state, creatureInstanceId);
+    if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+    if (cDef) creatureName = (cDef as { name?: string }).name;
   }
   // An automatic-attack is either a site's built-in attack or a played
   // auto-attack; exposed so cards can gate on "playable on an
