@@ -50,6 +50,30 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     expect(p1Ids).not.toContain(handCardId(state, HAZARD_PLAYER));
   });
 
+  test('Step 1 extras (card plays) are offered only while the discard window is open', () => {
+    // Regression: after the active player had acted in step 1
+    // (discardDone set), discardStepActions returned no actions — including
+    // no pass — but the step handler still appended permanent-event plays.
+    // Any playable permanent event in hand then became a FORCED play, which
+    // livelocked the game with the Demon fána swap pair (playing Flame of
+    // Udûn returns Great Shadow to hand and vice versa, forever; found by
+    // random self-play, seed 777006).
+    const GATES_OF_MORNING = 'tw-243' as import('../../../index.js').CardDefinitionId;
+    const state = eotState({ p1Hand: [GATES_OF_MORNING] });
+
+    // Window open: the play is offered alongside the step's pass.
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(1);
+    expect(viableActions(state, PLAYER_1, 'pass')).toHaveLength(1);
+
+    // P1 passes — their step-1 window closes.
+    const afterP1Pass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(phaseStateAs<EndOfTurnPhaseState>(afterP1Pass).discardDone[0]).toBe(true);
+
+    // No forced play remains: P1 has no viable actions at all until the
+    // step advances (P2 has not acted yet).
+    expect(viableFor(afterP1Pass, PLAYER_1)).toHaveLength(0);
+  });
+
   test('Step 2 (reset-hand): a player above hand size must discard, below draws up', () => {
     // P1 has 2 cards in hand and a single-card play deck. After both pass
     // step 1 we land in reset-hand. P1 (hand 2 < base 8, deck 1) is offered

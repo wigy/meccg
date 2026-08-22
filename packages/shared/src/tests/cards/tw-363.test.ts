@@ -147,6 +147,20 @@ describe('Wizard’s Ring (tw-363)', () => {
     expect(getCharacter(state, RESOURCE_PLAYER, GANDALF).effectiveStats.directInfluence).toBe(15); // base 10 + 5
   });
 
+  test('bearer gets the printed +2 prowess', () => {
+    // Regression: the structural prowessModifier fallback was gated on the
+    // item having NO stat-modifier DSL effect at all — Wizard's Ring declares
+    // its +5 DI in DSL but its +2 prowess only structurally, so the blanket
+    // any-stat check dropped the prowess bonus entirely. The gate must be
+    // per-stat.
+    const state = buildSitePhaseState({
+      site: LORIEN,
+      characters: [{ defId: GANDALF, items: [WIZARDS_RING] }],
+    });
+
+    expect(getCharacter(state, RESOURCE_PLAYER, GANDALF).effectiveStats.prowess).toBe(8); // base 6 + 2
+  });
+
   // ─── Rule 5: corruption check on play ───────────────────────────────────
 
   test('bearer makes a corruption check when Wizard’s Ring is played', () => {

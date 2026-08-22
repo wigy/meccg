@@ -41,8 +41,9 @@ import {
   Phase,
   Alignment,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlayPermanentEventAction, SelectCardBearerAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction, SelectCardBearerAction } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
+import { eliminateCharacter } from '../../engine/pending-reducers.js';
 
 const BURNING_RICK = 'le-173' as CardDefinitionId;
 
@@ -488,5 +489,45 @@ describe('Burning Rick, Cot, and Tree (le-173)', () => {
     // GORBAG was assigned and should be tapped
     const gorbagChar = afterBothAttacks.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(gorbagChar?.status).toBe(CardStatus.Tapped);
+  });
+
+  // ── Regression: company wiped out while bearer selection is pending ───────
+
+  test('company eliminated while bearer selection is pending: decline offered, card discarded, game not deadlocked', () => {
+    // Regression: with the company gone (every member eliminated while the
+    // bearer selection waited in the pending queue), selectCardBearerActions
+    // returned NO actions and the pass resolver returned null, so the
+    // resolution could never be consumed — the game deadlocked with the
+    // bearer selection heading the queue. Same deadlock class as the
+    // faction-influence-roll lost-influencer fix (#1725).
+    const state = buildMinionSitePhaseState({
+      site: EASTERLING_CAMP,
+      siteStatus: CardStatus.Tapped,
+      hand: [BURNING_RICK],
+      characters: SIX_CHARS,
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const action = actions[0].action as PlayPermanentEventAction;
+
+    let s = runBothAttacks(state, action.cardInstanceId);
+    expect(s.pendingResolutions.some(r => r.kind.type === 'select-card-bearer')).toBe(true);
+
+    // Every surviving company member leaves play before a bearer is chosen.
+    for (const charId of Object.keys(s.players[RESOURCE_PLAYER].characters)) {
+      const ch = s.players[RESOURCE_PLAYER].characters[charId as CardInstanceId];
+      s = eliminateCharacter(s, RESOURCE_PLAYER, charId as CardInstanceId, ch);
+    }
+    expect(s.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+    expect(s.pendingResolutions.some(r => r.kind.type === 'select-card-bearer')).toBe(true);
+
+    // The decline must still be offered (not zero legal actions)...
+    const passActions = viableActions(s, PLAYER_1, 'pass');
+    expect(passActions.length).toBeGreaterThan(0);
+
+    // ...and it discards the card and consumes the resolution.
+    const after = dispatch(s, passActions[0].action);
+    expect(after.pendingResolutions).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BURNING_RICK)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === BURNING_RICK)).toBe(true);
   });
 });

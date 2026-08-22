@@ -267,7 +267,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-starting-company"
+      }
+    ],
     "text": "Lost Knowledge. Can also be played at Minas Tirith if the site is tapped. Cannot be included with a starting company. After this item is played, the bearer faces an attack (cannot be canceled): Trap — 1 strike with 8 prowess (weapons do not modify prowess against this strike). If its bearer is at a Ruins & Lairs [{R}], discard Forgotten Scrolls to make information playable at the site until the end of the turn."
   },
   {
@@ -325,7 +330,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-starting-company"
+      }
+    ],
     "text": "Lost Knowledge. Cannot be included with a starting company. After this item is played, the bearer faces an attack (cannot be canceled): Trap — 1 strike with 9 prowess (weapons do not modify prowess against this strike). If its bearer is at a Shadow-hold [{S}] or Dark-hold [{D}], discard Lost Tome to make information playable at the site until the end of the turn."
   },
   {

@@ -2422,6 +2422,28 @@ function enumerateGrantActionTargets(
     }
   }
 
+  // Athelas (tw-195), Aragorn II's ability: "remove a corruption card from a
+  // character in his company" — the company-scoped counterpart of
+  // `own-hazard-corruption-cards`, restricted to the bearer's own company
+  // rather than every character the player controls.
+  if (targets.scope === 'company-hazard-corruption-cards') {
+    const company = findCharacterCompany(player.companies, charId);
+    if (!company) return [];
+    for (const memberId of company.characters) {
+      const member = player.characters[memberId];
+      if (!member) continue;
+      if (targets.filter) {
+        const memberDef = defById(state, member.definitionId);
+        if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+      }
+      for (const hazard of member.hazards) {
+        const hazardDef = defById(state, hazard.definitionId);
+        if (!isCorruptionCardDef(hazardDef)) continue;
+        matches.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+      }
+    }
+  }
+
   return matches;
 }
 
@@ -2548,6 +2570,16 @@ export function endOfOrgEligibility(
         const siteType = siteDef && 'siteType' in siteDef
           ? (siteDef as { siteType: string }).siteType
           : '';
+        // Ash Mountains (tw-194) and its "movement enhancer" family: "on a
+        // company containing a ranger" — the union of every company member's
+        // effective skills, so `{ "company.skills": { "$includes": "ranger" } }`
+        // matches regardless of which character carries it.
+        const companySkills = company.characters.flatMap(cId => {
+          const ch = player.characters[cId];
+          if (!ch) return [];
+          const cDef = defById(state, ch.definitionId);
+          return cDef && isCharacterCard(cDef) ? getEffectiveSkills(state, ch, cDef) : [];
+        });
         const companyFilterCtx = {
           company: {
             atHaven: siteType === 'haven',
@@ -2559,6 +2591,7 @@ export function endOfOrgEligibility(
             // entrance named in some Under-deeps site's `adjacentSites` map.
             atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
             siteUntapped: company.currentSite?.status === CardStatus.Untapped,
+            skills: companySkills,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;

@@ -51,7 +51,7 @@ import {
   findHandCardId, setCharStatus,
   companyIdAt, charIdAt, handCardId,
   expectCharStatus, expectInDiscardPile, expectCharItemCount,
-  viableActions,
+  viableActions, findCharInstanceId, eliminateCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, CardStatus, Alignment } from '../../index.js';
@@ -228,6 +228,40 @@ describe('Heedless Revelry (le-114) — played on a company', () => {
     s = dispatch({ ...s, cheatRollTotal: 12 }, roll);
     expectCharStatus(s, RESOURCE_PLAYER, BARD, CardStatus.Tapped);
     expect(s.pendingResolutions).toHaveLength(0);
+  });
+
+  // ── A listed roller leaves play while rolls are pending ───────────────────
+
+  test('roller eliminated while rolls are pending: their roll is skipped, the rest still roll', () => {
+    // Regression: the company-tap-roll emitter returned NO actions when the
+    // head of the `remaining` list had left play, leaving the resolving
+    // chain stuck with the rest of the list still queued — the same deadlock
+    // class as the faction-influence-roll fix (#1725).
+    const s0 = heroStationedState([BARLIMAN, BARD]);
+    let s = dispatch(s0, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: findHandCardId(s0, HAZARD_PLAYER, HEEDLESS_REVELRY),
+      targetCompanyId: P1_COMPANY,
+    });
+    s = resolveChain(s);
+    expect(s.pendingResolutions[0]?.kind.type).toBe('company-tap-roll');
+
+    // Barliman (the first roller) leaves play while the rolls are pending.
+    const barlimanId = findCharInstanceId(s, RESOURCE_PLAYER, BARLIMAN);
+    s = eliminateCharacter(s, RESOURCE_PLAYER, barlimanId, s.players[RESOURCE_PLAYER].characters[barlimanId]);
+
+    // A skip action is still offered for the departed roller...
+    const skip = nextRollAction(s);
+    expect(skip.targetCharacterId).toBe(barlimanId);
+    s = dispatch(s, skip);
+
+    // ...and the rest of the list still rolls: Bard taps on 12 - 2 > mind 2.
+    const roll2 = nextRollAction(s);
+    s = dispatch({ ...s, cheatRollTotal: 12 }, roll2);
+    expectCharStatus(s, RESOURCE_PLAYER, BARD, CardStatus.Tapped);
+    expect(s.pendingResolutions).toHaveLength(0);
+    expect(s.chain).toBeNull();
   });
 });
 

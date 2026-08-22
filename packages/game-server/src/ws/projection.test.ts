@@ -361,6 +361,26 @@ describe("Pallando reveals the top of an opponent's discard pile (CRF 22)", () =
     expect(pileById(top)?.definitionId).toBe(BALIN);
     expect(pileById(buried)?.definitionId).toBe(ARAGORN);
   });
+
+  test('Pallando does not re-hide a buried card an effect has explicitly revealed (dm-46)', () => {
+    // Regression: the Pallando override rebuilt the opponent's discard pile
+    // from scratch via hiddenPileRevealTop, ignoring handRevealedInstances —
+    // clobbering the base view's reveal of cards Aware of their Ways (dm-46)
+    // had drawn for a pick, and reproducing the "anonymous face-down stack
+    // with no click targets" soft-lock that 2dca72f48 fixed for the
+    // non-Pallando case.
+    const { state: base, buried, top } = gameWithBobDiscardPile(true);
+    const state: GameState = {
+      ...base,
+      handRevealedInstances: { ...base.handRevealedInstances, [buried]: ARAGORN },
+    };
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    // Top card via Pallando, buried card via the explicit reveal — both visible.
+    expect(pileById(top)?.definitionId).toBe(BALIN);
+    expect(pileById(buried)?.definitionId).toBe(ARAGORN);
+  });
 });
 
 /**
@@ -659,6 +679,71 @@ describe('Mistress Lobelia-style grant-action deck fetch (bug 21880899decf2c40)'
   });
 });
 
+describe('Spectator redaction of draft hidden information', () => {
+  const LEGOLAS = 'tw-158' as CardDefinitionId;
+
+  function draftGame(): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN, BALIN], favourites: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [LEGOLAS, BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    return createGame(config, pool);
+  }
+
+  test('spectators do not see either player\'s favourites during the character draft', () => {
+    // Regression: the spectator redact helper spread the draft state and
+    // replaced only pool/currentPick, keeping `favourites` — the players'
+    // declared starting-company plan, which the player projection strips
+    // from the opponent's copy.
+    const state = draftGame();
+    const spec = projectSpectatorView(state);
+    const ps = spec.phaseState;
+    if (ps.phase !== 'setup' || ps.setupStep.step !== 'character-draft') throw new Error('not in draft');
+    expect(ps.setupStep.draftState[0].favourites).toBeUndefined();
+    expect(ps.setupStep.draftState[1].favourites).toBeUndefined();
+    // The pools stay hidden as before.
+    expect(ps.setupStep.draftState[0].pool.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+  });
+
+  test('spectators do not see either player\'s remaining pool during the character deck draft', () => {
+    // Regression: redactPhaseForSpectator early-returned unchanged for the
+    // character-deck-draft step, shipping both players' remainingPool with
+    // real definition IDs — hidden future play-deck contents the player
+    // projection hides from the opponent.
+    let state = draftGame();
+    state = run(state, [
+      { type: 'draft-pick', player: ALICE, characterInstanceId: draftInst(state, 0, ARAGORN) },
+      { type: 'draft-pick', player: BOB, characterInstanceId: draftInst(state, 1, LEGOLAS) },
+      { type: 'draft-stop', player: ALICE },
+      { type: 'draft-stop', player: BOB },
+    ]);
+    // Advance through the item draft if present (no pool items → may auto-skip).
+    if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'item-draft') {
+      state = run(state, [
+        { type: 'pass', player: ALICE },
+        { type: 'pass', player: BOB },
+      ]);
+    }
+    if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-deck-draft') {
+      throw new Error(`expected character-deck-draft, got ${JSON.stringify(state.phaseState.phase)}`);
+    }
+
+    const spec = projectSpectatorView(state);
+    const ps = spec.phaseState;
+    if (ps.phase !== 'setup' || ps.setupStep.step !== 'character-deck-draft') throw new Error('projection changed step');
+    for (const seat of [0, 1] as const) {
+      const poolCards = ps.setupStep.deckDraftState[seat].remainingPool;
+      expect(poolCards.length).toBeGreaterThan(0);
+      expect(poolCards.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+    }
+  });
+});
+
 describe('Game ID exposed in the player view (for locating a save when filing a bug report)', () => {
   const config: GameConfig = {
     players: [
@@ -679,5 +764,121 @@ describe('Game ID exposed in the player view (for locating a save when filing a 
   test('a spectator view also carries the gameId', () => {
     const spectatorView = projectSpectatorView(state);
     expect(spectatorView.gameId).toBe(state.gameId);
+  });
+});
+
+/**
+ * A spectator watches a live game. On-guard cards sitting on the bottom
+ * player's (p1's) companies were placed face-down by the OPPONENT — hidden
+ * information no watcher may see the identity of until it is revealed. The
+ * spectator "self" view is built from p1's raw companies, so without
+ * redaction it leaks those face-down cards.
+ */
+describe('spectator on-guard redaction', () => {
+  const ON_GUARD_HIDDEN = 'og-hidden' as CardInstanceId;
+  const ON_GUARD_SHOWN = 'og-shown' as CardInstanceId;
+
+  function gameWithOnGuardOnAlice(): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const base = createGame(config, pool);
+    // A minimal company on Alice bearing one unrevealed and one revealed
+    // on-guard card. Only the fields the projection reads are populated.
+    const company = {
+      id: 'alice-co' as unknown,
+      characters: [],
+      currentSite: null,
+      siteCardOwned: false,
+      destinationSite: null,
+      movementPath: [],
+      moved: false,
+      onGuardCards: [
+        { instanceId: ON_GUARD_HIDDEN, definitionId: BALIN, revealed: false },
+        { instanceId: ON_GUARD_SHOWN, definitionId: ARAGORN, revealed: true },
+      ],
+    };
+    return {
+      ...base,
+      players: [
+        { ...base.players[0], companies: [company] },
+        base.players[1],
+      ],
+    } as unknown as GameState;
+  }
+
+  test('a spectator sees a face-down on-guard card as UNKNOWN_CARD, not its identity', () => {
+    const spec = projectSpectatorView(gameWithOnGuardOnAlice());
+    const og = spec.self.companies[0].onGuardCards;
+    const hidden = og.find(c => c.instanceId === ON_GUARD_HIDDEN);
+    const shown = og.find(c => c.instanceId === ON_GUARD_SHOWN);
+    expect(hidden?.definitionId).toBe(UNKNOWN_CARD);
+    // A revealed on-guard card is public and keeps its identity.
+    expect(shown?.definitionId).toBe(ARAGORN);
+  });
+});
+
+/**
+ * A face-down agent belongs to the bottom player (p1), so buildSelfView would
+ * show it in full — but a spectator is not its owner. Its card identity, the
+ * cards it carries, and the sites it has visited are hidden information until
+ * the agent is revealed; only that an agent exists (and how many sites it
+ * holds) is public.
+ */
+describe('spectator face-down agent redaction', () => {
+  const AGENT_CO = 'agent-co' as unknown;
+  const AGENT_CHAR = 'agent-char-inst' as CardInstanceId;
+  const VISITED_SITE = 'agent-visited-site' as CardInstanceId;
+
+  function gameWithAgentOnAlice(revealed: boolean): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Ringwraith, draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const base = createGame(config, pool);
+    const agent = {
+      id: AGENT_CO,
+      character: {
+        instanceId: AGENT_CHAR, definitionId: BALIN, status: CardStatus.Untapped,
+        items: [], allies: [], hazards: [], followers: [], controlledBy: 'general',
+      },
+      revealed,
+      siteStack: [{ instanceId: VISITED_SITE, definitionId: RIVENDELL, status: CardStatus.Untapped }],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+    return {
+      ...base,
+      players: [
+        { ...base.players[0], agents: [agent] },
+        base.players[1],
+      ],
+    } as unknown as GameState;
+  }
+
+  test('a spectator cannot see a face-down agent\'s identity or the sites it visited', () => {
+    const spec = projectSpectatorView(gameWithAgentOnAlice(false));
+    const agent = spec.self.agents[0];
+    expect(agent.revealed).toBe(false);
+    expect(agent.character.definitionId).toBe(UNKNOWN_CARD);
+    // The count of visited sites is public; their identity is not.
+    expect(agent.siteStack).toHaveLength(1);
+    expect(agent.siteStack[0].definitionId).toBe(UNKNOWN_SITE);
+  });
+
+  test('a revealed agent is public and keeps its identity', () => {
+    const spec = projectSpectatorView(gameWithAgentOnAlice(true));
+    const agent = spec.self.agents[0];
+    expect(agent.character.definitionId).toBe(BALIN);
+    expect(agent.siteStack[0].definitionId).toBe(RIVENDELL);
   });
 });
