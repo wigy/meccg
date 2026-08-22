@@ -1081,15 +1081,19 @@ function computeEffectiveStats(
         totalTrophyMp += (trophyDef as { killMarshallingPoints: number }).killMarshallingPoints;
       }
     }
+    // Rule 3.IV.3: "Prowess bonuses from trophies are applied to a maximum of
+    // 9" — the *bonus* cannot raise prowess above 9, but it must never lower a
+    // prowess that is already higher (e.g. boosted past 9 by other effects).
+    const trophyProwess = (bonus: number): number => Math.max(prowess, Math.min(prowess + bonus, 9));
     if (totalTrophyMp >= 4) {
       directInfluence += 2;
-      prowess = Math.min(prowess + 2, 9);
+      prowess = trophyProwess(2);
     } else if (totalTrophyMp === 3) {
       directInfluence += 2;
-      prowess = Math.min(prowess + 1, 9);
+      prowess = trophyProwess(1);
     } else if (totalTrophyMp === 2) {
       directInfluence += 1;
-      prowess = Math.min(prowess + 1, 9);
+      prowess = trophyProwess(1);
     } else if (totalTrophyMp === 1) {
       directInfluence += 1;
     }
