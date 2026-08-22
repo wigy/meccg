@@ -62,7 +62,7 @@ export function enterSetHazardLimitAndAutoAdvance(
   // hazards". Reinterpret the effective site's type (and, if declared, its site
   // path) for the keying pass only, before the snapshot/order-effects funnel.
   mhState = applyHazardSiteTypeOverride(state, company, mhState);
-  const snapshot = snapshotHazardLimit(state, company, mhState.resolvedSitePathNames, mhState.resolvedSitePath);
+  const snapshot = snapshotHazardLimit(state, company, mhState.resolvedSitePathNames, mhState.resolvedSitePath, mhState.movementType);
   // Left Behind (td-41): a company created (or flagged) by Left Behind faces its
   // separate movement/hazard phase with a hazard limit of exactly one.
   const forcedLeftBehind = company.leftBehind === true;
@@ -781,16 +781,18 @@ export function buildCompanyHazardContext(
  * `pathNames` are the region names of the company's declared movement path.
  * `pathRegionTypes` are the region *types* of that same path (Fair Sailing
  * tw-232's `hazard-limit-region-count` constraint counts occurrences of a
- * given type). Both are threaded in from the caller's `MovementHazardPhaseState`
+ * given type). `declaredMovementType` is the movement type just declared
+ * (the ba-37 movement-restriction reduction applies only to region movement).
+ * All three are threaded in from the caller's `MovementHazardPhaseState`
  * (which is not yet in `state.phaseState` at snapshot time); when omitted, the
- * current M/H phase state's `resolvedSitePathNames` / `resolvedSitePath` are
- * used.
+ * current M/H phase state's fields are used.
  */
 export function snapshotHazardLimit(
   state: GameState,
   company: Company,
   pathNames?: readonly string[],
   pathRegionTypes?: readonly RegionType[],
+  declaredMovementType?: MovementType | null,
 ): { limit: number; preRevealConstraintIds: readonly string[] } {
   const regionNames = pathNames
     ?? (state.phaseState.phase === Phase.MovementHazard ? state.phaseState.resolvedSitePathNames : []);
@@ -900,10 +902,12 @@ export function snapshotHazardLimit(
   // Company-bound movement restriction (Going Ever Under Dark ba-37): "if they
   // move with region movement … their hazard limit is reduced by one (to a
   // minimum of two)". CRF 22: the reduction only applies to a region-moving
-  // company. Applied last so its floor governs the final value.
-  const movementType = state.phaseState.phase === Phase.MovementHazard
-    ? state.phaseState.movementType
-    : null;
+  // company. Applied last so its floor governs the final value. The declared
+  // movement type must be threaded in by the caller: at snapshot time
+  // `state.phaseState` still holds the pre-declaration M/H state, whose
+  // `movementType` is null.
+  const movementType = declaredMovementType
+    ?? (state.phaseState.phase === Phase.MovementHazard ? state.phaseState.movementType : null);
   if (company.destinationSite && movementType === MovementType.Region) {
     const owner = state.players[activeIndex];
     const hazardRestriction = companyMovementRestrictions(owner, company, state);
