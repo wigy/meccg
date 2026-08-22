@@ -21,7 +21,8 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay } from './reducer-utils.js';
+import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1243,6 +1244,16 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   }
   if (recruit.filter && !matchesCondition(recruit.filter, { target: newDef })) {
     return { state, error: `discard-to-recruit: ${newDef.name} does not match the recruit filter` };
+  }
+  // Backstop the state-corrupting gates (uniqueness enforced only in emitters
+  // for normal character plays): two copies of a unique character — or two
+  // manifestations of one entity — must never both be in play.
+  if (newDef.unique && isUniqueCharacterInPlay(state, newDef.name)) {
+    return { state, error: `discard-to-recruit: ${newDef.name} is unique and already in play` };
+  }
+  const blockingManifestation = manifestationOfEntityInPlay(state, newDef);
+  if (blockingManifestation !== null) {
+    return { state, error: `discard-to-recruit: ${blockingManifestation}, a manifestation of the same entity as ${newDef.name}, is already in play` };
   }
 
   logDetail(`Discard-to-recruit: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is discarded and all cards on him transfer`);
