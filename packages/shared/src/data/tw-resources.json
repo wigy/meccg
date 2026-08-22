@@ -2870,8 +2870,17 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Hobbit only. Cancel one strike against the Hobbit."
+    "effects": [
+      {
+        "type": "strike-modifier",
+        "cancel": true,
+        "filter": {
+          "target.race": "hobbit"
+        }
+      }
+    ],
+    "text": "Hobbit only. Cancel one strike against the Hobbit.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
