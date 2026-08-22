@@ -30,6 +30,7 @@ import { splitCharacterOffCompany } from './company-split.js';
 import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint } from './pending.js';
 import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -184,6 +185,12 @@ function removeFailedCorruptionCharacter(
     };
   }
 
+  // Relocate trophies per CoE 3.IV.4 — worth MP → the holder's marshalling-
+  // point pile, otherwise removed from play — regardless of where the failed
+  // character card itself lands, or the creature CardInstance would vanish.
+  const { toKillPile: ccTrophyKill, toOutOfPlay: ccTrophyOop } =
+    partitionLeavingTrophies(state, char, 'corruption-check removal');
+
   const characterCard: CardInstance = { instanceId: characterId, definitionId: char.definitionId };
   playersAfterRoll[playerIndex] = destination === 'discard'
     ? {
@@ -191,13 +198,16 @@ function removeFailedCorruptionCharacter(
         characters: newCharacters,
         companies: newCompanies,
         discardPile: [...playersAfterRoll[playerIndex].discardPile, characterCard, ...nonHazardPossessions],
+        killPile: [...playersAfterRoll[playerIndex].killPile, ...ccTrophyKill],
+        outOfPlayPile: [...playersAfterRoll[playerIndex].outOfPlayPile, ...ccTrophyOop],
       }
     : {
         ...playersAfterRoll[playerIndex],
         characters: newCharacters,
         companies: newCompanies,
-        outOfPlayPile: [...playersAfterRoll[playerIndex].outOfPlayPile, characterCard],
+        outOfPlayPile: [...playersAfterRoll[playerIndex].outOfPlayPile, characterCard, ...ccTrophyOop],
         discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
+        killPile: [...playersAfterRoll[playerIndex].killPile, ...ccTrophyKill],
       };
 
   // A corruption hazard attached to the character (e.g. Lure of the Senses
@@ -2097,6 +2107,13 @@ export function returnCharacterToHand(
   const newCharacters = { ...player.characters };
   freeOrDiscardFollowers(state, newCharacters, charInPlay, 'return-character-to-hand');
 
+  // A trophy cannot return to hand with its bearer (CoE 3.IV.1 — a trophy
+  // "cannot be transferred"); it is discarded per CoE 3.IV.4 — worth MP → the
+  // holder's marshalling-point pile, otherwise removed from play — or the
+  // creature CardInstance would vanish with the returned character.
+  const { toKillPile: retTrophyKill, toOutOfPlay: retTrophyOop } =
+    partitionLeavingTrophies(state, charInPlay, 'return-character-to-hand');
+
   // Remove the target character from characters map
   delete newCharacters[characterId];
 
@@ -2119,6 +2136,8 @@ export function returnCharacterToHand(
     companies: newCompanies,
     hand: newHand,
     discardPile: newDiscard,
+    killPile: [...player.killPile, ...retTrophyKill],
+    outOfPlayPile: [...player.outOfPlayPile, ...retTrophyOop],
   };
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
 
@@ -2234,6 +2253,12 @@ function discardCharacter(
   const newCharacters = { ...player.characters };
   freeOrDiscardFollowers(state, newCharacters, charInPlay, 'discard-character');
 
+  // Relocate trophies per CoE 3.IV.4 — worth MP → the holder's marshalling-
+  // point pile, otherwise removed from play — or the creature CardInstance
+  // would vanish with the deleted character.
+  const { toKillPile: trophiesToKillPile, toOutOfPlay: trophiesToOutOfPlay } =
+    partitionLeavingTrophies(state, charInPlay, 'discard-character');
+
   const affectedCompanies = player.companies
     .filter(c => c.characters.includes(characterId))
     .map(c => c.id);
@@ -2247,8 +2272,8 @@ function discardCharacter(
   // The character card itself: discarded (default) or eliminated to the owner's
   // out-of-play pile. Its possessions were already pushed to newDiscard above.
   const newOutOfPlay = destination === 'out-of-play'
-    ? [...player.outOfPlayPile, toCardInstance(charInPlay)]
-    : player.outOfPlayPile;
+    ? [...player.outOfPlayPile, ...trophiesToOutOfPlay, toCardInstance(charInPlay)]
+    : [...player.outOfPlayPile, ...trophiesToOutOfPlay];
   if (destination === 'discard') {
     newDiscard.push(toCardInstance(charInPlay));
   }
@@ -2260,6 +2285,7 @@ function discardCharacter(
     hand: newHand,
     discardPile: newDiscard,
     outOfPlayPile: newOutOfPlay,
+    killPile: [...player.killPile, ...trophiesToKillPile],
   };
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
 
