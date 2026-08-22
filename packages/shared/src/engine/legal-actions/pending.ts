@@ -2495,10 +2495,16 @@ export function selectCardBearerActions(
   const defPlayer = state.players.find(p =>
     p.companies.some(co => co.id === companyId),
   );
-  if (!defPlayer) return [];
-
-  const company = companyById(defPlayer.companies, companyId);
-  if (!company) return [];
+  const company = defPlayer ? companyById(defPlayer.companies, companyId) : null;
+  if (!defPlayer || !company) {
+    // The company vanished before a bearer was chosen (e.g. every member was
+    // eliminated by an earlier resolution in the same queue). Offer the
+    // decline so the card is discarded and the queue advances — returning no
+    // actions would deadlock the game outright: this resolution heads the
+    // queue and nothing else can act until it is consumed.
+    logDetail(`select-card-bearer: company ${companyId as string} no longer exists — only the decline (pass) is offered`);
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
 
   const cardDefId = resolveInstanceId(state, cardInstanceId);
   const cardLabel = cardName(state, cardDefId!, '?');

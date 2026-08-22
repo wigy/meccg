@@ -3298,11 +3298,15 @@ export function applySelectCardBearerResolution(
   const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions, returnFactionsAtSite: shouldReturnFactions, discardUniqueFactionsAtSite: shouldDiscardUniqueFactions } = top.kind;
 
   if (rawAction.type === 'pass') {
-    // Player declines bearer assignment — discard the card
+    // Player declines bearer assignment — discard the card. The company may
+    // no longer exist (every member eliminated while this resolution waited
+    // in the queue); the card is then discarded to whichever player holds it
+    // in cardsInPlay instead of to the vanished company's owner. Returning
+    // null here would leave the resolution queued forever — the pass is the
+    // only action the emitter offers in that state.
     const defIdx = state.players.findIndex(
       p => p.companies.some(co => co.id === companyId),
     );
-    if (defIdx < 0) return null;
     logDetail(`select-card-bearer: player declined — discarding card ${cardInstanceId as string}`);
     const cardDefId = resolveInstanceId(state, cardInstanceId);
     const cardLabel = cardName(state, cardDefId!, '?');
@@ -3313,11 +3317,12 @@ export function applySelectCardBearerResolution(
     for (let pi = 0; pi < 2; pi++) {
       const inPlay = findById(s.players[pi].cardsInPlay, cardInstanceId);
       if (inPlay) {
+        const discardIdx = defIdx >= 0 ? defIdx : pi;
         s = updatePlayer(s, pi, p => ({
           ...p,
           cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
         }));
-        s = updatePlayer(s, defIdx, p => ({
+        s = updatePlayer(s, discardIdx, p => ({
           ...p,
           discardPile: [
             ...p.discardPile,
