@@ -121,6 +121,22 @@ describe('Great Shadow (ba-62)', () => {
     expect(actions.length).toBe(1);
   });
 
+  test('NOT playable during the end-of-turn phase ("Playable during your organization phase")', () => {
+    // Regression: without a phase play-condition the card was offered in the
+    // end-of-turn discard step, where the Demon fána swap pair (with Flame
+    // of Udûn ba-58 — playing one returns the other to hand) produced an
+    // infinite forced play/return livelock (random self-play, seed 777006).
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Balrog, companies: [{ site: BARAD_DUR_BA, characters: [THE_BALROG] }], hand: [GREAT_SHADOW], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [], hand: [], siteDeck: [] },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   // ── Rule 2: On-play bounce of another Demon fána card ────────────────────
 
   test('entering play does not bounce anything when the Balrog has no other Demon fána card', () => {

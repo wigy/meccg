@@ -1049,6 +1049,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "The Balrog" }
@@ -1225,6 +1230,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
@@ -1921,6 +1931,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
