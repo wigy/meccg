@@ -261,7 +261,12 @@ export function describeAction(
     case 'untap':
       return 'Untap all cards';
     case 'play-character':
-      return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
+      // The same character can be offered at the same site both under general
+      // influence and as another character's direct-influence follower — the
+      // controller must be in the label or the two actions look identical.
+      return action.controlledBy === 'general'
+        ? `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`
+        : `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)} under ${instName(action.controlledBy)}'s direct influence`;
     case 'split-company':
       return `Split ${instName(action.characterId)} from ${compName(action.sourceCompanyId)}`;
     case 'move-to-company':
