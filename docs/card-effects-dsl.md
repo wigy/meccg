@@ -3921,6 +3921,34 @@ Ever Under Dark* (ba-37) and *Crept Along Carefully* (ba-29):
   `onPass: { type: "cancel-current-attack" }` verb cancels the combat; on failure
   combat continues.
 
+**Forced automatic-attack re-face (`forceSiteAutoAttacksNormalReface`).** When a
+`cancel-attack` effect (paired with `"requiresCvCC": true`) carries
+`"forceSiteAutoAttacksNormalReface": true`, cancelling the CvCC attack does not
+just end combat: the attacking company must instead face all of its current
+site's automatic-attacks again — this time as **normal** (non-detainment)
+attacks, regardless of any `combat-detainment` site effect, forced-detainment
+site rule, or the usual §3.II alignment-based computation — before it may
+declare the CvCC attack again. `applyEffect`'s `cancel-attack` branch
+(`apply-dispatcher.ts`) captures the attacking player/company off the combat
+before it is cleared, then calls `triggerBellsRingingReface` (`combat-cancel.ts`):
+with no automatic-attacks at the site, `opponentInteractionThisTurn` is reset
+to `null` immediately; otherwise a repeated-attack combat is built via
+`buildSiteRepeatedAttackCombat` (`site-repeated-attack.ts`, shared with the
+Troll-purse dm-95 re-face and the rescue-attack) with `forceNormalOverride:
+true`, and the site phase enters `'bells-ringing-attacks'` (mirroring
+`'troll-purse-attacks'`) — sequencing the site's automatic-attacks one at a
+time and, once all are faced, returning to `'declare-company-attack'` with the
+interaction marker cleared rather than to `'play-resources'`. Used by *All the
+Bells Ringing* (as-44): "Playable during opponent's site phase before strikes
+are assigned on a hero company at a Free-hold [{F}] or Border-hold [{B}] if a
+minion company attacks. The attack is canceled and the minion company must
+face all automatic-attacks of the site—which attack normally, not as
+detainment. Afterwards, the minion company may attack the hero company
+again." — `cancel-attack` (`requiresCvCC: true`,
+`forceSiteAutoAttacksNormalReface: true`, `when: { "$and": [{
+"attack.minionCompany": true }, { "site.type": { "$in": ["free-hold",
+"border-hold"] } }] }`).
+
 **Dual-mode cancel / reduce-prowess.** A `prowessPenalty: N` field turns the
 card into a two-option play: the legal-action emitter offers both the outright
 cancellation and a "reduce the attack's prowess by N" variant (carried on the
@@ -3968,6 +3996,11 @@ combat context that includes:
   never a "company" and so are never hero-company. Used by *Helm of
   Fear* (as-126): "May not cancel combat with a hero company" →
   `"when": { "attack.heroCompany": { "$ne": true } }`.
+- `attack.minionCompany` — the Ringwraith-alignment counterpart of
+  `attack.heroCompany`: `true` only for a CvCC combat whose attacking
+  company's player is a Ringwraith (minion). Used by *All the Bells
+  Ringing* (as-44): "if a minion company attacks" →
+  `"when": { "attack.minionCompany": true }`.
 - `attack.siteKeyingTypes` — array of **site types** the creature is
   keyed to (e.g. `["ruins-and-lairs"]`); only populated for creature
   hazards. Lets a card gate on "an attack keyed to Ruins & Lairs".

@@ -5524,6 +5524,21 @@ export interface CancelAttackEffect extends EffectBase {
    */
   readonly requiresCvCC?: true;
   /**
+   * When true, cancelling this attack (which must be a CvCC combat —
+   * paired with {@link requiresCvCC}) additionally forces the attacking
+   * company to face all of the site's automatic-attacks again, this time
+   * attacking normally rather than as detainment; once those re-faced
+   * attacks are resolved (or immediately, if the site has none), the
+   * attacking company may declare the CvCC attack again. Used by All the
+   * Bells Ringing (as-44): "The attack is canceled and the minion company
+   * must face all automatic-attacks of the site—which attack normally, not
+   * as detainment. Afterwards, the minion company may attack the hero
+   * company again." Handled by `triggerBellsRingingReface` in
+   * `combat-cancel.ts`, dispatched from `applyEffect`'s `cancel-attack`
+   * branch once the cancellation itself resolves.
+   */
+  readonly forceSiteAutoAttacksNormalReface?: true;
+  /**
    * When set, the cancel is not automatic: paying the cost enqueues a 2d6
    * dice-check that only cancels the attack on success. Backs "make a roll to
    * attempt to cancel an attack … If the roll plus the number of scouts in the

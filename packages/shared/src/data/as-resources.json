@@ -940,8 +940,21 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during opponent’s site phase before strikes are assigned on a hero company at a Free-hold [{F}] or Border-hold [{B}] if a minion company attacks. The attack is canceled and the minion company must face all automatic-attacks of the site—which attack normally, not as detainment. Afterwards, the minion company may attack the hero company again."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiresCvCC": true,
+        "forceSiteAutoAttacksNormalReface": true,
+        "when": {
+          "$and": [
+            { "attack.minionCompany": true },
+            { "site.type": { "$in": ["free-hold", "border-hold"] } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable during opponent’s site phase before strikes are assigned on a hero company at a Free-hold [{F}] or Border-hold [{B}] if a minion company attacks. The attack is canceled and the minion company must face all automatic-attacks of the site—which attack normally, not as detainment. Afterwards, the minion company may attack the hero company again.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",

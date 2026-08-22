@@ -784,6 +784,18 @@ export type SiteStep =
    */
   | 'troll-purse-attacks'
   /**
+   * All the Bells Ringing (as-44) re-face window. Played by the hero player
+   * (before strikes are assigned) to cancel a minion company's declared CvCC
+   * attack against a hero company at a Free-hold or Border-hold: the minion
+   * company must instead face all of the site's automatic-attacks again,
+   * this time attacking normally rather than as detainment. The re-faced
+   * attacks are sequenced one at a time (mirroring 'troll-purse-attacks');
+   * once all are faced (or immediately, if the site has none), control
+   * returns to 'declare-company-attack' with the interaction marker cleared,
+   * so the minion company may declare the CvCC attack again.
+   */
+  | 'bells-ringing-attacks'
+  /**
    * Prisoner-rescue window (CoE rule 8.36). When the active company attempts
    * to rescue prisoners held at its current site (e.g. by Troll-purse dm-95),
    * it must face the host's rescue-attack — the site's automatic-attacks at
@@ -875,6 +887,20 @@ export interface SitePhaseState {
   readonly trollPurseReface?: {
     readonly hostInstanceId: CardInstanceId;
     readonly prowessBonus: number;
+    readonly resolved: number;
+  };
+  /**
+   * Active All the Bells Ringing (as-44) re-face progress. Set when the card
+   * cancels a minion company's declared CvCC attack against a hero company at
+   * a Free-hold or Border-hold, forcing the minion company to face all of the
+   * site's automatic-attacks again (as normal, non-detainment attacks) before
+   * it may re-declare the CvCC attack. Holds how many of the site's
+   * automatic-attacks have been re-faced so far. Undefined when no re-face is
+   * in progress. Cleared (and the step returned to 'declare-company-attack',
+   * `opponentInteractionThisTurn` reset to `null`) once all the site's
+   * automatic-attacks have been re-faced.
+   */
+  readonly bellsRingingReface?: {
     readonly resolved: number;
   };
   /**

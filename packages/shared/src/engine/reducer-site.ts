@@ -14,7 +14,6 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { findCompanyAllies } from './legal-actions/combat.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, resolveDef } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -39,6 +38,7 @@ import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js'
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
+import { buildSiteRepeatedAttackCombat, facingAlliesFor } from './site-repeated-attack.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { removeItemFromSetAside } from './set-aside.js';
 import type { AgentAttackModifierEffect, MoveEffect, SiteEntryAttackSpec, SiteEntryRollAttackEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
@@ -71,6 +71,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'site-entry-attack': handleSiteEntryAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
   'troll-purse-attacks': handleSiteTrollPurseAttacks,
+  'bells-ringing-attacks': handleSiteBellsRingingAttacks,
   'rescue-attacks': handleSiteRescueAttacks,
   'rescue-tap': handleSiteRescueTap,
   'declare-agent-attack': handleDeclareAgentAttack,
@@ -979,21 +980,6 @@ function autoAttackAppliesToCompany(aa: AutomaticAttack, covert: boolean): boole
 }
 
 /**
- * Allies (per CoE 2.V.2.2) that must also face a strike in an "each character
- * faces 1 strike" automatic attack, excluding those made immune by a
- * `no-attack` or `no-attack-site-keyed` play-flag (site auto-attacks are
- * always "at the site", so `no-attack-site-keyed` always applies to them).
- */
-function facingAlliesFor(state: GameState, player: PlayerState, company: Company): CardInstanceId[] {
-  return findCompanyAllies(player, company.characters)
-    .filter(({ ally }) => {
-      const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
-      return !hasPlayFlag(allyDef, 'no-attack') && !hasPlayFlag(allyDef, 'no-attack-site-keyed');
-    })
-    .map(({ ally }) => ally.instanceId);
-}
-
-/**
  * Handle the 'automatic-attacks' step: initiate combat for each automatic
  * attack listed on the site card, one at a time.
  *
@@ -1613,105 +1599,6 @@ function handleSiteAutomaticAttacks(
 }
 
 /**
- * Build the combat state for re-facing one of the site's automatic-attacks,
- * shared by the Troll-purse (dm-95) item-trap re-face and the prisoner-rescue
- * (rule 8.36) rescue-attack. Mirrors the normal site auto-attack combat
- * construction (detainment keying, each-character, attacker-chooses,
- * cannot-be-canceled, wound-eliminates).
- *
- * `opts.prowessBonus` adds to the attack's prowess (Troll-purse: +3; rescue: 0).
- * `opts.trollPursePrisoner`, when set, flags the combat so a successful strike
- * takes the character prisoner at the site instead of wounding (handled in
- * `reducer-combat.ts` `resolveStrike`). `opts.protectedFromStrikeAssignment`
- * excludes those characters from being assigned strikes (held prisoners during
- * a rescue-attack are captive, not fighting).
- */
-function buildSiteRepeatedAttackCombat(
-  state: GameState,
-  company: Company,
-  siteDef: import('../types/cards.js').SiteCard,
-  aa: AutomaticAttack,
-  attackIndex: number,
-  opts: {
-    prowessBonus: number;
-    trollPursePrisoner?: { hostInstanceId: CardInstanceId; siteInstanceId: CardInstanceId };
-    protectedFromStrikeAssignment?: readonly CardInstanceId[];
-  },
-): CombatState {
-  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
-  const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
-  const siteDefId = company.currentSite!.definitionId;
-  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite!.instanceId);
-  const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefId);
-  const forcesNormalAttacks = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
-    || siteTypeForcesAutoAttacksNormal(state, effectiveSiteType);
-  const inPlayNames = buildInPlayNames(state);
-  const creatureRace = normalizeCreatureRace(aa.creatureType);
-  const boostCtx = { companyId: company.id };
-  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx, false, effectiveSiteType);
-  const effectiveProwess = baseProwess + opts.prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
-  const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
-  const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
-  const aaAttackerChooses = resolveAttackerChoosesDefenders(
-    state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
-  );
-  const protectedSet = new Set((opts.protectedFromStrikeAssignment ?? []).map(id => id as string));
-  // For each-character, only non-protected characters face a strike. Allies
-  // (CoE 2.V.2.2) face a strike too, unless immune or themselves protected.
-  const facingChars = company.characters.filter(id => !protectedSet.has(id as string));
-  const facingAllies = isEachCharacter
-    ? facingAlliesFor(state, state.players[activePlayerIndex], company).filter(id => !protectedSet.has(id as string))
-    : [];
-  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? [
-        ...facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
-        ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
-      ]
-    : [];
-  const strikesTotalValue = isEachCharacter ? facingChars.length + facingAllies.length : effectiveStrikes;
-  const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
-    attackEffects: siteDef.effects,
-    attackRace: creatureRace ?? null,
-    defendingAlignment: state.players[activePlayerIndex].alignment,
-    defendingCovert,
-    defendingSiteEffects: siteDef.effects,
-    isAutomaticAttack: true,
-    defenderForcesNormalAttacks: forcesNormalAttacks,
-  });
-  const base: CombatState = {
-    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
-    companyId: company.id,
-    defendingPlayerId: state.activePlayer!,
-    attackingPlayerId: hazardPlayer(state).id,
-    strikesTotal: strikesTotalValue,
-    strikeProwess: effectiveProwess,
-    creatureBody: effectiveBody,
-    creatureRace,
-    strikeAssignments: preAssignedStrikes,
-    currentStrikeIndex: 0,
-    phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
-    assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
-    bodyCheckTarget: null,
-    detainment,
-    ...(opts.trollPursePrisoner ? { trollPursePrisoner: opts.trollPursePrisoner } : {}),
-    ...(protectedSet.size > 0 ? { protectedFromStrikeAssignment: [...protectedSet] as CardInstanceId[] } : {}),
-    ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
-    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
-    ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
-    ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
-    ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
-  };
-  if (isEachCharacter && preAssignedStrikes.length > 1) {
-    return { ...base, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null };
-  }
-  if (isEachCharacter && preAssignedStrikes.length === 1) {
-    return { ...base, phase: 'resolve-strike', currentStrikeIndex: 0, attackerStep1Done: false, bodyCheckTarget: null };
-  }
-  return base;
-}
-
-/**
  * Troll-purse (dm-95): when an item is played at a site bearing an opponent's
  * Troll-purse, the company must face all the site's automatic-attacks again.
  * If such a trap exists at the active company's site, initiate the first
@@ -1811,6 +1698,59 @@ function handleSiteTrollPurseAttacks(
       ...state,
       combat,
       phaseState: { ...siteState, trollPurseReface: { ...reface, resolved: reface.resolved + 1 } },
+    },
+  };
+}
+
+/**
+ * Handle the 'bells-ringing-attacks' step: sequence the automatic-attacks
+ * re-faced by All the Bells Ringing (as-44). Each `pass` initiates the next
+ * re-faced attack (forced normal, not detainment); once all of the site's
+ * automatic-attacks have been re-faced, control returns to
+ * 'declare-company-attack' with `opponentInteractionThisTurn` reset to
+ * `null`, so the minion company may declare the CvCC attack again.
+ */
+function handleSiteBellsRingingAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during bells-ringing-attacks step` };
+  }
+  const reface = siteState.bellsRingingReface;
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const siteDef = companySiteDef(state, company);
+  const autoAttacks = siteDef ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
+
+  if (!reface || reface.resolved >= autoAttacks.length) {
+    logDetail('All the Bells Ringing: all re-faced automatic-attacks resolved → declare-company-attack (interaction cleared)');
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...siteState,
+          step: 'declare-company-attack' as const,
+          bellsRingingReface: undefined,
+          opponentInteractionThisTurn: null,
+        },
+      },
+    };
+  }
+
+  const aa = autoAttacks[reface.resolved];
+  logDetail(`All the Bells Ringing: re-facing automatic-attack ${reface.resolved + 1}/${autoAttacks.length} (forced normal, not detainment)`);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, reface.resolved, {
+    prowessBonus: 0,
+    forceNormalOverride: true,
+  });
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: { ...siteState, bellsRingingReface: { resolved: reface.resolved + 1 } },
     },
   };
 }
