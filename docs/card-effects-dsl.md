@@ -8936,6 +8936,66 @@ turn-scoped constraints stack in the effective-stats resolver, and the
 `duplication-limit` `scope: "turn"` (counting active constraints left by a
 resolved copy) enforces "Cannot be duplicated on a given turn".
 
+**Company-targeting mode.** `play-option` is also honoured on
+**company**-targeting hazard short-events (`play-target: "company"`, e.g.
+Drowning Seas tw-30). The company branch of `playHazardsActions`
+(`legal-actions/movement-hazard.ts`) emits one `play-hazard` action per
+matching option (carrying `optionId`), evaluating each option's `when`
+against the same company filter context used for the card's `play-target`
+filter, extended with `inPlay` — so an alternative gated on a permanent-event
+(e.g. Doors of Night) is only offered while it's actually in play. A card
+whose play-options *all* fail their `when` is offered as a single non-viable
+action. `chain-reducer.ts`'s `applyCompanyPlayOption` dispatches the chosen
+option's `apply` once the entry resolves un-negated; it only fires for cards
+whose own `play-target` is `"company"`, so it never collides with the
+existing untargeted-mode dispatch (`optionId && !targetCharacterId`) — every
+hazard short-event's chain payload carries `targetCompanyId` regardless of
+its actual target kind, so that field alone can't tell the two families
+apart.
+
+Three apply kinds resolve against the chain's active movement/hazard company:
+
+- `company-return-to-origin` — the same CoE rule 2.IV.4 mechanism described
+  in §56b, reused here as a `play-option` apply instead of a top-level card
+  effect.
+- `force-discard-one-company-item` — reused outside combat. Normally an
+  `on-event: character-wounded-by-self` verb (Brigands le-64/tw-17); as a
+  `play-option` apply it directly enqueues the same `discard-one-company-item`
+  pending resolution (no `characterId` narrowing, so every item in the
+  company is a candidate), actored by the company's controller — "the
+  company loses one item of its choice".
+- `random-discard-hand` (`{ "count": <n> }`) — the company controller
+  discards `count` cards drawn **at random** from hand (capped at hand
+  size). A seeded `shuffle` (same pattern as `reveal-hand-cards-per-character`
+  §3-ish/Crebain tw-25) picks the discarded slice; `state.rng` advances.
+
+`sequence` composes multiple applies (e.g. item loss + random hand discard)
+for a single option.
+
+```json
+"effects": [
+  { "type": "play-target", "target": "company" },
+  { "type": "play-condition", "requires": "site-path",
+    "condition": { "sitePath.coastalCount": { "$gte": 1 } } },
+  { "type": "play-option", "id": "item-loss-and-discard",
+    "apply": { "type": "sequence", "apps": [
+      { "type": "force-discard-one-company-item" },
+      { "type": "random-discard-hand", "count": 2 }
+    ] } },
+  { "type": "play-option", "id": "return-to-origin",
+    "when": { "inPlay": "Doors of Night" },
+    "apply": { "type": "company-return-to-origin" } }
+]
+```
+
+Used by *Drowning Seas* (tw-30): "Environment. Playable on a company that
+moved this turn to a site with a Coastal Sea [{c}] in its site path. Target
+company loses one item of its choice and its player must randomly discard two
+cards from his hand. Alternatively, if Doors of Night is in play, target
+company must immediately return to its site of origin." The Coastal-Sea
+clause reuses the `play-condition` site-path gate (`sitePath.coastalCount`,
+the Lost at Sea tw-50 shape).
+
 ### Weariness of the Heart
 
 ```json

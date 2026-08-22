@@ -1290,8 +1290,49 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.coastalCount": {
+            "$gte": 1
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "item-loss-and-discard",
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "force-discard-one-company-item"
+            },
+            {
+              "type": "random-discard-hand",
+              "count": 2
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "return-to-origin",
+        "when": {
+          "inPlay": "Doors of Night"
+        },
+        "apply": {
+          "type": "company-return-to-origin"
+        }
+      }
+    ],
+    "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",

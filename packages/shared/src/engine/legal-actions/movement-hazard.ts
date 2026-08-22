@@ -2994,6 +2994,36 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
             continue;
           }
+          // play-option (Drowning Seas tw-30): the hazard player picks one of
+          // several mutually-exclusive company-level options at play time.
+          // Each option's `when` is evaluated against the same company
+          // context used for the play-target filter above, extended with
+          // `inPlay` so an alternative gated on a permanent-event (Doors of
+          // Night) is only offered while it's actually in play. One action
+          // per matching option, carrying `optionId`; a card without
+          // play-option effects falls through to the single-action path
+          // below.
+          const compPlayOptions = getCardEffects(def).filter(
+            (e): e is import('../../types/effects.js').PlayOptionEffect => e.type === 'play-option',
+          );
+          if (compPlayOptions.length > 0) {
+            const optionCtx = { ...companyCtx, inPlay: buildInPlayNames(state) };
+            let offeredAnyOption = false;
+            for (const opt of compPlayOptions) {
+              if (opt.when && !matchesCondition(opt.when, optionCtx)) {
+                logDetail(`Hazard short-event "${def.name}": company option "${opt.id}" when-condition rejected`);
+                continue;
+              }
+              logDetail(`Hazard short-event "${def.name}": company option "${opt.id}" available`);
+              actions.push({ action: { ...action, optionId: opt.id }, viable: true });
+              offeredAnyOption = true;
+            }
+            if (!offeredAnyOption) {
+              logDetail(`Hazard short-event "${def.name}": no company option's when-condition matched`);
+              actions.push({ action, viable: false, reason: `${def.name}: no available option for this company` });
+            }
+            continue;
+          }
           // play-discard-cost (The Reek ba-23): must discard a matching card from
           // hand as a cost. Gather candidates; if none match, the card is not
           // playable at all. One action per matching cost card.
