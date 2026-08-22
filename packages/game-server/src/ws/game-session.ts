@@ -33,6 +33,7 @@ import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK, TUTORIAL_BEATS } from '@meccg
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { TutorialController } from './tutorial-controller.js';
 import { ServerLog, GameLog } from './game-log.js';
+import { writeFileAtomic } from './atomic-write.js';
 import { buildCompletedGameRecord, writeCompletedGameRecord, GAME_RECORDS_DIR } from './game-record.js';
 import type { CompletedGameRecord, PlayerDeckInfo } from './game-record.js';
 import { recordRatedGame, toRatableGame } from './rating-store.js';
@@ -1633,7 +1634,7 @@ export class GameSession {
         // File doesn't exist yet
       }
       games.push(entry);
-      fs.writeFileSync(filePath, JSON.stringify(games, null, 2) + '\n');
+      writeFileAtomic(filePath, JSON.stringify(games, null, 2) + '\n');
       this.serverLog.log('game-recorded', { player: playerName, gameId });
     } catch (err) {
       this.serverLog.log('game-record-error', { player: playerName, error: String(err) });
@@ -1696,7 +1697,7 @@ export class GameSession {
       ...(this.tutorial ? { tutorialCursor: this.tutorial.cursorIndex } : {}),
     };
 
-    fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
+    writeFileAtomic(savePath, JSON.stringify(save));
     this.serverLog.log('save', { path: savePath, stateSeq: this.state.stateSeq });
   }
 
