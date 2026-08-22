@@ -39,7 +39,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -2543,10 +2543,8 @@ export function endOfOrgEligibility(
   state: GameState,
   player: PlayerState,
   def: ResourceEventCard,
+  playTarget: PlayTargetEffect | undefined,
 ): EndOfOrgEligibility {
-  const playTarget: PlayTargetEffect | undefined = def.effects?.find(
-    (e): e is PlayTargetEffect => e.type === 'play-target',
-  );
   if (!playTarget) return { eligible: true, reason: '', eligibleTargets: [] };
   if (playTarget.target !== 'character' && playTarget.target !== 'company') {
     return { eligible: true, reason: '', eligibleTargets: [] };
@@ -2596,11 +2594,18 @@ export function endOfOrgEligibility(
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
       }
-      if (playTarget.cost?.tap === 'character') {
-        // Tap-cost: emit one action per untapped character (player chooses tapper).
+      if (playTarget.cost?.tap === 'character' || playTarget.cost?.tap === 'skilled-character-in-company') {
+        // Tap-cost: emit one action per untapped (optionally skill-matching)
+        // character (player chooses tapper).
+        const requiredSkill = playTarget.cost.tap === 'skilled-character-in-company' ? playTarget.cost.skill : undefined;
         for (const charInstId of company.characters) {
           const char = player.characters[charInstId];
           if (!char || char.status !== CardStatus.Untapped) continue;
+          if (requiredSkill) {
+            const charDef = defById(state, char.definitionId);
+            if (!charDef || !isCharacterCard(charDef)) continue;
+            if (!getEffectiveSkills(state, char, charDef as { skills?: readonly string[] }).includes(requiredSkill as Skill)) continue;
+          }
           eligibleTargets.push(charInstId);
         }
       } else {
@@ -2613,7 +2618,7 @@ export function endOfOrgEligibility(
     if (eligibleTargets.length === 0) {
       return {
         eligible: false,
-        reason: playTarget.cost?.tap === 'character'
+        reason: (playTarget.cost?.tap === 'character' || playTarget.cost?.tap === 'skilled-character-in-company')
           ? `${def.name} requires an untapped character in a company`
           : `${def.name} requires a company at the required location`,
         eligibleTargets: [],
@@ -2664,6 +2669,18 @@ export function endOfOrgEligibility(
  */
 export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | undefined {
   return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
+}
+
+/**
+ * Returns every `play-target` effect on the given resource event card. Most
+ * cards carry at most one; a card with two mutually-exclusive end-of-org
+ * modes (Anduin River tw-191 and the "mountain-crossing" family: a
+ * ranger-tap mode alongside a no-cost "alternatively" mode, the shape *The
+ * Cock Crows* tw-342 established for dual-mode short-events) carries one per
+ * mode. Used by the end-of-org emitter to offer actions for every mode.
+ */
+export function getPlayTargetEffects(def: ResourceEventCard): readonly PlayTargetEffect[] {
+  return (def.effects ?? []).filter((e): e is PlayTargetEffect => e.type === 'play-target');
 }
 
 /**
@@ -2750,6 +2767,10 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *  - `target.inAvatarCompany` — `true` iff the character belongs to the
  *    same company as the player's avatar (wizard/ringwraith/etc.).
  *    Requires the `player` parameter to be passed.
+ *  - `company.siteRegion` — the name of the region containing the
+ *    character's company's current site (or `null` at sea/no site). Lets a
+ *    `play-target` filter gate on the origin's region by name (e.g. Belegaer
+ *    td-100: "moving from a site of origin in one of the following regions").
  *  - `company.containsDiplomat` — `true` iff the character's company
  *    contains at least one character with the `diplomat` skill.
  *    Enables cards like New Friendship to offer a corruption-check boost
@@ -2791,6 +2812,7 @@ export function buildPlayOptionContext(
   let isInfluencing = false;
   let companySiteType: string | null = null;
   let companySiteName: string | null = null;
+  let companySiteRegion: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
@@ -2832,6 +2854,7 @@ export function buildPlayOptionContext(
       const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
       if (siteDef) companySiteName = siteDef.name;
+      if (siteDef) companySiteRegion = (siteDef as { region?: string }).region ?? null;
     }
     // The region type containing the company's *declared* destination site
     // (Organization phase `plan-movement`, or a still-set destination during
@@ -2888,6 +2911,10 @@ export function buildPlayOptionContext(
   // The One Ring via `{ "target.itemNames": { "$includes": "The One Ring" } }`).
   const itemNames = defNamesOf(state, char.items);
   const allyNames = defNamesOf(state, char.allies);
+  // Combined keywords of every item the character bears, so play-target
+  // filters can gate on bearing an item of a given kind without naming it
+  // (Use Palantír tw-355: `{ "target.itemKeywords": { "$includes": "palantir" } }`).
+  const itemKeywords = itemKeywordsOf(state, char.items);
 
   return {
     target: {
@@ -2902,6 +2929,7 @@ export function buildPlayOptionContext(
       isInfluencing,
       itemNames,
       allyNames,
+      itemKeywords,
       // Races of attacks that wounded this character so far this turn (Pale
       // Dream-maker dm-78, Endless Whispers dm-54: "Playable on a non-Wizard
       // character wounded by an Undead attack this turn").
@@ -2910,6 +2938,7 @@ export function buildPlayOptionContext(
     company: {
       siteType: companySiteType,
       siteName: companySiteName,
+      siteRegion: companySiteRegion,
       containsDiplomat,
       moving: companyMoving,
       destinationSiteType,
@@ -3487,83 +3516,118 @@ export function playResourceShortEventActions(
         continue;
       }
 
-      const eligibility = endOfOrgEligibility(state, player, def);
-      if (!eligibility.eligible) {
-        logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
-        actions.push(notPlayable(playerId, handCard.instanceId, eligibility.reason));
-        continue;
-      }
+      // Most end-of-org cards carry a single play-target effect. A card with
+      // two mutually-exclusive modes (Anduin River tw-191 and the
+      // "mountain-crossing" family: a ranger-tap mode alongside a no-cost
+      // "alternatively" mode) carries one play-target effect per mode — try
+      // each independently and union the resulting actions, so the player is
+      // offered every mode whose own eligibility is met.
+      const eoTargets = getPlayTargetEffects(def);
+      const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+      let anyModeEmitted = false;
+      let lastReason = '';
+      for (const eoTarget of eoTargets.length > 0 ? eoTargets : [undefined]) {
+        const eligibility = endOfOrgEligibility(state, player, def, eoTarget);
+        if (!eligibility.eligible) {
+          lastReason = eligibility.reason;
+          continue;
+        }
 
-      // If the card has a play-target with a tap cost (e.g. Stealth taps a
-      // scout), emit one play action per eligible target so the chosen
-      // target can be tapped when the action is reduced. Company-targeting
-      // without a tap cost (e.g. Great-road) emits one action per eligible
-      // company identified by targetCompanyId. Otherwise emit a single
-      // action with no target.
-      const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eligibility.eligibleTargets.length > 0
-        && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'character')) {
-        // Per-character actions carrying the chosen character as
-        // targetScoutInstanceId. This covers two cases:
-        //  - a tap-character cost (e.g. Stealth, Great Ship): the targeted
-        //    character is the tapper, applied at reduce time via the cost;
-        //  - a character target with no cost (e.g. Hide in Dark Places,
-        //    le-192): the target simply lets the self-enters-play constraint
-        //    resolve the scout's company.
-        for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
-          actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetScoutInstanceId: targetId,
-            },
-            viable: true,
-          });
-        }
-      } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
-        // Company target without tap cost: one action per eligible company.
-        // eligibleTargets[i] is the first character of the i-th eligible company,
-        // used here only to look up the company so we can emit targetCompanyId.
-        // duplication-limit: scope "company" — "Cannot be duplicated on the
-        // same company" (Fair Sailing tw-232). Mirrors the character-scope
-        // check below: a short event attaches nothing, but its rest-of-turn
-        // effect leaves a company-targeted active constraint marking the
-        // source definition. Skip any company that already bears one.
-        const companyDupLimit = findDuplicationLimitEffect(def, 'company');
-        for (const repCharId of eligibility.eligibleTargets) {
-          const company = findCharacterCompany(player.companies, repCharId);
-          if (!company) continue;
-          if (companyDupLimit) {
-            const copiesOnCompany = state.activeConstraints.filter(
-              c =>
-                constraintFromCard(state, c, def.id) &&
-                c.target.kind === 'company' &&
-                c.target.companyId === company.id,
-            ).length;
-            if (copiesOnCompany >= companyDupLimit.max) {
-              logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
-              continue;
+        // If the mode has a play-target with a tap cost (e.g. Stealth taps a
+        // scout), emit one play action per eligible target so the chosen
+        // target can be tapped when the action is reduced. Company-targeting
+        // without a tap cost (e.g. Great-road) emits one action per eligible
+        // company identified by targetCompanyId. Otherwise emit a single
+        // action with no target.
+        if (eoTarget && eligibility.eligibleTargets.length > 0
+          && (eoTarget.cost?.tap === 'character' || eoTarget.cost?.tap === 'skilled-character-in-company' || eoTarget.target === 'character')) {
+          // Per-character actions carrying the chosen character as
+          // targetScoutInstanceId. This covers two cases:
+          //  - a tap-character cost (e.g. Stealth, Great Ship, Anduin River's
+          //    ranger-tap mode): the targeted character is the tapper,
+          //    applied at reduce time via the cost;
+          //  - a character target with no cost (e.g. Hide in Dark Places,
+          //    le-192): the target simply lets the self-enters-play constraint
+          //    resolve the scout's company.
+          for (const targetId of eligibility.eligibleTargets) {
+            // duplication-limit: scope "company" — enforced per mode too, so a
+            // tap-cost mode sharing a company-scoped dup limit with a
+            // no-cost mode (Anduin River) is blocked once either has fired.
+            if (companyDupLimit) {
+              const targetCompany = findCharacterCompany(player.companies, targetId);
+              if (targetCompany) {
+                const copiesOnCompany = state.activeConstraints.filter(
+                  c =>
+                    constraintFromCard(state, c, def.id) &&
+                    c.target.kind === 'company' &&
+                    c.target.companyId === targetCompany.id,
+                ).length;
+                if (copiesOnCompany >= companyDupLimit.max) {
+                  logDetail(`${def.name}: cannot be duplicated on company ${targetCompany.id as string} (${copiesOnCompany} active constraint(s))`);
+                  continue;
+                }
+              }
             }
+            logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+              },
+              viable: true,
+            });
+            anyModeEmitted = true;
           }
-          logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+        } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
+          // Company target without tap cost: one action per eligible company.
+          // eligibleTargets[i] is the first character of the i-th eligible company,
+          // used here only to look up the company so we can emit targetCompanyId.
+          // duplication-limit: scope "company" — "Cannot be duplicated on the
+          // same company" (Fair Sailing tw-232). Mirrors the character-scope
+          // check above: a short event attaches nothing, but its rest-of-turn
+          // effect leaves a company-targeted active constraint marking the
+          // source definition. Skip any company that already bears one.
+          for (const repCharId of eligibility.eligibleTargets) {
+            const company = findCharacterCompany(player.companies, repCharId);
+            if (!company) continue;
+            if (companyDupLimit) {
+              const copiesOnCompany = state.activeConstraints.filter(
+                c =>
+                  constraintFromCard(state, c, def.id) &&
+                  c.target.kind === 'company' &&
+                  c.target.companyId === company.id,
+              ).length;
+              if (copiesOnCompany >= companyDupLimit.max) {
+                logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
+                continue;
+              }
+            }
+            logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetCompanyId: company.id,
+              },
+              viable: true,
+            });
+            anyModeEmitted = true;
+          }
+        } else if (!eoTarget || (eoTarget.target !== 'character' && eoTarget.target !== 'company')) {
+          logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetCompanyId: company.id,
-            },
+            action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
             viable: true,
           });
+          anyModeEmitted = true;
         }
-      } else {
-        logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
-        actions.push({
-          action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: true,
-        });
+      }
+      if (!anyModeEmitted) {
+        logDetail(`${def.name}: end-of-org card not eligible — ${lastReason}`);
+        actions.push(notPlayable(playerId, handCard.instanceId, lastReason || `${def.name} has no valid target`));
       }
       continue;
     }
@@ -3984,6 +4048,34 @@ export function playResourceShortEventActions(
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
+      } else if (playTarget.itemFilter) {
+        // Use Palantír (tw-355): "enable him to use one Palantír he bears" —
+        // cross each eligible sage with the item(s) on him matching
+        // itemFilter, emitting targetItemInstanceId so the player picks
+        // which one when he bears more than one.
+        let anyOffered = false;
+        for (const targetId of tapTargets) {
+          const targetChar = player.characters[targetId];
+          const itemIds = targetChar ? itemsMatchingFilter(state, targetChar.items, playTarget.itemFilter) : [];
+          for (const itemId of itemIds) {
+            logDetail(`Resource short-event playable (sage ${String(targetId)}, item ${String(itemId)}): ${def.name}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+                targetItemInstanceId: itemId,
+              },
+              viable: true,
+            });
+            anyOffered = true;
+          }
+        }
+        if (!anyOffered) {
+          logDetail(`${def.name}: no eligible (sage × item) pair — not playable`);
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage bearing a matching item`));
+        }
       } else if (crossesGoldRing) {
         // Cross sage targets with gold rings in each sage's company.
         let anyOffered = false;

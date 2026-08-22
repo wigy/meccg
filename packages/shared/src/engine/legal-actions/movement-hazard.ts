@@ -11,7 +11,7 @@ import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffe
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, findRegionPaths, getReachableSites, withVirtualAdjacency } from '../../movement-map.js';
+import { buildMovementMap, findRegionPaths, getReachableSites, withExtraRegionAdjacency, withVirtualAdjacency } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
@@ -496,8 +496,8 @@ function revealNewSiteActions(
 
   const actions: GameAction[] = [];
 
-  // --- Special movement (e.g. Gwaihir, Paths of the Dead) ---
-  if (company.specialMovement === 'gwaihir' || company.specialMovement === 'paths-of-the-dead') {
+  // --- Special movement (e.g. Gwaihir, Paths of the Dead, Belegaer) ---
+  if (company.specialMovement === 'gwaihir' || company.specialMovement === 'paths-of-the-dead' || company.specialMovement === 'belegaer') {
     logDetail(`Special movement (${company.specialMovement}): ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Special });
     return actions;
@@ -598,14 +598,27 @@ function revealNewSiteActions(
     if (outHeSprangAllowance === null) {
       regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
     }
+    // Anduin River (tw-191) and the "mountain-crossing" family: "tap the
+    // ranger to move as if the following pairs of regions were adjacent" —
+    // a region-adjacency-shortcut constraint on this company widens the
+    // graph pathfinding walks for its declared move ("if the company uses
+    // region cards for its site path"; a no-op if it ends up using starter
+    // or Under-deeps movement instead, since this branch is region-only).
+    const adjacencyShortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    let pathMovementMap = adjacencyShortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, adjacencyShortcutPairs)
+      : movementMap;
     // Ash Mountains (tw-194) and its "movement enhancer" family: a bound
     // region-shortcut constraint treats its named region pairs as extra
     // adjacency edges for path-finding, but only while the company still has
     // an untapped character carrying the required skill to pay the tap cost
     // — a superset of the plain graph, so this only ever adds paths.
-    const shortcutPairs = companyRegionShortcutPairs(state, player, company);
-    const pathfindingMap = shortcutPairs ? withVirtualAdjacency(movementMap, shortcutPairs) : movementMap;
-    const paths = findRegionPaths(pathfindingMap, originRegion, destRegion, regionCap);
+    const regionShortcutPairs = companyRegionShortcutPairs(state, player, company);
+    if (regionShortcutPairs) pathMovementMap = withVirtualAdjacency(pathMovementMap, regionShortcutPairs);
+    const paths = findRegionPaths(pathMovementMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {
       const lenDiff = a.length - b.length;
@@ -3834,6 +3847,37 @@ function playHazardsActions(
           actions.push({ action, viable: true });
         }
       } else {
+        // play-discard-cost sourced from cards-in-play (Scimitars of Steel
+        // dm-86): "Playable only if you have a Nazgûl permanent-event in
+        // play. Discard the Nazgûl when this card is brought into play." One
+        // action per own cardsInPlay entry matching the filter; having zero
+        // candidates makes the card unplayable, which doubles as the
+        // "playable only if" gate.
+        const cardsInPlayDiscardCost = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').PlayDiscardCostEffect =>
+            e.type === 'play-discard-cost' && e.source === 'cards-in-play',
+        );
+        if (cardsInPlayDiscardCost) {
+          const candidates = player.cardsInPlay.filter(cip => {
+            const cipDef = defById(state, cip.definitionId);
+            return !!cipDef && matchesDefinition(cipDef, cardsInPlayDiscardCost.filter);
+          });
+          if (candidates.length === 0) {
+            logDetail(`Hazard event "${def.name}": play-discard-cost has no matching card in play — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name} requires a matching card in play to discard` });
+          } else {
+            for (const candidate of candidates) {
+              const candidateName = defById(state, candidate.definitionId)?.name ?? (candidate.definitionId as string);
+              logDetail(`Hazard event "${def.name}" playable — will discard "${candidateName}" as cost`);
+              actions.push({
+                action: { ...action, costDiscardInstanceId: candidate.instanceId },
+                viable: true,
+              });
+            }
+          }
+          continue;
+        }
+
         // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
 
         // Company-scope duplication-limit: one copy per target company.

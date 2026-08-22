@@ -2055,9 +2055,21 @@ export interface ActionCost {
    * sage becomes the action's `characterId`, and (for a `place-item-on-character`
    * apply with `recipientScope: "bearer-company"`) also supplies the company
    * whose members are offered as recipients. Used by Reforging (tw-314).
+   * "skilled-character-in-company" is a `play-target: "company"` cost (not a
+   * grant-action bearer cost, unlike the others above): taps an untapped
+   * character bearing {@link skill} in the target company, chosen by the
+   * player from every eligible candidate — one legal action per candidate,
+   * carrying the chosen character as `targetScoutInstanceId`, exactly like a
+   * bare `"character"` tap cost. Generalizes `"sage-in-company"` to an
+   * arbitrary skill. Used by Anduin River (tw-191): "tap the ranger".
    */
   readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-in-company-excluding-bearer'
-    | 'sage-and-scout-in-company' | 'self-and-bearer' | 'sage-at-haven';
+    | 'sage-and-scout-in-company' | 'self-and-bearer' | 'sage-at-haven' | 'skilled-character-in-company';
+  /**
+   * For `tap: "skilled-character-in-company"`: the skill the tapped
+   * character must carry (printed or item-granted), e.g. `"ranger"`.
+   */
+  readonly skill?: string;
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use. "named-card"
@@ -2716,8 +2728,24 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * For a `hazard-limit-region-count` constraint: the floor the hazard
    * limit is never reduced below ("to a minimum of two"). {@link value}
    * carries the per-region delta.
+   *
+   * Also doubles as the floor for a `hazard-limit-region-name-match`
+   * constraint (Anduin River tw-191 and the "mountain-crossing" family).
    */
   readonly floor?: number;
+  /**
+   * For a `hazard-limit-region-name-match` constraint (Anduin River tw-191
+   * and the "mountain-crossing" family): the region names that trigger the
+   * flat {@link value} reduction when the target company's destination lies
+   * within one of them.
+   */
+  readonly regionNames?: readonly string[];
+  /**
+   * For a `region-adjacency-shortcut` constraint (Anduin River tw-191 and the
+   * "mountain-crossing" family): bidirectional region-name pairs treated as
+   * adjacent for the target company's region movement this turn.
+   */
+  readonly regionPairs?: readonly (readonly [string, string])[];
   /**
    * For a `region-shortcut` constraint (Ash Mountains tw-194): region-name
    * pairs treated as adjacent for region-movement path-finding purposes.
@@ -3269,11 +3297,11 @@ export interface SiteEntryAttackAction extends TriggeredActionBase {
   readonly attack: SiteEntryAttackSpec;
 }
 
-/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight, Paths of the Dead) on the target company. */
+/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight, Paths of the Dead, Belegaer sea-crossing) on the target company. */
 export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly type: 'set-company-special-movement';
   /** The special-movement mode. */
-  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead';
+  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead' | 'belegaer';
 }
 
 /** `shuffle-deck-top` — shuffle the top `count` cards of a player's play deck in place. */
@@ -4482,8 +4510,15 @@ export interface AgentMoveRestrictionEffect extends EffectBase {
  */
 export interface CompanyCombatBoostEffect extends EffectBase {
   readonly type: 'company-combat-boost';
-  /** The stat to modify (`"prowess"` or `"body"`). */
-  readonly stat: 'prowess' | 'body';
+  /**
+   * The stat to modify: `"prowess"` or `"body"` (the character's own —
+   * installs a `character-stat-modifier` constraint), or `"creature-body"`
+   * (installs a `character-creature-body-modifier` constraint reducing the
+   * *attacking creature's* body-check target for strikes the character
+   * faces — only meaningful for attacks against a body-checkable creature;
+   * see Biter and Beater! as-46).
+   */
+  readonly stat: 'prowess' | 'body' | 'creature-body';
   /**
    * The modifier value (positive to boost, negative to penalise). Ignored
    * (and may be omitted) when `costDiscard` is present — the boost value is
@@ -4514,19 +4549,37 @@ export interface CompanyCombatBoostEffect extends EffectBase {
   readonly companyFilter?: Condition;
   /**
    * Optional gate restricting which attack the card may be played against.
-   * Evaluated against `{ enemy: { race, name } }`, where `race` is the
+   * Evaluated against `{ enemy: { race, name, overt } }`, where `race` is the
    * current attack's creature race (set for hazard creatures, on-guard
-   * reveals, played-auto-attacks, and site automatic-attacks alike) and
-   * `name` is the specific creature card's printed name (empty string when
-   * the attack has no individual creature card, e.g. a generic
-   * automatic-attack). When absent, the card may be played against any
-   * attack.
+   * reveals, played-auto-attacks, and site automatic-attacks alike), `name`
+   * is the specific creature card's printed name (empty string when the
+   * attack has no individual creature card, e.g. a generic automatic-attack),
+   * and `overt` is the attacking company's overt status — present (`true`/
+   * `false`) only for a CvCC attack, absent for a creature/automatic-attack.
+   * When absent, the card may be played against any attack.
    *
    * Used by Alert the Folk (td-97): "Playable on a company facing a Dragon
    * or Drake attack (not Eärcaraxë)" — `{ "$and": [{ "enemy.race": { "$in":
    * ["dragon", "drake"] } }, { "enemy.name": { "$ne": "Eärcaraxë" } }] }`.
+   * Used by Biter and Beater! (as-46): "facing an Orc attack or in combat
+   * with an overt company" — `{ "$or": [{ "enemy.race": "orc" },
+   * { "enemy.overt": true }] }`.
    */
   readonly when?: Condition;
+  /**
+   * Optional per-item DSL condition evaluated against `{ item: { name,
+   * keywords, cardType, subtype } }` for every item borne by every character
+   * in the defending company (same context shape as {@link
+   * InPlayItemModifierEffect.itemFilter}). When present, the boost `value` is
+   * applied **once per matching item** — a character bearing two qualifying
+   * items receives the boost twice (stacking) — instead of once per matching
+   * character. `filter`/`companyFilter` are ignored when `itemFilter` is set.
+   *
+   * Used by Biter and Beater! (as-46): "Every Sword of Gondolin, Orcrist, and
+   * Glamdring in target company give an additional +2 prowess bonus …" —
+   * `{ "item.name": { "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"] } }`.
+   */
+  readonly itemFilter?: Condition;
   /**
    * Replaces the fixed `value` with a variable one, computed at play time
    * from cards the controller chooses to discard from `source` as part of
@@ -5154,6 +5207,22 @@ export interface PlayTargetEffect extends EffectBase {
    * and never see set-aside cards.
    */
   readonly targetsSetAside?: boolean;
+  /**
+   * Restricts a `target: "character"` play-target to a character bearing at
+   * least one item matching this condition, AND designates which of that
+   * character's items the played card resolves against when he bears more
+   * than one qualifying item (Use Palantír tw-355: "tap sage to enable him
+   * to use **one** Palantír he bears" — a sage bearing two Palantíri must
+   * pick one, not both). Evaluated per-item against the item's own card
+   * definition (`matchesDefinition`, e.g. `{ "keywords": { "$includes":
+   * "palantir" } }`), unlike `filter`, which is evaluated against the
+   * candidate *character's* aggregate context (`target.itemKeywords`). One
+   * legal action is emitted per (character, item) pair; the chosen item's
+   * instance flows into the resulting action as `targetItemInstanceId` so
+   * an `apply` can bind a constraint's `source` to that specific item
+   * instead of the playing card itself.
+   */
+  readonly itemFilter?: Condition;
 }
 
 /**
@@ -5482,6 +5551,21 @@ export interface CancelAttackEffect extends EffectBase {
    * company". Used by Going Ever Under Dark (ba-37).
    */
   readonly requiresCvCC?: true;
+  /**
+   * When true, cancelling this attack (which must be a CvCC combat —
+   * paired with {@link requiresCvCC}) additionally forces the attacking
+   * company to face all of the site's automatic-attacks again, this time
+   * attacking normally rather than as detainment; once those re-faced
+   * attacks are resolved (or immediately, if the site has none), the
+   * attacking company may declare the CvCC attack again. Used by All the
+   * Bells Ringing (as-44): "The attack is canceled and the minion company
+   * must face all automatic-attacks of the site—which attack normally, not
+   * as detainment. Afterwards, the minion company may attack the hero
+   * company again." Handled by `triggerBellsRingingReface` in
+   * `combat-cancel.ts`, dispatched from `applyEffect`'s `cancel-attack`
+   * branch once the cancellation itself resolves.
+   */
+  readonly forceSiteAutoAttacksNormalReface?: true;
   /**
    * When set, the cancel is not automatic: paying the cost enqueues a 2d6
    * dice-check that only cancels the attack on success. Backs "make a roll to
@@ -7229,11 +7313,22 @@ export interface LeftBehindSplitEffect extends EffectBase {
  * Used by Faces of the Dead (dm-57): "…if you discard any Undead hazard creature
  * from your hand (show opponent)." (`source: 'hand'`,
  * `filter: { cardType: 'hazard-creature', race: 'undead' }`, `revealToOpponent: true`).
+ *
+ * `source: 'cards-in-play'` sources the candidate from the playing player's own
+ * `cardsInPlay` instead of their hand — used for a **hazard long/permanent
+ * event** whose text both requires and spends an existing in-play card, e.g.
+ * Scimitars of Steel (dm-86): "Playable only if you have a Nazgûl
+ * permanent-event in play. Discard the Nazgûl when this card is brought into
+ * play." (`source: 'cards-in-play'`, `filter: { keywords: { $includes:
+ * 'Nazgûl' } }`). Absence of a matching candidate makes the card unplayable,
+ * which doubles as the "playable only if" gate. Paid at declaration time
+ * (`playHazardsActions` / `mh-hazard-play.ts`), matching the short-event cost
+ * timing.
  */
 export interface PlayDiscardCostEffect extends EffectBase {
   readonly type: 'play-discard-cost';
-  /** Source pile from which the cost card is discarded. Currently only `'hand'`. */
-  readonly source: 'hand';
+  /** Source pile from which the cost card is discarded. */
+  readonly source: 'hand' | 'cards-in-play';
   /** DSL condition matched against candidate card definitions in the source pile. */
   readonly filter: Condition;
   /** When true, the discarded card's identity is revealed to the opponent. */

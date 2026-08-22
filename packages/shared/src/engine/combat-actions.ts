@@ -816,6 +816,24 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         }
       }
     }
+    // Biter and Beater! (as-46): "lower the body of strikes their bearers
+    // face by 1" — a short-event counterpart to an item's `enemy-modifier`,
+    // reaching the bearer without requiring the bonus to live on a borne item.
+    // One `character-creature-body-modifier` constraint per matching weapon
+    // (see `handlePlayResourceShortEvent`'s `company-combat-boost` block).
+    if (strike2) {
+      const creatureBodyMods = stateWithRoll.activeConstraints.filter(
+        c => c.kind.type === 'character-creature-body-modifier' && c.kind.characterId === strike2.characterId,
+      );
+      for (const mod of creatureBodyMods) {
+        if (mod.kind.type !== 'character-creature-body-modifier') continue;
+        const reduced = Math.max(0, body - mod.kind.value);
+        if (reduced !== body) {
+          logDetail(`Creature body modified by character-creature-body-modifier constraint: ${body} → ${reduced}`);
+          body = reduced;
+        }
+      }
+    }
     // Agent hazard attacks (CoE 3.v): when a character defeats an agent's
     // strike, the agent is *wounded* and must make a body check — unlike an
     // ordinary hazard creature, which is never wounded and simply survives or
@@ -1154,24 +1172,49 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       const charInstance = toCardInstance(charData);
       const atkCompanySource = combat.attackSource;
       if (atkCompanySource.type !== 'company-attack') return { state, error: 'Not a company attack' };
+      const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
 
       // Find attacker's company to remove character from
       const atkCompany = newPlayers[atkPlayerIdx].companies.find(c => c.id === atkCompanySource.attackingCompanyId);
       if (atkCompany) {
         const updatedCompany = { ...atkCompany, characters: atkCompany.characters.filter(id => id !== strike.attackingCharacterId) };
-        const atkRemainingChars = Object.fromEntries(
+        // Disperse the eliminated character's attached cards — they live only
+        // on this CharacterInPlay record, so deleting it without moving them
+        // drops the instances from the game (no-card-disappears invariant).
+        // Mirrors the defender-side eliminateCombatantFromStrike, with the
+        // attacking player as owner:
+        //  - allies to the attacker's hand (Radagast's Black Bird wh-114) or
+        //    discard;
+        //  - items (and non-item permanent events borne alongside them) to the
+        //    attacker's discard pile;
+        //  - hazards to the opposing (defending) player's discard;
+        //  - followers revert to general influence, mind subtraction deferred
+        //    to the controller's next org phase (CoE 3.13).
+        // (The optional CoE 3.I.2 salvage-to-company-mate offer is not made on
+        // the attacker side — the item-salvage phase is defender-scoped; a
+        // separate change would be needed to offer it here.)
+        const { toHand, toDiscard } = partitionLeavingAllies(stateWithRoll, charData.allies);
+        const atkItemsToDiscard = charData.items.map(toCardInstance);
+        const atkRemaining: Record<string, CharacterInPlay> = Object.fromEntries(
           Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
-        ) as (typeof newPlayers)[0]['characters'];
+        );
+        for (const followerId of charData.followers) {
+          const follower = atkRemaining[followerId];
+          if (follower) atkRemaining[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateWithRoll, follower) };
+        }
         newPlayers[atkPlayerIdx] = {
           ...newPlayers[atkPlayerIdx],
-          characters: pruneLeaderFollowers(atkRemainingChars, strike.attackingCharacterId, charData.controlledBy),
+          characters: pruneLeaderFollowers(atkRemaining, strike.attackingCharacterId, charData.controlledBy),
           companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
+          hand: [...newPlayers[atkPlayerIdx].hand, ...toHand],
+          discardPile: [...newPlayers[atkPlayerIdx].discardPile, ...toDiscard, ...atkItemsToDiscard],
         };
-        // Defender gets kill MP; eliminated character goes to defender's kill pile only
-        const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
+        // Defender gets kill MP (character card) and the eliminated character's
+        // hazards (owned by the opposing/hazard player) return to their discard.
         newPlayers[defIdx] = {
           ...newPlayers[defIdx],
           killPile: [...newPlayers[defIdx].killPile, charInstance],
+          discardPile: [...newPlayers[defIdx].discardPile, ...charData.hazards.map(toCardInstance)],
         };
       }
 

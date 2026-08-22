@@ -451,8 +451,46 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin, Enedhwaith, Old Pûkel-land, Andrast, Anfalas, Belfalas, Lebennin, and Harondor. The site path is [{c} {c} {c}] and the hazard limit is decreased by two to a minimum of two."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.siteRegion": {
+            "$in": [
+              "Lindon",
+              "Elven Shores",
+              "Eriadoran Coast",
+              "Andrast Coast",
+              "Bay of Belfalas",
+              "Mouths of the Anduin",
+              "Enedhwaith",
+              "Old Pûkel-land",
+              "Andrast",
+              "Anfalas",
+              "Belfalas",
+              "Lebennin",
+              "Harondor"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "belegaer"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin, Enedhwaith, Old Pûkel-land, Andrast, Anfalas, Belfalas, Lebennin, and Harondor. The site path is [{c} {c} {c}] and the hazard limit is decreased by two to a minimum of two.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -1466,8 +1504,20 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "scout",
+        "when": {
+          "enemy.race": {
+            "$in": ["orc", "troll", "man", "elf", "slayer", "awakened-plant", "giant"]
+          }
+        },
+        "roll": { "threshold": 5, "comparison": "gt" }
+      }
+    ],
+    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",

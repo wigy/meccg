@@ -16,10 +16,10 @@ import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
-import { resolveDef, getEffectiveSkills } from './effects/index.js';
+import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, isCovertCompany, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -36,6 +36,7 @@ import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames, buildFactionPlayableRegions } from './recompute-derived.js';
 import { hazardLongEventsRetained } from './retain-hazard-long-events.js';
+import { pickActiveItemsForCharacter } from './item-slots.js';
 import { cvccSides } from './cvcc-sides.js';
 import { findHuntCandidates } from './hunt.js';
 
@@ -602,7 +603,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // visible state matches the player's expectation immediately.
   let workingState = state;
   if (action.targetScoutInstanceId) {
+    // A card may carry more than one `play-target` effect for mutually
+    // exclusive end-of-org modes (Anduin River tw-191 and the
+    // "mountain-crossing" family: a ranger-tap mode alongside a no-cost
+    // "alternatively" mode) — prefer whichever variant actually declares a
+    // character tap cost so the right one's cost is paid, falling back to
+    // the first play-target effect for the common single-variant case.
     const playTargetEff = def.effects?.find(
+      (e): e is import('../types/effects.js').PlayTargetEffect =>
+        e.type === 'play-target' && (e.cost?.tap === 'character' || e.cost?.tap === 'skilled-character-in-company'),
+    ) ?? def.effects?.find(
       (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target',
     );
     if (playTargetEff?.cost) {
@@ -1000,10 +1010,20 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         // by `companyCombatBoostActions` in legal-actions/combat.ts.
         const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
         const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(newState, enemyCreatureInstanceId) : undefined;
+        // `overt` is only meaningful for a CvCC attack (Biter and Beater!
+        // as-46: "in combat with an overt company") — resolved from the
+        // attacking company.
+        const attackingCompanyForOvert = combat.isCvCC && combat.attackSource.type === 'company-attack'
+          ? companyById(newState.players.find(p => p.id === combat.attackingPlayerId)?.companies ?? [], combat.attackSource.attackingCompanyId)
+          : undefined;
+        const attackingPlayerForOvert = combat.isCvCC ? newState.players.find(p => p.id === combat.attackingPlayerId) : undefined;
         const attackWhenContext = {
           enemy: {
             race: combat.creatureRace,
             name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+            ...(attackingCompanyForOvert && attackingPlayerForOvert
+              ? { overt: !isCovertCompany(attackingCompanyForOvert, attackingPlayerForOvert, newState) }
+              : {}),
           },
         };
         for (const boostEffect of companyCombatBoosts) {
@@ -1051,7 +1071,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               target: { kind: 'character', characterId: targetId },
               kind: {
                 type: 'character-stat-modifier',
-                stat: boostEffect.stat,
+                stat: boostEffect.stat as 'prowess' | 'body',
                 value: boostEffect.value ?? 0,
                 characterId: targetId,
               },
@@ -1120,6 +1140,85 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             if (!char) continue;
             const charCardDef = defById(newState, char.definitionId);
             if (!charCardDef) continue;
+            if (boostEffect.itemFilter) {
+              // Biter and Beater! (as-46): stack the boost once per matching
+              // borne item — a bearer of two qualifying weapons receives the
+              // modifier twice. Rule 9.15: only the "in use" item per slot
+              // (e.g. one weapon) contributes — an unused second sword grants
+              // no bonus.
+              const activeItemIds = pickActiveItemsForCharacter(newState, char);
+              const matchingItems = char.items.filter(item => {
+                if (!activeItemIds.has(item.instanceId as string)) return false;
+                const itemDef = defById(newState, item.definitionId);
+                return itemDef && matchesCondition(boostEffect.itemFilter!, { item: {
+                  name: (itemDef as { name?: string }).name ?? '',
+                  keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+                  cardType: itemDef.cardType,
+                  subtype: (itemDef as { subtype?: string }).subtype,
+                } });
+              });
+              for (const item of matchingItems) {
+                const itemName = (defById(newState, item.definitionId) as { name?: string } | undefined)?.name ?? item.definitionId as string;
+                if (boostEffect.stat === 'creature-body') {
+                  logDetail(`${def.name}: adding attack-scoped -${boostValue < 0 ? -boostValue : boostValue} creature-body (strikes faced by ${charId as string}, via ${itemName})`);
+                  newState = addConstraint(newState, {
+                    source: handCard.instanceId,
+                    sourceDefinitionId: handCard.definitionId,
+                    scope: { kind: 'attack' },
+                    target: { kind: 'character', characterId: charId },
+                    kind: {
+                      type: 'character-creature-body-modifier',
+                      value: boostValue < 0 ? -boostValue : boostValue,
+                      characterId: charId,
+                    },
+                  });
+                  continue;
+                }
+                // For prowess, cap the extra bonus at the matching item's own
+                // currently-active printed maximum ("the maximum values
+                // indicated by the weapons still apply" — as-46 FR text).
+                // Resolved via the same combat-context effect collection the
+                // resolver itself uses, isolated to this one item instance's
+                // own stat-modifier(s) so overrides (e.g. Glamdring's higher
+                // max vs Orcs) are respected.
+                let itemMax: number | undefined;
+                if (boostEffect.stat === 'prowess' && isCharacterCard(charCardDef)) {
+                  const itemCombatContext = {
+                    reason: 'combat' as const,
+                    bearer: buildBearerContext(charCardDef),
+                    enemy: {
+                      race: combat.creatureRace ?? undefined,
+                      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+                      prowess: combat.strikeProwess,
+                      body: combat.creatureBody,
+                    },
+                    inPlay: buildInPlayNames(newState),
+                  };
+                  const itemProwessEffects = collectCharacterEffects(newState, char, itemCombatContext)
+                    .filter((r): r is typeof r & { effect: { type: 'stat-modifier'; stat: 'prowess'; max?: number; id?: string; overrides?: string } } =>
+                      r.sourceInstance === item.instanceId && r.effect.type === 'stat-modifier' && r.effect.stat === 'prowess');
+                  const active = itemProwessEffects.find(r => r.effect.overrides)
+                    ?? itemProwessEffects.find(r => r.effect.id)
+                    ?? itemProwessEffects[0];
+                  itemMax = active?.effect.max;
+                }
+                logDetail(`${def.name}: adding attack-scoped ${boostValue >= 0 ? '+' : ''}${boostValue} ${boostEffect.stat} to ${charId as string} (${itemName}${itemMax !== undefined ? `, capped at ${itemMax}` : ''})`);
+                newState = addConstraint(newState, {
+                  source: handCard.instanceId,
+                  sourceDefinitionId: handCard.definitionId,
+                  scope: { kind: 'attack' },
+                  target: { kind: 'character', characterId: charId },
+                  kind: {
+                    type: 'character-stat-modifier',
+                    stat: boostEffect.stat,
+                    value: boostValue,
+                    characterId: charId,
+                    ...(itemMax !== undefined ? { max: itemMax } : {}),
+                  },
+                });
+              }
+              continue;
+            }
             if (boostEffect.filter) {
               if (!matchesCondition(boostEffect.filter, charCtx(charCardDef))) continue;
             }
@@ -1131,7 +1230,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               target: { kind: 'character', characterId: charId },
               kind: {
                 type: 'character-stat-modifier',
-                stat: boostEffect.stat,
+                stat: boostEffect.stat as 'prowess' | 'body',
                 value: boostValue,
                 characterId: charId,
               },
@@ -2289,6 +2388,43 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // set-character-status (target: "company"): untap every tapped, unwounded
+    // character in the played-on character's company (Narya tw-290: "Immediately
+    // untap all unwounded characters in Gandalf's company"). Reuses the same
+    // tapped-only gate as the single-character branch below, so wounded
+    // (Inverted) and already-Untapped members are left untouched.
+    if (onEvent.apply.type === 'set-character-status' && onEvent.apply.target === 'company') {
+      const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!characterId) {
+        logDetail(`"${def.name}": set-character-status(company) — no target character — fizzle`);
+        continue;
+      }
+      const company = findCharacterCompany(state.players[playerIndex].companies, characterId);
+      if (!company) {
+        logDetail(`"${def.name}": set-character-status(company) — target character not in a company — fizzle`);
+        continue;
+      }
+      const nextStatus = onEvent.apply.status;
+      const statusEnum = nextStatus === undefined ? CardStatus.Inverted : cardStatusFromName(nextStatus);
+      logDetail(`"${def.name}" played — untapping unwounded members of company ${company.id as string}`);
+      state = updatePlayer(state, playerIndex, p => {
+        const characters = { ...p.characters };
+        for (const memberId of company.characters) {
+          const member = characters[memberId];
+          if (!member) continue;
+          if (statusEnum === CardStatus.Untapped && member.status !== CardStatus.Tapped) {
+            continue;
+          }
+          if (statusEnum === CardStatus.Tapped && member.status !== CardStatus.Untapped) {
+            continue;
+          }
+          characters[memberId] = { ...member, status: statusEnum };
+        }
+        return { ...p, characters };
+      });
+      continue;
+    }
+
     // set-character-status: untap/tap/wound the target character (e.g. Hundreds of Butterflies).
     if (onEvent.apply.type === 'set-character-status') {
       const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
@@ -2432,6 +2568,37 @@ function applyShortEventOnEntersPlay(
           scope: { kind: 'turn' },
           target: { kind: 'character', characterId },
           kind: { type: 'character-stat-modifier', stat, value, characterId, ...(requiresCardInPlay ? { requiresCardInPlay } : {}) },
+        });
+        continue;
+      }
+
+      // can-use-palantir: Use Palantír (tw-355) taps a sage to enable him to
+      // use ONE Palantír he bears (chosen up front by the legal-action
+      // emitter when he bears more than one — see `itemFilter` on the
+      // card's play-target). Unlike Palantír of Elostirion's own grant-action
+      // (which sources the constraint from itself), this event's `source` is
+      // the *chosen item's* instance, not the event card's — so
+      // `buildGrantActionContext`'s `c.source === sourceInstanceId` match
+      // scopes the ability to that one Palantír, exactly as the printed text
+      // requires ("this Palantír"/"one Palantír he bears").
+      if (constraintKind === 'can-use-palantir') {
+        const characterId = action.type === 'play-short-event'
+          ? (action.targetCharacterId ?? action.targetScoutInstanceId)
+          : undefined;
+        const itemInstanceId = action.type === 'play-short-event' ? action.targetItemInstanceId : undefined;
+        const char = characterId ? state.players[playerIndex].characters[characterId] : undefined;
+        const item = char?.items.find(i => i.instanceId === itemInstanceId);
+        if (!characterId || !itemInstanceId || !char || !item) {
+          logDetail(`add-constraint(can-use-palantir): missing target character or item — fizzle`);
+          continue;
+        }
+        logDetail(`"${def.name}" played — ${characterId as string} may use Palantír ${itemInstanceId as string} for the rest of the turn`);
+        state = addConstraint(state, {
+          source: itemInstanceId,
+          sourceDefinitionId: item.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'character', characterId },
+          kind: { type: 'can-use-palantir' },
         });
         continue;
       }
@@ -2644,6 +2811,46 @@ function applyShortEventOnEntersPlay(
             continue;
           }
           kind = { type: 'hazard-limit-region-count', regionType, perCount, floor };
+          break;
+        }
+        case 'hazard-limit-region-name-match': {
+          // Anduin River (tw-191) and the "mountain-crossing" family's
+          // no-tap "alternatively" mode — mutually exclusive with the
+          // ranger-tap `region-adjacency-shortcut` mode below. The two
+          // on-event effects live on the same card; the action shape (which
+          // `endOfOrgEligibility`'s two play-target variants produce)
+          // decides which one actually fires: a tapped ranger carries
+          // `targetScoutInstanceId`, the no-tap mode carries only
+          // `targetCompanyId`.
+          if (action.type === 'play-short-event' && action.targetScoutInstanceId) {
+            logDetail(`add-constraint(hazard-limit-region-name-match): ranger was tapped instead — mode not selected, fizzle`);
+            continue;
+          }
+          const regionNames = onEvent.apply.regionNames;
+          const value = onEvent.apply.value;
+          const floor = onEvent.apply.floor;
+          if (!regionNames || regionNames.length === 0 || typeof value !== 'number' || typeof floor !== 'number') {
+            logDetail(`add-constraint(hazard-limit-region-name-match): missing regionNames, value, or floor — fizzle`);
+            continue;
+          }
+          kind = { type: 'hazard-limit-region-name-match', regionNames, value, floor };
+          break;
+        }
+        case 'region-adjacency-shortcut': {
+          // Anduin River (tw-191) and the "mountain-crossing" family's
+          // ranger-tap mode — mutually exclusive with the no-tap
+          // `hazard-limit-region-name-match` mode above; see that case for
+          // how the action shape picks the mode.
+          if (!(action.type === 'play-short-event' && action.targetScoutInstanceId)) {
+            logDetail(`add-constraint(region-adjacency-shortcut): no ranger tapped — mode not selected, fizzle`);
+            continue;
+          }
+          const pairs = onEvent.apply.regionPairs;
+          if (!pairs || pairs.length === 0) {
+            logDetail(`add-constraint(region-adjacency-shortcut): missing regionPairs — fizzle`);
+            continue;
+          }
+          kind = { type: 'region-adjacency-shortcut', pairs };
           break;
         }
         case 'region-shortcut': {

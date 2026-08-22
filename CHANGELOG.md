@@ -1,5 +1,98 @@
 # Changelog
 
+## 0.125.0 — 2026-08-22
+
+Certification wave, agent-combat fixes, and server hardening
+
+### Game Engine
+
+- **Agent attacks corrected:** M/H agent attacks now honor minion
+  detainment (rule 3.II.2.R3/B3, #2686) and the +1 body at-home bonus
+  (#2672); a traveled face-down agent's reveal no longer destroys a
+  site card or dooms the agent (#2683), and rule 8.22 marshalling
+  points now apply to hunt-attack and long-dark-reach-attack (#2695).
+- **Combat fixes:** no body check on defeated detainment strikes
+  (CoE 3.II.1, #2699), cancel-by-tap full cancels run attack-end
+  housekeeping (#2641), cancel-chain-entry no longer duplicates a
+  hazard short event in discard (#2640), CvCC attacker body checks get
+  the +1 already-wounded bonus (#2632), CvCC declaration is no longer
+  offered from an empty company (#2661), trophy prowess bonuses never
+  reduce prowess already above 9 (#2662), and `modify-attack` sees
+  `enemy.name` for on-guard/played-auto attacks (#2701).
+- **No card disappears:** draft collisions no longer fire for
+  non-unique characters or delete pool copies (#2666), draft passes
+  move leftover pool instances out-of-play (#2669), eliminateAvatar
+  keeps attached hazards and followers (#2637), forced
+  return-to-origin keeps the destination site card (#2638), and
+  bindPrisoner removes a captured follower from its controller's list
+  (#2691).
+- **Deadlock and livelock fixes:** the end-of-turn forced-play
+  livelock (Demon fána swap loop) is gone and council/fána permanent
+  events gained their organization-phase gates (#2653, #2656),
+  pending-roll deadlocks resolve when the rolling character leaves
+  play (#2650), and select-card-bearer no longer deadlocks when the
+  company is gone (#2648).
+- **Play-legality gates:** hoard items must also satisfy the site's
+  printed playableResources tier (#2665), discard-to-recruit honors
+  uniqueness and manifestation gates (#2693), the "minion player" play
+  ban now covers Balrog opponents (#2645), run-home is not offered
+  when the nearest haven is unavailable (#2681), and on-guard creature
+  keying honors when-gates and site-based key methods (#2649).
+- **Dragons' region keying:** "may also be played at sites in these
+  regions" is implemented (#2647 family), including The Great Goblin
+  (#2644) and Huorn's region-restricted site-type keying (#2642).
+- **Misc:** hazard-limit movement restrictions read the final movement
+  type (#2635), Le-150 nullifies global modifiers in opponent
+  influence (#2633), Where There's a Whip body-check semantics fixed
+  (#2630), structural item stat fallbacks survive unrelated DSL
+  modifiers (#2654), Free Council check failures discard attached
+  hazards exactly once (#2657), and merge-companies keeps
+  company-bound permanent events (#2698).
+
+### Cards
+
+- **22 new certifications:** All the Bells Ringing (as-44), Biter and
+  Beater! (as-46), Belegaer (td-100), Elf-path (td-111), Trickery
+  (td-159), Anduin River (tw-191), Ash Mountains (tw-194), Athelas
+  (tw-195), Fair Travels in Wilderness (tw-237), Halfling Stealth
+  (tw-252), Hobbits (tw-258), Crebain (tw-25), Narya (tw-290), Old
+  Friendship (tw-293), Palantír of Elostirion (tw-298), Use Palantír
+  (tw-355), Huorn (tw-45), Leucaruth (tw-48), Mûmak (tw-66),
+  Pick-pocket (tw-79), Silent Watcher (tw-88), plus Fram Framson's +3
+  prowess vs Dragon/Drake attacks (td-91).
+- **De-certified:** Noble Hound (dm-179) — cancel-prisoner-taking is
+  unimplemented (#2678).
+- **Data fixes:** corruption points on 4 minor items (#2690),
+  marshalling points on 6 permanent events (#2652), unique flags on 14
+  minion sites (#2646), no-starting-company on Forgotten Scrolls and
+  Lost Tome (#2639), and new data-integrity guards for card-pool
+  cross-references (#2694) and shipped challenge decks (#2692).
+
+### Lobby & Game Server
+
+- **Security:** path traversal fixed in deck catalog lookup (#2668)
+  and /api/saves routes (#2667); malformed session tokens no longer
+  crash the lobby (unauthenticated DoS, #2659, #2689); mail
+  recipients are validated server-side (#2655).
+- **Reliability:** persistence writes are atomic (records, ratings,
+  saves, json-store; #2671, #2674), reconnect races no longer evict
+  players (#2696, #2697), and failed game starts release their port
+  (#2664).
+- **Hidden information:** spectators no longer see face-down on-guard
+  cards, agents, or draft data (#2676, #2700); Pallando's discard
+  override keeps explicitly revealed cards visible (#2679).
+
+### AI / Sim
+
+- The heuristic agent wires in the cycle guard (#2675), and the h2 AI
+  draws tied action types first so item shuffling can't out-vote a
+  move (#2658).
+
+### Tests
+
+- Rule 8.24 (combat during a chain of effects) implemented (#2688);
+  rule 8.22 creature MP by alignment covered.
+
 ## 0.124.0 — 2026-08-21
 
 CvCC combat corrections and three new certified cards

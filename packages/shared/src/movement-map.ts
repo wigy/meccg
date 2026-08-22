@@ -83,7 +83,7 @@ function buildRegionGraph(
  * Compute all-pairs shortest distances via BFS from each region.
  * Distance is measured in edges (adjacent regions have distance 1).
  */
-function computeAllPairsDistance(
+export function computeAllPairsDistance(
   graph: Map<string, Set<string>>,
 ): Map<string, Map<string, number>> {
   const result = new Map<string, Map<string, number>>();
@@ -229,6 +229,38 @@ export function buildMovementMap(
     siteRegion,
     havenSites,
     havenToHaven,
+  };
+}
+
+/**
+ * Overlays extra bidirectional region-adjacency edges onto a precomputed
+ * {@link MovementMap}, returning a new map with `regionGraph` and
+ * `regionPathEdges` recomputed — never mutating the input. Used by Anduin
+ * River (tw-191) and the "mountain-crossing" family ("tap the ranger to move
+ * as if the following pairs of regions were adjacent"): the extra pairs are
+ * per-company (installed via a `region-adjacency-shortcut` active
+ * constraint), so they cannot be baked into the shared card-pool-derived
+ * graph `buildMovementMap` returns. The region graph is small (~52 nodes),
+ * so recomputing all-pairs distance per call is cheap. Returns the input map
+ * unchanged (no new object) when `pairs` is empty.
+ */
+export function withExtraRegionAdjacency(
+  map: MovementMap,
+  pairs: readonly (readonly [string, string])[],
+): MovementMap {
+  if (pairs.length === 0) return map;
+  const graph = new Map<string, Set<string>>();
+  for (const [region, adjacent] of map.regionGraph) graph.set(region, new Set(adjacent));
+  for (const [a, b] of pairs) {
+    if (!graph.has(a)) graph.set(a, new Set());
+    if (!graph.has(b)) graph.set(b, new Set());
+    graph.get(a)!.add(b);
+    graph.get(b)!.add(a);
+  }
+  return {
+    ...map,
+    regionGraph: graph,
+    regionPathEdges: computeAllPairsDistance(graph),
   };
 }
 

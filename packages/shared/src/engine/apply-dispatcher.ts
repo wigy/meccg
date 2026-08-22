@@ -27,8 +27,10 @@ import { getPlayerIndex } from '../state-utils.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
-import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './combat-cancel.js';
-import { addConstraint } from './pending.js';
+import { resolveCancelAttackEntry, resolveChainStrikeModifier, triggerBellsRingingReface } from './combat-cancel.js';
+import { addConstraint, enqueueResolution } from './pending.js';
+import { companyById, companySubphaseScope, defById } from './reducer-utils.js';
+import { isCharacterCard } from '../types/cards.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { Phase } from '../types/state-phases.js';
@@ -84,12 +86,60 @@ export function applyEffect(
     // Combat cancel fired from chain resolution (e.g. Concealment,
     // Vanishment, Dark Quarrels, Many Turns and Doublings).
     logDetail(`applyEffect: cancel-attack dispatched for ${ctx.sourceCardId as string}`);
+
+    // Roll-to-cancel from hand (Trickery td-159): the chain entry resolving
+    // un-negated does not cancel outright — it enqueues a 2d6 dice-check that
+    // only cancels the attack on success (mirrors the in-play-faction roll
+    // path in `handleCancelAttackByInPlayFaction`, combat-cancel.ts).
+    if (effect.roll) {
+      const combat = state.combat;
+      if (!combat) {
+        logDetail('applyEffect: cancel-attack roll — no active combat, fizzle');
+        return { state };
+      }
+      const roll = effect.roll;
+      const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+      const defPlayer = state.players[defPlayerIndex];
+      const company = defPlayer ? companyById(defPlayer.companies, combat.companyId) : undefined;
+      let skillBonus = 0;
+      if (roll.skillBonus && company) {
+        for (const charId of company.characters) {
+          const ch = defPlayer.characters[charId];
+          const cDef = ch ? defById(state, ch.definitionId) : undefined;
+          if (cDef && isCharacterCard(cDef) && cDef.skills.includes(roll.skillBonus)) skillBonus++;
+        }
+      }
+      logDetail(`applyEffect: cancel-attack roll-to-cancel — enqueuing dice-check (threshold ${roll.comparison} ${roll.threshold}, +${skillBonus} ${roll.skillBonus ?? 'n/a'})`);
+      const scope = companySubphaseScope(state.phaseState.phase, combat.companyId);
+      const queued = enqueueResolution(state, {
+        source: ctx.sourceCardId,
+        actor: ctx.declaredBy,
+        scope,
+        kind: {
+          type: 'dice-check',
+          label: 'Roll to cancel attack',
+          roller: ctx.declaredBy,
+          modifiers: skillBonus > 0 ? [{ kind: 'constant', value: skillBonus }] : [],
+          threshold: roll.threshold,
+          comparison: roll.comparison,
+          onPass: { type: 'cancel-current-attack' },
+          continuation: { kind: 'chain-entry', match: 'source' },
+        },
+      });
+      return { state: queued, needsInput: true };
+    }
+
     // Capture the defending player/company before the cancel clears combat —
     // needed to target the deferred free-cancel grant (Darkness Wielded
     // ba-55) and the tap-on-strike-assignment constraint (Fifteen Birds in
     // Five Firtrees dm-129).
     const defendingPlayerId = state.combat?.defendingPlayerId;
     const defendingCompanyId = state.combat?.companyId;
+    // Attacking side of a CvCC combat — needed by All the Bells Ringing
+    // (as-44) to identify the minion company that must re-face the site's
+    // automatic-attacks after its attack is canceled.
+    const attackingPlayerId = state.combat?.attackingPlayerId;
+    const attackSource = state.combat?.attackSource;
     let next = resolveCancelAttackEntry(state);
     if (effect.alsoCancelLaterAttack && defendingPlayerId) {
       const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
@@ -147,6 +197,12 @@ export function applyEffect(
         });
         logDetail(`applyEffect: cancel-attack added a +${effect.influenceAtSiteModifier} influence-at-site-modifier for site ${siteDefId as string}, rest of turn (source: ${sourceDefinitionId as string})`);
       }
+    }
+    // All the Bells Ringing (as-44): the (minion) attacking company must
+    // re-face all of the site's automatic-attacks, forced normal (not
+    // detainment), before it may declare the CvCC attack again.
+    if (effect.forceSiteAutoAttacksNormalReface && attackingPlayerId && attackSource?.type === 'company-attack') {
+      next = triggerBellsRingingReface(next, attackingPlayerId, attackSource.attackingCompanyId);
     }
     return { state: next };
   }

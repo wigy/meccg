@@ -1797,6 +1797,15 @@ function applyOneConstraint(
       // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
       // resolved site path — no broad legal-action filtering needed here.
       return base;
+    case 'hazard-limit-region-name-match':
+      // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
+      // destination site's region — no broad legal-action filtering needed here.
+      return base;
+    case 'region-adjacency-shortcut':
+      // Consulted directly by `planMovementActions` (organization-companies.ts)
+      // and the M/H declare-path region-path search (movement-hazard.ts) via
+      // `withExtraRegionAdjacency` — no broad legal-action filtering needed here.
+      return base;
     case 'region-shortcut':
       // Consulted directly: `companyRegionShortcutPairs`
       // (legal-actions/movement-hazard.ts) widens declare-path region
@@ -1854,6 +1863,10 @@ function applyOneConstraint(
     case 'character-stat-modifier':
       // Consumed directly by the effects resolver via
       // `collectCharacterEffects` — no legal-action filtering needed.
+      return base;
+    case 'character-creature-body-modifier':
+      // Consumed directly by `handleBodyCheckRoll`'s creature body-check
+      // branch — no legal-action filtering needed.
       return base;
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
