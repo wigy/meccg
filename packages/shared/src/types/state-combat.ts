@@ -144,6 +144,15 @@ export type AttackSource =
    */
   | { readonly type: 'site-entry-attack'; readonly eventInstanceId: CardInstanceId }
   /**
+   * Triggered by a `region-shortcut` constraint (Ash Mountains tw-194 and its
+   * "movement enhancer" family): the company tapped its ranger to move as if
+   * two otherwise-unconnected regions were adjacent, and faces the printed
+   * forced attack for having done so. `eventInstanceId` is the resource
+   * short-event that placed the constraint (already discarded by the time the
+   * attack resolves — nothing to dispose of on finalization).
+   */
+  | { readonly type: 'region-shortcut-attack'; readonly eventInstanceId: CardInstanceId; readonly companyId: CompanyId }
+  /**
    * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
    * revealed / discarded hazard-creature attacks the controller's Alatar
    * company. The creature card is never moved out of its pile (deck or discard)
@@ -254,6 +263,13 @@ export interface StrikeAssignment {
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
    */
   readonly wasAlreadyWounded?: boolean;
+  /**
+   * CvCC only: whether the *attacking* character was already wounded before
+   * this strike was resolved. The same CoE rule 3.I +1 applies to the body
+   * check the attacker makes after losing the dual roll; the defender's
+   * pre-strike status is in {@link wasAlreadyWounded}.
+   */
+  readonly attackerWasAlreadyWounded?: boolean;
   /**
    * Whether a dodge-strike card was played for this strike. When true,
    * the character fights at full prowess but does not tap on success/tie.
@@ -590,8 +606,10 @@ export interface CombatState {
   /**
    * Items available for the defender to choose from during the
    * 'discard-item-from-company' phase (An Article Missing, dm-43).
-   * Collected from all characters in the defending company when a
-   * successful agent strike with `strikeEffect: 'discard-item'` resolves.
+   * Collected from all characters in the defending company when
+   * `strikeEffect: 'discard-item'` resolves, or from the struck character
+   * alone when `strikeEffect: 'discard-item-character'` resolves
+   * (Pick-pocket tw-79/tw-80).
    */
   readonly discardItemOptions?: readonly ItemInPlay[];
   /**
@@ -817,13 +835,17 @@ export interface CombatState {
   readonly isolated?: boolean;
   /**
    * Special strike resolution override set by tap-agent-at-site hazard
-   * short-events (e.g. An Article Missing dm-43).
+   * short-events (e.g. An Article Missing dm-43) or a creature's own
+   * `combat-strike-effect` effect (e.g. Thief tw-102, Pick-pocket tw-79).
    *
    * `'discard-item'`: a successful strike does not wound the defending
    * character; instead the defending company must discard one item of
-   * their choice (defender picks).
+   * their choice (defender picks), pooled from every character in the
+   * company.
+   * `'discard-item-character'`: same, but the discard pool is scoped to
+   * items borne by the struck character alone (Pick-pocket tw-79/tw-80).
    */
-  readonly strikeEffect?: 'discard-item';
+  readonly strikeEffect?: 'discard-item' | 'discard-item-character';
   /**
    * When true, avatar characters (Wizards and Ringwraiths, mind === null) are
    * excluded from strike assignment. Set by `combat-one-strike-per-character`

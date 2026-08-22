@@ -150,6 +150,15 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     expect(actions.length).toBe(2);
   });
 
+  test('NOT playable outside the organization phase ("Playable during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window despite the printed
+    // restriction.
+    const base = orgStateAtHaven({ targetChars: [THE_MOUTH] });
+    const state = { ...base, phaseState: { phase: Phase.EndOfTurn as const, step: 'discard' as const, discardDone: [false, false] as [boolean, boolean], resetHandDone: [false, false] as [boolean, boolean] } };
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   test('NOT playable if the target character\'s company is not at a Darkhaven (ruins-and-lairs)', () => {
     const state = orgStateAtHaven({ targetSite: ETTENMOORS, targetChars: [THE_MOUTH] });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');

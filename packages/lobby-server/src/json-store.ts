@@ -44,11 +44,32 @@ export function readJsonDir<T>(dir: string): T[] {
   return records;
 }
 
+/** Per-process counter making each temp file name unique (see {@link writeJson}). */
+let tmpCounter = 0;
+
 /**
  * Write `value` to `filePath` as pretty-printed JSON, creating the parent
- * directory first. Overwrites an existing file.
+ * directory first. Overwrites an existing file **atomically**: the data is
+ * written to a temp file in the same directory and then renamed over the
+ * target. `rename` is atomic on a POSIX filesystem, so a reader (or a crash)
+ * never observes a half-written file — the old durability hole where a torn
+ * write to a record like `info.json` or `credits.json` left invalid JSON that
+ * {@link readJson} then silently reports as "no data", losing the account.
+ *
+ * The temp name carries the pid and a per-process counter so a concurrent
+ * writer (e.g. `bin/credits` alongside the lobby) cannot clobber this one's
+ * temp file mid-write.
  */
 export function writeJson(filePath: string, value: unknown): void {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${tmpCounter++}.tmp`);
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2));
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    // Best-effort cleanup so a failed write does not leave a stray temp file.
+    try { fs.unlinkSync(tmpPath); } catch { /* already gone */ }
+    throw err;
+  }
 }

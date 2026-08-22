@@ -359,6 +359,34 @@ export function findRegionPaths(
   return results;
 }
 
+/**
+ * Return a copy of `map` whose region graph additionally treats each named
+ * pair in `pairs` as adjacent (Ash Mountains tw-194 and its "movement
+ * enhancer" family: "move as if the following pairs of regions were
+ * adjacent"). Only `regionGraph` is extended — `findRegionPaths` (region-path
+ * enumeration for `declare-path`) consults it directly and needs nothing
+ * else; `regionPathEdges` (used for org-phase destination reachability) is
+ * intentionally left untouched, so the virtual adjacency only widens which
+ * *path* can justify an already-chosen destination, not which destinations
+ * are offered during organization-phase movement planning.
+ */
+export function withVirtualAdjacency(
+  map: MovementMap,
+  pairs: readonly (readonly [string, string])[],
+): MovementMap {
+  const regionGraph = new Map<string, Set<string>>();
+  for (const [region, adj] of map.regionGraph) {
+    regionGraph.set(region, new Set(adj));
+  }
+  for (const [a, b] of pairs) {
+    if (!regionGraph.has(a)) regionGraph.set(a, new Set());
+    if (!regionGraph.has(b)) regionGraph.set(b, new Set());
+    regionGraph.get(a)!.add(b);
+    regionGraph.get(b)!.add(a);
+  }
+  return { ...map, regionGraph };
+}
+
 export function getReachableSites(
   map: MovementMap,
   currentSite: SiteCard,

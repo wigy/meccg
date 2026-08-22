@@ -28,7 +28,8 @@ import {
   buildTestState, resetMint,
   makeCancelWindowCombat,
   dispatch, resolveChain,
-  handCardId, charIdAt,
+  handCardId, charIdAt, findCharInstanceId,
+  eliminateCharacter,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
@@ -636,5 +637,52 @@ describe('Flatter a Foe (td-116)', () => {
     const result = reduce({ ...s, cheatRollTotal: 9 }, flatAction.action);
     expect(result.error).toBeUndefined();
     expect(result.state.combat).not.toBeNull();
+  });
+
+  // ── Attempting character leaves play while the roll is pending ────────────
+
+  test('character eliminated while the roll is pending: attempt fails, game not deadlocked', () => {
+    // Regression: the flattery-attempt emitter returned NO actions when the
+    // attempting character had left play before the roll (e.g. eliminated by
+    // a chain response). The chain was stuck in 'resolving' mode with no
+    // legal actions for either player — the same deadlock class as the
+    // faction-influence-roll lost-influencer fix (#1725).
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN, GIMLI] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const s = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1, cardInstanceId: flatCard, targetCharacterId: aragornId,
+    }));
+    expect(s.pendingResolutions.find(r => r.kind.type === 'flattery-attempt')).toBeDefined();
+
+    // Aragorn leaves play while the roll is pending.
+    const gone = eliminateCharacter(s, RESOURCE_PLAYER, aragornId, s.players[RESOURCE_PLAYER].characters[aragornId]);
+
+    // The resolution must still be actionable...
+    const flatAction = computeLegalActions(gone, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'flattery-attempt',
+    );
+    expect(flatAction).toBeDefined();
+
+    // ...and resolving it fails the attempt: chain completes, combat continues.
+    const result = reduce(gone, flatAction!.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).toBeNull();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    expect(result.state.combat).not.toBeNull();
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
   });
 });

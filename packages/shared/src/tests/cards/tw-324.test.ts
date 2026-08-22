@@ -60,8 +60,9 @@ const SECRET_ENTRANCE = 'tw-324' as CardDefinitionId;
 // Lairs sitting in a Wilderness region (Cardolan), so Cave-drake's
 // regionTypes {w}{w} AND siteTypes {R} keying can both match a two-wilderness
 // path — mirrors the le-177 Ettenmoors precedent.
-// Huorn (tw-45): keyed only to a single Wilderness, no site keying at all —
-// the region-keyed control used by the dm-98 "cancels Secret Entrance" test.
+// Huorn (tw-45): region-keyed to a plain Wilderness among other entries, but
+// not keyed to "Barrow-downs" specifically — the region-keyed control used by
+// this file's "cancels Secret Entrance" test below.
 const HUORN = 'tw-45' as CardDefinitionId;
 
 describe('Secret Entrance (tw-324)', () => {

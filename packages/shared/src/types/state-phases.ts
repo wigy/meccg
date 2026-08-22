@@ -455,7 +455,16 @@ export type MHStep =
    * additional site card is played and a fresh movement/hazard phase follows —
    * or pass to finish the company without tapping it.
    */
-  | 'character-tap-mh-offer';
+  | 'character-tap-mh-offer'
+  /**
+   * Region-shortcut attack window (Ash Mountains tw-194 and its "movement
+   * enhancer" family): entered from `reveal-new-site`'s `declare-path`
+   * handler when the company taps its ranger to use a `region-shortcut`
+   * constraint's virtual adjacency. `state.combat` holds the printed forced
+   * attack; once it resolves, a `pass` continues straight to
+   * `set-hazard-limit` (auto-advanced, like `order-effects`).
+   */
+  | 'region-shortcut-attack';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */

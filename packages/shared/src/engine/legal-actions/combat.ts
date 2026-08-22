@@ -2087,9 +2087,14 @@ function bodyCheckActions(
     }
     targetLabel = allyDef?.name ?? charDef?.name ?? 'character';
   }
-  // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)
-  const isWounded = combat.bodyCheckTarget === 'character' &&
-    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true;
+  // +1 to body check roll if the character was already wounded before this
+  // strike (CoE rule 3.I) — for a defending character via `wasAlreadyWounded`,
+  // for the CvCC attacking character via `attackerWasAlreadyWounded` (both
+  // recorded pre-strike, since the lost strike itself inverts the character).
+  const isWounded = (combat.bodyCheckTarget === 'character' &&
+    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true)
+    || (combat.bodyCheckTarget === 'attacker-character' &&
+      combat.strikeAssignments[combat.currentStrikeIndex]?.attackerWasAlreadyWounded === true);
   const woundedBonus = isWounded ? 1 : 0;
   // Attack-level body-check modifier (Traitor tw-105 +1, Cruel Caradhras td-9
   // +1, ...). The resolver adds it to the roll, so it lowers the roll needed to
@@ -3713,18 +3718,18 @@ export function buildPlayedModifyAttackContext(
 ): Record<string, unknown> {
   let baseProwess = combat.strikeProwess;
   let creatureName: string | undefined;
-  if (combat.attackSource.type === 'creature') {
-    const atkPlayer = playerById(state, combat.attackingPlayerId);
-    if (atkPlayer) {
-      const creatureCard = atkPlayer.cardsInPlay.find(
-        c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: CardInstanceId }).instanceId,
-      );
-      if (creatureCard) {
-        const cDef = defById(state, creatureCard.definitionId);
-        if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
-        if (cDef) creatureName = cDef.name;
-      }
-    }
+  // Resolve the attacking creature's card via the general source helper so
+  // `enemy.name`/`enemy.prowess` are populated for every creature-backed
+  // source — `creature`, `on-guard-creature`, and `played-auto-attack` —
+  // not just an in-play `creature`. Matches the sibling td-97 path
+  // (companyCombatBoostActions). Without this, a played modify-attack gated
+  // on `enemy.name` (Unabated in Malice ba-26: "an attack from Shelob") was
+  // never offered against an on-guard-revealed creature.
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
+  if (creatureInstanceId) {
+    const cDef = resolveDef(state, creatureInstanceId);
+    if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+    if (cDef) creatureName = (cDef as { name?: string }).name;
   }
   // An automatic-attack is either a site's built-in attack or a played
   // auto-attack; exposed so cards can gate on "playable on an
@@ -4381,9 +4386,11 @@ function itemSalvageActions(
 /**
  * Actions during the discard-item-from-company sub-phase (An Article Missing, dm-43).
  *
- * After a successful agent strike with strikeEffect 'discard-item', the defending
- * player must discard one item from any character in the company. One action per
- * available item is generated; the defender chooses which item to lose.
+ * After a successful strike with a `strikeEffect`, the defending player must
+ * discard one item from `combat.discardItemOptions` — pooled from the whole
+ * company for `'discard-item'`, or scoped to the struck character alone for
+ * `'discard-item-character'` (Pick-pocket tw-79). One action per available
+ * item is generated; the defender chooses which item to lose.
  */
 function discardItemFromCompanyActions(
   state: GameState,

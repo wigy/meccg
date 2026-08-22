@@ -1984,12 +1984,18 @@ export interface GrantActionEffect extends EffectBase {
  *   data — what varies card to card is who they're attached to). Backs
  *   "remove one corruption card from an Elf or a Wizard under your control"
  *   (Palantír of Amon Sûl tw-296, borrowing Palantír of Elostirion's ability).
+ * - `"company-hazard-corruption-cards"` — the company-scoped counterpart of
+ *   `"own-hazard-corruption-cards"`: every `hazard-corruption` card attached
+ *   to a character in the bearer's own company only. `filter` is likewise
+ *   matched against the bearer character's definition. Backs "remove a
+ *   corruption card from a character in his company" (Athelas tw-195,
+ *   Aragorn II's ability).
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards';
+  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -2168,6 +2174,7 @@ export type TriggeredActionType =
   | 'remove-constraint'
   | 'cancel-chain-entry'
   | 'company-tap-characters'
+  | 'reveal-hand-cards-per-character'
   | 'company-return-to-origin'
   | 'counter-cancel-attack'
   | 'discard-character'
@@ -2739,6 +2746,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * adjacent for the target company's region movement this turn.
    */
   readonly regionPairs?: readonly (readonly [string, string])[];
+  /**
+   * For a `region-shortcut` constraint (Ash Mountains tw-194): region-name
+   * pairs treated as adjacent for region-movement path-finding purposes.
+   */
+  readonly pairs?: readonly (readonly [string, string])[];
+  /**
+   * For a `region-shortcut` constraint: the skill an untapped company member
+   * must have to use the granted shortcut (tapped as its cost).
+   */
+  readonly requiredSkill?: Skill;
 }
 
 /**
@@ -3224,6 +3241,22 @@ export interface CompanyTapCharactersTriggeredAction extends TriggeredActionBase
 }
 
 /**
+ * `reveal-hand-cards-per-character` — `on-event: "attack-not-canceled"` apply
+ * verb (Crebain tw-25). At combat finalization, `min(defending company's
+ * character count, defender's hand size)` random cards are picked from the
+ * defending player's hand (seeded shuffle, same pattern as
+ * `reveal-remove-from-discard`) and revealed via `revealInstances` — the
+ * cards stay in the defender's hand, only their identity becomes public.
+ * Zero defending characters (a lone-avatar company already eliminated, or
+ * some other edge case) reveals nothing. Used by Crebain (tw-25): "After the
+ * attack, the defender must reveal one random card from his hand for each
+ * character in the defending company."
+ */
+export interface RevealHandCardsPerCharacterAction extends TriggeredActionBase {
+  readonly type: 'reveal-hand-cards-per-character';
+}
+
+/**
  * `company-return-to-origin` — `on-event: "attack-strike-successful"` apply
  * verb (Fell Turtle tw-34). Fires in `finalizeCombat` when at least one of
  * this creature's own strikes wounded or eliminated a defender during the
@@ -3472,6 +3505,7 @@ export type TriggeredAction =
   | SequenceAction
   | CancelChainEntryAction
   | CompanyTapCharactersTriggeredAction
+  | RevealHandCardsPerCharacterAction
   | CompanyReturnToOriginTriggeredAction
   | CounterCancelAttackTriggeredAction
   | SiteEntryAttackAction
@@ -3947,20 +3981,26 @@ export interface CombatTapLowMindEffect extends EffectBase {
 
 /**
  * A successful strike of this attack does not wound the defending character;
- * instead the defending company must discard one item (defender's choice).
- * Self-bound to the creature — threaded onto `CombatState.strikeEffect` at
- * combat initiation and resolved by the generic `strikeEffect === 'discard-item'`
- * path in `combat-strike.ts` shared with the agent-attack precedent (Taladhan
- * dm-25, An Article Missing dm-43): the strike still "hits" (cancelable,
- * countable) but its result is replaced with a company item discard via the
- * `discard-item-from-company` combat phase; detainment attacks never trigger
- * it. Card text is "For each successful strike, an item held by the
- * defending company must be discarded (defender's choice); the defending
- * character is not harmed" (e.g. Thief tw-102).
+ * instead an item must be discarded (defender's choice). Self-bound to the
+ * creature — threaded onto `CombatState.strikeEffect` at combat initiation
+ * and resolved by the generic `strikeEffect` path in `combat-strike.ts`
+ * shared with the agent-attack precedent (Taladhan dm-25, An Article Missing
+ * dm-43): the strike still "hits" (cancelable, countable) but its result is
+ * replaced with an item discard via the `discard-item-from-company` combat
+ * phase; detainment attacks never trigger it.
+ *
+ * - `'discard-item'`: the discard pool is every item held anywhere in the
+ *   defending **company**. Card text is "For each successful strike, an item
+ *   held by the defending company must be discarded (defender's choice); the
+ *   defending character is not harmed" (e.g. Thief tw-102).
+ * - `'discard-item-character'`: the discard pool is scoped to items borne by
+ *   the **struck character** only. Card text is "For each successful strike,
+ *   an item the defending character bears must be discarded (defender's
+ *   choice); he is not harmed" (e.g. Pick-pocket tw-79/tw-80).
  */
 export interface CombatStrikeEffectEffect extends EffectBase {
   readonly type: 'combat-strike-effect';
-  readonly strikeEffect: 'discard-item';
+  readonly strikeEffect: 'discard-item' | 'discard-item-character';
 }
 
 /**

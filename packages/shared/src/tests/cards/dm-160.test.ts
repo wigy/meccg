@@ -38,6 +38,7 @@ import {
   makeCancelWindowCombat,
   dispatch, resolveChain, executeAction,
   handCardId, charIdAt, getCharacter,
+  eliminateCharacter,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
@@ -317,5 +318,89 @@ describe('Token of Goodwill (dm-160)', () => {
 
     const fetchEffect = result.state.pendingEffects.find(e => e.type === 'card-effect' && e.effect.type === 'fetch-to-deck');
     expect(fetchEffect).toBeUndefined();
+  });
+
+  // ── Chain resolution after the roll ───────────────────────────────────────
+
+  test('failed roll: chain fully resolves (not left stuck in "resolving")', () => {
+    // Regression: the goodwill-attempt resolver returned without marking the
+    // originating Token of Goodwill chain entry resolved. After a failed
+    // roll the chain stayed in 'resolving' mode forever with no legal
+    // actions for either player — the same freeze the flattery-attempt
+    // resolver was fixed for.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [{ defId: GIMLI, items: [STING] }] }], hand: [TOKEN_OF_GOODWILL], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Man });
+    const gimliId = charIdAt(state, RESOURCE_PLAYER);
+
+    const afterChain = resolveChain(declare(state, gimliId));
+    const afterCC = executeAction(afterChain, PLAYER_1, 'corruption-check', 12);
+
+    const goodwillAction = computeLegalActions(afterCC, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'goodwill-attempt',
+    )!;
+
+    // need = 6; roll 5 → total = 5 + 2 (DI) = 7, NOT > 7 → failure.
+    const result = reduce({ ...afterCC, cheatRollTotal: 5 }, goodwillAction.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).toBeNull();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    expect(result.state.combat).not.toBeNull();
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
+  });
+
+  // ── Diplomat leaves play while the roll is pending ────────────────────────
+
+  test('diplomat eliminated while the attempt is pending: attempt fizzles, game not deadlocked', () => {
+    // Regression: the goodwill-attempt emitter returned NO actions when the
+    // diplomat (or every qualifying item) had left play before the roll,
+    // leaving the pending queue stuck with no legal actions for either
+    // player — the same deadlock class as the faction-influence-roll fix
+    // (#1725).
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [{ defId: GIMLI, items: [STING] }, ARAGORN] }], hand: [TOKEN_OF_GOODWILL], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Man });
+    const gimliId = charIdAt(state, RESOURCE_PLAYER);
+
+    const afterChain = resolveChain(declare(state, gimliId));
+    const afterCC = executeAction(afterChain, PLAYER_1, 'corruption-check', 12);
+    expect(afterCC.pendingResolutions.find(r => r.kind.type === 'goodwill-attempt')).toBeDefined();
+
+    // Gimli (with Sting) leaves play while the attempt is pending.
+    const gone = eliminateCharacter(afterCC, RESOURCE_PLAYER, gimliId, afterCC.players[RESOURCE_PLAYER].characters[gimliId]);
+
+    // A cost-less fizzle action is offered (no item to discard).
+    const fizzle = computeLegalActions(gone, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'goodwill-attempt',
+    );
+    expect(fizzle).toBeDefined();
+    expect((fizzle!.action as { itemInstanceId?: CardInstanceId }).itemInstanceId).toBeUndefined();
+
+    // Resolving fizzles the attempt: queue advances, attack continues.
+    const result = reduce(gone, fizzle!.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    expect(result.state.combat).not.toBeNull();
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
   });
 });
