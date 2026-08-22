@@ -1807,8 +1807,63 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. Playable only at The White Towers. Discard if the bearer moves. If the bearer is a sage, he may tap Palantír of Elostirion to remove one corruption card from an Elf or a Wizard under your control. Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "The White Towers"
+        ]
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "elostirion-remove-corruption",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "sage"
+          }
+        },
+        "targets": {
+          "scope": "own-hazard-corruption-cards",
+          "filter": {
+            "race": {
+              "$in": [
+                "elf",
+                "wizard"
+              ]
+            }
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "discard-target-corruption-card"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      },
+      {
+        "type": "fw-mp-none"
+      }
+    ],
+    "text": "Unique. Palantír. Playable only at The White Towers. Discard if the bearer moves. If the bearer is a sage, he may tap Palantír of Elostirion to remove one corruption card from an Elf or a Wizard under your control. Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-item",
