@@ -59,6 +59,24 @@
       {
         "type": "play-flag",
         "flag": "home-site-only"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "dragon"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "drake"
+        }
       }
     ],
     "text": "Unique. He may not be one of the starting characters. He may only be brought into play at his home site. +3 prowess against Dragon and Drake attacks.",

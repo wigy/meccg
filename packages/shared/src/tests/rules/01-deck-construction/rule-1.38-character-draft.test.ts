@@ -148,4 +148,61 @@ describe('Rule 1.38 — Character Draft', () => {
     const mindP1Company = mindState.players[0].companies[0];
     expect(mindP1Company.characters).toHaveLength(3);
   });
+
+  test('identical NON-unique reveals do NOT collide — each player keeps their copy', () => {
+    // Regression: rule 1.9 sets aside "duplicated UNIQUE characters", but the
+    // identical-pick branch had no uniqueness check, so two players revealing
+    // the same non-unique character (three copies of the same Orc are legal)
+    // were both denied it — and the pool filter deleted the first player's
+    // remaining copies of that definition from the game state entirely.
+    const ORC_VETERAN = 'le-35' as never; // non-unique minion character
+    const LAGDUF = 'le-18' as never;
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.Ringwraith,
+          // Two copies: the second must survive the round in the pool.
+          draftPool: [ORC_VETERAN, ORC_VETERAN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Ringwraith,
+          draftPool: [ORC_VETERAN, LAGDUF],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+    const p1Pick = draftInstId(state, 0, ORC_VETERAN);
+    const p2Pick = draftInstId(state, 1, ORC_VETERAN);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: p1Pick },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: p2Pick },
+    ]);
+
+    // No collision: both players drafted their Orc Veteran.
+    const draftStep = (state.phaseState as {
+      setupStep: {
+        draftState: readonly [{ drafted: readonly { instanceId: string }[]; pool: readonly { instanceId: string }[] }, { drafted: readonly { instanceId: string }[] }];
+        setAside: readonly [readonly unknown[], readonly unknown[]];
+      };
+    }).setupStep;
+    expect(draftStep.draftState[0].drafted.some(c => c.instanceId === (p1Pick as string))).toBe(true);
+    expect(draftStep.draftState[1].drafted.some(c => c.instanceId === (p2Pick as string))).toBe(true);
+    expect(draftStep.setAside[0]).toHaveLength(0);
+    expect(draftStep.setAside[1]).toHaveLength(0);
+
+    // Player 0's second copy is still in the pool — not deleted from the game.
+    expect(draftStep.draftState[0].pool.length).toBe(1);
+  });
 });

@@ -961,7 +961,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DescentthroughFire.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -1048,6 +1048,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
@@ -1226,6 +1231,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "The Balrog" }
@@ -1348,7 +1358,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/InvadeTheirDomain.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -1402,7 +1412,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/LordandUsurper.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -1606,6 +1616,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
@@ -1921,6 +1936,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",

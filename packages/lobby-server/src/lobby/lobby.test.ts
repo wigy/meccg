@@ -185,3 +185,50 @@ describe('rejoin-game deduplication', () => {
     bob.emit('close');
   });
 });
+
+/**
+ * A fake WebSocket whose `close()` fires its registered 'close' handler
+ * SYNCHRONOUSLY — modelling an already-closing socket, the case that made a
+ * reconnect delete the player from presence when the old socket was closed
+ * before the entry was repointed at the new one.
+ */
+function fakeWsSyncClose(): ReturnType<typeof fakeWs> {
+  const sent: { type: string; [key: string]: unknown }[] = [];
+  const handlers = new Map<string, (data?: unknown) => void>();
+  const ws = {
+    readyState: 1,
+    OPEN: 1,
+    send: (raw: string) => { sent.push(JSON.parse(raw) as { type: string }); },
+    on: (event: string, cb: (data?: unknown) => void) => { handlers.set(event, cb); },
+    close: () => { handlers.get('close')?.(undefined); },
+  } as unknown as WebSocket;
+  return { ws, sent, emit: (event, data) => handlers.get(event)?.(data) };
+}
+
+describe('reconnect with a synchronously-closing old socket', () => {
+  test('the reconnecting player stays in presence (old socket close must not evict them)', () => {
+    const observer = fakeWs();
+    playerConnected('Observer', observer.ws);
+
+    // First connection whose close() fires synchronously.
+    const first = fakeWsSyncClose();
+    playerConnected('Zara', first.ws);
+
+    // Reconnect: playerConnected calls first.ws.close(), which synchronously
+    // runs first's close handler. Zara must remain online.
+    const second = fakeWs();
+    playerConnected('Zara', second.ws);
+
+    const online = observer.sent.filter(m => m.type === 'online-players').pop()!;
+    const names = (online.players as { name: string }[]).map(p => p.name);
+    expect(names).toContain('Zara');
+
+    // And Zara's new socket is the live one: a broadcast reaches it.
+    playerConnected('Late', fakeWs().ws);
+    expect(second.sent.some(m => m.type === 'online-players')).toBe(true);
+
+    first.emit('close');
+    second.emit('close');
+    observer.emit('close');
+  });
+});

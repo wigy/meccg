@@ -78,6 +78,33 @@ describe('Piercing All Shadows (wh-47)', () => {
     expect(new Set(targets)).toEqual(new Set([nevidoId, odoacerId]));
   });
 
+  test('NOT playable outside the organization phase ("Playable during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window despite the printed
+    // restriction.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [NEVIDO_SMOD, ODOACER] }],
+          hand: [PIERCING_ALL_SHADOWS],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [HADOR] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   test('NOT playable on a non-ranger (Hador)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

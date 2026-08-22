@@ -194,6 +194,35 @@ describe('Unabated in Malice (ba-26)', () => {
     expect(actions).toHaveLength(1);
   });
 
+  test('attacker can play it on an on-guard-revealed Shelob attack (enemy.name gate)', () => {
+    // Regression: buildPlayedModifyAttackContext resolved enemy.name only for
+    // an in-play `creature` source, so a played modify-attack gated on
+    // `enemy.name === "Shelob"` was never offered when Shelob attacked from
+    // on-guard (attackSource type on-guard-creature). ba-26's `enemy.name`
+    // branch of the `$or` gate must fire for an on-guard Shelob just as it
+    // does for an in-play one.
+    const base = baseWithHazardHand([UNABATED_IN_MALICE]);
+    // Place Shelob on-guard on the defending (PLAYER_1) company so its
+    // instance resolves to the Shelob definition, then key the active attack
+    // to that on-guard creature.
+    const { state: placed, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, SHELOB, { revealed: true });
+    const combat0 = makeCancelWindowCombat(placed, {
+      creatureDefId: SHELOB,
+      creatureRace: Race.Spider,
+      attackSourceType: 'on-guard-creature',
+      strikesTotal: 1,
+      strikeProwess: 18,
+    });
+    const combat: GameState = {
+      ...combat0,
+      combat: { ...combat0.combat!, attackSource: { type: 'on-guard-creature', cardInstanceId: ogCard.instanceId } },
+    };
+
+    const actions = viableActions(combat, PLAYER_2, 'modify-attack');
+    expect(actions).toHaveLength(1);
+    expect((actions[0].action as ModifyAttackAction).cardInstanceId).toBe(combat.players[HAZARD_PLAYER].hand[0].instanceId);
+  });
+
   test('NOT playable on an ordinary creature attack (not automatic, not Shelob)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {

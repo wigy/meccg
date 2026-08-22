@@ -155,7 +155,10 @@ function buildFactionInfluenceState(opts: {
  * Site-phase state for an opponent-influence attempt: Lagduf (printed DI 0)
  * bearing a Minor Ring ("+2 to direct influence") faces Ciryaher at Moria.
  */
-function buildOpponentInfluenceAtMoria(opts: { webs?: boolean } = {}): GameState {
+function buildOpponentInfluenceAtMoria(opts: { webs?: boolean; timesAreEvil?: boolean } = {}): GameState {
+  const hazardInPlay: CardInPlay[] = [];
+  if (opts.webs) hazardInPlay.push(inPlay(WEBS, 'webs-1'));
+  if (opts.timesAreEvil) hazardInPlay.push(inPlay(TIMES_ARE_EVIL, 'tae-1'));
   const base = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.Site,
@@ -170,7 +173,7 @@ function buildOpponentInfluenceAtMoria(opts: { webs?: boolean } = {}): GameState
         id: PLAYER_2, alignment: Alignment.Ringwraith,
         companies: [{ site: MORIA, characters: [CIRYAHER] }],
         hand: [], siteDeck: [MINAS_MORGUL],
-        cardsInPlay: opts.webs ? [inPlay(WEBS, 'webs-1')] : [],
+        cardsInPlay: hazardInPlay,
       },
     ],
   });
@@ -355,6 +358,31 @@ describe('Webs of Fear & Treachery (le-150)', () => {
     // The ring's bonus comes from the ring's card text, not Lagduf's, so his
     // unused *normal* direct influence is his printed 0.
     expect(pending.kind.attempt.influencerDI).toBe(0);
+  });
+
+  test('a game-wide influence modifier is reduced to zero in an opponent-influence attempt too', () => {
+    // Regression: handleOpponentInfluenceAttempt gated every other card-sourced
+    // modifier on the le-150 nullification but added the game-wide
+    // `collectGlobalCheckModifier` unconditionally, while the parallel
+    // faction-influence path zeroes it — the two influence paths disagreed
+    // under the same cards. Times Are Evil (td-76) modifies "all … influence
+    // attempts" by -3, so without Webs the attempt's boost is -3 …
+    const plain = buildOpponentInfluenceAtMoria({ timesAreEvil: true });
+    const boostOf = (state: GameState): number => {
+      const targetId = findCharInstanceId(state, HAZARD_PLAYER, CIRYAHER);
+      const attempt = firstOpponentInfluenceAttempt(state, targetId);
+      const result = dispatchResult(state, attempt!);
+      expect(result.error).toBeUndefined();
+      const pending = result.state.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+      if (pending?.kind.type !== 'opponent-influence-defend') throw new Error('no opponent-influence-defend pending');
+      return pending.kind.attempt.boostModifier ?? 0;
+    };
+    expect(boostOf(plain)).toBe(-3);
+
+    // … and with Webs in play the -3 is a card-sourced modification, reduced
+    // to zero like every other.
+    const webs = buildOpponentInfluenceAtMoria({ timesAreEvil: true, webs: true });
+    expect(boostOf(webs)).toBe(0);
   });
 
   test('unused general influence and the defender’s roll are untouched', () => {

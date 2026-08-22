@@ -32,6 +32,42 @@ let nextPort = GAME_PORT_BASE;
 /** Active game processes keyed by port. */
 const activeGames = new Map<number, ChildProcess>();
 
+/**
+ * The minimal child surface {@link registerGameChild} needs — an object that
+ * emits `exit` and can be killed. Lets the registration invariant be tested
+ * with a fake emitter instead of a real spawned process.
+ */
+export interface ManagedChild {
+  on(event: 'exit', listener: (code: number | null) => void): unknown;
+  kill(signal?: NodeJS.Signals): unknown;
+}
+
+/**
+ * Track a spawned game child under its port and guarantee it is untracked
+ * when it exits — the single place that owns the `activeGames` entry's
+ * lifetime, so a child that dies at any point (including before it finished
+ * starting) can never leave a stale entry that keeps {@link isActiveGamePort}
+ * reporting a dead port as live. `endCallbacks` fires on exit; it is empty
+ * until the caller wires up `onEnd`, so an early-exit no-ops safely.
+ */
+export function registerGameChild(
+  port: number,
+  child: ManagedChild,
+  endCallbacks: readonly (() => void)[],
+): void {
+  activeGames.set(port, child as ChildProcess);
+  child.on('exit', (code) => {
+    lobbyLog.log('game-exit', { port, code });
+    activeGames.delete(port);
+    for (const cb of endCallbacks) cb();
+  });
+}
+
+/** Test-only: read the active-games size, to assert cleanup happened. */
+export function activeGameCount(): number {
+  return activeGames.size;
+}
+
 /** IPC relay for pseudo-AI games, allowing the lobby to forward actions. */
 export interface PseudoAiRelay {
   /** Register callback for when the AI receives legal actions from the game server. */
@@ -167,36 +203,49 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  activeGames.set(port, child);
-
   const endCallbacks: (() => void)[] = [];
 
+  // Track the child and wire its exit cleanup BEFORE the startup await, so the
+  // port is always removed from activeGames when the child exits — including a
+  // crash during startup or a kill on timeout. Previously the cleanup handler
+  // was wired up only after a successful start, so a child that died before
+  // "listening" left a stale entry behind and isActiveGamePort kept reporting
+  // a dead port as live for the rest of the lobby's life.
+  registerGameChild(port, child, endCallbacks);
+
   // Wait for the game server to print its "listening" message
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`Game server on port ${port} failed to start within 15s`));
-    }, 15000);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        // Kill the orphan: on timeout the child is still running, so without
+        // this it would linger forever holding its port.
+        child.kill('SIGTERM');
+        reject(new Error(`Game server on port ${port} failed to start within 15s`));
+      }, 15000);
 
-    forwardChildLines(child.stdout, 'game-stdout', port, (line) => {
-      if (line.includes('listening on port')) {
+      forwardChildLines(child.stdout, 'game-stdout', port, (line) => {
+        if (line.includes('listening on port')) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+
+      forwardChildLines(child.stderr, 'game-stderr', port);
+
+      child.on('exit', (code) => {
         clearTimeout(timeout);
-        resolve();
-      }
+        reject(new Error(`Game server exited with code ${code} before becoming ready`));
+      });
     });
-
-    forwardChildLines(child.stderr, 'game-stderr', port);
-
-    child.on('exit', (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`Game server exited with code ${code} before becoming ready`));
-    });
-  });
-
-  child.on('exit', (code) => {
-    lobbyLog.log('game-exit', { port, code });
-    activeGames.delete(port);
-    for (const cb of endCallbacks) cb();
-  });
+  } catch (err) {
+    // The exit handler above clears activeGames; make sure a still-running
+    // child is stopped too (covers a resolve/reject race), then rethrow.
+    if (activeGames.has(port)) {
+      child.kill('SIGTERM');
+      activeGames.delete(port);
+    }
+    throw err;
+  }
 
   // If this is an AI game, spawn the AI client now (server is ready)
   let pseudoAiRelay: PseudoAiRelay | null = null;

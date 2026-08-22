@@ -275,6 +275,39 @@ describe('a tie at the top with an unrelated worse candidate', () => {
     expect(drawn.has(SPLIT)).toBe(false);
   });
 
+  test('does not let an item action out-vote a plan-movement merely by having more targets', () => {
+    // Game mt3e57h3-9f79dh, turn 1: organization phase withholds `pass` under
+    // CoE 2.II.3.6 until all but one split company has declared movement. A
+    // Cram sitting at corruption 0-1 can `transfer-item` to any of several
+    // other characters at zero real cost (2d6 cannot fail the check below
+    // corruption 2), correctly tying at utility 0 with the `plan-movement`
+    // still owed. Sampling uniformly over the raw action list gave the item
+    // six action records against the move's one, so a draw that should have
+    // been a fair choice between two real alternatives instead sent the move
+    // to the back of the queue and toured the item around the company
+    // instead. Drawing the action type first, then a target within it, keeps
+    // the two alternatives equally likely.
+    const items: readonly GameAction[] = Array.from({ length: 6 }, (_, i) =>
+      ({ type: 'transfer-item', id: `t${i}` } as unknown as GameAction));
+    const MOVE = { type: 'plan-movement', id: 'm' } as unknown as GameAction;
+    const zeroEverywhere: H2Module = {
+      name: 'zero',
+      ownedActionTypes: ['transfer-item', 'plan-movement'],
+      evaluate: action => ({
+        action, module: 'zero',
+        outcomes: [{ p: 1, label: 'x', dtsd: 0 }],
+        expectedTsd: 0, sigmaTsd: 0, utility: 0,
+        method: 'integrated', rationale: leaf('x', 0), assumptions: [],
+      }),
+    };
+    const agent = createHeuristic2Agent({ available: [zeroEverywhere], model, temperature: 0.0001 });
+    // Sampling uniformly over the raw 7-item list at r=0.8 lands on index 5
+    // (Math.floor(0.8 * 7) === 5), one of the six transfers. Drawing the type
+    // first (2 types, Math.floor(0.8 * 2) === 1) reaches `plan-movement`.
+    const decision = agent.chooseAction(decisionContext([...items, MOVE], () => 0.8));
+    expect(decision.action).toBe(MOVE);
+  });
+
   test('takes its own best when there is nothing to pass with', () => {
     // No `pass` on offer, so declining is not available and H2 must still name
     // a move. It names its own, never anyone else's.
