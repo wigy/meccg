@@ -2936,11 +2936,21 @@
     "race": "hobbit",
     "playableAt": [
       {
-        "site": "Bag"
+        "site": "Bag End"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Bag End if the influence check is greater than 8. Standard Modifications: Hobbits (+4)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 4,
+        "when": {
+          "bearer.race": "hobbit"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Bag End if the influence check is greater than 8. Standard Modifications: Hobbits (+4).",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
