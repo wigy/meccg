@@ -1625,11 +1625,16 @@ function resolveStrikeActions(
         }
       }
 
-      // Untapped allies on any character in the company can support
+      // Untapped allies on any character in the company can support — but,
+      // like characters (CoE 3.iv.4), only if they haven't themselves been
+      // assigned a strike this attack (an ally is a valid strike target in
+      // CvCC and one-strike-per-character attacks, so it can appear in
+      // strikeAssignments).
       const hostChar = player.characters[charId];
       if (hostChar) {
         for (const ally of hostChar.allies) {
           if (ally.status !== CardStatus.Untapped) continue;
+          if (assignedCharIds.has(ally.instanceId as string)) continue;
           logDetail(`Untapped ally ${ally.instanceId as string} can support`);
           actions.push({
             action: {
