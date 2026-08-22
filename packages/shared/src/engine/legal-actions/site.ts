@@ -3446,6 +3446,18 @@ function declareCompanyAttackActions(
     return actions;
   }
 
+  // The active company may have been wiped out earlier in its own site phase
+  // (e.g. its last character eliminated by an automatic-attack body check) —
+  // the site-phase machine still walks the empty company through its steps.
+  // With no attackers a CvCC declaration is guaranteed to be rejected by the
+  // reducer ("Attacking company has no characters"), so offer only the pass
+  // that advances past this company.
+  if (company.characters.length === 0) {
+    logDetail('CvCC: active company has no characters left — only pass offered');
+    actions.push({ type: 'pass', player: playerId });
+    return actions;
+  }
+
   const siteDef = defById(state, company.currentSite.definitionId);
   const siteName = siteDef && isSiteCard(siteDef) ? siteDef.name : null;
 
