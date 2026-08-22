@@ -461,7 +461,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ]
       }
     ],
     "effects": [],
@@ -495,7 +501,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ]
       }
     ],
     "effects": [
@@ -549,7 +561,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ]
       }
     ],
     "effects": [
@@ -1805,6 +1823,9 @@
       },
       {
         "regionNames": [
+          "High Pass"
+        ],
+        "siteInRegionNames": [
           "High Pass"
         ]
       },
