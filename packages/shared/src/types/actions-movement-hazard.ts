@@ -917,8 +917,12 @@ export interface GoodwillAttemptRollAction {
   readonly player: PlayerId;
   /** The diplomat making the goodwill attempt. */
   readonly characterInstanceId: CardInstanceId;
-  /** The company item discarded to enable the roll. */
-  readonly itemInstanceId: CardInstanceId;
+  /**
+   * The company item discarded to enable the roll. Absent on the fizzle
+   * action offered when the diplomat, company, or every qualifying item has
+   * left play before the roll — the attempt then fails without a cost.
+   */
+  readonly itemInstanceId?: CardInstanceId;
   /** roll >= need means success (already accounts for unused DI). */
   readonly need: number;
   /** Human-readable breakdown of the check. */

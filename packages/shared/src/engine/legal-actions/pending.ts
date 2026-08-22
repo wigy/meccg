@@ -708,7 +708,25 @@ export function flateryAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // The character left play (e.g. eliminated by a chain response) before
+    // the roll. Offer the resolution anyway — the resolver fails the attempt
+    // and resumes the chain. Returning no actions would deadlock the game:
+    // the chain is in 'resolving' mode and offers no actions of its own
+    // (same failure mode as the faction-influence-roll emitter above).
+    logDetail(`Pending flattery-attempt vs "${creatureRace}": character no longer in play — the attempt fails automatically`);
+    return [{
+      action: {
+        type: 'flattery-attempt' as const,
+        player: playerId,
+        characterInstanceId,
+        // No 2d6 total can reach this: the attempt cannot be made at all.
+        need: 13,
+        explanation: `Flattery vs ${creatureRace}: the attempting character is no longer in play — the attempt fails`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -757,7 +775,23 @@ export function riddlingAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // Character gone before the roll — offer a failing resolution instead of
+    // no actions, which would deadlock the resolving chain (see the
+    // flattery-attempt emitter above).
+    logDetail(`Pending riddling-attempt vs "${creatureRace}": character no longer in play — the attempt fails automatically`);
+    return [{
+      action: {
+        type: 'riddling-attempt' as const,
+        player: playerId,
+        characterInstanceId,
+        // No 2d6 total can reach this: the attempt cannot be made at all.
+        need: 13,
+        explanation: `Riddling vs ${creatureRace}: the attempting character is no longer in play — the attempt fails`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -799,7 +833,23 @@ export function burglaryAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // Character gone before the roll — offer a failing resolution instead of
+    // no actions, which would deadlock the pending queue (see the
+    // flattery-attempt emitter above).
+    logDetail(`Pending burglary-attempt: character no longer in play — the attempt fails automatically`);
+    return [{
+      action: {
+        type: 'burglary-attempt' as const,
+        player: playerId,
+        characterInstanceId,
+        // No 2d6 total can reach this: the attempt cannot be made at all.
+        need: 13,
+        explanation: `Burglary: the attempting character is no longer in play — the attempt fails`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -875,41 +925,58 @@ export function goodwillAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  const company = charInPlay ? companyById(player.companies, companyId) : null;
 
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const unusedDI = availableDI(state, characterInstanceId, player);
+  if (charInPlay && company) {
+    const charDef = defById(state, charInPlay.definitionId);
+    const charName = isCharacterCard(charDef) ? charDef.name : '?';
+    const unusedDI = availableDI(state, characterInstanceId, player);
 
-  // Success requires: roll + unusedDI > threshold, i.e. roll > threshold - unusedDI
-  const need = threshold - unusedDI + 1;
-  const explanation = `${charName} goodwill: threshold ${threshold}, unused DI ${unusedDI} → need roll >= ${need}`;
+    // Success requires: roll + unusedDI > threshold, i.e. roll > threshold - unusedDI
+    const need = threshold - unusedDI + 1;
+    const explanation = `${charName} goodwill: threshold ${threshold}, unused DI ${unusedDI} → need roll >= ${need}`;
 
-  const company = companyById(player.companies, companyId);
-  if (!company) return [];
-
-  const actions: EvaluatedAction[] = [];
-  for (const charId of company.characters) {
-    const bearer = player.characters[charId];
-    if (!bearer) continue;
-    for (const item of bearer.items) {
-      const itemDef = defById(state, item.definitionId);
-      if (!itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) continue;
-      logDetail(`Pending goodwill-attempt by ${charName}: offering to discard "${itemDef.name}" (${itemSubtype}) — ${explanation}`);
-      actions.push({
-        action: {
-          type: 'goodwill-attempt' as const,
-          player: playerId,
-          characterInstanceId,
-          itemInstanceId: item.instanceId,
-          need,
-          explanation: `${explanation} (discard ${itemDef.name})`,
-        },
-        viable: true,
-      });
+    const actions: EvaluatedAction[] = [];
+    for (const charId of company.characters) {
+      const bearer = player.characters[charId];
+      if (!bearer) continue;
+      for (const item of bearer.items) {
+        const itemDef = defById(state, item.definitionId);
+        if (!itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) continue;
+        logDetail(`Pending goodwill-attempt by ${charName}: offering to discard "${itemDef.name}" (${itemSubtype}) — ${explanation}`);
+        actions.push({
+          action: {
+            type: 'goodwill-attempt' as const,
+            player: playerId,
+            characterInstanceId,
+            itemInstanceId: item.instanceId,
+            need,
+            explanation: `${explanation} (discard ${itemDef.name})`,
+          },
+          viable: true,
+        });
+      }
     }
+    if (actions.length > 0) return actions;
   }
-  return actions;
+
+  // The diplomat left play, the company disbanded, or no item of the queued
+  // rank remains to discard as the cost. Offer a cost-less fizzle resolution
+  // (no `itemInstanceId`) — the resolver drops the attempt and dequeues.
+  // Returning no actions would deadlock the pending queue outright (see the
+  // flattery-attempt emitter above).
+  logDetail(`Pending goodwill-attempt: no character/company/${itemSubtype} item available — the attempt fizzles`);
+  return [{
+    action: {
+      type: 'goodwill-attempt' as const,
+      player: playerId,
+      characterInstanceId,
+      // No 2d6 total can reach this: the attempt cannot be made at all.
+      need: 13,
+      explanation: `Goodwill attempt: no diplomat or ${itemSubtype} item available — the attempt fails`,
+    },
+    viable: true,
+  }];
 }
 
 /**
@@ -930,7 +997,23 @@ export function seizedByTerrorRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[targetCharacterId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // The target left play before the roll — nothing to seize. Offer a
+    // fizzle resolution instead of no actions, which would deadlock the
+    // resolving chain (see the flattery-attempt emitter above).
+    const goneHazardName = defById(state, hazardDefinitionId)?.name ?? '?';
+    logDetail(`Pending seized-by-terror-roll (${goneHazardName}): target character no longer in play — no effect`);
+    return [{
+      action: {
+        type: 'seized-by-terror-roll' as const,
+        player: playerId,
+        targetCharacterId,
+        need: 0,
+        explanation: `${goneHazardName}: the target character is no longer in play — no effect`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -971,8 +1054,27 @@ export function companyTapRollActions(
   if (!next) return [];
 
   const player = playerById(state, playerId);
-  const charInPlay = player?.characters[next.characterId];
-  if (!player || !charInPlay) return [];
+  if (!player) return [];
+
+  const charInPlay = player.characters[next.characterId];
+  if (!charInPlay) {
+    // The next roller left play (e.g. eliminated by an earlier resolution of
+    // the same hazard chain). Offer a skip resolution instead of no actions,
+    // which would deadlock the resolving chain with the rest of the list
+    // still queued (see the flattery-attempt emitter above).
+    const goneHazardName = defById(state, top.kind.hazardDefinitionId)?.name ?? '?';
+    logDetail(`Pending company-tap-roll (${goneHazardName}): character no longer in play — skipping their roll`);
+    return [{
+      action: {
+        type: 'company-tap-roll' as const,
+        player: playerId,
+        targetCharacterId: next.characterId,
+        modifier: next.modifier,
+        explanation: `${goneHazardName}: the character is no longer in play — their roll is skipped`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? '?';

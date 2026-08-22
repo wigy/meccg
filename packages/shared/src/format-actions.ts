@@ -503,7 +503,9 @@ export function describeAction(
     case 'flattery-attempt':
       return `Flattery attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'goodwill-attempt':
-      return `Goodwill attempt by ${instName(action.characterInstanceId)}: discard ${instName(action.itemInstanceId)}, need ${action.need}`;
+      return action.itemInstanceId
+        ? `Goodwill attempt by ${instName(action.characterInstanceId)}: discard ${instName(action.itemInstanceId)}, need ${action.need}`
+        : `Goodwill attempt: ${action.explanation}`;
     case 'riddling-attempt':
       return `Riddling attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'riddling-guess':
