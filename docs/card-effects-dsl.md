@@ -841,6 +841,21 @@ no distinguishing data, so filtering by who they're attached to is what cards
 actually need ("remove one corruption card from an Elf or a Wizard under your
 control").
 
+**`targets.scope: "company-hazard-corruption-cards"`** (Athelas tw-195) is the
+company-scoped counterpart: it scans only characters in the *bearer's own
+company* for attached `hazard-corruption` cards, backing "remove a corruption
+card from a character in his company" (narrower than `own-hazard-corruption-cards`'s
+"any character under your control"). Pairs with the same
+`discard-target-corruption-card` apply.
+
+```json
+{ "type": "grant-action", "action": "athelas-remove-corruption",
+  "when": { "bearer.name": "Aragorn II" },
+  "cost": { "tap": "bearer", "discard": "self" },
+  "targets": { "scope": "company-hazard-corruption-cards" },
+  "apply": { "type": "discard-target-corruption-card" } }
+```
+
 **`player.inPlayNames`** is a grant-action `when`-context field (alongside
 `bearer`/`company`/`site`/`phase`) listing the names of every card the
 activating player has in play — their `cardsInPlay` **plus** items borne by

@@ -2422,6 +2422,28 @@ function enumerateGrantActionTargets(
     }
   }
 
+  // Athelas (tw-195), Aragorn II's ability: "remove a corruption card from a
+  // character in his company" — the company-scoped counterpart of
+  // `own-hazard-corruption-cards`, restricted to the bearer's own company
+  // rather than every character the player controls.
+  if (targets.scope === 'company-hazard-corruption-cards') {
+    const company = findCharacterCompany(player.companies, charId);
+    if (!company) return [];
+    for (const memberId of company.characters) {
+      const member = player.characters[memberId];
+      if (!member) continue;
+      if (targets.filter) {
+        const memberDef = defById(state, member.definitionId);
+        if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+      }
+      for (const hazard of member.hazards) {
+        const hazardDef = defById(state, hazard.definitionId);
+        if (!isCorruptionCardDef(hazardDef)) continue;
+        matches.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+      }
+    }
+  }
+
   return matches;
 }
 
