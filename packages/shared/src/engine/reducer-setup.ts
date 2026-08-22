@@ -837,7 +837,7 @@ function handleCharacterDeckDraft(
       logDetail(`Character deck draft: player ${playerIndex} passes — ${deckDraft.remainingPool.length} undrafted pool character(s) removed from the game`);
       stateAfterPass = updatePlayer(state, playerIndex, p => ({
         ...p,
-        outOfPlayPile: [...p.outOfPlayPile, ...deckDraft.remainingPool],
+        outOfPlayPile: [...p.outOfPlayPile, ...deckDraft.remainingPool.map(c => ({ ...c, removedFromGame: true as const }))],
       }));
     }
 
