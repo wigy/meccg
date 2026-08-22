@@ -794,31 +794,30 @@ function declareAgentAttackActions(
         // variant would (wrongly) pull a home-site card from the deck.
         logDetail(`Agent ${agent.id as string}: face-down with traveled site stack — offering attack without home site`);
         actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
-        continue;
-      }
-
-      // Offer one action per home site in deck (for the reveal-at-declare)
-      const seenHome = new Set<string>();
-      let offeredAny = false;
-      for (const siteInst of hazardPlayer.siteDeck) {
-        const siteDef = defById(state, siteInst.definitionId);
-        if (!siteDef || !isSiteCard(siteDef)) continue;
-        if (siteDef.name !== currentSiteName) continue;
-        if (seenHome.has(siteDef.name)) continue;
-        seenHome.add(siteDef.name);
-        logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);
-        actions.push({
-          type: 'declare-agent-attack',
-          player: playerId,
-          agentInstanceId: agent.character.instanceId,
-          homeSiteInstanceId: siteInst.instanceId,
-        });
-        offeredAny = true;
-      }
-      if (!offeredAny) {
-        // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
-        logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
-        actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+      } else {
+        // Offer one action per home site in deck (for the reveal-at-declare)
+        const seenHome = new Set<string>();
+        let offeredAny = false;
+        for (const siteInst of hazardPlayer.siteDeck) {
+          const siteDef = defById(state, siteInst.definitionId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (siteDef.name !== currentSiteName) continue;
+          if (seenHome.has(siteDef.name)) continue;
+          seenHome.add(siteDef.name);
+          logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);
+          actions.push({
+            type: 'declare-agent-attack',
+            player: playerId,
+            agentInstanceId: agent.character.instanceId,
+            homeSiteInstanceId: siteInst.instanceId,
+          });
+          offeredAny = true;
+        }
+        if (!offeredAny) {
+          // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
+          logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
+          actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+        }
       }
     }
 
