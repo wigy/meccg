@@ -1300,8 +1300,35 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellBeast.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "nazgul-boost-pending",
+          "scope": "company-mh-phase",
+          "race": "ringwraith",
+          "strikesModifier": 1,
+          "prowessModifier": -2,
+          "grantAttackerChoosesDefenders": true,
+          "keyingRegionTypes": ["shadow"],
+          "keyingSiteTypes": ["shadow-hold"]
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "strikesModifier": 1,
+        "prowessModifier": -2,
+        "grantAttackerChoosesDefenders": true,
+        "when": { "enemy.race": "ringwraith" }
+      },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+    ],
+    "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",

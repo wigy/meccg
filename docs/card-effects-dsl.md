@@ -8189,6 +8189,84 @@ Implemented in `legal-actions/movement-hazard.ts` (action generation,
 `reducer-movement-hazard.ts` (constraint creation + consumption via
 `consumeCreatureKeyingBypass`).
 
+### 24a. `nazgul-boost-pending` — a pre-play boost for the next Nazgûl creature
+
+An `add-constraint` kind for a hazard short-event played *standalone*
+(no target), before the boosted creature is even in play. Installed via
+the ordinary `on-event: self-enters-play` → `add-constraint` path — no
+special dispatcher support needed, just a new `constraintKind` case in
+`buildConstraintKind` (`constraint-kind.ts`) — targeting the company the
+short event was played against, scope `company-mh-phase`:
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "nazgul-boost-pending",
+    "scope": "company-mh-phase",
+    "race": "ringwraith",
+    "strikesModifier": 1,
+    "prowessModifier": -2,
+    "grantAttackerChoosesDefenders": true,
+    "keyingRegionTypes": ["shadow"],
+    "keyingSiteTypes": ["shadow-hold"]
+  } }
+```
+
+Consumed the moment a hazard-creature of the matching `race` is actually
+played against that company: `mh-hazard-play.ts`'s creature-play handler
+looks up the constraint, removes it, and folds `strikesModifier`/
+`prowessModifier`/`grantAttackerChoosesDefenders` into the `creature`
+`ChainEntryPayload` as `strikesBonus`/`prowessBonus`/
+`grantAttackerChoosesDefenders` — consumed in `chain-reducer.ts` the same
+way Summons from Long Sleep's (as-39) `prowessBonus` already is, and
+OR'd into the `resolveAttackerChoosesDefenders` call that already
+honours a creature's own `combat-attacker-chooses-defenders` effect.
+`keyingRegionTypes`/`keyingSiteTypes` (both optional) let the boosted
+creature additionally be keyed via those region/site types, on top of
+its own printed `keyedTo` — implemented as a synthetic extra
+`CreatureKeyRestriction` entry appended to `def.keyedTo` at both
+`findCreatureKeyingMatches` (`legal-actions/movement-hazard.ts`, the
+offer side) and `checkCreatureKeying` (`mh-hazard-play.ts`, the
+validation side), so the two can never disagree.
+
+If the target company's M/H phase ends with the constraint still
+unconsumed (no matching creature was ever played), `finalizeCompanyMH`
+returns the short event's own card instance from its owner's discard
+pile back to hand instead of just letting the constraint's
+`company-mh-phase` scope silently drop it — CRF ruling for Fell Beast
+(tw-33): "A Nazgûl must be played as the first declared action ... or
+else this card is returned to its player's hand."
+
+A companion **permanent** constraint kind, `nazgul-boost-used`
+(`until-cleared` scope, target the creature's owning player, payload
+`creatureDefinitionId`), marks a specific unique Nazgûl as having already
+received this boost — `hasNazgulBoostBeenUsed`/`markNazgulBoostUsed`
+(`engine/pending.ts`) gate both the keying grant and the bonus
+consumption, so "Cannot be duplicated on a given Nazgûl" holds even
+across the creature cycling through the discard pile and being replayed
+later in the game (an ordinary `duplication-limit` scope cannot express
+this, since the card providing the boost never stays in play).
+
+A card offering this Mode A pre-play boost may *also* carry an ordinary
+`modify-attack` (`fromHand: true`) Mode B for playing on an attack
+already in progress — see §10e-quater. The pre-existing "a short event
+whose only M/H-relevant effect is a from-hand `modify-attack` has no
+open M/H play" suppression (`legal-actions/movement-hazard.ts`) skips
+itself when the card also carries an `on-event self-enters-play` →
+`add-constraint` effect, so the two modes coexist without either
+starving the other. Used by Fell Beast (tw-33): "The number of strikes
+of one Nazgûl hazard creature is increased by one and its prowess is
+decreased by 2. Attacker chooses defending characters. Additionally,
+target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold
+[{S}]. Cannot be duplicated on a given Nazgûl." — paired with
+`{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+"strikesModifier": 1, "prowessModifier": -2,
+"grantAttackerChoosesDefenders": true, "when": { "enemy.race": "ringwraith" } }`
+for Mode B (CRF: "playable on an existing Nazgûl attack, but the extra
+playability this card provides would not apply" — the keying grant is
+Mode-A only) and `{ "type": "duplication-limit", "scope": "attack", "max": 1 }`.
+
 ### 25. `ahunt-attack`
 
 Declares that while this hazard long-event is in play, any company whose

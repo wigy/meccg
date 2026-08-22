@@ -233,6 +233,45 @@ export function constraintsOnCompany(
 }
 
 /**
+ * Fell Beast (tw-33): true when `creatureDefinitionId` (owned by `playerId`)
+ * already carries a `nazgul-boost-used` marker — "Cannot be duplicated on a
+ * given Nazgûl."
+ */
+export function hasNazgulBoostBeenUsed(
+  state: GameState,
+  playerId: PlayerId,
+  creatureDefinitionId: CardDefinitionId,
+): boolean {
+  return state.activeConstraints.some(
+    c => c.kind.type === 'nazgul-boost-used'
+      && c.target.kind === 'player'
+      && c.target.playerId === playerId
+      && c.kind.creatureDefinitionId === creatureDefinitionId,
+  );
+}
+
+/**
+ * Fell Beast (tw-33): permanently mark `creatureDefinitionId` (owned by
+ * `playerId`) as having received a Fell Beast boost, so no later Fell Beast
+ * can be duplicated on the same Nazgûl.
+ */
+export function markNazgulBoostUsed(
+  state: GameState,
+  source: CardInstanceId,
+  sourceDefinitionId: CardDefinitionId,
+  playerId: PlayerId,
+  creatureDefinitionId: CardDefinitionId,
+): GameState {
+  return addConstraint(state, {
+    source,
+    sourceDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'player', playerId },
+    kind: { type: 'nazgul-boost-used', creatureDefinitionId },
+  });
+}
+
+/**
  * True when the given company is currently shielded by a
  * `cancel-return-and-site-tap` constraint (Promptings of Wisdom wh-34,
  * Piercing All Shadows wh-47, Govern the Storms wh-45): hazard effects that

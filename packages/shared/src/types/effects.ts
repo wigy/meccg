@@ -2756,6 +2756,35 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * must have to use the granted shortcut (tapped as its cost).
    */
   readonly requiredSkill?: Skill;
+  /**
+   * For a `nazgul-boost-pending` constraint (Fell Beast tw-33): the strikes
+   * delta applied to the next matching hazard-creature card played against
+   * the target company (e.g. `1` for "increased by one").
+   */
+  readonly strikesModifier?: number;
+  /**
+   * For a `nazgul-boost-pending` constraint: the prowess delta applied to the
+   * next matching hazard-creature card played against the target company
+   * (e.g. `-2` for "decreased by 2").
+   */
+  readonly prowessModifier?: number;
+  /**
+   * For a `nazgul-boost-pending` constraint: when true, the boosted creature's
+   * resulting attack gets "attacker chooses defending characters".
+   */
+  readonly grantAttackerChoosesDefenders?: true;
+  /**
+   * For a `nazgul-boost-pending` constraint: region types the next matching
+   * creature may additionally be keyed to, on top of its own printed
+   * `keyedTo` (Fell Beast tw-33: "may also be played keyed to a Shadow-land").
+   */
+  readonly keyingRegionTypes?: readonly RegionType[];
+  /**
+   * For a `nazgul-boost-pending` constraint: site types the next matching
+   * creature may additionally be keyed to, on top of its own printed
+   * `keyedTo` (Fell Beast tw-33: "...or Shadow-hold").
+   */
+  readonly keyingSiteTypes?: readonly SiteType[];
 }
 
 /**
