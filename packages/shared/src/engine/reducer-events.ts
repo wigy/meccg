@@ -603,7 +603,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // visible state matches the player's expectation immediately.
   let workingState = state;
   if (action.targetScoutInstanceId) {
+    // A card may carry more than one `play-target` effect for mutually
+    // exclusive end-of-org modes (Anduin River tw-191 and the
+    // "mountain-crossing" family: a ranger-tap mode alongside a no-cost
+    // "alternatively" mode) — prefer whichever variant actually declares a
+    // character tap cost so the right one's cost is paid, falling back to
+    // the first play-target effect for the common single-variant case.
     const playTargetEff = def.effects?.find(
+      (e): e is import('../types/effects.js').PlayTargetEffect =>
+        e.type === 'play-target' && (e.cost?.tap === 'character' || e.cost?.tap === 'skilled-character-in-company'),
+    ) ?? def.effects?.find(
       (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target',
     );
     if (playTargetEff?.cost) {
@@ -2802,6 +2811,46 @@ function applyShortEventOnEntersPlay(
             continue;
           }
           kind = { type: 'hazard-limit-region-count', regionType, perCount, floor };
+          break;
+        }
+        case 'hazard-limit-region-name-match': {
+          // Anduin River (tw-191) and the "mountain-crossing" family's
+          // no-tap "alternatively" mode — mutually exclusive with the
+          // ranger-tap `region-adjacency-shortcut` mode below. The two
+          // on-event effects live on the same card; the action shape (which
+          // `endOfOrgEligibility`'s two play-target variants produce)
+          // decides which one actually fires: a tapped ranger carries
+          // `targetScoutInstanceId`, the no-tap mode carries only
+          // `targetCompanyId`.
+          if (action.type === 'play-short-event' && action.targetScoutInstanceId) {
+            logDetail(`add-constraint(hazard-limit-region-name-match): ranger was tapped instead — mode not selected, fizzle`);
+            continue;
+          }
+          const regionNames = onEvent.apply.regionNames;
+          const value = onEvent.apply.value;
+          const floor = onEvent.apply.floor;
+          if (!regionNames || regionNames.length === 0 || typeof value !== 'number' || typeof floor !== 'number') {
+            logDetail(`add-constraint(hazard-limit-region-name-match): missing regionNames, value, or floor — fizzle`);
+            continue;
+          }
+          kind = { type: 'hazard-limit-region-name-match', regionNames, value, floor };
+          break;
+        }
+        case 'region-adjacency-shortcut': {
+          // Anduin River (tw-191) and the "mountain-crossing" family's
+          // ranger-tap mode — mutually exclusive with the no-tap
+          // `hazard-limit-region-name-match` mode above; see that case for
+          // how the action shape picks the mode.
+          if (!(action.type === 'play-short-event' && action.targetScoutInstanceId)) {
+            logDetail(`add-constraint(region-adjacency-shortcut): no ranger tapped — mode not selected, fizzle`);
+            continue;
+          }
+          const pairs = onEvent.apply.regionPairs;
+          if (!pairs || pairs.length === 0) {
+            logDetail(`add-constraint(region-adjacency-shortcut): missing regionPairs — fizzle`);
+            continue;
+          }
+          kind = { type: 'region-adjacency-shortcut', pairs };
           break;
         }
         case 'region-shortcut': {

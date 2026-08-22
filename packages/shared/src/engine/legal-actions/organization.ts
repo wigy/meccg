@@ -2543,10 +2543,8 @@ export function endOfOrgEligibility(
   state: GameState,
   player: PlayerState,
   def: ResourceEventCard,
+  playTarget: PlayTargetEffect | undefined,
 ): EndOfOrgEligibility {
-  const playTarget: PlayTargetEffect | undefined = def.effects?.find(
-    (e): e is PlayTargetEffect => e.type === 'play-target',
-  );
   if (!playTarget) return { eligible: true, reason: '', eligibleTargets: [] };
   if (playTarget.target !== 'character' && playTarget.target !== 'company') {
     return { eligible: true, reason: '', eligibleTargets: [] };
@@ -2596,11 +2594,18 @@ export function endOfOrgEligibility(
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
       }
-      if (playTarget.cost?.tap === 'character') {
-        // Tap-cost: emit one action per untapped character (player chooses tapper).
+      if (playTarget.cost?.tap === 'character' || playTarget.cost?.tap === 'skilled-character-in-company') {
+        // Tap-cost: emit one action per untapped (optionally skill-matching)
+        // character (player chooses tapper).
+        const requiredSkill = playTarget.cost.tap === 'skilled-character-in-company' ? playTarget.cost.skill : undefined;
         for (const charInstId of company.characters) {
           const char = player.characters[charInstId];
           if (!char || char.status !== CardStatus.Untapped) continue;
+          if (requiredSkill) {
+            const charDef = defById(state, char.definitionId);
+            if (!charDef || !isCharacterCard(charDef)) continue;
+            if (!getEffectiveSkills(state, char, charDef as { skills?: readonly string[] }).includes(requiredSkill as Skill)) continue;
+          }
           eligibleTargets.push(charInstId);
         }
       } else {
@@ -2613,7 +2618,7 @@ export function endOfOrgEligibility(
     if (eligibleTargets.length === 0) {
       return {
         eligible: false,
-        reason: playTarget.cost?.tap === 'character'
+        reason: (playTarget.cost?.tap === 'character' || playTarget.cost?.tap === 'skilled-character-in-company')
           ? `${def.name} requires an untapped character in a company`
           : `${def.name} requires a company at the required location`,
         eligibleTargets: [],
@@ -2664,6 +2669,18 @@ export function endOfOrgEligibility(
  */
 export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | undefined {
   return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
+}
+
+/**
+ * Returns every `play-target` effect on the given resource event card. Most
+ * cards carry at most one; a card with two mutually-exclusive end-of-org
+ * modes (Anduin River tw-191 and the "mountain-crossing" family: a
+ * ranger-tap mode alongside a no-cost "alternatively" mode, the shape *The
+ * Cock Crows* tw-342 established for dual-mode short-events) carries one per
+ * mode. Used by the end-of-org emitter to offer actions for every mode.
+ */
+export function getPlayTargetEffects(def: ResourceEventCard): readonly PlayTargetEffect[] {
+  return (def.effects ?? []).filter((e): e is PlayTargetEffect => e.type === 'play-target');
 }
 
 /**
@@ -3499,83 +3516,118 @@ export function playResourceShortEventActions(
         continue;
       }
 
-      const eligibility = endOfOrgEligibility(state, player, def);
-      if (!eligibility.eligible) {
-        logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
-        actions.push(notPlayable(playerId, handCard.instanceId, eligibility.reason));
-        continue;
-      }
+      // Most end-of-org cards carry a single play-target effect. A card with
+      // two mutually-exclusive modes (Anduin River tw-191 and the
+      // "mountain-crossing" family: a ranger-tap mode alongside a no-cost
+      // "alternatively" mode) carries one play-target effect per mode — try
+      // each independently and union the resulting actions, so the player is
+      // offered every mode whose own eligibility is met.
+      const eoTargets = getPlayTargetEffects(def);
+      const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+      let anyModeEmitted = false;
+      let lastReason = '';
+      for (const eoTarget of eoTargets.length > 0 ? eoTargets : [undefined]) {
+        const eligibility = endOfOrgEligibility(state, player, def, eoTarget);
+        if (!eligibility.eligible) {
+          lastReason = eligibility.reason;
+          continue;
+        }
 
-      // If the card has a play-target with a tap cost (e.g. Stealth taps a
-      // scout), emit one play action per eligible target so the chosen
-      // target can be tapped when the action is reduced. Company-targeting
-      // without a tap cost (e.g. Great-road) emits one action per eligible
-      // company identified by targetCompanyId. Otherwise emit a single
-      // action with no target.
-      const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eligibility.eligibleTargets.length > 0
-        && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'character')) {
-        // Per-character actions carrying the chosen character as
-        // targetScoutInstanceId. This covers two cases:
-        //  - a tap-character cost (e.g. Stealth, Great Ship): the targeted
-        //    character is the tapper, applied at reduce time via the cost;
-        //  - a character target with no cost (e.g. Hide in Dark Places,
-        //    le-192): the target simply lets the self-enters-play constraint
-        //    resolve the scout's company.
-        for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
-          actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetScoutInstanceId: targetId,
-            },
-            viable: true,
-          });
-        }
-      } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
-        // Company target without tap cost: one action per eligible company.
-        // eligibleTargets[i] is the first character of the i-th eligible company,
-        // used here only to look up the company so we can emit targetCompanyId.
-        // duplication-limit: scope "company" — "Cannot be duplicated on the
-        // same company" (Fair Sailing tw-232). Mirrors the character-scope
-        // check below: a short event attaches nothing, but its rest-of-turn
-        // effect leaves a company-targeted active constraint marking the
-        // source definition. Skip any company that already bears one.
-        const companyDupLimit = findDuplicationLimitEffect(def, 'company');
-        for (const repCharId of eligibility.eligibleTargets) {
-          const company = findCharacterCompany(player.companies, repCharId);
-          if (!company) continue;
-          if (companyDupLimit) {
-            const copiesOnCompany = state.activeConstraints.filter(
-              c =>
-                constraintFromCard(state, c, def.id) &&
-                c.target.kind === 'company' &&
-                c.target.companyId === company.id,
-            ).length;
-            if (copiesOnCompany >= companyDupLimit.max) {
-              logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
-              continue;
+        // If the mode has a play-target with a tap cost (e.g. Stealth taps a
+        // scout), emit one play action per eligible target so the chosen
+        // target can be tapped when the action is reduced. Company-targeting
+        // without a tap cost (e.g. Great-road) emits one action per eligible
+        // company identified by targetCompanyId. Otherwise emit a single
+        // action with no target.
+        if (eoTarget && eligibility.eligibleTargets.length > 0
+          && (eoTarget.cost?.tap === 'character' || eoTarget.cost?.tap === 'skilled-character-in-company' || eoTarget.target === 'character')) {
+          // Per-character actions carrying the chosen character as
+          // targetScoutInstanceId. This covers two cases:
+          //  - a tap-character cost (e.g. Stealth, Great Ship, Anduin River's
+          //    ranger-tap mode): the targeted character is the tapper,
+          //    applied at reduce time via the cost;
+          //  - a character target with no cost (e.g. Hide in Dark Places,
+          //    le-192): the target simply lets the self-enters-play constraint
+          //    resolve the scout's company.
+          for (const targetId of eligibility.eligibleTargets) {
+            // duplication-limit: scope "company" — enforced per mode too, so a
+            // tap-cost mode sharing a company-scoped dup limit with a
+            // no-cost mode (Anduin River) is blocked once either has fired.
+            if (companyDupLimit) {
+              const targetCompany = findCharacterCompany(player.companies, targetId);
+              if (targetCompany) {
+                const copiesOnCompany = state.activeConstraints.filter(
+                  c =>
+                    constraintFromCard(state, c, def.id) &&
+                    c.target.kind === 'company' &&
+                    c.target.companyId === targetCompany.id,
+                ).length;
+                if (copiesOnCompany >= companyDupLimit.max) {
+                  logDetail(`${def.name}: cannot be duplicated on company ${targetCompany.id as string} (${copiesOnCompany} active constraint(s))`);
+                  continue;
+                }
+              }
             }
+            logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+              },
+              viable: true,
+            });
+            anyModeEmitted = true;
           }
-          logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+        } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
+          // Company target without tap cost: one action per eligible company.
+          // eligibleTargets[i] is the first character of the i-th eligible company,
+          // used here only to look up the company so we can emit targetCompanyId.
+          // duplication-limit: scope "company" — "Cannot be duplicated on the
+          // same company" (Fair Sailing tw-232). Mirrors the character-scope
+          // check above: a short event attaches nothing, but its rest-of-turn
+          // effect leaves a company-targeted active constraint marking the
+          // source definition. Skip any company that already bears one.
+          for (const repCharId of eligibility.eligibleTargets) {
+            const company = findCharacterCompany(player.companies, repCharId);
+            if (!company) continue;
+            if (companyDupLimit) {
+              const copiesOnCompany = state.activeConstraints.filter(
+                c =>
+                  constraintFromCard(state, c, def.id) &&
+                  c.target.kind === 'company' &&
+                  c.target.companyId === company.id,
+              ).length;
+              if (copiesOnCompany >= companyDupLimit.max) {
+                logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
+                continue;
+              }
+            }
+            logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetCompanyId: company.id,
+              },
+              viable: true,
+            });
+            anyModeEmitted = true;
+          }
+        } else if (!eoTarget || (eoTarget.target !== 'character' && eoTarget.target !== 'company')) {
+          logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetCompanyId: company.id,
-            },
+            action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
             viable: true,
           });
+          anyModeEmitted = true;
         }
-      } else {
-        logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
-        actions.push({
-          action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: true,
-        });
+      }
+      if (!anyModeEmitted) {
+        logDetail(`${def.name}: end-of-org card not eligible — ${lastReason}`);
+        actions.push(notPlayable(playerId, handCard.instanceId, lastReason || `${def.name} has no valid target`));
       }
       continue;
     }
