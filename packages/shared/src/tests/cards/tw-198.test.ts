@@ -141,6 +141,53 @@ describe('Bill the Pony (tw-198)', () => {
     expect(runHome.some(a => a.companyId === companyId && a.allyInstanceId === allyId)).toBe(true);
   });
 
+  test('run-home is NOT offered when the nearest haven is not available to the player', () => {
+    // Regression (heuristic self-play, seed 882002): the emitter offered
+    // run-home whenever the site *named* a nearest haven, but the reducer
+    // needs that haven to be reachable — in the location deck or already
+    // under a sibling company. A deck that simply does not carry the named
+    // haven got an offered-then-rejected action ("nearest haven not found
+    // in location deck"), which halts engine-driven play.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        // Moria's nearest haven is Lórien — p1's site deck holds only
+        // Minas Tirith and no sibling company stands at Lórien.
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withBill = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, BILL);
+
+    expect(viableActions(withBill, PLAYER_1, 'run-home')).toHaveLength(0);
+  });
+
+  test('run-home IS offered when a sibling company already stands at the nearest haven', () => {
+    // The reducer shares a haven already deployed under another of the
+    // player's companies — the emitter must keep offering that case even
+    // though the haven card is absent from the location deck.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: LORIEN, characters: [GIMLI] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withBill = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, BILL);
+
+    expect(viableActions(withBill, PLAYER_1, 'run-home').length).toBeGreaterThan(0);
+  });
+
   test('run-home is NOT offered when the company is at a Haven', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
