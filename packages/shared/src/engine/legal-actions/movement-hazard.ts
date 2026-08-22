@@ -11,7 +11,7 @@ import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffe
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, findRegionPaths, getReachableSites, withVirtualAdjacency } from '../../movement-map.js';
+import { buildMovementMap, findRegionPaths, getReachableSites, withExtraRegionAdjacency, withVirtualAdjacency } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
@@ -598,14 +598,27 @@ function revealNewSiteActions(
     if (outHeSprangAllowance === null) {
       regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
     }
+    // Anduin River (tw-191) and the "mountain-crossing" family: "tap the
+    // ranger to move as if the following pairs of regions were adjacent" —
+    // a region-adjacency-shortcut constraint on this company widens the
+    // graph pathfinding walks for its declared move ("if the company uses
+    // region cards for its site path"; a no-op if it ends up using starter
+    // or Under-deeps movement instead, since this branch is region-only).
+    const adjacencyShortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    let pathMovementMap = adjacencyShortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, adjacencyShortcutPairs)
+      : movementMap;
     // Ash Mountains (tw-194) and its "movement enhancer" family: a bound
     // region-shortcut constraint treats its named region pairs as extra
     // adjacency edges for path-finding, but only while the company still has
     // an untapped character carrying the required skill to pay the tap cost
     // — a superset of the plain graph, so this only ever adds paths.
-    const shortcutPairs = companyRegionShortcutPairs(state, player, company);
-    const pathfindingMap = shortcutPairs ? withVirtualAdjacency(movementMap, shortcutPairs) : movementMap;
-    const paths = findRegionPaths(pathfindingMap, originRegion, destRegion, regionCap);
+    const regionShortcutPairs = companyRegionShortcutPairs(state, player, company);
+    if (regionShortcutPairs) pathMovementMap = withVirtualAdjacency(pathMovementMap, regionShortcutPairs);
+    const paths = findRegionPaths(pathMovementMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {
       const lenDiff = a.length - b.length;

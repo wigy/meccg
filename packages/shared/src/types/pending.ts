@@ -1878,6 +1878,51 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Fair Sailing's named-region sibling: Anduin River (tw-191) and the
+         * "mountain-crossing" family (Ash Mountains tw-194, Misty Mountains
+         * tw-284, Mountains of Shadow tw-287, White Mountains tw-359) — "if the
+         * site moved to is in one of the regions listed above, the hazard limit
+         * is reduced by two (to a minimum of two)". Unlike
+         * `hazard-limit-region-count` (counts a region *type* across the whole
+         * path), this fires **once** — a flat {@link value} — when the
+         * company's final destination region *name* (last entry of the resolved
+         * site path, or the destination site's region for starter movement) is
+         * among {@link regionNames}. Read directly from `snapshotHazardLimit`
+         * (mh-steps.ts) once the destination is known, mirroring
+         * `hazard-limit-region-count`'s deferred-check timing. Added by the
+         * card's no-tap ("alternatively") mode — mutually exclusive with
+         * `region-adjacency-shortcut`, added by its ranger-tap mode.
+         */
+        readonly type: 'hazard-limit-region-name-match';
+        /** Region names that trigger the reduction when the company's destination lies within one. */
+        readonly regionNames: readonly string[];
+        /** The hazard-limit adjustment applied once when matched (negative to decrease). */
+        readonly value: number;
+        /** Floor the hazard limit is never reduced below by this constraint. */
+        readonly floor: number;
+      }
+    | {
+        /**
+         * Anduin River (tw-191) and the "mountain-crossing" family's ranger-tap
+         * mode: "tap the ranger to move [this company] as if the following
+         * pairs of regions were adjacent". Turn-scoped and company-targeted,
+         * added when the card is played by tapping an untapped ranger in the
+         * target company. Consulted at both the organization-phase
+         * plan-movement pass and the Movement/Hazard declare-path
+         * (`withExtraRegionAdjacency`, movement-map.ts) — mirroring
+         * `evilHourRegionBonus`'s dual-consult pattern — so the extra
+         * adjacency widens which sites are reachable via region movement and
+         * which region-card paths are offered to reach an already-declared
+         * destination. A no-op for a company that ultimately uses starter or
+         * Under-deeps movement instead ("if the company uses region cards for
+         * its site path").
+         */
+        readonly type: 'region-adjacency-shortcut';
+        /** Bidirectional region-name pairs treated as adjacent for this company's region movement. */
+        readonly pairs: readonly (readonly [string, string])[];
+      }
+    | {
+        /**
          * Ash Mountains (tw-194) and its "movement enhancer" family: an
          * end-of-organization-phase resource short-event bound to a company
          * containing a ranger. While active, `declare-path` region-movement

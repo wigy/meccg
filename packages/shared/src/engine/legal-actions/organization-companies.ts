@@ -22,7 +22,7 @@ import type {
   Alignment as AlignmentType,
 } from '../../index.js';
 import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, getReachableSites } from '../../movement-map.js';
+import { buildMovementMap, getReachableSites, withExtraRegionAdjacency } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
 import { SiteType, Race, RegionType } from '../../types/common.js';
@@ -790,9 +790,24 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     const evilHour = company.evilHourMovementBonus === true;
     const originHasOpp = evilHour && siteHasOpponentCompany(state, playerId, currentSiteDef.name);
     const planMax = originHasOpp ? effectiveMaxRegions + 2 : effectiveMaxRegions;
-    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, planMax);
+    // Anduin River (tw-191) and the "mountain-crossing" family: a
+    // region-adjacency-shortcut constraint on this company (from tapping a
+    // ranger to play the card) widens which region pairs count as adjacent,
+    // so a destination reachable only via the shortcut appears here too.
+    // Must be consulted here — plan-movement never re-runs once a
+    // destination is declared (see the early-continue above) — so this is
+    // the only chance for the shortcut to affect which sites this company
+    // may newly declare movement to.
+    const shortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    const companyMovementMap = shortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, shortcutPairs)
+      : movementMap;
+    let reachable = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, planMax);
     if (evilHour && !originHasOpp) {
-      const extended = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
+      const extended = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
       const seenExt = new Set(reachable.map(r => `${r.site.name}:${r.movementType}`));
       for (const r of extended) {
         if (r.movementType !== 'region') continue;
