@@ -123,6 +123,7 @@ function buildComputeExposure(
       const mh = view.phaseState as unknown as {
         hazardLimitAtReveal?: number;
         preRevealHazardLimitConstraintIds?: readonly string[];
+        resolvedSitePath?: readonly RegionType[];
       };
       if (typeof mh.hazardLimitAtReveal !== 'number') return null;
       return effectiveHazardLimit(
@@ -130,6 +131,7 @@ function buildComputeExposure(
         mh.hazardLimitAtReveal,
         mh.preRevealHazardLimitConstraintIds ?? [],
         companyId,
+        mh.resolvedSitePath ?? [],
       );
     },
 

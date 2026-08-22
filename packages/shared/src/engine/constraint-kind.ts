@@ -283,6 +283,27 @@ export function buildConstraintKind(
       if (!race) return null;
       return { type: 'only-race-creatures-on-company', race };
     }
+    case 'hazard-limit-modifier': {
+      const value = (onEvent.apply as { value?: number }).value;
+      if (typeof value !== 'number') return null;
+      return { type: 'hazard-limit-modifier', value };
+    }
+    case 'hazard-limit-region-count': {
+      // Lost in Border-lands (tw-51/le-118) and its "Lost in X" siblings: a
+      // hazard-event short event ("its hazard limit increases by one for
+      // every <region type> in its site path"), unlike Fair Sailing
+      // (tw-232, a resource short event routed through
+      // `applyShortEventOnEntersPlay` in reducer-events.ts). Hazard short
+      // events resolve through the chain's generic self-enters-play
+      // add-constraint path (`applyAddConstraintFromOnEvent`), which builds
+      // its constraint kind here — so this kind needs its own case in this
+      // builder even though the constraint itself (and its consumption in
+      // `snapshotHazardLimit`/`effectiveHazardLimit`) is shared.
+      const apply = onEvent.apply as { regionType?: import('../types/common.js').RegionType; value?: number; floor?: number };
+      const { regionType, value: perCount, floor } = apply;
+      if (!regionType || typeof perCount !== 'number' || typeof floor !== 'number') return null;
+      return { type: 'hazard-limit-region-count', regionType, perCount, floor };
+    }
     case 'granted-action': {
       const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;
       if (!payload) return null;
