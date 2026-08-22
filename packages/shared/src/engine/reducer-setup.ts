@@ -594,15 +594,27 @@ function handleItemDraft(
     const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
     newItemDraftState[playerIndex] = { unassignedItems: [], done: true };
 
+    // Rule 1.9: unused pool items are "removed from the game" — sink them to
+    // the out-of-play pile. Clearing the phase-state array alone would leave
+    // the instances unreachable (no-card-disappears invariant).
+    let stateAfterPass = state;
+    if (itemDraft.unassignedItems.length > 0) {
+      logDetail(`Item draft: player ${playerIndex} passes — ${itemDraft.unassignedItems.length} unused pool item(s) removed from the game`);
+      stateAfterPass = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        outOfPlayPile: [...p.outOfPlayPile, ...itemDraft.unassignedItems],
+      }));
+    }
+
     if (newItemDraftState[0].done && newItemDraftState[1].done) {
       return {
-        state: transitionAfterItemDraft(state, stepState.remainingPool),
+        state: transitionAfterItemDraft(stateAfterPass, stepState.remainingPool),
       };
     }
 
     return {
       state: {
-        ...state,
+        ...stateAfterPass,
         phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
       },
     };
@@ -815,14 +827,28 @@ function handleCharacterDeckDraft(
     const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
     newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
 
+    // Rule 1.9: undrafted pool characters are "removed from the game" — sink
+    // them to the out-of-play pile. Clearing the phase-state array alone would
+    // leave the instances unreachable (no-card-disappears invariant); the
+    // Fallen-wizard Stage-resource rescue in init.ts already does this for its
+    // own card class for exactly that reason.
+    let stateAfterPass = state;
+    if (deckDraft.remainingPool.length > 0) {
+      logDetail(`Character deck draft: player ${playerIndex} passes — ${deckDraft.remainingPool.length} undrafted pool character(s) removed from the game`);
+      stateAfterPass = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        outOfPlayPile: [...p.outOfPlayPile, ...deckDraft.remainingPool],
+      }));
+    }
+
     // Both done → enter site selection
     if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
-      return { state: enterSiteSelection(state) };
+      return { state: enterSiteSelection(stateAfterPass) };
     }
 
     return {
       state: {
-        ...state,
+        ...stateAfterPass,
         phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
       },
     };

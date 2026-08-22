@@ -1504,8 +1504,20 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "scout",
+        "when": {
+          "enemy.race": {
+            "$in": ["orc", "troll", "man", "elf", "slayer", "awakened-plant", "giant"]
+          }
+        },
+        "roll": { "threshold": 5, "comparison": "gt" }
+      }
+    ],
+    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",

@@ -216,4 +216,31 @@ describe('Foul Fumes (tw-36)', () => {
     );
     expect(blocked?.reason ?? '').toMatch(/duplicat/i);
   });
+
+  test('cannot be played against a BALROG opponent — "minion player" covers both minion alignments', () => {
+    // "This card has no effect on a minion player": minion player = Ringwraith
+    // OR Balrog. The declared unplayable-when previously matched only
+    // "ringwraith", silently letting the card be played against a Balrog.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Balrog, companies: [{ site: MORIA, characters: [DWAR] }], hand: [], siteDeck: [MOUNT_DOOM] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [FOUL_FUMES], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...built, phaseState: makeMHState() };
+    const foulFumesHandId = state.players[HAZARD_PLAYER].hand[0].instanceId;
+
+    const viablePlays = viableActions(state, PLAYER_2, 'play-hazard')
+      .filter(ea => (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === foulFumesHandId);
+    expect(viablePlays).toHaveLength(0);
+
+    // The declared restriction replaces the play with a not-playable entry.
+    const blocked = computeLegalActions(state, PLAYER_2).find(
+      ea => !ea.viable && ea.action.type === 'not-playable'
+        && (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === foulFumesHandId,
+    );
+    expect(blocked?.reason ?? '').toMatch(/minion player/i);
+  });
 });

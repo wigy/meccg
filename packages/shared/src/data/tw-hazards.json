@@ -677,9 +677,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       },
       {
         "type": "force-return-to-origin",

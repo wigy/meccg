@@ -39,7 +39,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -2894,6 +2894,10 @@ export function buildPlayOptionContext(
   // The One Ring via `{ "target.itemNames": { "$includes": "The One Ring" } }`).
   const itemNames = defNamesOf(state, char.items);
   const allyNames = defNamesOf(state, char.allies);
+  // Combined keywords of every item the character bears, so play-target
+  // filters can gate on bearing an item of a given kind without naming it
+  // (Use Palantír tw-355: `{ "target.itemKeywords": { "$includes": "palantir" } }`).
+  const itemKeywords = itemKeywordsOf(state, char.items);
 
   return {
     target: {
@@ -2908,6 +2912,7 @@ export function buildPlayOptionContext(
       isInfluencing,
       itemNames,
       allyNames,
+      itemKeywords,
       // Races of attacks that wounded this character so far this turn (Pale
       // Dream-maker dm-78, Endless Whispers dm-54: "Playable on a non-Wizard
       // character wounded by an Undead attack this turn").
@@ -3991,6 +3996,34 @@ export function playResourceShortEventActions(
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
+      } else if (playTarget.itemFilter) {
+        // Use Palantír (tw-355): "enable him to use one Palantír he bears" —
+        // cross each eligible sage with the item(s) on him matching
+        // itemFilter, emitting targetItemInstanceId so the player picks
+        // which one when he bears more than one.
+        let anyOffered = false;
+        for (const targetId of tapTargets) {
+          const targetChar = player.characters[targetId];
+          const itemIds = targetChar ? itemsMatchingFilter(state, targetChar.items, playTarget.itemFilter) : [];
+          for (const itemId of itemIds) {
+            logDetail(`Resource short-event playable (sage ${String(targetId)}, item ${String(itemId)}): ${def.name}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+                targetItemInstanceId: itemId,
+              },
+              viable: true,
+            });
+            anyOffered = true;
+          }
+        }
+        if (!anyOffered) {
+          logDetail(`${def.name}: no eligible (sage × item) pair — not playable`);
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage bearing a matching item`));
+        }
       } else if (crossesGoldRing) {
         // Cross sage targets with gold rings in each sage's company.
         let anyOffered = false;
