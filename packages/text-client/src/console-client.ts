@@ -34,7 +34,7 @@ import {
   stripCardMarkers,
   STATE_DIVIDER,
 } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted } from '@meccg/sim';
+import { loadAiStrategy, pickBest } from '@meccg/sim';
 import type { AiStrategy } from '@meccg/sim';
 import { ClientLog } from './client-log.js';
 import { loadDeckJoin, listCatalogDecks, parseServerMessage } from './client-common.js';
@@ -192,22 +192,25 @@ function connect(): void {
           [msg.view.opponent.id as string]: msg.view.opponent.name,
         };
 
-        // AI mode: compute weights, display probabilities, sample and send
+        // AI mode: compute weights, display them, pick the best and send.
         if (aiStrategy && lastLegalActions.length > 0) {
           const weighted = aiStrategy.weighActions({ view: msg.view, cardPool, legalActions: lastLegalActions });
-          const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
 
-          // Display probabilities
+          // Display the strategy's raw scores (a preference ordering, not a
+          // probability distribution — see pickBest).
           console.log(`AI (${aiStrategy.name}) thinking:`);
           for (let i = 0; i < weighted.length; i++) {
-            const pct = totalWeight > 0 ? (weighted[i].weight / totalWeight * 100).toFixed(0) : '0';
             const desc = describeAction(weighted[i].action, cardPool, instances, compNames, playerNames);
-            console.log(`  [${i + 1}] ${pct}% ${desc}`);
+            console.log(`  [${i + 1}] score ${weighted[i].weight.toFixed(2)} ${desc}`);
           }
 
           setTimeout(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN || !aiStrategy || lastLegalActions.length === 0) return;
-            const action = sampleWeighted(weighted);
+            // Play the strategy's argmax (pickBest), matching ai-client and the
+            // sim self-play harness. The weights are a preference ordering, not
+            // a distribution — sampling them plays clearly-worse moves a large
+            // fraction of the time (a documented ~47-Elo regression).
+            const action = pickBest(weighted);
             const desc = describeAction(action, cardPool, instances, compNames, playerNames);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
             clientLog.log('msg-out', { msgType: 'action', action });
