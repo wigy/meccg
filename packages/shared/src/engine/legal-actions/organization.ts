@@ -2570,6 +2570,16 @@ export function endOfOrgEligibility(
         const siteType = siteDef && 'siteType' in siteDef
           ? (siteDef as { siteType: string }).siteType
           : '';
+        // Ash Mountains (tw-194) and its "movement enhancer" family: "on a
+        // company containing a ranger" — the union of every company member's
+        // effective skills, so `{ "company.skills": { "$includes": "ranger" } }`
+        // matches regardless of which character carries it.
+        const companySkills = company.characters.flatMap(cId => {
+          const ch = player.characters[cId];
+          if (!ch) return [];
+          const cDef = defById(state, ch.definitionId);
+          return cDef && isCharacterCard(cDef) ? getEffectiveSkills(state, ch, cDef) : [];
+        });
         const companyFilterCtx = {
           company: {
             atHaven: siteType === 'haven',
@@ -2581,6 +2591,7 @@ export function endOfOrgEligibility(
             // entrance named in some Under-deeps site's `adjacentSites` map.
             atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
             siteUntapped: company.currentSite?.status === CardStatus.Untapped,
+            skills: companySkills,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;

@@ -2643,6 +2643,25 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'hazard-limit-region-count', regionType, perCount, floor };
           break;
         }
+        case 'region-shortcut': {
+          const pairs = onEvent.apply.pairs;
+          const requiredSkill = onEvent.apply.requiredSkill;
+          const hazardValue = onEvent.apply.value;
+          const hazardFloor = onEvent.apply.floor;
+          if (!pairs || pairs.length === 0 || !requiredSkill || typeof hazardValue !== 'number' || typeof hazardFloor !== 'number') {
+            logDetail(`add-constraint(region-shortcut): missing pairs, requiredSkill, value, or floor — fizzle`);
+            continue;
+          }
+          const { race, strikes, prowess } = onEvent.apply;
+          kind = {
+            type: 'region-shortcut',
+            pairs,
+            requiredSkill,
+            ...(race && typeof strikes === 'number' && typeof prowess === 'number' ? { attack: { race, strikes, prowess } } : {}),
+            hazardLimitReduction: { value: hazardValue, floor: hazardFloor },
+          };
+          break;
+        }
         case 'granted-action': {
           const payload = onEvent.apply.grantedAction;
           if (!payload) {

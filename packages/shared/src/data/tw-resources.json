@@ -2311,8 +2311,49 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Dagorlad and Gorgoroth, Horse Plains and Gorgoroth. The company faces an attack at the beginning of its movement/hazard phase: Orcs — 4 strikes with 8 prowess.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by 2 (to a minimum of 2). Cannot be duplicated on a given company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.skills": {
+            "$includes": "ranger"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-shortcut",
+          "scope": "turn",
+          "pairs": [
+            ["Dagorlad", "Gorgoroth"],
+            ["Horse Plains", "Gorgoroth"]
+          ],
+          "requiredSkill": "ranger",
+          "race": "orc",
+          "strikes": 4,
+          "prowess": 8,
+          "value": -2,
+          "floor": 2
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Dagorlad and Gorgoroth, Horse Plains and Gorgoroth. The company faces an attack at the beginning of its movement/hazard phase: Orcs — 4 strikes with 8 prowess.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by 2 (to a minimum of 2). Cannot be duplicated on a given company.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-ally",
