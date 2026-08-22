@@ -279,7 +279,16 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
  * - Minion/Balrog: non-starred creatures → out-of-play
  */
 export function applyRule8_22AfterTrophyDecision(state: GameState, combat: CombatState): GameState {
-  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
+  // hunt-attack (The Hunt dm-143) and long-dark-reach-attack (dm-70) also
+  // route a defeated creature into the defender's kill pile, but
+  // attackSourceCreatureInstanceId returns null for them — include their
+  // creature id so 8.22's starred/alignment routing runs (a starred creature
+  // must not score kill-MP for a hero/FW defender, nor a non-starred one for a
+  // minion/Balrog defender). great-hunt-attack is excluded: it never moves a
+  // creature into the kill pile (reveal-in-place).
+  const src = combat.attackSource;
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat)
+    ?? ((src.type === 'hunt-attack' || src.type === 'long-dark-reach-attack') ? src.creatureInstanceId : null);
   if (!creatureInstanceId || combat.detainment) return state;
 
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
