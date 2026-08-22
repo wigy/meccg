@@ -334,4 +334,60 @@ describe('dm-15 — The Grimburgoth', () => {
     const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
     expect(attackActions).toHaveLength(0);
   });
+
+  test('agent tap-attack against a Ringwraith company is detainment (rule 3.II.2.R3)', () => {
+    // Regression: the M/H agent-attack builders hard-coded detainment: false;
+    // the site-phase declare-agent-attack path computes it from the defending
+    // player's alignment. A Ringwraith (or Balrog) player treats agent hazard
+    // attacks against their companies as detainment.
+    const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
+    const CARN_DUM = 'le-359' as CardDefinitionId;
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN], destinationSite: DOL_GULDUR }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: AGENT_CHAR,
+      revealed: true,
+      siteStack: [DOL_GULDUR_SITE],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+
+    const withAgent = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], agents: [agent] },
+      ] as unknown as typeof state.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 5, hazardsPlayedThisCompany: 0, destinationSiteName: 'Dol Guldur' }),
+    };
+
+    const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
+    expect(attackActions.length).toBe(1);
+    const after = dispatch(withAgent, attackActions[0].action);
+
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.detainment).toBe(true);
+  });
 });
