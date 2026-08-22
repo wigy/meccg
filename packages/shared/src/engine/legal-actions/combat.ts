@@ -2545,6 +2545,16 @@ function cancelAttackActions(
       heroCompany = atkAlignment === Alignment.Wizard || atkAlignment === Alignment.FallenWizard;
     }
     attackCtx['heroCompany'] = heroCompany;
+    // `attack.minionCompany` is true only for a CvCC combat whose attacking
+    // company belongs to a Ringwraith (minion) player — the counterpart of
+    // `attack.heroCompany` above. Backs All the Bells Ringing (as-44): "if a
+    // minion company attacks" a hero company at a Free-hold/Border-hold.
+    let minionCompany = false;
+    if (combat.isCvCC) {
+      const atkAlignment = playerById(state, combat.attackingPlayerId)?.alignment;
+      minionCompany = atkAlignment === Alignment.Ringwraith;
+    }
+    attackCtx['minionCompany'] = minionCompany;
     // Whether the defending company is at, or moving to or from, an Under-deeps
     // site. Backs Great Fissure (ba-61): "cancel an attack against a company at,
     // or moving to or from, an Under-deeps site."

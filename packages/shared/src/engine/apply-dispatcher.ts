@@ -27,7 +27,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
-import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './combat-cancel.js';
+import { resolveCancelAttackEntry, resolveChainStrikeModifier, triggerBellsRingingReface } from './combat-cancel.js';
 import { addConstraint } from './pending.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
@@ -90,6 +90,11 @@ export function applyEffect(
     // Five Firtrees dm-129).
     const defendingPlayerId = state.combat?.defendingPlayerId;
     const defendingCompanyId = state.combat?.companyId;
+    // Attacking side of a CvCC combat — needed by All the Bells Ringing
+    // (as-44) to identify the minion company that must re-face the site's
+    // automatic-attacks after its attack is canceled.
+    const attackingPlayerId = state.combat?.attackingPlayerId;
+    const attackSource = state.combat?.attackSource;
     let next = resolveCancelAttackEntry(state);
     if (effect.alsoCancelLaterAttack && defendingPlayerId) {
       const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
@@ -147,6 +152,12 @@ export function applyEffect(
         });
         logDetail(`applyEffect: cancel-attack added a +${effect.influenceAtSiteModifier} influence-at-site-modifier for site ${siteDefId as string}, rest of turn (source: ${sourceDefinitionId as string})`);
       }
+    }
+    // All the Bells Ringing (as-44): the (minion) attacking company must
+    // re-face all of the site's automatic-attacks, forced normal (not
+    // detainment), before it may declare the CvCC attack again.
+    if (effect.forceSiteAutoAttacksNormalReface && attackingPlayerId && attackSource?.type === 'company-attack') {
+      next = triggerBellsRingingReface(next, attackingPlayerId, attackSource.attackingCompanyId);
     }
     return { state: next };
   }

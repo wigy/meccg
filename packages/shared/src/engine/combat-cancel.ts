@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction, PlayerState } from '../index.js';
+import type { GameState, CombatState, GameAction, PlayerState, PlayerId, CompanyId } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -25,7 +25,7 @@ import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
-import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
@@ -34,6 +34,8 @@ import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalize
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
+import { getActiveAutoAttacks } from './manifestations.js';
+import { buildSiteRepeatedAttackCombat } from './site-repeated-attack.js';
 
 /**
  * Handle cancel-attack sourced from an in-play ally (e.g. The Warg-king's
@@ -811,6 +813,64 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   // A Traitor attack queued mid-combat still fires after the cancellation
   // (no-op while a follow-up combat, e.g. a multi-attack card, is active).
   return initiateQueuedTraitorAttack(stateWithCancelledPlayers);
+}
+
+/**
+ * All the Bells Ringing (as-44): after canceling a minion company's declared
+ * CvCC attack against a hero company at a Free-hold or Border-hold, the
+ * minion company must face all of the site's automatic-attacks again — this
+ * time attacking normally, not as detainment — before it may declare the CvCC
+ * attack again. Called from {@link applyEffect}'s `cancel-attack` branch
+ * (`apply-dispatcher.ts`) right after {@link resolveCancelAttackEntry} has
+ * cleared the combat, using the attacking player/company captured from the
+ * combat state before it was cleared.
+ *
+ * Mirrors the Troll-purse (dm-95) re-face sequencing
+ * (`'troll-purse-attacks'`/`handleSiteTrollPurseAttacks` in `reducer-site.ts`)
+ * but forces every re-faced attack normal via
+ * {@link buildSiteRepeatedAttackCombat}'s `forceNormalOverride`, and — once
+ * all of the site's automatic-attacks have been re-faced (or immediately, if
+ * the site has none) — returns control to `'declare-company-attack'` with
+ * `opponentInteractionThisTurn` reset to `null`, rather than to
+ * `'play-resources'`.
+ *
+ * No-op (state returned unchanged) unless the site phase is exactly where
+ * this reface expects it — at `'declare-company-attack'` for the attacking
+ * player's active company — which always holds true here since a CvCC combat
+ * (and so its cancellation) is only ever created from that step.
+ */
+export function triggerBellsRingingReface(
+  state: GameState,
+  attackingPlayerId: PlayerId,
+  attackingCompanyId: CompanyId,
+): GameState {
+  if (state.phaseState.phase !== Phase.Site) return state;
+  const siteState = state.phaseState;
+  if (siteState.step !== 'declare-company-attack') return state;
+
+  const attackingPlayerIndex = getPlayerIndex(state, attackingPlayerId);
+  const company = state.players[attackingPlayerIndex].companies[siteState.activeCompanyIndex];
+  if (!company || company.id !== attackingCompanyId || !company.currentSite) return state;
+
+  const siteDef = companySiteDef(state, company);
+  if (!siteDef) return state;
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
+
+  if (autoAttacks.length === 0) {
+    logDetail('All the Bells Ringing: site has no automatic-attacks to re-face — minion company may declare the CvCC attack again immediately');
+    return { ...state, phaseState: { ...siteState, opponentInteractionThisTurn: null } };
+  }
+
+  logDetail(`All the Bells Ringing: minion company must re-face ${autoAttacks.length} site automatic-attack(s), forced normal (not detainment)`);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef, autoAttacks[0], 0, {
+    prowessBonus: 0,
+    forceNormalOverride: true,
+  });
+  return {
+    ...state,
+    combat,
+    phaseState: { ...siteState, step: 'bells-ringing-attacks' as const, bellsRingingReface: { resolved: 1 } },
+  };
 }
 
 /**
