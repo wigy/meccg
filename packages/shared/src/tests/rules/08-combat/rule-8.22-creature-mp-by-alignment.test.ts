@@ -28,6 +28,7 @@ import {
   findCharInstanceId, companyIdAt, makeShadowMHState, mint,
 } from '../../test-helpers.js';
 import type { CombatState } from '../../../index.js';
+import { applyRule8_22AfterTrophyDecision } from '../../../engine/combat-finalize.js';
 
 // Sons of Kings: starred (mp=2*), race=dúnedain — worth MP only to minion players
 const SONS_OF_KINGS = 'le-91' as CardDefinitionId;
@@ -153,6 +154,79 @@ describe('Rule 8.22 — Creature MP by Player Alignment', () => {
       expect(after.combat).toBeNull();
       expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
       expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    }
+  });
+
+  // Regression: hunt-attack (The Hunt dm-143) and long-dark-reach-attack
+  // (dm-70) route a defeated creature into the defender's kill pile, but
+  // attackSourceCreatureInstanceId returned null for them, so 8.22's
+  // starred/alignment routing never ran — a hero/FW defender kept kill-MP for
+  // a starred creature (and a minion/Balrog for a non-starred one).
+  test('8.22 also routes creatures defeated via hunt-attack and long-dark-reach-attack', () => {
+    const SONS_OF_KINGS = 'le-91' as CardDefinitionId; // starred (2*)
+    const HOBGOBLINS_DEF = HOBGOBLINS; // non-starred
+
+    // Build a hero defender whose kill pile already holds the defeated creature
+    // (the state finalizeCombat produces before 8.22 runs), and apply 8.22.
+    const buildAndApply = (
+      sourceType: 'hunt-attack' | 'long-dark-reach-attack',
+      creatureDef: CardDefinitionId,
+      defenderAlignment: Alignment,
+    ) => {
+      const base = buildTestState({
+        phase: Phase.MovementHazard,
+        activePlayer: PLAYER_1,
+        recompute: true,
+        players: [
+          { id: PLAYER_1, alignment: defenderAlignment, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [LORIEN] },
+          { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [LORIEN] },
+        ],
+      });
+      const creatureInstanceId = mint();
+      const companyId = companyIdAt(base, RESOURCE_PLAYER);
+      const stateWithKill = {
+        ...base,
+        players: base.players.map((p, i) =>
+          i === RESOURCE_PLAYER
+            ? { ...p, killPile: [...p.killPile, { instanceId: creatureInstanceId, definitionId: creatureDef }] }
+            : p,
+        ) as unknown as typeof base.players,
+      };
+      const combat: CombatState = {
+        attackSource: { type: sourceType, creatureInstanceId } as CombatState['attackSource'],
+        companyId,
+        defendingPlayerId: PLAYER_1,
+        attackingPlayerId: PLAYER_2,
+        strikesTotal: 1,
+        strikeProwess: 3,
+        creatureBody: null,
+        creatureRace: Race.Orc,
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+        phase: 'resolve-strike',
+        assignmentPhase: 'done',
+        bodyCheckTarget: null,
+        detainment: false,
+      };
+      return { creatureInstanceId, after: applyRule8_22AfterTrophyDecision(stateWithKill, combat) };
+    };
+
+    // Hunt-attack, hero defender, STARRED creature → removed from play (no kill-MP).
+    {
+      const { creatureInstanceId, after } = buildAndApply('hunt-attack', SONS_OF_KINGS, Alignment.Wizard);
+      expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+      expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    }
+    // Long-dark-reach, minion defender, NON-starred creature → removed from play.
+    {
+      const { creatureInstanceId, after } = buildAndApply('long-dark-reach-attack', HOBGOBLINS_DEF, Alignment.Ringwraith);
+      expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+      expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    }
+    // Control: hunt-attack, hero defender, NON-starred creature → stays in kill pile.
+    {
+      const { creatureInstanceId, after } = buildAndApply('hunt-attack', HOBGOBLINS_DEF, Alignment.Wizard);
+      expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
     }
   });
 });

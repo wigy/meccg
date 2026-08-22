@@ -49,7 +49,8 @@ import {
 import {
   Phase, RegionType, SiteType,
 } from '../../index.js';
-import type { CardDefinitionId, GameState, CardInstanceId } from '../../index.js';
+import type { CardDefinitionId, GameState, CardInstanceId, MovementHazardPhaseState } from '../../index.js';
+import { addConstraint } from '../../engine/pending.js';
 
 const CARRION_FEEDERS = 'ba-11' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId; // hero warrior, prowess 6, body 7
@@ -237,6 +238,43 @@ describe('Carrion Feeders (ba-11)', () => {
 
     expect(ended.combat).toBeNull();
     expect(ended.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureId)).toBe(true);
+  });
+
+  test('cancel-by-tap full cancel sweeps attack-scoped constraints and records the faced attack', () => {
+    // Regression: the full-cancel exits of handleCancelByTap set combat to
+    // null without the attack-end housekeeping every other combat-ending path
+    // runs (finalizeCombat, resolveCancelAttackEntry) — attack-scoped
+    // constraints leaked into every later check and the entire next combat
+    // (`scope: { kind: 'attack' }` is removed only by an attack-end sweep),
+    // and the company was never recorded as having faced the canceled attack
+    // (CoE 3.i.1 / CRF 22 Annotation 14).
+    const state = setup([ARAGORN, GIMLI, LEGOLAS], { [LEGOLAS]: CardStatus.Inverted });
+    const after = play(state);
+    expect(after.combat).not.toBeNull();
+
+    const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(after, RESOURCE_PLAYER, LEGOLAS);
+
+    // An attack-scoped stat boost, as a company-combat-boost short event
+    // played against this attack would install on a company character.
+    const boosted = addConstraint(after, {
+      source: 'boost-1' as CardInstanceId,
+      sourceDefinitionId: 'tw-121' as CardDefinitionId,
+      scope: { kind: 'attack' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'character-stat-modifier', stat: 'prowess', value: 2, characterId: aragornId },
+    });
+
+    const ended = dispatch(boosted, {
+      type: 'cancel-by-tap', player: PLAYER_1,
+      characterId: aragornId, strikeCharacterId: legolasId,
+    });
+
+    expect(ended.combat).toBeNull();
+    // The attack-end sweep removed the attack-scoped constraint.
+    expect(ended.activeConstraints.some(c => c.scope.kind === 'attack')).toBe(false);
+    // The company still "faced" the canceled attack.
+    expect((ended.phaseState as MovementHazardPhaseState).hazardsEncountered).toContain('Carrion Feeders');
   });
 
   // ── Rule 2: +1 to the body check from a successful strike ──────────────────

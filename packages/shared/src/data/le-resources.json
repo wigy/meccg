@@ -1349,6 +1349,11 @@
     "certified": "2026-06-03",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "deck-restriction",
         "rule": "excluded-from-deck",
         "when": {

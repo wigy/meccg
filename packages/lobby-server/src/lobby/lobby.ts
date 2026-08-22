@@ -315,8 +315,16 @@ export function playerConnected(name: string, ws: WebSocket): void {
   // If already connected (e.g. page refresh), update the WS but preserve game state
   const existing = onlinePlayers.get(name);
   if (existing) {
-    existing.ws.close();
+    // Point the entry at the new socket BEFORE closing the old one. The old
+    // socket's 'close' handler guards on `current.ws === ws(old)` before
+    // removing the player; if `close()` were to fire that handler
+    // synchronously (an already-closing socket) while `existing.ws` still
+    // held the old socket, the reconnecting player would be deleted from
+    // presence. Reassigning first makes the guard fail for the old socket
+    // regardless of when its close event fires.
+    const oldWs = existing.ws;
     existing.ws = ws;
+    oldWs.close();
   }
 
   // A fresh connection may belong to a player whose game server is still

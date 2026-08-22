@@ -37,7 +37,10 @@ import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstance
 
 const CHOKING_SHADOWS = 'tw-21' as CardDefinitionId;
 const ORC_GUARD = 'tw-072' as CardDefinitionId;
-const HUORN = 'tw-45' as CardDefinitionId;
+// Giant (le-74): keyed only to a plain Wilderness, no other keying entries at
+// all — unlike Huorn (tw-45), which is also keyed by region-name to several
+// named regions, so it stays offered after a region-type override.
+const GIANT = 'le-74' as CardDefinitionId;
 // Glittering Caves: a Ruins & Lairs site with an automatic-attack, used to
 // test Choking Shadows revealed from an on-guard slot (rule 2.V.i).
 const GLITTERING_CAVES = 'tw-397' as CardDefinitionId;
@@ -406,7 +409,7 @@ describe('Choking Shadows (tw-21)', () => {
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS, HUORN, ORC_GUARD], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS, GIANT, ORC_GUARD], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
       ],
     });
     const mh: MovementHazardPhaseState = makeMHState({
@@ -417,15 +420,15 @@ describe('Choking Shadows (tw-21)', () => {
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
     const csId = handCardId(mhGameState, HAZARD_PLAYER, 0);
-    const huornId = handCardId(mhGameState, HAZARD_PLAYER, 1);
+    const giantId = handCardId(mhGameState, HAZARD_PLAYER, 1);
     const orcGuardId = handCardId(mhGameState, HAZARD_PLAYER, 2);
 
     const afterCs = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
     const offers = viableActions(afterCs, PLAYER_2, 'play-hazard');
     const byCard = (id: string) => offers.filter(a => (a.action as { cardInstanceId?: string }).cardInstanceId === id);
-    // Huorn keys only to Wilderness — the sole Wilderness is now a Shadow-land.
-    expect(byCard(huornId)).toHaveLength(0);
+    // Giant keys only to Wilderness — the sole Wilderness is now a Shadow-land.
+    expect(byCard(giantId)).toHaveLength(0);
     // Orc-guard keys to the converted Shadow-land.
     const orcOffers = byCard(orcGuardId);
     expect(orcOffers.length).toBeGreaterThan(0);

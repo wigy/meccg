@@ -232,6 +232,11 @@ describe('Dark Numbers (dm-123)', () => {
     });
     const storeActions = viableActions(state, PLAYER_1, 'store-item');
     expect(storeActions.length).toBe(1);
+
+    // Storing awards the printed 1 misc marshalling point (storable-at MP).
+    const stored = dispatch(state, storeActions[0].action);
+    expect(stored.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === DARK_NUMBERS)).toBe(true);
+    expect(stored.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
   });
 
   // ── Rule 6: discard for +3 to a company-mate's influence attempt ──────────

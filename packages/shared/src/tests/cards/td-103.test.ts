@@ -31,6 +31,7 @@ import {
   setupAutoAttackStep, makeSitePhase,
   dispatch, viableActions, phaseStateAs,
   findCharInstanceId, findHandCardId,
+  eliminateCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, reduce } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
@@ -244,5 +245,37 @@ describe('Burglary (td-103)', () => {
         && (ea.action as { cardInstanceId: unknown }).cardInstanceId === burglaryCard,
     );
     expect(burglaryShortEventPlays).toHaveLength(0);
+  });
+
+  // ── Attempting character leaves play while the roll is pending ────────────
+
+  test('character eliminated while the roll is pending: attempt fails, game not deadlocked', () => {
+    // Regression: the burglary-attempt emitter returned NO actions when the
+    // attempting character had left play before the roll, leaving the
+    // pending queue stuck with no legal actions for either player — the
+    // same deadlock class as the faction-influence-roll fix (#1725).
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN, LEGOLAS], heroHand: [BURGLARY] });
+    const state = setupAutoAttackStep({ ...base, phaseState: makeSitePhase() });
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const card = findHandCardId(state, 0, BURGLARY);
+
+    const after = dispatch(state, { type: 'declare-burglary', player: PLAYER_1, cardInstanceId: card, characterInstanceId: aragornId });
+    expect(after.pendingResolutions.find(r => r.kind.type === 'burglary-attempt')).toBeDefined();
+
+    // Aragorn leaves play while the roll is pending.
+    const gone = eliminateCharacter(after, RESOURCE_PLAYER, aragornId, after.players[RESOURCE_PLAYER].characters[aragornId]);
+
+    const rollAction = computeLegalActions(gone, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'burglary-attempt',
+    );
+    expect(rollAction).toBeDefined();
+
+    // Resolving fizzles: no auto-attack skip, no solo-defender mark.
+    const result = reduce(gone, rollAction!.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    const siteState = phaseStateAs<SitePhaseState>(result.state);
+    expect(siteState.autoAttacksSkipped).toBeFalsy();
+    expect(siteState.soloAutoAttackCharacterId).toBeFalsy();
   });
 });

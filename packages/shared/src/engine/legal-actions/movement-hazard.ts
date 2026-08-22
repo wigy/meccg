@@ -11,7 +11,7 @@ import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffe
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
+import { buildMovementMap, findRegionPaths, getReachableSites, withVirtualAdjacency } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
@@ -116,6 +116,18 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
       return [];
     }
     logDetail(`Set hazard limit — pass to advance to order-effects`);
+    return viable([{ type: 'pass', player: playerId }]);
+  }
+
+  // region-shortcut-attack step (Ash Mountains tw-194 family): once the
+  // forced attack resolves (state.combat clears, handled generically before
+  // this dispatcher runs), only pass to advance to set-hazard-limit.
+  if (mhState.step === 'region-shortcut-attack') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during region-shortcut-attack step`);
+      return [];
+    }
+    logDetail(`Region shortcut attack resolved — pass to advance to set-hazard-limit`);
     return viable([{ type: 'pass', player: playerId }]);
   }
 
@@ -396,6 +408,34 @@ function extraMHPhaseResourceActions(
 }
 
 /**
+ * Region-name pairs an active `region-shortcut` constraint (Ash Mountains
+ * tw-194 and its "movement enhancer" family) bound to `company` grants for
+ * path-finding purposes, or null when no such constraint is bound or the
+ * company has no untapped character with the required skill left to pay the
+ * tap cost.
+ */
+function companyRegionShortcutPairs(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): readonly (readonly [string, string])[] | null {
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'region-shortcut') continue;
+    if (constraint.target.kind !== 'company' || constraint.target.companyId !== company.id) continue;
+    const { pairs, requiredSkill } = constraint.kind;
+    const hasEligibleCharacter = company.characters.some(charId => {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) return false;
+      const def = defById(state, char.definitionId);
+      return !!def && isCharacterCard(def) && (def.skills?.includes(requiredSkill) ?? false);
+    });
+    if (!hasEligibleCharacter) continue;
+    return pairs;
+  }
+  return null;
+}
+
+/**
  * Generate actions for the reveal-new-site step (CoE step 1).
  *
  * If the company is moving, computes all possible ways to reach the
@@ -558,7 +598,14 @@ function revealNewSiteActions(
     if (outHeSprangAllowance === null) {
       regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
     }
-    const paths = findRegionPaths(movementMap, originRegion, destRegion, regionCap);
+    // Ash Mountains (tw-194) and its "movement enhancer" family: a bound
+    // region-shortcut constraint treats its named region pairs as extra
+    // adjacency edges for path-finding, but only while the company still has
+    // an untapped character carrying the required skill to pay the tap cost
+    // — a superset of the plain graph, so this only ever adds paths.
+    const shortcutPairs = companyRegionShortcutPairs(state, player, company);
+    const pathfindingMap = shortcutPairs ? withVirtualAdjacency(movementMap, shortcutPairs) : movementMap;
+    const paths = findRegionPaths(pathfindingMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {
       const lenDiff = a.length - b.length;
@@ -4283,11 +4330,12 @@ function findCreatureKeyingMatches(
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  const destSitePath = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef.sitePath : [];
+  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef : undefined;
+  const destSitePath = destSiteCard?.sitePath ?? [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destSitePathCounts },
+    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region },
   };
   // Derive the keyable region paths — name-scoped overrides (Choking
   // Shadows, Deeper Shadow), class remaps (Fell Winter), name conversions
@@ -4338,6 +4386,21 @@ function findCreatureKeyingMatches(
           const k = `site-name:${sn}`;
           if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-name', value: sn }); }
         }
+      }
+    }
+    // Site-in-region matches — the destination site's own `region` field is
+    // one of the listed names (the dragons' "may also be played at sites in
+    // these regions" DoN clause). Resolved like the site-keyword branch below.
+    if (key.siteInRegionNames && key.siteInRegionNames.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined);
+      if (resolvedDest && key.siteInRegionNames.includes(resolvedDest.region)) {
+        const k = `site-in-region:${resolvedDest.region}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-in-region', value: resolvedDest.region }); }
       }
     }
     // Site keyword matches — destination site must carry at least one of the keywords.
@@ -4724,6 +4787,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.regionNames?.length) parts.push(k.regionNames.join('/'));
     if (k.siteTypes?.length) parts.push(k.siteTypes.join('/'));
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
+    if (k.siteInRegionNames?.length) parts.push(`site-in-region:${k.siteInRegionNames.join('/')}`);
     if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
     if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to:${k.adjacentToSiteNames.join('/')}`);

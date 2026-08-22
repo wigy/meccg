@@ -4327,7 +4327,11 @@ function handleOpponentInfluenceAttempt(
   // a Man faction and to influencing an opponent's Man faction away. The
   // effect's `when` (evaluated against `oppInfluenceCtx`, which exposes
   // `target.kind` / `target.race`) is what keeps faction-play-only modifiers out.
-  const globalOppInfluenceMod = collectGlobalCheckModifier(state, 'influence', oppInfluenceCtx);
+  // A game-wide modifier is a card-sourced modification, so a le-150
+  // nullification zeroes it here exactly as the faction-influence path does.
+  const globalOppInfluenceMod = nullifyMods
+    ? 0
+    : collectGlobalCheckModifier(state, 'influence', oppInfluenceCtx);
   if (globalOppInfluenceMod !== 0) {
     boostModifier += globalOppInfluenceMod;
     logDetail(`Opponent influence: game-wide influence check-modifier ${formatSignedNumber(globalOppInfluenceMod)}`);

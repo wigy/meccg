@@ -221,6 +221,45 @@ describe('Going Ever Under Dark (ba-37)', () => {
     expect(hazardLimitFor(chars, MovementType.UnderDeeps, true)).toBe(4);
   });
 
+  test('the reduction applies through the real declare-path flow, not just a direct snapshot', () => {
+    // Regression: snapshotHazardLimit read the movement type from
+    // state.phaseState, but at declare-path time the freshly declared type
+    // lives only in the mhState argument threaded through
+    // enterSetHazardLimitAndAutoAdvance — state.phaseState still holds the
+    // pre-declaration M/H state whose movementType is null. The direct-call
+    // tests above pre-bake movementType into phaseState, so they passed while
+    // the reduction silently never fired in real play.
+    function limitViaDeclarePath(bind: boolean): number {
+      let state = buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        recompute: true,
+        players: [
+          { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK, BELEGORN, DUNLENDING_SPY, OSTISEN], destinationSite: MORIA_MINION }], hand: [], siteDeck: [] },
+          { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+        ],
+      });
+      const companyId = companyIdAt(state, RESOURCE_PLAYER);
+      if (bind) state = addCardInPlay(state, RESOURCE_PLAYER, GOING_EVER_UNDER_DARK, companyId);
+      const ready: GameState = { ...state, phaseState: makeMHState({ step: 'reveal-new-site', siteRevealed: false, activeCompanyIndex: 0 }) };
+
+      const declares = computeLegalActions(ready, PLAYER_1)
+        .filter(a => a.viable && a.action.type === 'declare-path'
+          && (a.action as { movementType?: MovementType }).movementType === MovementType.Region);
+      expect(declares.length).toBeGreaterThanOrEqual(1);
+      const after = reduce(ready, declares[0].action);
+      expect(after.error).toBeUndefined();
+      const ps = after.state.phaseState as { hazardLimitAtReveal: number | null };
+      expect(ps.hazardLimitAtReveal).not.toBeNull();
+      return ps.hazardLimitAtReveal!;
+    }
+
+    // Size-4 company: base limit 4; with the card bound the region-movement
+    // reduction takes it to 3.
+    expect(limitViaDeclarePath(false)).toBe(4);
+    expect(limitViaDeclarePath(true)).toBe(3);
+  });
+
   // ─── Rules 7-9: discard to roll to cancel an opponent-company attack ───────
 
   /**

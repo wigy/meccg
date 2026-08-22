@@ -47,6 +47,7 @@ const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHand
   'extra-mh-move-offer': handleExtraMHMoveOffer,
   'ally-tap-mh-offer': handleAllyTapExtraMHOffer,
   'character-tap-mh-offer': handleCharacterTapExtraMHOffer,
+  'region-shortcut-attack': handleRegionShortcutAttackStep,
 };
 
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
@@ -117,6 +118,18 @@ function handleSetHazardLimit(state: GameState, action: GameAction, mhState: Mov
 function handleOrderEffectsStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'order-effects step');
   return handleOrderEffects(state, mhState);
+}
+
+/**
+ * Advance from the region-shortcut-attack window (Ash Mountains tw-194 and
+ * its "movement enhancer" family) once its forced attack has resolved (this
+ * step is only reached once `state.combat` is already clear — see
+ * `legal-actions/movement-hazard.ts`), continuing straight to
+ * set-hazard-limit exactly like `handleSetHazardLimit`.
+ */
+function handleRegionShortcutAttackStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'region-shortcut-attack step');
+  return enterSetHazardLimitAndAutoAdvance(state, mhState);
 }
 
 /**

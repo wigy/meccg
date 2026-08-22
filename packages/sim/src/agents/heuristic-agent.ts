@@ -25,6 +25,8 @@ import type { Agent, AgentContext, AgentDecision } from '../types.js';
 import type { AiContext } from '../ai/index.js';
 import { heuristicStrategy } from '../ai/heuristic.js';
 import { sampleWeighted, pickBest } from '../ai/strategy.js';
+import { createCycleGuard } from '../cycle-guard.js';
+import { viewSignature } from '../state-signature.js';
 
 /** Knobs for {@link createHeuristicAgent}. */
 export interface HeuristicAgentOptions {
@@ -38,20 +40,37 @@ export interface HeuristicAgentOptions {
 /** Creates the heuristic-strategy agent. */
 export function createHeuristicAgent(options: HeuristicAgentOptions = {}): Agent {
   const sample = options.sample === true;
+  // A deterministic argmax over static weights walks legal no-op loops
+  // forever: with the Demon fána swap (Great Shadow ba-62's free
+  // return-self-to-hand scored 8 vs pass 5, replaying it scored 30) heuristic
+  // self-play burned the full 25,000-decision budget inside one organization
+  // phase — 0 of 10 Balrog/FW-deck games completed. The same guard the h2
+  // agent carries narrows candidates only after a position has been revisited
+  // 8 times, so healthy-game behaviour is bit-identical (see `cycle-guard`).
+  const cycleGuard = createCycleGuard();
   return {
     name: sample ? 'heuristic:sample' : 'heuristic',
+    startGame(): void {
+      // Signatures are coarse on purpose — one game's history must never
+      // narrow another's candidates.
+      cycleGuard.reset();
+    },
     chooseAction(context: AgentContext): AgentDecision {
+      const signature = viewSignature(context.view);
+      const legalActions = cycleGuard.allow(signature, context.legalActions);
       const aiContext: AiContext = {
         view: context.view,
         cardPool: context.cardPool,
-        legalActions: context.legalActions,
+        legalActions,
         random: context.random,
       };
       const weighted = heuristicStrategy.weighActions(aiContext);
       if (weighted.length === 0) {
-        return { action: context.legalActions[0], note: 'no weighted actions — took first legal action' };
+        cycleGuard.taken(signature, legalActions[0]);
+        return { action: legalActions[0], note: 'no weighted actions — took first legal action' };
       }
       const action = sample ? sampleWeighted(weighted, context.random) : pickBest(weighted, context.random);
+      cycleGuard.taken(signature, action);
       return { action, considered: weighted };
     },
   };
