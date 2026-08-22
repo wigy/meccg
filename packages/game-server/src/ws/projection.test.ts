@@ -361,6 +361,26 @@ describe("Pallando reveals the top of an opponent's discard pile (CRF 22)", () =
     expect(pileById(top)?.definitionId).toBe(BALIN);
     expect(pileById(buried)?.definitionId).toBe(ARAGORN);
   });
+
+  test('Pallando does not re-hide a buried card an effect has explicitly revealed (dm-46)', () => {
+    // Regression: the Pallando override rebuilt the opponent's discard pile
+    // from scratch via hiddenPileRevealTop, ignoring handRevealedInstances —
+    // clobbering the base view's reveal of cards Aware of their Ways (dm-46)
+    // had drawn for a pick, and reproducing the "anonymous face-down stack
+    // with no click targets" soft-lock that 2dca72f48 fixed for the
+    // non-Pallando case.
+    const { state: base, buried, top } = gameWithBobDiscardPile(true);
+    const state: GameState = {
+      ...base,
+      handRevealedInstances: { ...base.handRevealedInstances, [buried]: ARAGORN },
+    };
+    const aliceView = projectPlayerView(state, ALICE);
+    const pileById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.opponent.discardPile.find(c => c.instanceId === id);
+    // Top card via Pallando, buried card via the explicit reveal — both visible.
+    expect(pileById(top)?.definitionId).toBe(BALIN);
+    expect(pileById(buried)?.definitionId).toBe(ARAGORN);
+  });
 });
 
 /**

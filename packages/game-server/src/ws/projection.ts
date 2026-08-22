@@ -112,10 +112,18 @@ function unmaskOwnDeckFetchCandidates(
  * identity of the top (most recently discarded) card. Used when the viewing
  * player controls Pallando (tw-175): CRF 22 rules that Pallando "can only see
  * the top card of an opponent's discard pile" — not the whole pile.
+ *
+ * Cards explicitly revealed via `handRevealedInstances` (e.g. Aware of their
+ * Ways dm-46 drawing buried discard cards for a pick) stay revealed: this
+ * override narrows the default redaction's *hidden* set only for the top
+ * card, it must never re-hide what an effect has already revealed.
  */
-function hiddenPileRevealTop(pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[]): readonly ViewCard[] {
+function hiddenPileRevealTop(
+  pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+  revealed: GameState['handRevealedInstances'] | undefined,
+): readonly ViewCard[] {
   return pile.map((c, i) =>
-    i === pile.length - 1
+    i === pile.length - 1 || revealed?.[c.instanceId] !== undefined
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
   );
@@ -496,7 +504,7 @@ function buildPlayerView(
     // Pallando (tw-175, CRF 22): the controlling player can see only the top
     // card of the opponent's discard pile (discards happen one at a time, so
     // this lets them see each card as it is discarded).
-    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
+    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile, state.handRevealedInstances) };
   }
 
   const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);
