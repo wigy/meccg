@@ -14676,9 +14676,20 @@ pile, and rejects the play if the cost was not paid. The cost is offered on both
 **character-targeting** short events (dm-57) and **untargeted** short events
 (Desire All for Thy Belly ba-16, "discard a Spawn card from your hand").
 
+`source: "cards-in-play"` instead sources the candidate from the playing
+player's own `cardsInPlay` — for an **untargeted long/permanent hazard event**
+whose text both requires and spends an existing in-play card. The legal-action
+layer (`playHazardsActions` in `legal-actions/movement-hazard.ts`) offers one
+action per own `cardsInPlay` entry matching `filter`; zero candidates makes the
+card unplayable outright, which doubles as a "playable only if you have … in
+play" gate with no separate `play-condition` needed. The reducer
+(`mh-hazard-play.ts`) pays the cost at declaration — before the card is pushed
+onto the chain, mirroring the hand-sourced cost's timing — removing the chosen
+card from `cardsInPlay` and appending it to its owner's discard pile.
+
 | Field | Required | Description |
 |-------|----------|-------------|
-| `source` | yes | Pile the cost card is discarded from. Currently only `"hand"`. |
+| `source` | yes | Pile the cost card is discarded from: `"hand"` or `"cards-in-play"`. |
 | `filter` | yes | DSL condition matched against candidate card definitions in the source. |
 | `revealToOpponent` | no | When `true`, the discarded card's identity is revealed to the opponent. |
 
@@ -14687,6 +14698,16 @@ pile, and rejects the play if the cost was not paid. The cost is offered on both
   "source": "hand",
   "filter": { "cardType": "hazard-creature", "race": "undead" },
   "revealToOpponent": true }
+```
+
+Used by Scimitars of Steel (dm-86): "Playable only if you have a Nazgûl
+permanent-event in play. Discard the Nazgûl when this card is brought into
+play. All Orc, Troll, and Men attacks receive +1 prowess."
+
+```json
+{ "type": "play-discard-cost",
+  "source": "cards-in-play",
+  "filter": { "keywords": { "$includes": "Nazgûl" } } }
 ```
 
 Used by Faces of the Dead (dm-57): "Playable on a non-Wizard character moving

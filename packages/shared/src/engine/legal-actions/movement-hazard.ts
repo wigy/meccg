@@ -3834,6 +3834,37 @@ function playHazardsActions(
           actions.push({ action, viable: true });
         }
       } else {
+        // play-discard-cost sourced from cards-in-play (Scimitars of Steel
+        // dm-86): "Playable only if you have a Nazgûl permanent-event in
+        // play. Discard the Nazgûl when this card is brought into play." One
+        // action per own cardsInPlay entry matching the filter; having zero
+        // candidates makes the card unplayable, which doubles as the
+        // "playable only if" gate.
+        const cardsInPlayDiscardCost = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').PlayDiscardCostEffect =>
+            e.type === 'play-discard-cost' && e.source === 'cards-in-play',
+        );
+        if (cardsInPlayDiscardCost) {
+          const candidates = player.cardsInPlay.filter(cip => {
+            const cipDef = defById(state, cip.definitionId);
+            return !!cipDef && matchesDefinition(cipDef, cardsInPlayDiscardCost.filter);
+          });
+          if (candidates.length === 0) {
+            logDetail(`Hazard event "${def.name}": play-discard-cost has no matching card in play — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name} requires a matching card in play to discard` });
+          } else {
+            for (const candidate of candidates) {
+              const candidateName = defById(state, candidate.definitionId)?.name ?? (candidate.definitionId as string);
+              logDetail(`Hazard event "${def.name}" playable — will discard "${candidateName}" as cost`);
+              actions.push({
+                action: { ...action, costDiscardInstanceId: candidate.instanceId },
+                viable: true,
+              });
+            }
+          }
+          continue;
+        }
+
         // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
 
         // Company-scope duplication-limit: one copy per target company.
