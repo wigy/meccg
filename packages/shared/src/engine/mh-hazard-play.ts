@@ -2940,7 +2940,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   const inPlayNames = buildInPlayNames(state);
   const whenCtxBase: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destPathCounts },
+    destinationSite: { sitePath: destPathCounts, region: destSiteCard?.region },
   };
 
   // Rule 5.09: derive the keyable region paths — name-scoped overrides

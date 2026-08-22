@@ -121,6 +121,17 @@ export interface CreatureKeyRestriction {
    *   inspects site structure rather than the company's movement path,
    *   e.g. *Rain-drake* ("may also be played at a R&L that has two
    *   Wildernesses or one Coastal Sea in its site path").
+   * - `destinationSite.region` — the destination site card's own printed
+   *   `region` name. Used to scope a `siteTypes` entry to sites located
+   *   in specific named regions (as opposed to `regionNames`, which
+   *   matches the company's *movement path* and is only populated while
+   *   the company is moving — see CoE rule 2.IV.vii.2). *Huorn* (tw-45):
+   *   "may also be played at Ruins & Lairs and Shadow-holds in [Heart of
+   *   Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland
+   *   Realm]" is a site-type keying (works against a stationary company
+   *   too) restricted to those four regions —
+   *   `{ siteTypes: ["ruins-and-lairs", "shadow-hold"], when: {
+   *   "destinationSite.region": { "$in": ["Heart of Mirkwood", ...] } } }`.
    *
    * Evaluated in `findCreatureKeyingMatches` in
    * `legal-actions/movement-hazard.ts`.

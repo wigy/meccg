@@ -4283,11 +4283,12 @@ function findCreatureKeyingMatches(
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  const destSitePath = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef.sitePath : [];
+  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef : undefined;
+  const destSitePath = destSiteCard?.sitePath ?? [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destSitePathCounts },
+    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region },
   };
   // Derive the keyable region paths — name-scoped overrides (Choking
   // Shadows, Deeper Shadow), class remaps (Fell Winter), name conversions
