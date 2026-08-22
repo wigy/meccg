@@ -1980,6 +1980,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "company",
         "filter": {
@@ -3698,6 +3703,11 @@
     ],
     "certified": "2026-07-11",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
